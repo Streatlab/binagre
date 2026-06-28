@@ -1,12 +1,16 @@
-// procesarArchivo v24 — OCR 100% SIN API DE PAGO ANTHROPIC (Rubén 28/06/26):
-//      eliminados los escalones de pago Anthropic (texto bootstrap + visión último
-//      recurso). La cascada de lectura queda: reglas/plantilla → Tesseract → Mistral
-//      (bootstrap acotado, MÁX 1 vez por NIF y SOLO si hay NIF detectable). Si nada
-//      lee → LECTURA_MANUAL con el PDF en Drive. Coste Anthropic = 0 € siempre.
 // procesarArchivo v23 — CANDADO ÚNICO DE PAGO POR PROVEEDOR (Rubén 20/06/26):
-//      cualquier motor de pago se usa como MÁXIMO UNA VEZ por NIF. Esa lectura
-//      aprende la plantilla; después el proveedor se lee gratis por reglas o va a
-//      lectura MANUAL, nunca más a pago.
+//      cualquier motor de pago (Mistral / Anthropic texto / Anthropic visión) se usa
+//      como MÁXIMO UNA VEZ por NIF. Esa lectura aprende la plantilla; después el
+//      proveedor se lee gratis por reglas o va a lectura MANUAL, nunca más a pago.
+// procesarArchivo v22 — OCR gratis primero + BOOTSTRAP de pago acotado (regla 3 bis).
+// v22: cascada de lectura COMPLETA con Anthropic como último escalón:
+//      1) Reglas/plantilla por NIF (gratis)
+//      2) OCR Tesseract (gratis) + reglas
+//      3) Mistral bootstrap (pago acotado) — texto + reglas
+//      3b) Anthropic bootstrap (último recurso) — extracción estructurada con
+//          desglose de IVA, sobre el TEXTO ya extraído (barato). Tras leer, se
+//          aprende la plantilla por NIF (candado).
+//      Si NINGUNA vía lee → estado LECTURA_MANUAL con el PDF guardado en Drive.
 // v21: antes de tratar un PDF como factura, se comprueba si es un RESUMEN de ventas
 //      de plataforma (Uber/Glovo/Just Eat). Si lo es, va a ventas_plataforma y NO
 //      se crea factura.
@@ -32,6 +36,7 @@ import type { ContenidoExtraido, PlantillaNif } from './extractores.js'
 import type { ExtractedFactura } from './ocr.js'
 import { extraerTextoOCRGratis } from './ocr-tesseract.js'
 import { ocrMistralTexto, bootstrapApiActivo } from './ocr-mistral.js'
+import { extraerFacturaAnthropic, anthropicBootstrapActivo, extraerFacturaAnthropicVisionUltimoRecurso } from './ocr-anthropic.js'
 import { aplicarMatching, matchFactura } from './matching.js'
 import { generarNombreArchivo, subirArchivoADrive, respaldarEnStorage } from './google-drive.js'
 import { parseResumenPlataforma } from './parser-resumen-plataforma.js'
@@ -512,7 +517,8 @@ async function procesarContenidoPrincipal(
 
   let extracted: ExtractedFactura
   let extractedReglas: ExtractedFactura | null = null
-  let origenLectura: 'reglas' | 'ocr_tesseract' | 'mistral_bootstrap' = 'reglas'
+  let origenLectura: 'reglas' | 'ocr_tesseract' | 'mistral_bootstrap' | 'anthropic_bootstrap' | 'anthropic_vision' = 'reglas'
+  let visionUsadaNif: string | null = null
   let diccionario: Map<string, { nombre: string | null; plantilla: PlantillaNif }> | null = null
   let textoPdfCache = ''
 
@@ -548,13 +554,10 @@ async function procesarContenidoPrincipal(
     } catch (ocrErr) { console.error('[procesarArchivo] OCR Tesseract no resolvió:', errMsg(ocrErr)) }
   }
 
-  // CANDADO EFECTIVO: el escalón de pago (Mistral, MÁX 1 vez/NIF) SOLO se permite si hay
-  // un NIF emisor detectable en el texto. Sin NIF no puede aplicarse el candado vision_usada
-  // → no se gasta pago y el documento cae a lectura manual. Tapa la fuga de regasto.
   const nifCandPago = textoPdfCache ? normalizarNif(extraerNifEmisorLibre(textoPdfCache)) : null
   const pagoYaUsado = nifCandPago ? await nifVisionUsada(supabase, nifCandPago) : false
 
-  if (!extractedReglas && nifCandPago && !pagoYaUsado && bootstrapApiActivo() && (tipo === 'pdf' || tipo === 'imagen')) {
+  if (!extractedReglas && !pagoYaUsado && bootstrapApiActivo() && (tipo === 'pdf' || tipo === 'imagen')) {
     try {
       const textoMistral = await ocrMistralTexto(file.buffer, tipo === 'imagen' ? 'imagen' : 'pdf')
       if (textoMistral && textoMistral.replace(/\s/g, '').length >= 30) {
@@ -564,6 +567,29 @@ async function procesarContenidoPrincipal(
         if (extractedMistral) { extractedReglas = extractedMistral; origenLectura = 'mistral_bootstrap' }
       }
     } catch (mistralErr) { console.error('[procesarArchivo] bootstrap Mistral no resolvió:', errMsg(mistralErr)) }
+  }
+
+  if (!extractedReglas && !pagoYaUsado && anthropicBootstrapActivo() && (tipo === 'pdf' || tipo === 'imagen')) {
+    try {
+      const facAnthropic = await extraerFacturaAnthropic(
+        file.buffer, tipo === 'imagen' ? 'imagen' : 'pdf',
+        file.mimeType || (tipo === 'imagen' ? 'image/jpeg' : 'application/pdf'), textoPdfCache,
+      )
+      if (facAnthropic) { extractedReglas = facAnthropic; origenLectura = 'anthropic_bootstrap' }
+    } catch (anthropicErr) { console.error('[procesarArchivo] bootstrap Anthropic no resolvió:', errMsg(anthropicErr)) }
+  }
+
+  if (!extractedReglas && !pagoYaUsado && (tipo === 'pdf' || tipo === 'imagen')) {
+    try {
+      const facVision = await extraerFacturaAnthropicVisionUltimoRecurso(
+        file.buffer, tipo === 'imagen' ? 'imagen' : 'pdf',
+        file.mimeType || (tipo === 'imagen' ? 'image/jpeg' : 'application/pdf'),
+      )
+      if (facVision) {
+        extractedReglas = facVision; origenLectura = 'anthropic_vision'
+        visionUsadaNif = normalizarNif(facVision.nif_emisor) || nifCandPago
+      }
+    } catch (visErr) { console.error('[procesarArchivo] visión último recurso no resolvió:', errMsg(visErr)) }
   }
 
   if (extractedReglas) {
@@ -656,8 +682,8 @@ async function procesarContenidoPrincipal(
     }).eq('id', nueva.id)
 
     await aprenderProveedorNif(supabase, extracted, textoPdfCache)
-    if (origenLectura === 'mistral_bootstrap') {
-      await marcarVisionUsada(supabase, normalizarNif(extracted.nif_emisor) || nifCandPago)
+    if (origenLectura === 'mistral_bootstrap' || origenLectura === 'anthropic_bootstrap' || origenLectura === 'anthropic_vision') {
+      await marcarVisionUsada(supabase, visionUsadaNif || normalizarNif(extracted.nif_emisor))
     }
 
     if (extracted.tipo === 'plataforma' && extracted.plataforma_detalle?.length) {
@@ -865,7 +891,7 @@ async function guardarLecturaManual(
     titular_id: titTexto?.titularId ?? null, nif_cliente: titTexto?.nif ?? null, nif_emisor: nifEmisor,
     pdf_drive_id: drive?.id ?? null, pdf_drive_url: drive?.webViewLink ?? null, pdf_filename: drive?.nombre ?? null,
     error_mensaje: drive
-      ? 'No se pudo leer con plantilla, Tesseract ni Mistral. Revisa la plantilla del NIF o lectura manual.'
+      ? 'No se pudo leer con plantilla, Tesseract, Mistral ni Anthropic. Revisa la plantilla del NIF o lectura manual.'
       : 'No se pudo leer y Drive no disponible. Reintenta.',
   }).select('*').maybeSingle()
   if (errLM) {
