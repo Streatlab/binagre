@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import type { EPS } from './types'
 import { fmtEurES, fmtES, fmtDateES, n } from './types'
 import { supabase } from '@/lib/supabase'
-import { INK, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, AZUL, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, AZUL, GRIS } from '@/styles/neobrutal'
 
 interface Props { epsList: EPS[]; busqueda?: string; onSelect: (eps: EPS) => void; onNew?: () => void }
 
@@ -61,8 +61,8 @@ export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Prop
 
   const thStyle: CSSProperties = {
     fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: INK, padding: '10px 12px', background: CLARO, borderBottom: `2px solid ${INK}`,
-    textAlign: 'left', whiteSpace: 'nowrap',
+    color: CREMA, padding: '10px 12px', background: INK, borderBottom: `2px solid ${INK}`,
+    textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0,
   }
   const tdStyle: CSSProperties = {
     fontFamily: LEX, fontSize: 13, color: INK, padding: '10px 12px',
