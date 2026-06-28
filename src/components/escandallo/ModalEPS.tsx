@@ -325,12 +325,12 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-        <div className="relative bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-[var(--sl-card)] border-[3px] border-[#140f08] rounded-none w-full max-w-5xl my-8 shadow-[4px_4px_0_#140f08]" onClick={e => e.stopPropagation()}>
 
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--sl-border)]">
             <div>
-              <h3 className="text-base font-semibold text-[var(--sl-text-primary)]">{eps ? 'Editar EPS' : 'Nueva EPS'}</h3>
+              <h3 className="text-base font-semibold text-[var(--sl-text-primary)]" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{eps ? 'Editar EPS' : 'Nueva EPS'}</h3>
               {eps?.codigo && <p className="text-xs text-[var(--sl-text-muted)] mt-0.5 font-mono">{eps.codigo} · EPS</p>}
             </div>
             <button onClick={onClose} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] transition text-xl leading-none">×</button>
