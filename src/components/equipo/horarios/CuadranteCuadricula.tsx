@@ -168,7 +168,12 @@ export function CuadranteCuadricula({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseDatos, dias, empleados])
 
-  const empleadosVisibles = empleados
+  const empleadosVisibles = useMemo(() => empleados.filter(e => {
+    const activo = !e.estado || e.estado === 'activo'
+    if (activo) return true
+    // archivado: solo aparece en semanas donde tiene turnos (histórico hacia atrás)
+    return dias.some(d => (datos[claveOverride(e.id, d.iso)] ?? []).length > 0)
+  }), [empleados, dias, datos])
 
   function color(idx: number) {
     const pal = [
