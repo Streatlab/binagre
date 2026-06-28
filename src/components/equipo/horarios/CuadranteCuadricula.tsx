@@ -13,7 +13,7 @@ import {
   horasReales, horasBrutas,
 } from './utils'
 import {
-  cargarOverrides, guardarOverride, claveOverride, normalizarHora,
+  cargarOverrides, guardarSemana, claveOverride, normalizarHora,
   type OverridesMap,
 } from './overrides'
 import { crearEmpleado, archivarEmpleado, guardarOrden, renombrarEmpleado } from './personal'
@@ -206,17 +206,13 @@ export function CuadranteCuadricula({
 
   async function guardarTodo() {
     setGuardado('guardando')
-    let fallos = 0
-    for (const emp of empleados) {
-      for (const d of dias) {
-        const tr = datos[claveOverride(emp.id, d.iso)] ?? []
-        const ok = await guardarOverride(emp.id, d.iso, tr)
-        if (!ok) fallos++
-      }
-    }
-    if (fallos > 0) {
+    const celdas = empleados.flatMap(emp =>
+      dias.map(d => ({ empId: emp.id, iso: d.iso, tramos: datos[claveOverride(emp.id, d.iso)] ?? [] })),
+    )
+    const res = await guardarSemana(empleados.map(e => e.id), dias[0].iso, dias[6].iso, celdas)
+    if (!res.ok) {
       setGuardado('idle')
-      window.alert('No se pudieron guardar algunos cambios. Inténtalo de nuevo.')
+      window.alert(`No se pudieron guardar los cambios.\n${res.error ?? ''}`)
       return
     }
     emitir(datos)
