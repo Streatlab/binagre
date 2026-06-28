@@ -14,18 +14,12 @@ interface Props {
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
-// Semáforo de usos: rojo 0 / naranja 1-4 / verde 5+
+// Semáforo de usos: ROJO 0 / NARANJA 1-4 / VERDE 5+
 function semaforoUsos(usos: number): string {
   if (usos === 0) return ROJO
   if (usos <= 4) return NAR
   return VERDE
 }
-
-const eyebrow = (bg: string, color = INK): CSSProperties => ({
-  display: 'inline-block', background: bg, color, border: `2px solid ${INK}`,
-  fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: '2px',
-  textTransform: 'uppercase', padding: '4px 12px',
-})
 
 export default function TabIngredientes({ ingredientes, busqueda = '', onSelect, onNew }: Props) {
   const movil = useEsMovil()
@@ -87,9 +81,9 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
     borderBottom: `2px solid ${INK}`, borderRight: `1px solid rgba(20,15,8,.14)`,
   }
   // texto secundario LEGIBLE (INK con peso, no gris lavado)
-  const sec: CSSProperties = { color: INK, opacity: 0.75 }
+  const sec: CSSProperties = { color: INK, opacity: 0.78 }
 
-  // Pastilla sólida (IDING granate)
+  // Pastilla sólida
   const pill = (bg: string, fg = '#fff'): CSSProperties => ({
     fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '0.5px',
     background: bg, color: fg, border: `2px solid ${INK}`, padding: '3px 9px',
@@ -134,29 +128,26 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
     </svg>
   )
 
-  // ===== Banda HERO (patrón Resumen): eyebrow + título + contadores-bloque =====
-  const Hero = (
-    <div style={{ background: CLARO, border: `4px solid ${INK}`, boxShadow: SHADOW }}>
-      <div style={{ padding: '22px 24px 0' }}>
-        <span style={eyebrow('#fff')}>Escandallo · materia prima</span>
-        <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 'clamp(28px,3.4vw,44px)', lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: INK, margin: '12px 0 18px' }}>
-          Ingredientes
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr) auto', gap: 0, borderTop: `4px solid ${INK}` }}>
-        <Counter label="TOTAL" value={total} tone="ink" active={filter === 'todos'} onClick={() => setFilter('todos')} />
-        <Counter label="EN USO" value={enUso} tone="verde" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
-        <Counter label="SIN USO" value={sinUso} tone="rojo" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px', background: CLARO, borderLeft: `4px solid ${INK}` }}>
-          {onNew && <button onClick={onNew} style={btnNuevo}>+ Nuevo</button>}
-        </div>
-      </div>
+  // ===== Tira de filtros (apoyo, no protagonista): chips contadores sólidos =====
+  const Chips = (
+    <div style={{ display: 'flex', alignItems: 'stretch', flexWrap: 'wrap', gap: 0, border: `3px solid ${INK}`, boxShadow: SHADOW, background: '#fff' }}>
+      <Chip label="TOTAL" value={total} bg={INK} fg={CREMA} active={filter === 'todos'} onClick={() => setFilter('todos')} />
+      <Chip label="EN USO" value={enUso} bg={VERDE} fg="#fff" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
+      <Chip label="SIN USO" value={sinUso} bg={ROJO} fg="#fff" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
+      <div style={{ flex: 1, minWidth: 12 }} />
+      {onNew && (
+        <button onClick={onNew} style={{
+          fontFamily: OSW, fontWeight: 700, fontSize: 14, letterSpacing: '1px', textTransform: 'uppercase',
+          background: VERDE, color: '#fff', border: 'none', borderLeft: `3px solid ${INK}`,
+          padding: '0 22px', cursor: 'pointer', whiteSpace: 'nowrap',
+        }}>+ Nuevo</button>
+      )}
     </div>
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {Hero}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {Chips}
 
       {busqueda.trim() && (
         <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
@@ -204,7 +195,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
           )}
         </div>
       ) : (
-        /* ===== ESCRITORIO: tabla completa, marco brutalista ===== */
+        /* ===== ESCRITORIO: la TABLA es la protagonista (100% ancho, §6.2) ===== */
         <div style={{ background: '#fff', border: `4px solid ${INK}`, boxShadow: SHADOW }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', width: '100%', minWidth: 1180 }}>
@@ -262,30 +253,17 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
   )
 }
 
-const btnNuevo: CSSProperties = {
-  fontFamily: OSW, fontWeight: 700, fontSize: 14, letterSpacing: '1px',
-  textTransform: 'uppercase', background: VERDE, color: '#ffffff', border: `3px solid ${INK}`,
-  boxShadow: SHADOW, padding: '13px 22px', cursor: 'pointer', borderRadius: 0, whiteSpace: 'nowrap',
-}
-
-function Counter({ label, value, tone, active, onClick }: { label: string; value: number; tone: 'ink' | 'verde' | 'rojo'; active?: boolean; onClick?: () => void }) {
-  const map: Record<string, { bg: string; fg: string }> = {
-    ink: { bg: INK, fg: CREMA },
-    verde: { bg: VERDE, fg: '#ffffff' },
-    rojo: { bg: ROJO, fg: '#ffffff' },
-  }
-  const c = map[tone]
+function Chip({ label, value, bg, fg, active, onClick }: { label: string; value: number; bg: string; fg: string; active?: boolean; onClick?: () => void }) {
   return (
     <button onClick={onClick} type="button" style={{
-      cursor: 'pointer', textAlign: 'left', padding: '16px 22px', borderRadius: 0,
-      background: c.bg, color: c.fg, border: 'none', borderRight: `4px solid ${INK}`,
-      outline: active ? `4px solid ${INK}` : 'none', outlineOffset: '-4px',
+      cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: 10,
+      background: bg, color: fg, border: 'none', borderRight: `3px solid ${INK}`,
+      padding: '14px 20px',
+      outline: active ? `3px solid ${AMA}` : 'none', outlineOffset: '-3px',
       transition: 'all 120ms',
     }}>
-      <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: c.fg, opacity: 0.92 }}>
-        {label}{active ? ' ·' : ''}
-      </div>
-      <div style={{ fontFamily: OSW, fontSize: 44, fontWeight: 700, lineHeight: 1, color: c.fg }}>{value}</div>
+      <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: fg, opacity: 0.92 }}>{label}</span>
+      <span style={{ fontFamily: OSW, fontSize: 28, fontWeight: 700, lineHeight: 1, color: fg }}>{value}</span>
     </button>
   )
 }
