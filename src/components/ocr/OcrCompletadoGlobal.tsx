@@ -1,6 +1,8 @@
-// OcrCompletadoGlobal v3 — aviso GRANDE y visible fuera de /ocr al terminar un lote.
-// Pulso para llamar la atencion en cualquier modulo. Boton directo para ir a revisar.
-// Dura 60s y luego se auto-oculta. Hace su propia query ligera cada 5s.
+// OcrCompletadoGlobal v4 — aviso GRANDE y veraz fuera de /ocr al terminar un lote.
+// v4: el mensaje refleja el desglose real (nuevas / ya estaban / a revisar / con error).
+//     Las DUPLICADAS no son un fallo: "ya estaban" no pinta de rojo. Solo hay error si
+//     errores>0. Antes mostraba "{ok} de {total}" y un lote de duplicados (p.ej. 9/144)
+//     daba falsa imagen de error.
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
@@ -8,7 +10,10 @@ import { supabase } from '@/lib/supabase'
 interface Notif {
   id: string
   ok: number
+  duplicados: number
+  pendientes: number
   errores: number
+  ignorados: number
   total: number
   ts: number
 }
@@ -28,7 +33,7 @@ export default function OcrCompletadoGlobal() {
       const cutoff = new Date(Date.now() - DURACION_MS).toISOString()
       const { data } = await supabase
         .from('ocr_sessions')
-        .select('id,ok,errores,total,completado_en')
+        .select('id,ok,duplicados,pendientes,errores,ignorados,total,completado_en')
         .eq('estado_cola', 'completada')
         .gte('completado_en', cutoff)
         .limit(10)
@@ -37,7 +42,11 @@ export default function OcrCompletadoGlobal() {
       for (const s of data) {
         if (vistasRef.current.has(s.id)) continue
         vistasRef.current.add(s.id)
-        nuevas.push({ id: s.id, ok: s.ok || 0, errores: s.errores || 0, total: s.total || 0, ts: Date.now() })
+        nuevas.push({
+          id: s.id, ok: s.ok || 0, duplicados: s.duplicados || 0,
+          pendientes: s.pendientes || 0, errores: s.errores || 0,
+          ignorados: s.ignorados || 0, total: s.total || 0, ts: Date.now(),
+        })
       }
       if (nuevas.length > 0) setNotifs(prev => [...prev, ...nuevas])
     } catch {}
@@ -83,6 +92,15 @@ export default function OcrCompletadoGlobal() {
       {notifs.map(n => {
         const hayError = n.errores > 0
         const acento = hayError ? '#E24B4A' : '#1D9E75'
+        // Mensaje veraz: cada categoría se nombra por lo que es. Duplicada = "ya estaban".
+        const partes: string[] = []
+        if (n.ok > 0) partes.push(`${n.ok} ${n.ok === 1 ? 'nueva' : 'nuevas'}`)
+        if (n.duplicados > 0) partes.push(`${n.duplicados} ya ${n.duplicados === 1 ? 'estaba' : 'estaban'}`)
+        if (n.pendientes > 0) partes.push(`${n.pendientes} a revisar`)
+        if (n.ignorados > 0) partes.push(`${n.ignorados} ${n.ignorados === 1 ? 'ignorado' : 'ignorados'}`)
+        if (n.errores > 0) partes.push(`${n.errores} con error`)
+        const totalTxt = n.total ? `${n.total} ${n.total === 1 ? 'documento' : 'documentos'}` : 'Lote'
+        const detalle = partes.length > 0 ? partes.join(' · ') : 'sin novedades'
         return (
           <div key={n.id} style={{
             background: '#fff',
@@ -110,7 +128,7 @@ export default function OcrCompletadoGlobal() {
               >×</button>
             </div>
             <div style={{ fontSize: 13, color: '#111', marginBottom: 12, lineHeight: 1.4 }}>
-              {n.ok} leídas correctamente{hayError ? ` · ${n.errores} con error` : ''}{n.total ? ` de ${n.total}` : ''}.
+              {totalTxt}: {detalle}.
               <br />Ve a revisar el resultado.
             </div>
             <button
