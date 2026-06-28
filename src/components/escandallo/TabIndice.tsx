@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { EPS, Receta } from './types'
 import { fmtES, fmtEurES, fmtDateES, n } from './types'
-import { INK, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, GRANATE, AZUL, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, GRANATE, AZUL, GRIS } from '@/styles/neobrutal'
 
 interface Props {
   epsList: EPS[]
@@ -80,8 +80,8 @@ export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenE
 
   const thStyle: CSSProperties = {
     fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: INK, padding: '10px 12px', background: CLARO, borderBottom: `2px solid ${INK}`,
-    textAlign: 'left', whiteSpace: 'nowrap',
+    color: CREMA, padding: '10px 12px', background: INK, borderBottom: `2px solid ${INK}`,
+    textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0,
   }
   const tdStyle: CSSProperties = {
     fontFamily: LEX, fontSize: 13, color: INK, padding: '10px 12px',
