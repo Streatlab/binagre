@@ -1,25 +1,31 @@
 import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
+import { INK, AMA, GRANATE, GRIS, OSW, LEX } from '@/styles/neobrutal'
 
 const btnSaveStyle: CSSProperties = {
-  backgroundColor: 'var(--sl-btn-save-bg)',
-  color: 'var(--sl-btn-save-text)',
-  fontFamily: 'Oswald, sans-serif',
+  backgroundColor: AMA,
+  color: INK,
+  fontFamily: OSW,
+  fontWeight: 700,
   letterSpacing: '1px',
+  textTransform: 'uppercase',
   padding: '9px 24px',
-  borderRadius: '5px',
-  border: 'none',
+  borderRadius: '0',
+  border: `2px solid ${INK}`,
+  boxShadow: `3px 3px 0 ${INK}`,
   cursor: 'pointer',
   minHeight: '40px',
 }
 const btnCancelStyle: CSSProperties = {
-  backgroundColor: 'var(--sl-btn-cancel-bg)',
-  color: 'var(--sl-btn-cancel-text)',
-  border: '1px solid var(--sl-btn-cancel-border)',
-  fontFamily: 'Oswald, sans-serif',
+  backgroundColor: '#ffffff',
+  color: INK,
+  border: `2px solid ${INK}`,
+  fontFamily: OSW,
+  fontWeight: 700,
   letterSpacing: '1px',
+  textTransform: 'uppercase',
   padding: '9px 24px',
-  borderRadius: '5px',
+  borderRadius: '0',
   cursor: 'pointer',
   minHeight: '40px',
 }
@@ -36,8 +42,8 @@ interface Props {
   onDelete?: () => void
 }
 
-const inputCls = 'w-full bg-[var(--sl-input-edit)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent'
-const labelCls = 'block text-[11px] text-[var(--sl-text-muted)] mb-1 uppercase tracking-wider'
+const inputCls = 'w-full bg-white border-[2px] border-[#140f08] rounded-none px-3 py-2 text-sm text-[#140f08] placeholder:text-[#9a8f78] focus:outline-none focus:border-[#2D5BFF]'
+const labelCls = 'block text-[11px] text-[#140f08] mb-1 uppercase tracking-wider'
 
 export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props) {
   const isEdit = !!merma
@@ -279,12 +285,12 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="modal-merma border-[3px] border-[#140f08] w-full max-w-4xl my-8 shadow-[4px_4px_0_#140f08]" style={{ backgroundColor: 'var(--sl-card)', borderRadius: '0' }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--sl-border)]">
+      <div className="modal-merma border-[3px] border-[#140f08] w-full max-w-4xl my-8 shadow-[4px_4px_0_#140f08]" style={{ backgroundColor: '#ffffff', borderRadius: '0' }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b-[3px] border-[#140f08]">
           <div>
-            <h3 className="text-base text-[var(--sl-text-primary)]" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
+            <h3 className="text-base text-[#140f08]" style={{ fontFamily: OSW, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
           </div>
-          <button onClick={onClose} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] transition text-lg leading-none">×</button>
+          <button onClick={onClose} className="text-[#9a8f78] hover:text-[#140f08] transition text-lg leading-none">×</button>
         </div>
 
         <div className="p-5 space-y-4">
@@ -306,8 +312,8 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
             </div>
           </Section>
 
-          <div className="bg-[var(--sl-card-alt)] border border-[var(--sl-border)] rounded-lg p-4 space-y-3">
-            <div style={{ borderTop: 'none', paddingTop: '0', fontSize: '11px', color: 'var(--sl-text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Subproductos</div>
+          <div className="bg-[#FCEFD6] border-[3px] border-[#140f08] rounded-none p-4 space-y-3">
+            <div style={{ borderTop: 'none', paddingTop: '0', fontFamily: OSW, fontSize: '11px', color: GRIS, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Subproductos</div>
             {/* SP1 */}
             <div className="grid grid-cols-6 gap-2 items-end">
               <Field label="Nombre SP1" value={f.sp1_nombre} onChange={v => set('sp1_nombre', v)} />
@@ -316,8 +322,8 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
               <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp1_eur_kg_mercado} onChange={v => set('sp1_eur_kg_mercado', v)} />
               <Field label="€ SP1" value={fmtEur(sp1EurosFinal)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
-                <label className="flex items-center gap-2 text-sm text-[var(--sl-text-secondary)]">
-                  <input type="checkbox" checked={f.sp1_valorable} onChange={e => set('sp1_valorable', e.target.checked)} className="accent-accent w-4 h-4" />
+                <label className="flex items-center gap-2 text-sm text-[#140f08]">
+                  <input type="checkbox" checked={f.sp1_valorable} onChange={e => set('sp1_valorable', e.target.checked)} className="accent-[#140f08] w-4 h-4" />
                   Valorable
                 </label>
               </div>
@@ -330,8 +336,8 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
               <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp2_eur_kg_mercado} onChange={v => set('sp2_eur_kg_mercado', v)} />
               <Field label="€ SP2" value={fmtEur(sp2EurosFinal)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
-                <label className="flex items-center gap-2 text-sm text-[var(--sl-text-secondary)]">
-                  <input type="checkbox" checked={f.sp2_valorable} onChange={e => set('sp2_valorable', e.target.checked)} className="accent-accent w-4 h-4" />
+                <label className="flex items-center gap-2 text-sm text-[#140f08]">
+                  <input type="checkbox" checked={f.sp2_valorable} onChange={e => set('sp2_valorable', e.target.checked)} className="accent-[#140f08] w-4 h-4" />
                   Valorable
                 </label>
               </div>
@@ -344,7 +350,7 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
               <div />
             </div>
             {/* Divider + label Cálculos */}
-            <div style={{ borderTop: '1px solid var(--sl-border)', paddingTop: '8px', fontSize: '11px', color: 'var(--sl-text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Cálculos</div>
+            <div style={{ borderTop: `2px solid ${INK}`, paddingTop: '8px', fontFamily: OSW, fontSize: '11px', color: GRIS, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Cálculos</div>
             {/* Cálculos */}
             <div className="grid grid-cols-7 gap-2">
               <Field label="% Descarte" value={fmtPct(pctDescarte)} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
@@ -357,32 +363,32 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
             </div>
           </div>
 
-          {err && <p className="text-[#dc2626] text-sm">{err}</p>}
+          {err && <p className="text-[#FF1E27] text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t-[3px] border-[#140f08]">
           <div className="flex items-center gap-2">
             {isEdit && !confirmEliminar && (
               <button
                 onClick={() => setConfirmEliminar(true)}
-                style={{ background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', padding: '10px 16px', borderRadius: '5px', fontFamily: 'Oswald, sans-serif', fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}
+                style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '10px 16px', borderRadius: '0', fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}
               >
                 ELIMINAR
               </button>
             )}
             {isEdit && confirmEliminar && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#B01D23', fontFamily: 'Lexend, sans-serif' }}>¿Eliminar definitivamente?</span>
+                <span style={{ fontSize: '12px', color: GRANATE, fontFamily: LEX }}>¿Eliminar definitivamente?</span>
                 <button
                   onClick={handleEliminar}
                   disabled={deleting}
-                  style={{ background: '#B01D23', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}
+                  style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}
                 >
                   {deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}
                 </button>
                 <button
                   onClick={() => setConfirmEliminar(false)}
-                  style={{ background: 'transparent', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem' }}
+                  style={{ background: 'transparent', border: `2px solid ${INK}`, color: INK, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem' }}
                 >
                   CANCELAR
                 </button>
@@ -417,8 +423,8 @@ async function upsertIngrediente(row: Record<string, unknown>) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[var(--sl-card-alt)] border border-[var(--sl-border)] rounded-lg p-4">
-      <h4 className="text-[11px] uppercase tracking-wider text-[var(--sl-text-muted)] font-semibold mb-3">{title}</h4>
+    <div className="bg-[#FCEFD6] border-[3px] border-[#140f08] rounded-none p-4">
+      <h4 className="text-[11px] uppercase tracking-wider text-[#140f08] font-semibold mb-3" style={{ fontFamily: OSW, letterSpacing: '1px' }}>{title}</h4>
       <div className="space-y-3">{children}</div>
     </div>
   )
@@ -430,11 +436,12 @@ function Field({ label, value, onChange, type, step, disabled, highlight, list, 
 }) {
   return (
     <div style={style}>
-      <label className={labelCls}>{label}</label>
+      <label className={labelCls} style={{ fontFamily: OSW, letterSpacing: '1px' }}>{label}</label>
       <input
         type={type ?? 'text'} step={step} value={value} onChange={e => onChange(e.target.value)}
         disabled={disabled} list={list} placeholder={placeholder}
-        className={inputCls + (disabled ? ' opacity-60' : '') + (highlight ? ' text-[var(--sl-text-primary)] font-bold' : '')}
+        className={inputCls + (disabled ? ' opacity-70' : '')}
+        style={{ fontFamily: LEX, ...(highlight ? { backgroundColor: AMA, color: INK, fontWeight: 700, borderColor: INK } : {}) }}
       />
     </div>
   )
@@ -443,8 +450,8 @@ function Field({ label, value, onChange, type, step, disabled, highlight, list, 
 function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
   return (
     <div>
-      <label className={labelCls}>{label}</label>
-      <select value={value} onChange={e => onChange(e.target.value)} className={inputCls}>
+      <label className={labelCls} style={{ fontFamily: OSW, letterSpacing: '1px' }}>{label}</label>
+      <select value={value} onChange={e => onChange(e.target.value)} className={inputCls} style={{ fontFamily: LEX }}>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     </div>
