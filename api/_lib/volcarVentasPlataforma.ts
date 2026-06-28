@@ -1,15 +1,19 @@
 // volcarVentasPlataforma — Punto único que conecta los documentos de plataforma con
 // las calculadoras. Lo llama procesarArchivo ANTES de tratar nada como factura:
+//   · Uber: CSV "resumen de ganancias" por marca/semana → uber_liquidaciones (Ventas)
 //   · Just Eat: archivo .doc (HTML) de factura  → ventas_plataforma
 //   · Glovo: ZIP de liquidación (xlsx + pdf)     → ventas_plataforma + estadisticas_prime_promo
 //   · Uber: resumen mensual PDF                  → ventas_plataforma + comision/ads/promo/cupones
 // El ratio neto real se aprende de ventas_plataforma; el % Prime/Promo del trigger
 // sobre estadisticas_prime_promo. Idempotente: re-subir el mismo documento no duplica.
+// CLASIFICADOR ÚNICO: tanto el correo (cartero) como la bandeja usan el mismo lector
+// de resumen de ganancias Uber (parsers/uberResumenParser).
 import JSZip from 'jszip'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { parseFacturaJustEat, type VentaPlataformaParseada } from './parserJustEatFactura.js'
 import { parseLiquidacionGlovo } from './parserGlovoLiquidacion.js'
 import { parseUberResumenMensual } from './parserUberResumenMensual.js'
+import { esCSVResumenUber, parseUberResumenLiquidaciones } from './parsers/uberResumenParser.js'
 import { extraerTextoPDF } from './extractores.js'
 import type { ProcesarResultado, ArchivoEntrada } from './procesarArchivo.js'
 
@@ -58,6 +62,49 @@ async function acumularPrimePromo(supabase: SupabaseClient, v: VentaPlataformaPa
     pct_prime: tot > 0 ? pr / tot : 0, pct_promo: tot > 0 ? po / tot : 0,
     fuente: 'liquidacion_' + v.plataforma,
   }, { onConflict: 'canal,año,mes' })
+}
+
+// Vuelca el CSV "resumen de ganancias" de Uber (una fila por marca y semana) a
+// uber_liquidaciones. MISMO lector y misma tabla que la bandeja de entrada, para
+// que correo y bandeja sean clasificadores únicos. Idempotente por referencia_pago.
+async function volcarResumenUberLiquidaciones(
+  supabase: SupabaseClient, file: ArchivoEntrada, texto: string,
+): Promise<ProcesarResultado> {
+  const { items, errores } = parseUberResumenLiquidaciones(texto)
+  if (errores.length > 0 || items.length === 0) {
+    return { estado: 'error', archivo: file.nombre, error: errores[0] || 'resumen Uber sin filas legibles' }
+  }
+  let nuevas = 0, actualizadas = 0, bruto = 0, neto = 0, pedidos = 0
+  const marcas = new Set<string>()
+  for (const it of items) {
+    marcas.add(it.marca); bruto += it.ventas_bruto; neto += it.pago_neto; pedidos += it.num_pedidos
+    const campos = {
+      plataforma: 'uber', marca: it.marca, referencia_pago: it.referencia_pago,
+      fecha_deposito: it.fecha_deposito,
+      fecha_inicio_periodo: it.fecha_inicio_periodo, fecha_fin_periodo: it.fecha_fin_periodo,
+      num_pedidos: it.num_pedidos, ventas_bruto: it.ventas_bruto,
+      promociones: it.promociones, comision_uber: it.comision_uber,
+      pago_neto: it.pago_neto, estado: 'pendiente',
+    }
+    const { data: existe } = await supabase.from('uber_liquidaciones')
+      .select('id').eq('referencia_pago', it.referencia_pago).maybeSingle()
+    if (existe) {
+      await supabase.from('uber_liquidaciones').update(campos).eq('id', (existe as { id: string }).id)
+      actualizadas++
+    } else {
+      const { error } = await supabase.from('uber_liquidaciones').insert(campos)
+      if (!error) nuevas++
+    }
+  }
+  const info = {
+    plataforma: 'uber', marca: `${marcas.size} tiendas`,
+    periodo: `${items.length} liquidaciones`,
+    bruto: Math.round(bruto * 100) / 100, neto: Math.round(neto * 100) / 100, pedidos,
+  }
+  return {
+    estado: 'ok', archivo: file.nombre, tipo_documento: 'resumen_ventas', resumen_ventas: info,
+    motivo: `Resumen Uber · ${marcas.size} tiendas · ${nuevas} nuevas, ${actualizadas} actualizadas → Ventas`,
+  }
 }
 
 async function volcar(
@@ -114,6 +161,14 @@ export async function intentarVentaPlataforma(
 ): Promise<ProcesarResultado | null> {
   try {
     const ext = (file.nombre.toLowerCase().split('.').pop() || '').trim()
+
+    // Uber: CSV "resumen de ganancias" (una fila por marca/semana) → uber_liquidaciones
+    if (ext === 'csv' || ext === 'txt' || tipo === 'texto') {
+      const texto = file.buffer.toString('utf8')
+      if (esCSVResumenUber(texto)) {
+        return await volcarResumenUberLiquidaciones(supabase, file, texto)
+      }
+    }
 
     // Just Eat: .doc/.docx que en realidad es HTML de factura
     if (ext === 'doc' || ext === 'docx' || tipo === 'word') {
