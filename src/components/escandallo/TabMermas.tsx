@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Merma } from './types'
 import { fmt, fmtPctFracES, n } from './types'
-import { INK, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, GRANATE, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, GRANATE, GRIS } from '@/styles/neobrutal'
 
 interface Props {
   mermas: Merma[]
@@ -38,8 +38,8 @@ export default function TabMermas({ mermas, busqueda = '', onSelect, onNew }: Pr
 
   const thStyle: CSSProperties = {
     fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: INK, padding: '10px 12px', textAlign: 'left', whiteSpace: 'nowrap',
-    borderBottom: `2px solid ${INK}`, background: CLARO,
+    color: CREMA, padding: '10px 12px', textAlign: 'left', whiteSpace: 'nowrap',
+    borderBottom: `2px solid ${INK}`, background: INK, position: 'sticky', top: 0,
   }
   const tdStyle: CSSProperties = {
     fontFamily: LEX, fontSize: 13, color: INK, padding: '10px 12px',
