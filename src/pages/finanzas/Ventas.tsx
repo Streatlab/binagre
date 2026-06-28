@@ -11,13 +11,13 @@ import { COLOR, COLORS, OSWALD, LEXEND, CARDS } from '@/components/panel/resumen
 const ParetoVentas = lazy(() => import('@/pages/analytics/ParetoVentas'))
 const PanelInteligenciaVentas = lazy(() => import('@/pages/finanzas/PanelInteligenciaVentas'))
 
-type Tab = 'resumen' | 'detalle' | 'pareto'
+type Tab = 'resumen' | 'detalle' | 'liquidaciones' | 'pareto'
 const STORAGE_KEY = 'ventas:tab'
 
 function loadTab(): Tab {
   try {
     const r = sessionStorage.getItem(STORAGE_KEY)
-    if (r === 'resumen' || r === 'detalle' || r === 'pareto') return r
+    if (r === 'resumen' || r === 'detalle' || r === 'liquidaciones' || r === 'pareto') return r
     if (r === 'platos') return 'detalle' // compat
   } catch { /* */ }
   return 'resumen'
@@ -356,6 +356,154 @@ function DetalleVentas({
   )
 }
 
+// ── PESTAÑA "LIQUIDACIONES" ─────────────────────────────────────────────────
+// Lo que cada plataforma te liquida de verdad: ventas brutas, comisión, ads,
+// promos y el pago neto que llega al banco. Lee la vista v_liquidaciones_plataforma
+// (uber/glovo/just_eat normalizadas). Respeta los filtros de marca/canal de arriba.
+
+interface LiqRow {
+  id: string
+  plataforma: string
+  marca: string | null
+  referencia: string | null
+  fecha_inicio_periodo: string
+  fecha_fin_periodo: string
+  pedidos: number | null
+  ventas_bruto: number | null
+  comision: number | null
+  ads: number | null
+  promociones: number | null
+  ajustes: number | null
+  pago_neto: number | null
+  fecha_cobro: string | null
+  estado: string | null
+  conciliacion_id: string | null
+  doc_url: string | null
+}
+
+function Liquidaciones({
+  desde, hasta, marcasFiltro, canalesFiltro,
+}: { desde: Date; hasta: Date; marcasFiltro: string[]; canalesFiltro: string[] }) {
+  const [rows, setRows] = useState<LiqRow[]>([])
+  const [cargando, setCargando] = useState(true)
+
+  useEffect(() => {
+    let alive = true
+    setCargando(true)
+    const d = fechaLocalStr(desde), h = fechaLocalStr(hasta)
+    supabase
+      .from('v_liquidaciones_plataforma')
+      .select('id, plataforma, marca, referencia, fecha_inicio_periodo, fecha_fin_periodo, pedidos, ventas_bruto, comision, ads, promociones, ajustes, pago_neto, fecha_cobro, estado, conciliacion_id, doc_url')
+      .lte('fecha_inicio_periodo', h)
+      .gte('fecha_fin_periodo', d)
+      .order('fecha_fin_periodo', { ascending: false })
+      .then(({ data }) => { if (alive) { setRows((data as LiqRow[]) ?? []); setCargando(false) } })
+    return () => { alive = false }
+  }, [desde, hasta])
+
+  const rowsF = useMemo(() => rows.filter(r =>
+    (canalesFiltro.length === 0 || canalesFiltro.includes(r.plataforma)) &&
+    (marcasFiltro.length === 0 || marcasFiltro.includes(r.marca || 'SIN_MARCA'))
+  ), [rows, canalesFiltro, marcasFiltro])
+
+  const t = useMemo(() => {
+    const bruto = rowsF.reduce((a, r) => a + (Number(r.ventas_bruto) || 0), 0)
+    const comision = rowsF.reduce((a, r) => a + (Number(r.comision) || 0), 0)
+    const adsPromo = rowsF.reduce((a, r) => a + (Number(r.ads) || 0) + (Number(r.promociones) || 0), 0)
+    const neto = rowsF.reduce((a, r) => a + (Number(r.pago_neto) || 0), 0)
+    const pedidos = rowsF.reduce((a, r) => a + (Number(r.pedidos) || 0), 0)
+    const pctComision = bruto > 0 ? (comision / bruto) * 100 : 0
+    const pctNeto = bruto > 0 ? (neto / bruto) * 100 : 0
+    return { bruto, comision, adsPromo, neto, pedidos, pctComision, pctNeto }
+  }, [rowsF])
+
+  const pct = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+
+  const th: React.CSSProperties = { fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, padding: '10px 12px', borderBottom: `0.5px solid ${COLORS.brd}`, whiteSpace: 'nowrap' }
+  const tdL: React.CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: COLORS.pri, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.brd}` }
+  const tdR: React.CSSProperties = { ...tdL, fontFamily: OSWALD, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
+
+  const cards = [
+    { label: 'Ventas (bruto)', value: fmtEur(t.bruto), sub: `${nf0(t.pedidos)} pedidos`, color: COLORS.pri },
+    { label: 'Comisión plataforma', value: fmtEur(t.comision), sub: `${pct(t.pctComision)} s/bruto`, color: COLORS.redSL },
+    { label: 'Ads + Promos', value: fmtEur(t.adsPromo), sub: 'inversión en visibilidad', color: COLORS.redSL },
+    { label: 'Pago neto (al banco)', value: fmtEur(t.neto), sub: 'lo que llega de verdad', color: COLORS.ok },
+    { label: 'Te queda', value: pct(t.pctNeto), sub: 'de cada euro vendido', color: COLORS.ok },
+  ]
+
+  return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 14 }}>
+        {cards.map(c => (
+          <div key={c.label} style={{ ...CARDS.std }}>
+            <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase' }}>{c.label}</div>
+            <div style={{ fontFamily: OSWALD, fontSize: 30, fontWeight: 600, color: c.color, lineHeight: 1.05, marginTop: 6 }}>{c.value}</div>
+            <div style={{ fontFamily: LEXEND, fontSize: 11, color: COLORS.mut, marginTop: 4 }}>{c.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {cargando ? (
+        <div style={{ ...CARDS.std, textAlign: 'center', color: COLORS.mut, fontFamily: LEXEND, padding: 28 }}>Cargando…</div>
+      ) : rowsF.length === 0 ? (
+        <div style={{ ...CARDS.std, textAlign: 'center', padding: 36 }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 15, color: COLORS.mut, letterSpacing: 1 }}>Sin liquidaciones en este periodo</div>
+          <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLORS.mut, marginTop: 6 }}>Pulsa “Recoger correo” en Documentación para importar los resúmenes de pago de las plataformas</div>
+        </div>
+      ) : (
+        <div style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 980 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...th, textAlign: 'left' }}>Periodo</th>
+                  <th style={{ ...th, textAlign: 'left' }}>Plataforma</th>
+                  <th style={{ ...th, textAlign: 'left' }}>Marca</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Pedidos</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Bruto</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Comisión</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Ads+Promo</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Neto</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Te queda</th>
+                  <th style={{ ...th, textAlign: 'left' }}>Cobro</th>
+                  <th style={{ ...th, textAlign: 'center' }}>Doc</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rowsF.map(r => {
+                  const bruto = Number(r.ventas_bruto) || 0
+                  const neto = Number(r.pago_neto) || 0
+                  const adsPromo = (Number(r.ads) || 0) + (Number(r.promociones) || 0)
+                  const pNeto = bruto > 0 ? (neto / bruto) * 100 : 0
+                  return (
+                    <tr key={r.id}>
+                      <td style={tdL}>{fmtF(r.fecha_inicio_periodo)} – {fmtF(r.fecha_fin_periodo)}</td>
+                      <td style={tdL}><PastillaPlataforma plataforma={r.plataforma} /></td>
+                      <td style={tdL}>{!r.marca || r.marca === 'SIN_MARCA' ? <span style={{ color: COLORS.mut, fontStyle: 'italic' }}>sin marca</span> : r.marca}</td>
+                      <td style={tdR}>{r.pedidos != null ? nf0(r.pedidos) : '—'}</td>
+                      <td style={tdR}>{fmtEur(bruto)}</td>
+                      <td style={{ ...tdR, color: COLORS.redSL }}>{r.comision != null ? fmtEur(Number(r.comision)) : '—'}</td>
+                      <td style={{ ...tdR, color: adsPromo > 0 ? COLORS.redSL : COLORS.mut }}>{adsPromo > 0 ? fmtEur(adsPromo) : '—'}</td>
+                      <td style={{ ...tdR, color: COLORS.ok }}>{fmtEur(neto)}</td>
+                      <td style={{ ...tdR, color: pNeto < 45 ? COLORS.err : COLORS.sec }}>{bruto > 0 ? pct(pNeto) : '—'}</td>
+                      <td style={tdL}>{fmtF(r.fecha_cobro)}</td>
+                      <td style={{ ...tdL, textAlign: 'center' }}>
+                        {r.doc_url
+                          ? <a href={r.doc_url} target="_blank" rel="noopener noreferrer" style={{ color: COLORS.redSL, textDecoration: 'none', fontFamily: OSWALD, fontWeight: 600 }}>ver</a>
+                          : <span style={{ color: COLORS.mut }}>—</span>}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function Ventas() {
   const [tab, setTab] = useState<Tab>(loadTab())
   const cambiar = (t: Tab) => { setTab(t); try { sessionStorage.setItem(STORAGE_KEY, t) } catch { /* */ } }
@@ -445,6 +593,7 @@ export default function Ventas() {
         tabs={[
           { id: 'resumen', label: 'Resumen ventas' },
           { id: 'detalle', label: 'Detalle ventas' },
+          { id: 'liquidaciones', label: 'Liquidaciones' },
           { id: 'pareto', label: 'Pareto Ventas' },
         ]}
         activeId={tab}
@@ -460,6 +609,7 @@ export default function Ventas() {
             <DetalleVentas desde={desde} hasta={hasta} marcasFiltro={marcasFiltro} canalesFiltro={canalesFiltro} />
           </>
         )}
+        {tab === 'liquidaciones' && <Liquidaciones desde={desde} hasta={hasta} marcasFiltro={marcasFiltro} canalesFiltro={canalesFiltro} />}
         {tab === 'pareto' && <ParetoVentas />}
       </Suspense>
     </div>
