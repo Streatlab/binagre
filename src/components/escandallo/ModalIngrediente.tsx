@@ -1,28 +1,39 @@
 import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
+import { INK, AMA, CREMA, GRANATE, NAR, GRIS, OSW, LEX } from '@/styles/neobrutal'
 
 const btnSaveStyle: CSSProperties = {
-  backgroundColor: 'var(--sl-btn-save-bg)',
-  color: 'var(--sl-btn-save-text)',
-  fontFamily: 'Oswald, sans-serif',
+  backgroundColor: AMA,
+  color: INK,
+  fontFamily: OSW,
+  fontWeight: 700,
   letterSpacing: '1px',
+  textTransform: 'uppercase',
   padding: '9px 24px',
-  borderRadius: '5px',
-  border: 'none',
+  borderRadius: '0',
+  border: `2px solid ${INK}`,
+  boxShadow: `3px 3px 0 ${INK}`,
   cursor: 'pointer',
   minHeight: '40px',
 }
 const btnCancelStyle: CSSProperties = {
-  backgroundColor: 'var(--sl-btn-cancel-bg)',
-  color: 'var(--sl-btn-cancel-text)',
-  border: '1px solid var(--sl-btn-cancel-border)',
-  fontFamily: 'Oswald, sans-serif',
+  backgroundColor: '#ffffff',
+  color: INK,
+  border: `2px solid ${INK}`,
+  fontFamily: OSW,
+  fontWeight: 700,
   letterSpacing: '1px',
+  textTransform: 'uppercase',
   padding: '9px 24px',
-  borderRadius: '5px',
+  borderRadius: '0',
   cursor: 'pointer',
   minHeight: '40px',
 }
+const labelStyle: CSSProperties = { display: 'block', fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: INK, marginBottom: 4 }
+const secLabel: CSSProperties = { fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 8 }
+const roBox: CSSProperties = { background: CREMA, border: `2px solid ${INK}`, borderRadius: 0, padding: '0.5rem 0.75rem', fontSize: '0.875rem', color: INK, fontFamily: LEX }
+const calcBox: CSSProperties = { background: AMA, border: `2px solid ${INK}`, borderRadius: 0, padding: '0.5rem 0.75rem', fontSize: '0.875rem', color: INK, fontWeight: 700, fontFamily: LEX }
+const inputCls = 'w-full bg-white border-[2px] border-[#140f08] rounded-none px-3 py-2 text-sm text-[#140f08] focus:outline-none focus:border-[#2D5BFF]'
 import { supabase } from '@/lib/supabase'
 import { fmtNum } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
@@ -282,149 +293,148 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="ds-modal w-full max-w-5xl my-8" style={{ maxHeight: '90vh', overflowY: 'auto', border: '3px solid #140f08', borderRadius: 0, boxShadow: '4px 4px 0 #140f08' }} onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-5xl my-8" style={{ backgroundColor: '#ffffff', padding: '20px', maxHeight: '90vh', overflowY: 'auto', border: `3px solid ${INK}`, borderRadius: 0, boxShadow: `4px 4px 0 ${INK}` }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="ds-modal-title" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
+            <h3 style={{ fontFamily: OSW, fontWeight: 700, fontSize: '1rem', letterSpacing: '0.5px', textTransform: 'uppercase', color: INK }}>{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
           </div>
-          <button onClick={onClose} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] transition text-lg leading-none">×</button>
+          <button onClick={onClose} className="text-[#9a8f78] hover:text-[#140f08] transition text-lg leading-none">×</button>
         </div>
 
         <div className="space-y-4">
           {/* Identidad */}
           <div>
-            <div className="ds-section-label">Identidad</div>
+            <div style={secLabel}>Identidad</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="ds-label">IDING</label>
-                <input type="text" value={f.iding} onChange={e => set('iding', e.target.value)} placeholder="ING001" className="ds-input" />
+                <label style={labelStyle}>IDING</label>
+                <input type="text" value={f.iding} onChange={e => set('iding', e.target.value)} placeholder="ING001" className={inputCls} style={{ fontFamily: LEX }} />
               </div>
               <div>
-                <label className="ds-label">Categoría</label>
-                <select value={f.categoria} onChange={e => set('categoria', e.target.value)} className="ds-input">
+                <label style={labelStyle}>Categoría</label>
+                <select value={f.categoria} onChange={e => set('categoria', e.target.value)} className={inputCls} style={{ fontFamily: LEX }}>
                   {cfg.categorias.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
               <div>
-                <label className="ds-label">Nombre Base</label>
-                <input type="text" value={f.nombre_base} onChange={e => set('nombre_base', e.target.value)} onBlur={buscarAlergenosMemoria} placeholder="Tomate" className="ds-input" />
+                <label style={labelStyle}>Nombre Base</label>
+                <input type="text" value={f.nombre_base} onChange={e => set('nombre_base', e.target.value)} onBlur={buscarAlergenosMemoria} placeholder="Tomate" className={inputCls} style={{ fontFamily: LEX }} />
               </div>
               <div>
-                <label className="ds-label">ABV</label>
-                <select value={f.abv} onChange={e => onAbvChange(e.target.value)} className="ds-input">
+                <label style={labelStyle}>ABV</label>
+                <select value={f.abv} onChange={e => onAbvChange(e.target.value)} className={inputCls} style={{ fontFamily: LEX }}>
                   {cfg.proveedores.map(p => <option key={p.abv} value={p.abv}>{p.abv}</option>)}
                 </select>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
               <div>
-                <label className="ds-label">Nombre completo (auto)</label>
-                <div className="ds-input-ro">
+                <label style={labelStyle}>Nombre completo (auto)</label>
+                <div style={roBox}>
                   {f.nombre_base && f.abv ? `${f.nombre_base}_${f.abv}` : (f.nombre || '—')}
                 </div>
               </div>
               <div>
-                <label className="ds-label">Proveedor</label>
-                <div className="ds-input-ro">
+                <label style={labelStyle}>Proveedor</label>
+                <div style={roBox}>
                   {cfg.proveedores.find(p => p.abv === f.abv.toUpperCase())?.nombre_completo || MARCA_MAP[f.abv.toUpperCase()] || '—'}
                 </div>
               </div>
               <div>
-                <label className="ds-label">Marca</label>
-                <input type="text" value={f.marca} onChange={e => set('marca', e.target.value)} className="ds-input" />
+                <label style={labelStyle}>Marca</label>
+                <input type="text" value={f.marca} onChange={e => set('marca', e.target.value)} className={inputCls} style={{ fontFamily: LEX }} />
               </div>
               <div>
-                <label className="ds-label">Formato</label>
-                <select value={f.formato} onChange={e => set('formato', e.target.value)} className="ds-input">
+                <label style={labelStyle}>Formato</label>
+                <select value={f.formato} onChange={e => set('formato', e.target.value)} className={inputCls} style={{ fontFamily: LEX }}>
                   {cfg.formatos.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
             </div>
           </div>
 
-          {/* Unidades */}
           {/* Unidades y Precios */}
           <div>
-            <div className="ds-section-label">Unidades y Precios</div>
+            <div style={secLabel}>Unidades y Precios</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="ds-label">Peso/Vol. por unidad</label>
-                <input type="number" step="any" value={f.uds} onChange={e => set('uds', e.target.value)} placeholder="5" className="ds-input" />
+                <label style={labelStyle}>Peso/Vol. por unidad</label>
+                <input type="number" step="any" value={f.uds} onChange={e => set('uds', e.target.value)} placeholder="5" className={inputCls} style={{ fontFamily: LEX }} />
               </div>
               <div>
-                <label className="ds-label">UD STD</label>
-                <select value={f.ud_std} onChange={e => onUdStdChange(e.target.value)} className="ds-input">
+                <label style={labelStyle}>UD STD</label>
+                <select value={f.ud_std} onChange={e => onUdStdChange(e.target.value)} className={inputCls} style={{ fontFamily: LEX }}>
                   {udStdOptions.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
               <div>
-                <label className="ds-label">UD MIN</label>
-                <div className="ds-input-ro">{f.ud_min}</div>
+                <label style={labelStyle}>UD MIN</label>
+                <div style={roBox}>{f.ud_min}</div>
               </div>
               <div>
-                <label className="ds-label">USOS</label>
-                <div className="ds-input-ro">{f.usos}</div>
+                <label style={labelStyle}>USOS</label>
+                <div style={roBox}>{f.usos}</div>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
               <div>
-                <label className="ds-label">Precio 1</label>
-                <input type="number" step="0.01" value={f.precio1} onChange={e => set('precio1', e.target.value)} className="ds-input" />
+                <label style={labelStyle}>Precio 1</label>
+                <input type="number" step="0.01" value={f.precio1} onChange={e => set('precio1', e.target.value)} className={inputCls} style={{ fontFamily: LEX }} />
               </div>
               <div>
-                <label className="ds-label">Precio 2</label>
-                <input type="number" step="0.01" value={f.precio2} onChange={e => set('precio2', e.target.value)} className="ds-input" />
+                <label style={labelStyle}>Precio 2</label>
+                <input type="number" step="0.01" value={f.precio2} onChange={e => set('precio2', e.target.value)} className={inputCls} style={{ fontFamily: LEX }} />
               </div>
               <div>
-                <label className="ds-label">Precio 3</label>
-                <input type="number" step="0.01" value={f.precio3} onChange={e => set('precio3', e.target.value)} className="ds-input" />
+                <label style={labelStyle}>Precio 3</label>
+                <input type="number" step="0.01" value={f.precio3} onChange={e => set('precio3', e.target.value)} className={inputCls} style={{ fontFamily: LEX }} />
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
               <div>
-                <label className="ds-label">Selector</label>
-                <select value={f.selector_precio} onChange={e => set('selector_precio', e.target.value)} className="ds-input">
+                <label style={labelStyle}>Selector</label>
+                <select value={f.selector_precio} onChange={e => set('selector_precio', e.target.value)} className={inputCls} style={{ fontFamily: LEX }}>
                   <option value="ultimo">Último</option>
                   <option value="media">Media</option>
                 </select>
               </div>
               <div>
-                <label className="ds-label-calc">Precio Activo</label>
-                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(precioActivo)}</div>
+                <label style={labelStyle}>Precio Activo</label>
+                <div style={calcBox}>{fmtNum(precioActivo)}</div>
               </div>
               <div>
-                <label className="ds-label-calc">EUR/STD</label>
-                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurStd)}</div>
+                <label style={labelStyle}>EUR/STD</label>
+                <div style={calcBox}>{fmtNum(eurStd)}</div>
               </div>
               <div>
-                <label className="ds-label-calc">EUR/MIN</label>
-                <div style={{ backgroundColor: 'var(--sl-input-calc)', border: '1px solid var(--sl-border-calc)', color: 'var(--sl-text-calc)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>{fmtNum(eurMin)}</div>
+                <label style={labelStyle}>EUR/MIN</label>
+                <div style={calcBox}>{fmtNum(eurMin)}</div>
               </div>
             </div>
           </div>
 
           {/* Merma */}
           <div>
-            <div className="ds-section-label">Merma</div>
+            <div style={secLabel}>Merma</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="ds-label">Tipo Merma</label>
-                <select value={f.tipo_merma ?? 'Manual'} onChange={e => set('tipo_merma', e.target.value)} className="ds-input">
+                <label style={labelStyle}>Tipo Merma</label>
+                <select value={f.tipo_merma ?? 'Manual'} onChange={e => set('tipo_merma', e.target.value)} className={inputCls} style={{ fontFamily: LEX }}>
                   <option value="Manual">Manual</option>
                   <option value="Tecnica">Técnica</option>
                 </select>
               </div>
               <div>
-                <label className="ds-label">Merma %</label>
-                <input type="number" step="0.1" value={f.merma_pct} onChange={e => set('merma_pct', e.target.value)} disabled={f.tipo_merma === 'Tecnica'} className="ds-input" style={f.tipo_merma === 'Tecnica' ? { opacity: 0.6 } : undefined} />
+                <label style={labelStyle}>Merma %</label>
+                <input type="number" step="0.1" value={f.merma_pct} onChange={e => set('merma_pct', e.target.value)} disabled={f.tipo_merma === 'Tecnica'} className={inputCls} style={{ fontFamily: LEX, ...(f.tipo_merma === 'Tecnica' ? { opacity: 0.6 } : {}) }} />
               </div>
               <div>
-                <label className="ds-label-calc">C.Neto/STD</label>
-                <div className="ds-input-calc">{fmtNum(costeNetoStd)}</div>
+                <label style={labelStyle}>C.Neto/STD</label>
+                <div style={calcBox}>{fmtNum(costeNetoStd)}</div>
               </div>
               <div>
-                <label className="ds-label-calc">C.Neto/MIN</label>
-                <div className="ds-input-calc">{fmtNum(costeNetoMin)}</div>
+                <label style={labelStyle}>C.Neto/MIN</label>
+                <div style={calcBox}>{fmtNum(costeNetoMin)}</div>
               </div>
             </div>
           </div>
@@ -432,10 +442,10 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
           {/* Alérgenos */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div className="ds-section-label" style={{ marginBottom: 0 }}>Alérgenos</div>
-              <button type="button" onClick={sugerirAlergenosIA} disabled={alergSugiriendo || !f.nombre_base.trim()} style={{ background: 'none', border: '0.5px solid var(--sl-border)', color: 'var(--sl-text-secondary)', borderRadius: 6, padding: '3px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', opacity: (alergSugiriendo || !f.nombre_base.trim()) ? 0.5 : 1 }}>{alergSugiriendo ? 'SUGIRIENDO…' : '⚡ SUGERIR (IA)'}</button>
+              <div style={{ ...secLabel, marginBottom: 0 }}>Alérgenos</div>
+              <button type="button" onClick={sugerirAlergenosIA} disabled={alergSugiriendo || !f.nombre_base.trim()} style={{ background: '#fff', border: `2px solid ${INK}`, color: INK, borderRadius: 0, padding: '3px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', opacity: (alergSugiriendo || !f.nombre_base.trim()) ? 0.5 : 1 }}>{alergSugiriendo ? 'SUGIRIENDO…' : '⚡ SUGERIR (IA)'}</button>
             </div>
-            {errAlerg && <div style={{ fontSize: 12, color: '#f5a623', fontFamily: 'Lexend, sans-serif', marginBottom: 6 }}>{errAlerg}</div>}
+            {errAlerg && <div style={{ fontSize: 12, color: NAR, fontFamily: LEX, marginBottom: 6 }}>{errAlerg}</div>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {ALERGENOS_14.map(a => {
                 const on = alergenos.includes(a)
@@ -446,13 +456,13 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
                     onClick={() => toggleAlergeno(a)}
                     style={{
                       padding: '7px 14px',
-                      borderRadius: 99,
-                      fontFamily: 'Lexend, sans-serif',
+                      borderRadius: 0,
+                      fontFamily: LEX,
                       fontSize: 13,
                       cursor: 'pointer',
-                      border: on ? 'none' : '1px solid var(--sl-border)',
-                      background: on ? '#B01D23' : 'transparent',
-                      color: on ? '#fff' : 'var(--sl-text-secondary)',
+                      border: `2px solid ${INK}`,
+                      background: on ? GRANATE : '#fff',
+                      color: on ? '#fff' : INK,
                       transition: 'all 120ms',
                     }}
                   >
@@ -461,37 +471,37 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
                 )
               })}
             </div>
-            <p style={{ fontSize: 12, color: 'var(--sl-text-muted)', marginTop: 8, fontFamily: 'Lexend, sans-serif' }}>
+            <p style={{ fontSize: 12, color: GRIS, marginTop: 8, fontFamily: LEX }}>
               Los alérgenos marcados se trasladan automáticamente a toda EPS y receta que use este ingrediente.
             </p>
           </div>
 
-          {err && <p className="text-[#dc2626] text-sm">{err}</p>}
+          {err && <p className="text-[#FF1E27] text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-[var(--sl-border)]">
+        <div className="flex items-center justify-between gap-3 mt-5 pt-4 border-t-[3px] border-[#140f08]">
           <div className="flex items-center gap-2">
             {isEdit && !confirmEliminar && (
               <button
                 onClick={() => setConfirmEliminar(true)}
-                style={{ background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', padding: '10px 16px', borderRadius: '5px', fontFamily: 'Oswald, sans-serif', fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}
+                style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '10px 16px', borderRadius: '0', fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}
               >
                 ELIMINAR
               </button>
             )}
             {isEdit && confirmEliminar && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#B01D23', fontFamily: 'Lexend, sans-serif' }}>¿Eliminar definitivamente?</span>
+                <span style={{ fontSize: '12px', color: GRANATE, fontFamily: LEX }}>¿Eliminar definitivamente?</span>
                 <button
                   onClick={handleEliminar}
                   disabled={deleting}
-                  style={{ background: '#B01D23', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}
+                  style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}
                 >
                   {deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}
                 </button>
                 <button
                   onClick={() => setConfirmEliminar(false)}
-                  style={{ background: 'transparent', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem' }}
+                  style={{ background: 'transparent', border: `2px solid ${INK}`, color: INK, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem' }}
                 >
                   CANCELAR
                 </button>
