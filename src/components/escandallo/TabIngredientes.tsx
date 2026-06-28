@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Ingrediente } from './types'
-import { fmt, n, getProveedor } from './types'
+import { fmt, fmtEurES, n, getProveedor } from './types'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, NAR, AZUL, GRANATE, GRIS } from '@/styles/neobrutal'
 
@@ -50,6 +50,12 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
     return { total: totalCount, enUso: enUsoCount, sinUso: totalCount - enUsoCount, filtered: filteredList }
   }, [ingredientes, filter, busqueda])
 
+  // Precio medio de lo filtrado (para fila TOTAL, sobre datos reales)
+  const precioMedio = useMemo(() => {
+    const vals = filtered.map(i => n(i.precio_activo ?? i.ultimo_precio)).filter(v => v > 0)
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+  }, [filtered])
+
   // Agrupación por categoría (móvil)
   const grupos = useMemo(() => {
     const m = new Map<string, Ingrediente[]>()
@@ -71,29 +77,28 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
     return next
   })
 
+  // Cabecera tinta (texto crema), § patrón uso diario
   const thStyle: CSSProperties = {
-    fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: CREMA, padding: '13px 14px', textAlign: 'left', whiteSpace: 'nowrap',
-    background: INK, position: 'sticky', top: 0, borderRight: `1px solid rgba(252,239,214,.20)`,
+    fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase',
+    color: CREMA, padding: '14px 12px', textAlign: 'right', whiteSpace: 'nowrap',
+    background: INK, position: 'sticky', top: 0, borderRight: `2px solid #4a3f2c`,
   }
-  const tdStyle: CSSProperties = {
-    fontFamily: LEX, fontSize: 13.5, color: INK, padding: '12px 14px', whiteSpace: 'nowrap',
-    borderBottom: `2px solid ${INK}`, borderRight: `1px solid rgba(20,15,8,.14)`,
-  }
-  // texto secundario LEGIBLE (INK con peso, no gris lavado)
-  const sec: CSSProperties = { color: INK, opacity: 0.78 }
+  const thL: CSSProperties = { ...thStyle, textAlign: 'left', paddingLeft: 16 }
+  const thC: CSSProperties = { ...thStyle, textAlign: 'center' }
 
-  // Pastilla sólida
-  const pill = (bg: string, fg = '#fff'): CSSProperties => ({
-    fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '0.5px',
-    background: bg, color: fg, border: `2px solid ${INK}`, padding: '3px 9px',
-    display: 'inline-block',
-  })
-  // Pastilla de usos (color = semáforo)
-  const usoPill = (usos: number): CSSProperties => ({
-    fontFamily: OSW, fontWeight: 700, fontSize: 14, minWidth: 40, textAlign: 'center',
-    border: `2px solid ${INK}`, padding: '2px 8px', color: '#fff', background: semaforoUsos(usos),
-    display: 'inline-block',
+  // Celdas: separador negro 3px arriba, vertical tenue, fondo blanco (sin zebra lavada)
+  const cBase: CSSProperties = {
+    borderTop: `3px solid ${INK}`, borderRight: `2px solid rgba(20,15,8,.16)`,
+    padding: '16px 12px', fontFamily: LEX, fontSize: 13.5, color: INK,
+  }
+  const cNum: CSSProperties = { ...cBase, fontFamily: OSW, fontWeight: 700, fontSize: 19, textAlign: 'right' }
+  const cSec: CSSProperties = { ...cBase, color: '#3d362a', fontSize: 13, textAlign: 'right' }
+
+  // Pastilla de usos como BLOQUE SÓLIDO (celda entera pintada, número blanco)
+  const usoBlock = (usos: number): CSSProperties => ({
+    background: semaforoUsos(usos), color: '#fff', textAlign: 'center',
+    fontFamily: OSW, fontWeight: 700, fontSize: 21,
+    borderTop: `3px solid ${INK}`, borderLeft: `3px solid ${INK}`, borderRight: `3px solid ${INK}`,
   })
 
   // Fila compacta de 1 línea (móvil): nombre + semáforo + precio. Tap = ficha.
@@ -105,18 +110,16 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
         onClick={() => onSelect?.(i)}
         style={{
           textAlign: 'left', width: '100%', background: 'transparent', border: 'none',
-          borderBottom: conBorde ? `1px solid ${INK}1f` : 'none',
-          padding: '11px 13px', display: 'flex', justifyContent: 'space-between',
+          borderLeft: `10px solid ${semaforoUsos(usos)}`,
+          borderBottom: conBorde ? `2px solid ${INK}` : 'none',
+          padding: '12px 13px', display: 'flex', justifyContent: 'space-between',
           alignItems: 'center', gap: 10, cursor: 'pointer',
         }}
       >
-        <span style={{ fontFamily: LEX, fontSize: 13, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: 700, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {i.nombre_base ?? i.nombre ?? '—'}
         </span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <span style={{ width: 9, height: 9, background: semaforoUsos(usos), display: 'inline-block', border: `1.5px solid ${INK}` }} />
-          <span style={{ fontFamily: OSW, fontSize: 14, fontWeight: 700, color: GRANATE }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</span>
-        </span>
+        <span style={{ fontFamily: OSW, fontSize: 16, fontWeight: 700, color: GRANATE, flexShrink: 0 }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</span>
       </button>
     )
   }
@@ -128,7 +131,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
     </svg>
   )
 
-  // ===== Tira de filtros (apoyo, no protagonista): chips contadores sólidos =====
+  // Tira de filtros: chips contadores sólidos
   const Chips = (
     <div style={{ display: 'flex', alignItems: 'stretch', flexWrap: 'wrap', gap: 0, border: `3px solid ${INK}`, boxShadow: SHADOW, background: '#fff' }}>
       <Chip label="TOTAL" value={total} bg={INK} fg={CREMA} active={filter === 'todos'} onClick={() => setFilter('todos')} />
@@ -156,7 +159,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
       )}
 
       {!filtered.length ? (
-        <div style={{ background: '#fff', border: `4px solid ${INK}`, boxShadow: SHADOW }}>
+        <div style={{ background: '#fff', border: `5px solid ${INK}`, boxShadow: '7px 7px 0 ' + INK }}>
           <p style={{ color: GRIS, fontFamily: LEX, textAlign: 'center', padding: 40, fontSize: 13 }}>
             Sin ingredientes{filter !== 'todos' ? ' en este filtro' : ''}
           </p>
@@ -195,61 +198,93 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
           )}
         </div>
       ) : (
-        /* ===== ESCRITORIO: la TABLA es la protagonista (100% ancho, §6.2) ===== */
-        <div style={{ background: '#fff', border: `4px solid ${INK}`, boxShadow: SHADOW }}>
+        /* ===== ESCRITORIO: patrón Tabla Neobrutal de uso diario ===== */
+        <div style={{ background: CREMA, border: `5px solid ${INK}`, boxShadow: '7px 7px 0 ' + INK }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', width: '100%', minWidth: 1180 }}>
               <thead>
                 <tr>
-                  <th style={thStyle}>IDING</th>
-                  <th style={thStyle}>CATEGORÍA</th>
-                  <th style={thStyle}>NOMBRE BASE</th>
-                  <th style={thStyle}>ABV</th>
-                  <th style={thStyle}>NOMBRE</th>
-                  <th style={thStyle}>PROVEEDOR</th>
-                  <th style={thStyle}>MARCA</th>
-                  <th style={thStyle}>FORMATO</th>
-                  <th style={{ ...thStyle, textAlign: 'center' }}>USOS</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>UDS</th>
-                  <th style={thStyle}>UD STD</th>
-                  <th style={thStyle}>UD MIN</th>
-                  <th style={{ ...thStyle, textAlign: 'right', borderRight: 'none' }}>PRECIO</th>
+                  <th style={thL}>Ingrediente</th>
+                  <th style={thL}>ABV</th>
+                  <th style={thStyle}>Categoría</th>
+                  <th style={thStyle}>Marca</th>
+                  <th style={thStyle}>Formato</th>
+                  <th style={thC}>Usos</th>
+                  <th style={thStyle}>Uds</th>
+                  <th style={thStyle}>Ud std</th>
+                  <th style={thStyle}>Ud min</th>
+                  <th style={{ ...thStyle, borderRight: 'none' }}>Precio €</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((i, idx) => {
+                {filtered.map(i => {
                   const usos = n(i.usos)
-                  const zebra = idx % 2 === 1 ? '#fbf6ea' : '#ffffff'
+                  const lateral = semaforoUsos(usos)
                   return (
                     <tr
                       key={i.id}
                       onClick={() => onSelect?.(i)}
-                      style={{ cursor: onSelect ? 'pointer' : 'default', background: zebra }}
-                      onMouseEnter={e => (e.currentTarget.style.background = AMA)}
-                      onMouseLeave={e => (e.currentTarget.style.background = zebra)}
+                      style={{ cursor: onSelect ? 'pointer' : 'default', background: '#fff' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#fff7df')}
+                      onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
                     >
-                      <td style={tdStyle}><span style={pill(GRANATE)}>{i.iding ?? '—'}</span></td>
-                      <td style={{ ...tdStyle, ...sec }}>{i.categoria ?? '—'}</td>
-                      <td style={{ ...tdStyle, fontWeight: 700, fontSize: 14 }}>{i.nombre_base ?? '—'}</td>
-                      <td style={{ ...tdStyle, fontFamily: OSW, fontWeight: 700, fontSize: 13, color: AZUL }}>{i.abv ?? '—'}</td>
-                      <td style={tdStyle}>{i.nombre}</td>
-                      <td style={{ ...tdStyle, ...sec }}>{getProveedor(i.abv)}</td>
-                      <td style={{ ...tdStyle, ...sec }}>{i.marca ?? '—'}</td>
-                      <td style={{ ...tdStyle, ...sec }}>{i.formato ?? '—'}</td>
-                      <td style={{ ...tdStyle, textAlign: 'center' }}><span style={usoPill(usos)}>{usos}</span></td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontFamily: OSW, fontWeight: 600 }}>{fmt(i.uds)}</td>
-                      <td style={{ ...tdStyle, ...sec }}>{i.ud_std ?? '—'}</td>
-                      <td style={{ ...tdStyle, ...sec }}>{i.ud_min ?? '—'}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontFamily: OSW, fontWeight: 700, fontSize: 16, color: GRANATE, borderRight: 'none' }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
+                      {/* Ingrediente: banda lateral de estado + nombre + IDING·proveedor */}
+                      <td style={{ ...cBase, borderLeft: `14px solid ${lateral}`, paddingLeft: 16 }}>
+                        <div style={{ fontFamily: LEX, fontSize: 16, fontWeight: 700, lineHeight: 1.1 }}>{i.nombre_base ?? i.nombre ?? '—'}</div>
+                        <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: '#5a4f3a', marginTop: 2 }}>
+                          {(i.iding ?? '—')} · {getProveedor(i.abv) || '—'}
+                        </div>
+                      </td>
+                      <td style={{ ...cBase, fontFamily: OSW, fontWeight: 700, fontSize: 13, color: AZUL }}>{i.abv ?? '—'}</td>
+                      <td style={cSec}>{i.categoria ?? '—'}</td>
+                      <td style={cSec}>{i.marca ?? '—'}</td>
+                      <td style={cSec}>{i.formato ?? '—'}</td>
+                      {/* USOS: bloque sólido de color, número blanco */}
+                      <td style={usoBlock(usos)}>{usos}</td>
+                      <td style={cNum}>{fmt(i.uds)}</td>
+                      <td style={cSec}>{i.ud_std ?? '—'}</td>
+                      <td style={cSec}>{i.ud_min ?? '—'}</td>
+                      <td style={{ ...cNum, color: GRANATE, fontSize: 21, borderRight: 'none' }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
                     </tr>
                   )
                 })}
+
+                {/* FILA TOTAL en negro, KPI medio en caja amarilla */}
+                <tr>
+                  <td style={{ borderTop: `5px solid ${INK}`, background: INK, color: CREMA, fontFamily: OSW, fontWeight: 700, padding: 16, fontSize: 15, letterSpacing: '0.6px', textTransform: 'uppercase', borderLeft: `14px solid ${AMA}` }}>
+                    {filtered.length} ingrediente{filtered.length !== 1 ? 's' : ''}
+                  </td>
+                  <td style={{ borderTop: `5px solid ${INK}`, background: INK }} colSpan={4} />
+                  <td style={{ borderTop: `5px solid ${INK}`, background: INK, textAlign: 'center' }}>
+                    <span style={{ display: 'inline-block', background: AMA, color: INK, border: `2.5px solid ${CREMA}`, fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '3px 12px' }}>{enUso}/{total}</span>
+                  </td>
+                  <td style={{ borderTop: `5px solid ${INK}`, background: INK }} colSpan={3} />
+                  <td style={{ borderTop: `5px solid ${INK}`, background: INK, textAlign: 'right', padding: '16px 12px' }}>
+                    <span style={{ display: 'inline-block', background: AMA, color: INK, border: `2.5px solid ${CREMA}`, fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '3px 12px' }}>{fmtEurES(precioMedio)} med.</span>
+                  </td>
+                </tr>
               </tbody>
             </table>
+          </div>
+
+          {/* Leyenda del semáforo */}
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center', padding: '13px 18px', borderTop: `5px solid ${INK}`, background: CLARO, fontFamily: OSW, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: INK }}>
+            <Leg color={VERDE} txt="5+ usos · sano" />
+            <Leg color={NAR} txt="1–4 usos · vigilar" />
+            <Leg color={ROJO} txt="0 usos · sobra" />
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+function Leg({ color, txt }: { color: string; txt: string }) {
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      <span style={{ width: 14, height: 14, background: color, border: `2.5px solid ${INK}`, display: 'inline-block' }} />
+      {txt}
+    </span>
   )
 }
 
