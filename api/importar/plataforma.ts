@@ -95,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ ok: false, plataforma: 'uber', tipo_detectado: 'liquidacion_uber_resumen', mensaje: motivo })
       }
 
-      let nuevas = 0, actualizadas = 0, totalBruto = 0
+      let nuevas = 0, actualizadas = 0, totalBruto = 0, totalNeto = 0, totalPedidos = 0
       const marcasSet = new Set<string>()
       for (const it of items) {
         const campos = {
@@ -108,6 +108,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         marcasSet.add(it.marca)
         totalBruto += it.ventas_bruto
+        totalNeto += it.pago_neto
+        totalPedidos += it.num_pedidos
         const { data: existe } = await supabaseAdmin
           .from('uber_liquidaciones').select('id').eq('referencia_pago', it.referencia_pago).maybeSingle()
         if (existe) {
@@ -125,7 +127,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         plataforma: 'uber',
         tipo_detectado: 'liquidacion_uber_resumen',
         marca: `${marcasSet.size} tiendas`,
-        mensaje: `Resumen Uber procesado: ${nuevas} nuevas, ${actualizadas} actualizadas (${items.length} liquidaciones).`,
+        tiendas: marcasSet.size,
+        nuevas,
+        actualizadas,
+        liquidaciones: items.length,
+        totalBruto: Math.round(totalBruto * 100) / 100,
+        totalNeto: Math.round(totalNeto * 100) / 100,
+        totalPedidos,
+        mensaje: `Resumen Uber: ${marcasSet.size} tiendas · ${nuevas} nuevas, ${actualizadas} actualizadas (${items.length} liquidaciones).`,
       })
     }
 
