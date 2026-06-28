@@ -615,6 +615,28 @@ async function procesarContenidoPrincipal(
   const fechaFactura = fechaValida(extracted.fecha_factura) ? extracted.fecha_factura : new Date().toISOString().slice(0, 10)
   const numFactura = extracted.numero_factura || `SN-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`
 
+  // Duplicado CONTABLE 100%: misma factura ya registrada = mismo NIF emisor + mismo
+  // nº de factura + mismo importe. Solo se considera duplicado por esta identidad real
+  // (no por parecidos). Requiere nº de factura real (no autogenerado SN-/LM-).
+  {
+    const nifDup = normalizarNif(extracted.nif_emisor)
+    if (nifDup && extracted.numero_factura && extracted.total != null) {
+      const { data: dupReal } = await supabase.from('facturas')
+        .select('id, proveedor_nombre, numero_factura, total, estado, pdf_drive_url')
+        .eq('nif_emisor', nifDup)
+        .eq('numero_factura', extracted.numero_factura)
+        .eq('total', extracted.total)
+        .limit(1).maybeSingle()
+      if (dupReal) {
+        return {
+          estado: 'duplicada', archivo: file.nombre,
+          factura_existente: dupReal as Record<string, unknown>,
+          motivo: 'ya existe (misma factura: NIF emisor + nº factura + importe)',
+        }
+      }
+    }
+  }
+
   const { data: nueva, error: errInsert } = await supabase.from('facturas').insert({
     pdf_original_name: file.nombre, pdf_hash: hash,
     proveedor_nombre: extracted.proveedor_nombre, numero_factura: numFactura,
