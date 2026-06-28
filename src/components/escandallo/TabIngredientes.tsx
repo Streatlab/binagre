@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import type { Ingrediente } from './types'
 import { fmt, n, getProveedor } from './types'
 import { useEsMovil } from '@/hooks/useEsMovil'
-import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, GRANATE, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, NAR, AZUL, GRANATE, GRIS } from '@/styles/neobrutal'
 
 interface Props {
   ingredientes: Ingrediente[]
@@ -14,10 +14,10 @@ interface Props {
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
-// Semáforo de usos: rojo 0 / amarillo 1-4 / verde 5+
+// Semáforo de usos: rojo 0 / naranja 1-4 / verde 5+
 function semaforoUsos(usos: number): string {
   if (usos === 0) return ROJO
-  if (usos <= 4) return AMA
+  if (usos <= 4) return NAR
   return VERDE
 }
 
@@ -73,13 +73,27 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
 
   const thStyle: CSSProperties = {
     fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: CREMA, padding: '10px 12px', textAlign: 'left', whiteSpace: 'nowrap',
-    borderBottom: `2px solid ${INK}`, background: INK, position: 'sticky', top: 0,
+    color: CREMA, padding: '14px 14px', textAlign: 'left', whiteSpace: 'nowrap',
+    background: INK, position: 'sticky', top: 0, borderRight: `2px solid rgba(252,239,214,.22)`,
   }
   const tdStyle: CSSProperties = {
-    fontFamily: LEX, fontSize: 13, color: INK, padding: '10px 12px',
-    borderBottom: `1px solid ${INK}1f`, whiteSpace: 'nowrap',
+    fontFamily: LEX, fontSize: 13.5, color: INK, padding: '13px 14px', whiteSpace: 'nowrap',
+    borderBottom: `2px solid ${INK}`, borderRight: `2px solid rgba(20,15,8,.12)`,
   }
+  const muted = 'rgba(20,15,8,.62)'
+
+  // Pastilla sólida (IDING granate / ABV azul)
+  const pill = (bg: string): CSSProperties => ({
+    fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '0.5px',
+    background: bg, color: '#fff', border: `2px solid ${INK}`, padding: '3px 9px',
+    display: 'inline-block',
+  })
+  // Pastilla de usos (color = semáforo)
+  const usoPill = (usos: number): CSSProperties => ({
+    fontFamily: OSW, fontWeight: 700, fontSize: 14, minWidth: 42, textAlign: 'center',
+    border: `2px solid ${INK}`, padding: '3px 8px', color: '#fff', background: semaforoUsos(usos),
+    display: 'inline-block',
+  })
 
   // Fila compacta de 1 línea (móvil): nombre + semáforo + precio. Tap = ficha.
   const filaCompacta = (i: Ingrediente, conBorde: boolean) => {
@@ -99,7 +113,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
           {i.nombre_base ?? i.nombre ?? '—'}
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <span style={{ width: 9, height: 9, borderRadius: '50%', background: semaforoUsos(usos), display: 'inline-block', border: `1px solid ${INK}` }} />
+          <span style={{ width: 9, height: 9, background: semaforoUsos(usos), display: 'inline-block', border: `1.5px solid ${INK}` }} />
           <span style={{ fontFamily: OSW, fontSize: 14, fontWeight: 700, color: GRANATE }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</span>
         </span>
       </button>
@@ -116,9 +130,9 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
-        <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
-        <Counter label="EN USO" value={enUso} color={VERDE} active={filter === 'enuso'} onClick={() => toggle('enuso')} />
-        <Counter label="SIN USO" value={sinUso} color={ROJO} active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
+        <Counter label="TOTAL" value={total} tone="ink" active={filter === 'todos'} onClick={() => setFilter('todos')} />
+        <Counter label="EN USO" value={enUso} tone="verde" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
+        <Counter label="SIN USO" value={sinUso} tone="rojo" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
         {onNew && (
           <button onClick={onNew} style={btnNuevo}>+ Nuevo Ingrediente</button>
         )}
@@ -170,10 +184,10 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
           )}
         </div>
       ) : (
-        /* ===== ESCRITORIO: tabla completa ===== */
-        <div style={{ background: '#ffffff', border: BORDER_CARD, boxShadow: SHADOW }}>
+        /* ===== ESCRITORIO: tabla completa brutalista ===== */
+        <div style={{ background: '#ffffff', border: `4px solid ${INK}`, boxShadow: SHADOW }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', width: '100%' }}>
+            <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', width: '100%', minWidth: 1180 }}>
               <thead>
                 <tr>
                   <th style={thStyle}>IDING</th>
@@ -188,32 +202,34 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
                   <th style={{ ...thStyle, textAlign: 'right' }}>UDS</th>
                   <th style={thStyle}>UD STD</th>
                   <th style={thStyle}>UD MIN</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>PRECIO</th>
+                  <th style={{ ...thStyle, textAlign: 'right', borderRight: 'none' }}>PRECIO</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(i => {
+                {filtered.map((i, idx) => {
                   const usos = n(i.usos)
+                  const zebra = idx % 2 === 1 ? 'rgba(20,15,8,.04)' : undefined
                   return (
-                    <tr key={i.id} onClick={() => onSelect?.(i)} style={{ cursor: onSelect ? 'pointer' : 'default' }}>
-                      <td style={{ ...tdStyle, color: GRANATE, fontFamily: OSW, fontWeight: 700 }}>{i.iding ?? '—'}</td>
-                      <td style={{ ...tdStyle, color: '#00000099' }}>{i.categoria ?? '—'}</td>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{i.nombre_base ?? '—'}</td>
-                      <td style={{ ...tdStyle, fontFamily: OSW, fontSize: 12, fontWeight: 700 }}>{i.abv ?? '—'}</td>
+                    <tr
+                      key={i.id}
+                      onClick={() => onSelect?.(i)}
+                      style={{ cursor: onSelect ? 'pointer' : 'default', background: zebra }}
+                      onMouseEnter={e => (e.currentTarget.style.background = AMA)}
+                      onMouseLeave={e => (e.currentTarget.style.background = zebra ?? 'transparent')}
+                    >
+                      <td style={tdStyle}><span style={pill(GRANATE)}>{i.iding ?? '—'}</span></td>
+                      <td style={{ ...tdStyle, color: muted }}>{i.categoria ?? '—'}</td>
+                      <td style={{ ...tdStyle, fontWeight: 700, fontSize: 14 }}>{i.nombre_base ?? '—'}</td>
+                      <td style={tdStyle}>{i.abv ? <span style={pill(AZUL)}>{i.abv}</span> : '—'}</td>
                       <td style={tdStyle}>{i.nombre}</td>
-                      <td style={{ ...tdStyle, color: '#00000099' }}>{getProveedor(i.abv)}</td>
-                      <td style={{ ...tdStyle, color: '#00000099' }}>{i.marca ?? '—'}</td>
-                      <td style={{ ...tdStyle, color: '#00000099' }}>{i.formato ?? '—'}</td>
-                      <td style={{ ...tdStyle, textAlign: 'center' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-                          <span style={{ width: 10, height: 10, borderRadius: '50%', background: semaforoUsos(usos), display: 'inline-block', flexShrink: 0, border: `1px solid ${INK}` }} />
-                          <span style={{ fontFamily: OSW, fontWeight: 700, color: INK }}>{usos}</span>
-                        </span>
-                      </td>
+                      <td style={{ ...tdStyle, color: muted }}>{getProveedor(i.abv)}</td>
+                      <td style={{ ...tdStyle, color: muted }}>{i.marca ?? '—'}</td>
+                      <td style={{ ...tdStyle, color: muted }}>{i.formato ?? '—'}</td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}><span style={usoPill(usos)}>{usos}</span></td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>{fmt(i.uds)}</td>
-                      <td style={{ ...tdStyle, color: '#00000099' }}>{i.ud_std ?? '—'}</td>
-                      <td style={{ ...tdStyle, color: '#00000099' }}>{i.ud_min ?? '—'}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontFamily: OSW, fontWeight: 700 }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
+                      <td style={{ ...tdStyle, color: muted }}>{i.ud_std ?? '—'}</td>
+                      <td style={{ ...tdStyle, color: muted }}>{i.ud_min ?? '—'}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontFamily: OSW, fontWeight: 700, fontSize: 15, borderRight: 'none' }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
                     </tr>
                   )
                 })}
@@ -227,20 +243,26 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
 }
 
 const btnNuevo: CSSProperties = {
-  marginLeft: 'auto', fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px',
-  textTransform: 'uppercase', background: VERDE, color: '#ffffff', border: `2px solid ${INK}`,
-  boxShadow: `3px 3px 0 ${INK}`, padding: '8px 16px', cursor: 'pointer', borderRadius: 0,
+  marginLeft: 'auto', fontFamily: OSW, fontWeight: 700, fontSize: 14, letterSpacing: '1px',
+  textTransform: 'uppercase', background: VERDE, color: '#ffffff', border: `3px solid ${INK}`,
+  boxShadow: SHADOW, padding: '13px 22px', cursor: 'pointer', borderRadius: 0,
 }
 
-function Counter({ label, value, color, active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
+function Counter({ label, value, tone, active, onClick }: { label: string; value: number; tone: 'ink' | 'verde' | 'rojo'; active?: boolean; onClick?: () => void }) {
+  const map: Record<string, { bg: string; fg: string }> = {
+    ink: { bg: INK, fg: CREMA },
+    verde: { bg: VERDE, fg: '#ffffff' },
+    rojo: { bg: ROJO, fg: '#ffffff' },
+  }
+  const c = map[tone]
   return (
     <button onClick={onClick} type="button" style={{
-      cursor: 'pointer', textAlign: 'left', minWidth: 110, padding: '10px 16px', borderRadius: 0,
-      background: active ? AMA : '#ffffff', border: `2px solid ${INK}`,
-      boxShadow: active ? `3px 3px 0 ${INK}` : 'none', transition: 'all 120ms',
+      cursor: 'pointer', textAlign: 'left', minWidth: 130, padding: '14px 20px', borderRadius: 0,
+      background: c.bg, color: c.fg, border: `3px solid ${INK}`,
+      boxShadow: active ? SHADOW : 'none', transition: 'all 120ms',
     }}>
-      <div style={{ fontFamily: OSW, fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: active ? INK : GRIS }}>{label}</div>
-      <div style={{ fontFamily: OSW, fontSize: 26, fontWeight: 700, lineHeight: 1, color: color ?? INK }}>{value}</div>
+      <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: c.fg, opacity: 0.92 }}>{label}</div>
+      <div style={{ fontFamily: OSW, fontSize: 40, fontWeight: 700, lineHeight: 1, color: c.fg }}>{value}</div>
     </button>
   )
 }
