@@ -79,7 +79,7 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
   }
 
   // Barrido manual: trae al instante lo que haya en el buzón (no espera al cron 07:00).
-  // Un ÚNICO toast con lo necesario (facturas + ventas).
+  // Un ÚNICO toast con lo necesario (facturas + ventas), sin doble conteo.
   async function recogerAhora(e: React.MouseEvent) {
     e.stopPropagation()
     if (recogiendo) return
@@ -89,14 +89,17 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
       const r = await fetch('/api/facturas?action=cartero')
       const j = await r.json()
       if (j.ok) {
-        const n = j.nuevas ?? 0, d = j.duplicadas ?? 0, m = j.lectura_manual ?? 0
-        // Cuenta las liquidaciones de venta detectadas en el barrido (resumen Uber, etc.)
+        const d = j.duplicadas ?? 0, m = j.lectura_manual ?? 0
+        // Liquidaciones de venta detectadas en el barrido (resumen Uber, etc.)
         const ventas = Array.isArray(j.resultados)
-          ? j.resultados.filter((x: { motivo?: string }) => /resumen|→ ventas|liquidacion|liquidación/i.test(x?.motivo || '')).length
+          ? j.resultados.filter((x: { motivo?: string }) => /resumen|→ ventas|liquidaci/i.test(x?.motivo || '')).length
           : 0
+        // Las ventas vienen contadas dentro de 'nuevas'; se descuentan para no duplicar.
+        const nFac = Math.max(0, (j.nuevas ?? 0) - ventas)
         await cargar()
-        const partes = [`${n} factura${n === 1 ? '' : 's'} nuevas`]
-        if (ventas > 0) partes.push(`${ventas} de ventas`)
+        const partes: string[] = []
+        partes.push(`${nFac} factura${nFac === 1 ? '' : 's'} nuevas`)
+        if (ventas > 0) partes.push(`${ventas} resumen${ventas === 1 ? '' : 'es'} de ventas`)
         if (d > 0) partes.push(`${d} ya estaban`)
         if (m > 0) partes.push(`${m} a revisar`)
         toast.success(`Correo recogido · ${partes.join(' · ')}`, { id: tid })
