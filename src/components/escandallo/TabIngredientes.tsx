@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Ingrediente } from './types'
-import { fmt, n, getProveedor } from './types'
+import { fmt, fmtPct, n, getProveedor } from './types'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, NAR, AZUL, GRANATE, GRIS } from '@/styles/neobrutal'
 
@@ -97,6 +97,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
     padding: '10px 14px', borderTop: `1px solid ${INK}1a`, fontFamily: LEX, fontSize: 14, color: INK, verticalAlign: 'middle',
   }
   const cTxt: CSSProperties = { ...cell, fontSize: 13, ...ELL }
+  const cNum: CSSProperties = { ...cell, textAlign: 'right', fontFamily: OSW, fontWeight: 600, fontSize: 13.5, color: INK, whiteSpace: 'nowrap' }
 
   // Fila compacta de 1 línea (móvil): nombre + precio. Tap = ficha.
   const filaCompacta = (i: Ingrediente, conBorde: boolean) => {
@@ -204,17 +205,25 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
           /* ===== ESCRITORIO: tabla como bloque neobrutal ===== */
           <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW }}>
             <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%', minWidth: 1040 }}>
+              <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%', minWidth: 1760 }}>
                 <colgroup>
-                  <col style={{ width: 232 }} />
-                  <col style={{ width: 198 }} />
-                  <col style={{ width: 142 }} />
-                  <col style={{ width: 92 }} />
-                  <col style={{ width: 58 }} />
-                  <col style={{ width: 66 }} />
-                  <col style={{ width: 66 }} />
-                  <col style={{ width: 66 }} />
+                  <col style={{ width: 220 }} />
+                  <col style={{ width: 200 }} />
+                  <col style={{ width: 150 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 60 }} />
+                  <col style={{ width: 64 }} />
+                  <col style={{ width: 70 }} />
+                  <col style={{ width: 70 }} />
+                  <col style={{ width: 84 }} />
+                  <col style={{ width: 84 }} />
+                  <col style={{ width: 84 }} />
                   <col style={{ width: 96 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 90 }} />
+                  <col style={{ width: 84 }} />
+                  <col style={{ width: 100 }} />
+                  <col style={{ width: 100 }} />
                 </colgroup>
                 <thead>
                   <tr>
@@ -226,7 +235,15 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
                     <th style={thR}>Uds</th>
                     <th style={th}>Ud std</th>
                     <th style={th}>Ud min</th>
-                    <th style={thR}>Precio €</th>
+                    <th style={thR}>Precio 1</th>
+                    <th style={thR}>Precio 2</th>
+                    <th style={thR}>Precio 3</th>
+                    <th style={thR}>P. activo €</th>
+                    <th style={thR}>EUR / STD</th>
+                    <th style={thR}>EUR / MIN</th>
+                    <th style={thR}>Merma %</th>
+                    <th style={thR}>C. neto STD</th>
+                    <th style={thR}>C. neto MIN</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -258,7 +275,15 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
                         <td style={{ ...cell, textAlign: 'right', fontFamily: OSW, fontWeight: 700, fontSize: 15, color: INK }}>{fmt(i.uds)}</td>
                         <td style={cTxt}>{i.ud_std ?? '—'}</td>
                         <td style={cTxt}>{i.ud_min ?? '—'}</td>
-                        <td style={{ ...cell, textAlign: 'right', fontFamily: OSW, fontWeight: 700, fontSize: 17, letterSpacing: '-0.5px', color: GRANATE }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
+                        <td style={cNum}>{i.precio1 ? fmt(i.precio1) : '—'}</td>
+                        <td style={cNum}>{i.precio2 ? fmt(i.precio2) : '—'}</td>
+                        <td style={cNum}>{i.precio3 ? fmt(i.precio3) : '—'}</td>
+                        <td style={{ ...cell, textAlign: 'right', fontFamily: OSW, fontWeight: 700, fontSize: 17, letterSpacing: '-0.5px', color: GRANATE, whiteSpace: 'nowrap' }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
+                        <td style={cNum}>{i.eur_std ? fmt(i.eur_std) : '—'}</td>
+                        <td style={cNum}>{i.eur_min ? fmt(i.eur_min) : '—'}</td>
+                        <td style={{ ...cNum, color: i.merma_pct ? NAR : GRIS }}>{i.merma_pct ? fmtPct(i.merma_pct) : '—'}</td>
+                        <td style={cNum}>{i.coste_neto_std ? fmt(i.coste_neto_std) : '—'}</td>
+                        <td style={cNum}>{i.coste_neto_min ? fmt(i.coste_neto_min) : '—'}</td>
                       </tr>
                     )
                   })}
