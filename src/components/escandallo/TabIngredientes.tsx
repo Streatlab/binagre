@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Ingrediente } from './types'
 import { thCls, tdCls, fmt, fmtPct, n, getProveedor } from './types'
 import { fmtNum } from '@/utils/format'
@@ -30,12 +30,21 @@ const normalizeSelector = (v?: string | null): string => {
 
 const CAMPOS_NUMERICOS = ['precio1', 'precio2', 'precio3', 'uds', 'merma_pct', 'ultimo_precio']
 
+const scrollBtn: React.CSSProperties = {
+  fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 13, letterSpacing: '0.5px',
+  background: '#fff', color: INK, border: `2px solid ${INK}`, boxShadow: `2px 2px 0 ${INK}`,
+  padding: '6px 12px', cursor: 'pointer', minHeight: 36, minWidth: 40,
+}
+
 export default function TabIngredientes({ ingredientes, busqueda = '', onSelect, onNew }: Props) {
   const [filter, setFilter] = useState<Filter>('todos')
   const [localIngs, setLocalIngs] = useState<Ingrediente[]>(ingredientes)
   const [usosMap, setUsosMap] = useState<Record<string, number>>({})
   const [editingCell, setEditingCell] = useState<{ id: string; campo: string } | null>(null)
   const [editingValue, setEditingValue] = useState<string>('')
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const desplazar = (dx: number) => scrollRef.current?.scrollBy({ left: dx, behavior: 'smooth' })
+  const irExtremo = (fin: boolean) => { const el = scrollRef.current; if (el) el.scrollTo({ left: fin ? el.scrollWidth : 0, behavior: 'smooth' }) }
   const cfg = useConfig()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -226,13 +235,24 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
         )}
       </div>
 
+      {/* Controles de desplazamiento lateral (para alcanzar las columnas de la derecha) */}
+      {!!filtered.length && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK, opacity: 0.7 }}>Desplazar columnas</span>
+          <button type="button" onClick={() => irExtremo(false)} style={scrollBtn}>⏮ Inicio</button>
+          <button type="button" onClick={() => desplazar(-560)} style={scrollBtn}>◀</button>
+          <button type="button" onClick={() => desplazar(560)} style={scrollBtn}>▶</button>
+          <button type="button" onClick={() => irExtremo(true)} style={scrollBtn}>Fin ⏭</button>
+        </div>
+      )}
+
       {!filtered.length ? (
         <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-12 text-center">
           <p className="text-[var(--sl-text-muted)] text-sm">Sin ingredientes{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
         <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl" style={{ overflow: 'visible' }}>
-          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)', borderRadius: 'inherit' }}>
+          <div ref={scrollRef} className="ing-scroll" style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 300px)', borderRadius: 'inherit', width: '100%' }}>
             <table style={{ tableLayout: 'fixed', width: '2660px' }}>
               <colgroup>
                 <col style={{ width: 90 }} />
