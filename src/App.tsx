@@ -72,6 +72,7 @@ const Esquemas = React.lazy(() => import('@/pages/cocina/Esquemas'))
 const Produccion = React.lazy(() => import('@/pages/cocina/Produccion'))
 const ListaCompra = React.lazy(() => import('@/pages/cocina/ListaCompra'))
 const ParetoIngredientes = React.lazy(() => import('@/pages/cocina/ParetoIngredientes'))
+const MenuFamilia = React.lazy(() => import('@/pages/cocina/MenuFamilia'))
 
 
 const ControlTemperaturas = React.lazy(() => import('@/pages/ops/ControlTemperaturas'))
@@ -271,6 +272,7 @@ function AppRoutes() {
           <Route path="cocina/recetario" element={<Recetario />} />
           <Route path="cocina/esquemas" element={<Esquemas />} />
           <Route path="cocina/produccion" element={<Produccion />} />
+          <Route path="cocina/menu-familia" element={<MenuFamilia />} />
           <Route path="cocina/lista-compra" element={<ListaCompra />} />
           <Route path="cocina/pareto-ingredientes" element={<ProtectedRoute solo={['admin']}><ParetoIngredientes /></ProtectedRoute>} />
 
