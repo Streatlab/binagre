@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { INK, AMA, CREMA, GRANATE, NAR, VERDE, AZUL, GRIS, OSW, LEX } from '@/styles/neobrutal'
+import { INK, AMA, CREMA, GRANATE, NAR, AZUL, GRIS, OSW, LEX } from '@/styles/neobrutal'
 
 const btnSaveStyle: CSSProperties = {
   backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '1px',
