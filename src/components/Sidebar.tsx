@@ -121,6 +121,7 @@ const SECTIONS: NavSection[] = [
   {
     key: 'configuracion', label: 'Configuración', perfiles: ['admin'],
     items: [
+      { path: '/configuracion/compras/categorias',   label: 'Catálogos · Compras',  emoji: '🛒', perfiles: ['admin'] },
       { path: '/configuracion/integraciones',        label: 'Integraciones',        emoji: '🔌', perfiles: ['admin'] },
       { path: '/configuracion/reglas',               label: 'Reglas',               emoji: '📐', perfiles: ['admin'] },
       { path: '/configuracion/bancos-y-cuentas',     label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
