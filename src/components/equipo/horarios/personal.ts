@@ -20,8 +20,10 @@ export async function renombrarEmpleado(id: string, nombre: string): Promise<boo
   return !error
 }
 
-/** Archivo blando: pasa a "antiguos", deja de aparecer pero conserva su histórico. */
+/** Archivo blando: pasa a "antiguos" y se retira de los horarios de hoy en adelante (conserva histórico pasado). */
 export async function archivarEmpleado(id: string): Promise<boolean> {
+  const hoy = new Date().toISOString().slice(0, 10)
+  await supabase.from('horarios').delete().eq('empleado_id', id).gte('fecha', hoy)
   const { error } = await supabase.from('empleados')
     .update({ estado: 'inactivo', activo: false })
     .eq('id', id)
