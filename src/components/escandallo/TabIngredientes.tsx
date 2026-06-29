@@ -112,12 +112,6 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
   }
   const cTxt: CSSProperties = { ...cell, fontSize: 13, ...ELL }
 
-  // Eyebrow estilo modal (pastilla de bloque)
-  const eyebrow = (bg: string, fg = INK): CSSProperties => ({
-    display: 'inline-block', background: bg, color: fg, border: `2px solid ${INK}`,
-    fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', padding: '4px 12px',
-  })
-
   // Fila compacta de 1 línea (móvil): nombre + precio. Tap = ficha.
   const filaCompacta = (i: Ingrediente, conBorde: boolean) => {
     const usos = n(i.usos)
