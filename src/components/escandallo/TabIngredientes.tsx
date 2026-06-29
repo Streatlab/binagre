@@ -33,22 +33,6 @@ function colorCategoria(cat: string): string {
 
 const ELL: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 
-// Pastilla-contador estilo neobrutal (coherente con el modal)
-function Pill({ label, value, bg, fg, active, onClick }: { label: string; value: number; bg: string; fg: string; active?: boolean; onClick?: () => void }) {
-  return (
-    <button type="button" onClick={onClick} style={{
-      display: 'flex', alignItems: 'baseline', gap: 9, cursor: 'pointer',
-      background: bg, color: fg, border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`,
-      padding: '7px 14px', borderRadius: 0,
-      outline: active ? `3px solid ${INK}` : 'none', outlineOffset: 2,
-      transition: 'transform 120ms', transform: active ? 'translate(-1px,-1px)' : 'none',
-    }}>
-      <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.92 }}>{label}</span>
-      <span style={{ fontFamily: OSW, fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{value}</span>
-    </button>
-  )
-}
-
 export default function TabIngredientes({ ingredientes, busqueda = '', onSelect, onNew }: Props) {
   const movil = useEsMovil()
   const [filter, setFilter] = useState<Filter>('todos')
@@ -100,6 +84,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
   })
 
   // ===== Tipografía alineada al Panel Global / Resumen =====
+  // Cabecera: fondo tinta, texto crema, Oswald uppercase
   const th: CSSProperties = {
     fontFamily: OSW, fontSize: 11.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
     color: CREMA, padding: '11px 14px', textAlign: 'left', whiteSpace: 'nowrap',
@@ -107,6 +92,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
   }
   const thR: CSSProperties = { ...th, textAlign: 'right' }
   const thC: CSSProperties = { ...th, textAlign: 'center' }
+  // Celda base: Lexend, separador tenue
   const cell: CSSProperties = {
     padding: '10px 14px', borderTop: `1px solid ${INK}1a`, fontFamily: LEX, fontSize: 14, color: INK, verticalAlign: 'middle',
   }
@@ -218,7 +204,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
           /* ===== ESCRITORIO: tabla como bloque neobrutal ===== */
           <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW }}>
             <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%', minWidth: 900 }}>
+              <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%', minWidth: 1040 }}>
                 <colgroup>
                   <col style={{ width: 232 }} />
                   <col style={{ width: 198 }} />
@@ -283,5 +269,20 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
         )}
       </div>
     </div>
+  )
+}
+
+function Pill({ label, value, bg, fg, active, onClick }: { label: string; value: number; bg: string; fg: string; active?: boolean; onClick?: () => void }) {
+  return (
+    <button onClick={onClick} type="button" style={{
+      cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: 8,
+      background: bg, color: fg, border: `2px solid ${INK}`, boxShadow: active ? `3px 3px 0 ${INK}` : 'none',
+      padding: '7px 14px', borderRadius: 0,
+      outline: active ? `3px solid ${AMA}` : 'none', outlineOffset: '-3px',
+      transition: 'all 120ms',
+    }}>
+      <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: fg, opacity: 0.92 }}>{label}</span>
+      <span style={{ fontFamily: OSW, fontSize: 20, fontWeight: 700, lineHeight: 1, color: fg }}>{value}</span>
+    </button>
   )
 }
