@@ -22,8 +22,7 @@ const FESTIVO_ROJO = '#B01D23'
 const NEGRO = '#1e2233'
 const SEMANA_SIN_LIBRE = '2026-06-15'
 
-/** Empleados con 30 min de descanso descontado (afecta solo al cálculo, no a mostrar las 2 cifras). */
-const CON_DESCUENTO = ['Ray', 'Andrés', 'Héctor']
+/** Descanso de 30 min/día descontado a TODAS las personas (afecta solo al cálculo de horas efectivas). */
 
 function fmtHM(h: number): string {
   const totalMin = Math.round(h * 60)
@@ -36,8 +35,8 @@ export function nombrePila(nombre: string): string {
   return nombre.trim().split(/\s+/)[0]
 }
 
-function descuentoMin(pila: string): number {
-  return CON_DESCUENTO.includes(pila) ? 30 : 0
+function descuentoMin(_pila: string): number {
+  return 30
 }
 
 function turnoDe(tramos: Tramo[], pila: string): Turno {
