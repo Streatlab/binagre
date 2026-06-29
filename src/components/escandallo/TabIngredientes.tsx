@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Ingrediente } from './types'
-import { fmt, fmtPct, n, getProveedor } from './types'
-import { useEsMovil } from '@/hooks/useEsMovil'
-import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, NAR, AZUL, GRANATE, GRIS } from '@/styles/neobrutal'
+import { thCls, tdCls, fmt, fmtPct, n, getProveedor } from './types'
+import { fmtNum } from '@/utils/format'
+import { supabase } from '@/lib/supabase'
+import { useConfig } from '@/hooks/useConfig'
+import { useTheme } from '@/contexts/ThemeContext'
+import { INK, CREMA, OSW, AMA, VERDE, ROJO } from '@/styles/neobrutal'
 
 interface Props {
   ingredientes: Ingrediente[]
@@ -14,35 +16,77 @@ interface Props {
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
-// Semáforo de usos (solo móvil, banda lateral): ROJO 0 / NARANJA 1-4 / VERDE 5+
-function semaforoUsos(usos: number): string {
-  if (usos === 0) return ROJO
-  if (usos <= 4) return NAR
-  return VERDE
+const colorUsos = (usos: number, isDark: boolean) =>
+  usos === 0 ? '#B01D23' :
+  usos <= 4 ? (isDark ? '#e8f442' : '#f5a623') :
+  '#06C167'
+
+const normalizeSelector = (v?: string | null): string => {
+  if (!v) return 'Último'
+  if (v.toLowerCase() === 'ultimo' || v === 'Último') return 'Último'
+  if (v.toLowerCase() === 'media') return 'Media'
+  return v
 }
 
-// Color estable por categoría (determinista por nombre)
-const CAT_PALETTE = ['#2D5BFF', '#0FB86B', '#FF6A1A', '#B01D23', '#7A3FF2', '#0FA3B1', '#C2185B', '#5D4037', '#00897B', '#3949AB', '#8D6E00', '#D81B60']
-function colorCategoria(cat: string): string {
-  const s = (cat ?? '').trim()
-  if (!s) return GRIS
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return CAT_PALETTE[h % CAT_PALETTE.length]
-}
-
-const ELL: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const CAMPOS_NUMERICOS = ['precio1', 'precio2', 'precio3', 'uds', 'merma_pct', 'ultimo_precio']
 
 export default function TabIngredientes({ ingredientes, busqueda = '', onSelect, onNew }: Props) {
-  const movil = useEsMovil()
   const [filter, setFilter] = useState<Filter>('todos')
-  const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
+  const [localIngs, setLocalIngs] = useState<Ingrediente[]>(ingredientes)
+  const [usosMap, setUsosMap] = useState<Record<string, number>>({})
+  const [editingCell, setEditingCell] = useState<{ id: string; campo: string } | null>(null)
+  const [editingValue, setEditingValue] = useState<string>('')
+  const cfg = useConfig()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+
+  useEffect(() => { setLocalIngs(ingredientes) }, [ingredientes])
+
+  const recalcularUsos = async () => {
+    const [{ data: epsL }, { data: recL }] = await Promise.all([
+      supabase.from('eps_lineas').select('ingrediente_id'),
+      supabase.from('recetas_lineas').select('ingrediente_id'),
+    ])
+    const conteo: Record<string, number> = {}
+    ;[...(epsL ?? []), ...(recL ?? [])].forEach((u: { ingrediente_id: string | null }) => {
+      if (!u.ingrediente_id) return
+      const id = String(u.ingrediente_id)
+      conteo[id] = (conteo[id] ?? 0) + 1
+    })
+    setUsosMap(conteo)
+  }
+
+  useEffect(() => { recalcularUsos() }, [ingredientes])
+
+  const categoriasUnicas = useMemo(() => {
+    const s = new Set<string>()
+    localIngs.forEach(i => { if (i.categoria) s.add(i.categoria) })
+    cfg.categorias.forEach(c => s.add(c))
+    return Array.from(s).filter(Boolean).sort()
+  }, [localIngs, cfg.categorias])
+
+  const abvUnicos = useMemo(() => {
+    const s = new Set<string>()
+    localIngs.forEach(i => { if (i.abv) s.add(i.abv) })
+    cfg.proveedores.forEach(p => s.add(p.abv))
+    return Array.from(s).filter(Boolean).sort()
+  }, [localIngs, cfg.proveedores])
+
+  const formatosUnicos = useMemo(() => {
+    const s = new Set<string>()
+    localIngs.forEach(i => { if (i.formato) s.add(i.formato) })
+    cfg.formatos.forEach(f => s.add(f))
+    return Array.from(s).filter(Boolean).sort()
+  }, [localIngs, cfg.formatos])
+
+  const udStdOptions = cfg.unidades_std?.length ? cfg.unidades_std : ['Kg.', 'L.', 'Ud.']
+  const udMinOptions = cfg.unidades_min?.length ? cfg.unidades_min : ['gr.', 'ml.', 'ud.']
 
   const { total, enUso, sinUso, filtered } = useMemo(() => {
-    const base = ingredientes.filter(i =>
+    const base = localIngs.filter(i =>
       i.abv !== 'EPS' && i.abv !== 'MRM' && (i as { tipo_merma?: string }).tipo_merma !== 'EPS'
     )
-    const getUsos = (ing: Ingrediente) => n(ing.usos)
+    const getUsos = (ing: Ingrediente) => usosMap[String(ing.id)] ?? n(ing.usos)
     const totalCount = base.length
     const enUsoCount = base.filter(i => getUsos(i) > 0).length
     let filteredList = base
@@ -60,239 +104,446 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
       )
     }
     return { total: totalCount, enUso: enUsoCount, sinUso: totalCount - enUsoCount, filtered: filteredList }
-  }, [ingredientes, filter, busqueda])
-
-  // Agrupación por categoría (móvil)
-  const grupos = useMemo(() => {
-    const m = new Map<string, Ingrediente[]>()
-    for (const i of filtered) {
-      const k = (i.categoria ?? '').trim() || 'Sin categoría'
-      if (!m.has(k)) m.set(k, [])
-      m.get(k)!.push(i)
-    }
-    for (const arr of m.values()) {
-      arr.sort((a, b) => (a.nombre_base ?? a.nombre ?? '').localeCompare(b.nombre_base ?? b.nombre ?? '', 'es'))
-    }
-    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'))
-  }, [filtered])
+  }, [localIngs, usosMap, filter, busqueda])
 
   const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
-  const toggleGrupo = (k: string) => setAbiertos(prev => {
-    const next = new Set(prev)
-    if (next.has(k)) next.delete(k); else next.add(k)
-    return next
-  })
 
-  // ===== Tipografía alineada al Panel Global / Resumen =====
-  // Cabecera: fondo tinta, texto crema, Oswald uppercase
-  const th: CSSProperties = {
-    fontFamily: OSW, fontSize: 11.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: CREMA, padding: '11px 14px', textAlign: 'left', whiteSpace: 'nowrap',
-    background: INK, position: 'sticky', top: 0,
-  }
-  const thR: CSSProperties = { ...th, textAlign: 'right' }
-  const thC: CSSProperties = { ...th, textAlign: 'center' }
-  // Celda base: Lexend, separador tenue
-  const cell: CSSProperties = {
-    padding: '10px 14px', borderTop: `1px solid ${INK}1a`, fontFamily: LEX, fontSize: 14, color: INK, verticalAlign: 'middle',
-  }
-  const cTxt: CSSProperties = { ...cell, fontSize: 13, ...ELL }
-  const cNum: CSSProperties = { ...cell, textAlign: 'right', fontFamily: OSW, fontWeight: 600, fontSize: 13.5, color: INK, whiteSpace: 'nowrap' }
-
-  // Fila compacta de 1 línea (móvil): nombre + precio. Tap = ficha.
-  const filaCompacta = (i: Ingrediente, conBorde: boolean) => {
-    const usos = n(i.usos)
-    return (
-      <button
-        key={i.id}
-        onClick={() => onSelect?.(i)}
-        style={{
-          textAlign: 'left', width: '100%', background: 'transparent', border: 'none',
-          borderLeft: `10px solid ${semaforoUsos(usos)}`,
-          borderBottom: conBorde ? `2px solid ${INK}` : 'none',
-          padding: '12px 13px', display: 'flex', justifyContent: 'space-between',
-          alignItems: 'center', gap: 10, cursor: 'pointer',
-        }}
-      >
-        <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: 700, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {i.nombre_base ?? i.nombre ?? '—'}
-        </span>
-        <span style={{ fontFamily: OSW, fontSize: 16, fontWeight: 700, color: GRANATE, flexShrink: 0 }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</span>
-      </button>
-    )
+  const startEdit = (e: React.MouseEvent, id: string, campo: string, valor: unknown) => {
+    e.stopPropagation()
+    setEditingCell({ id, campo })
+    setEditingValue(valor == null ? '' : String(valor))
   }
 
-  const chevron = (open: boolean) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="2.5"
-      style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s', flexShrink: 0 }}>
-      <path d="M9 6l6 6-6 6" />
-    </svg>
+  const saveEdit = async (id: string, campo: string, rawValor: string) => {
+    let valor: string = rawValor
+    if (campo === 'selector_precio') {
+      if (valor === 'ultimo') valor = 'Último'
+    }
+    const isNum = CAMPOS_NUMERICOS.includes(campo)
+    const parsed: string | number | null = isNum
+      ? (valor === '' ? null : (parseFloat(valor) || 0))
+      : (valor === '' ? null : valor)
+    const update: Record<string, string | number | null> = { [campo]: parsed }
+    await supabase.from('ingredientes').update(update).eq('id', id)
+    setLocalIngs(prev => prev.map(ing => ing.id === id ? { ...ing, ...update } as Ingrediente : ing))
+    setEditingCell(null)
+    recalcularUsos()
+  }
+
+  const cancelEdit = () => setEditingCell(null)
+
+  const isEditing = (i: Ingrediente, campo: string) =>
+    editingCell?.id === i.id && editingCell.campo === campo
+
+  const editInputStyle: React.CSSProperties = {
+    background: isDark ? '#3a4058' : '#f0f0f0',
+    border: '1px solid #e8f442',
+    borderRadius: '3px',
+    color: 'inherit',
+    width: '100%',
+    outline: 'none',
+    fontFamily: 'inherit',
+    fontSize: 'inherit',
+    padding: '2px 6px',
+  }
+
+  const editSelectStyle: React.CSSProperties = {
+    background: isDark ? '#3a4058' : '#f0f0f0',
+    border: '1px solid #e8f442',
+    borderRadius: '3px',
+    color: 'inherit',
+    width: '100%',
+    outline: 'none',
+    fontFamily: 'inherit',
+    fontSize: 'inherit',
+    padding: '2px 4px',
+  }
+
+  const renderInput = (id: string, campo: string, extraStyle?: React.CSSProperties) => (
+    <input
+      autoFocus
+      type={CAMPOS_NUMERICOS.includes(campo) ? 'number' : 'text'}
+      step={CAMPOS_NUMERICOS.includes(campo) ? 'any' : undefined}
+      value={editingValue}
+      onChange={e => setEditingValue(e.target.value)}
+      onBlur={() => saveEdit(id, campo, editingValue)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') saveEdit(id, campo, editingValue)
+        if (e.key === 'Escape') cancelEdit()
+      }}
+      onClick={e => e.stopPropagation()}
+      style={{ ...editInputStyle, ...extraStyle }}
+    />
   )
 
-  // ===== SHELL neobrutal (mismo lenguaje que el modal): crema + borde 4px + cabecera AMA =====
-  return (
-    <div style={{ background: CREMA, border: `4px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}`, borderRadius: 0 }}>
+  const renderSelect = (id: string, campo: string, opciones: string[]) => (
+    <select
+      autoFocus
+      value={editingValue}
+      onChange={e => { setEditingValue(e.target.value); saveEdit(id, campo, e.target.value) }}
+      onBlur={() => cancelEdit()}
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => { if (e.key === 'Escape') cancelEdit() }}
+      style={editSelectStyle}
+    >
+      <option value=""></option>
+      {opciones.map(op => <option key={op} value={op}>{op}</option>)}
+    </select>
+  )
 
-      {/* Cabecera AMA con título + pastillas-filtro + Nuevo */}
-      <div style={{ background: AMA, borderBottom: `4px solid ${INK}`, padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase', color: INK }}>Ingredientes</span>
-          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+  // Sticky cell backgrounds — opaque per theme
+  const stickyTdBg = isDark ? '#111111' : '#faf9f5'
+  const stickyThBg = isDark ? '#1a1a1a' : '#f5f5f0'
+
+  const stickyTdStyle = (left: number): React.CSSProperties => ({
+    position: 'sticky',
+    left,
+    zIndex: 2,
+    backgroundColor: stickyTdBg,
+  })
+
+  const stickyThStyle = (left: number): React.CSSProperties => ({
+    position: 'sticky',
+    left,
+    zIndex: 30,
+    backgroundColor: stickyThBg,
+  })
+
+  return (
+    <div className="space-y-4">
+      {/* Cabecera AMA neobrutal: título + pastillas-filtro + Nuevo */}
+      <div style={{ background: AMA, border: `4px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}`, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase', color: INK }}>Ingredientes</span>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Pill label="Total"   value={total}  bg={INK}   fg={CREMA} active={filter === 'todos'}  onClick={() => setFilter('todos')} />
             <Pill label="En uso"  value={enUso}  bg={VERDE} fg="#fff"  active={filter === 'enuso'}  onClick={() => toggle('enuso')} />
             <Pill label="Sin uso" value={sinUso} bg={ROJO}  fg="#fff"  active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
           </div>
         </div>
         {onNew && (
-          <button onClick={onNew} style={{
-            fontFamily: OSW, fontWeight: 700, fontSize: 14, letterSpacing: '1px', textTransform: 'uppercase',
-            background: VERDE, color: '#fff', border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`,
-            padding: '10px 22px', cursor: 'pointer', whiteSpace: 'nowrap', borderRadius: 0,
-          }}>+ Nuevo</button>
+          <button onClick={onNew} style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', background: VERDE, color: '#fff', border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, padding: '9px 18px', cursor: 'pointer' }}>+ Nuevo</button>
         )}
       </div>
 
-      {/* Cuerpo */}
-      <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-        {busqueda.trim() && (
-          <div style={{ fontFamily: LEX, fontSize: 13, color: '#6b5d45' }}>
-            {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{busqueda}"
-          </div>
-        )}
-
-        {!filtered.length ? (
-          <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW }}>
-            <p style={{ color: GRIS, fontFamily: LEX, textAlign: 'center', padding: 40, fontSize: 13 }}>
-              Sin ingredientes{filter !== 'todos' ? ' en este filtro' : ''}
-            </p>
-          </div>
-        ) : movil ? (
-          /* ===== MÓVIL ===== */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {busqueda.trim() ? (
-              <div style={{ background: '#ffffff', border: BORDER_CARD, boxShadow: SHADOW, overflow: 'hidden' }}>
-                {filtered.map((i, idx) => filaCompacta(i, idx < filtered.length - 1))}
-              </div>
-            ) : (
-              grupos.map(([cat, items]) => {
-                const open = abiertos.has(cat)
-                return (
-                  <div key={cat} style={{ background: '#ffffff', border: `2px solid ${INK}`, boxShadow: open ? SHADOW : 'none', overflow: 'hidden' }}>
-                    <button
-                      onClick={() => toggleGrupo(cat)}
-                      style={{ width: '100%', background: open ? CLARO : '#fff', border: 'none', cursor: 'pointer',
-                        padding: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}
-                    >
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-                        {chevron(open)}
-                        <span style={{ width: 11, height: 11, background: colorCategoria(cat), border: `1.5px solid ${INK}`, flexShrink: 0 }} />
-                        <span style={{ fontFamily: OSW, fontSize: 13, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</span>
-                      </span>
-                      <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 700, color: INK, background: CLARO, border: `1.5px solid ${INK}`, padding: '2px 9px', flexShrink: 0 }}>{items.length}</span>
-                    </button>
-                    {open && (
-                      <div style={{ borderTop: `2px solid ${INK}` }}>
-                        {items.map((i, idx) => filaCompacta(i, idx < items.length - 1))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })
-            )}
-          </div>
-        ) : (
-          /* ===== ESCRITORIO: tabla como bloque neobrutal ===== */
-          <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW }}>
-            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%', minWidth: 1760 }}>
-                <colgroup>
-                  <col style={{ width: 220 }} />
-                  <col style={{ width: 200 }} />
-                  <col style={{ width: 150 }} />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 60 }} />
-                  <col style={{ width: 64 }} />
-                  <col style={{ width: 70 }} />
-                  <col style={{ width: 70 }} />
-                  <col style={{ width: 84 }} />
-                  <col style={{ width: 84 }} />
-                  <col style={{ width: 84 }} />
-                  <col style={{ width: 96 }} />
-                  <col style={{ width: 90 }} />
-                  <col style={{ width: 90 }} />
-                  <col style={{ width: 84 }} />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 100 }} />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th style={th}>Ingrediente</th>
-                    <th style={th}>Proveedor</th>
-                    <th style={th}>Categoría</th>
-                    <th style={th}>Formato</th>
-                    <th style={thC}>Usos</th>
-                    <th style={thR}>Uds</th>
-                    <th style={th}>Ud std</th>
-                    <th style={th}>Ud min</th>
-                    <th style={thR}>Precio 1</th>
-                    <th style={thR}>Precio 2</th>
-                    <th style={thR}>Precio 3</th>
-                    <th style={thR}>P. activo €</th>
-                    <th style={thR}>EUR / STD</th>
-                    <th style={thR}>EUR / MIN</th>
-                    <th style={thR}>Merma %</th>
-                    <th style={thR}>C. neto STD</th>
-                    <th style={thR}>C. neto MIN</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((i, idx) => {
-                    const usos = n(i.usos)
-                    const cc = colorCategoria(i.categoria ?? '')
-                    const zebra = idx % 2 ? '#fbf8f1' : '#ffffff'
-                    return (
-                      <tr
-                        key={i.id}
+      {!filtered.length ? (
+        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-12 text-center">
+          <p className="text-[var(--sl-text-muted)] text-sm">Sin ingredientes{filter !== 'todos' ? ' en este filtro' : ''}</p>
+        </div>
+      ) : (
+        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl" style={{ overflow: 'visible' }}>
+          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)', borderRadius: 'inherit' }}>
+            <table style={{ tableLayout: 'fixed', width: '2660px' }}>
+              <colgroup>
+                <col style={{ width: 90 }} />
+                <col style={{ width: 150 }} />
+                <col style={{ width: 190 }} />
+                <col style={{ width: 55 }} />
+                <col style={{ width: 210 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 55 }} />
+                <col style={{ width: 65 }} />
+                <col style={{ width: 65 }} />
+                <col style={{ width: 55 }} />
+                <col style={{ width: 85 }} />
+                <col style={{ width: 85 }} />
+                <col style={{ width: 85 }} />
+                <col style={{ width: 95 }} />
+                <col style={{ width: 75 }} />
+                <col style={{ width: 85 }} />
+                <col style={{ width: 85 }} />
+                <col style={{ width: 65 }} />
+                <col style={{ width: 85 }} />
+                <col style={{ width: 65 }} />
+                <col style={{ width: 85 }} />
+                <col style={{ width: 75 }} />
+                <col style={{ width: 75 }} />
+                <col style={{ width: 95 }} />
+                <col style={{ width: 75 }} />
+                <col style={{ width: 95 }} />
+                <col style={{ width: 75 }} />
+              </colgroup>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 20 }}>
+                <tr>
+                  <th className={thCls} style={stickyThStyle(0)}>IDING</th>
+                  <th className={thCls}>CATEGORIA</th>
+                  <th className={thCls} style={stickyThStyle(90)}>NOMBRE BASE</th>
+                  <th className={thCls}>ABV</th>
+                  <th className={thCls}>NOMBRE</th>
+                  <th className={thCls}>PROVEEDOR</th>
+                  <th className={thCls}>MARCA</th>
+                  <th className={thCls}>FORMATO</th>
+                  <th className={thCls + ' text-right'}>UDS</th>
+                  <th className={thCls}>UD STD</th>
+                  <th className={thCls}>UD MIN</th>
+                  <th className={thCls + ' text-center'}>USOS</th>
+                  <th className={thCls + ' text-right'}>PRECIO1</th>
+                  <th className={thCls + ' text-right'}>PRECIO2</th>
+                  <th className={thCls + ' text-right'}>PRECIO3</th>
+                  <th className={thCls + ' text-right'}>ÚLTIMO PRECIO</th>
+                  <th className={thCls + ' text-center'}>SELECTOR</th>
+                  <th className={thCls + ' text-right'}>ACTIVO</th>
+                  <th className={thCls + ' text-right'}>EUR/STD</th>
+                  <th className={thCls}>UD/STD</th>
+                  <th className={thCls + ' text-right'}>EUR/MIN</th>
+                  <th className={thCls}>UD/MIN</th>
+                  <th className={thCls}>TIPO MERMA</th>
+                  <th className={thCls + ' text-right'}>MERMA%</th>
+                  <th className={thCls + ' text-right'}>MERMA EF.</th>
+                  <th className={thCls + ' text-right'}>C.NETO/STD</th>
+                  <th className={thCls}>UD/NETO STD</th>
+                  <th className={thCls + ' text-right'}>C.NETO/MIN</th>
+                  <th className={thCls}>UD/NETO MIN</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(i => {
+                  const isEps = i.abv === 'EPS'
+                  const usos = usosMap[String(i.id)] ?? n(i.usos)
+                  const mermaManual = i.tipo_merma === 'Manual'
+                  const selectorDisplay = normalizeSelector(i.selector_precio)
+                  return (
+                    <tr key={i.id} className="hover:bg-[var(--sl-thead)] transition-colors">
+                      {/* IDING — mismo tamaño/fuente que ABV, color amarillo/tostado */}
+                      <td
                         onClick={() => onSelect?.(i)}
-                        style={{ cursor: onSelect ? 'pointer' : 'default', background: zebra }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#faf4e6')}
-                        onMouseLeave={e => (e.currentTarget.style.background = zebra)}
+                        style={{
+                          color: isDark ? '#e8f442' : '#7a6200',
+                          fontFamily: 'Lexend, sans-serif',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 2,
+                          backgroundColor: isDark ? '#111111' : '#ffffff',
+                          padding: '10px 14px',
+                          borderBottom: '1px solid var(--sl-border)',
+                          whiteSpace: 'nowrap',
+                        }}
                       >
-                        <td style={{ ...cell, ...ELL }}>
-                          <span style={{ fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '0.4px', color: GRIS, marginRight: 7 }}>{i.iding ?? ''}</span>
-                          <span style={{ fontFamily: LEX, fontSize: 15, fontWeight: 700, color: INK }}>{i.nombre_base ?? i.nombre ?? '—'}</span>
-                        </td>
-                        <td style={{ ...cell, ...ELL }}>
-                          <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12.5, color: AZUL }}>{i.abv ?? '—'}</span>
-                          <span style={{ fontFamily: LEX, fontSize: 13, color: '#5a4f3a' }}> · {getProveedor(i.abv) || '—'}{i.marca ? ' · ' + i.marca : ''}</span>
-                        </td>
-                        <td style={cell}>
-                          <span style={{ display: 'inline-block', maxWidth: '100%', background: cc + '26', border: `1.5px solid ${cc}`, color: INK, fontFamily: LEX, fontSize: 12.5, fontWeight: 600, padding: '3px 9px', ...ELL }}>{i.categoria ?? '—'}</span>
-                        </td>
-                        <td style={cTxt}>{i.formato ?? '—'}</td>
-                        <td style={{ ...cell, textAlign: 'center', fontFamily: OSW, fontWeight: 700, fontSize: 16, color: usos === 0 ? GRIS : INK }}>{usos}</td>
-                        <td style={{ ...cell, textAlign: 'right', fontFamily: OSW, fontWeight: 700, fontSize: 15, color: INK }}>{fmt(i.uds)}</td>
-                        <td style={cTxt}>{i.ud_std ?? '—'}</td>
-                        <td style={cTxt}>{i.ud_min ?? '—'}</td>
-                        <td style={cNum}>{i.precio1 ? fmt(i.precio1) : '—'}</td>
-                        <td style={cNum}>{i.precio2 ? fmt(i.precio2) : '—'}</td>
-                        <td style={cNum}>{i.precio3 ? fmt(i.precio3) : '—'}</td>
-                        <td style={{ ...cell, textAlign: 'right', fontFamily: OSW, fontWeight: 700, fontSize: 17, letterSpacing: '-0.5px', color: GRANATE, whiteSpace: 'nowrap' }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
-                        <td style={cNum}>{i.eur_std ? fmt(i.eur_std) : '—'}</td>
-                        <td style={cNum}>{i.eur_min ? fmt(i.eur_min) : '—'}</td>
-                        <td style={{ ...cNum, color: i.merma_pct ? NAR : GRIS }}>{i.merma_pct ? fmtPct(i.merma_pct) : '—'}</td>
-                        <td style={cNum}>{i.coste_neto_std ? fmt(i.coste_neto_std) : '—'}</td>
-                        <td style={cNum}>{i.coste_neto_min ? fmt(i.coste_neto_min) : '—'}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        {i.iding ?? '—'}
+                      </td>
+
+                      {/* CATEGORIA — select */}
+                      <td
+                        className={tdCls + ' text-[var(--sl-text-secondary)]'}
+                        onClick={e => startEdit(e, i.id, 'categoria', i.categoria)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'categoria')
+                          ? renderSelect(i.id, 'categoria', categoriasUnicas)
+                          : <span>{i.categoria ?? '—'}</span>}
+                      </td>
+
+                      {/* NOMBRE BASE — input text (sticky), color textPri uniforme */}
+                      <td
+                        className={tdCls + ' max-w-[220px] truncate' + (isEps ? ' italic' : '')}
+                        onClick={e => startEdit(e, i.id, 'nombre_base', i.nombre_base)}
+                        style={{
+                          ...stickyTdStyle(90),
+                          cursor: 'text',
+                          color: isEps ? '#66aaff' : 'var(--sl-text-primary)',
+                          fontWeight: 500,
+                        }}
+                      >
+                        {isEditing(i, 'nombre_base')
+                          ? renderInput(i.id, 'nombre_base')
+                          : <span>{i.nombre_base ?? '—'}</span>}
+                      </td>
+
+                      {/* ABV — select */}
+                      <td
+                        className={tdCls + ' text-[var(--sl-text-primary)] font-mono text-xs font-bold'}
+                        onClick={e => startEdit(e, i.id, 'abv', i.abv)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'abv')
+                          ? renderSelect(i.id, 'abv', abvUnicos)
+                          : <span>{i.abv ?? '—'}</span>}
+                      </td>
+
+                      {/* NOMBRE — display */}
+                      <td className={tdCls + ' max-w-[180px] truncate ' + (isEps ? 'text-[#66aaff] italic' : 'text-[var(--sl-text-primary)]')}>
+                        {i.nombre}
+                      </td>
+
+                      {/* PROVEEDOR — derived */}
+                      <td className={tdCls + ' text-[var(--sl-text-secondary)]'}>{getProveedor(i.abv)}</td>
+
+                      {/* MARCA — input */}
+                      <td
+                        className={tdCls + ' text-[var(--sl-text-secondary)]'}
+                        onClick={e => startEdit(e, i.id, 'marca', i.marca)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'marca')
+                          ? renderInput(i.id, 'marca')
+                          : <span>{i.marca ?? '—'}</span>}
+                      </td>
+
+                      {/* FORMATO — select */}
+                      <td
+                        className={tdCls + ' text-[var(--sl-text-secondary)]'}
+                        onClick={e => startEdit(e, i.id, 'formato', i.formato)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'formato')
+                          ? renderSelect(i.id, 'formato', formatosUnicos)
+                          : <span>{i.formato ?? '—'}</span>}
+                      </td>
+
+                      {/* UDS — input number */}
+                      <td
+                        className={tdCls + ' text-right'}
+                        onClick={e => startEdit(e, i.id, 'uds', i.uds)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'uds')
+                          ? renderInput(i.id, 'uds')
+                          : <span>{fmt(i.uds)}</span>}
+                      </td>
+
+                      {/* UD STD — select */}
+                      <td
+                        className={tdCls + ' text-[var(--sl-text-secondary)]'}
+                        onClick={e => startEdit(e, i.id, 'ud_std', i.ud_std)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'ud_std')
+                          ? renderSelect(i.id, 'ud_std', udStdOptions)
+                          : <span>{i.ud_std ?? '—'}</span>}
+                      </td>
+
+                      {/* UD MIN — select */}
+                      <td
+                        className={tdCls + ' text-[var(--sl-text-secondary)]'}
+                        onClick={e => startEdit(e, i.id, 'ud_min', i.ud_min)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'ud_min')
+                          ? renderSelect(i.id, 'ud_min', udMinOptions)
+                          : <span>{i.ud_min ?? '—'}</span>}
+                      </td>
+
+                      {/* USOS — semáforo */}
+                      <td
+                        className={tdCls}
+                        style={{ color: colorUsos(usos, isDark), fontWeight: 700, textAlign: 'center' }}
+                      >
+                        {usos}
+                      </td>
+
+                      {/* PRECIO1 — input number */}
+                      <td
+                        className={tdCls + ' text-right text-[var(--sl-text-muted)]'}
+                        onClick={e => startEdit(e, i.id, 'precio1', i.precio1)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'precio1')
+                          ? renderInput(i.id, 'precio1')
+                          : <span>{fmt(i.precio1)}</span>}
+                      </td>
+
+                      {/* PRECIO2 — input number */}
+                      <td
+                        className={tdCls + ' text-right text-[var(--sl-text-muted)]'}
+                        onClick={e => startEdit(e, i.id, 'precio2', i.precio2)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'precio2')
+                          ? renderInput(i.id, 'precio2')
+                          : <span>{fmt(i.precio2)}</span>}
+                      </td>
+
+                      {/* PRECIO3 — input number */}
+                      <td
+                        className={tdCls + ' text-right text-[var(--sl-text-muted)]'}
+                        onClick={e => startEdit(e, i.id, 'precio3', i.precio3)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'precio3')
+                          ? renderInput(i.id, 'precio3')
+                          : <span>{fmt(i.precio3)}</span>}
+                      </td>
+
+                      {/* ÚLTIMO PRECIO — display */}
+                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>
+                        {fmt(i.ultimo_precio ?? i.precio_activo)}
+                      </td>
+
+                      {/* SELECTOR — select fijo */}
+                      <td
+                        className={tdCls + ' text-center text-xs'}
+                        onClick={e => startEdit(e, i.id, 'selector_precio', selectorDisplay)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'selector_precio')
+                          ? renderSelect(i.id, 'selector_precio', ['Último', 'P1', 'P2', 'P3'])
+                          : (
+                            <span className="px-1.5 py-0.5 rounded bg-[var(--sl-border)] text-[var(--sl-text-secondary)]">
+                              {selectorDisplay}
+                            </span>
+                          )}
+                      </td>
+
+                      {/* ACTIVO — display */}
+                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)] font-semibold'}>{fmt(i.precio_activo)}</td>
+
+                      {/* EUR/STD — display */}
+                      <td className={tdCls + ' text-right'}>{fmtNum(i.eur_std)}</td>
+                      <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_std ?? '—'}</td>
+
+                      {/* EUR/MIN — display */}
+                      <td className={tdCls + ' text-right'}>{fmtNum(i.eur_min)}</td>
+                      <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_min ?? '—'}</td>
+
+                      {/* TIPO MERMA — select fijo */}
+                      <td
+                        className={tdCls + ' text-xs text-[var(--sl-text-secondary)]'}
+                        onClick={e => startEdit(e, i.id, 'tipo_merma', i.tipo_merma)}
+                        style={{ cursor: 'text' }}
+                      >
+                        {isEditing(i, 'tipo_merma')
+                          ? renderSelect(i.id, 'tipo_merma', ['Manual', 'Tecnica'])
+                          : <span>{i.tipo_merma ?? '—'}</span>}
+                      </td>
+
+                      {/* MERMA% — editable sólo si Manual */}
+                      <td
+                        className={tdCls + ' text-right'}
+                        onClick={mermaManual ? e => startEdit(e, i.id, 'merma_pct', i.merma_pct) : undefined}
+                        style={{ cursor: mermaManual ? 'text' : 'default' }}
+                      >
+                        {isEditing(i, 'merma_pct')
+                          ? renderInput(i.id, 'merma_pct', { width: '60px', textAlign: 'right' })
+                          : (
+                            <span style={{ color: i.tipo_merma === 'Tecnica' ? '#7080a8' : undefined }}>
+                              {i.merma_pct != null ? fmtPct(i.merma_pct) : '—'}
+                            </span>
+                          )}
+                      </td>
+
+                      {/* MERMA EF. */}
+                      <td className={tdCls + ' text-right text-[#ea580c]'}>{i.merma_ef != null ? fmtNum(i.merma_ef) : '—'}</td>
+
+                      {/* C.NETO/STD */}
+                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmtNum(i.coste_neto_std)}</td>
+                      <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_neto_std ?? i.ud_std ?? '—'}</td>
+
+                      {/* C.NETO/MIN */}
+                      <td className={tdCls + ' text-right text-[var(--sl-text-primary)]'}>{fmtNum(i.coste_neto_min)}</td>
+                      <td className={tdCls + ' text-[var(--sl-text-muted)] text-xs'}>{i.ud_neto_min ?? i.ud_min ?? '—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -302,12 +553,11 @@ function Pill({ label, value, bg, fg, active, onClick }: { label: string; value:
     <button onClick={onClick} type="button" style={{
       cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: 8,
       background: bg, color: fg, border: `2px solid ${INK}`, boxShadow: active ? `3px 3px 0 ${INK}` : 'none',
-      padding: '7px 14px', borderRadius: 0,
-      outline: active ? `3px solid ${AMA}` : 'none', outlineOffset: '-3px',
-      transition: 'all 120ms',
+      padding: '6px 12px',
+      outline: active ? `3px solid ${INK}` : 'none', outlineOffset: '-3px', transition: 'all 120ms',
     }}>
-      <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: fg, opacity: 0.92 }}>{label}</span>
-      <span style={{ fontFamily: OSW, fontSize: 20, fontWeight: 700, lineHeight: 1, color: fg }}>{value}</span>
+      <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: fg, opacity: 0.92 }}>{label}</span>
+      <span style={{ fontFamily: OSW, fontSize: 19, fontWeight: 700, lineHeight: 1, color: fg }}>{value}</span>
     </button>
   )
 }
