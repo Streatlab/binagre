@@ -124,7 +124,7 @@ export default function MenuFamilia() {
   const btn = (bg: string, color = '#fff'): React.CSSProperties => ({
     background: bg, color, border: `2px solid ${T.brd}`, borderRadius: 6,
     boxShadow: `2px 2px 0 ${T.brd}`, padding: '6px 12px', cursor: 'pointer',
-    fontFamily: FONT.head, fontWeight: 700, fontSize: 13, letterSpacing: '0.04em',
+    fontFamily: FONT.heading, fontWeight: 700, fontSize: 13, letterSpacing: '0.04em',
     display: 'inline-flex', alignItems: 'center', gap: 6,
   })
   const inp: React.CSSProperties = {
@@ -142,7 +142,7 @@ export default function MenuFamilia() {
       {/* barra semana */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0', flexWrap: 'wrap' }}>
         <button style={btn(T.card, T.pri)} onClick={() => setSemana(s => addDias(s, -7))}><ChevronLeft size={16} /></button>
-        <div style={{ ...cardNeo({ padding: '8px 16px' }), fontFamily: FONT.head, fontWeight: 700, fontSize: 15 }}>
+        <div style={{ ...cardNeo({ padding: '8px 16px' }), fontFamily: FONT.heading, fontWeight: 700, fontSize: 15 }}>
           Semana {fmtCorto(semana)} – {fmtCorto(addDias(semana, 6))}
         </div>
         <button style={btn(T.card, T.pri)} onClick={() => setSemana(s => addDias(s, 7))}><ChevronRight size={16} /></button>
@@ -162,7 +162,7 @@ export default function MenuFamilia() {
             return (
               <div key={dia} style={cardNeo({ padding: 12, minHeight: 150 })}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-                  <span style={{ fontFamily: FONT.head, fontWeight: 700, fontSize: 14, letterSpacing: '0.05em' }}>{dn}</span>
+                  <span style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 14, letterSpacing: '0.05em' }}>{dn}</span>
                   <span style={{ fontSize: 11, color: T.mut }}>{fmtCorto(fecha)}</span>
                 </div>
                 {items.map(a => (
@@ -193,7 +193,7 @@ export default function MenuFamilia() {
         {/* lateral: catálogo + plantillas */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={cardNeo({ padding: 14 })}>
-            <h3 style={{ fontFamily: FONT.head, fontWeight: 700, fontSize: 14, marginBottom: 10, letterSpacing: '0.05em' }}>CATÁLOGO DE PLATOS</h3>
+            <h3 style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 14, marginBottom: 10, letterSpacing: '0.05em' }}>CATÁLOGO DE PLATOS</h3>
             <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
               <input style={inp} placeholder="Nuevo plato…" value={nuevoPlato}
                 onChange={e => setNuevoPlato(e.target.value)}
@@ -212,7 +212,7 @@ export default function MenuFamilia() {
           </div>
 
           <div style={cardNeo({ padding: 14 })}>
-            <h3 style={{ fontFamily: FONT.head, fontWeight: 700, fontSize: 14, marginBottom: 10, letterSpacing: '0.05em' }}>PLANTILLAS</h3>
+            <h3 style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 14, marginBottom: 10, letterSpacing: '0.05em' }}>PLANTILLAS</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {plantillas.map(t => (
                 <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', background: T.group, border: `1.5px solid ${T.brd}`, borderRadius: 5 }}>
