@@ -62,6 +62,7 @@ const SECTIONS: NavSection[] = [
       { path: '/cocina/pareto-ingredientes', label: 'Pareto Ingredientes', emoji: '🥕', perfiles: ['admin', 'cocina'] },
       { path: '/cocina/recetario',           label: 'Recetario',           emoji: '📋', perfiles: ['admin', 'cocina'] },
       { path: '/cocina/produccion',          label: 'Producción',          emoji: '📋', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/menu-familia',        label: 'Menú Familia',        emoji: '🥘', perfiles: ['admin', 'cocina'] },
     ],
   },
   {
