@@ -14,14 +14,14 @@ interface Props {
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
-// Semáforo de usos: ROJO 0 / NARANJA 1-4 / VERDE 5+
+// Semáforo de usos (solo móvil, banda lateral): ROJO 0 / NARANJA 1-4 / VERDE 5+
 function semaforoUsos(usos: number): string {
   if (usos === 0) return ROJO
   if (usos <= 4) return NAR
   return VERDE
 }
 
-// Color estable por categoría (cada categoría su color, determinista por nombre)
+// Color estable por categoría (determinista por nombre)
 const CAT_PALETTE = ['#2D5BFF', '#0FB86B', '#FF6A1A', '#B01D23', '#7A3FF2', '#0FA3B1', '#C2185B', '#5D4037', '#00897B', '#3949AB', '#8D6E00', '#D81B60']
 function colorCategoria(cat: string): string {
   const s = (cat ?? '').trim()
@@ -83,24 +83,22 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
     return next
   })
 
-  // Cabecera tinta (texto crema)
-  const thStyle: CSSProperties = {
-    fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase',
-    color: CREMA, padding: '8px 10px', textAlign: 'right', whiteSpace: 'nowrap',
-    background: INK, position: 'sticky', top: 0, borderRight: `2px solid #4a3f2c`,
+  // ===== Tipografía alineada al Panel Global / Resumen =====
+  // Cabecera: fondo tinta, texto crema, Oswald uppercase
+  const th: CSSProperties = {
+    fontFamily: OSW, fontSize: 11.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
+    color: CREMA, padding: '11px 14px', textAlign: 'left', whiteSpace: 'nowrap',
+    background: INK, position: 'sticky', top: 0,
   }
-  const thL: CSSProperties = { ...thStyle, textAlign: 'left', paddingLeft: 14 }
-  const thC: CSSProperties = { ...thStyle, textAlign: 'center' }
-
-  // Celdas compactas, separador tenue, texto legible
-  const cBase: CSSProperties = {
-    borderTop: `1px solid rgba(20,15,8,.14)`, borderRight: `1px solid rgba(20,15,8,.10)`,
-    padding: '7px 10px', fontFamily: LEX, fontSize: 14, color: INK,
+  const thR: CSSProperties = { ...th, textAlign: 'right' }
+  const thC: CSSProperties = { ...th, textAlign: 'center' }
+  // Celda base: Lexend, separador tenue
+  const cell: CSSProperties = {
+    padding: '10px 14px', borderTop: `1px solid ${INK}1a`, fontFamily: LEX, fontSize: 14, color: INK, verticalAlign: 'middle',
   }
-  const cNum: CSSProperties = { ...cBase, fontFamily: OSW, fontWeight: 700, fontSize: 17, textAlign: 'right' }
-  const cTxt: CSSProperties = { ...cBase, fontSize: 14, textAlign: 'left', ...ELL }
+  const cTxt: CSSProperties = { ...cell, fontSize: 13, ...ELL }
 
-  // Fila compacta de 1 línea (móvil): nombre + semáforo + precio. Tap = ficha.
+  // Fila compacta de 1 línea (móvil): nombre + precio. Tap = ficha.
   const filaCompacta = (i: Ingrediente, conBorde: boolean) => {
     const usos = n(i.usos)
     return (
@@ -130,7 +128,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
     </svg>
   )
 
-  // Tira de filtros: chips contadores sólidos
+  // Tira de filtros: chips contadores
   const Chips = (
     <div style={{ display: 'flex', alignItems: 'stretch', flexWrap: 'wrap', gap: 0, border: `3px solid ${INK}`, boxShadow: SHADOW, background: '#fff' }}>
       <Chip label="TOTAL" value={total} bg={INK} fg={CREMA} active={filter === 'todos'} onClick={() => setFilter('todos')} />
@@ -158,13 +156,13 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
       )}
 
       {!filtered.length ? (
-        <div style={{ background: '#fff', border: `5px solid ${INK}`, boxShadow: '7px 7px 0 ' + INK }}>
+        <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW }}>
           <p style={{ color: GRIS, fontFamily: LEX, textAlign: 'center', padding: 40, fontSize: 13 }}>
             Sin ingredientes{filter !== 'todos' ? ' en este filtro' : ''}
           </p>
         </div>
       ) : movil ? (
-        /* ===== MÓVIL: buscando = lista compacta; sin buscar = categorías desplegables ===== */
+        /* ===== MÓVIL ===== */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {busqueda.trim() ? (
             <div style={{ background: '#ffffff', border: BORDER_CARD, boxShadow: SHADOW, overflow: 'hidden' }}>
@@ -198,89 +196,71 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
           )}
         </div>
       ) : (
-        /* ===== ESCRITORIO: Tabla Neobrutal compacta, zebra, color por categoría ===== */
-        <div style={{ background: CREMA, border: `5px solid ${INK}`, boxShadow: '7px 7px 0 ' + INK, width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto', maxWidth: '100%', WebkitOverflowScrolling: 'touch' }}>
-            <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%', minWidth: 1040 }}>
+        /* ===== ESCRITORIO: tabla con tipografía de Resumen ===== */
+        <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW }}>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%', minWidth: 900 }}>
               <colgroup>
-                <col style={{ width: 230 }} />
-                <col style={{ width: 140 }} />
-                <col style={{ width: 150 }} />
-                <col style={{ width: 120 }} />
-                <col style={{ width: 110 }} />
-                <col style={{ width: 64 }} />
-                <col style={{ width: 78 }} />
-                <col style={{ width: 78 }} />
-                <col style={{ width: 78 }} />
-                <col style={{ width: 104 }} />
+                <col style={{ width: 232 }} />
+                <col style={{ width: 198 }} />
+                <col style={{ width: 142 }} />
+                <col style={{ width: 92 }} />
+                <col style={{ width: 58 }} />
+                <col style={{ width: 66 }} />
+                <col style={{ width: 66 }} />
+                <col style={{ width: 66 }} />
+                <col style={{ width: 96 }} />
               </colgroup>
               <thead>
                 <tr>
-                  <th style={thL}>Ingrediente</th>
-                  <th style={thL}>Proveedor</th>
-                  <th style={thL}>Categoría</th>
-                  <th style={thL}>Marca</th>
-                  <th style={thL}>Formato</th>
+                  <th style={th}>Ingrediente</th>
+                  <th style={th}>Proveedor</th>
+                  <th style={th}>Categoría</th>
+                  <th style={th}>Formato</th>
                   <th style={thC}>Usos</th>
-                  <th style={thStyle}>Uds</th>
-                  <th style={thL}>Ud std</th>
-                  <th style={thL}>Ud min</th>
-                  <th style={{ ...thStyle, borderRight: 'none' }}>Precio €</th>
+                  <th style={thR}>Uds</th>
+                  <th style={th}>Ud std</th>
+                  <th style={th}>Ud min</th>
+                  <th style={thR}>Precio €</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((i, idx) => {
                   const usos = n(i.usos)
-                  const lateral = semaforoUsos(usos)
-                  const zebra = idx % 2 ? '#fbf4e3' : '#ffffff'
+                  const cc = colorCategoria(i.categoria ?? '')
+                  const zebra = idx % 2 ? '#fbf8f1' : '#ffffff'
                   return (
                     <tr
                       key={i.id}
                       onClick={() => onSelect?.(i)}
                       style={{ cursor: onSelect ? 'pointer' : 'default', background: zebra }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#fff3cf')}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#faf4e6')}
                       onMouseLeave={e => (e.currentTarget.style.background = zebra)}
                     >
-                      {/* Ingrediente: banda fina de estado + nombre + IDING */}
-                      <td style={{ ...cBase, borderLeft: `6px solid ${lateral}`, paddingLeft: 12, ...ELL }}>
-                        <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 700, lineHeight: 1.15, ...ELL }}>{i.nombre_base ?? i.nombre ?? '—'}</div>
-                        <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: '#7a6f59', marginTop: 1, ...ELL }}>{i.iding ?? '—'}</div>
+                      {/* Ingrediente: ID delante + nombre grande, una línea */}
+                      <td style={{ ...cell, ...ELL }}>
+                        <span style={{ fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '0.4px', color: GRIS, marginRight: 7 }}>{i.iding ?? ''}</span>
+                        <span style={{ fontFamily: LEX, fontSize: 15, fontWeight: 700, color: INK }}>{i.nombre_base ?? i.nombre ?? '—'}</span>
                       </td>
-                      {/* Proveedor: ABV + nombre completo debajo */}
-                      <td style={{ ...cBase, ...ELL }}>
-                        <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, color: AZUL }}>{i.abv ?? '—'}</div>
-                        <div style={{ fontFamily: LEX, fontSize: 12, color: '#5a4f3a', marginTop: 1, ...ELL }}>{getProveedor(i.abv) || '—'}</div>
+                      {/* Proveedor: ABV · Nombre · Marca (fusionado) */}
+                      <td style={{ ...cell, ...ELL }}>
+                        <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12.5, color: AZUL }}>{i.abv ?? '—'}</span>
+                        <span style={{ fontFamily: LEX, fontSize: 13, color: '#5a4f3a' }}> · {getProveedor(i.abv) || '—'}{i.marca ? ' · ' + i.marca : ''}</span>
                       </td>
-                      {/* Categoría: punto de color + nombre */}
-                      <td style={cTxt}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, maxWidth: '100%' }}>
-                          <span style={{ width: 10, height: 10, background: colorCategoria(i.categoria ?? ''), border: `1.5px solid ${INK}`, flexShrink: 0 }} />
-                          <span style={ELL}>{i.categoria ?? '—'}</span>
-                        </span>
+                      {/* Categoría: chip sombreado del color de la categoría */}
+                      <td style={cell}>
+                        <span style={{ display: 'inline-block', maxWidth: '100%', background: cc + '26', border: `1.5px solid ${cc}`, color: INK, fontFamily: LEX, fontSize: 12.5, fontWeight: 600, padding: '3px 9px', ...ELL }}>{i.categoria ?? '—'}</span>
                       </td>
-                      <td style={cTxt}>{i.marca ?? '—'}</td>
                       <td style={cTxt}>{i.formato ?? '—'}</td>
-                      {/* USOS: punto de color + número (sin bloque rojo) */}
-                      <td style={{ ...cNum, textAlign: 'center', fontSize: 16 }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: lateral, flexShrink: 0 }} />
-                          {usos}
-                        </span>
-                      </td>
-                      <td style={cNum}>{fmt(i.uds)}</td>
+                      {/* Usos: neutro (gris si 0, tinta si >0) */}
+                      <td style={{ ...cell, textAlign: 'center', fontFamily: OSW, fontWeight: 700, fontSize: 16, color: usos === 0 ? GRIS : INK }}>{usos}</td>
+                      <td style={{ ...cell, textAlign: 'right', fontFamily: OSW, fontWeight: 700, fontSize: 15, color: INK }}>{fmt(i.uds)}</td>
                       <td style={cTxt}>{i.ud_std ?? '—'}</td>
                       <td style={cTxt}>{i.ud_min ?? '—'}</td>
-                      <td style={{ ...cNum, color: GRANATE, fontSize: 18, borderRight: 'none' }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
+                      <td style={{ ...cell, textAlign: 'right', fontFamily: OSW, fontWeight: 700, fontSize: 17, letterSpacing: '-0.5px', color: GRANATE }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
                     </tr>
                   )
                 })}
-
-                {/* FILA TOTAL en negro: solo recuento */}
-                <tr>
-                  <td colSpan={10} style={{ borderTop: `4px solid ${INK}`, background: INK, color: CREMA, fontFamily: OSW, fontWeight: 700, padding: '10px 14px', fontSize: 14, letterSpacing: '0.6px', textTransform: 'uppercase', borderLeft: `8px solid ${AMA}` }}>
-                    {filtered.length} ingrediente{filtered.length !== 1 ? 's' : ''}
-                  </td>
-                </tr>
               </tbody>
             </table>
           </div>
