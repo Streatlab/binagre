@@ -5,7 +5,6 @@ import { fmt, fmtPct, n, getProveedor } from './types'
 import { fmtNum } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import { useConfig } from '@/hooks/useConfig'
-import { INK, CREMA, CLARO, OSW, LEX, AMA, VERDE, ROJO, NAR, AZUL, GRANATE, GRIS } from '@/styles/neobrutal'
 
 interface Props {
   ingredientes: Ingrediente[]
@@ -16,42 +15,49 @@ interface Props {
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
-const colorUsos = (usos: number) => (usos === 0 ? ROJO : usos <= 4 ? NAR : VERDE)
+// ── Paleta Panel Global (spec literal) ──
+const PG = {
+  bg: '#f5f3ef', group: '#ebe8e2', card: '#ffffff', brd: '#d0c8bc',
+  pri: '#111111', sec: '#3a4050', mut: '#7a8090',
+  red: '#B01D23', ok: '#1D9E75', warn: '#f5a623', err: '#E24B4A',
+  head: '#1e2233', headTx: '#f5f3ef', blue: '#1E5BCC',
+}
+const OSW = "'Oswald', sans-serif"
+const LEX = "'Lexend', sans-serif"
 
+const colorUsos = (usos: number) => (usos === 0 ? PG.err : usos <= 4 ? PG.warn : PG.ok)
 const esUltimo = (sel?: string | null) => !/media/i.test(sel ?? 'Último')
 const labelSelector = (sel?: string | null) => (esUltimo(sel) ? 'Último' : 'Media')
 
 const CAMPOS_NUMERICOS = ['precio1', 'precio2', 'precio3', 'uds', 'merma_pct']
 
 const scrollBtn: CSSProperties = {
-  fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '0.5px',
-  background: '#fff', color: INK, border: `2px solid ${INK}`, boxShadow: `2px 2px 0 ${INK}`,
-  padding: '6px 12px', cursor: 'pointer', minHeight: 36, minWidth: 40,
+  fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: '0.5px',
+  background: PG.card, color: PG.sec, border: `1.5px solid ${PG.brd}`, borderRadius: 8,
+  padding: '7px 13px', cursor: 'pointer', minHeight: 36, minWidth: 42,
 }
 
-// ---- Estilos neobrutal de tabla ----
 const ZEBRA_A = '#ffffff'
-const ZEBRA_B = '#fbf8f1'
+const ZEBRA_B = '#faf7f1'
 
 const thBase: CSSProperties = {
-  fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.8px', textTransform: 'uppercase',
-  color: CREMA, background: INK, padding: '11px 12px', textAlign: 'left', whiteSpace: 'nowrap',
-  position: 'sticky', top: 0, zIndex: 20, borderRight: `1px solid #ffffff22`,
+  fontFamily: OSW, fontSize: 11, fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase',
+  color: PG.headTx, background: PG.head, padding: '11px 12px', textAlign: 'left', whiteSpace: 'nowrap',
+  position: 'sticky', top: 0, zIndex: 20, borderRight: `1px solid #ffffff14`,
 }
 const thR: CSSProperties = { ...thBase, textAlign: 'right' }
 const thC: CSSProperties = { ...thBase, textAlign: 'center' }
 
 const tdBase: CSSProperties = {
-  fontFamily: LEX, fontSize: 13, color: INK, padding: '8px 12px',
-  borderBottom: `2px solid ${INK}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+  fontFamily: LEX, fontSize: 13, color: PG.pri, padding: '9px 12px',
+  borderBottom: `1px solid ${PG.group}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
 }
 const tdNum: CSSProperties = { ...tdBase, fontFamily: OSW, fontWeight: 600, textAlign: 'right' }
-const tdUd: CSSProperties = { ...tdBase, fontFamily: LEX, fontSize: 12, color: GRIS }
+const tdUd: CSSProperties = { ...tdBase, fontFamily: LEX, fontSize: 12, color: PG.mut }
 
 const editInputStyle: CSSProperties = {
-  background: '#fff', border: `2px solid ${INK}`, borderRadius: 0, color: INK,
-  width: '100%', outline: `2px solid ${AMA}`, outlineOffset: '-2px',
-  fontFamily: LEX, fontSize: 13, padding: '3px 6px',
+  background: '#fff', border: `1.5px solid ${PG.blue}`, borderRadius: 5, color: PG.pri,
+  width: '100%', outline: 'none', fontFamily: LEX, fontSize: 13, padding: '3px 6px',
 }
 const editSelectStyle: CSSProperties = { ...editInputStyle, padding: '3px 4px' }
 
@@ -189,30 +195,30 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
   )
 
   const stickyCol = (left: number, bg: string, base: CSSProperties): CSSProperties => ({
-    ...base, position: 'sticky', left, zIndex: 5, background: bg,
+    ...base, position: 'sticky', left, zIndex: 5, background: bg, borderRight: `1px solid ${PG.brd}`,
   })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Cabecera AMA neobrutal */}
-      <div style={{ background: AMA, border: `4px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}`, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase', color: INK }}>Ingredientes</span>
+      {/* Cabecera Panel Global: tarjeta blanca + título + pastillas-filtro + Nuevo */}
+      <div style={{ background: PG.card, border: `1.5px solid ${PG.brd}`, borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', boxShadow: '0 1px 3px rgba(0,0,0,.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: OSW, fontWeight: 600, fontSize: 20, lineHeight: 1, letterSpacing: '2px', textTransform: 'uppercase', color: PG.pri }}>Ingredientes</span>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Pill label="Total" value={total} bg={INK} fg={CREMA} active={filter === 'todos'} onClick={() => setFilter('todos')} />
-            <Pill label="En uso" value={enUso} bg={VERDE} fg="#fff" active={filter === 'enuso'} onClick={() => toggle('enuso')} />
-            <Pill label="Sin uso" value={sinUso} bg={ROJO} fg="#fff" active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
+            <Pill label="Total" value={total} color={PG.sec} active={filter === 'todos'} onClick={() => setFilter('todos')} />
+            <Pill label="En uso" value={enUso} color={PG.ok} active={filter === 'enuso'} onClick={() => toggle('enuso')} />
+            <Pill label="Sin uso" value={sinUso} color={PG.err} active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
           </div>
         </div>
         {onNew && (
-          <button onClick={onNew} style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', background: VERDE, color: '#fff', border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, padding: '9px 18px', cursor: 'pointer' }}>+ Nuevo</button>
+          <button onClick={onNew} style={{ fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', background: PG.ok, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', cursor: 'pointer' }}>+ Nuevo</button>
         )}
       </div>
 
       {/* Controles de desplazamiento lateral */}
       {!!filtered.length && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK, opacity: 0.7 }}>Desplazar columnas</span>
+          <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: PG.mut }}>Desplazar columnas</span>
           <button type="button" onClick={() => irExtremo(false)} style={scrollBtn}>⏮ Inicio</button>
           <button type="button" onClick={() => desplazar(-560)} style={scrollBtn}>◀</button>
           <button type="button" onClick={() => desplazar(560)} style={scrollBtn}>▶</button>
@@ -221,11 +227,11 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
       )}
 
       {!filtered.length ? (
-        <div style={{ background: '#fff', border: `4px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}`, padding: 40, textAlign: 'center' }}>
-          <p style={{ color: GRIS, fontFamily: LEX, fontSize: 13, margin: 0 }}>Sin ingredientes{filter !== 'todos' ? ' en este filtro' : ''}</p>
+        <div style={{ background: PG.card, border: `1.5px solid ${PG.brd}`, borderRadius: 12, padding: 40, textAlign: 'center' }}>
+          <p style={{ color: PG.mut, fontFamily: LEX, fontSize: 13, margin: 0 }}>Sin ingredientes{filter !== 'todos' ? ' en este filtro' : ''}</p>
         </div>
       ) : (
-        <div style={{ background: '#fff', border: `4px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}` }}>
+        <div style={{ background: PG.card, border: `1.5px solid ${PG.brd}`, borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,.05)' }}>
           <div ref={scrollRef} className="ing-scroll" style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 300px)', width: '100%' }}>
             <table style={{ tableLayout: 'fixed', width: '2660px', borderCollapse: 'collapse' }}>
               <colgroup>
@@ -239,9 +245,9 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
               </colgroup>
               <thead>
                 <tr>
-                  <th style={stickyCol(0, INK, { ...thBase, zIndex: 30 })}>IDING</th>
+                  <th style={stickyCol(0, PG.head, { ...thBase, zIndex: 30 })}>IDING</th>
                   <th style={thBase}>CATEGORÍA</th>
-                  <th style={stickyCol(90, INK, { ...thBase, zIndex: 30 })}>NOMBRE BASE</th>
+                  <th style={stickyCol(90, PG.head, { ...thBase, zIndex: 30 })}>NOMBRE BASE</th>
                   <th style={thBase}>ABV</th>
                   <th style={thBase}>NOMBRE</th>
                   <th style={thBase}>PROVEEDOR</th>
@@ -290,88 +296,65 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
                   const costeNetoStd = mermaN > 0 && mermaN < 100 ? eurStd / (1 - mermaN / 100) : eurStd
                   const costeNetoMin = costeNetoStd / factor
                   return (
-                    <tr key={i.id}>
-                      {/* IDING — sticky, abre ficha */}
-                      <td onClick={() => onSelect?.(i)} style={{ ...stickyCol(0, zebra, tdBase), color: GRANATE, fontFamily: OSW, fontWeight: 700, fontSize: 12, cursor: 'pointer', zIndex: 4 }}>
+                    <tr key={i.id} className="ing-row">
+                      <td onClick={() => onSelect?.(i)} style={{ ...stickyCol(0, zebra, tdBase), color: PG.red, fontFamily: OSW, fontWeight: 600, fontSize: 12, cursor: 'pointer', zIndex: 4 }}>
                         {i.iding ?? '—'}
                       </td>
-                      {/* CATEGORÍA — select */}
-                      <td onClick={e => startEdit(e, i.id, 'categoria', i.categoria)} style={{ ...tdBase, background: zebra, cursor: 'text' }}>
+                      <td onClick={e => startEdit(e, i.id, 'categoria', i.categoria)} style={{ ...tdBase, background: zebra, color: PG.sec, cursor: 'text' }}>
                         {isEditing(i, 'categoria') ? renderSelect(i.id, 'categoria', categoriasUnicas) : (i.categoria ?? '—')}
                       </td>
-                      {/* NOMBRE BASE — sticky, input */}
-                      <td onClick={e => startEdit(e, i.id, 'nombre_base', i.nombre_base)} style={{ ...stickyCol(90, zebra, tdBase), fontWeight: 700, cursor: 'text', zIndex: 4 }}>
+                      <td onClick={e => startEdit(e, i.id, 'nombre_base', i.nombre_base)} style={{ ...stickyCol(90, zebra, tdBase), fontWeight: 600, cursor: 'text', zIndex: 4 }}>
                         {isEditing(i, 'nombre_base') ? renderInput(i.id, 'nombre_base') : (i.nombre_base ?? '—')}
                       </td>
-                      {/* ABV — select */}
-                      <td onClick={e => startEdit(e, i.id, 'abv', i.abv)} style={{ ...tdBase, background: zebra, fontFamily: OSW, fontWeight: 700, color: AZUL, cursor: 'text' }}>
+                      <td onClick={e => startEdit(e, i.id, 'abv', i.abv)} style={{ ...tdBase, background: zebra, fontFamily: OSW, fontWeight: 600, color: PG.blue, cursor: 'text' }}>
                         {isEditing(i, 'abv') ? renderSelect(i.id, 'abv', abvUnicos) : (i.abv ?? '—')}
                       </td>
-                      {/* NOMBRE — display */}
                       <td style={{ ...tdBase, background: zebra }}>{i.nombre}</td>
-                      {/* PROVEEDOR — derivado */}
-                      <td style={{ ...tdBase, background: zebra, color: '#5a4f3a' }}>{getProveedor(i.abv) || '—'}</td>
-                      {/* MARCA — input */}
-                      <td onClick={e => startEdit(e, i.id, 'marca', i.marca)} style={{ ...tdBase, background: zebra, color: '#5a4f3a', cursor: 'text' }}>
+                      <td style={{ ...tdBase, background: zebra, color: PG.sec }}>{getProveedor(i.abv) || '—'}</td>
+                      <td onClick={e => startEdit(e, i.id, 'marca', i.marca)} style={{ ...tdBase, background: zebra, color: PG.sec, cursor: 'text' }}>
                         {isEditing(i, 'marca') ? renderInput(i.id, 'marca') : (i.marca ?? '—')}
                       </td>
-                      {/* FORMATO — select */}
-                      <td onClick={e => startEdit(e, i.id, 'formato', i.formato)} style={{ ...tdBase, background: zebra, cursor: 'text' }}>
+                      <td onClick={e => startEdit(e, i.id, 'formato', i.formato)} style={{ ...tdBase, background: zebra, color: PG.sec, cursor: 'text' }}>
                         {isEditing(i, 'formato') ? renderSelect(i.id, 'formato', formatosUnicos) : (i.formato ?? '—')}
                       </td>
-                      {/* UDS — input */}
                       <td onClick={e => startEdit(e, i.id, 'uds', i.uds)} style={{ ...tdNum, background: zebra, cursor: 'text' }}>
                         {isEditing(i, 'uds') ? renderInput(i.id, 'uds') : fmt(i.uds)}
                       </td>
-                      {/* UD STD — select */}
                       <td onClick={e => startEdit(e, i.id, 'ud_std', i.ud_std)} style={{ ...tdUd, background: zebra, cursor: 'text' }}>
                         {isEditing(i, 'ud_std') ? renderSelect(i.id, 'ud_std', udStdOptions) : (i.ud_std ?? '—')}
                       </td>
-                      {/* UD MIN — select */}
                       <td onClick={e => startEdit(e, i.id, 'ud_min', i.ud_min)} style={{ ...tdUd, background: zebra, cursor: 'text' }}>
                         {isEditing(i, 'ud_min') ? renderSelect(i.id, 'ud_min', udMinOptions) : (i.ud_min ?? '—')}
                       </td>
-                      {/* USOS — semáforo */}
-                      <td style={{ ...tdBase, background: zebra, textAlign: 'center', fontFamily: OSW, fontWeight: 700, fontSize: 15, color: colorUsos(usos) }}>{usos}</td>
-                      {/* PRECIO 1/2/3 — input */}
-                      <td onClick={e => startEdit(e, i.id, 'precio1', i.precio1)} style={{ ...tdNum, background: zebra, color: GRIS, cursor: 'text' }}>
+                      <td style={{ ...tdBase, background: zebra, textAlign: 'center', fontFamily: OSW, fontWeight: 600, fontSize: 15, color: colorUsos(usos) }}>{usos}</td>
+                      <td onClick={e => startEdit(e, i.id, 'precio1', i.precio1)} style={{ ...tdNum, background: zebra, color: PG.mut, cursor: 'text' }}>
                         {isEditing(i, 'precio1') ? renderInput(i.id, 'precio1') : (p1 ? fmt(p1) : '—')}
                       </td>
-                      <td onClick={e => startEdit(e, i.id, 'precio2', i.precio2)} style={{ ...tdNum, background: zebra, color: GRIS, cursor: 'text' }}>
+                      <td onClick={e => startEdit(e, i.id, 'precio2', i.precio2)} style={{ ...tdNum, background: zebra, color: PG.mut, cursor: 'text' }}>
                         {isEditing(i, 'precio2') ? renderInput(i.id, 'precio2') : (p2 ? fmt(p2) : '—')}
                       </td>
-                      <td onClick={e => startEdit(e, i.id, 'precio3', i.precio3)} style={{ ...tdNum, background: zebra, color: GRIS, cursor: 'text' }}>
+                      <td onClick={e => startEdit(e, i.id, 'precio3', i.precio3)} style={{ ...tdNum, background: zebra, color: PG.mut, cursor: 'text' }}>
                         {isEditing(i, 'precio3') ? renderInput(i.id, 'precio3') : (p3 ? fmt(p3) : '—')}
                       </td>
-                      {/* ÚLTIMO — calculado */}
                       <td style={{ ...tdNum, background: zebra }}>{ultimoAuto ? fmt(ultimoAuto) : '—'}</td>
-                      {/* SELECTOR — select Último/Media */}
                       <td onClick={e => startEdit(e, i.id, 'selector_precio', labelSelector(i.selector_precio))} style={{ ...tdBase, background: zebra, textAlign: 'center', cursor: 'text' }}>
                         {isEditing(i, 'selector_precio') ? renderSelect(i.id, 'selector_precio', ['Último', 'Media'])
-                          : <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', background: CLARO, border: `2px solid ${INK}`, padding: '2px 8px', color: INK }}>{labelSelector(i.selector_precio)}</span>}
+                          : <span style={{ fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '0.5px', background: PG.group, borderRadius: 5, padding: '2px 8px', color: PG.sec }}>{labelSelector(i.selector_precio)}</span>}
                       </td>
-                      {/* ACTIVO — calculado, granate */}
-                      <td style={{ ...tdNum, background: zebra, fontSize: 14, color: GRANATE }}>{precioActivo ? fmt(precioActivo) : '—'}</td>
-                      {/* EUR/STD — calculado */}
+                      <td style={{ ...tdNum, background: zebra, fontSize: 14, color: PG.red }}>{precioActivo ? fmt(precioActivo) : '—'}</td>
                       <td style={{ ...tdNum, background: zebra }}>{eurStd ? fmtNum(eurStd) : '—'}</td>
                       <td style={{ ...tdUd, background: zebra }}>{i.ud_std ?? '—'}</td>
-                      {/* EUR/MIN — calculado */}
                       <td style={{ ...tdNum, background: zebra }}>{eurMin ? fmtNum(eurMin) : '—'}</td>
                       <td style={{ ...tdUd, background: zebra }}>{i.ud_min ?? '—'}</td>
-                      {/* TIPO MERMA — select */}
-                      <td onClick={e => startEdit(e, i.id, 'tipo_merma', i.tipo_merma)} style={{ ...tdBase, background: zebra, fontSize: 12, color: '#5a4f3a', cursor: 'text' }}>
+                      <td onClick={e => startEdit(e, i.id, 'tipo_merma', i.tipo_merma)} style={{ ...tdBase, background: zebra, fontSize: 12, color: PG.sec, cursor: 'text' }}>
                         {isEditing(i, 'tipo_merma') ? renderSelect(i.id, 'tipo_merma', ['Manual', 'Tecnica']) : (i.tipo_merma ?? '—')}
                       </td>
-                      {/* MERMA % — editable solo si Manual */}
-                      <td onClick={mermaManual ? e => startEdit(e, i.id, 'merma_pct', i.merma_pct) : undefined} style={{ ...tdNum, background: zebra, cursor: mermaManual ? 'text' : 'default', color: i.tipo_merma === 'Tecnica' ? '#7080a8' : INK }}>
+                      <td onClick={mermaManual ? e => startEdit(e, i.id, 'merma_pct', i.merma_pct) : undefined} style={{ ...tdNum, background: zebra, cursor: mermaManual ? 'text' : 'default', color: i.tipo_merma === 'Tecnica' ? PG.mut : PG.pri }}>
                         {isEditing(i, 'merma_pct') ? renderInput(i.id, 'merma_pct') : (i.merma_pct != null ? fmtPct(i.merma_pct) : '—')}
                       </td>
-                      {/* MERMA EF. — dato BD */}
-                      <td style={{ ...tdNum, background: zebra, color: NAR }}>{i.merma_ef != null ? fmtNum(i.merma_ef) : '—'}</td>
-                      {/* C.NETO/STD — calculado */}
+                      <td style={{ ...tdNum, background: zebra, color: PG.warn }}>{i.merma_ef != null ? fmtNum(i.merma_ef) : '—'}</td>
                       <td style={{ ...tdNum, background: zebra }}>{costeNetoStd ? fmtNum(costeNetoStd) : '—'}</td>
                       <td style={{ ...tdUd, background: zebra }}>{i.ud_neto_std ?? i.ud_std ?? '—'}</td>
-                      {/* C.NETO/MIN — calculado */}
                       <td style={{ ...tdNum, background: zebra }}>{costeNetoMin ? fmtNum(costeNetoMin) : '—'}</td>
                       <td style={{ ...tdUd, background: zebra }}>{i.ud_neto_min ?? i.ud_min ?? '—'}</td>
                     </tr>
@@ -386,15 +369,15 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
   )
 }
 
-function Pill({ label, value, bg, fg, active, onClick }: { label: string; value: number; bg: string; fg: string; active?: boolean; onClick?: () => void }) {
+function Pill({ label, value, color, active, onClick }: { label: string; value: number; color: string; active?: boolean; onClick?: () => void }) {
   return (
     <button onClick={onClick} type="button" style={{
-      cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: 8,
-      background: bg, color: fg, border: `2px solid ${INK}`, boxShadow: active ? `3px 3px 0 ${INK}` : 'none',
-      padding: '6px 12px', outline: active ? `3px solid ${INK}` : 'none', outlineOffset: '-3px', transition: 'all 120ms',
+      cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: 7,
+      background: active ? color : '#fff', border: `1.5px solid ${active ? color : PG.brd}`, borderRadius: 8,
+      padding: '6px 12px', transition: 'all 120ms',
     }}>
-      <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: fg, opacity: 0.92 }}>{label}</span>
-      <span style={{ fontFamily: OSW, fontSize: 19, fontWeight: 700, lineHeight: 1, color: fg }}>{value}</span>
+      <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 500, letterSpacing: '1.2px', textTransform: 'uppercase', color: active ? '#fff' : PG.mut }}>{label}</span>
+      <span style={{ fontFamily: OSW, fontSize: 19, fontWeight: 600, lineHeight: 1, color: active ? '#fff' : color }}>{value}</span>
     </button>
   )
 }
