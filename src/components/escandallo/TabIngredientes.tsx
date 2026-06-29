@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Ingrediente } from './types'
-import { fmt, fmtEurES, n, getProveedor } from './types'
+import { fmt, n, getProveedor } from './types'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, NAR, AZUL, GRANATE, GRIS } from '@/styles/neobrutal'
 
@@ -50,12 +50,6 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
     return { total: totalCount, enUso: enUsoCount, sinUso: totalCount - enUsoCount, filtered: filteredList }
   }, [ingredientes, filter, busqueda])
 
-  // Precio medio de lo filtrado (para fila TOTAL, sobre datos reales)
-  const precioMedio = useMemo(() => {
-    const vals = filtered.map(i => n(i.precio_activo ?? i.ultimo_precio)).filter(v => v > 0)
-    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
-  }, [filtered])
-
   // Agrupación por categoría (móvil)
   const grupos = useMemo(() => {
     const m = new Map<string, Ingrediente[]>()
@@ -79,26 +73,26 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
 
   // Cabecera tinta (texto crema), § patrón uso diario
   const thStyle: CSSProperties = {
-    fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase',
-    color: CREMA, padding: '14px 12px', textAlign: 'right', whiteSpace: 'nowrap',
+    fontFamily: OSW, fontSize: 13, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
+    color: CREMA, padding: '9px 12px', textAlign: 'right', whiteSpace: 'nowrap',
     background: INK, position: 'sticky', top: 0, borderRight: `2px solid #4a3f2c`,
   }
   const thL: CSSProperties = { ...thStyle, textAlign: 'left', paddingLeft: 16 }
   const thC: CSSProperties = { ...thStyle, textAlign: 'center' }
 
-  // Celdas: separador negro 3px arriba, vertical tenue, fondo blanco (sin zebra lavada)
+  // Celdas: separador negro arriba, vertical tenue, fondo blanco. Filas compactas.
   const cBase: CSSProperties = {
-    borderTop: `3px solid ${INK}`, borderRight: `2px solid rgba(20,15,8,.16)`,
-    padding: '16px 12px', fontFamily: LEX, fontSize: 13.5, color: INK,
+    borderTop: `2px solid ${INK}`, borderRight: `2px solid rgba(20,15,8,.16)`,
+    padding: '8px 12px', fontFamily: LEX, fontSize: 15, color: INK, whiteSpace: 'nowrap',
   }
-  const cNum: CSSProperties = { ...cBase, fontFamily: OSW, fontWeight: 700, fontSize: 19, textAlign: 'right' }
-  const cSec: CSSProperties = { ...cBase, color: '#3d362a', fontSize: 13, textAlign: 'right' }
+  const cNum: CSSProperties = { ...cBase, fontFamily: OSW, fontWeight: 700, fontSize: 18, textAlign: 'right' }
+  const cTxt: CSSProperties = { ...cBase, fontSize: 15, textAlign: 'left' }
 
   // Pastilla de usos como BLOQUE SÓLIDO (celda entera pintada, número blanco)
   const usoBlock = (usos: number): CSSProperties => ({
     background: semaforoUsos(usos), color: '#fff', textAlign: 'center',
-    fontFamily: OSW, fontWeight: 700, fontSize: 21,
-    borderTop: `3px solid ${INK}`, borderLeft: `3px solid ${INK}`, borderRight: `3px solid ${INK}`,
+    fontFamily: OSW, fontWeight: 700, fontSize: 18,
+    borderTop: `2px solid ${INK}`, borderLeft: `3px solid ${INK}`, borderRight: `3px solid ${INK}`,
   })
 
   // Fila compacta de 1 línea (móvil): nombre + semáforo + precio. Tap = ficha.
@@ -199,20 +193,20 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
         </div>
       ) : (
         /* ===== ESCRITORIO: patrón Tabla Neobrutal de uso diario ===== */
-        <div style={{ background: CREMA, border: `5px solid ${INK}`, boxShadow: '7px 7px 0 ' + INK }}>
-          <div style={{ overflowX: 'auto' }}>
+        <div style={{ background: CREMA, border: `5px solid ${INK}`, boxShadow: '7px 7px 0 ' + INK, width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto', maxWidth: '100%', WebkitOverflowScrolling: 'touch' }}>
             <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', width: '100%', minWidth: 1180 }}>
               <thead>
                 <tr>
                   <th style={thL}>Ingrediente</th>
                   <th style={thL}>ABV</th>
-                  <th style={thStyle}>Categoría</th>
-                  <th style={thStyle}>Marca</th>
-                  <th style={thStyle}>Formato</th>
+                  <th style={thL}>Categoría</th>
+                  <th style={thL}>Marca</th>
+                  <th style={thL}>Formato</th>
                   <th style={thC}>Usos</th>
                   <th style={thStyle}>Uds</th>
-                  <th style={thStyle}>Ud std</th>
-                  <th style={thStyle}>Ud min</th>
+                  <th style={thL}>Ud std</th>
+                  <th style={thL}>Ud min</th>
                   <th style={{ ...thStyle, borderRight: 'none' }}>Precio €</th>
                 </tr>
               </thead>
@@ -230,61 +224,37 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
                     >
                       {/* Ingrediente: banda lateral de estado + nombre + IDING·proveedor */}
                       <td style={{ ...cBase, borderLeft: `14px solid ${lateral}`, paddingLeft: 16 }}>
-                        <div style={{ fontFamily: LEX, fontSize: 16, fontWeight: 700, lineHeight: 1.1 }}>{i.nombre_base ?? i.nombre ?? '—'}</div>
-                        <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: '#5a4f3a', marginTop: 2 }}>
+                        <div style={{ fontFamily: LEX, fontSize: 15, fontWeight: 700, lineHeight: 1.15 }}>{i.nombre_base ?? i.nombre ?? '—'}</div>
+                        <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: '#5a4f3a', marginTop: 1 }}>
                           {(i.iding ?? '—')} · {getProveedor(i.abv) || '—'}
                         </div>
                       </td>
-                      <td style={{ ...cBase, fontFamily: OSW, fontWeight: 700, fontSize: 13, color: AZUL }}>{i.abv ?? '—'}</td>
-                      <td style={cSec}>{i.categoria ?? '—'}</td>
-                      <td style={cSec}>{i.marca ?? '—'}</td>
-                      <td style={cSec}>{i.formato ?? '—'}</td>
+                      <td style={{ ...cBase, fontFamily: OSW, fontWeight: 700, fontSize: 14, color: AZUL }}>{i.abv ?? '—'}</td>
+                      <td style={cTxt}>{i.categoria ?? '—'}</td>
+                      <td style={cTxt}>{i.marca ?? '—'}</td>
+                      <td style={cTxt}>{i.formato ?? '—'}</td>
                       {/* USOS: bloque sólido de color, número blanco */}
                       <td style={usoBlock(usos)}>{usos}</td>
                       <td style={cNum}>{fmt(i.uds)}</td>
-                      <td style={cSec}>{i.ud_std ?? '—'}</td>
-                      <td style={cSec}>{i.ud_min ?? '—'}</td>
-                      <td style={{ ...cNum, color: GRANATE, fontSize: 21, borderRight: 'none' }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
+                      <td style={cTxt}>{i.ud_std ?? '—'}</td>
+                      <td style={cTxt}>{i.ud_min ?? '—'}</td>
+                      <td style={{ ...cNum, color: GRANATE, fontSize: 19, borderRight: 'none' }}>{fmt(i.precio_activo ?? i.ultimo_precio)}</td>
                     </tr>
                   )
                 })}
 
-                {/* FILA TOTAL en negro, KPI medio en caja amarilla */}
+                {/* FILA TOTAL en negro: solo recuento */}
                 <tr>
-                  <td style={{ borderTop: `5px solid ${INK}`, background: INK, color: CREMA, fontFamily: OSW, fontWeight: 700, padding: 16, fontSize: 15, letterSpacing: '0.6px', textTransform: 'uppercase', borderLeft: `14px solid ${AMA}` }}>
+                  <td colSpan={10} style={{ borderTop: `5px solid ${INK}`, background: INK, color: CREMA, fontFamily: OSW, fontWeight: 700, padding: '11px 16px', fontSize: 15, letterSpacing: '0.6px', textTransform: 'uppercase', borderLeft: `14px solid ${AMA}` }}>
                     {filtered.length} ingrediente{filtered.length !== 1 ? 's' : ''}
-                  </td>
-                  <td style={{ borderTop: `5px solid ${INK}`, background: INK }} colSpan={4} />
-                  <td style={{ borderTop: `5px solid ${INK}`, background: INK, textAlign: 'center' }}>
-                    <span style={{ display: 'inline-block', background: AMA, color: INK, border: `2.5px solid ${CREMA}`, fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '3px 12px' }}>{enUso}/{total}</span>
-                  </td>
-                  <td style={{ borderTop: `5px solid ${INK}`, background: INK }} colSpan={3} />
-                  <td style={{ borderTop: `5px solid ${INK}`, background: INK, textAlign: 'right', padding: '16px 12px' }}>
-                    <span style={{ display: 'inline-block', background: AMA, color: INK, border: `2.5px solid ${CREMA}`, fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '3px 12px' }}>{fmtEurES(precioMedio)} med.</span>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
-
-          {/* Leyenda del semáforo */}
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center', padding: '13px 18px', borderTop: `5px solid ${INK}`, background: CLARO, fontFamily: OSW, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: INK }}>
-            <Leg color={VERDE} txt="5+ usos · sano" />
-            <Leg color={NAR} txt="1–4 usos · vigilar" />
-            <Leg color={ROJO} txt="0 usos · sobra" />
-          </div>
         </div>
       )}
     </div>
-  )
-}
-
-function Leg({ color, txt }: { color: string; txt: string }) {
-  return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-      <span style={{ width: 14, height: 14, background: color, border: `2.5px solid ${INK}`, display: 'inline-block' }} />
-      {txt}
-    </span>
   )
 }
 
