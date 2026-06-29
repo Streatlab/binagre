@@ -1,39 +1,30 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { INK, AMA, CREMA, GRANATE, NAR, GRIS, OSW, LEX } from '@/styles/neobrutal'
+import { INK, AMA, CREMA, GRANATE, NAR, VERDE, AZUL, GRIS, OSW, LEX } from '@/styles/neobrutal'
 
 const btnSaveStyle: CSSProperties = {
-  backgroundColor: AMA,
-  color: INK,
-  fontFamily: OSW,
-  fontWeight: 700,
-  letterSpacing: '1px',
-  textTransform: 'uppercase',
-  padding: '9px 24px',
-  borderRadius: '0',
-  border: `2px solid ${INK}`,
-  boxShadow: `3px 3px 0 ${INK}`,
-  cursor: 'pointer',
-  minHeight: '40px',
+  backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '1px',
+  textTransform: 'uppercase', padding: '11px 28px', borderRadius: 0, border: `2px solid ${INK}`,
+  boxShadow: `3px 3px 0 ${INK}`, cursor: 'pointer', minHeight: 44, fontSize: 14,
 }
 const btnCancelStyle: CSSProperties = {
-  backgroundColor: '#ffffff',
-  color: INK,
-  border: `2px solid ${INK}`,
-  fontFamily: OSW,
-  fontWeight: 700,
-  letterSpacing: '1px',
-  textTransform: 'uppercase',
-  padding: '9px 24px',
-  borderRadius: '0',
-  cursor: 'pointer',
-  minHeight: '40px',
+  backgroundColor: '#ffffff', color: INK, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700,
+  letterSpacing: '1px', textTransform: 'uppercase', padding: '11px 28px', borderRadius: 0, cursor: 'pointer', minHeight: 44, fontSize: 14,
 }
-const labelStyle: CSSProperties = { display: 'block', fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: INK, marginBottom: 4 }
-const secLabel: CSSProperties = { fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 8 }
-const roBox: CSSProperties = { background: CREMA, border: `2px solid ${INK}`, borderRadius: 0, padding: '0.5rem 0.75rem', fontSize: '0.875rem', color: INK, fontFamily: LEX }
-const calcBox: CSSProperties = { background: AMA, border: `2px solid ${INK}`, borderRadius: 0, padding: '0.5rem 0.75rem', fontSize: '0.875rem', color: INK, fontWeight: 700, fontFamily: LEX }
-const inputCls = 'w-full bg-white border-[2px] border-[#140f08] rounded-none px-3 py-2 text-sm text-[#140f08] focus:outline-none focus:border-[#2D5BFF]'
+const labelStyle: CSSProperties = { display: 'block', fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: '#6b5d45', marginBottom: 5 }
+const roBox: CSSProperties = { background: CREMA, border: `2px solid ${INK}`, borderRadius: 0, padding: '9px 12px', fontSize: 14, color: INK, fontFamily: LEX, minHeight: 42, display: 'flex', alignItems: 'center' }
+const calcBox: CSSProperties = { background: AMA, border: `2px solid ${INK}`, borderRadius: 0, padding: '9px 12px', fontSize: 15, color: INK, fontWeight: 700, fontFamily: OSW, letterSpacing: '-0.3px', minHeight: 42, display: 'flex', alignItems: 'center' }
+const inputCls = 'w-full bg-white border-[2px] border-[#140f08] rounded-none px-3 py-2.5 text-[14px] text-[#140f08] focus:outline-none focus:border-[#2D5BFF]'
+
+function Block({ tag, bg, fg = INK, children, style }: { tag: string; bg: string; fg?: string; children: ReactNode; style?: CSSProperties }) {
+  return (
+    <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, padding: '16px 18px', ...style }}>
+      <div style={{ display: 'inline-block', background: bg, color: fg, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', padding: '4px 12px', marginBottom: 16 }}>{tag}</div>
+      {children}
+    </div>
+  )
+}
+
 import { supabase } from '@/lib/supabase'
 import { fmtNum } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
@@ -195,7 +186,6 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
     setErr(null)
     if (!f.nombre_base.trim()) { setErr('Nombre base obligatorio'); return }
 
-    // FIX 7: Técnica → Manual: confirmar borrado subproductos
     const originalTipoMerma = ingrediente?.tipo_merma
     if (originalTipoMerma === 'Tecnica' && f.tipo_merma === 'Manual') {
       const baseTrimPrev = f.nombre_base.trim()
@@ -258,7 +248,6 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
           .eq('iding', idingFinal || '')
           .maybeSingle()
         if (existing) {
-          // FIX 6: ya existe → abrir directamente
           if (onOpenMerma) { onOpenMerma(existing as Merma); return }
         } else {
           const mermaRecord = {
@@ -291,20 +280,28 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
     }
   }
 
+  const nombreCompleto = f.nombre_base && f.abv ? `${f.nombre_base}_${f.abv}` : (f.nombre || '—')
+  const proveedorNombre = cfg.proveedores.find(p => p.abv === f.abv.toUpperCase())?.nombre_completo || MARCA_MAP[f.abv.toUpperCase()] || '—'
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="w-full max-w-5xl my-8" style={{ backgroundColor: '#ffffff', padding: '20px', maxHeight: '90vh', overflowY: 'auto', border: `3px solid ${INK}`, borderRadius: 0, boxShadow: `4px 4px 0 ${INK}` }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
+      <div className="w-full max-w-6xl my-8" style={{ background: CREMA, maxHeight: '92vh', overflowY: 'auto', border: `4px solid ${INK}`, borderRadius: 0, boxShadow: `6px 6px 0 ${INK}` }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '20px 24px', borderBottom: `4px solid ${INK}`, background: AMA }}>
           <div>
-            <h3 style={{ fontFamily: OSW, fontWeight: 700, fontSize: '1rem', letterSpacing: '0.5px', textTransform: 'uppercase', color: INK }}>{isEdit ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</h3>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase', color: INK }}>{isEdit ? 'Editar ingrediente' : 'Nuevo ingrediente'}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              <span style={{ background: '#fff', border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: INK, padding: '3px 10px' }}>{nombreCompleto}</span>
+              {f.abv && <span style={{ background: AZUL, color: '#fff', border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '3px 10px' }}>{f.abv} · {proveedorNombre}</span>}
+            </div>
           </div>
-          <button onClick={onClose} className="text-[#9a8f78] hover:text-[#140f08] transition text-lg leading-none">×</button>
+          <button onClick={onClose} style={{ background: '#fff', border: `2px solid ${INK}`, width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
         </div>
 
-        <div className="space-y-4">
-          {/* Identidad */}
-          <div>
-            <div style={secLabel}>Identidad</div>
+        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* IDENTIDAD */}
+          <Block tag="Identidad" bg={AMA}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label style={labelStyle}>IDING</label>
@@ -317,11 +314,11 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
                 </select>
               </div>
               <div>
-                <label style={labelStyle}>Nombre Base</label>
+                <label style={labelStyle}>Nombre base</label>
                 <input type="text" value={f.nombre_base} onChange={e => set('nombre_base', e.target.value)} onBlur={buscarAlergenosMemoria} placeholder="Tomate" className={inputCls} style={{ fontFamily: LEX }} />
               </div>
               <div>
-                <label style={labelStyle}>ABV</label>
+                <label style={labelStyle}>ABV (proveedor)</label>
                 <select value={f.abv} onChange={e => onAbvChange(e.target.value)} className={inputCls} style={{ fontFamily: LEX }}>
                   {cfg.proveedores.map(p => <option key={p.abv} value={p.abv}>{p.abv}</option>)}
                 </select>
@@ -330,15 +327,11 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
               <div>
                 <label style={labelStyle}>Nombre completo (auto)</label>
-                <div style={roBox}>
-                  {f.nombre_base && f.abv ? `${f.nombre_base}_${f.abv}` : (f.nombre || '—')}
-                </div>
+                <div style={roBox}>{nombreCompleto}</div>
               </div>
               <div>
                 <label style={labelStyle}>Proveedor</label>
-                <div style={roBox}>
-                  {cfg.proveedores.find(p => p.abv === f.abv.toUpperCase())?.nombre_completo || MARCA_MAP[f.abv.toUpperCase()] || '—'}
-                </div>
+                <div style={roBox}>{proveedorNombre}</div>
               </div>
               <div>
                 <label style={labelStyle}>Marca</label>
@@ -351,11 +344,10 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
                 </select>
               </div>
             </div>
-          </div>
+          </Block>
 
-          {/* Unidades y Precios */}
-          <div>
-            <div style={secLabel}>Unidades y Precios</div>
+          {/* UNIDADES Y PRECIOS */}
+          <Block tag="Unidades y precios" bg={AZUL} fg="#fff">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label style={labelStyle}>Peso/Vol. por unidad</label>
@@ -372,11 +364,11 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
                 <div style={roBox}>{f.ud_min}</div>
               </div>
               <div>
-                <label style={labelStyle}>USOS</label>
+                <label style={labelStyle}>Usos</label>
                 <div style={roBox}>{f.usos}</div>
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+            <div className="grid grid-cols-3 gap-3 mt-3">
               <div>
                 <label style={labelStyle}>Precio 1</label>
                 <input type="number" step="0.01" value={f.precio1} onChange={e => set('precio1', e.target.value)} className={inputCls} style={{ fontFamily: LEX }} />
@@ -399,116 +391,86 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
                 </select>
               </div>
               <div>
-                <label style={labelStyle}>Precio Activo</label>
+                <label style={labelStyle}>Precio activo</label>
                 <div style={calcBox}>{fmtNum(precioActivo)}</div>
               </div>
               <div>
-                <label style={labelStyle}>EUR/STD</label>
+                <label style={labelStyle}>EUR / STD</label>
                 <div style={calcBox}>{fmtNum(eurStd)}</div>
               </div>
               <div>
-                <label style={labelStyle}>EUR/MIN</label>
+                <label style={labelStyle}>EUR / MIN</label>
                 <div style={calcBox}>{fmtNum(eurMin)}</div>
               </div>
             </div>
+          </Block>
+
+          {/* MERMA + ALÉRGENOS lado a lado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <Block tag="Merma" bg={NAR} fg="#fff">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label style={labelStyle}>Tipo merma</label>
+                  <select value={f.tipo_merma ?? 'Manual'} onChange={e => set('tipo_merma', e.target.value)} className={inputCls} style={{ fontFamily: LEX }}>
+                    <option value="Manual">Manual</option>
+                    <option value="Tecnica">Técnica</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Merma %</label>
+                  <input type="number" step="0.1" value={f.merma_pct} onChange={e => set('merma_pct', e.target.value)} disabled={f.tipo_merma === 'Tecnica'} className={inputCls} style={{ fontFamily: LEX, ...(f.tipo_merma === 'Tecnica' ? { opacity: 0.6 } : {}) }} />
+                </div>
+                <div>
+                  <label style={labelStyle}>C. neto / STD</label>
+                  <div style={calcBox}>{fmtNum(costeNetoStd)}</div>
+                </div>
+                <div>
+                  <label style={labelStyle}>C. neto / MIN</label>
+                  <div style={calcBox}>{fmtNum(costeNetoMin)}</div>
+                </div>
+              </div>
+            </Block>
+
+            <Block tag="Alérgenos" bg={GRANATE} fg="#fff">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, marginTop: -6 }}>
+                <button type="button" onClick={sugerirAlergenosIA} disabled={alergSugiriendo || !f.nombre_base.trim()} style={{ background: '#fff', border: `2px solid ${INK}`, color: INK, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', opacity: (alergSugiriendo || !f.nombre_base.trim()) ? 0.5 : 1 }}>{alergSugiriendo ? 'SUGIRIENDO…' : '⚡ SUGERIR (IA)'}</button>
+                {errAlerg && <span style={{ fontSize: 12, color: NAR, fontFamily: LEX }}>{errAlerg}</span>}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                {ALERGENOS_14.map(a => {
+                  const on = alergenos.includes(a)
+                  return (
+                    <button key={a} type="button" onClick={() => toggleAlergeno(a)}
+                      style={{ padding: '6px 12px', borderRadius: 0, fontFamily: LEX, fontSize: 13, cursor: 'pointer', border: `2px solid ${INK}`, background: on ? GRANATE : '#fff', color: on ? '#fff' : INK, transition: 'all 120ms' }}>
+                      {a}
+                    </button>
+                  )
+                })}
+              </div>
+              <p style={{ fontSize: 12, color: GRIS, marginTop: 10, fontFamily: LEX }}>
+                Los alérgenos marcados se trasladan a toda EPS y receta que use este ingrediente.
+              </p>
+            </Block>
           </div>
 
-          {/* Merma */}
-          <div>
-            <div style={secLabel}>Merma</div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <label style={labelStyle}>Tipo Merma</label>
-                <select value={f.tipo_merma ?? 'Manual'} onChange={e => set('tipo_merma', e.target.value)} className={inputCls} style={{ fontFamily: LEX }}>
-                  <option value="Manual">Manual</option>
-                  <option value="Tecnica">Técnica</option>
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Merma %</label>
-                <input type="number" step="0.1" value={f.merma_pct} onChange={e => set('merma_pct', e.target.value)} disabled={f.tipo_merma === 'Tecnica'} className={inputCls} style={{ fontFamily: LEX, ...(f.tipo_merma === 'Tecnica' ? { opacity: 0.6 } : {}) }} />
-              </div>
-              <div>
-                <label style={labelStyle}>C.Neto/STD</label>
-                <div style={calcBox}>{fmtNum(costeNetoStd)}</div>
-              </div>
-              <div>
-                <label style={labelStyle}>C.Neto/MIN</label>
-                <div style={calcBox}>{fmtNum(costeNetoMin)}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Alérgenos */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div style={{ ...secLabel, marginBottom: 0 }}>Alérgenos</div>
-              <button type="button" onClick={sugerirAlergenosIA} disabled={alergSugiriendo || !f.nombre_base.trim()} style={{ background: '#fff', border: `2px solid ${INK}`, color: INK, borderRadius: 0, padding: '3px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', opacity: (alergSugiriendo || !f.nombre_base.trim()) ? 0.5 : 1 }}>{alergSugiriendo ? 'SUGIRIENDO…' : '⚡ SUGERIR (IA)'}</button>
-            </div>
-            {errAlerg && <div style={{ fontSize: 12, color: NAR, fontFamily: LEX, marginBottom: 6 }}>{errAlerg}</div>}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {ALERGENOS_14.map(a => {
-                const on = alergenos.includes(a)
-                return (
-                  <button
-                    key={a}
-                    type="button"
-                    onClick={() => toggleAlergeno(a)}
-                    style={{
-                      padding: '7px 14px',
-                      borderRadius: 0,
-                      fontFamily: LEX,
-                      fontSize: 13,
-                      cursor: 'pointer',
-                      border: `2px solid ${INK}`,
-                      background: on ? GRANATE : '#fff',
-                      color: on ? '#fff' : INK,
-                      transition: 'all 120ms',
-                    }}
-                  >
-                    {a}
-                  </button>
-                )
-              })}
-            </div>
-            <p style={{ fontSize: 12, color: GRIS, marginTop: 8, fontFamily: LEX }}>
-              Los alérgenos marcados se trasladan automáticamente a toda EPS y receta que use este ingrediente.
-            </p>
-          </div>
-
-          {err && <p className="text-[#FF1E27] text-sm">{err}</p>}
+          {err && <p style={{ color: '#FF1E27', fontFamily: LEX, fontSize: 14, fontWeight: 600 }}>{err}</p>}
         </div>
 
-        <div className="flex items-center justify-between gap-3 mt-5 pt-4 border-t-[3px] border-[#140f08]">
-          <div className="flex items-center gap-2">
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 24px', borderTop: `4px solid ${INK}`, background: '#fff', position: 'sticky', bottom: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {isEdit && !confirmEliminar && (
-              <button
-                onClick={() => setConfirmEliminar(true)}
-                style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '10px 16px', borderRadius: '0', fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}
-              >
-                ELIMINAR
-              </button>
+              <button onClick={() => setConfirmEliminar(true)} style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '11px 18px', borderRadius: 0, fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: 44 }}>ELIMINAR</button>
             )}
             {isEdit && confirmEliminar && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', color: GRANATE, fontFamily: LEX }}>¿Eliminar definitivamente?</span>
-                <button
-                  onClick={handleEliminar}
-                  disabled={deleting}
-                  style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}
-                >
-                  {deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}
-                </button>
-                <button
-                  onClick={() => setConfirmEliminar(false)}
-                  style={{ background: 'transparent', border: `2px solid ${INK}`, color: INK, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem' }}
-                >
-                  CANCELAR
-                </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, color: GRANATE, fontFamily: LEX }}>¿Eliminar definitivamente?</span>
+                <button onClick={handleEliminar} disabled={deleting} style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, padding: '7px 12px', borderRadius: 0, cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>{deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}</button>
+                <button onClick={() => setConfirmEliminar(false)} style={{ background: 'transparent', border: `2px solid ${INK}`, color: INK, padding: '7px 12px', borderRadius: 0, cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem' }}>CANCELAR</button>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
             <button onClick={handleSave} disabled={saving} style={{ ...btnSaveStyle, opacity: saving ? 0.5 : 1 }}>
               {saving ? 'GUARDANDO…' : isEdit ? 'ACTUALIZAR' : 'GUARDAR'}
