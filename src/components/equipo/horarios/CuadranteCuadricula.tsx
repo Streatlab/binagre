@@ -168,12 +168,12 @@ export function CuadranteCuadricula({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseDatos, dias, empleados])
 
-  const empleadosVisibles = useMemo(() => empleados.filter(e => {
-    const activo = !e.estado || e.estado === 'activo'
-    if (activo) return true
-    // archivado: solo aparece en semanas donde tiene turnos (histórico hacia atrás)
-    return dias.some(d => (datos[claveOverride(e.id, d.iso)] ?? []).length > 0)
-  }), [empleados, dias, datos])
+  // Solo activos en la vista. Un empleado archivado desaparece siempre,
+  // aunque la semana mostrada aún tenga sus turnos (p. ej. histórico hardcodeado).
+  const empleadosVisibles = useMemo(
+    () => empleados.filter(e => !e.estado || e.estado === 'activo'),
+    [empleados],
+  )
 
   function color(idx: number) {
     const pal = [
