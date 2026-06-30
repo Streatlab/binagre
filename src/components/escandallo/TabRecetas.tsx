@@ -66,12 +66,12 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
 
   const th: CSSProperties = {
     fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: CREMA, padding: '11px 12px', background: INK,
+    color: CREMA, padding: '9px 12px', background: INK,
     textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0,
     borderRight: '2px solid #4a3f2c',
   }
   const td: CSSProperties = {
-    fontFamily: LEX, fontSize: 13, color: INK, padding: '13px 12px',
+    fontFamily: LEX, fontSize: 13, color: INK, padding: '6px 11px',
     borderTop: `3px solid ${INK}`, borderRight: '2px solid rgba(20,15,8,.14)', whiteSpace: 'nowrap',
   }
   const num: CSSProperties = { ...td, textAlign: 'right', fontFamily: OSW, fontWeight: 700, fontSize: 17 }
@@ -121,23 +121,23 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
                   const band = hasPvp ? col : GRIS
                   return (
                     <tr key={r.id} onClick={() => onSelect(r)} style={{ cursor: 'pointer', background: '#ffffff' }}>
-                      <td style={{ ...td, color: GRANATE, fontFamily: OSW, fontWeight: 700, fontSize: 14, borderLeft: `14px solid ${band}` }}>{r.codigo ?? ''}</td>
+                      <td style={{ ...td, color: GRANATE, fontFamily: OSW, fontWeight: 700, fontSize: 15, borderLeft: `14px solid ${band}` }}>{r.codigo ?? ''}</td>
                       <td style={td}>
-                        <div style={{ fontFamily: LEX, fontSize: 16, fontWeight: 700, color: INK, lineHeight: 1.1, whiteSpace: 'normal' }}>{r.nombre}</div>
+                        <div style={{ fontFamily: LEX, fontSize: 16, fontWeight: 700, color: INK, lineHeight: 1.03, whiteSpace: 'normal' }}>{r.nombre}</div>
                         {(r.categoria || r.unidad) && (
-                          <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '.4px', textTransform: 'uppercase', color: '#5a4f3a', marginTop: 2 }}>
+                          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '.4px', textTransform: 'uppercase', color: '#5a4f3a', marginTop: 1 }}>
                             {[r.categoria, r.unidad].filter(Boolean).join(' · ')}
                           </div>
                         )}
                       </td>
                       <td style={num}>{r.raciones ? fmtES(r.raciones, 0) : ''}</td>
                       <td style={num}>{r.tamano_rac != null ? fmtES(r.tamano_rac) : ''}</td>
-                      <td style={{ ...num, color: '#00000099' }}>{fmtES(r.coste_tanda, 2)}</td>
+                      <td style={{ ...num, color: '#5a4f3a' }}>{fmtES(r.coste_tanda, 2)}</td>
                       <td style={num}>{fmtES(r.coste_rac, 2)}</td>
                       <td style={num}>{hasPvp ? fmtES(r.pvp_uber, 2) : ''}</td>
                       <td style={{ ...td, padding: 0, textAlign: 'center' }}>
                         {hasPvp ? (
-                          <div style={{ background: col, color: '#ffffff', fontFamily: OSW, fontWeight: 700, fontSize: 21, padding: '12px 6px', borderLeft: `3px solid ${INK}`, borderRight: `3px solid ${INK}` }}>
+                          <div style={{ background: col, color: '#ffffff', fontFamily: OSW, fontWeight: 700, fontSize: 20, padding: '7px 6px', borderLeft: `3px solid ${INK}`, borderRight: `3px solid ${INK}` }}>
                             {m.toFixed(0)}%
                           </div>
                         ) : <span style={{ fontFamily: OSW, color: GRIS, fontSize: 14 }}>—</span>}
@@ -149,7 +149,7 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={7} style={{ background: INK, color: CREMA, fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', padding: '12px', borderTop: `5px solid ${INK}` }}>
+                  <td colSpan={7} style={{ background: INK, color: CREMA, fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', padding: '9px 12px', borderTop: `5px solid ${INK}` }}>
                     {filtered.length} receta{filtered.length !== 1 ? 's' : ''} · margen medio Uber
                   </td>
                   <td style={{ background: INK, textAlign: 'center', borderTop: `5px solid ${INK}`, padding: 8 }}>
