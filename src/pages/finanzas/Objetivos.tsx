@@ -4,7 +4,8 @@ import { fmtEur, fmtNumES } from '@/utils/format'
 import { useTheme, cardStyle, semaforoColor, FONT, LAYOUT, pageTitleStyle, tabActiveStyle, tabInactiveStyle, tabsContainerStyle, CANALES } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
 import { useConfig } from '@/hooks/useConfig'
-import { calcNetoPorCanal, loadConfigCanales, loadMarcasPorCanal, type CanalConfig as CanalConfigCentral, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { loadConfigCanales, loadMarcasPorCanal, type CanalConfig as CanalConfigCentral, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { esFestivo as esFestivoMadrid, nombreFestivo } from '@/utils/festivosMadrid'
 
@@ -111,6 +112,7 @@ export default function Objetivos() {
   useEffect(() => {
     loadConfigCanales().then(setCfgCanalesReal)
     loadMarcasPorCanal().then(setMarcasPorCanal)
+    loadVentasReales().then(() => loadRatiosCalibrados())
     const onChange = () => {
       loadConfigCanales().then(setCfgCanalesReal)
       loadMarcasPorCanal().then(setMarcasPorCanal)
@@ -135,7 +137,7 @@ export default function Objetivos() {
     for (const k of ['uber','glovo','je','web','dir'] as const) {
       const a = acum[k]
       if (a.b <= 0) continue
-      const { neto } = calcNetoPorCanal(k, a.b, a.p, marcasPorCanal, desde, hasta, cfgCanalesReal)
+      const { neto } = resolverNeto(k, a.b, a.p, marcasPorCanal, desde, hasta, cfgCanalesReal)
       netoTotal += neto
     }
     return { neto: netoTotal, bruto: brutoTotal }

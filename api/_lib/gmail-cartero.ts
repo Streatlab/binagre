@@ -10,6 +10,8 @@
 //     y marca posible_duplicado lógico (nº+NIF+total) en base de datos.
 //   - NO METE FIRMAS: las imágenes embebidas del cuerpo/firma (logos, banners,
 //     image001.png de Outlook) se descartan; nunca se procesan como factura.
+//   - CSV de ventas (resumen de ganancias Uber, etc.) SÍ se recogen: el motor
+//     los clasifica como venta de plataforma y los manda a Ventas.
 //
 // 0 coste: IMAP de Gmail es gratis; el OCR posterior es local.
 import { ImapFlow } from 'imapflow'
@@ -28,8 +30,8 @@ export interface AdjuntoCorreo {
 }
 
 const CARPETA_PROCESADAS = 'Procesadas'
-const EXT_FACTURA = /\.(pdf|jpg|jpeg|png|webp|heic|tif|tiff|gif|bmp|eml|doc|docx|xls|xlsx)$/i
-const MIME_FACTURA = /^(application\/pdf|image\/|message\/rfc822|application\/vnd|application\/msword)/i
+const EXT_FACTURA = /\.(pdf|jpg|jpeg|png|webp|heic|tif|tiff|gif|bmp|eml|doc|docx|xls|xlsx|csv|txt)$/i
+const MIME_FACTURA = /^(application\/pdf|image\/|message\/rfc822|application\/vnd|application\/msword|text\/csv)/i
 
 // Imágenes embebidas de firma de correo (Outlook/Gmail) que NO son facturas.
 const NOMBRE_FIRMA = /^(image|imagen|logo|icon|signature|firma|banner)[-_]?\d*\.(png|jpe?g|gif|bmp|webp)$/i

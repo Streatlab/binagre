@@ -28,13 +28,13 @@ export default function TabEstaSemana() {
     return lunesDeSemana(new Date())
   })
   const [turnos, setTurnos] = useState<Turno[]>([])
-  // turnos efectivos en vivo (lo que se ve y se edita) → lo que se exporta
+  // turnos efectivos guardados (lo que se ve) → lo que se exporta
   const [turnosExport, setTurnosExport] = useState<Turno[]>([])
   const [cierres, setCierres] = useState<Partial<Record<string, string>>>({})
   const [fuente, setFuente] = useState<Fuente>('vacio')
 
   const cargarEmpleados = useCallback(() => {
-    supabase.from('empleados').select('id,nombre,cargo,orden').eq('estado', 'activo')
+    supabase.from('empleados').select('id,nombre,cargo,orden,estado')
       .order('orden', { ascending: true, nullsFirst: false })
       .then(({ data }) => setEmpleados((data ?? []) as Empleado[]))
   }, [])
@@ -92,7 +92,7 @@ export default function TabEstaSemana() {
     bd: '#1D9E75', historico: '#66aaff', plantilla: '#f5a623', vacio: '#777777',
   }
 
-  // Lo que se exporta: los turnos en vivo si los hay; si no, la base cargada.
+  // Lo que se exporta: los turnos guardados si los hay; si no, la base cargada.
   const turnosParaExportar = turnosExport.length > 0 ? turnosExport : turnos
 
   return (

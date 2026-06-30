@@ -1,5 +1,6 @@
 /**
- * Gestión de personal desde Horarios: alta, baja (soft) y orden manual.
+ * Gestión de personal desde Horarios y Empleados: alta, archivo (soft),
+ * borrado definitivo (hard), renombrar y orden manual.
  */
 import { supabase } from '@/lib/supabase'
 
@@ -12,11 +13,35 @@ export async function crearEmpleado(nombre: string, orden: number): Promise<bool
   return !error
 }
 
-/** Baja blanda: deja de aparecer pero conserva su histórico. */
-export async function desactivarEmpleado(id: string): Promise<boolean> {
+export async function renombrarEmpleado(id: string, nombre: string): Promise<boolean> {
+  const n = nombre.trim()
+  if (!n) return false
+  const { error } = await supabase.from('empleados').update({ nombre: n }).eq('id', id)
+  return !error
+}
+
+/** Archivo blando: pasa a "antiguos" y se retira de los horarios de hoy en adelante (conserva histórico pasado). */
+export async function archivarEmpleado(id: string): Promise<boolean> {
+  const hoy = new Date().toISOString().slice(0, 10)
+  await supabase.from('horarios').delete().eq('empleado_id', id).gte('fecha', hoy)
   const { error } = await supabase.from('empleados')
     .update({ estado: 'inactivo', activo: false })
     .eq('id', id)
+  return !error
+}
+
+/** Reactivar un empleado archivado. */
+export async function reactivarEmpleado(id: string): Promise<boolean> {
+  const { error } = await supabase.from('empleados')
+    .update({ estado: 'activo', activo: true })
+    .eq('id', id)
+  return !error
+}
+
+/** Borrado definitivo: elimina sus horarios y la ficha. Irreversible. */
+export async function eliminarEmpleadoDuro(id: string): Promise<boolean> {
+  await supabase.from('horarios').delete().eq('empleado_id', id)
+  const { error } = await supabase.from('empleados').delete().eq('id', id)
   return !error
 }
 

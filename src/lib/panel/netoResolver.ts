@@ -104,6 +104,11 @@ function ensureRealtime() {
     .subscribe()
 }
 
+// Rango de cordura del ratio neto/bruto. Fuera de esto = dato mal leido por un
+// parser (no realidad). Se usa tanto en el saneado de entrada como en el calibrado.
+const RATIO_MIN_VALIDO = 0.15          // <15% de neto = basura
+const RATIO_MAX_VALIDO = 0.90          // >90% de neto = basura
+
 export async function loadVentasReales(): Promise<LiqReal[]> {
   ensureRealtime()
   if (cacheLiq) return cacheLiq
@@ -115,14 +120,31 @@ export async function loadVentasReales(): Promise<LiqReal[]> {
   for (const row of data as any[]) {
     if (row.neto == null || row.bruto == null) continue
     if (!row.fecha_inicio_periodo || !row.fecha_fin_periodo) continue
+    const bruto = Number(row.bruto) || 0
+    const neto = Number(row.neto) || 0
+    const pedidos = Number(row.pedidos) || 0
+    // SANEADO ANTI-PARSER-SUCIO (27-jun-2026):
+    //   Una liquidación SOLO se acepta como "real" (y SOLO vale para su propio
+    //   periodo, nunca se traslada como verdad al resto) si supera el filtro de
+    //   cordura. Lo que no lo supera se descarta por completo: ni se muestra como
+    //   neto real de su periodo ni calibra el estimado de los demás tramos.
+    //     - bruto > 0 y pedidos > 0  (no hay facturacion sin pedidos -> parser roto:
+    //       p.ej. filas Glovo con 0 pedidos y cientos de euros de bruto).
+    //     - ratio neto/bruto dentro de [RATIO_MIN_VALIDO, RATIO_MAX_VALIDO]
+    //       (un 8% o 14% de neto en Uber es fisicamente imposible -> linea mal leida).
+    //   Con pocas liquidaciones reales y algunas sucias, esto impide que un dato
+    //   inventado se propague como verdad a las pantallas; el tramo cae al estimado.
+    if (bruto <= 0 || pedidos <= 0) continue
+    const ratioFila = bruto > 0 ? neto / bruto : 0
+    if (ratioFila < RATIO_MIN_VALIDO || ratioFila > RATIO_MAX_VALIDO) continue
     out.push({
       canal: normCanal(row.plataforma),
       marca: normMarca(row.marca),
       ini: diaEpoch(new Date(row.fecha_inicio_periodo + 'T00:00:00')),
       fin: diaEpoch(new Date(row.fecha_fin_periodo + 'T00:00:00')),
-      bruto: Number(row.bruto) || 0,
-      neto: Number(row.neto) || 0,
-      pedidos: Number(row.pedidos) || 0,
+      bruto,
+      neto,
+      pedidos,
     })
   }
   cacheLiq = out
@@ -130,24 +152,56 @@ export async function loadVentasReales(): Promise<LiqReal[]> {
   return cacheLiq
 }
 
-/** Ratio neto/bruto empírico acumulado por canal (autoalimentación). */
+/** Ratio neto/bruto empírico por canal (autoalimentación).
+ *
+ * RECENCIA PONDERADA (revisado 22-jun-2026):
+ *   El ratio ya NO es un promedio simple acumulado (donde 1 semana rara podía
+ *   inclinar el canal). Ahora cada periodo pesa por:
+ *     peso = pedidos_del_periodo × factorRecencia(antigüedad)
+ *   factorRecencia decae suave: periodos recientes pesan 1.0 y baja hasta un
+ *   suelo de 0.4 (no a cero: un buen histórico sigue contando). Como el peso
+ *   lleva los PEDIDOS, una semana floja con pocos pedidos apenas mueve la aguja:
+ *   se corrige el fallo "última semana con 1 dato manda sobre 5 meses".
+ *   Además se descartan ratios imposibles (<15% o >90%) que vienen de parsers
+ *   con datos mal leídos, para que no ensucien la media.
+ */
+const RECENCIA_VIDA_MEDIA_DIAS = 75    // a ~75 días el peso de recencia cae a la mitad
+const RECENCIA_PISO = 0.4              // un periodo antiguo nunca pesa menos del 40%
+
+function factorRecencia(finEpochDia: number, hoyEpochDia: number): number {
+  const antiguedad = Math.max(0, hoyEpochDia - finEpochDia)
+  const decay = Math.pow(0.5, antiguedad / RECENCIA_VIDA_MEDIA_DIAS)
+  return Math.max(RECENCIA_PISO, decay)
+}
+
 export async function loadRatiosCalibrados(): Promise<Record<string, RatioCanal>> {
   if (cacheRatios) return cacheRatios
   const liq = await loadVentasReales()
-  const acc: Record<string, { b: number; n: number; p: number; per: number }> = {}
+  const hoy = diaEpoch(new Date())
+
+  const acc: Record<string, {
+    sumPesoRatio: number; sumPeso: number;          // media ponderada del ratio
+    b: number; n: number; p: number; per: number    // totales muestra (fiabilidad)
+  }> = {}
+
   for (const l of liq) {
-    if (!acc[l.canal]) acc[l.canal] = { b: 0, n: 0, p: 0, per: 0 }
-    acc[l.canal].b += l.bruto
-    acc[l.canal].n += l.neto
-    acc[l.canal].p += l.pedidos
-    acc[l.canal].per += 1
+    if (l.bruto <= 0) continue
+    const ratioPeriodo = l.neto / l.bruto
+    if (ratioPeriodo < RATIO_MIN_VALIDO || ratioPeriodo > RATIO_MAX_VALIDO) continue
+    const peso = Math.max(1, l.pedidos) * factorRecencia(l.fin, hoy)
+    if (!acc[l.canal]) acc[l.canal] = { sumPesoRatio: 0, sumPeso: 0, b: 0, n: 0, p: 0, per: 0 }
+    const a = acc[l.canal]
+    a.sumPesoRatio += ratioPeriodo * peso
+    a.sumPeso += peso
+    a.b += l.bruto; a.n += l.neto; a.p += l.pedidos; a.per += 1
   }
+
   const out: Record<string, RatioCanal> = {}
   for (const [canal, v] of Object.entries(acc)) {
     const fiable = v.p >= MIN_PEDIDOS_CALIBRACION || v.per >= MIN_PERIODOS_CALIBRACION
     out[canal] = {
       canal,
-      ratio: v.b > 0 ? v.n / v.b : 0,
+      ratio: v.sumPeso > 0 ? v.sumPesoRatio / v.sumPeso : 0,
       brutoAcum: v.b, netoAcum: v.n, pedidosAcum: v.p, periodos: v.per,
       fiable,
     }
@@ -223,7 +277,9 @@ function realesContenidas(canal: string, desde?: Date, hasta?: Date, marca?: str
  * Mismo contrato que calcNetoPorCanal, pero aplica REAL MANDA.
  * - Si hay liquidación real para canal(+marca) con periodo dentro del rango:
  *     neto = neto_real (de esa parte del bruto) + estimado del bruto residual.
- * - Si no hay real: estimado por fórmula (calibrado si hay muestra suficiente).
+ *     ⇒ La liquidación real SOLO afecta a SU periodo. No reescribe el resto.
+ * - Si no hay real: estimado por fórmula (calibrado con recencia ponderada si
+ *   hay muestra suficiente; si no, fórmula teórica de config_canales).
  */
 export function resolverNetoCanal(
   canalId: string,
@@ -252,7 +308,7 @@ export function resolverNetoCanal(
     const c = normCanal(canalId)
     const ratio = cacheRatios?.[c]
     if (ratio && ratio.fiable && ratio.ratio > 0) {
-      // Estimado afinado con histórico real del canal
+      // Estimado afinado con histórico real del canal (recencia ponderada)
       netoEstimado = brutoEstimado * ratio.ratio
       usadoCalibrado = true
     } else {

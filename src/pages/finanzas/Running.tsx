@@ -39,7 +39,7 @@ const[platOpen,sPO]=useState<Record<string,boolean>>({uber:true,glovo:true,je:tr
 const[resumenes,sRes]=useState<ResRow[]>([])
 const mainRef=useRef<HTMLDivElement>(null)
 const topRef=useRef<HTMLDivElement>(null)
-const{ingresos,gastos,facturacionFutura,brutos,pedidosCanal,categorias,benchmarks,comisiones,feesFijos,marcasActivas,objetivosMensuales,loading}=useRunningAnual(año,null)
+const{ingresos,gastos,facturacionFutura,brutos,pedidosCanal,adsPlataforma,categorias,benchmarks,comisiones,feesFijos,marcasActivas,objetivosMensuales,loading}=useRunningAnual(año,null)
 useEffect(()=>{(async()=>{const{data}=await supabase.from('ventas_plataforma').select('plataforma, fecha_fin_periodo, bruto, neto, pedidos').gte('fecha_fin_periodo',`${año}-01-01`).lte('fecha_fin_periodo',`${año}-12-31`);const denorm:Record<string,string>={uber:'uber',glovo:'glovo',je:'just_eat',just_eat:'just_eat',justeat:'just_eat',web:'web',dir:'directa',directa:'directa'};const mapped=(data||[]).filter((r:any)=>r.neto!=null).map((r:any)=>{const d=new Date((r.fecha_fin_periodo as string)+'T00:00:00');const p=(r.plataforma||'').toLowerCase().trim();return{plataforma:denorm[p]??p,mes:d.getMonth()+1,año:d.getFullYear(),bruto:Number(r.bruto??0),comisiones:0,fees:0,cargos_promocion:0,neto_real_cobrado:Number(r.neto??0),pedidos:Number(r.pedidos??0)}});sRes(mapped as ResRow[])})()},[año])
 useEffect(()=>{
 const main=mainRef.current;const top=topRef.current;if(!main||!top)return
@@ -62,6 +62,8 @@ cache[`web-${m}`]=calcDesglosePorCanal('web',b.web,p.web,marcasActivas,fIni,fFin
 return cache
 },[brutos,pedidosCanal,marcasActivas,año])
 const sumDesg=(canal:string,campo:keyof DesgloseCanal,ms:number[]):number=>ms.reduce((s,m)=>{const d=desgloseCache[`${canal}-${m}`];return s+(d?Number(d[campo]||0):0)},0)
+const adsC=(canal:'uber'|'glovo'|'je',ms:number[])=>ms.reduce((s,m)=>s+(adsPlataforma[m]?.[canal]||0),0)
+const adsT=(ms:number[])=>adsC('uber',ms)+adsC('glovo',ms)+adsC('je',ms)
 const iT=(ms:number[])=>{let s=0;for(const[c,m]of Object.entries(ingresos)){if(c.startsWith('1.'))s+=sumMeses(m,ms)};return s}
 const gP=(p:string,ms:number[])=>sumCatMeses(gastos,p,ms)
 const gT=(ms:number[])=>gP('2.',ms)
@@ -217,5 +219,12 @@ return(<div style={{background:COLORS.bg,padding:'20px 24px',minHeight:'100vh'}}
 <tr key={sub.id} style={{background:aB(),cursor:'pointer'}} onClick={()=>sD(p=>({...p,[sub.id]:!p[sub.id]}))}><td style={{...t1,paddingLeft:18,fontWeight:600,fontSize:13}}>{det[sub.id]!==false?'▾':'▸'} {sub.id} · {sub.nombre}</td><Cells fn={ms=>sumCatMeses(gastos,sub.id,ms)} bg={bgDet} pctFn={ms=>po(sumCatMeses(gastos,sub.id,ms),iM(ms))} zona="det"/></tr>,
 ...(det[sub.id]!==false?ch.filter(c=>vi(c.nombre)).map(c=><tr key={c.id} style={{background:aB()}} {...hv}><td style={{...t1,paddingLeft:34,color:COLORS.mut,fontSize:12}}>{c.id} · {c.nombre}</td><Cells fn={ms=>sumMeses(gastos[c.id]||{},ms)} bg={bgDet} pctFn={ms=>po(sumMeses(gastos[c.id]||{},ms),iM(ms))} zona="det"/></tr>):[]),
 ].filter(Boolean)}):[]),sp].filter(Boolean)}).flat()}
+{sp}
+{sH('Ads plataformas',COLORS.mut,<span style={{color:COLORS.mut,fontSize:10,fontWeight:400,marginLeft:8}}>informativo · no computa en P y G</span>,bgDet)}{rA() as any}
+{mhRow('Plataforma',bgDet)}
+<tr><td style={gR}>2.41.5 · Ads plataformas</td><Cells fn={adsT} bg={bgDet} zona="det"/></tr>
+<tr style={{background:aB()}} {...hv}><td style={{...t1,paddingLeft:18,fontSize:13}}>Ads Uber Eats</td><Cells fn={ms=>adsC('uber',ms)} bg={bgDet} zona="det"/></tr>
+<tr style={{background:aB()}} {...hv}><td style={{...t1,paddingLeft:18,fontSize:13}}>Ads Glovo</td><Cells fn={ms=>adsC('glovo',ms)} bg={bgDet} zona="det"/></tr>
+<tr style={{background:aB()}} {...hv}><td style={{...t1,paddingLeft:18,fontSize:13}}>Ads Just Eat</td><Cells fn={ms=>adsC('je',ms)} bg={bgDet} zona="det"/></tr>
 </tbody></table></div></div></div>)
 }

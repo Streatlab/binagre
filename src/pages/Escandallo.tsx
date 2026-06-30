@@ -6,21 +6,28 @@ import TabIngredientes from '@/components/escandallo/TabIngredientes'
 import TabMermas from '@/components/escandallo/TabMermas'
 import TabEPS from '@/components/escandallo/TabEPS'
 import TabRecetas from '@/components/escandallo/TabRecetas'
-import TabsPastilla from '@/components/ui/TabsPastilla'
 import ModalEPS from '@/components/escandallo/ModalEPS'
 import ModalReceta from '@/components/escandallo/ModalReceta'
 import ModalIngrediente from '@/components/escandallo/ModalIngrediente'
 import ModalMerma from '@/components/escandallo/ModalMerma'
+import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, ROSA, GRANATE, ROJO } from '@/styles/neobrutal'
 
 type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas'
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'indice', label: 'Índice' },
-  { id: 'ingredientes', label: 'Ingredientes' },
-  { id: 'mermas', label: 'Mermas' },
-  { id: 'eps', label: 'EPS' },
-  { id: 'recetas', label: 'Recetas' },
+const TABS: { id: Tab; label: string; count: (d: Data) => number }[] = [
+  { id: 'indice', label: 'Índice', count: d => d.epsList.length + d.recetasList.length },
+  { id: 'ingredientes', label: 'Ingredientes', count: d => d.ingredientes.length },
+  { id: 'mermas', label: 'Mermas', count: d => d.mermas.length },
+  { id: 'eps', label: 'EPS', count: d => d.epsList.length },
+  { id: 'recetas', label: 'Recetas', count: d => d.recetasList.length },
 ]
+
+interface Data {
+  ingredientes: Ingrediente[]
+  mermas: Merma[]
+  epsList: EPS[]
+  recetasList: Receta[]
+}
 
 export default function Escandallo() {
   const [tab, setTab] = useState<Tab>('indice')
@@ -37,6 +44,8 @@ export default function Escandallo() {
   const [modalReceta, setModalReceta] = useState<{ open: boolean; receta: Receta | null }>({ open: false, receta: null })
   const [modalIng, setModalIng] = useState<{ open: boolean; ing: Ingrediente | null }>({ open: false, ing: null })
   const [modalMerma, setModalMerma] = useState<{ open: boolean; merma: Merma | null }>({ open: false, merma: null })
+
+  const data: Data = { ingredientes, mermas, epsList, recetasList }
 
   const fetchData = async () => {
     setLoading(true)
@@ -85,81 +94,107 @@ export default function Escandallo() {
   }
 
   return (
-    <div style={{ background: '#f5f3ef', padding: '24px 28px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <h2 style={{ color: '#B01D23', fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>ESCANDALLO</h2>
+    <div style={{ background: CREMA, minHeight: '100%' }}>
+      {/* ===== MARCO: cabecera clara + pestañas rosas (folder) ===== */}
+      <div style={{ background: CREMA, padding: '22px 32px 0', borderBottom: `4px solid ${INK}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 10 }}>
+          <h2 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 'clamp(26px,3.2vw,40px)', lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: 0 }}>Escandallo</h2>
+          <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK }}>Banco de trabajo · Comer bien, aquí y ahora</span>
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginTop: 16, flexWrap: 'wrap' }}>
+          {TABS.map(t => {
+            const on = tab === t.id
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  fontFamily: OSW, fontWeight: 700, fontSize: 13.5, letterSpacing: '0.5px',
+                  textTransform: 'uppercase', padding: on ? '11px 18px 15px' : '11px 18px',
+                  cursor: 'pointer', border: `3px solid ${INK}`, borderBottom: 'none', borderRadius: 0,
+                  background: on ? ROSA : '#ffffff', color: on ? '#ffffff' : INK,
+                  position: 'relative', top: on ? 0 : 4, marginBottom: -4,
+                }}
+              >
+                {t.label}
+                <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 11, padding: '1px 6px', background: on ? '#fff' : INK, color: on ? ROSA : '#fff' }}>{t.count(data)}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {/* Subtabs estilo Conciliación + buscador */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-        <TabsPastilla
-          tabs={TABS.map(t => ({ id: t.id, label: t.label }))}
-          activeId={tab}
-          onChange={(id) => setTab(id as Tab)}
-        />
+      {/* ===== CONTROL STRIP: buscador ===== */}
+      <div style={{ background: CREMA, borderBottom: `4px solid ${INK}`, padding: '16px 32px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <input
-          className="flex-1 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent"
-          placeholder="Buscar..."
+          style={{
+            flex: 1, minWidth: 220, background: '#ffffff', border: BORDER_CARD, borderRadius: 0,
+            padding: '10px 14px', fontFamily: LEX, fontSize: 14, color: INK, outline: 'none',
+          }}
+          placeholder="🔎  Buscar por nombre, ABV, proveedor, categoría…"
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
         />
       </div>
 
-      {/* Contenido */}
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="h-6 w-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : error ? (
-        <div className="bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl p-8 text-center">
-          <p className="text-[#dc2626] text-sm">{error}</p>
-          <button onClick={fetchData} className="mt-3 text-xs text-[var(--sl-text-primary)] underline">Reintentar</button>
-        </div>
-      ) : (
-        <>
-          {tab === 'indice' && (
-            <TabIndice
-              epsList={epsList}
-              recetasList={recetasList}
-              busqueda={busqueda}
-              onOpenEps={eps => setModalEPS({ open: true, eps })}
-              onOpenReceta={receta => setModalReceta({ open: true, receta })}
-            />
-          )}
-          {tab === 'ingredientes' && (
-            <TabIngredientes
-              ingredientes={ingredientes}
-              busqueda={busqueda}
-              onSelect={ing => setModalIng({ open: true, ing })}
-              onNew={() => setModalIng({ open: true, ing: null })}
-            />
-          )}
-          {tab === 'mermas' && (
-            <TabMermas
-              mermas={mermas}
-              busqueda={busqueda}
-              onSelect={merma => setModalMerma({ open: true, merma })}
-              onNew={() => setModalMerma({ open: true, merma: null })}
-            />
-          )}
-          {tab === 'eps' && (
-            <TabEPS
-              epsList={epsList}
-              busqueda={busqueda}
-              onSelect={eps => setModalEPS({ open: true, eps })}
-              onNew={() => setModalEPS({ open: true, eps: null })}
-            />
-          )}
-          {tab === 'recetas' && (
-            <TabRecetas
-              recetasList={recetasList}
-              busqueda={busqueda}
-              onSelect={receta => setModalReceta({ open: true, receta })}
-              onNew={() => setModalReceta({ open: true, receta: null })}
-            />
-          )}
-        </>
-      )}
+      {/* ===== CONTENIDO ===== */}
+      <div style={{ padding: '24px 32px 40px' }}>
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>
+            <div style={{ height: 28, width: 28, border: `3px solid ${INK}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          </div>
+        ) : error ? (
+          <div style={{ background: '#ffffff', border: BORDER_CARD, boxShadow: SHADOW, padding: 28, textAlign: 'center' }}>
+            <p style={{ fontFamily: LEX, color: ROJO, fontSize: 14, margin: 0 }}>{error}</p>
+            <button onClick={fetchData} style={{ marginTop: 12, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', background: AMA, color: INK, border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, padding: '6px 14px', cursor: 'pointer' }}>Reintentar</button>
+          </div>
+        ) : (
+          <>
+            {tab === 'indice' && (
+              <TabIndice
+                epsList={epsList}
+                recetasList={recetasList}
+                busqueda={busqueda}
+                onOpenEps={eps => setModalEPS({ open: true, eps })}
+                onOpenReceta={receta => setModalReceta({ open: true, receta })}
+              />
+            )}
+            {tab === 'ingredientes' && (
+              <TabIngredientes
+                ingredientes={ingredientes}
+                busqueda={busqueda}
+                onSelect={ing => setModalIng({ open: true, ing })}
+                onNew={() => setModalIng({ open: true, ing: null })}
+              />
+            )}
+            {tab === 'mermas' && (
+              <TabMermas
+                mermas={mermas}
+                busqueda={busqueda}
+                onSelect={merma => setModalMerma({ open: true, merma })}
+                onNew={() => setModalMerma({ open: true, merma: null })}
+              />
+            )}
+            {tab === 'eps' && (
+              <TabEPS
+                epsList={epsList}
+                busqueda={busqueda}
+                onSelect={eps => setModalEPS({ open: true, eps })}
+                onNew={() => setModalEPS({ open: true, eps: null })}
+              />
+            )}
+            {tab === 'recetas' && (
+              <TabRecetas
+                recetasList={recetasList}
+                busqueda={busqueda}
+                onSelect={receta => setModalReceta({ open: true, receta })}
+                onNew={() => setModalReceta({ open: true, receta: null })}
+              />
+            )}
+          </>
+        )}
+      </div>
 
       {modalEPS.open && (
         <ModalEPS

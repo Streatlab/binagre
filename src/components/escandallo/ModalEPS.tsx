@@ -2,33 +2,45 @@ import type { CSSProperties } from 'react'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente, EPS, EPSLinea } from './types'
-import { UNIDADES, inputCls, thCls, tdCls, n } from './types'
+import { UNIDADES, n } from './types'
 import { fmtNum, fmtEur } from '@/utils/format'
-import { useTheme, FONT } from '@/styles/tokens'
+import { INK, AMA, GRANATE, GRIS, NAR, OSW, LEX } from '@/styles/neobrutal'
 import ModalIngrediente from './ModalIngrediente'
+import BuscadorItem from './BuscadorItem'
+import type { BuscadorOpcion } from './BuscadorItem'
 
 const btnSaveStyle: CSSProperties = {
-  backgroundColor: 'var(--sl-btn-save-bg)',
-  color: 'var(--sl-btn-save-text)',
-  fontFamily: 'Oswald, sans-serif',
+  backgroundColor: AMA,
+  color: INK,
+  fontFamily: OSW,
+  fontWeight: 700,
   letterSpacing: '1px',
+  textTransform: 'uppercase',
   padding: '9px 24px',
-  borderRadius: '5px',
-  border: 'none',
+  borderRadius: '0',
+  border: `2px solid ${INK}`,
+  boxShadow: `3px 3px 0 ${INK}`,
   cursor: 'pointer',
   minHeight: '40px',
 }
 const btnCancelStyle: CSSProperties = {
-  backgroundColor: 'var(--sl-btn-cancel-bg)',
-  color: 'var(--sl-btn-cancel-text)',
-  border: '1px solid var(--sl-btn-cancel-border)',
-  fontFamily: 'Oswald, sans-serif',
+  backgroundColor: '#ffffff',
+  color: INK,
+  border: `2px solid ${INK}`,
+  fontFamily: OSW,
+  fontWeight: 700,
   letterSpacing: '1px',
+  textTransform: 'uppercase',
   padding: '9px 24px',
-  borderRadius: '5px',
+  borderRadius: '0',
   cursor: 'pointer',
   minHeight: '40px',
 }
+
+const inputCls = 'w-full bg-white border-[2px] border-[#140f08] rounded-none px-3 py-2 text-sm text-[#140f08] placeholder:text-[#9a8f78] focus:outline-none focus:border-[#2D5BFF]'
+const labelCls = 'block text-[11px] text-[#140f08] mb-1 uppercase tracking-wider'
+const thCls = 'px-3 py-2 text-left text-[10px] uppercase tracking-wider text-[#140f08] font-semibold border-b-[2px] border-[#140f08] bg-[#FCEFD6]'
+const tdCls = 'px-3 py-2 text-sm border-b border-[#140f08]/20'
 
 interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
 
@@ -43,9 +55,10 @@ interface Props {
 
 export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, onSaved, onDelete }: Props) {
   const todayISO = new Date().toISOString().split('T')[0]
-  const { T } = useTheme()
 
   const [nombre, setNombre] = useState(eps?.nombre ?? initialNombre ?? '')
+  const [categoria, setCategoria] = useState((eps as any)?.categoria ?? '')
+  const [categorias, setCategorias] = useState<string[]>([])
   const [raciones, setRaciones] = useState(eps?.raciones ?? 1)
   const [tamanoRac, setTamanoRac] = useState(eps?.tamano_rac ?? 0)
   const [unidad, setUnidad] = useState(eps?.unidad ?? 'gr.')
@@ -58,9 +71,11 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   const [showDictar, setShowDictar] = useState(false)
   const [textoDictado, setTextoDictado] = useState('')
   const [loadingDictado, setLoadingDictado] = useState(false)
+  const [errDictado, setErrDictado] = useState<string | null>(null)
   const [conflictos, setConflictos] = useState<ConflictoItem[]>([])
   const [showConflictos, setShowConflictos] = useState(false)
   const [showModalCrearIng, setShowModalCrearIng] = useState<ConflictoItem | null>(null)
+  const [showModalCrearEps, setShowModalCrearEps] = useState<ConflictoItem | null>(null)
 
   const [todosIngredientes, setTodosIngredientes] = useState<any[]>([])
   const [todasEps, setTodasEps] = useState<any[]>([])
@@ -87,6 +102,12 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   useEffect(() => {
     supabase.from('ingredientes').select('*').then(({ data }) => { if (data) setTodosIngredientes(data) })
     supabase.from('eps').select('id,nombre,coste_rac').then(({ data }) => { if (data) setTodasEps(data) })
+    supabase.from('configuracion').select('valor').eq('clave', 'categorias_eps').single()
+      .then(({ data }) => {
+        if (data?.valor) {
+          try { const c = JSON.parse(data.valor); if (Array.isArray(c)) setCategorias(c) } catch { /* noop */ }
+        }
+      })
   }, [])
 
   useEffect(() => {
@@ -135,6 +156,15 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   const costeTanda = useMemo(() => lineasCalc.reduce((s, l) => s + l.eur_total, 0), [lineasCalc])
   const costeRac = raciones > 0 ? costeTanda / raciones : 0
 
+  const pesoTanda = useMemo(() => lineas.reduce((s, l) => {
+    const u = (l.unidad || '').toLowerCase()
+    if (u.startsWith('kg') || u.startsWith('l')) return s + l.cantidad * 1000
+    if (u.startsWith('g') || u.startsWith('ml')) return s + l.cantidad
+    return s
+  }, 0), [lineas])
+  const onRacionesChange = (v: number) => { setIsDirty(true); setRaciones(v); if (pesoTanda > 0 && v > 0) setTamanoRac(Math.round((pesoTanda / v) * 100) / 100) }
+  const onTamanoChange = (v: number) => { setIsDirty(true); setTamanoRac(v); if (pesoTanda > 0 && v > 0) setRaciones(Math.max(1, Math.round(pesoTanda / v))) }
+
   const updateLinea = useCallback((idx: number, patch: Partial<EPSLinea>) => {
     setIsDirty(true)
     setLineas(prev => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)))
@@ -150,24 +180,49 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
     setLineas(prev => prev.filter((_, i) => i !== idx))
   }
 
+  const masBaratos = useMemo(() => {
+    const cnt: Record<string, number> = {}
+    const best: Record<string, { id: string; precio: number }> = {}
+    for (const i of ingredientes) {
+      const baseKey = ((i.nombre_base || i.nombre || '') as string).toLowerCase().trim()
+      if (!baseKey) continue
+      cnt[baseKey] = (cnt[baseKey] || 0) + 1
+      const precio = n(i.eur_min) || n(i.eur_std) || Infinity
+      if (!best[baseKey] || precio < best[baseKey].precio) best[baseKey] = { id: i.id, precio }
+    }
+    const set = new Set<string>()
+    for (const k in best) if (cnt[k] > 1) set.add(best[k].id)
+    return set
+  }, [ingredientes])
+
+  const opcionesLineaEps = useMemo<BuscadorOpcion[]>(() => [
+    ...ingredientes.map(i => ({ id: i.id, nombre: i.nombre, barato: masBaratos.has(i.id) })),
+    ...todasEps.map((ep: any) => ({ id: 'e' + ep.id, nombre: ep.nombre, tag: 'EPS' })),
+  ], [ingredientes, todasEps, masBaratos])
+
   const selectIngrediente = (idx: number, val: string) => {
     setIsDirty(true)
     const ing = ingredientes.find(i => i.nombre === val)
-    if (ing) updateLinea(idx, {
+    if (ing) { updateLinea(idx, {
       ingrediente_nombre: ing.nombre,
       ingrediente_id: ing.id,
       eur_ud_neta: n(ing.eur_min) || n(ing.eur_std),
       unidad: ing.ud_min ?? ing.ud_std ?? 'gr.',
-    })
-    else updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null })
+    }); return }
+    const ep = todasEps.find((x: any) => x.nombre === val)
+    if (ep) { updateLinea(idx, { ingrediente_nombre: ep.nombre, ingrediente_id: null, eur_ud_neta: n(ep.coste_rac), unidad: 'Ración' }); return }
+    updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null })
   }
 
   async function procesarDictado() {
     if (!textoDictado.trim()) return
     setLoadingDictado(true)
+    setErrDictado(null)
+    let huboError = false
     try {
       let parsed: Array<{ nombre: string; cantidad: number; unidad: string }> = []
       const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
+      if (!apiKey) { setErrDictado('La IA de dictado no esta activa. Anade las lineas a mano.'); huboError = true; return }
       if (apiKey) {
         try {
           const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -217,10 +272,13 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
         setConflictos(noEncontrados)
         setShowConflictos(true)
       }
+      if (lineasNuevas.length === 0 && noEncontrados.length === 0) {
+        setErrDictado('No se reconocio ningun ingrediente. Reformula el texto.')
+        huboError = true
+      }
     } finally {
       setLoadingDictado(false)
-      setShowDictar(false)
-      setTextoDictado('')
+      if (!huboError) { setShowDictar(false); setTextoDictado('') }
     }
   }
 
@@ -231,6 +289,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
       let epsId = eps?.id
       const record = {
         nombre,
+        categoria: categoria || null,
         raciones,
         tamano_rac: tamanoRac || null,
         coste_tanda: costeTanda,
@@ -270,64 +329,69 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
     }
   }
 
-  const labelCls = 'block text-[11px] text-[var(--sl-text-muted)] mb-1 uppercase tracking-wider'
-
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-        <div className="relative bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-xl w-full max-w-5xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-white border-[3px] border-[#140f08] rounded-none w-full max-w-5xl my-8 shadow-[4px_4px_0_#140f08]" onClick={e => e.stopPropagation()}>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--sl-border)]">
+          <div className="flex items-center justify-between px-5 py-4 border-b-[3px] border-[#140f08]">
             <div>
-              <h3 className="text-base font-semibold text-[var(--sl-text-primary)]">{eps ? 'Editar EPS' : 'Nueva EPS'}</h3>
-              {eps?.codigo && <p className="text-xs text-[var(--sl-text-muted)] mt-0.5 font-mono">{eps.codigo} · EPS</p>}
+              <h3 className="text-base text-[#140f08]" style={{ fontFamily: OSW, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{eps ? 'Editar EPS' : 'Nueva EPS'}</h3>
+              {eps?.codigo && <p className="text-xs text-[#9a8f78] mt-0.5 font-mono">{eps.codigo} · EPS</p>}
             </div>
-            <button onClick={onClose} className="text-[var(--sl-text-muted)] hover:text-[var(--sl-text-primary)] transition text-xl leading-none">×</button>
+            <button onClick={onClose} className="text-[#9a8f78] hover:text-[#140f08] transition text-xl leading-none">×</button>
           </div>
 
           <div className="p-5 space-y-5">
-            {/* Cabecera: NOMBRE | RAC. | TAM.RAC | UD. | FECHA */}
+            {/* Cabecera: CATEGORÍA | NOMBRE | RAC. | TAM.RAC | UD. | FECHA */}
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+              <div style={{ flex: 1.5 }}>
+                <label className={labelCls} style={{ fontFamily: OSW, letterSpacing: '1px' }}>Categoría</label>
+                <select className={inputCls} style={{ fontFamily: LEX }} value={categoria} onChange={e => { setIsDirty(true); setCategoria(e.target.value) }}>
+                  <option value="">Sin categoría</option>
+                  {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+              </div>
               <div style={{ flex: 3 }}>
-                <label className={labelCls}>Nombre</label>
-                <input className={inputCls} value={nombre} onChange={e => { setIsDirty(true); setNombre(e.target.value) }} placeholder="Ej: Salsa brava" />
+                <label className={labelCls} style={{ fontFamily: OSW, letterSpacing: '1px' }}>Nombre</label>
+                <input className={inputCls} style={{ fontFamily: LEX }} value={nombre} onChange={e => { setIsDirty(true); setNombre(e.target.value) }} placeholder="Ej: Salsa brava" />
               </div>
               <div style={{ flex: 1 }}>
-                <label className={labelCls}>Rac.</label>
-                <input type="number" min={1} step="1" className={inputCls} value={raciones || ''} onChange={e => { setIsDirty(true); setRaciones(parseFloat(e.target.value) || 1) }} />
+                <label className={labelCls} style={{ fontFamily: OSW, letterSpacing: '1px' }}>Rac.</label>
+                <input type="number" min={1} step="1" className={inputCls} style={{ fontFamily: LEX }} value={raciones || ''} onChange={e => onRacionesChange(parseFloat(e.target.value) || 1)} />
               </div>
               <div style={{ flex: 1 }}>
-                <label className={labelCls}>Tam.Rac</label>
-                <input type="number" min={0} step="any" className={inputCls} value={tamanoRac || ''} onChange={e => { setIsDirty(true); setTamanoRac(parseFloat(e.target.value) || 0) }} />
+                <label className={labelCls} style={{ fontFamily: OSW, letterSpacing: '1px' }}>Tam.Rac</label>
+                <input type="number" min={0} step="any" className={inputCls} style={{ fontFamily: LEX }} value={tamanoRac || ''} onChange={e => onTamanoChange(parseFloat(e.target.value) || 0)} />
               </div>
               <div style={{ flex: 1 }}>
-                <label className={labelCls}>Ud.</label>
-                <select className={inputCls} value={unidad} onChange={e => { setIsDirty(true); setUnidad(e.target.value) }}>
+                <label className={labelCls} style={{ fontFamily: OSW, letterSpacing: '1px' }}>Ud.</label>
+                <select className={inputCls} style={{ fontFamily: LEX }} value={unidad} onChange={e => { setIsDirty(true); setUnidad(e.target.value) }}>
                   {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
               <div style={{ flex: 1.5 }}>
-                <label className={labelCls}>Fecha</label>
-                <input type="date" className={inputCls} value={fecha ?? ''} onChange={e => { setIsDirty(true); setFecha(e.target.value) }} />
+                <label className={labelCls} style={{ fontFamily: OSW, letterSpacing: '1px' }}>Fecha</label>
+                <input type="date" className={inputCls} style={{ fontFamily: LEX }} value={fecha ?? ''} onChange={e => { setIsDirty(true); setFecha(e.target.value) }} />
               </div>
             </div>
 
             {/* Líneas */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] text-[var(--sl-text-muted)] uppercase tracking-wider">Líneas</p>
+                <p className="text-[11px] text-[#140f08] uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Líneas</p>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button
                     onClick={addLinea}
-                    className="text-xs font-semibold hover:brightness-110 transition px-3 py-1 rounded-md"
-                    style={{ backgroundColor: 'var(--sl-btn-add-alt-bg)', color: 'var(--sl-btn-add-alt-text)' }}
+                    className="text-xs hover:brightness-105 transition px-3 py-1 rounded-none"
+                    style={{ backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '0.5px', border: `2px solid ${INK}`, boxShadow: `2px 2px 0 ${INK}` }}
                   >
                     + Añadir línea
                   </button>
                   <button
-                    onClick={() => setShowDictar(true)}
-                    style={{ background: 'none', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 6, padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}
+                    onClick={() => { setShowDictar(true); setErrDictado(null) }}
+                    style={{ background: '#ffffff', color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}
                   >
                     ⚡ DICTAR
                   </button>
@@ -336,38 +400,39 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
 
               {/* Panel DICTAR */}
               {showDictar && (
-                <div style={{ padding: 14, background: 'var(--sl-app)', border: '0.5px solid var(--sl-border)', borderRadius: 8, marginBottom: 8 }}>
-                  <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-secondary)', marginBottom: 8 }}>
+                <div style={{ padding: 14, background: '#FCEFD6', border: `3px solid ${INK}`, borderRadius: 0, marginBottom: 8 }}>
+                  <div style={{ fontFamily: LEX, fontSize: 12, color: INK, marginBottom: 8 }}>
                     Escribe o dicta ingredientes en lenguaje libre:
                   </div>
                   <textarea
                     value={textoDictado}
                     onChange={e => setTextoDictado(e.target.value)}
                     placeholder="Ej: 200g tomate frito, 3 dientes ajo, 50ml aceite oliva..."
-                    style={{ background: 'var(--sl-input-edit)', border: '1px solid var(--sl-border)', color: 'var(--sl-text-primary)', fontFamily: 'Lexend, sans-serif', fontSize: 13, borderRadius: 8, padding: 10, width: '100%', boxSizing: 'border-box', height: 80, resize: 'none', outline: 'none' }}
+                    style={{ background: '#ffffff', border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, borderRadius: 0, padding: 10, width: '100%', boxSizing: 'border-box', height: 80, resize: 'none', outline: 'none' }}
                   />
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                     <button
                       onClick={procesarDictado}
                       disabled={loadingDictado}
-                      style={{ background: '#B01D23', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', flex: 1, opacity: loadingDictado ? 0.6 : 1 }}
+                      style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 16px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', flex: 1, opacity: loadingDictado ? 0.6 : 1 }}
                     >
                       {loadingDictado ? 'PROCESANDO…' : 'PROCESAR'}
                     </button>
                     <button
                       onClick={() => { setShowDictar(false); setTextoDictado('') }}
-                      style={{ background: 'none', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 6, padding: '7px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 10, cursor: 'pointer' }}
+                      style={{ background: '#ffffff', color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, cursor: 'pointer' }}
                     >
                       CANCELAR
                     </button>
                   </div>
+                  {errDictado && <div style={{ marginTop: 8, fontFamily: LEX, fontSize: 12, color: NAR }}>{errDictado}</div>}
                 </div>
               )}
 
               {loadingLineas ? (
-                <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
+                <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-[#140f08] border-t-transparent rounded-full animate-spin" /></div>
               ) : (
-                <div className="border border-[var(--sl-border)] rounded-lg overflow-hidden">
+                <div className="border-[3px] border-[#140f08] rounded-none overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full" style={{ minWidth: '800px' }}>
                       <thead>
@@ -383,37 +448,42 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                         </tr>
                       </thead>
                       <tbody>
-                        {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[var(--sl-text-muted)] text-sm">Sin líneas — añade ingredientes</td></tr>}
+                        {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[#9a8f78] text-sm">Sin líneas — añade ingredientes</td></tr>}
                         {lineasCalc.map((l, idx) => (
                           <tr key={idx}>
-                            <td className={tdCls + ' text-[var(--sl-text-muted)]'}>{idx + 1}</td>
+                            <td className={tdCls + ' text-[#9a8f78]'}>{idx + 1}</td>
                             <td className={tdCls}>
-                              <input list={`eps-ing-${idx}`} className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-secondary)]" value={l.ingrediente_nombre} onChange={e => selectIngrediente(idx, e.target.value)} placeholder="Buscar ingrediente…" />
-                              <datalist id={`eps-ing-${idx}`}>{ingredientes.map(i => <option key={i.id} value={i.nombre} />)}</datalist>
+                              <BuscadorItem
+                                value={l.ingrediente_nombre}
+                                opciones={opcionesLineaEps}
+                                onSelect={v => selectIngrediente(idx, v)}
+                                placeholder="Buscar ingrediente o EPS…"
+                                inputClassName="w-full bg-transparent border-none outline-none text-sm text-[#140f08] placeholder:text-[#9a8f78]"
+                              />
                             </td>
-                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
-                            <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
-                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[var(--sl-text-primary)] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
-                            <td className={tdCls + ' text-right font-medium text-[var(--sl-text-primary)]'}>{fmtNum(l.eur_total)}</td>
-                            <td className={tdCls + ' text-right text-[var(--sl-text-muted)]'}>{fmtNum(l.pct_total)}%</td>
-                            <td className={tdCls}><button onClick={() => deleteLinea(idx)} className="text-[var(--sl-text-muted)] hover:text-[#dc2626] transition text-sm">×</button></td>
+                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[#140f08] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
+                            <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[#140f08]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
+                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[#140f08] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
+                            <td className={tdCls + ' text-right font-medium text-[#140f08]'}>{fmtNum(l.eur_total)}</td>
+                            <td className={tdCls + ' text-right text-[#9a8f78]'}>{fmtNum(l.pct_total)}%</td>
+                            <td className={tdCls}><button onClick={() => deleteLinea(idx)} className="text-[#9a8f78] hover:text-[#FF1E27] transition text-sm">×</button></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center justify-between px-3 py-3 border-t-2 border-accent/40 bg-accent/5">
+                  <div className="flex items-center justify-between px-3 py-3 border-t-[3px] border-[#140f08] bg-[#FCEFD6]">
                     <div className="flex items-center gap-6">
                       <div>
-                        <span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste tanda</span>
-                        <span className="text-sm font-bold text-[var(--sl-text-primary)]">{fmtEur(costeTanda)}</span>
+                        <span className="text-[10px] text-[#9a8f78] uppercase tracking-wide block">Coste tanda</span>
+                        <span className="text-sm font-bold text-[#140f08]">{fmtEur(costeTanda)}</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-[var(--sl-text-muted)] uppercase tracking-wide block">Coste ración</span>
-                        <span className="text-base font-bold text-[var(--sl-text-primary)]">{fmtNum(costeRac)}</span>
+                        <span className="text-[10px] text-[#9a8f78] uppercase tracking-wide block">Coste ración</span>
+                        <span className="text-base font-bold text-[#140f08]">{fmtNum(costeRac)}</span>
                       </div>
                     </div>
-                    <span className="text-xs text-[var(--sl-text-muted)]">{raciones} raciones</span>
+                    <span className="text-xs text-[#9a8f78]">{raciones} raciones</span>
                   </div>
                 </div>
               )}
@@ -422,37 +492,37 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
             {/* Preparación */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] text-[var(--sl-text-muted)] uppercase tracking-wider">Preparación</p>
+                <p className="text-[11px] text-[#140f08] uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Preparación</p>
               </div>
               <textarea
                 value={preparacion}
                 onChange={e => { setIsDirty(true); setPreparacion(e.target.value) }}
                 placeholder="Escribe los pasos de elaboración de esta EP…"
                 rows={8}
-                className="w-full bg-[var(--sl-input-edit)] border border-[var(--sl-border-strong)] rounded-md px-3 py-2 text-[13px] text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent font-sans"
+                className="w-full bg-white border-[2px] border-[#140f08] rounded-none px-3 py-2 text-[13px] text-[#140f08] placeholder:text-[#9a8f78] focus:outline-none focus:border-[#2D5BFF] font-sans"
                 style={{ resize: 'vertical', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}
               />
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[var(--sl-border)]">
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-t-[3px] border-[#140f08]">
             <div className="flex items-center gap-2">
               {eps && !confirmEliminar && (
                 <button
                   onClick={() => setConfirmEliminar(true)}
-                  style={{ background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', padding: '10px 16px', borderRadius: '5px', fontFamily: 'Oswald, sans-serif', fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}
+                  style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '10px 16px', borderRadius: '0', fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}
                 >
                   ELIMINAR
                 </button>
               )}
               {eps && confirmEliminar && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', color: '#B01D23', fontFamily: 'Lexend, sans-serif' }}>¿Eliminar definitivamente?</span>
-                  <button onClick={handleEliminar} disabled={deleting} style={{ background: '#B01D23', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>
+                  <span style={{ fontSize: '12px', color: GRANATE, fontFamily: LEX }}>¿Eliminar definitivamente?</span>
+                  <button onClick={handleEliminar} disabled={deleting} style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>
                     {deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}
                   </button>
-                  <button onClick={() => setConfirmEliminar(false)} style={{ background: 'transparent', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '.7rem' }}>
+                  <button onClick={() => setConfirmEliminar(false)} style={{ background: 'transparent', border: `2px solid ${INK}`, color: INK, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem' }}>
                     CANCELAR
                   </button>
                 </div>
@@ -468,17 +538,17 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
 
           {/* Overlay conflictos */}
           {showConflictos && conflictos.length > 0 && (
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, borderRadius: 16 }}>
-              <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, padding: 20, width: '90%', maxWidth: 440, maxHeight: '80vh', overflowY: 'auto' }}>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', marginBottom: 12 }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, borderRadius: 0 }}>
+              <div style={{ background: '#ffffff', border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, borderRadius: 0, padding: 20, width: '90%', maxWidth: 440, maxHeight: '80vh', overflowY: 'auto' }}>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 12 }}>
                   INGREDIENTES NO ENCONTRADOS
                 </div>
                 {conflictos.map((item, idx) => (
-                  <div key={idx} style={{ background: 'var(--sl-card-alt)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
+                  <div key={idx} style={{ background: '#FCEFD6', border: `2px solid ${INK}`, borderRadius: 0, padding: '10px 14px', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                      <span style={{ background: '#f5a62322', color: '#f5a623', padding: '2px 8px', borderRadius: 99, fontFamily: 'Oswald, sans-serif', fontSize: 10 }}>⚠ NO ENCONTRADO</span>
-                      <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-primary)', fontWeight: 500 }}>{item.nombre}</span>
-                      <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-secondary)' }}>{item.cantidad} {item.unidad}</span>
+                      <span style={{ background: NAR, color: '#fff', padding: '2px 8px', borderRadius: 0, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700, fontSize: 10 }}>⚠ NO ENCONTRADO</span>
+                      <span style={{ fontFamily: LEX, fontSize: 13, color: INK, fontWeight: 500 }}>{item.nombre}</span>
+                      <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{item.cantidad} {item.unidad}</span>
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <button
@@ -486,13 +556,13 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                           setConflictos(prev => prev.filter((_, i) => i !== idx))
                           setShowModalCrearIng({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad })
                         }}
-                        style={{ background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, padding: '6px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        style={{ background: GRANATE, color: '#ffffff', border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                       >
                         + CREAR ING
                       </button>
                       <button
-                        onClick={() => { alert('TODO: crear EPS') }}
-                        style={{ background: 'transparent', color: T.emphasis, border: `1px solid ${T.emphasis}`, borderRadius: 6, padding: '6px 10px', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        onClick={() => { setConflictos(prev => prev.filter((_, i) => i !== idx)); setShowModalCrearEps({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad }) }}
+                        style={{ background: '#ffffff', color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                       >
                         + CREAR EPS
                       </button>
@@ -517,7 +587,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                             }
                           }
                         }}
-                        style={{ background: T.inp, border: `1px solid ${T.brd}`, color: T.pri, fontFamily: 'Lexend, sans-serif', fontSize: 12, borderRadius: 6, padding: '6px 8px', flex: 1, cursor: 'pointer' }}
+                        style={{ background: '#ffffff', border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 12, borderRadius: 0, padding: '6px 8px', flex: 1, cursor: 'pointer' }}
                       >
                         <option value="">Elegir existente...</option>
                         {todosIngredientes.length > 0 && (
@@ -570,6 +640,39 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                 cantidad: itemRef.cantidad,
                 unidad: itemRef.unidad,
                 eur_ud_neta: n(ing.eur_min) || n(ing.eur_std),
+              }])
+            }
+          }}
+        />
+      )}
+
+      {/* Modal crear EPS anidada (recursivo) */}
+      {showModalCrearEps && (
+        <ModalEPS
+          eps={null}
+          initialNombre={showModalCrearEps.nombre}
+          ingredientes={ingredientes}
+          onClose={() => setShowModalCrearEps(null)}
+          onSaved={async () => {
+            const itemRef = showModalCrearEps
+            setShowModalCrearEps(null)
+            if (!itemRef) return
+            const { data } = await supabase
+              .from('eps')
+              .select('*')
+              .ilike('nombre', `%${itemRef.nombre}%`)
+              .order('id', { ascending: false })
+              .limit(1)
+            if (data?.[0]) {
+              const ep = data[0] as any
+              setIsDirty(true)
+              setLineas(prev => [...prev, {
+                linea: prev.length + 1,
+                ingrediente_id: null,
+                ingrediente_nombre: ep.nombre,
+                cantidad: itemRef.cantidad,
+                unidad: itemRef.unidad,
+                eur_ud_neta: n(ep.coste_rac),
               }])
             }
           }}

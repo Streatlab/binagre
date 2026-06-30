@@ -8,7 +8,8 @@
  * (la conciliación de esa plataforma no ha llegado a esa fecha) y que son posteriores al
  * cierre histórico. Web/Directa cobran al instante → nunca cuentan como pendiente.
  */
-import { calcNetoPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNeto } from '@/lib/panel/netoResolver'
 
 export interface RowPorCobrar {
   fecha: string
@@ -108,7 +109,7 @@ export function calcPorCobrar(
   let total = 0, hastaFinMes = 0, nLiquidaciones = 0
   for (const g of grupos.values()) {
     if (cobradoBanco(g.canal.id, g.pago)) continue
-    const { neto } = calcNetoPorCanal(g.canal.id, g.bruto, g.ped, {
+    const { neto } = resolverNeto(g.canal.id, g.bruto, g.ped, {
       modo: 'agregado_canal', marcasPorCanal, fechaDesde: parse(g.ini), fechaHasta: parse(g.fin), configCanales: config, diasConDatos: g.dias.size,
     })
     porCanalMap[g.canal.id] += neto

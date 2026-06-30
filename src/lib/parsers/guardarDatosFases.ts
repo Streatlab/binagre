@@ -4,6 +4,7 @@
 
 import { supabase } from '../supabase';
 import type { VentaPlato } from './parserUberArticulos';
+import type { VentaFranja } from './parserSinqroSoldProducts';
 import type { ResumenPlataforma } from './parserRushourPlataformas';
 import type { SerieDiaria } from './parserRushourIngresos';
 import type { MetricasClientes } from './parserGlovoClientes';
@@ -15,27 +16,66 @@ export interface ResultadoGuardado {
 }
 
 // ── FASE 2: Ventas por plato ────────────────────────────────────
-export async function guardarVentasPlato(datos: VentaPlato[]): Promise<ResultadoGuardado> {
+// Recibe el origen para marcarlo en BD (ej: 'sincro', 'uber', etc.)
+export async function guardarVentasPlato(
+  datos: VentaPlato[],
+  origen: string = 'real',
+): Promise<ResultadoGuardado> {
   const res: ResultadoGuardado = { insertados: 0, actualizados: 0, errores: [] };
   if (!datos.length) { res.errores.push('No hay datos'); return res; }
 
   for (const d of datos) {
     const { data: existing } = await supabase
       .from('ventas_plato')
-      .select('id')
+      .select('id, estimado')
       .eq('canal', d.canal).eq('marca', d.marca).eq('plato', d.plato)
       .eq('mes', d.mes).eq('año', d.año)
       .maybeSingle();
 
-    const payload = { ...d, updated_at: new Date().toISOString() };
+    const payload = {
+      ...d,
+      estimado: false,
+      origen,
+      updated_at: new Date().toISOString(),
+    };
 
     if (existing?.id) {
+      // Pisa siempre (sea estimado o no) — dato real tiene prioridad
       const { error } = await supabase.from('ventas_plato').update(payload).eq('id', existing.id);
       if (error) res.errores.push(`Error ${d.plato}: ${error.message}`);
       else res.actualizados++;
     } else {
       const { error } = await supabase.from('ventas_plato').insert(payload);
       if (error) res.errores.push(`Error ${d.plato}: ${error.message}`);
+      else res.insertados++;
+    }
+  }
+  return res;
+}
+
+// ── FASE 2: Ventas por franja horaria ──────────────────────────
+// Idempotente: upsert por (canal, marca, fecha, hora)
+export async function guardarVentasFranja(datos: VentaFranja[]): Promise<ResultadoGuardado> {
+  const res: ResultadoGuardado = { insertados: 0, actualizados: 0, errores: [] };
+  if (!datos.length) return res;
+
+  for (const d of datos) {
+    const { data: existing } = await supabase
+      .from('ventas_franja')
+      .select('id')
+      .eq('canal', d.canal).eq('marca', d.marca)
+      .eq('fecha', d.fecha).eq('hora', d.hora)
+      .maybeSingle();
+
+    const payload = { ...d, updated_at: new Date().toISOString() };
+
+    if (existing?.id) {
+      const { error } = await supabase.from('ventas_franja').update(payload).eq('id', existing.id);
+      if (error) res.errores.push(`Error franja ${d.fecha}/${d.hora}h: ${error.message}`);
+      else res.actualizados++;
+    } else {
+      const { error } = await supabase.from('ventas_franja').insert(payload);
+      if (error) res.errores.push(`Error franja ${d.fecha}/${d.hora}h: ${error.message}`);
       else res.insertados++;
     }
   }

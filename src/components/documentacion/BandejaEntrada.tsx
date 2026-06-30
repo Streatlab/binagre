@@ -1,14 +1,15 @@
 import { useState, useRef } from 'react'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
+import { toast } from '@/lib/toastStore'
 import CardFacturasCorreo from '@/components/panel/resumen/CardFacturasCorreo'
 import CardSaludOcr from '@/components/panel/resumen/CardSaludOcr'
 import ChuletaPlataformas from '@/components/ChuletaPlataformas'
 
 // ── Bandeja de entrada — FUENTE ÚNICA DE SUBIDA ────────────────────────────
 // Diseño definitivo (simple y 100% efectivo): CERO clasificación manual.
-//   · "Subir documentos"  → facturas y liquidaciones de venta. El motor OCR
-//     decide por el CONTENIDO si es factura de proveedor, de plataforma o
-//     liquidación de ventas, y reparte cada dato a su sitio (Facturas / Ventas).
+//   · "Subir documentos"  → facturas y liquidaciones de venta. El sistema mira
+//     el CONTENIDO: si es un resumen de ventas (Uber) lo manda a Ventas
+//     (uber_liquidaciones); el resto va al motor OCR de facturas.
 //   · "Subir extracto bancario" → único caso que va a otro flujo y pregunta de
 //     quién es (Rubén/Emilio). Vuelca los movimientos a Conciliación.
 // Incluye el cartero (facturas que llegan por correo) y la salud del OCR.
@@ -23,6 +24,27 @@ const EXT_ACEPTADAS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_COMPRIMIDOS]
 const ACCEPT = EXT_ACEPTADAS.map(e => `.${e}`).join(',')
 
 const ES_MOVIL = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+
+// ── Reconocimiento cliente del "resumen de ganancias" de Uber (CSV) ─────────
+// Mismas cabeceras que el parser de servidor. Solo se mira en .csv/.txt.
+function esResumenUberTexto(texto: string): boolean {
+  const cab = (texto || '').slice(0, 2000).toLowerCase()
+  const marca = cab.includes('nombre del restaurante') || cab.includes('store name') || cab.includes('restaurant name')
+  const pago = cab.includes('pago total') || cab.includes('net payout') || cab.includes('total payout')
+  const ref = cab.includes('referencia de ganancias') || cab.includes('earnings reference') || cab.includes('payment reference')
+  return marca && (pago || ref)
+}
+
+async function fileABase64(file: File | Blob): Promise<string> {
+  const buf = await file.arrayBuffer()
+  let bin = ''
+  const bytes = new Uint8Array(buf)
+  const CH = 0x8000
+  for (let i = 0; i < bytes.length; i += CH) {
+    bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CH)) as unknown as number[])
+  }
+  return btoa(bin)
+}
 
 async function cargarJSZip(): Promise<any> {
   if ((window as any).JSZip) return (window as any).JSZip
@@ -103,7 +125,65 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
   const onDoc = (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => { setVerRechazados(false); setModalDoc({ archivos: [...r.aceptados, ...r.comprimidos], rechazados: r.rechazados, visible: true }) }
   const onExtracto = (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => { setVerRechazados(false); setModalExtracto({ archivos: [...r.aceptados, ...r.comprimidos], rechazados: r.rechazados, visible: true }) }
 
-  const enviarDoc = () => { const a = modalDoc.archivos; setModalDoc({ archivos: [], rechazados: [], visible: false }); procesar(a, 'ocr-procesar-factura', null); onProcesado?.() }
+  // Procesa los CSV de "resumen de ventas" (Uber) por el endpoint de plataformas,
+  // con UN solo aviso veraz. Devuelve los archivos NO reconocidos como ventas.
+  const procesarVentas = async (archivos: File[]): Promise<File[]> => {
+    const ventas: File[] = []
+    const resto: File[] = []
+    for (const f of archivos) {
+      const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
+      if (ext === 'csv' || ext === 'txt') {
+        try { const t = await f.text(); if (esResumenUberTexto(t)) { ventas.push(f); continue } } catch { /* sigue */ }
+      }
+      resto.push(f)
+    }
+    if (ventas.length === 0) return resto
+
+    const tid = toast.loading(`Leyendo resumen de ventas (${ventas.length})…`)
+    let tiendas = 0, nuevas = 0, actualizadas = 0, pedidos = 0, neto = 0
+    const errs: string[] = []
+    for (const f of ventas) {
+      try {
+        const base64 = await fileABase64(f)
+        const res = await fetch('/api/importar/plataforma', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64, nombre: f.name, mimeType: f.type || null, modulo: 'bandeja' }),
+        })
+        const j = await res.json()
+        if (j.ok && j.tipo_detectado === 'liquidacion_uber_resumen') {
+          tiendas = Math.max(tiendas, Number(j.tiendas) || 0)
+          nuevas += Number(j.nuevas) || 0
+          actualizadas += Number(j.actualizadas) || 0
+          pedidos += Number(j.totalPedidos) || 0
+          neto += Number(j.totalNeto) || 0
+        } else {
+          errs.push(j.mensaje || 'no reconocido')
+        }
+      } catch (e: any) {
+        errs.push(e?.message || 'error de red')
+      }
+    }
+
+    if (errs.length > 0 && nuevas + actualizadas === 0) {
+      toast.error(`No se pudo leer el resumen de Uber: ${errs[0]}`, { id: tid })
+    } else {
+      toast.success(
+        `Ventas Uber · ${tiendas} tiendas · ${nuevas} nuevas, ${actualizadas} actualizadas · ${pedidos} pedidos · neto ${neto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+        { id: tid }
+      )
+    }
+    return resto
+  }
+
+  const enviarDoc = async () => {
+    const a = modalDoc.archivos
+    setModalDoc({ archivos: [], rechazados: [], visible: false })
+    // 1) Resúmenes de ventas (Uber) → Ventas, con un único aviso veraz.
+    const resto = await procesarVentas(a)
+    // 2) El resto (facturas) → motor OCR como siempre.
+    if (resto.length > 0) procesar(resto, 'ocr-procesar-factura', null)
+    onProcesado?.()
+  }
   const enviarExtracto = (titular: string) => { const a = modalExtracto.archivos; setModalExtracto({ archivos: [], rechazados: [], visible: false }); procesar(a, 'ocr-procesar-extracto', titular); onProcesado?.() }
 
   return (

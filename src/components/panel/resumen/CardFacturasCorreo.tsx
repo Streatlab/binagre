@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
+import { toast } from '@/lib/toastStore'
 
 type Tipo = 'factura' | 'ventas'
 
@@ -33,7 +34,6 @@ const TABLAS_LIQUIDACION = ['uber_liquidaciones', 'glovo_liquidaciones', 'justea
 export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick, onBarrido }: Props) {
   const [s, setS] = useState<Stats | null>(null)
   const [recogiendo, setRecogiendo] = useState(false)
-  const [aviso, setAviso] = useState<string | null>(null)
 
   async function cargar() {
     // TODOS los documentos llegados por correo en el periodo, SEPARADOS:
@@ -79,27 +79,38 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
   }
 
   // Barrido manual: trae al instante lo que haya en el buzón (no espera al cron 07:00).
+  // Un ÚNICO toast con lo necesario (facturas + ventas), sin doble conteo.
   async function recogerAhora(e: React.MouseEvent) {
     e.stopPropagation()
     if (recogiendo) return
     setRecogiendo(true)
-    setAviso(null)
+    const tid = toast.loading('Recogiendo correo…')
     try {
       const r = await fetch('/api/facturas?action=cartero')
       const j = await r.json()
       if (j.ok) {
-        const n = j.nuevas ?? 0, d = j.duplicadas ?? 0, m = j.lectura_manual ?? 0
-        const st = await cargar()
-        setAviso(`Facturas nuevas: ${n} · ${d} ya estaban · ${m} a revisar. Resúmenes en el periodo: ${st.resumenes}`)
+        const d = j.duplicadas ?? 0, m = j.lectura_manual ?? 0
+        // Liquidaciones de venta detectadas en el barrido (resumen Uber, etc.)
+        const ventas = Array.isArray(j.resultados)
+          ? j.resultados.filter((x: { motivo?: string }) => /resumen|→ ventas|liquidaci/i.test(x?.motivo || '')).length
+          : 0
+        // Las ventas vienen contadas dentro de 'nuevas'; se descuentan para no duplicar.
+        const nFac = Math.max(0, (j.nuevas ?? 0) - ventas)
+        await cargar()
+        const partes: string[] = []
+        partes.push(`${nFac} factura${nFac === 1 ? '' : 's'} nuevas`)
+        if (ventas > 0) partes.push(`${ventas} resumen${ventas === 1 ? '' : 'es'} de ventas`)
+        if (d > 0) partes.push(`${d} ya estaban`)
+        if (m > 0) partes.push(`${m} a revisar`)
+        toast.success(`Correo recogido · ${partes.join(' · ')}`, { id: tid })
         onBarrido?.()
       } else {
-        setAviso(j.error || 'No se pudo recoger el correo')
+        toast.error(j.error || 'No se pudo recoger el correo', { id: tid })
       }
     } catch (err: any) {
-      setAviso(err?.message || 'Error de red')
+      toast.error(err?.message || 'Error de red al recoger el correo', { id: tid })
     } finally {
       setRecogiendo(false)
-      setTimeout(() => setAviso(null), 8000)
     }
   }
 
@@ -159,9 +170,6 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
       >
         {recogiendo ? 'Recogiendo…' : 'Recoger correo ahora'}
       </button>
-      {aviso && (
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#3a4050', marginTop: 6, lineHeight: 1.3 }}>{aviso}</div>
-      )}
       {!buzonOk && (
         <a
           href="/api/oauth/google?action=connect"

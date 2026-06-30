@@ -4,6 +4,7 @@
  * Body JSON: { base64: string, nombre: string, mimeType?: string }
  *
  * Pipeline:
+ *   0. CSV resumen de ganancias Uber → uber_liquidaciones (liquidaciones marca/semana)
  *   1. Extraer texto del archivo
  *   2. detectarPlataforma por NIF / cabeceras
  *   3. Parser específico (Uber / Glovo A|B / JustEat / Rushour)
@@ -21,6 +22,7 @@ import { esGlovoFormatoA, parseGlovoFormatoA } from '../_lib/parsers/glovoFormat
 import { parseGlovoFormatoB } from '../_lib/parsers/glovoFormatoB.js'
 import { parseJustEatFactura } from '../_lib/parsers/justEatParser.js'
 import { parseRushourFactura } from '../_lib/parsers/rushourParser.js'
+import { esCSVResumenUber, parseUberResumenLiquidaciones } from '../_lib/parsers/uberResumenParser.js'
 import { upsertVentaPlataforma, insertarPedidosPlataforma } from '../_lib/upsertVentaPlataforma.js'
 import { extraerTexto, extraerExcel, prepararVision } from '../_lib/extractores.js'
 import { detectarTipoArchivo } from '../_lib/detectarTipo.js'
@@ -80,6 +82,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       return res.status(422).json({ ok: false, mensaje: `Error extrayendo texto: ${msg}` })
+    }
+
+    // ── CSV resumen de ganancias Uber → uber_liquidaciones ─────────────────
+    // El CSV de liquidaciones por marca/semana no trae NIF, así que se reconoce
+    // por sus cabeceras y se procesa aquí, antes de la detección por NIF.
+    if (esCSVResumenUber(textoExtraido)) {
+      const { items, errores } = parseUberResumenLiquidaciones(textoExtraido)
+      if (errores.length > 0 || items.length === 0) {
+        const motivo = errores[0] ?? 'Sin filas en el resumen'
+        await logImport({ plataforma: 'uber', archivo: filename, estado: 'error', error: motivo })
+        return res.status(200).json({ ok: false, plataforma: 'uber', tipo_detectado: 'liquidacion_uber_resumen', mensaje: motivo })
+      }
+
+      let nuevas = 0, actualizadas = 0, totalBruto = 0, totalNeto = 0, totalPedidos = 0
+      const marcasSet = new Set<string>()
+      for (const it of items) {
+        const campos = {
+          plataforma: 'uber', marca: it.marca, referencia_pago: it.referencia_pago,
+          fecha_deposito: it.fecha_deposito,
+          fecha_inicio_periodo: it.fecha_inicio_periodo, fecha_fin_periodo: it.fecha_fin_periodo,
+          num_pedidos: it.num_pedidos, ventas_bruto: it.ventas_bruto,
+          promociones: it.promociones, comision_uber: it.comision_uber,
+          pago_neto: it.pago_neto, estado: 'pendiente',
+        }
+        marcasSet.add(it.marca)
+        totalBruto += it.ventas_bruto
+        totalNeto += it.pago_neto
+        totalPedidos += it.num_pedidos
+        const { data: existe } = await supabaseAdmin
+          .from('uber_liquidaciones').select('id').eq('referencia_pago', it.referencia_pago).maybeSingle()
+        if (existe) {
+          await supabaseAdmin.from('uber_liquidaciones').update(campos).eq('id', existe.id)
+          actualizadas++
+        } else {
+          const { error: el } = await supabaseAdmin.from('uber_liquidaciones').insert(campos)
+          if (!el) nuevas++
+        }
+      }
+
+      await logImport({ plataforma: 'uber', archivo: filename, estado: 'ok', totalBruto, marcaNombre: `${marcasSet.size} tiendas` })
+      return res.status(200).json({
+        ok: true,
+        plataforma: 'uber',
+        tipo_detectado: 'liquidacion_uber_resumen',
+        marca: `${marcasSet.size} tiendas`,
+        tiendas: marcasSet.size,
+        nuevas,
+        actualizadas,
+        liquidaciones: items.length,
+        totalBruto: Math.round(totalBruto * 100) / 100,
+        totalNeto: Math.round(totalNeto * 100) / 100,
+        totalPedidos,
+        mensaje: `Resumen Uber: ${marcasSet.size} tiendas · ${nuevas} nuevas, ${actualizadas} actualizadas (${items.length} liquidaciones).`,
+      })
     }
 
     // ── Detectar plataforma ────────────────────────────────────────────────

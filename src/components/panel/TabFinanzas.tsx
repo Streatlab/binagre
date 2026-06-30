@@ -1,9 +1,10 @@
 /**
- * TabFinanzas — Panel Global · pestaña Finanzas
+ * TabFinanzas — Panel Global · pestaña Finanzas (estilo neobrutal Food-Pop)
  */
 
-import { COLORS, FONT, CARDS, lbl, kpiMid } from '@/components/panel/resumen/tokens'
-import { fmtEur, fmtNum } from '@/utils/format'
+import { INK, CREMA, OSW, LEX, VERDE, ROJO, NAR, GRIS, CORP, BORDER_CARD, SHADOW, d, eyebrow } from '@/styles/neobrutal'
+import { tablaNeo, theadNeo, thNeo, thNeoR, tdNeo, tdNeoR, filaAlt, dotNeo, totalRow, tdTotal, tdTotalR, vacioNeo } from '@/styles/tablaNeo'
+import { fmtEur } from '@/utils/format'
 
 interface Row {
   fecha: string
@@ -27,32 +28,30 @@ const COMISIONES: Record<string, number> = {
 }
 
 const CANALES = [
-  { id: 'uber',    label: 'Uber Eats', color: COLORS.uber },
-  { id: 'glovo',   label: 'Glovo',     color: COLORS.glovo },
-  { id: 'je',      label: 'Just Eat',  color: COLORS.je },
-  { id: 'web',     label: 'Web',       color: COLORS.web },
-  { id: 'directa', label: 'Directa',   color: COLORS.directa },
+  { id: 'uber',    label: 'Uber Eats', color: CORP.uber },
+  { id: 'glovo',   label: 'Glovo',     color: CORP.glovo },
+  { id: 'je',      label: 'Just Eat',  color: CORP.je },
+  { id: 'web',     label: 'Web',       color: CORP.web },
+  { id: 'directa', label: 'Directa',   color: CORP.dir },
 ] as const
 
 const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 function kpiCard(label: string, value: string, sub?: string) {
   return (
-    <div style={{ ...CARDS.std, flex: 1, minWidth: 160 }}>
-      <div style={lbl}>{label}</div>
-      <div style={{ ...kpiMid, marginTop: 6, color: COLORS.pri }}>{value}</div>
-      {sub && <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 2 }}>{sub}</div>}
+    <div style={{ flex: 1, minWidth: 160, background: CREMA, border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 16px' }}>
+      <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>{label}</div>
+      <div style={{ ...d('30px'), marginTop: 8 }}>{value}</div>
+      {sub && <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 4 }}>{sub}</div>}
     </div>
   )
 }
 
+const tituloSec: React.CSSProperties = { marginBottom: 12 }
+
 export default function TabFinanzas({ rows }: Props) {
   if (!rows.length) {
-    return (
-      <div style={{ padding: 40, textAlign: 'center', color: COLORS.mut, fontFamily: FONT.body, fontSize: 14 }}>
-        Sin datos para el período seleccionado
-      </div>
-    )
+    return <div style={{ ...vacioNeo, marginTop: 12 }}>Sin datos para el período seleccionado</div>
   }
 
   // Totales globales
@@ -69,7 +68,6 @@ export default function TabFinanzas({ rows }: Props) {
 
   const totalComision = canalStats.reduce((s, c) => s + c.comision, 0)
   const totalNeto     = totalBruto - totalComision
-  // Margen estimado: neto / bruto × 100 (sobre el bruto, tras comisiones)
   const margenPct     = totalBruto > 0 ? (totalNeto / totalBruto) * 100 : 0
 
   // Evolución mensual
@@ -87,33 +85,11 @@ export default function TabFinanzas({ rows }: Props) {
   const meses = Object.keys(mesMap).sort()
   const mostrarEvolucion = meses.length > 1
 
-  const thStyle: React.CSSProperties = {
-    fontFamily: 'Oswald, sans-serif',
-    fontSize: 11,
-    letterSpacing: '1.5px',
-    color: COLORS.mut,
-    textTransform: 'uppercase',
-    fontWeight: 500,
-    padding: '8px 10px',
-    textAlign: 'left',
-    borderBottom: `1px solid ${COLORS.brd}`,
-  }
-
-  const tdStyle: React.CSSProperties = {
-    fontFamily: FONT.body,
-    fontSize: 13,
-    color: COLORS.sec,
-    padding: '8px 10px',
-    borderBottom: `1px solid ${COLORS.group}`,
-  }
-
-  const tdR: React.CSSProperties = { ...tdStyle, textAlign: 'right' }
-
   return (
     <div style={{ paddingTop: 12 }}>
 
       {/* KPI cards */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 24 }}>
         {kpiCard('Ingresos brutos', fmtEur(totalBruto))}
         {kpiCard('Comisiones est.', fmtEur(totalComision), `${(totalComision / totalBruto * 100).toFixed(1)}% del bruto`)}
         {kpiCard('Ingresos netos', fmtEur(totalNeto))}
@@ -121,49 +97,38 @@ export default function TabFinanzas({ rows }: Props) {
       </div>
 
       {/* Desglose por canal */}
-      <div style={{ ...CARDS.std, marginBottom: 14 }}>
-        <div style={{ ...lbl, marginBottom: 12 }}>Desglose por canal</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
+      <div style={{ marginBottom: 28 }}>
+        <div style={tituloSec}><span style={eyebrow(CREMA)}>Desglose por canal</span></div>
+        <table style={tablaNeo}>
+          <thead style={theadNeo}>
             <tr>
-              <th style={thStyle}>Canal</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Bruto</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Comisión</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Neto</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>% total</th>
+              <th style={thNeo}>Canal</th>
+              <th style={thNeoR}>Bruto</th>
+              <th style={thNeoR}>Comisión</th>
+              <th style={thNeoR}>Neto</th>
+              <th style={thNeoR}>% total</th>
             </tr>
           </thead>
           <tbody>
-            {canalStats.map(c => (
-              <tr key={c.id}>
-                <td style={tdStyle}>
-                  <span style={{
-                    display: 'inline-block',
-                    width: 10, height: 10,
-                    borderRadius: '50%',
-                    background: c.color,
-                    marginRight: 8,
-                    verticalAlign: 'middle',
-                  }} />
+            {canalStats.map((c, i) => (
+              <tr key={c.id} style={filaAlt(i)}>
+                <td style={tdNeo}>
+                  <span style={dotNeo(c.color)} />
                   {c.label}
                 </td>
-                <td style={tdR}>{fmtEur(c.bruto)}</td>
-                <td style={{ ...tdR, color: COLORS.err }}>{fmtEur(c.comision)}</td>
-                <td style={{ ...tdR, color: COLORS.ok }}>{fmtEur(c.neto)}</td>
-                <td style={tdR}>
-                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12 }}>
-                    {c.pct.toFixed(1)}%
-                  </span>
-                </td>
+                <td style={tdNeoR}>{fmtEur(c.bruto)}</td>
+                <td style={{ ...tdNeoR, color: ROJO }}>{fmtEur(c.comision)}</td>
+                <td style={{ ...tdNeoR, color: VERDE }}>{fmtEur(c.neto)}</td>
+                <td style={tdNeoR}>{c.pct.toFixed(1)}%</td>
               </tr>
             ))}
             {/* Totales */}
-            <tr style={{ background: COLORS.group }}>
-              <td style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>TOTAL</td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{fmtEur(totalBruto)}</td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.err }}>{fmtEur(totalComision)}</td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.ok }}>{fmtEur(totalNeto)}</td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600 }}>100%</td>
+            <tr style={totalRow}>
+              <td style={tdTotal}>TOTAL</td>
+              <td style={tdTotalR}>{fmtEur(totalBruto)}</td>
+              <td style={{ ...tdTotalR, color: ROJO }}>{fmtEur(totalComision)}</td>
+              <td style={{ ...tdTotalR, color: VERDE }}>{fmtEur(totalNeto)}</td>
+              <td style={tdTotalR}>100%</td>
             </tr>
           </tbody>
         </table>
@@ -171,33 +136,29 @@ export default function TabFinanzas({ rows }: Props) {
 
       {/* Evolución mensual — solo si hay más de 1 mes */}
       {mostrarEvolucion && (
-        <div style={CARDS.std}>
-          <div style={{ ...lbl, marginBottom: 12 }}>Evolución mensual</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
+        <div>
+          <div style={tituloSec}><span style={eyebrow(CREMA)}>Evolución mensual</span></div>
+          <table style={tablaNeo}>
+            <thead style={theadNeo}>
               <tr>
-                <th style={thStyle}>Mes</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Bruto</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Neto est.</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Margen</th>
+                <th style={thNeo}>Mes</th>
+                <th style={thNeoR}>Bruto</th>
+                <th style={thNeoR}>Neto est.</th>
+                <th style={thNeoR}>Margen</th>
               </tr>
             </thead>
             <tbody>
-              {meses.map(key => {
+              {meses.map((key, i) => {
                 const { bruto, neto } = mesMap[key]
                 const margen = bruto > 0 ? (neto / bruto) * 100 : 0
                 const [y, m] = key.split('-')
                 const label = `${MESES_ES[parseInt(m, 10) - 1]} ${y}`
                 return (
-                  <tr key={key}>
-                    <td style={tdStyle}>{label}</td>
-                    <td style={tdR}>{fmtEur(bruto)}</td>
-                    <td style={{ ...tdR, color: COLORS.ok }}>{fmtEur(neto)}</td>
-                    <td style={tdR}>
-                      <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, color: margen >= 70 ? COLORS.ok : COLORS.warn }}>
-                        {margen.toFixed(1)}%
-                      </span>
-                    </td>
+                  <tr key={key} style={filaAlt(i)}>
+                    <td style={tdNeo}>{label}</td>
+                    <td style={tdNeoR}>{fmtEur(bruto)}</td>
+                    <td style={{ ...tdNeoR, color: VERDE }}>{fmtEur(neto)}</td>
+                    <td style={{ ...tdNeoR, color: margen >= 70 ? VERDE : NAR }}>{margen.toFixed(1)}%</td>
                   </tr>
                 )
               })}

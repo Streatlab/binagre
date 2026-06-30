@@ -2,6 +2,10 @@
  * TabSubirV2 — FASE C
  * Dropzone multi-archivo con subtabs Facturas / Extractos bancarios,
  * barra de progreso en tiempo real y tabla de proceso.
+ *
+ * Facturas de TEXTO (.csv/.txt/.html/.doc) → se procesan de verdad contra
+ * /api/importar/plataforma (Glovo, Just Eat y CSV "resumen de ganancias" Uber
+ * → uber_liquidaciones). PDF/imagen mantienen la detección por nombre.
  */
 
 import { useRef, useState, useCallback } from 'react'
@@ -31,11 +35,15 @@ interface FilaProceso {
 }
 
 const EXTENSIONES_OK = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.csv', '.xlsx', '.xls', '.doc', '.docx'])
+const EXT_TEXTO = new Set(['.csv', '.txt', '.html', '.htm', '.doc', '.docx'])
 
-function extOk(nombre: string): boolean {
+function extDe(nombre: string): string {
   const idx = nombre.lastIndexOf('.')
-  if (idx === -1) return false
-  return EXTENSIONES_OK.has(nombre.slice(idx).toLowerCase())
+  return idx === -1 ? '' : nombre.slice(idx).toLowerCase()
+}
+function extOk(nombre: string): boolean {
+  const e = extDe(nombre)
+  return e !== '' && EXTENSIONES_OK.has(e)
 }
 
 /* ─── helpers UI ─────────────────────────────────────────────────────────────── */
@@ -116,7 +124,7 @@ function BadgeEstado({ estado }: { estado: EstadoFila }) {
         padding: '2px 8px',
         borderRadius: 9,
       }}>
-        ASOCIADA · DRIVE
+        PROCESADA
       </span>
     )
   }
@@ -176,12 +184,8 @@ export default function TabSubirV2() {
 
   /* ── procesar un archivo ─────────────────────────────────────────────────── */
   async function procesarArchivo(file: File, id: string) {
-    // Animación procesando 0→80%
-    for (let pct = 0; pct <= 80; pct += 20) {
-      if (canceladoRef.current) return
-      updateFila(id, { estado: { tag: 'procesando', pct } })
-      await new Promise(r => setTimeout(r, 200))
-    }
+    const ext = extDe(file.name)
+    const esTexto = EXT_TEXTO.has(ext)
 
     let estadoFinal: EstadoFila
     let tipoDetectado = 'Desconocido'
@@ -189,9 +193,62 @@ export default function TabSubirV2() {
     let importe = '—'
     let categoria = '—'
     let estadoLog: string
+    let destino = subTab === 'facturas' ? 'facturas' : 'movimientos_bancarios'
 
-    if (subTab === 'facturas') {
-      // Detección NIF en nombre de archivo
+    if (subTab === 'facturas' && esTexto) {
+      // ── Procesamiento REAL contra el clasificador del backend ──────────────
+      updateFila(id, { estado: { tag: 'procesando', pct: 25 } })
+      try {
+        const arrayBuf = await file.arrayBuffer()
+        const base64 = btoa(new Uint8Array(arrayBuf).reduce((acc, b) => acc + String.fromCharCode(b), ''))
+        updateFila(id, { estado: { tag: 'procesando', pct: 60 } })
+        const res = await fetch('/api/importar/plataforma', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64, nombre: file.name, mimeType: file.type || null, modulo: 'bandeja' }),
+        })
+        let json: {
+          ok?: boolean; tipo_detectado?: string; plataforma?: string; marca?: string
+          totalBruto?: number; total?: number; mensaje?: string; pendiente?: boolean
+        } = {}
+        try { json = await res.json() } catch { /* parse error */ }
+        updateFila(id, { estado: { tag: 'procesando', pct: 90 } })
+
+        if (json.ok) {
+          if (json.tipo_detectado === 'liquidacion_uber_resumen') {
+            tipoDetectado = 'Liquidación Uber (resumen)'
+            contraparte = json.marca || 'Uber'
+            destino = 'uber_liquidaciones'
+          } else if (json.plataforma === 'rushour') {
+            tipoDetectado = 'Gasto RushHour'
+            contraparte = 'RushHour'
+            importe = json.total != null ? `${Number(json.total).toFixed(2)}€` : '—'
+          } else {
+            tipoDetectado = `Factura ${json.plataforma ?? ''}`.trim()
+            contraparte = json.marca || json.plataforma || '—'
+            importe = json.totalBruto != null ? `${Number(json.totalBruto).toFixed(2)}€` : '—'
+          }
+          const dup = (json.mensaje || '').toLowerCase().includes('duplicad')
+          estadoFinal = dup ? { tag: 'duplicada' } : { tag: 'asociada' }
+          estadoLog = 'procesado'
+        } else {
+          tipoDetectado = json.pendiente ? 'Pendiente' : 'No reconocido'
+          contraparte = json.mensaje ? String(json.mensaje).slice(0, 48) : '—'
+          estadoFinal = { tag: 'revision' }
+          estadoLog = 'revision_manual'
+        }
+      } catch {
+        tipoDetectado = 'Error de proceso'
+        estadoFinal = { tag: 'revision' }
+        estadoLog = 'error'
+      }
+    } else if (subTab === 'facturas') {
+      // PDF/imagen: detección por NIF en el nombre (flujo previo, sin cambios)
+      for (let pct = 0; pct <= 80; pct += 20) {
+        if (canceladoRef.current) return
+        updateFila(id, { estado: { tag: 'procesando', pct } })
+        await new Promise(r => setTimeout(r, 200))
+      }
       const matchNIF = NIF_REGEX.exec(file.name.toUpperCase())
       if (matchNIF) {
         tipoDetectado = 'Factura proveedor'
@@ -204,10 +261,12 @@ export default function TabSubirV2() {
         estadoLog = 'revision_manual'
       }
     } else {
-      // Extracto bancario — simular parseo
-      // TODO: dedup real con hash(fecha + importe + concepto + orden_linea); usar calcularDedupKey de src/lib/normalizar.ts
-      // La columna orden_linea ya existe en BD. El importador real debe pasar el índice de línea del extracto.
-      // Titular: si no se detecta → null (no inventar)
+      // Extracto bancario — flujo previo (sin cambios)
+      for (let pct = 0; pct <= 80; pct += 20) {
+        if (canceladoRef.current) return
+        updateFila(id, { estado: { tag: 'procesando', pct } })
+        await new Promise(r => setTimeout(r, 200))
+      }
       tipoDetectado = 'Extracto bancario'
       estadoFinal = { tag: 'asociada' }
       estadoLog = 'procesado'
@@ -225,7 +284,7 @@ export default function TabSubirV2() {
         archivo_url: null,
         tipo_detectado: tipoDetectado,
         estado: estadoLog,
-        destino_modulo: subTab === 'facturas' ? 'facturas' : 'movimientos_bancarios',
+        destino_modulo: destino,
         destino_id: null,
         user_id: session?.user?.id ?? null,
         detalle: { contraparte, importe, categoria },
@@ -270,6 +329,7 @@ export default function TabSubirV2() {
     // Procesar en paralelo max 3
     let okCount = 0
     let errCount = 0
+    let dupCount = 0
     const BATCH = 3
     for (let i = 0; i < validos.length; i += BATCH) {
       if (canceladoRef.current) break
@@ -279,25 +339,26 @@ export default function TabSubirV2() {
       )
       for (const r of resultados) {
         if (r === 'asociada') okCount++
+        else if (r === 'duplicada') dupCount++
         else errCount++
       }
-      setStats(s => ({ ...s, ok: okCount, err: errCount }))
+      setStats(s => ({ ...s, ok: okCount, err: errCount, dup: dupCount }))
     }
 
     setProcesando(false)
 
-    toast.success(`${okCount}/${validos.length} archivos procesados. ${errCount} en revisión.`)
+    toast.success(`${okCount}/${validos.length} procesados. ${dupCount} duplicados · ${errCount} en revisión.`)
 
-    // Limpiar tabla tras 5s
+    // Limpiar tabla tras 8s
     setTimeout(() => {
       setFilas([])
       setStats({ ok: 0, err: 0, dup: 0, total: 0 })
-    }, 5000)
+    }, 8000)
 
     if (inputRef.current) inputRef.current.value = ''
   }
 
-  const pct = stats.total > 0 ? Math.round(((stats.ok + stats.err) / stats.total) * 100) : 0
+  const pct = stats.total > 0 ? Math.round(((stats.ok + stats.err + stats.dup) / stats.total) * 100) : 0
 
   return (
     <div>
@@ -368,7 +429,7 @@ export default function TabSubirV2() {
           <span style={{ fontFamily: 'Lexend', fontSize: 13, color: '#7a8090' }}>
             Procesando:
           </span>
-          <PillTag ok={stats.ok + stats.err} total={stats.total} />
+          <PillTag ok={stats.ok + stats.err + stats.dup} total={stats.total} />
           <BarraProgreso ok={stats.ok} err={stats.err} total={stats.total} />
           <span style={{ fontFamily: 'Oswald', fontSize: 13, fontWeight: 600, color: '#3a4050' }}>
             {pct}%
@@ -377,7 +438,7 @@ export default function TabSubirV2() {
             {stats.ok} OK
           </span>
           <span style={{ fontFamily: 'Lexend', fontSize: 12, color: '#E24B4A' }}>
-            {stats.err} sin NIF
+            {stats.err} revisión
           </span>
           <span style={{ fontFamily: 'Lexend', fontSize: 12, color: '#7a8090' }}>
             {stats.dup} duplicadas
@@ -458,7 +519,7 @@ export default function TabSubirV2() {
             background: '#fafaf7',
           }}>
             <span style={{ fontFamily: 'Lexend', fontSize: 12, color: '#7a8090' }}>
-              Última tanda · resumen disponible 5s
+              Última tanda · resumen disponible 8s
             </span>
             <button
               onClick={() => { canceladoRef.current = true; setProcesando(false) }}

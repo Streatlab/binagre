@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import { COLOR, COLORS, LEXEND, OSWALD } from '@/components/panel/resumen/tokens'
 import {
-  calcNetoPorCanal, loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
+  INK, OSC, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, AMA, GRIS,
+  OSW, LEX, SHADOW, BORDER_CARD, PAD, CORP, CLARA,
+  eyebrow, d,
+} from '@/styles/neobrutal'
+import {
+  loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
   type CanalConfig, type MarcasPorCanal,
 } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 
 /* ════════════════════════════════════════════════════════════
    CASH FLOW — pestaña del Panel Global
@@ -16,24 +21,15 @@ import {
 
 type Sim = -10 | 0 | 10
 
-const VERDE = '#1D9E75'
-const ROJO = '#E24B4A'
-const AMARILLO = '#f5a623'
-const AZUL = '#185FA5'
-const GRIS = '#9ba3af'
-const BORDE = '#d0c8bc'
-const TINTA = '#1e2233'
-const POS = VERDE, WARN = AMARILLO, NEG = ROJO
-
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
 
 const CANALES = [
-  { id: 'uber', label: 'Uber Eats', color: COLOR.uber, bk: 'uber_bruto', pk: 'uber_pedidos' },
-  { id: 'glovo', label: 'Glovo', color: '#c9a900', bk: 'glovo_bruto', pk: 'glovo_pedidos' },
-  { id: 'je', label: 'Just Eat', color: COLOR.je, bk: 'je_bruto', pk: 'je_pedidos' },
-  { id: 'web', label: 'Web', color: COLOR.webSL, bk: 'web_bruto', pk: 'web_pedidos' },
-  { id: 'dir', label: 'Directa', color: COLOR.directa, bk: 'directa_bruto', pk: 'directa_pedidos' },
+  { id: 'uber', label: 'Uber Eats', color: CORP['uber'], bk: 'uber_bruto', pk: 'uber_pedidos' },
+  { id: 'glovo', label: 'Glovo', color: CORP['glovo'], bk: 'glovo_bruto', pk: 'glovo_pedidos' },
+  { id: 'je', label: 'Just Eat', color: CORP['je'], bk: 'je_bruto', pk: 'je_pedidos' },
+  { id: 'web', label: 'Web', color: CORP['web'], bk: 'web_bruto', pk: 'web_pedidos' },
+  { id: 'dir', label: 'Directa', color: CORP['dir'], bk: 'directa_bruto', pk: 'directa_pedidos' },
 ] as const
 
 const FESTIVOS_FALLBACK = [
@@ -104,6 +100,7 @@ export default function Cashflow() {
 
   useEffect(() => {
     loadConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal)
+    loadVentasReales().then(() => loadRatiosCalibrados())
     const on = () => { recargarConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal) }
     window.addEventListener('config_canales:changed', on)
     return () => window.removeEventListener('config_canales:changed', on)
@@ -225,7 +222,7 @@ export default function Cashflow() {
     }
     const out: Cobro[] = []
     for (const g of grupos.values()) {
-      const { neto } = calcNetoPorCanal(g.canal.id, g.bruto, g.ped, {
+      const { neto } = resolverNeto(g.canal.id, g.bruto, g.ped, {
         modo: 'agregado_canal', marcasPorCanal, fechaDesde: parse(g.ini), fechaHasta: parse(g.fin), configCanales: config, diasConDatos: g.dias.size,
       })
       out.push({ canal: g.canal.id, label: g.canal.label, color: g.canal.color, ini: g.ini, fin: g.fin, pago: g.pago, bruto: g.bruto, neto, pedidos: g.ped, futuro: g.pago > hoy })
@@ -312,32 +309,26 @@ export default function Cashflow() {
 
   const frases = useMemo(() => {
     const out: { txt: string; color: string }[] = []
-    if (grueso && porCobrarTotal > 0) { const r = grueso.total / porCobrarTotal; out.push({ txt: `El grueso entra el ${fmtLarga(grueso.pago)}: ${nf0(grueso.total)}, ${r >= 0.5 ? 'más de la mitad' : 'el ' + (r * 100).toFixed(0) + '%'} de lo que tienes pendiente.`, color: POS }) }
-    if (topPlat && topPlat.neto > 0 && porCobrarTotal > 0) { const pct = (topPlat.neto / porCobrarTotal) * 100; if (pct >= 45) out.push({ txt: `${topPlat.label} son ${Math.round(pct / 10)} de cada 10 € que te quedan por cobrar.`, color: pct >= 65 ? WARN : COLOR.textSec }) }
-    if (runwaySem > 0) out.push({ txt: runwaySem >= 12 ? `Con la caja del banco (${nf0(saldoBanco)}) y tu ritmo de gasto, tienes colchón para unas ${Math.round(runwaySem)} semanas.` : `Colchón ajustado: la caja del banco (${nf0(saldoBanco)}) da para unas ${Math.round(runwaySem)} semanas al ritmo de gasto actual.`, color: runwaySem >= 12 ? POS : WARN })
+    if (grueso && porCobrarTotal > 0) { const r = grueso.total / porCobrarTotal; out.push({ txt: `El grueso entra el ${fmtLarga(grueso.pago)}: ${nf0(grueso.total)}, ${r >= 0.5 ? 'más de la mitad' : 'el ' + (r * 100).toFixed(0) + '%'} de lo que tienes pendiente.`, color: VERDE }) }
+    if (topPlat && topPlat.neto > 0 && porCobrarTotal > 0) { const pct = (topPlat.neto / porCobrarTotal) * 100; if (pct >= 45) out.push({ txt: `${topPlat.label} son ${Math.round(pct / 10)} de cada 10 € que te quedan por cobrar.`, color: pct >= 65 ? NAR : GRIS }) }
+    if (runwaySem > 0) out.push({ txt: runwaySem >= 12 ? `Con la caja del banco (${nf0(saldoBanco)}) y tu ritmo de gasto, tienes colchón para unas ${Math.round(runwaySem)} semanas.` : `Colchón ajustado: la caja del banco (${nf0(saldoBanco)}) da para unas ${Math.round(runwaySem)} semanas al ritmo de gasto actual.`, color: runwaySem >= 12 ? VERDE : NAR })
     return out
   }, [grueso, topPlat, porCobrarTotal, runwaySem, saldoBanco])
 
   const simTabs: { id: Sim; label: string }[] = [{ id: -10, label: '−10%' }, { id: 0, label: 'Real' }, { id: 10, label: '+10%' }]
 
-  const card: CSSProperties = { background: '#fff', border: `0.5px solid ${BORDE}`, borderRadius: 16, padding: '16px 18px' }
-  const lblS: CSSProperties = { fontFamily: OSWALD, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 10 }
-  const SUBC: CSSProperties = { display: 'inline-flex', gap: 4, padding: '3px 4px', borderRadius: 10, background: COLORS.accent, border: `0.5px solid ${COLORS.accent}` }
-  const subA: CSSProperties = { padding: '4px 10px', borderRadius: 6, border: 'none', background: '#fff', color: COLORS.pri, fontFamily: OSWALD, fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
-  const subI: CSSProperties = { padding: '4px 10px', borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.25)', color: '#fff', fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
-  const th: CSSProperties = { padding: '7px 8px', textAlign: 'right', fontFamily: OSWALD, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: COLOR.textMut, borderBottom: `1px solid ${BORDE}` }
-  const tdL: CSSProperties = { padding: '7px 8px', textAlign: 'left', fontFamily: LEXEND, fontSize: 12.5 }
-  const tdR: CSSProperties = { padding: '7px 8px', textAlign: 'right', fontFamily: OSWALD, fontSize: 13 }
-  const kpi: CSSProperties = { background: '#faf8f4', borderRadius: 10, padding: '10px 12px' }
-  const kpiL: CSSProperties = { fontFamily: OSWALD, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: COLOR.textMut }
-  const kpiV: CSSProperties = { fontFamily: OSWALD, fontSize: 23, fontWeight: 700, lineHeight: 1.1 }
-  const ex: CSSProperties = { fontSize: 10, color: '#b9b3a8', marginTop: 6 }
-  const dot = (c: string): CSSProperties => ({ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: c, marginRight: 6 })
-  const thIng: CSSProperties = { fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, padding: '10px 12px', borderBottom: `0.5px solid ${COLORS.brd}`, whiteSpace: 'nowrap' }
-  const tdLIng: CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: COLORS.pri, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.brd}` }
-  const tdRIng: CSSProperties = { ...tdLIng, fontFamily: OSWALD, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
+  const thIng: CSSProperties = { fontFamily: OSW, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, background: INK, padding: '10px 12px', borderBottom: `1px solid ${INK}`, whiteSpace: 'nowrap' }
+  const tdLIng: CSSProperties = { fontFamily: LEX, fontSize: 13, color: INK, padding: '9px 12px', borderBottom: `0.5px solid rgba(20,15,8,0.15)` }
+  const tdRIng: CSSProperties = { ...tdLIng, fontFamily: OSW, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
+  const th: CSSProperties = { padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: CREMA, background: INK }
+  const tdL: CSSProperties = { padding: '9px 12px', textAlign: 'left', fontFamily: LEX, fontSize: 12.5 }
+  const tdR: CSSProperties = { padding: '9px 12px', textAlign: 'right', fontFamily: OSW, fontSize: 13 }
+  const dot = (c: string): CSSProperties => ({ display: 'inline-block', width: 8, height: 8, background: c, marginRight: 6 })
+  const SUBC: CSSProperties = { display: 'inline-flex', gap: 4, padding: '3px 4px', background: INK, border: `2px solid ${INK}` }
+  const subA: CSSProperties = { padding: '4px 10px', border: 'none', background: '#fff', color: INK, fontFamily: OSW, fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
+  const subI: CSSProperties = { padding: '4px 10px', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: OSW, fontSize: 10, fontWeight: 500, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: COLOR.textSec, fontFamily: LEXEND }}>Cargando…</div>
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
 
   const W = 720, H = 210, P = { l: 46, r: 16, t: 22, b: 28 }
   const ix = W - P.l - P.r, iy = H - P.t - P.b
@@ -354,183 +345,259 @@ export default function Cashflow() {
   const ySaldo = (v: number) => cb - (v / maxBar) * (cb - ct) * 0.85
 
   return (
-    <div style={{ fontFamily: LEXEND, color: COLOR.textPri, paddingTop: 18 }}>
+    <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}` }}>
 
-      <div style={{ ...card, marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 12, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1 }} />
-          <span style={{ ...lblS, margin: 0, fontSize: 10 }}>Simulador</span>
+      {/* ── SECCIÓN 1 · HERO (AZUL) ── */}
+      <section style={{ background: AZUL, borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 40, alignItems: 'start' }}>
+          {/* Izquierda: eyebrow + número hero + frases */}
+          <div>
+            <span style={eyebrow('#fff', INK)}>CASHFLOW · COBROS Y TESORERÍA</span>
+            <div style={{ marginTop: 18 }}>
+              <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff99', marginBottom: 6 }}>POR COBRAR</div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ ...d('clamp(44px,6.8vw,92px)', '#fff') }}>{nf0(porCobrarTotal)}</div>
+                {sim !== 0 && <span style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, color: AMA, letterSpacing: '0.5px', marginBottom: 14 }}>· simulación {sim > 0 ? '+' : ''}{sim}%</span>}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 18 }}>
+              {frases.map((f, i) => (
+                <div key={i} style={{ fontFamily: OSW, fontSize: 'clamp(15px,2vw,19px)', fontWeight: 600, color: f.color, letterSpacing: '0.3px' }}>{f.txt}</div>
+              ))}
+            </div>
+          </div>
+          {/* Derecha: 4 KPIs apilados */}
+          <div style={{ background: CLARO, border: `3px solid ${INK}`, boxShadow: SHADOW }}>
+            {[
+              { label: 'Por cobrar', value: nf0(porCobrarTotal), color: VERDE },
+              { label: 'Hasta fin de mes', value: nf0(hastaFinMes), color: VERDE },
+              { label: `Saldo banco · ${ultimoMov || '—'}`, value: nf0(saldoBanco), color: saldoBanco >= 0 ? VERDE : ROJO },
+              { label: 'Runway', value: runwaySem > 0 ? `${Math.round(runwaySem)} sem.` : '—', color: runwaySem >= 12 ? VERDE : runwaySem > 0 ? NAR : GRIS },
+            ].map((k, i, arr) => (
+              <div key={i} style={{ padding: '18px 20px', borderBottom: i < arr.length - 1 ? `3px solid ${INK}` : 'none' }}>
+                <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 4 }}>{k.label}</div>
+                <div style={{ fontFamily: OSW, fontSize: 26, fontWeight: 700, lineHeight: 1, color: k.color }}>{k.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Simulador full-width debajo del grid */}
+        <div style={{ borderTop: `4px solid ${INK}`, marginTop: 32, marginLeft: `-${PAD}`, marginRight: `-${PAD}`, padding: `14px ${PAD}`, background: OSC, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={eyebrow('#ffffff33', '#fff')}>Simulador</span>
           <div style={SUBC}>{simTabs.map(t => <button key={t.id} onClick={() => setSim(t.id)} style={sim === t.id ? subA : subI}>{t.label}</button>)}</div>
         </div>
-        <div style={{ fontFamily: OSWALD, fontSize: 'clamp(28px,4vw,42px)', fontWeight: 600, lineHeight: 1.05 }}>
-          POR COBRAR <span style={{ color: VERDE }}>{nf0(porCobrarTotal)}</span>
-          {sim !== 0 && <span style={{ color: COLOR.textMut, fontSize: '0.5em', marginLeft: 10 }}>· simulación {sim > 0 ? '+' : ''}{sim}%</span>}
-        </div>
-        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {frases.map((f, i) => <div key={i} style={{ fontFamily: OSWALD, fontSize: 'clamp(16px,2.1vw,20px)', fontWeight: 600, color: f.color, letterSpacing: '0.3px' }}>{f.txt}</div>)}
-        </div>
-      </div>
+      </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12, marginBottom: 12 }}>
-        <div style={card}>
-          <div style={lblS}>Cobros · cobrado y previsto · neto</div>
-          {graf.length === 0 ? <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut, padding: '20px 0' }}>Sin cobros en el horizonte.</div> : (
-            <div style={{ position: 'relative' }}>
+      {/* ── SECCIÓN 2 · COBROS · GRÁFICO (#fff) ── */}
+      <section style={{ background: '#fff', borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+        <span style={eyebrow(AMA)}>Cobros · cobrado y previsto · neto</span>
+        {graf.length === 0
+          ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, padding: '20px 0', marginTop: 8 }}>Sin cobros en el horizonte.</div>
+          : (
+            <div style={{ position: 'relative', marginTop: 18 }}>
               <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
-                {[0, 1, 2, 3].map(g => { const v = maxY / 3 * g; const y = Y(v); return (<g key={g}><line x1={P.l} y1={y} x2={W - P.r} y2={y} stroke="#efece6" /><text x={P.l - 6} y={y + 3} textAnchor="end" fontSize="9" fill={GRIS} fontFamily="Lexend">{nf0(v)}</text></g>) })}
-                {idxFut > 0 && (() => { const xh = (X(idxFut - 1) + X(idxFut)) / 2; return (<g><line x1={xh} y1={P.t} x2={xh} y2={H - P.b} stroke={COLORS.accent} strokeWidth="1" strokeDasharray="3 3" /><text x={xh} y={P.t - 6} textAnchor="middle" fontSize="9" fill={COLORS.accent} fontFamily="Oswald">HOY</text></g>) })()}
+                {[0, 1, 2, 3].map(g => { const v = maxY / 3 * g; const y = Y(v); return (<g key={g}><line x1={P.l} y1={y} x2={W - P.r} y2={y} stroke={TRACK} /><text x={P.l - 6} y={y + 3} textAnchor="end" fontSize="9" fill={GRIS} fontFamily="Lexend">{nf0(v)}</text></g>) })}
+                {idxFut > 0 && (() => { const xh = (X(idxFut - 1) + X(idxFut)) / 2; return (<g><line x1={xh} y1={P.t} x2={xh} y2={H - P.b} stroke={INK} strokeWidth="1" strokeDasharray="3 3" /><text x={xh} y={P.t - 6} textAnchor="middle" fontSize="9" fill={INK} fontFamily="Oswald">HOY</text></g>) })()}
                 {graf.length > 1 && <polyline points={graf.map((p, i) => `${X(i)} ${Y(p.total)}`).join(' ')} fill="none" stroke={VERDE} strokeWidth="2.5" />}
                 {graf.map((p, i) => (<g key={i}><circle cx={X(i)} cy={Y(p.total)} r={hover === i ? 6 : 4} fill={p.futuro ? '#fff' : VERDE} stroke={VERDE} strokeWidth="2" style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} /><text x={X(i)} y={H - P.b + 14} textAnchor="middle" fontSize="9" fill={GRIS} fontFamily="Lexend">{fmtCorta(p.pago)}</text></g>))}
               </svg>
               {hover != null && graf[hover] && (
-                <div style={{ position: 'absolute', left: `${(X(hover) / W) * 100}%`, top: `${(Y(graf[hover].total) / H) * 100}%`, transform: 'translate(-50%, calc(-100% - 12px))', background: COLORS.modal, color: '#fff', borderRadius: 10, padding: '10px 12px', minWidth: 160, pointerEvents: 'none', zIndex: 5, boxShadow: '0 6px 18px rgba(0,0,0,0.25)' }}>
-                  <div style={{ fontFamily: OSWALD, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>{fmtLarga(graf[hover].pago)}</div>
-                  {graf[hover].items.map((it, k) => (<div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontFamily: LEXEND, fontSize: 12, marginBottom: 2 }}><span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: it.color }} />{it.label}</span><span style={{ fontFamily: OSWALD, fontWeight: 600 }}>{nf0(it.neto)}</span></div>))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, marginTop: 6, paddingTop: 6, borderTop: '0.5px solid rgba(255,255,255,0.25)', fontFamily: OSWALD, fontSize: 13, fontWeight: 700 }}><span>{graf[hover].futuro ? 'Previsto' : 'Cobrado'}</span><span>{nf0(graf[hover].total)}</span></div>
+                <div style={{ position: 'absolute', left: `${(X(hover) / W) * 100}%`, top: `${(Y(graf[hover].total) / H) * 100}%`, transform: 'translate(-50%, calc(-100% - 12px))', background: INK, color: CREMA, padding: '10px 12px', minWidth: 160, pointerEvents: 'none', zIndex: 5, boxShadow: SHADOW, border: BORDER_CARD }}>
+                  <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>{fmtLarga(graf[hover].pago)}</div>
+                  {graf[hover].items.map((it, k) => (<div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontFamily: LEX, fontSize: 12, marginBottom: 2 }}><span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, background: it.color }} />{it.label}</span><span style={{ fontFamily: OSW, fontWeight: 600 }}>{nf0(it.neto)}</span></div>))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, marginTop: 6, paddingTop: 6, borderTop: `1px solid rgba(252,239,214,0.3)`, fontFamily: OSW, fontSize: 13, fontWeight: 700 }}><span>{graf[hover].futuro ? 'Previsto' : 'Cobrado'}</span><span>{nf0(graf[hover].total)}</span></div>
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: COLOR.textSec, marginTop: 8 }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: VERDE }} />Cobrado</span><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff', border: `2px solid ${VERDE}` }} />Previsto</span></div>
+              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: GRIS, marginTop: 8 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, background: VERDE }} />Cobrado</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, background: '#fff', border: `2px solid ${VERDE}` }} />Previsto</span>
+              </div>
             </div>
           )}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={kpi}><div style={kpiL}>Por cobrar</div><div style={{ ...kpiV, color: VERDE }}>{nf0(porCobrarTotal)}</div></div>
-          <div style={kpi}><div style={kpiL}>Hasta fin de mes</div><div style={{ ...kpiV, color: VERDE }}>{nf0(hastaFinMes)}</div></div>
-          <div style={kpi}><div style={kpiL}>Saldo banco</div><div style={{ ...kpiV, color: saldoBanco >= 0 ? VERDE : ROJO }}>{nf0(saldoBanco)}</div><div style={{ ...ex, margin: 0 }}>a {ultimoMov || '—'}</div></div>
-          <div style={kpi}><div style={kpiL}>Runway</div><div style={{ ...kpiV, color: runwaySem >= 12 ? VERDE : runwaySem > 0 ? AMARILLO : GRIS }}>{runwaySem > 0 ? Math.round(runwaySem) : '—'} sem.</div><div style={{ ...ex, margin: 0 }}>saldo ÷ gasto medio</div></div>
-        </div>
-      </div>
+      </section>
 
-      <div style={{ ...card, marginBottom: 12 }}>
-        <div style={lblS}>Caja por mes · banco real · línea = saldo</div>
-        <svg viewBox={`0 0 ${CW} 170`} style={{ width: '100%', height: 'auto' }}>
-          <line x1={40} y1={cb} x2={CW - 10} y2={cb} stroke="#e6e1d8" />
+      {/* ── SECCIÓN 3 · CAJA POR MES (CREMA) ── */}
+      <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+        <span style={eyebrow(INK, CREMA)}>Caja por mes · banco real · línea = saldo</span>
+        <svg viewBox={`0 0 ${CW} 170`} style={{ width: '100%', height: 'auto', marginTop: 18 }}>
+          <line x1={40} y1={cb} x2={CW - 10} y2={cb} stroke={TRACK} />
           {cruce.map((c, i) => { const x = cx(i); return (
             <g key={i}>
-              <rect x={x - 19} y={cb - barH(c.ingresos)} width={16} height={barH(c.ingresos)} fill={VERDE} rx={3} />
-              <rect x={x + 3} y={cb - barH(c.gastos)} width={16} height={barH(c.gastos)} fill={ROJO} rx={3} />
-              <text x={x} y={cb + 16} textAnchor="middle" fontSize="9" fill={COLOR.textSec} fontFamily="Lexend">{c.label}</text>
+              <rect x={x - 19} y={cb - barH(c.ingresos)} width={16} height={barH(c.ingresos)} fill={VERDE} />
+              <rect x={x + 3} y={cb - barH(c.gastos)} width={16} height={barH(c.gastos)} fill={ROJO} />
+              <text x={x} y={cb + 16} textAnchor="middle" fontSize="9" fill={GRIS} fontFamily="Lexend">{c.label}</text>
               <text x={x} y={cb + 32} textAnchor="middle" fontSize="10" fill={c.margen >= 0 ? VERDE : ROJO} fontFamily="Oswald">{c.margen >= 0 ? '+' : ''}{nf0(c.margen)}</text>
             </g>) })}
-          <polyline points={cruce.map((c, i) => `${cx(i)} ${ySaldo(c.margen)}`).join(' ')} fill="none" stroke={TINTA} strokeWidth="2.5" />
-          {cruce.map((c, i) => <circle key={i} cx={cx(i)} cy={ySaldo(c.margen)} r={3.5} fill={c.margen >= 0 ? TINTA : ROJO} />)}
+          <polyline points={cruce.map((c, i) => `${cx(i)} ${ySaldo(c.margen)}`).join(' ')} fill="none" stroke={INK} strokeWidth="2.5" />
+          {cruce.map((c, i) => <circle key={i} cx={cx(i)} cy={ySaldo(c.margen)} r={3.5} fill={c.margen >= 0 ? INK : ROJO} />)}
         </svg>
-        <div style={{ display: 'flex', gap: 16, fontSize: 11, color: COLOR.textSec, marginTop: 4 }}>
-          <span><span style={dot(VERDE)} />Ingresos</span><span><span style={dot(ROJO)} />Gastos</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 0, borderTop: `2px solid ${TINTA}` }} />Saldo</span>
+        <div style={{ display: 'flex', gap: 16, fontSize: 11, color: GRIS, marginTop: 8 }}>
+          <span><span style={dot(VERDE)} />Ingresos</span>
+          <span><span style={dot(ROJO)} />Gastos</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 0, borderTop: `2px solid ${INK}` }} />Saldo</span>
         </div>
-        <div style={ex}>Movimientos reales del banco{ultimoMov ? ` · última importación: ${ultimoMov}` : ''}.</div>
-      </div>
+        {ultimoMov && <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 6 }}>Movimientos reales del banco · última importación: {ultimoMov}.</div>}
+      </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12, marginBottom: 12 }}>
-        <div style={card}>
-          <div style={lblS}>Ingresos pendientes · lo que el banco aún no ha pagado</div>
-          {futuros.length === 0 ? <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>Sin cobros pendientes.</div> : (
-            <div style={{ overflowX: 'auto', margin: '4px -18px -16px' }}>
-              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 720 }}>
+      {/* ── SECCIÓN 4 · INGRESOS PENDIENTES + CAJA POR MARCA (#fff / CLARO) ── */}
+      <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
+        {/* Izquierda: tabla ingresos pendientes */}
+        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
+          <span style={eyebrow(VERDE, '#fff')}>Ingresos pendientes · lo que el banco aún no ha pagado</span>
+          {futuros.length === 0
+            ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin cobros pendientes.</div>
+            : (
+              <div style={{ overflowX: 'auto', marginTop: 18 }}>
+                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 680 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...thIng, textAlign: 'left' }}>Plataforma</th>
+                      <th style={{ ...thIng, textAlign: 'left' }}>Ventas de</th>
+                      <th style={{ ...thIng, textAlign: 'right' }}>Pedidos</th>
+                      <th style={{ ...thIng, textAlign: 'left' }}>Cobro</th>
+                      <th style={{ ...thIng, textAlign: 'right' }}>Bruto</th>
+                      <th style={{ ...thIng, textAlign: 'right' }}>Neto est.</th>
+                      <th style={{ ...thIng, textAlign: 'right' }}>% neto</th>
+                      <th style={{ ...thIng, textAlign: 'center' }}>Cobrado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {futuros.map((c, i) => {
+                      const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0
+                      const porBanco = cobradoBanco(c)
+                      const cobrado = porBanco || !!cobradoMap[claveCobro(c)]
+                      const vencido = c.pago <= hoy && !cobrado
+                      return (
+                        <tr key={i} style={{ opacity: cobrado ? 0.5 : 1, background: i % 2 === 0 ? '#fff' : CLARO }}>
+                          <td style={{ ...tdLIng, paddingLeft: 0 }}><span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', background: CORP[c.canal] ?? c.color, color: CLARA[c.canal] ? INK : '#fff', fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.3px', whiteSpace: 'nowrap', border: `2px solid ${INK}` }}>{c.label}</span></td>
+                          <td style={{ ...tdLIng, color: GRIS }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
+                          <td style={tdRIng}>{c.pedidos}</td>
+                          <td style={{ ...tdLIng, color: vencido ? NAR : INK, fontWeight: vencido ? 700 : 400 }}>{fmtCorta(c.pago)}{vencido ? ' · reclamar' : ''}</td>
+                          <td style={tdRIng}>{nf0(c.bruto)}</td>
+                          <td style={{ ...tdRIng, fontWeight: 700, color: VERDE, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
+                          <td style={{ ...tdRIng, color: pct >= 58 ? VERDE : NAR }}>{pct.toFixed(1)}%</td>
+                          <td style={{ ...tdRIng, textAlign: 'center' }}>{porBanco
+                            ? <span title="Cobrado · confirmado por el banco" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: VERDE, color: '#fff', fontFamily: OSW, fontSize: 11, fontWeight: 700, border: `2px solid ${INK}` }}>✓ banco</span>
+                            : <button onClick={() => toggleCobrado(c)} aria-label={cobrado ? 'Cobrado' : 'Pendiente'} title={cobrado ? 'Cobrado' : 'Marcar como cobrado'} style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'transparent', display: 'inline-flex', alignItems: 'center' }}><span style={{ position: 'relative', width: 38, height: 22, background: cobrado ? VERDE : TRACK, transition: 'background .15s', display: 'inline-block', border: `2px solid ${INK}` }}><span style={{ position: 'absolute', top: 2, left: cobrado ? 16 : 2, width: 14, height: 14, background: '#fff', border: `2px solid ${INK}`, transition: 'left .15s' }} /></span></button>
+                          }</td>
+                        </tr>
+                      )
+                    })}
+                    <tr style={{ background: '#faf4e6' }}>
+                      <td style={{ ...tdLIng, paddingLeft: 0, fontFamily: OSW, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>TOTAL</td>
+                      <td style={{ ...tdLIng, borderTop: `2px solid ${INK}`, borderBottom: 'none' }} />
+                      <td style={{ ...tdRIng, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{futuros.reduce((s, c) => s + c.pedidos, 0)}</td>
+                      <td style={{ ...tdLIng, borderTop: `2px solid ${INK}`, borderBottom: 'none' }} />
+                      <td style={{ ...tdRIng, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{nf0(futuros.reduce((s, c) => s + c.bruto, 0))}</td>
+                      <td style={{ ...tdRIng, fontWeight: 700, color: VERDE, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{nf0(futuros.filter(c => !estaCobrado(c)).reduce((s, c) => s + c.neto, 0) * factor)}</td>
+                      <td style={{ ...tdRIng, fontWeight: 700, color: GRIS, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{(() => { const b = futuros.reduce((s, c) => s + c.bruto, 0); return b > 0 ? ((futuros.reduce((s, c) => s + c.neto, 0) / b) * 100).toFixed(1) : '0' })()}%</td>
+                      <td style={{ ...tdRIng, borderTop: `2px solid ${INK}`, borderBottom: 'none' }} />
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 10 }}>Del 19-jun hacia atrás: cobrado. Desde el 20-jun: pendiente hasta que entra en banco o lo marcas.</div>
+        </div>
+        {/* Derecha: caja por marca */}
+        <div style={{ padding: `44px ${PAD}`, background: CLARO }}>
+          <span style={eyebrow(INK, CREMA)}>Caja por marca · 90d · {porMarca.length} activas</span>
+          {porMarca.length === 0
+            ? <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 14 }}>Sin marcas activas.</div>
+            : (() => {
+                const max = Math.max(...porMarca.map(m => m.neto), 1)
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 18 }}>
+                    {porMarca.map((m, i) => {
+                      const sin = m.neto <= 0
+                      return (
+                        <div key={i}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, marginBottom: 5 }}>
+                            <span style={{ fontFamily: OSW, fontSize: 13, fontWeight: 700, color: sin ? GRIS : INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.marca}</span>
+                            <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 15, color: sin ? GRIS : VERDE, flexShrink: 0 }}>{nf0(m.neto)}</span>
+                          </div>
+                          <div style={{ height: 8, background: TRACK, border: BORDER_CARD }}>
+                            <div style={{ height: 8, width: `${(m.neto / max) * 100}%`, background: sin ? GRIS : VERDE, boxShadow: SHADOW }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()
+          }
+          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 14 }}>Neto últimos 90 días · marcas activas en vivo desde configuración.</div>
+        </div>
+      </section>
+
+      {/* ── SECCIÓN 5 · GASTOS DEL MES (grid 2fr 1fr, fondo CLARO) ── */}
+      <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
+        {/* Izquierda: tabla gastos */}
+        <div style={{ background: '#fff', borderRight: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+          <span style={eyebrow(ROJO, '#fff')}>Gastos del mes · por categoría</span>
+          {gastosCat.length === 0
+            ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin facturas registradas este mes.</div>
+            : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 18 }}>
                 <thead>
                   <tr>
-                    <th style={{ ...thIng, textAlign: 'left' }}>Plataforma</th>
-                    <th style={{ ...thIng, textAlign: 'left' }}>Ventas de</th>
-                    <th style={{ ...thIng, textAlign: 'right' }}>Pedidos</th>
-                    <th style={{ ...thIng, textAlign: 'left' }}>Cobro</th>
-                    <th style={{ ...thIng, textAlign: 'right' }}>Bruto</th>
-                    <th style={{ ...thIng, textAlign: 'right' }}>Neto est.</th>
-                    <th style={{ ...thIng, textAlign: 'right' }}>% neto</th>
-                    <th style={{ ...thIng, textAlign: 'center' }}>Cobrado</th>
+                    <th style={{ ...th, textAlign: 'left' }}>Categoría</th>
+                    <th style={th}>Facturas</th>
+                    <th style={th}>Importe</th>
+                    <th style={th}>IVA</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {futuros.map((c, i) => { const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0; const porBanco = cobradoBanco(c); const cobrado = porBanco || !!cobradoMap[claveCobro(c)]; const vencido = c.pago <= hoy && !cobrado; return (
-                    <tr key={i} style={{ opacity: cobrado ? 0.5 : 1 }}>
-                      <td style={{ ...tdLIng, paddingLeft: 18 }}><span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 999, background: c.color + '22', color: c.color, fontFamily: OSWALD, fontSize: 12, fontWeight: 600, letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>{c.label}</span></td>
-                      <td style={{ ...tdLIng, color: COLORS.sec }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
-                      <td style={tdRIng}>{c.pedidos}</td>
-                      <td style={{ ...tdLIng, color: vencido ? '#c25e00' : COLORS.pri, fontWeight: vencido ? 700 : 400 }}>{fmtCorta(c.pago)}{vencido ? ' · reclamar' : ''}</td>
-                      <td style={tdRIng}>{nf0(c.bruto)}</td>
-                      <td style={{ ...tdRIng, fontWeight: 700, color: COLORS.ok, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
-                      <td style={{ ...tdRIng, color: pct >= 58 ? '#3b6d11' : '#c47f12' }}>{pct.toFixed(1)}%</td>
-                      <td style={{ ...tdRIng, textAlign: 'center', paddingRight: 18 }}>{porBanco ? (<span title="Cobrado · confirmado por el banco" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 999, background: VERDE + '22', color: VERDE, fontFamily: OSWALD, fontSize: 11, fontWeight: 700, letterSpacing: '0.3px' }}>✓ banco</span>) : (<button onClick={() => toggleCobrado(c)} aria-label={cobrado ? 'Cobrado' : 'Pendiente'} title={cobrado ? 'Cobrado' : 'Marcar como cobrado'} style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'transparent', display: 'inline-flex', alignItems: 'center' }}><span style={{ position: 'relative', width: 38, height: 22, borderRadius: 999, background: cobrado ? VERDE : '#d4cfc6', transition: 'background .15s', display: 'inline-block' }}><span style={{ position: 'absolute', top: 2, left: cobrado ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.25)', transition: 'left .15s' }} /></span></button>)}</td>
-                    </tr>) })}
-                  <tr>
-                    <td style={{ ...tdLIng, paddingLeft: 18, fontFamily: OSWALD, fontWeight: 700, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}>TOTAL</td>
-                    <td style={{ ...tdLIng, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}></td>
-                    <td style={{ ...tdRIng, fontWeight: 700, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}>{futuros.reduce((s, c) => s + c.pedidos, 0)}</td>
-                    <td style={{ ...tdLIng, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}></td>
-                    <td style={{ ...tdRIng, fontWeight: 700, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}>{nf0(futuros.reduce((s, c) => s + c.bruto, 0))}</td>
-                    <td style={{ ...tdRIng, fontWeight: 700, color: COLORS.ok, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}>{nf0(futuros.filter(c => !estaCobrado(c)).reduce((s, c) => s + c.neto, 0) * factor)}</td>
-                    <td style={{ ...tdRIng, fontWeight: 700, color: COLORS.sec, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}>{(() => { const b = futuros.reduce((s, c) => s + c.bruto, 0); return b > 0 ? ((futuros.reduce((s, c) => s + c.neto, 0) / b) * 100).toFixed(1) : '0' })()}%</td>
-                    <td style={{ ...tdRIng, paddingRight: 18, borderTop: `1px solid ${COLORS.brd}`, borderBottom: 'none' }}></td>
+                  {gastosCat.slice(0, 10).map((g, i) => (
+                    <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : CLARO }}>
+                      <td style={tdL}><span style={dot(ROJO)} />{g.nombre}</td>
+                      <td style={{ ...tdR, color: GRIS, fontFamily: LEX, fontSize: 12 }}>{g.n}</td>
+                      <td style={{ ...tdR, fontWeight: 700, color: ROJO }}>{nf0(g.total)}</td>
+                      <td style={{ ...tdR, color: GRIS }}>{nf0(g.iva)}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: '#faf4e6', borderTop: `2px solid ${INK}` }}>
+                    <td style={{ ...tdL, fontFamily: OSW, fontWeight: 700 }}>TOTAL MES</td>
+                    <td style={{ ...tdR, fontWeight: 700 }}>{nFacturasMes}</td>
+                    <td style={{ ...tdR, fontWeight: 700, color: ROJO }}>{nf0(gastoMesTotal)}</td>
+                    <td style={{ ...tdR, fontWeight: 700, color: GRIS }}>{nf0(gastosCat.reduce((s, c) => s + c.iva, 0))}</td>
                   </tr>
                 </tbody>
               </table>
-            </div>
-          )}
-          <div style={ex}>Del 19-jun hacia atrás: cobrado. Desde el 20-jun: pendiente hasta que entra en banco o lo marcas.</div>
+            )}
+          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 10 }}>Datos reales de facturas. El estado de pago/vencimiento aún no se registra.</div>
         </div>
-        <div style={card}>
-          <div style={lblS}>Caja por marca · 90d · {porMarca.length} activas</div>
-          {porMarca.length === 0 ? <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLOR.textMut }}>Sin marcas activas.</div> : (() => { const max = Math.max(...porMarca.map(m => m.neto), 1); return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto', paddingRight: 4 }}>
-              {porMarca.map((m, i) => { const sin = m.neto <= 0; return (
-                <div key={i}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: LEXEND, fontSize: 11, marginBottom: 3, gap: 6 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: sin ? COLOR.textMut : COLOR.textSec }}>{m.marca}</span><span style={{ fontFamily: OSWALD, fontWeight: 700, color: sin ? GRIS : VERDE }}>{nf0(m.neto)}</span></div>
-                  <div style={{ height: 6, background: '#ece8e1', borderRadius: 4 }}><div style={{ height: 6, width: `${(m.neto / max) * 100}%`, background: sin ? '#e0dccf' : VERDE, borderRadius: 4 }} /></div>
-                </div>) })}
-            </div>) })()}
-          <div style={ex}>Neto últimos 90 días · marcas activas en vivo desde configuración.</div>
+        {/* Derecha: KPI gasto */}
+        <div style={{ padding: `44px ${PAD}`, background: CLARO }}>
+          <span style={eyebrow(INK, CREMA)}>Gasto del mes</span>
+          <div style={{ marginTop: 22 }}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 8 }}>Total facturado</div>
+            <div style={d('clamp(44px,6vw,72px)', ROJO)}>{nf0(gastoMesTotal)}</div>
+          </div>
+          <div style={{ marginTop: 28 }}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Nº facturas</div>
+            <div style={d('clamp(32px,4vw,52px)')}>{nFacturasMes}</div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12, marginBottom: 12 }}>
-        <div style={card}>
-          <div style={lblS}>Gastos del mes · por categoría</div>
-          {gastosCat.length === 0 ? <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLOR.textMut }}>Sin facturas registradas este mes.</div> : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr><th style={{ ...th, textAlign: 'left' }}>Categoría</th><th style={th}>Facturas</th><th style={th}>Importe</th><th style={th}>IVA</th></tr></thead>
-              <tbody>
-                {gastosCat.slice(0, 10).map((g, i) => (
-                  <tr key={i} style={{ borderTop: i ? `0.5px solid #f3efe8` : undefined }}>
-                    <td style={tdL}><span style={dot(ROJO)} />{g.nombre}</td>
-                    <td style={{ ...tdR, color: COLOR.textMut, fontFamily: LEXEND, fontSize: 12 }}>{g.n}</td>
-                    <td style={{ ...tdR, fontWeight: 700, color: ROJO }}>{nf0(g.total)}</td>
-                    <td style={{ ...tdR, color: COLOR.textSec }}>{nf0(g.iva)}</td>
-                  </tr>
-                ))}
-                <tr style={{ borderTop: `1.5px solid ${BORDE}` }}>
-                  <td style={{ ...tdL, fontFamily: OSWALD, fontWeight: 700 }}>TOTAL MES</td>
-                  <td style={{ ...tdR, fontWeight: 700 }}>{nFacturasMes}</td>
-                  <td style={{ ...tdR, fontWeight: 700, color: ROJO }}>{nf0(gastoMesTotal)}</td>
-                  <td style={{ ...tdR, fontWeight: 700, color: COLOR.textSec }}>{nf0(gastosCat.reduce((s, c) => s + c.iva, 0))}</td>
-                </tr>
-              </tbody>
-            </table>
-          )}
-          <div style={ex}>Datos reales de facturas. El estado de pago/vencimiento aún no se registra.</div>
-        </div>
-        <div style={card}>
-          <div style={lblS}>Gasto del mes</div>
-          <div style={{ ...kpi, marginBottom: 8 }}><div style={kpiL}>Total facturado</div><div style={{ ...kpiV, color: ROJO }}>{nf0(gastoMesTotal)}</div></div>
-          <div style={kpi}><div style={kpiL}>Nº facturas</div><div style={{ ...kpiV, color: COLOR.textPri }}>{nFacturasMes}</div></div>
-        </div>
-      </div>
-
-      <div style={card}>
-        <div style={lblS}>Se activa al cargar datos</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 }}>
+      {/* ── SECCIÓN 6 · PENDIENTE DE ACTIVAR (TRACK) ── */}
+      <section style={{ background: TRACK, padding: `44px ${PAD}` }}>
+        <span style={eyebrow(INK, CREMA)}>Se activa al cargar datos</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 22 }}>
           {[
-            { t: 'Recorte real vs previsto', d: 'Reembolsos y penalizaciones de cada liquidación de plataforma.', dep: 'liquidaciones (vacías)' },
-            { t: 'Coste de ADS y promos', d: 'Descuento por publicidad y su efecto en el neto.', dep: 'liquidaciones (vacías)' },
-            { t: 'Calendario 30/60/90', d: 'Días con dinero y días secos.', dep: 'fecha de pago de gastos' },
+            { t: 'Recorte real vs previsto', desc: 'Reembolsos y penalizaciones de cada liquidación de plataforma.', dep: 'liquidaciones (vacías)' },
+            { t: 'Coste de ADS y promos', desc: 'Descuento por publicidad y su efecto en el neto.', dep: 'liquidaciones (vacías)' },
+            { t: 'Calendario 30/60/90', desc: 'Días con dinero y días secos.', dep: 'fecha de pago de gastos' },
           ].map((x, i) => (
-            <div key={i} style={{ border: `1px dashed ${BORDE}`, borderRadius: 11, padding: '10px 12px', background: '#faf8f4' }}>
-              <div style={{ fontFamily: OSWALD, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', color: COLOR.textSec, marginBottom: 5 }}>{x.t}</div>
-              <div style={{ fontFamily: LEXEND, fontSize: 11, color: COLOR.textMut, marginBottom: 6 }}>{x.d}</div>
-              <div style={{ fontFamily: OSWALD, fontSize: 9, letterSpacing: '0.5px', textTransform: 'uppercase', color: AZUL }}>Falta: {x.dep}</div>
+            <div key={i} style={{ border: `2px dashed ${INK}`, padding: '16px 18px', background: '#fff' }}>
+              <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, marginBottom: 7 }}>{x.t}</div>
+              <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 8, lineHeight: 1.4 }}>{x.desc}</div>
+              <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '0.5px', textTransform: 'uppercase', color: AZUL }}>Falta: {x.dep}</div>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
     </div>
   )

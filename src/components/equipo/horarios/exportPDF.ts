@@ -51,7 +51,7 @@ function buildPDF(empleados: Empleado[], turnos: Turno[], lunes: Date, _opts: Ex
   doc.text(`ROTA S${numeroSemanaISO(lunes)} · ${fmtRangoSemana(lunes)}`.toUpperCase(), margin, 14)
 
   const dias = fechasSemana(lunes)
-  const visibles = empleados.filter(e => turnos.some(t => t.empleado_id === e.id))
+  const visibles = empleados.filter(e => (!e.estado || e.estado === 'activo') && turnos.some(t => t.empleado_id === e.id))
   const idxEmp: Record<string, number> = {}
   empleados.forEach((e, i) => { idxEmp[e.id] = i })
 
