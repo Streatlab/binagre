@@ -11,6 +11,8 @@ import { fmtEur, fmtNumES } from '@/utils/format'
    - Resultados: lee crm_campanas reales para ver qué promo se lanzó / funcionó
    - Conexión: enlaces directos a Reseñas, Ventas, Menú Engineering, Plan de campañas
    Estilo canónico Binagre. NO toca mkt_playbook_estado (Playbook Agencia Delivery).
+   NOTA: colaboración con Think Paladar finalizada el 30/06/2026. Se conserva como
+   manual interno + traspaso de métricas al ERP (ver bloque "Hacerlo solos").
 */
 
 const ACCENT = COLORS.redSL
@@ -74,7 +76,7 @@ export default function PlaybookThinkPaladar() {
     <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: ACCENT, letterSpacing: 3, textTransform: 'uppercase' }}>PLAYBOOK THINK PALADAR</div>
-        <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 2 }}>Metodología de la consultoría + datos reales del ERP · para operar el delivery por nuestra cuenta · v2</div>
+        <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 2 }}>Colaboración FINALIZADA (30 jun 2026) · ahora operamos el delivery solos · metodología + datos reales del ERP · v2</div>
       </div>
 
       <div style={{ ...TABS_PILL.container, flexWrap: 'wrap' }}>
@@ -326,10 +328,10 @@ function BloqueResultados() {
         </div>
       </Seccion>
 
-      <Seccion titulo="Lo más valioso a capturar mientras está TP">
+      <Seccion titulo="Lo más valioso capturado durante TP">
         <Bullet>Qué promo funcionó en qué plataforma y con qué segmento — con números reales.</Bullet>
         <Bullet>Qué platos en promo generaron recurrencia (el Flash Deal de Glovo es el experimento clave).</Bullet>
-        <Bullet>Rellenar el campo <Dato>veredicto</Dato> y <Dato>aprendizaje</Dato> de cada campaña al cerrarla: ahí queda el conocimiento cuando TP se vaya.</Bullet>
+        <Bullet>Rellenar el campo <Dato>veredicto</Dato> y <Dato>aprendizaje</Dato> de cada campaña al cerrarla: ahí queda el conocimiento ahora que TP se ha ido.</Bullet>
       </Seccion>
     </div>
   )
@@ -483,6 +485,8 @@ function BloqueCronologia() {
     ['13 may', 'Retraso: fotógrafa lesionada + cocinero deja el puesto'],
     ['21 may', 'Inés envía Plan de Marketing completo (promos may–jul)'],
     ['22 may', 'Ajuste de portada: fondo claro en vez de rojo'],
+    ['jun', 'Mes operando con TP. Binagre (Glovo+Uber): 1.527,60€ · 44 pedidos · ticket 34,72€'],
+    ['30 jun', 'FIN de la colaboración con Think Paladar. Streat Lab pasa a operar el delivery por su cuenta'],
   ]
   return (
     <Seccion titulo="Línea temporal de la colaboración">
@@ -505,6 +509,18 @@ function BloqueCronologia() {
 function BloqueSolos() {
   return (
     <>
+      <Seccion titulo="Cierre TP · datos finales del portal (jun 2026)">
+        <Bullet>Relación <Dato>finalizada el 30 jun 2026</Dato>. Perdemos acceso a su portal → estas métricas se internalizan en el ERP.</Bullet>
+        <Bullet>Mes jun (Binagre, Glovo+Uber): <Dato>1.527,60€</Dato> · 44 pedidos · ticket <Dato>34,72€</Dato>. Inversión ads 175€ + promo 262€.</Bullet>
+        <Bullet>Salud de cliente: <Dato>12,5% fidelizado</Dato> · 58,3% dependiente de promo · 29,2% natural. Clientes frecuentes: <Dato>0</Dato>.</Bullet>
+        <Bullet>Promos rinden (ROI ~6,8x) pero <Dato>Uber Ads no convirtió</Dato> (ROAS 0). Glovo es el motor del volumen.</Bullet>
+      </Seccion>
+      <Seccion titulo="Dónde vive ahora cada métrica del portal (dentro del ERP)">
+        <Bullet>Ventas · pedidos · ticket por canal y marca → <Dato>Finanzas › Ventas</Dato> + <Dato>Analytics › Revenue</Dato>.</Bullet>
+        <Bullet>Inversión ads/promo · ROI · % orgánica · ROAS · CPC → <Dato>Marketing › Plan de campañas</Dato> + bloque Resultados de este Playbook.</Bullet>
+        <Bullet>Segmentación y salud de cliente (nuevo/recurrente, fidelizado/dependiente) → <Dato>Clientes › CRM</Dato>.</Bullet>
+        <Bullet>Rating por plataforma → <Dato>Clientes › Reseñas</Dato>. Tiempo de entrega y aceptación → <Dato>Operativa</Dato>.</Bullet>
+      </Seccion>
       <Seccion titulo="Lo que TP no hace (y necesitamos cubrir)">
         <Bullet>Diseño de marca / imagen (lo hace Marcos por nuestra cuenta).</Bullet>
         <Bullet>Precios dinámicos · gestión de integradores · community manager.</Bullet>
