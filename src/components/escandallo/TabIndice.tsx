@@ -80,11 +80,11 @@ export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenE
 
   const thStyle: CSSProperties = {
     fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: CREMA, padding: '10px 12px', background: INK, borderBottom: `2px solid ${INK}`,
+    color: CREMA, padding: '9px 12px', background: INK, borderBottom: `2px solid ${INK}`,
     textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0,
   }
   const tdStyle: CSSProperties = {
-    fontFamily: LEX, fontSize: 13, color: INK, padding: '10px 12px',
+    fontFamily: LEX, fontSize: 13, color: INK, padding: '6px 11px',
     borderBottom: `1px solid ${INK}1f`, whiteSpace: 'nowrap',
   }
 
@@ -154,7 +154,7 @@ export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenE
                     >
                       <td style={{ ...tdStyle, color: codeColor, fontFamily: OSW, fontWeight: 700 }}>{d.codigo ?? ''}</td>
                       <td style={{ ...tdStyle, fontWeight: 600 }}>{d.nombre}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', color: '#00000099' }}>{fmtEurES(d.coste_tanda, 2)}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right', color: '#5a4f3a' }}>{fmtEurES(d.coste_tanda, 2)}</td>
                       <td style={{ ...tdStyle, textAlign: 'right', fontFamily: OSW, fontWeight: 700 }}>{fmtEurES(d.coste_rac, isEps ? 4 : 2)}</td>
                       <td style={{ ...tdStyle, textAlign: 'center', color: usos > 0 ? INK : GRIS }}>{usos}</td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>{d.raciones ? fmtES(d.raciones, 0) : ''}</td>
