@@ -41,18 +41,18 @@ const ZEBRA_B = CLARO
 
 const thBase: CSSProperties = {
   fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase',
-  color: CREMA, background: INK, padding: '11px 12px', textAlign: 'left', whiteSpace: 'nowrap',
+  color: CREMA, background: INK, padding: '9px 12px', textAlign: 'left', whiteSpace: 'nowrap',
   position: 'sticky', top: 0, zIndex: 20, borderRight: `1px solid #4a3f2c`,
 }
 const thR: CSSProperties = { ...thBase, textAlign: 'right' }
 const thC: CSSProperties = { ...thBase, textAlign: 'center' }
 
 const tdBase: CSSProperties = {
-  fontFamily: LEX, fontSize: 13, color: PG.pri, padding: '9px 12px',
+  fontFamily: LEX, fontSize: 13, color: PG.pri, padding: '6px 11px',
   borderBottom: `2px solid ${INK}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
 }
 const tdNum: CSSProperties = { ...tdBase, fontFamily: OSW, fontWeight: 600, textAlign: 'right' }
-const tdUd: CSSProperties = { ...tdBase, fontFamily: LEX, fontSize: 12, color: PG.mut }
+const tdUd: CSSProperties = { ...tdBase, fontFamily: LEX, fontSize: 12, color: '#5a4f3a' }
 
 const editInputStyle: CSSProperties = {
   background: '#fff', border: `2px solid ${AZUL}`, borderRadius: 0, color: INK,
@@ -326,13 +326,13 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onSelect,
                         {isEditing(i, 'ud_min') ? renderSelect(i.id, 'ud_min', udMinOptions) : (i.ud_min ?? '—')}
                       </td>
                       <td style={{ ...tdBase, background: zebra, textAlign: 'center', fontFamily: OSW, fontWeight: 600, fontSize: 15, color: colorUsos(usos) }}>{usos}</td>
-                      <td onClick={e => startEdit(e, i.id, 'precio1', i.precio1)} style={{ ...tdNum, background: zebra, color: PG.mut, cursor: 'text', textDecoration: 'underline dotted', textDecorationColor: AZUL, textUnderlineOffset: '3px' }}>
+                      <td onClick={e => startEdit(e, i.id, 'precio1', i.precio1)} style={{ ...tdNum, background: zebra, color: PG.sec, cursor: 'text', textDecoration: 'underline dotted', textDecorationColor: AZUL, textUnderlineOffset: '3px' }}>
                         {isEditing(i, 'precio1') ? renderInput(i.id, 'precio1') : (p1 ? fmt(p1) : '—')}
                       </td>
-                      <td onClick={e => startEdit(e, i.id, 'precio2', i.precio2)} style={{ ...tdNum, background: zebra, color: PG.mut, cursor: 'text', textDecoration: 'underline dotted', textDecorationColor: AZUL, textUnderlineOffset: '3px' }}>
+                      <td onClick={e => startEdit(e, i.id, 'precio2', i.precio2)} style={{ ...tdNum, background: zebra, color: PG.sec, cursor: 'text', textDecoration: 'underline dotted', textDecorationColor: AZUL, textUnderlineOffset: '3px' }}>
                         {isEditing(i, 'precio2') ? renderInput(i.id, 'precio2') : (p2 ? fmt(p2) : '—')}
                       </td>
-                      <td onClick={e => startEdit(e, i.id, 'precio3', i.precio3)} style={{ ...tdNum, background: zebra, color: PG.mut, cursor: 'text', textDecoration: 'underline dotted', textDecorationColor: AZUL, textUnderlineOffset: '3px' }}>
+                      <td onClick={e => startEdit(e, i.id, 'precio3', i.precio3)} style={{ ...tdNum, background: zebra, color: PG.sec, cursor: 'text', textDecoration: 'underline dotted', textDecorationColor: AZUL, textUnderlineOffset: '3px' }}>
                         {isEditing(i, 'precio3') ? renderInput(i.id, 'precio3') : (p3 ? fmt(p3) : '—')}
                       </td>
                       <td style={{ ...tdNum, background: zebra }}>{ultimoAuto ? fmt(ultimoAuto) : '—'}</td>
