@@ -38,11 +38,11 @@ export default function TabMermas({ mermas, busqueda = '', onSelect, onNew }: Pr
 
   const thStyle: CSSProperties = {
     fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: CREMA, padding: '10px 12px', textAlign: 'left', whiteSpace: 'nowrap',
+    color: CREMA, padding: '9px 12px', textAlign: 'left', whiteSpace: 'nowrap',
     borderBottom: `2px solid ${INK}`, background: INK, position: 'sticky', top: 0,
   }
   const tdStyle: CSSProperties = {
-    fontFamily: LEX, fontSize: 13, color: INK, padding: '10px 12px',
+    fontFamily: LEX, fontSize: 13, color: INK, padding: '6px 11px',
     borderBottom: `1px solid ${INK}1f`, whiteSpace: 'nowrap',
   }
 
@@ -97,13 +97,13 @@ export default function TabMermas({ mermas, busqueda = '', onSelect, onNew }: Pr
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{m.nombre_base ?? '—'}</td>
                     <td style={{ ...tdStyle, fontFamily: OSW, fontSize: 12, fontWeight: 700 }}>{m.abv ?? '—'}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fmt(m.uds)}</td>
-                    <td style={{ ...tdStyle, color: '#00000099' }}>{m.ud_std ?? '—'}</td>
+                    <td style={{ ...tdStyle, color: '#5a4f3a' }}>{m.ud_std ?? '—'}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', fontFamily: OSW, fontWeight: 700 }}>{fmt(m.precio_total)}</td>
-                    <td style={{ ...tdStyle, color: '#00000099' }}>{m.sp1_nombre ?? '—'}</td>
+                    <td style={{ ...tdStyle, color: '#5a4f3a' }}>{m.sp1_nombre ?? '—'}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fmt(m.sp1_peso_g, 0)}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtPctFracES(m.sp1_pct, 1)}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fmt(m.sp1_euros)}</td>
-                    <td style={{ ...tdStyle, color: '#00000099' }}>{m.sp2_nombre ?? '—'}</td>
+                    <td style={{ ...tdStyle, color: '#5a4f3a' }}>{m.sp2_nombre ?? '—'}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fmt(m.sp2_peso_g, 0)}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtPctFracES(m.sp2_pct, 1)}</td>
                   </tr>
