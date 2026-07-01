@@ -460,9 +460,7 @@ export default function ResumenLanding(p: Props) {
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flex: 1, minHeight: 150, marginBottom: 14 }}>
               {p.diasPico.map(x => {
-                const esFlojo = diaFlojo ? x.idx === diaFlojo.idx && x.valor > 0 : false
-                const esFuerte = diaFuerte ? x.idx === diaFuerte.idx && x.valor > 0 : false
-                const barCol = esFlojo ? ROJO : esFuerte ? VERDE : x.color
+                const barCol = x.color
                 return (
                   <button key={x.idx} onClick={() => p.onFiltrarDiaSemana?.(x.idx)} title={E(x.valor)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, height: '100%', justifyContent: 'flex-end' }}>
                     <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 600 }}>{x.valor > 0 ? E(x.valor) : ''}</span>
