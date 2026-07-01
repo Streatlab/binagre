@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { EPS, Receta } from './types'
 import { fmtES, fmtEurES, fmtDateES, n } from './types'
-import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, GRANATE, AZUL, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, OSW, GRANATE, AZUL, GRIS } from '@/styles/neobrutal'
 import { th, thR, thC, td, tdNum, tdCod, zebra, BAND } from './estilosTabla'
+import CabeceraEscandallo from './CabeceraEscandallo'
 
 interface Props {
   epsList: EPS[]
   recetasList: Receta[]
   busqueda?: string
+  onBuscar: (v: string) => void
   onOpenEps: (eps: EPS) => void
   onOpenReceta: (r: Receta) => void
 }
@@ -17,7 +18,7 @@ interface Props {
 type Kind = 'EPS' | 'REC'
 type FiltroKind = 'todos' | 'eps' | 'recetas'
 
-export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenEps, onOpenReceta }: Props) {
+export default function TabIndice({ epsList, recetasList, busqueda = '', onBuscar, onOpenEps, onOpenReceta }: Props) {
   const [filtro, setFiltro] = useState<FiltroKind>('todos')
   const [usosMap, setUsosMap] = useState<Record<string, number>>({})
   const [ingsPorEps, setIngsPorEps] = useState<Record<string, string[]>>({})
@@ -78,40 +79,30 @@ export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenE
 
   const countEps = allRows.filter(r => r.kind === 'EPS').length
   const countRec = allRows.filter(r => r.kind === 'REC').length
-
-  const btns: { key: FiltroKind; label: string; val: number }[] = [
-    { key: 'todos', label: 'TOTAL', val: allRows.length },
-    { key: 'eps', label: 'EPS', val: countEps },
-    { key: 'recetas', label: 'RECETAS', val: countRec },
-  ]
+  const set = (f: FiltroKind) => setFiltro(prev => prev === f ? 'todos' : f)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        {btns.map(b => {
-          const on = filtro === b.key
-          return (
-            <button key={b.key} type="button" onClick={() => setFiltro(b.key)} style={{
-              cursor: 'pointer', textAlign: 'left', minWidth: 110, padding: '10px 16px', borderRadius: 0,
-              background: on ? AMA : '#ffffff', border: `2px solid ${INK}`,
-              boxShadow: on ? `3px 3px 0 ${INK}` : 'none', transition: 'all 120ms',
-            }}>
-              <div style={{ fontFamily: OSW, fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: on ? INK : GRIS }}>{b.label}</div>
-              <div style={{ fontFamily: OSW, fontSize: 26, fontWeight: 700, lineHeight: 1, color: INK }}>{b.val}</div>
-            </button>
-          )
-        })}
-      </div>
+      <CabeceraEscandallo
+        titulo="Índice"
+        busqueda={busqueda}
+        onBuscar={onBuscar}
+        pills={[
+          { label: 'Total', value: allRows.length, active: filtro === 'todos', onClick: () => setFiltro('todos') },
+          { label: 'EPS', value: countEps, color: AZUL, active: filtro === 'eps', onClick: () => set('eps') },
+          { label: 'Recetas', value: countRec, color: GRANATE, active: filtro === 'recetas', onClick: () => set('recetas') },
+        ]}
+      />
 
       {busqueda.trim() && (
-        <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
+        <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '.5px', textTransform: 'uppercase', color: GRIS }}>
           {rows.length} resultado{rows.length !== 1 ? 's' : ''} para "{busqueda}"
         </div>
       )}
 
       <div style={{ background: CREMA, border: `5px solid ${INK}`, boxShadow: `7px 7px 0 ${INK}` }}>
         {!rows.length ? (
-          <p style={{ color: GRIS, fontFamily: LEX, textAlign: 'center', padding: 40, fontSize: 13 }}>
+          <p style={{ color: GRIS, fontFamily: OSW, textAlign: 'center', padding: 40, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase' }}>
             Sin resultados
           </p>
         ) : (
@@ -164,4 +155,4 @@ export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenE
   )
 }
 
-void SHADOW; void BORDER_CARD
+void CREMA
