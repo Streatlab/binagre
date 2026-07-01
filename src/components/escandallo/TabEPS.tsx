@@ -3,7 +3,8 @@ import type { CSSProperties } from 'react'
 import type { EPS } from './types'
 import { fmtEurES, fmtES, fmtDateES, n } from './types'
 import { supabase } from '@/lib/supabase'
-import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, AZUL, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, AZUL, GRIS } from '@/styles/neobrutal'
+import { th, thR, thC, td, tdNum, tdCod, zebra, bandEnUso, BAND } from './estilosTabla'
 
 interface Props { epsList: EPS[]; busqueda?: string; onSelect: (eps: EPS) => void; onNew?: () => void }
 
@@ -59,16 +60,6 @@ export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Prop
 
   const toggle = (f: Filter) => setFilter(prev => prev === f ? 'todos' : f)
 
-  const thStyle: CSSProperties = {
-    fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: CREMA, padding: '9px 12px', background: INK, borderBottom: `2px solid ${INK}`,
-    textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0,
-  }
-  const tdStyle: CSSProperties = {
-    fontFamily: LEX, fontSize: 13, color: INK, padding: '6px 11px',
-    borderBottom: `1px solid ${INK}1f`, whiteSpace: 'nowrap',
-  }
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -84,7 +75,7 @@ export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Prop
         </div>
       )}
 
-      <div style={{ background: '#ffffff', border: BORDER_CARD, boxShadow: SHADOW }}>
+      <div style={{ background: CREMA, border: `5px solid ${INK}`, boxShadow: `7px 7px 0 ${INK}` }}>
         {!filtered.length ? (
           <p style={{ color: GRIS, fontFamily: LEX, textAlign: 'center', padding: 40, fontSize: 13 }}>
             Sin EPS{filter !== 'todos' ? ' en este filtro' : ''}
@@ -94,25 +85,29 @@ export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Prop
             <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', width: '100%' }}>
               <thead>
                 <tr>
-                  <th style={thStyle}>CÓDIGO</th>
-                  <th style={thStyle}>NOMBRE</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>COSTE TANDA</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>COSTE/RAC</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>RACIONES</th>
-                  <th style={{ ...thStyle, textAlign: 'center' }}>FECHA</th>
+                  <th style={th}>CÓDIGO</th>
+                  <th style={th}>NOMBRE</th>
+                  <th style={thR}>COSTE TANDA</th>
+                  <th style={thR}>COSTE/RAC</th>
+                  <th style={thR}>RACIONES</th>
+                  <th style={thC}>FECHA</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(e => (
-                  <tr key={e.id} onClick={() => onSelect(e)} style={{ cursor: 'pointer' }}>
-                    <td style={{ ...tdStyle, color: AZUL, fontFamily: OSW, fontWeight: 700 }}>{e.codigo ?? ''}</td>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{e.nombre}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', color: '#5a4f3a' }}>{fmtEurES(e.coste_tanda, 4)}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontFamily: OSW, fontWeight: 700 }}>{fmtEurES(e.coste_rac, 4)}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>{e.raciones ? fmtES(e.raciones, 0) : ''}</td>
-                    <td style={{ ...tdStyle, textAlign: 'center', color: GRIS, fontSize: 12 }}>{e.fecha ? fmtDateES(e.fecha) : ''}</td>
-                  </tr>
-                ))}
+                {filtered.map((e, idx) => {
+                  const band = bandEnUso(getUsos(e) > 0)
+                  const bg = zebra(idx)
+                  return (
+                    <tr key={e.id} onClick={() => onSelect(e)} style={{ cursor: 'pointer', background: bg }}>
+                      <td style={{ ...tdCod, color: AZUL, borderLeft: `${BAND}px solid ${band}` }}>{e.codigo ?? ''}</td>
+                      <td style={{ ...td, fontWeight: 700 }}>{e.nombre}</td>
+                      <td style={{ ...tdNum, color: '#5a4f3a' }}>{fmtEurES(e.coste_tanda, 4)}</td>
+                      <td style={tdNum}>{fmtEurES(e.coste_rac, 4)}</td>
+                      <td style={tdNum}>{e.raciones ? fmtES(e.raciones, 0) : ''}</td>
+                      <td style={{ ...td, textAlign: 'center', color: GRIS, fontSize: 13, fontFamily: OSW }}>{e.fecha ? fmtDateES(e.fecha) : ''}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -140,3 +135,5 @@ function Counter({ label, value, color, active, onClick }: { label: string; valu
     </button>
   )
 }
+
+void SHADOW; void BORDER_CARD; void CREMA
