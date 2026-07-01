@@ -1,13 +1,14 @@
-import { useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { Merma } from './types'
 import { fmt, fmtPctFracES, n } from './types'
-import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, GRANATE, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, OSW, VERDE, ROJO, GRANATE, GRIS } from '@/styles/neobrutal'
 import { th, thR, td, tdNum, tdCod, tdSub, zebra, bandEnUso, BAND } from './estilosTabla'
+import CabeceraEscandallo from './CabeceraEscandallo'
 
 interface Props {
   mermas: Merma[]
   busqueda?: string
+  onBuscar: (v: string) => void
   onSelect?: (m: Merma) => void
   onNew?: () => void
 }
@@ -16,8 +17,11 @@ type Filter = 'todos' | 'enuso' | 'sinuso'
 
 const usada = (m: Merma) => n((m as { usos?: number }).usos) > 0 || n(m.num_porciones) > 0
 
-export default function TabMermas({ mermas, busqueda = '', onSelect, onNew }: Props) {
+export default function TabMermas({ mermas, busqueda = '', onBuscar, onSelect, onNew }: Props) {
   const [filter, setFilter] = useState<Filter>('todos')
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const desplazar = (dx: number) => scrollRef.current?.scrollBy({ left: dx, behavior: 'smooth' })
+  const irExtremo = (fin: boolean) => { const el = scrollRef.current; if (el) el.scrollTo({ left: fin ? el.scrollWidth : 0, behavior: 'smooth' }) }
 
   const total = useMemo(() => mermas.length, [mermas])
   const enUso = useMemo(() => mermas.filter(usada).length, [mermas])
@@ -41,26 +45,33 @@ export default function TabMermas({ mermas, busqueda = '', onSelect, onNew }: Pr
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
-        <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
-        <Counter label="EN USO" value={enUso} color={VERDE} active={filter === 'enuso'} onClick={() => toggle('enuso')} />
-        <Counter label="SIN USO" value={sinUso} color={ROJO} active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
-        {onNew && <button onClick={onNew} style={btnNuevo}>+ Nueva Merma</button>}
-      </div>
+      <CabeceraEscandallo
+        titulo="Mermas"
+        busqueda={busqueda}
+        onBuscar={onBuscar}
+        onNew={onNew}
+        nuevoLabel="+ Nueva Merma"
+        scroll={{ onInicio: () => irExtremo(false), onLeft: () => desplazar(-560), onRight: () => desplazar(560), onFin: () => irExtremo(true) }}
+        pills={[
+          { label: 'Total', value: total, active: filter === 'todos', onClick: () => setFilter('todos') },
+          { label: 'En uso', value: enUso, color: VERDE, active: filter === 'enuso', onClick: () => toggle('enuso') },
+          { label: 'Sin uso', value: sinUso, color: ROJO, active: filter === 'sinuso', onClick: () => toggle('sinuso') },
+        ]}
+      />
 
       {busqueda.trim() && (
-        <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
+        <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '.5px', textTransform: 'uppercase', color: GRIS }}>
           {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{busqueda}"
         </div>
       )}
 
-      <div style={{ background: CREMA, border: `5px solid ${INK}`, boxShadow: `7px 7px 0 ${INK}` }}>
+      <div style={{ background: CREMA, border: `5px solid ${INK}`, boxShadow: `7px 7px 0 ${INK}`, overflow: 'hidden' }}>
         {!filtered.length ? (
-          <p style={{ color: GRIS, fontFamily: LEX, textAlign: 'center', padding: 40, fontSize: 13 }}>
+          <p style={{ color: GRIS, fontFamily: OSW, textAlign: 'center', padding: 40, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase' }}>
             Sin mermas{filter !== 'todos' ? ' en este filtro' : ''}
           </p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div ref={scrollRef} style={{ overflowX: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 'max-content' }}>
               <thead>
                 <tr>
@@ -114,23 +125,4 @@ export default function TabMermas({ mermas, busqueda = '', onSelect, onNew }: Pr
   )
 }
 
-const btnNuevo: CSSProperties = {
-  marginLeft: 'auto', fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px',
-  textTransform: 'uppercase', background: VERDE, color: '#ffffff', border: `2px solid ${INK}`,
-  boxShadow: `3px 3px 0 ${INK}`, padding: '8px 16px', cursor: 'pointer', borderRadius: 0,
-}
-
-function Counter({ label, value, color, active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
-  return (
-    <button onClick={onClick} type="button" style={{
-      cursor: 'pointer', textAlign: 'left', minWidth: 110, padding: '10px 16px', borderRadius: 0,
-      background: active ? AMA : '#ffffff', border: `2px solid ${INK}`,
-      boxShadow: active ? `3px 3px 0 ${INK}` : 'none', transition: 'all 120ms',
-    }}>
-      <div style={{ fontFamily: OSW, fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: active ? INK : GRIS }}>{label}</div>
-      <div style={{ fontFamily: OSW, fontSize: 26, fontWeight: 700, lineHeight: 1, color: color ?? INK }}>{value}</div>
-    </button>
-  )
-}
-
-void SHADOW; void BORDER_CARD; void CREMA
+void CREMA
