@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
 import type { Receta } from './types'
 import { fmtES, fmtDateES, n } from './types'
 import { supabase } from '@/lib/supabase'
 import { semaforoColor } from '@/styles/tokens'
 import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 import { useConfig } from '@/hooks/useConfig'
-import { INK, CREMA, OSW, AMA, GRANATE, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, OSW, LEX, AMA, GRANATE, GRIS } from '@/styles/neobrutal'
 import { th, thR, thC, td, tdNum, tdCod, zebra, BAND } from './estilosTabla'
 import CabeceraEscandallo from './CabeceraEscandallo'
 
@@ -114,7 +113,7 @@ export default function TabRecetas({ recetasList, busqueda = '', onBuscar, onSel
                     <tr key={r.id} onClick={() => onSelect(r)} style={{ cursor: 'pointer', background: bg }}>
                       <td style={{ ...tdCod, color: GRANATE, borderLeft: `${BAND}px solid ${band}` }}>{r.codigo ?? ''}</td>
                       <td style={td}>
-                        <div style={{ fontFamily: OSW, fontSize: 15, fontWeight: 700, color: INK, lineHeight: 1.05, whiteSpace: 'normal', fontFamilyFallback: undefined } as CSSProperties}>{r.nombre}</div>
+                        <div style={{ fontFamily: LEX, fontSize: 15, fontWeight: 700, color: INK, lineHeight: 1.05, whiteSpace: 'normal' }}>{r.nombre}</div>
                         {(r.categoria || r.unidad) && (
                           <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '.3px', textTransform: 'uppercase', color: '#5a4f3a', marginTop: 1 }}>
                             {[r.categoria, r.unidad].filter(Boolean).join(' · ')}
@@ -163,7 +162,7 @@ export default function TabRecetas({ recetasList, busqueda = '', onBuscar, onSel
               { c: semaforoColor(20), t: 'Ajustado · cubre gastos (1–49%)' },
               { c: semaforoColor(0), t: 'Pierde dinero (≤0%)' },
             ].map((it, i) => (
-              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: OSW, fontSize: 12, fontWeight: 600, color: INK }}>
+              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: LEX, fontSize: 12, fontWeight: 600, color: INK }}>
                 <span style={{ width: 14, height: 14, background: it.c, border: `2px solid ${INK}`, display: 'inline-block' }} />
                 {it.t}
               </span>
