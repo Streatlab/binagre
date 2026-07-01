@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
 import type { EPS } from './types'
 import { fmtEurES, fmtES, fmtDateES, n } from './types'
 import { supabase } from '@/lib/supabase'
-import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, ROJO, AZUL, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, OSW, VERDE, ROJO, AZUL, GRIS } from '@/styles/neobrutal'
 import { th, thR, thC, td, tdNum, tdCod, zebra, bandEnUso, BAND } from './estilosTabla'
+import CabeceraEscandallo from './CabeceraEscandallo'
 
-interface Props { epsList: EPS[]; busqueda?: string; onSelect: (eps: EPS) => void; onNew?: () => void }
+interface Props { epsList: EPS[]; busqueda?: string; onBuscar: (v: string) => void; onSelect: (eps: EPS) => void; onNew?: () => void }
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
 
-export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Props) {
+export default function TabEPS({ epsList, busqueda = '', onBuscar, onSelect, onNew }: Props) {
   const [filter, setFilter] = useState<Filter>('todos')
   const [ingsPorEps, setIngsPorEps] = useState<Record<string, string[]>>({})
   const [usosMap, setUsosMap] = useState<Record<string, number>>({})
@@ -62,22 +62,28 @@ export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Prop
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Counter label="TOTAL" value={total} active={filter === 'todos'} onClick={() => setFilter('todos')} />
-        <Counter label="EN USO" value={enUso} color={VERDE} active={filter === 'enuso'} onClick={() => toggle('enuso')} />
-        <Counter label="SIN USO" value={sinUso} color={ROJO} active={filter === 'sinuso'} onClick={() => toggle('sinuso')} />
-        {onNew && <button onClick={onNew} style={btnNuevo}>+ Nueva EPS</button>}
-      </div>
+      <CabeceraEscandallo
+        titulo="EPS"
+        busqueda={busqueda}
+        onBuscar={onBuscar}
+        onNew={onNew}
+        nuevoLabel="+ Nueva EPS"
+        pills={[
+          { label: 'Total', value: total, active: filter === 'todos', onClick: () => setFilter('todos') },
+          { label: 'En uso', value: enUso, color: VERDE, active: filter === 'enuso', onClick: () => toggle('enuso') },
+          { label: 'Sin uso', value: sinUso, color: ROJO, active: filter === 'sinuso', onClick: () => toggle('sinuso') },
+        ]}
+      />
 
       {busqueda.trim() && (
-        <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
+        <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '.5px', textTransform: 'uppercase', color: GRIS }}>
           {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{busqueda}"
         </div>
       )}
 
       <div style={{ background: CREMA, border: `5px solid ${INK}`, boxShadow: `7px 7px 0 ${INK}` }}>
         {!filtered.length ? (
-          <p style={{ color: GRIS, fontFamily: LEX, textAlign: 'center', padding: 40, fontSize: 13 }}>
+          <p style={{ color: GRIS, fontFamily: OSW, textAlign: 'center', padding: 40, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase' }}>
             Sin EPS{filter !== 'todos' ? ' en este filtro' : ''}
           </p>
         ) : (
@@ -117,23 +123,4 @@ export default function TabEPS({ epsList, busqueda = '', onSelect, onNew }: Prop
   )
 }
 
-const btnNuevo: CSSProperties = {
-  marginLeft: 'auto', fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px',
-  textTransform: 'uppercase', background: VERDE, color: '#ffffff', border: `2px solid ${INK}`,
-  boxShadow: `3px 3px 0 ${INK}`, padding: '8px 16px', cursor: 'pointer', borderRadius: 0,
-}
-
-function Counter({ label, value, color, active, onClick }: { label: string; value: number; color?: string; active?: boolean; onClick?: () => void }) {
-  return (
-    <button onClick={onClick} type="button" style={{
-      cursor: 'pointer', textAlign: 'left', minWidth: 110, padding: '10px 16px', borderRadius: 0,
-      background: active ? AMA : '#ffffff', border: `2px solid ${INK}`,
-      boxShadow: active ? `3px 3px 0 ${INK}` : 'none', transition: 'all 120ms',
-    }}>
-      <div style={{ fontFamily: OSW, fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: active ? INK : GRIS }}>{label}</div>
-      <div style={{ fontFamily: OSW, fontSize: 26, fontWeight: 700, lineHeight: 1, color: color ?? INK }}>{value}</div>
-    </button>
-  )
-}
-
-void SHADOW; void BORDER_CARD; void CREMA
+void CREMA
