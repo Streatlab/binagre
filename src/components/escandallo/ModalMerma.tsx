@@ -1,33 +1,15 @@
 import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
-import { INK, AMA, GRANATE, GRIS, OSW, LEX } from '@/styles/neobrutal'
+import { INK, AMA, CREMA, AZUL, GRANATE, GRIS, OSW, LEX } from '@/styles/neobrutal'
 
 const btnSaveStyle: CSSProperties = {
-  backgroundColor: AMA,
-  color: INK,
-  fontFamily: OSW,
-  fontWeight: 700,
-  letterSpacing: '1px',
-  textTransform: 'uppercase',
-  padding: '9px 24px',
-  borderRadius: '0',
-  border: `2px solid ${INK}`,
-  boxShadow: `3px 3px 0 ${INK}`,
-  cursor: 'pointer',
-  minHeight: '40px',
+  backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '1px',
+  textTransform: 'uppercase', padding: '11px 28px', borderRadius: 0, border: `2px solid ${INK}`,
+  boxShadow: `3px 3px 0 ${INK}`, cursor: 'pointer', minHeight: 44, fontSize: 14,
 }
 const btnCancelStyle: CSSProperties = {
-  backgroundColor: '#ffffff',
-  color: INK,
-  border: `2px solid ${INK}`,
-  fontFamily: OSW,
-  fontWeight: 700,
-  letterSpacing: '1px',
-  textTransform: 'uppercase',
-  padding: '9px 24px',
-  borderRadius: '0',
-  cursor: 'pointer',
-  minHeight: '40px',
+  backgroundColor: '#ffffff', color: INK, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700,
+  letterSpacing: '1px', textTransform: 'uppercase', padding: '11px 28px', borderRadius: 0, cursor: 'pointer', minHeight: 44, fontSize: 14,
 }
 import { supabase } from '@/lib/supabase'
 import { fmtNum, fmtEur, fmtPct } from '@/utils/format'
@@ -101,7 +83,6 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
     setF(p => ({ ...p, abv: up, marca: MARCA_MAP[up] || p.marca }))
   }
 
-  // Cálculos derivados
   const uds = parseFloat(f.uds) || 0
   const udStdLower = (f.ud_std ?? '').toLowerCase()
   const factor = (udStdLower.startsWith('kg') || udStdLower.startsWith('l')) ? 1000 : 1
@@ -177,11 +158,9 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
         mermaId = data.id
       }
 
-      // Auto-generacion ingredientes derivados _Limpio_ABV_MRM y subproductos valorables
       const abv = f.abv.toUpperCase() || 'XXX'
       const ingBase = f.nombre_base
 
-      // _Limpio_ABV_MRM
       const nombreLimpio = `${ingBase}_Limpio_${abv}_MRM`
       await upsertIngrediente({
         iding: f.iding ? `${f.iding}_LIMPIO` : null,
@@ -203,7 +182,6 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
         coste_neto_min: eurKgNeto / 1000 || 0,
       })
 
-      // _Porcion_ABV_MRM si numPorc > 0
       const pesoPorc = parseFloat(f.peso_porcion_g) || 0
       if (numPorc > 0 && pesoPorc > 0) {
         const nombrePorcion = `${ingBase}_Porcion_${abv}_MRM`
@@ -229,7 +207,6 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
         })
       }
 
-      // SP1 Valorable
       if (f.sp1_valorable && f.sp1_nombre) {
         const nombreSp1 = `${ingBase}_${f.sp1_nombre}_${abv}_MRM`
         await upsertIngrediente({
@@ -247,7 +224,6 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
         })
       }
 
-      // SP2 Valorable
       if (f.sp2_valorable && f.sp2_nombre) {
         const nombreSp2 = `${ingBase}_${f.sp2_nombre}_${abv}_MRM`
         await upsertIngrediente({
@@ -265,7 +241,6 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
         })
       }
 
-      // Actualizar merma_pct del ingrediente original
       if (f.iding) {
         await supabase.from('ingredientes').update({
           merma_pct: pctMerma * 100,
@@ -283,14 +258,22 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
     }
   }
 
+  const nombreCompleto = f.nombre_base && f.abv ? `${f.nombre_base}_${f.abv}` : (f.nombre || f.nombre_base || '—')
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="modal-merma border-[3px] border-[#140f08] w-full max-w-4xl my-8 shadow-[4px_4px_0_#140f08]" style={{ backgroundColor: '#ffffff', borderRadius: '0' }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b-[3px] border-[#140f08]">
+      <div className="w-full max-w-5xl my-8" style={{ background: CREMA, maxHeight: '92vh', overflowY: 'auto', border: `4px solid ${INK}`, borderRadius: 0, boxShadow: `6px 6px 0 ${INK}` }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '20px 24px', borderBottom: `4px solid ${INK}`, background: AMA }}>
           <div>
-            <h3 className="text-base text-[#140f08]" style={{ fontFamily: OSW, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{isEdit ? 'Editar Merma' : 'Nueva Merma'}</h3>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase', color: INK }}>{isEdit ? 'Editar merma' : 'Nueva merma'}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              <span style={{ background: '#fff', border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: INK, padding: '3px 10px' }}>{nombreCompleto}</span>
+              {f.abv && <span style={{ background: AZUL, color: '#fff', border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '3px 10px' }}>{f.abv}</span>}
+            </div>
           </div>
-          <button onClick={onClose} className="text-[#9a8f78] hover:text-[#140f08] transition text-lg leading-none">×</button>
+          <button onClick={onClose} style={{ background: '#fff', border: `2px solid ${INK}`, width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
         </div>
 
         <div className="p-5 space-y-4">
@@ -313,8 +296,7 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
           </Section>
 
           <div className="bg-[#FCEFD6] border-[3px] border-[#140f08] rounded-none p-4 space-y-3">
-            <div style={{ borderTop: 'none', paddingTop: '0', fontFamily: OSW, fontSize: '11px', color: GRIS, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Subproductos</div>
-            {/* SP1 */}
+            <div style={{ fontFamily: OSW, fontSize: '11px', color: GRIS, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Subproductos</div>
             <div className="grid grid-cols-6 gap-2 items-end">
               <Field label="Nombre SP1" value={f.sp1_nombre} onChange={v => set('sp1_nombre', v)} />
               <Field label="Peso SP1 (g)" type="number" value={f.sp1_peso_g} onChange={v => set('sp1_peso_g', v)} />
@@ -328,7 +310,6 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
                 </label>
               </div>
             </div>
-            {/* SP2 */}
             <div className="grid grid-cols-6 gap-2 items-end">
               <Field label="Nombre SP2" value={f.sp2_nombre} onChange={v => set('sp2_nombre', v)} />
               <Field label="Peso SP2 (g)" type="number" value={f.sp2_peso_g} onChange={v => set('sp2_peso_g', v)} />
@@ -342,16 +323,13 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
                 </label>
               </div>
             </div>
-            {/* Porciones */}
             <div className="grid grid-cols-4 gap-2">
               <Field label="Num Porciones" type="number" value={f.num_porciones} onChange={v => set('num_porciones', v)} />
               <Field label="Peso Porción (g)" type="number" value={f.peso_porcion_g} onChange={v => set('peso_porcion_g', v)} />
               <Field label="€/Porción" value={fmtEur(eurPorcion)} onChange={() => {}} disabled highlight />
               <div />
             </div>
-            {/* Divider + label Cálculos */}
             <div style={{ borderTop: `2px solid ${INK}`, paddingTop: '8px', fontFamily: OSW, fontSize: '11px', color: GRIS, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Cálculos</div>
-            {/* Cálculos */}
             <div className="grid grid-cols-7 gap-2">
               <Field label="% Descarte" value={fmtPct(pctDescarte)} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
               <Field label="% Utilizable" value={fmtPct(pctUtilizable)} onChange={() => {}} disabled style={{ maxWidth: '100px' }} />
@@ -366,36 +344,21 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
           {err && <p className="text-[#FF1E27] text-sm">{err}</p>}
         </div>
 
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t-[3px] border-[#140f08]">
-          <div className="flex items-center gap-2">
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 24px', borderTop: `4px solid ${INK}`, background: '#fff', position: 'sticky', bottom: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {isEdit && !confirmEliminar && (
-              <button
-                onClick={() => setConfirmEliminar(true)}
-                style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '10px 16px', borderRadius: '0', fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}
-              >
-                ELIMINAR
-              </button>
+              <button onClick={() => setConfirmEliminar(true)} style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '11px 18px', borderRadius: 0, fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: 44 }}>ELIMINAR</button>
             )}
             {isEdit && confirmEliminar && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', color: GRANATE, fontFamily: LEX }}>¿Eliminar definitivamente?</span>
-                <button
-                  onClick={handleEliminar}
-                  disabled={deleting}
-                  style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}
-                >
-                  {deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}
-                </button>
-                <button
-                  onClick={() => setConfirmEliminar(false)}
-                  style={{ background: 'transparent', border: `2px solid ${INK}`, color: INK, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem' }}
-                >
-                  CANCELAR
-                </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, color: GRANATE, fontFamily: LEX }}>¿Eliminar definitivamente?</span>
+                <button onClick={handleEliminar} disabled={deleting} style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, padding: '7px 12px', borderRadius: 0, cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>{deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}</button>
+                <button onClick={() => setConfirmEliminar(false)} style={{ background: 'transparent', border: `2px solid ${INK}`, color: INK, padding: '7px 12px', borderRadius: 0, cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem' }}>CANCELAR</button>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button onClick={onClose} style={btnCancelStyle}>CANCELAR</button>
             <button onClick={handleSave} disabled={saving} style={{ ...btnSaveStyle, opacity: saving ? 0.5 : 1 }}>
               {saving ? 'GUARDANDO…' : isEdit ? 'ACTUALIZAR' : 'GUARDAR'}
