@@ -1,9 +1,11 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
-import TabsPastilla from '@/components/ui/TabsPastilla'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { supabase } from '@/lib/supabase'
 import { fechaLocalStr } from '@/utils/fechaLocal'
-import { COLOR, COLORS, OSWALD, LEXEND, CARDS } from '@/components/panel/resumen/tokens'
+import {
+  OSW, LEX, INK, CREMA, CLARO, VERDE, NAR, ROJO, AMA, AZUL, GRANATE, GRIS,
+  SHADOW, BORDER, BORDER_CARD, d, eyebrow,
+} from '@/styles/neobrutal'
 import BandejaEntrada from '@/components/documentacion/BandejaEntrada'
 
 // Monta los módulos EXISTENTES sin tocar su lógica (solo se reubican como pestañas).
@@ -36,41 +38,39 @@ interface KpiRow {
 
 const nf0 = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping: true })
 
-// ── Cards-resumen comunes (estilo canónico Panel Global) ───────────────────
+// ── Cards-resumen (estilo neobrutal Food-Pop, como el Resumen del Panel Global) ──
 function CardsResumen({ kpi }: { kpi: KpiRow | null }) {
   if (!kpi) return null
   const pct = Number(kpi.pct_cobertura ?? 0)
-  const pctColor = pct >= 80 ? COLORS.ok : pct >= 50 ? COLORS.warn : COLORS.err
+  const pctColor = pct >= 80 ? VERDE : pct >= 50 ? NAR : ROJO
 
   const cards: { label: string; value: string | number; sub?: string; color: string }[] = [
-    { label: 'Facturas', value: kpi.facturas_total, sub: 'en el sistema', color: COLORS.pri },
-    { label: 'Cuadradas', value: `${kpi.movimientos_con_factura}/${kpi.movimientos_total}`, sub: 'mov. con factura', color: COLORS.pri },
+    { label: 'Facturas', value: nf0(kpi.facturas_total), sub: 'en el sistema', color: INK },
+    { label: 'Cuadradas', value: `${nf0(kpi.movimientos_con_factura)}/${nf0(kpi.movimientos_total)}`, sub: 'mov. con factura', color: AZUL },
     { label: 'Cobertura', value: `${pct.toFixed(0)}%`, sub: 'conciliado', color: pctColor },
-    { label: 'Sin categoría', value: kpi.facturas_sin_categoria, sub: kpi.facturas_sin_categoria > 0 ? 'por clasificar' : 'al día', color: kpi.facturas_sin_categoria > 0 ? COLORS.warn : COLORS.ok },
-    { label: 'Duplicadas', value: kpi.facturas_posible_duplicado, sub: kpi.facturas_posible_duplicado > 0 ? 'a revisar' : 'limpio', color: kpi.facturas_posible_duplicado > 0 ? COLORS.warn : COLORS.ok },
-    { label: 'Aviso IVA', value: kpi.facturas_aviso_aritmetica, sub: kpi.facturas_aviso_aritmetica > 0 ? 'a revisar' : 'cuadra', color: kpi.facturas_aviso_aritmetica > 0 ? COLORS.err : COLORS.ok },
+    { label: 'Sin categoría', value: nf0(kpi.facturas_sin_categoria), sub: kpi.facturas_sin_categoria > 0 ? 'por clasificar' : 'al día', color: kpi.facturas_sin_categoria > 0 ? NAR : VERDE },
+    { label: 'Duplicadas', value: nf0(kpi.facturas_posible_duplicado), sub: kpi.facturas_posible_duplicado > 0 ? 'a revisar' : 'limpio', color: kpi.facturas_posible_duplicado > 0 ? NAR : VERDE },
+    { label: 'Aviso IVA', value: nf0(kpi.facturas_aviso_aritmetica), sub: kpi.facturas_aviso_aritmetica > 0 ? 'a revisar' : 'cuadra', color: kpi.facturas_aviso_aritmetica > 0 ? ROJO : VERDE },
   ]
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 12 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 16 }}>
       {cards.map((c) => (
-        <div key={c.label} style={{ ...CARDS.std }}>
-          <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase' }}>{c.label}</div>
-          <div style={{ fontFamily: OSWALD, fontSize: 34, fontWeight: 600, color: c.color, lineHeight: 1.05, marginTop: 6 }}>{c.value}</div>
-          {c.sub && <div style={{ fontFamily: LEXEND, fontSize: 11, color: COLORS.mut, marginTop: 4 }}>{c.sub}</div>}
+        <div key={c.label} style={{ background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 16px' }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '2px', color: INK, textTransform: 'uppercase' }}>{c.label}</div>
+          <div style={{ ...d('34px', c.color), marginTop: 8 }}>{c.value}</div>
+          {c.sub && <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 6 }}>{c.sub}</div>}
         </div>
       ))}
     </div>
   )
 }
 
-// ── Frase-cabecera (MISMO estilo que Cashflow: titular gigante Oswald + frases
-//    Oswald color semáforo). Batería propia, 2 frases: una grande, una pequeña. ──
+// ── Frase-cabecera (hero neobrutal: titular gigante + 2 frases semáforo) ──
 function FraseCabecera({ kpi }: { kpi: KpiRow | null }) {
   if (!kpi) return null
   const pct = Number(kpi.pct_cobertura ?? 0)
-  const POS = COLORS.ok, WARN = COLORS.warn, NEG = COLORS.err
-  const pctColor = pct >= 80 ? POS : pct >= 50 ? WARN : NEG
+  const pctColor = pct >= 80 ? VERDE : pct >= 50 ? NAR : ROJO
 
   const grande = pct >= 80
     ? 'Casi todo cuadrado, el papeleo te va al día.'
@@ -82,28 +82,61 @@ function FraseCabecera({ kpi }: { kpi: KpiRow | null }) {
   let pequenaColor: string
   if (kpi.facturas_sin_categoria > 0) {
     pequena = `${kpi.facturas_sin_categoria} sin categoría por clasificar para que el P&L cuadre.`
-    pequenaColor = WARN
+    pequenaColor = NAR
   } else if (kpi.facturas_posible_duplicado > 0) {
     pequena = `${kpi.facturas_posible_duplicado} posible${kpi.facturas_posible_duplicado > 1 ? 's' : ''} duplicado${kpi.facturas_posible_duplicado > 1 ? 's' : ''} esperando que los revises.`
-    pequenaColor = WARN
+    pequenaColor = NAR
   } else if (kpi.facturas_aviso_aritmetica > 0) {
     pequena = `${kpi.facturas_aviso_aritmetica} con aviso de IVA por revisar.`
-    pequenaColor = NEG
+    pequenaColor = ROJO
   } else {
     pequena = 'Sin nada pendiente: ni sin categoría, ni duplicados, ni avisos.'
-    pequenaColor = POS
+    pequenaColor = VERDE
   }
 
   return (
-    <div style={{ ...CARDS.big, marginBottom: 12 }}>
-      <div style={{ fontFamily: OSWALD, fontSize: 'clamp(28px,4vw,42px)', fontWeight: 600, lineHeight: 1.05 }}>
+    <div style={{ background: AMA, border: BORDER, boxShadow: SHADOW, padding: '20px 24px', marginBottom: 16 }}>
+      <div style={d('clamp(30px,4.4vw,46px)')}>
         CONCILIADO <span style={{ color: pctColor }}>{pct.toFixed(0)}%</span>
-        <span style={{ color: COLORS.mut, fontSize: '0.42em', marginLeft: 10 }}>· {nf0(kpi.movimientos_con_factura)}/{nf0(kpi.movimientos_total)} movimientos con factura</span>
+        <span style={{ color: INK, fontSize: '0.4em', marginLeft: 12, letterSpacing: '0.5px' }}>· {nf0(kpi.movimientos_con_factura)}/{nf0(kpi.movimientos_total)} movimientos con factura</span>
       </div>
-      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
-        <div style={{ fontFamily: OSWALD, fontSize: 'clamp(16px,2.1vw,20px)', fontWeight: 600, color: pctColor, letterSpacing: '0.3px' }}>{grande}</div>
-        <div style={{ fontFamily: OSWALD, fontSize: 'clamp(13px,1.5vw,15px)', fontWeight: 500, color: pequenaColor, letterSpacing: '0.3px' }}>{pequena}</div>
+      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ fontFamily: OSW, fontSize: 'clamp(16px,2.1vw,20px)', fontWeight: 700, color: pctColor, letterSpacing: '0.3px', textTransform: 'uppercase' }}>{grande}</div>
+        <div style={{ fontFamily: OSW, fontSize: 'clamp(13px,1.5vw,15px)', fontWeight: 600, color: pequenaColor, letterSpacing: '0.3px', textTransform: 'uppercase' }}>{pequena}</div>
       </div>
+    </div>
+  )
+}
+
+// ── Tabs neobrutal (bloques con borde y sombra dura, activo en granate) ──
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'bandeja', label: 'Bandeja entrada' },
+  { id: 'facturas', label: 'Facturas' },
+  { id: 'ventas', label: 'Ventas' },
+  { id: 'conciliacion', label: 'Conciliación' },
+  { id: 'documental', label: 'Gestor documental' },
+]
+
+function TabsNeo({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+      {TABS.map(t => {
+        const activo = t.id === tab
+        return (
+          <button key={t.id} onClick={() => onChange(t.id)} style={{
+            background: activo ? GRANATE : '#fff',
+            color: activo ? '#fff' : INK,
+            border: BORDER_CARD,
+            boxShadow: activo ? `2px 2px 0 ${INK}` : SHADOW,
+            transform: activo ? 'translate(2px, 2px)' : 'none',
+            padding: '9px 18px',
+            fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1.5px',
+            textTransform: 'uppercase', cursor: 'pointer', transition: 'transform 0.08s, box-shadow 0.08s',
+          }}>
+            {t.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -134,34 +167,25 @@ export default function Documentacion() {
   const hastaStr = fechaLocalStr(hasta)
 
   return (
-    <div style={{ background: COLOR.bgPagina, padding: '24px 28px', minHeight: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <h2 style={{ color: COLORS.redSL, fontFamily: OSWALD, fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>
-          DOCUMENTACIÓN
-        </h2>
+    <div style={{ background: CREMA, padding: '24px 28px', minHeight: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <span style={eyebrow(CLARO)}>Finanzas · Papeleo</span>
+          <h2 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '8px 0 0 0' }}>DOCUMENTACIÓN</h2>
+        </div>
         <SelectorFechaUniversal
           nombreModulo="documentacion"
           defaultOpcion="este_mes"
-          onChange={(d, h) => { setDesde(d); setHasta(h) }}
+          onChange={(dd, h) => { setDesde(dd); setHasta(h) }}
         />
       </div>
 
       <FraseCabecera kpi={kpi} />
       <CardsResumen kpi={kpi} />
 
-      <TabsPastilla
-        tabs={[
-          { id: 'bandeja', label: 'Bandeja entrada' },
-          { id: 'facturas', label: 'Facturas' },
-          { id: 'ventas', label: 'Ventas' },
-          { id: 'conciliacion', label: 'Conciliación' },
-          { id: 'documental', label: 'Gestor documental' },
-        ]}
-        activeId={tab}
-        onChange={(id) => cambiar(id as Tab)}
-      />
+      <TabsNeo tab={tab} onChange={cambiar} />
 
-      <Suspense fallback={<div style={{ padding: 24, color: COLORS.mut, fontFamily: LEXEND }}>Cargando…</div>}>
+      <Suspense fallback={<div style={{ padding: 24, color: GRIS, fontFamily: LEX }}>Cargando…</div>}>
         {tab === 'bandeja' && <BandejaEntrada desde={desdeStr} hasta={hastaStr} onProcesado={() => setReloadTick(x => x + 1)} />}
         {tab === 'facturas' && <OcrConToast periodoExterno={{ desde, hasta }} />}
         {tab === 'ventas' && <ImportarVentas />}
