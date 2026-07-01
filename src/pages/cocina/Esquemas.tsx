@@ -99,7 +99,7 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[]) {
     doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255)
     let fs = 20; doc.setFontSize(fs)
     while (fs > 11 && doc.getTextWidth(pg.gama.toUpperCase()) > usableW - 32) { fs -= 1; doc.setFontSize(fs) }
-    doc.text(pg.gama.toUpperCase(), M + 4, M + bandH - 3.6)
+    doc.text(pg.gama.toUpperCase(), PW / 2, M + bandH - 3.6, { align: 'center' })
     doc.setFontSize(15)
     doc.text(`${pg.gp}/${pg.gt}`, PW - M - 4, M + bandH - 3.6, { align: 'right' })
 
