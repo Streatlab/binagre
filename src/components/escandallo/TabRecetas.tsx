@@ -6,10 +6,11 @@ import { supabase } from '@/lib/supabase'
 import { semaforoColor } from '@/styles/tokens'
 import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 import { useConfig } from '@/hooks/useConfig'
-import { INK, CREMA, OSW, LEX, AMA, VERDE, GRANATE, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, OSW, AMA, GRANATE, GRIS } from '@/styles/neobrutal'
 import { th, thR, thC, td, tdNum, tdCod, zebra, BAND } from './estilosTabla'
+import CabeceraEscandallo from './CabeceraEscandallo'
 
-interface Props { recetasList: Receta[]; busqueda?: string; onSelect: (r: Receta) => void; onNew?: () => void }
+interface Props { recetasList: Receta[]; busqueda?: string; onBuscar: (v: string) => void; onSelect: (r: Receta) => void; onNew?: () => void }
 
 /** Margen% Uber a nivel plato vía calcNetoPorCanal central (modo 'plato').
  *  Referencia fórmula: Notion 366c8b1f-6139-81a8-95a7-dd0abdf63a91
@@ -24,7 +25,7 @@ function margenUber(r: Receta, configCanales: Record<string, any>, estructuraPct
   return ((neto - n(r.coste_rac) - estructura) / neto) * 100
 }
 
-export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew }: Props) {
+export default function TabRecetas({ recetasList, busqueda = '', onBuscar, onSelect, onNew }: Props) {
   const configCanales = useConfigCanales()
   const { estructura_pct } = useConfig()
   const [ingsPorReceta, setIngsPorReceta] = useState<Record<string, string[]>>({})
@@ -57,7 +58,6 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
     return list
   }, [recetasList, busqueda, ingsPorReceta])
 
-  // Margen medio (solo recetas con PVP) para la fila total
   const margenMedio = useMemo(() => {
     const conPvp = filtered.filter(r => n(r.pvp_uber) > 0)
     if (!conPvp.length) return null
@@ -67,23 +67,24 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ background: '#ffffff', border: `2px solid ${INK}`, padding: '10px 16px', display: 'inline-flex', flexDirection: 'column', minWidth: 110 }}>
-          <span style={{ fontFamily: OSW, fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>TOTAL</span>
-          <span style={{ fontFamily: OSW, fontSize: 26, fontWeight: 700, lineHeight: 1, color: INK }}>{recetasList.length}</span>
-        </div>
-        {onNew && <button onClick={onNew} style={btnNuevo}>+ Nueva Receta</button>}
-      </div>
+      <CabeceraEscandallo
+        titulo="Recetas"
+        busqueda={busqueda}
+        onBuscar={onBuscar}
+        onNew={onNew}
+        nuevoLabel="+ Nueva Receta"
+        pills={[{ label: 'Total', value: recetasList.length }]}
+      />
 
       {busqueda.trim() && (
-        <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
+        <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '.5px', textTransform: 'uppercase', color: GRIS }}>
           {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{busqueda}"
         </div>
       )}
 
       <div style={{ background: CREMA, border: `5px solid ${INK}`, boxShadow: `7px 7px 0 ${INK}` }}>
         {!filtered.length ? (
-          <p style={{ color: GRIS, fontFamily: LEX, textAlign: 'center', padding: 40, fontSize: 13 }}>
+          <p style={{ color: GRIS, fontFamily: OSW, textAlign: 'center', padding: 40, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase' }}>
             Sin recetas
           </p>
         ) : (
@@ -113,7 +114,7 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
                     <tr key={r.id} onClick={() => onSelect(r)} style={{ cursor: 'pointer', background: bg }}>
                       <td style={{ ...tdCod, color: GRANATE, borderLeft: `${BAND}px solid ${band}` }}>{r.codigo ?? ''}</td>
                       <td style={td}>
-                        <div style={{ fontFamily: LEX, fontSize: 15, fontWeight: 700, color: INK, lineHeight: 1.05, whiteSpace: 'normal' }}>{r.nombre}</div>
+                        <div style={{ fontFamily: OSW, fontSize: 15, fontWeight: 700, color: INK, lineHeight: 1.05, whiteSpace: 'normal', fontFamilyFallback: undefined } as CSSProperties}>{r.nombre}</div>
                         {(r.categoria || r.unidad) && (
                           <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '.3px', textTransform: 'uppercase', color: '#5a4f3a', marginTop: 1 }}>
                             {[r.categoria, r.unidad].filter(Boolean).join(' · ')}
@@ -155,14 +156,14 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
         )}
 
         {!!filtered.length && (
-          <div style={{ background: '#EFF0EC', borderTop: `3px solid ${INK}`, padding: '10px 14px', display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ background: '#F7EACE', borderTop: `3px solid ${INK}`, padding: '10px 14px', display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: INK }}>Margen Uber:</span>
             {[
               { c: semaforoColor(60), t: 'Sano · cubre gastos + margen (≥50%)' },
               { c: semaforoColor(20), t: 'Ajustado · cubre gastos (1–49%)' },
               { c: semaforoColor(0), t: 'Pierde dinero (≤0%)' },
             ].map((it, i) => (
-              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: LEX, fontSize: 12, color: INK }}>
+              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: OSW, fontSize: 12, fontWeight: 600, color: INK }}>
                 <span style={{ width: 14, height: 14, background: it.c, border: `2px solid ${INK}`, display: 'inline-block' }} />
                 {it.t}
               </span>
@@ -172,10 +173,4 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
       </div>
     </div>
   )
-}
-
-const btnNuevo: CSSProperties = {
-  marginLeft: 'auto', fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px',
-  textTransform: 'uppercase', background: VERDE, color: '#ffffff', border: `2px solid ${INK}`,
-  boxShadow: `3px 3px 0 ${INK}`, padding: '8px 16px', cursor: 'pointer', borderRadius: 0,
 }
