@@ -99,16 +99,16 @@ function BtnSubirSplit({ label, variante, onArchivos, preparando, setPreparando 
   const halfBase: React.CSSProperties = { flex: 1, padding: '15px 12px', cursor: preparando ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', transition: 'background 0.15s', opacity: preparando ? 0.6 : 1 }
   const labelDerecha = ES_MOVIL ? 'varios archivos' : 'por carpetas'
   return (
-    <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
+    <div style={{ display: 'flex', border: '3px solid #140f08', boxShadow: '4px 4px 0 #140f08', overflow: 'hidden', position: 'relative' }}>
       <input ref={inputFileRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFileRef.current) inputFileRef.current.value = '' }} />
       <input ref={inputFolderRef} type="file" /* @ts-ignore */ webkitdirectory="" directory="" multiple style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFolderRef.current) inputFolderRef.current.value = '' }} />
-      <div onDragOver={e => { if (preparando) return; e.preventDefault(); setOverL(true) }} onDragLeave={() => setOverL(false)} onDrop={e => { if (preparando) return; e.preventDefault(); setOverL(false); handleFiles(e.dataTransfer.files) }} onClick={() => { if (!preparando) inputFileRef.current?.click() }} style={{ ...halfBase, background: overL ? baseHover : base, borderRight: '1px solid rgba(255,255,255,0.25)' }}>
+      <div onDragOver={e => { if (preparando) return; e.preventDefault(); setOverL(true) }} onDragLeave={() => setOverL(false)} onDrop={e => { if (preparando) return; e.preventDefault(); setOverL(false); handleFiles(e.dataTransfer.files) }} onClick={() => { if (!preparando) inputFileRef.current?.click() }} style={{ ...halfBase, background: overL ? baseHover : base, borderRight: '3px solid #140f08' }}>
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13.5, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label} por archivos</div>
       </div>
       <div onDragOver={e => { if (preparando) return; e.preventDefault(); setOverR(true) }} onDragLeave={() => setOverR(false)} onDrop={e => { if (preparando) return; e.preventDefault(); setOverR(false); handleFiles(e.dataTransfer.files) }} onClick={() => { if (preparando) return; if (ES_MOVIL) inputFileRef.current?.click(); else inputFolderRef.current?.click() }} style={{ ...halfBase, background: overR ? baseHover : base }}>
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13.5, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label} {labelDerecha}</div>
       </div>
-      {preparando && (<div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', borderRadius: 14, pointerEvents: 'none' }}><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: '#fff', letterSpacing: '2px', textTransform: 'uppercase' }}>Preparando…</div></div>)}
+      {preparando && (<div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', pointerEvents: 'none' }}><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: '#fff', letterSpacing: '2px', textTransform: 'uppercase' }}>Preparando…</div></div>)}
     </div>
   )
 }
@@ -191,15 +191,15 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
       {/* Subida 1: documentos (facturas + ventas) — el contenido manda */}
       <div style={{ marginBottom: 12 }}>
         <BtnSubirSplit label="Subir documentos" variante="rojo" onArchivos={onDoc} preparando={preparando} setPreparando={setPreparando} />
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 8, textAlign: 'center' }}>
-          Facturas y liquidaciones de venta (Uber, Glovo, Just Eat…). El sistema lee cada documento y reparte solo lo que va a Facturas y lo que va a Ventas.
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#140f08', marginTop: 8, textAlign: 'center' }}>
+          Entrada única: cualquier documento (facturas, liquidaciones, resúmenes de venta…). El sistema lo identifica por contenido, consulta el diccionario de proveedores y reparte cada dato a su módulo.
         </div>
       </div>
 
       {/* Subida 2: extracto bancario — pregunta titular */}
       <div style={{ marginBottom: 16 }}>
         <BtnSubirSplit label="Subir extracto banco" variante="azul" onArchivos={onExtracto} preparando={preparando} setPreparando={setPreparando} />
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 8, textAlign: 'center' }}>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#140f08', marginTop: 8, textAlign: 'center' }}>
           Solo extractos del banco. Te preguntará de quién es y vuelca los movimientos a Conciliación. Mejor en Excel/CSV que en PDF.
         </div>
       </div>
@@ -214,14 +214,14 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
       {/* Modal documentos */}
       {modalDoc.visible && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+          <div style={{ background: '#FCEFD6', padding: 28, minWidth: 380, maxWidth: 560, border: '4px solid #140f08', boxShadow: '6px 6px 0 #140f08' }}>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Confirmar subida</div>
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, color: '#111', marginBottom: 6 }}>Vas a subir <strong style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, color: '#1D9E75' }}>{modalDoc.archivos.length}</strong> documento{modalDoc.archivos.length !== 1 ? 's' : ''}</div>
-            {modalDoc.rechazados.length > 0 && (<><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalDoc.rechazados.length}</strong>{' '}<button onClick={() => setVerRechazados(v => !v)} style={{ background: 'none', border: 'none', color: '#B01D23', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>{verRechazados ? 'ocultar' : 'ver lista'}</button></div>{verRechazados && (<div style={{ background: '#fff5f5', border: '0.5px solid #E24B4A50', borderRadius: 8, padding: '10px 12px', maxHeight: 180, overflowY: 'auto', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginBottom: 8 }}>{modalDoc.rechazados.map((nm, i) => <div key={i} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '2px 0' }}>{nm}</div>)}</div>)}</>)}
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 8, marginBottom: 18 }}>El sistema clasifica cada uno por su contenido (factura de proveedor, de plataforma o liquidación de ventas).</div>
+            {modalDoc.rechazados.length > 0 && (<><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalDoc.rechazados.length}</strong>{' '}<button onClick={() => setVerRechazados(v => !v)} style={{ background: 'none', border: 'none', color: '#B01D23', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>{verRechazados ? 'ocultar' : 'ver lista'}</button></div>{verRechazados && (<div style={{ background: '#fff5f5', border: '2px solid #140f08', borderRadius: 0, padding: '10px 12px', maxHeight: 180, overflowY: 'auto', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginBottom: 8 }}>{modalDoc.rechazados.map((nm, i) => <div key={i} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '2px 0' }}>{nm}</div>)}</div>)}</>)}
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 8, marginBottom: 18 }}>El sistema clasifica cada uno por su contenido y aplica las instrucciones del diccionario de proveedores (categoría, contraparte y conciliación).</div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => { setModalDoc({ archivos: [], rechazados: [], visible: false }); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
-              <button disabled={modalDoc.archivos.length === 0} onClick={enviarDoc} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: 'none', background: modalDoc.archivos.length === 0 ? '#d0c8bc' : '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modalDoc.archivos.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modalDoc.archivos.length}</button>
+              <button onClick={() => { setModalDoc({ archivos: [], rechazados: [], visible: false }); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', background: '#fff', color: '#140f08', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+              <button disabled={modalDoc.archivos.length === 0} onClick={enviarDoc} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', boxShadow: '3px 3px 0 #140f08', background: modalDoc.archivos.length === 0 ? '#d0c8bc' : '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modalDoc.archivos.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modalDoc.archivos.length}</button>
             </div>
           </div>
         </div>
@@ -230,14 +230,14 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
       {/* Modal extracto (titular) */}
       {modalExtracto.visible && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: '#fff', padding: 28, borderRadius: 14, minWidth: 380, maxWidth: 560, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+          <div style={{ background: '#FCEFD6', padding: 28, minWidth: 380, maxWidth: 560, border: '4px solid #140f08', boxShadow: '6px 6px 0 #140f08' }}>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#1E5BCC', marginBottom: 12 }}>Extracto bancario</div>
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, color: '#111', marginBottom: 6 }}>Vas a subir <strong style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, color: '#1D9E75' }}>{modalExtracto.archivos.length}</strong> archivo{modalExtracto.archivos.length !== 1 ? 's' : ''}</div>
             {modalExtracto.rechazados.length > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalExtracto.rechazados.length}</strong></div>)}
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', marginTop: 10, marginBottom: 14 }}>¿De quién es este extracto?</div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button disabled={modalExtracto.archivos.length === 0} onClick={() => enviarExtracto(RUBEN_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #F26B1F', background: '#F26B1F', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalExtracto.archivos.length === 0 ? 0.4 : 1 }}>Rubén</button>
-              <button disabled={modalExtracto.archivos.length === 0} onClick={() => enviarExtracto(EMILIO_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: '0.5px solid #1E5BCC', background: '#1E5BCC', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalExtracto.archivos.length === 0 ? 0.4 : 1 }}>Emilio</button>
+              <button disabled={modalExtracto.archivos.length === 0} onClick={() => enviarExtracto(RUBEN_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', boxShadow: '3px 3px 0 #140f08', background: '#FF6A1A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalExtracto.archivos.length === 0 ? 0.4 : 1 }}>Rubén</button>
+              <button disabled={modalExtracto.archivos.length === 0} onClick={() => enviarExtracto(EMILIO_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', boxShadow: '3px 3px 0 #140f08', background: '#2D5BFF', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalExtracto.archivos.length === 0 ? 0.4 : 1 }}>Emilio</button>
             </div>
             <button onClick={() => setModalExtracto({ archivos: [], rechazados: [], visible: false })} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
           </div>
