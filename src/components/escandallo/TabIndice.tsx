@@ -3,7 +3,8 @@ import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { EPS, Receta } from './types'
 import { fmtES, fmtEurES, fmtDateES, n } from './types'
-import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, GRANATE, AZUL, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, GRANATE, AZUL, GRIS } from '@/styles/neobrutal'
+import { th, thR, thC, td, tdNum, tdCod, zebra, BAND } from './estilosTabla'
 
 interface Props {
   epsList: EPS[]
@@ -78,16 +79,6 @@ export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenE
   const countEps = allRows.filter(r => r.kind === 'EPS').length
   const countRec = allRows.filter(r => r.kind === 'REC').length
 
-  const thStyle: CSSProperties = {
-    fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: CREMA, padding: '9px 12px', background: INK, borderBottom: `2px solid ${INK}`,
-    textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0,
-  }
-  const tdStyle: CSSProperties = {
-    fontFamily: LEX, fontSize: 13, color: INK, padding: '6px 11px',
-    borderBottom: `1px solid ${INK}1f`, whiteSpace: 'nowrap',
-  }
-
   const btns: { key: FiltroKind; label: string; val: number }[] = [
     { key: 'todos', label: 'TOTAL', val: allRows.length },
     { key: 'eps', label: 'EPS', val: countEps },
@@ -118,7 +109,7 @@ export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenE
         </div>
       )}
 
-      <div style={{ background: '#ffffff', border: BORDER_CARD, boxShadow: SHADOW }}>
+      <div style={{ background: CREMA, border: `5px solid ${INK}`, boxShadow: `7px 7px 0 ${INK}` }}>
         {!rows.length ? (
           <p style={{ color: GRIS, fontFamily: LEX, textAlign: 'center', padding: 40, fontSize: 13 }}>
             Sin resultados
@@ -128,38 +119,39 @@ export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenE
             <table style={{ borderCollapse: 'collapse', tableLayout: 'auto', width: '100%' }}>
               <thead>
                 <tr>
-                  <th style={thStyle}>CÓDIGO</th>
-                  <th style={thStyle}>NOMBRE</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>COSTE TANDA</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>COSTE/RAC</th>
-                  <th style={{ ...thStyle, textAlign: 'center' }}>USOS</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>RACIONES</th>
-                  <th style={{ ...thStyle, textAlign: 'center' }}>FECHA</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>PVP REAL</th>
+                  <th style={th}>CÓDIGO</th>
+                  <th style={th}>NOMBRE</th>
+                  <th style={thR}>COSTE TANDA</th>
+                  <th style={thR}>COSTE/RAC</th>
+                  <th style={thC}>USOS</th>
+                  <th style={thR}>RACIONES</th>
+                  <th style={thC}>FECHA</th>
+                  <th style={thR}>PVP REAL</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map(row => {
+                {rows.map((row, idx) => {
                   const isEps = row.kind === 'EPS'
                   const d = row.data
                   const pvp = isEps ? 0 : n((d as Receta).pvp_uber)
                   const usos = usosMap[String(d.id)] ?? (isEps ? n((d as EPS).usos) : 0)
                   const fecha = 'fecha' in d ? d.fecha : null
                   const codeColor = isEps ? AZUL : GRANATE
+                  const bg = zebra(idx)
                   return (
                     <tr
                       key={`${row.kind}-${d.id}`}
                       onClick={() => isEps ? onOpenEps(d as EPS) : onOpenReceta(d as Receta)}
-                      style={{ cursor: 'pointer' }}
+                      style={{ cursor: 'pointer', background: bg }}
                     >
-                      <td style={{ ...tdStyle, color: codeColor, fontFamily: OSW, fontWeight: 700 }}>{d.codigo ?? ''}</td>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{d.nombre}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', color: '#5a4f3a' }}>{fmtEurES(d.coste_tanda, 2)}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontFamily: OSW, fontWeight: 700 }}>{fmtEurES(d.coste_rac, isEps ? 4 : 2)}</td>
-                      <td style={{ ...tdStyle, textAlign: 'center', color: usos > 0 ? INK : GRIS }}>{usos}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>{d.raciones ? fmtES(d.raciones, 0) : ''}</td>
-                      <td style={{ ...tdStyle, textAlign: 'center', color: GRIS, fontSize: 12 }}>{fecha ? fmtDateES(fecha) : ''}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{!isEps && pvp > 0 ? fmtEurES(pvp, 2) : ''}</td>
+                      <td style={{ ...tdCod, color: codeColor, borderLeft: `${BAND}px solid ${codeColor}` }}>{d.codigo ?? ''}</td>
+                      <td style={{ ...td, fontWeight: 700 }}>{d.nombre}</td>
+                      <td style={{ ...tdNum, color: '#5a4f3a' }}>{fmtEurES(d.coste_tanda, 2)}</td>
+                      <td style={tdNum}>{fmtEurES(d.coste_rac, isEps ? 4 : 2)}</td>
+                      <td style={{ ...td, textAlign: 'center', fontFamily: OSW, fontWeight: 700, color: usos > 0 ? INK : GRIS }}>{usos}</td>
+                      <td style={tdNum}>{d.raciones ? fmtES(d.raciones, 0) : ''}</td>
+                      <td style={{ ...td, textAlign: 'center', color: GRIS, fontSize: 13, fontFamily: OSW }}>{fecha ? fmtDateES(fecha) : ''}</td>
+                      <td style={{ ...tdNum, fontWeight: 700 }}>{!isEps && pvp > 0 ? fmtEurES(pvp, 2) : ''}</td>
                     </tr>
                   )
                 })}
@@ -171,3 +163,5 @@ export default function TabIndice({ epsList, recetasList, busqueda = '', onOpenE
     </div>
   )
 }
+
+void SHADOW; void BORDER_CARD
