@@ -394,12 +394,14 @@ export default function Cashflow() {
         {graf.length === 0
           ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, padding: '20px 0', marginTop: 8 }}>Sin cobros en el horizonte.</div>
           : (
-            <div style={{ position: 'relative', marginTop: 18 }}>
+            <div style={{ marginTop: 18, background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px 16px' }}>
+            <div style={{ position: 'relative' }}>
               <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
                 {[0, 1, 2, 3].map(g => { const v = maxY / 3 * g; const y = Y(v); return (<g key={g}><line x1={P.l} y1={y} x2={W - P.r} y2={y} stroke={TRACK} /><text x={P.l - 6} y={y + 3} textAnchor="end" fontSize="9" fill={GRIS} fontFamily="Lexend">{nf0(v)}</text></g>) })}
                 {idxFut > 0 && (() => { const xh = (X(idxFut - 1) + X(idxFut)) / 2; return (<g><line x1={xh} y1={P.t} x2={xh} y2={H - P.b} stroke={INK} strokeWidth="1" strokeDasharray="3 3" /><text x={xh} y={P.t - 6} textAnchor="middle" fontSize="9" fill={INK} fontFamily="Oswald">HOY</text></g>) })()}
-                {graf.length > 1 && <polyline points={graf.map((p, i) => `${X(i)} ${Y(p.total)}`).join(' ')} fill="none" stroke={VERDE} strokeWidth="2.5" />}
-                {graf.map((p, i) => (<g key={i}><circle cx={X(i)} cy={Y(p.total)} r={hover === i ? 6 : 4} fill={p.futuro ? '#fff' : VERDE} stroke={VERDE} strokeWidth="2" style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} /><text x={X(i)} y={H - P.b + 14} textAnchor="middle" fontSize="9" fill={GRIS} fontFamily="Lexend">{fmtCorta(p.pago)}</text></g>))}
+                {graf.length > 1 && <polyline points={graf.map((p, i) => `${X(i) + 2} ${Y(p.total) + 3}`).join(' ')} fill="none" stroke={INK} strokeWidth="4" opacity={0.22} />}
+                {graf.length > 1 && <polyline points={graf.map((p, i) => `${X(i)} ${Y(p.total)}`).join(' ')} fill="none" stroke={VERDE} strokeWidth="4" strokeLinejoin="round" />}
+                {graf.map((p, i) => (<g key={i}><circle cx={X(i)} cy={Y(p.total)} r={hover === i ? 7 : 5} fill={p.futuro ? '#fff' : VERDE} stroke={INK} strokeWidth="2.5" style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} /><text x={X(i)} y={H - P.b + 14} textAnchor="middle" fontSize="9" fill={GRIS} fontFamily="Lexend">{fmtCorta(p.pago)}</text></g>))}
               </svg>
               {hover != null && graf[hover] && (
                 <div style={{ position: 'absolute', left: `${(X(hover) / W) * 100}%`, top: `${(Y(graf[hover].total) / H) * 100}%`, transform: 'translate(-50%, calc(-100% - 12px))', background: INK, color: CREMA, padding: '10px 12px', minWidth: 160, pointerEvents: 'none', zIndex: 5, boxShadow: SHADOW, border: BORDER_CARD }}>
@@ -413,23 +415,27 @@ export default function Cashflow() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, background: '#fff', border: `2px solid ${VERDE}` }} />Previsto</span>
               </div>
             </div>
+            </div>
           )}
       </section>
 
       {/* ── SECCIÓN 3 · CAJA POR MES (CREMA) ── */}
       <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
         <span style={eyebrow(INK, CREMA)}>Caja por mes · banco real · línea = saldo</span>
-        <svg viewBox={`0 0 ${CW} 170`} style={{ width: '100%', height: 'auto', marginTop: 18 }}>
+        <div style={{ marginTop: 18, background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px 16px' }}>
+        <svg viewBox={`0 0 ${CW} 170`} style={{ width: '100%', height: 'auto' }}>
           <line x1={40} y1={cb} x2={CW - 10} y2={cb} stroke={TRACK} />
           {cruce.map((c, i) => { const x = cx(i); return (
             <g key={i}>
-              <rect x={x - 19} y={cb - barH(c.ingresos)} width={16} height={barH(c.ingresos)} fill={VERDE} />
-              <rect x={x + 3} y={cb - barH(c.gastos)} width={16} height={barH(c.gastos)} fill={ROJO} />
+              <rect x={x - 16} y={cb - barH(c.ingresos) + 3} width={16} height={barH(c.ingresos)} fill={INK} />
+              <rect x={x - 19} y={cb - barH(c.ingresos)} width={16} height={barH(c.ingresos)} fill={VERDE} stroke={INK} strokeWidth={2} />
+              <rect x={x + 6} y={cb - barH(c.gastos) + 3} width={16} height={barH(c.gastos)} fill={INK} />
+              <rect x={x + 3} y={cb - barH(c.gastos)} width={16} height={barH(c.gastos)} fill={ROJO} stroke={INK} strokeWidth={2} />
               <text x={x} y={cb + 16} textAnchor="middle" fontSize="9" fill={GRIS} fontFamily="Lexend">{c.label}</text>
               <text x={x} y={cb + 32} textAnchor="middle" fontSize="10" fill={c.margen >= 0 ? VERDE : ROJO} fontFamily="Oswald">{c.margen >= 0 ? '+' : ''}{nf0(c.margen)}</text>
             </g>) })}
-          <polyline points={cruce.map((c, i) => `${cx(i)} ${ySaldo(c.margen)}`).join(' ')} fill="none" stroke={INK} strokeWidth="2.5" />
-          {cruce.map((c, i) => <circle key={i} cx={cx(i)} cy={ySaldo(c.margen)} r={3.5} fill={c.margen >= 0 ? INK : ROJO} />)}
+          <polyline points={cruce.map((c, i) => `${cx(i)} ${ySaldo(c.margen)}`).join(' ')} fill="none" stroke={INK} strokeWidth="3.5" strokeLinejoin="round" />
+          {cruce.map((c, i) => <circle key={i} cx={cx(i)} cy={ySaldo(c.margen)} r={4.5} fill={c.margen >= 0 ? INK : ROJO} stroke={CREMA} strokeWidth={1.5} />)}
         </svg>
         <div style={{ display: 'flex', gap: 16, fontSize: 11, color: GRIS, marginTop: 8 }}>
           <span><span style={dot(VERDE)} />Ingresos</span>
@@ -437,6 +443,7 @@ export default function Cashflow() {
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 14, height: 0, borderTop: `2px solid ${INK}` }} />Saldo</span>
         </div>
         {ultimoMov && <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 6 }}>Movimientos reales del banco · última importación: {ultimoMov}.</div>}
+        </div>
       </section>
 
       {/* ── SECCIÓN 4 · INGRESOS PENDIENTES + CAJA POR MARCA (#fff / CLARO) ── */}
@@ -516,8 +523,8 @@ export default function Cashflow() {
                             <span style={{ fontFamily: OSW, fontSize: 13, fontWeight: 700, color: sin ? GRIS : INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.marca}</span>
                             <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 15, color: sin ? GRIS : VERDE, flexShrink: 0 }}>{nf0(m.neto)}</span>
                           </div>
-                          <div style={{ height: 8, background: TRACK, border: BORDER_CARD }}>
-                            <div style={{ height: 8, width: `${(m.neto / max) * 100}%`, background: sin ? GRIS : VERDE, boxShadow: SHADOW }} />
+                          <div style={{ height: 14, background: TRACK, border: BORDER_CARD, boxShadow: SHADOW }}>
+                            <div style={{ height: '100%', width: `${(m.neto / max) * 100}%`, background: sin ? GRIS : VERDE, borderRight: sin ? 'none' : `2px solid ${INK}` }} />
                           </div>
                         </div>
                       )
@@ -590,7 +597,7 @@ export default function Cashflow() {
             { t: 'Coste de ADS y promos', desc: 'Descuento por publicidad y su efecto en el neto.', dep: 'liquidaciones (vacías)' },
             { t: 'Calendario 30/60/90', desc: 'Días con dinero y días secos.', dep: 'fecha de pago de gastos' },
           ].map((x, i) => (
-            <div key={i} style={{ border: `2px dashed ${INK}`, padding: '16px 18px', background: '#fff' }}>
+            <div key={i} style={{ border: `2px dashed ${INK}`, padding: '16px 18px', background: '#fff', boxShadow: SHADOW }}>
               <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, marginBottom: 7 }}>{x.t}</div>
               <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 8, lineHeight: 1.4 }}>{x.desc}</div>
               <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '0.5px', textTransform: 'uppercase', color: AZUL }}>Falta: {x.dep}</div>
