@@ -119,11 +119,13 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[]) {
         while (tf > 7 && doc.getTextWidth(e.nombre) > colW - 4) { tf -= 0.5; doc.setFontSize(tf) }
         doc.text(e.nombre, x + colW / 2, cy + 5.7, { align: 'center' })
         let ly = cy + 8
-        e.lineas.forEach(l => {
+        e.lineas.forEach((l, li) => {
           if (l.tipo === 'accion') {
+            const prevAccion = li > 0 && e.lineas[li - 1].tipo === 'accion'
+            const nextAccion = li < e.lineas.length - 1 && e.lineas[li + 1].tipo === 'accion'
             doc.setDrawColor(...INK_C); doc.setLineWidth(0.4)
-            doc.line(x + 4, ly + 0.5, x + colW - 4, ly + 0.5)
-            doc.line(x + 4, ly + 4, x + colW - 4, ly + 4)
+            if (!prevAccion) doc.line(x + 4, ly + 0.5, x + colW - 4, ly + 0.5)
+            if (!nextAccion) doc.line(x + 4, ly + 4, x + colW - 4, ly + 4)
             doc.setFont('helvetica', 'bold'); doc.setFontSize(9)
             doc.text(l.texto, x + colW / 2, ly + 3.2, { align: 'center' })
           } else {
@@ -300,10 +302,24 @@ function TarjetaEsquema({ esquema: e, T, isDark, onEdit, onChange }: { esquema: 
       </div>
       <div className="print-head" style={{ background: isDark ? '#1e2233' : '#e2e2e2', color: isDark ? T.pri : '#1a1a1a', fontFamily: "'Anton','Oswald',sans-serif", fontSize: 30, fontWeight: 400, lineHeight: 1, textAlign: 'center', padding: '6px 8px 5px', letterSpacing: '0.5px', borderBottom: `2px solid #1a1a1a` }}>{e.nombre}</div>
       <div style={{ padding: '5px 9px 6px' }}>
-        {e.lineas.map((l, i) => l.tipo === 'accion'
-          ? <div key={i} className="print-act" style={{ background: 'transparent', color: isDark ? T.pri : '#1a1a1a', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, textAlign: 'center', borderTop: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, borderBottom: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, padding: '2px 0', margin: '5px 8px', letterSpacing: '1px' }}>{l.texto}</div>
-          : <div key={i} className="print-ing" style={{ fontFamily: "'Barlow Semi Condensed','Oswald',sans-serif", fontWeight: 600, fontSize: 16, lineHeight: 1.1, textAlign: 'center', padding: '0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
-        )}
+        {e.lineas.map((l, i) => {
+          if (l.tipo !== 'accion') {
+            return <div key={i} className="print-ing" style={{ fontFamily: "'Barlow Semi Condensed','Oswald',sans-serif", fontWeight: 600, fontSize: 16, lineHeight: 1.1, textAlign: 'center', padding: '0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
+          }
+          const prevAccion = i > 0 && e.lineas[i - 1].tipo === 'accion'
+          const nextAccion = i < e.lineas.length - 1 && e.lineas[i + 1].tipo === 'accion'
+          const brd = `2px solid ${isDark ? T.brd : '#1a1a1a'}`
+          return (
+            <div key={i} className="print-act" style={{
+              background: 'transparent', color: isDark ? T.pri : '#1a1a1a', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, textAlign: 'center',
+              borderTop: prevAccion ? 'none' : brd,
+              borderBottom: nextAccion ? 'none' : brd,
+              padding: '2px 0',
+              marginTop: prevAccion ? 0 : 5, marginBottom: nextAccion ? 0 : 5, marginLeft: 8, marginRight: 8,
+              letterSpacing: '1px',
+            }}>{l.texto}</div>
+          )
+        })}
       </div>
       {archivado && e.archivado_at && (
         <div className="no-print" style={{ fontFamily: FONT.body, fontSize: 10, color: T.mut, textAlign: 'center', padding: '2px 0 5px' }}>
