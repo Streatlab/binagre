@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { LayoutGrid, Mic, Printer, Plus, Trash2, X, Check, Pencil, Tags, Archive, History } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, tituloPaginaStyle } from '@/styles/tokens'
-import { jsPDF } from 'jspdf'
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
@@ -52,97 +51,6 @@ function trocearIngredientes(texto: string): Linea[] {
     .map(normalizarLinea)
 }
 
-// ─── IMPRESIÓN PDF (A4 vertical · cabecera de gama por página + contador X/Y de gama + contador general grande) ──
-
-const GREY_BG: [number, number, number] = [226, 226, 226]
-const INK_C: [number, number, number] = [26, 26, 26]
-
-function alturaCard(e: Esquema): number {
-  return 8 + e.lineas.length * 4.4 + 3
-}
-
-function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[]) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const PW = doc.internal.pageSize.getWidth()
-  const PH = doc.internal.pageSize.getHeight()
-  const M = 8, bandH = 12, footerH = 14
-  const usableW = PW - M * 2
-  const nCols = 3, colGap = 5
-  const colW = (usableW - colGap * (nCols - 1)) / nCols
-  const topY = M + bandH + 3
-  const availH = (PH - footerH - 4) - topY
-
-  type Page = { gama: string; cols: { e: Esquema; y: number }[][]; gp: number; gt: number }
-  const pages: Page[] = []
-  for (const grupo of grupos) {
-    const gPages: { cols: { e: Esquema; y: number }[][] }[] = []
-    let colH = [0, 0, 0]
-    let cols: { e: Esquema; y: number }[][] = [[], [], []]
-    const pushPage = () => { gPages.push({ cols }); colH = [0, 0, 0]; cols = [[], [], []] }
-    for (const e of grupo.platos) {
-      const h = alturaCard(e)
-      let ci = 0
-      for (let k = 1; k < nCols; k++) if (colH[k] < colH[ci]) ci = k
-      if (colH[ci] + h > availH && colH[ci] > 0) { pushPage(); ci = 0 }
-      cols[ci].push({ e, y: colH[ci] })
-      colH[ci] += h + 4
-    }
-    if (cols.some(c => c.length)) pushPage()
-    gPages.forEach((p, i) => pages.push({ gama: grupo.nombre, cols: p.cols, gp: i + 1, gt: gPages.length }))
-  }
-
-  const total = pages.length
-  pages.forEach((pg, pi) => {
-    if (pi > 0) doc.addPage()
-    // banda de gama (en cada página de la gama)
-    doc.setFillColor(...INK_C); doc.rect(M, M, usableW, bandH, 'F')
-    doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255)
-    let fs = 20; doc.setFontSize(fs)
-    while (fs > 11 && doc.getTextWidth(pg.gama.toUpperCase()) > usableW - 32) { fs -= 1; doc.setFontSize(fs) }
-    doc.text(pg.gama.toUpperCase(), PW / 2, M + bandH - 3.6, { align: 'center' })
-    doc.setFontSize(15)
-    doc.text(`${pg.gp}/${pg.gt}`, PW - M - 4, M + bandH - 3.6, { align: 'right' })
-
-    pg.cols.forEach((col, ci) => {
-      const x = M + ci * (colW + colGap)
-      col.forEach(({ e, y }) => {
-        const cy = topY + y
-        const h = alturaCard(e)
-        doc.setDrawColor(...INK_C); doc.setLineWidth(0.4); doc.rect(x, cy, colW, h)
-        doc.setFillColor(...GREY_BG); doc.rect(x, cy, colW, 8, 'F')
-        doc.setDrawColor(...INK_C); doc.line(x, cy + 8, x + colW, cy + 8)
-        doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK_C)
-        let tf = 12; doc.setFontSize(tf)
-        while (tf > 7 && doc.getTextWidth(e.nombre) > colW - 4) { tf -= 0.5; doc.setFontSize(tf) }
-        doc.text(e.nombre, x + colW / 2, cy + 5.7, { align: 'center' })
-        let ly = cy + 8
-        e.lineas.forEach(l => {
-          if (l.tipo === 'accion') {
-            doc.setDrawColor(...INK_C); doc.setLineWidth(0.4)
-            doc.line(x + 4, ly + 0.5, x + colW - 4, ly + 0.5)
-            doc.line(x + 4, ly + 4, x + colW - 4, ly + 4)
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(9)
-            doc.text(l.texto, x + colW / 2, ly + 3.2, { align: 'center' })
-          } else {
-            doc.setFont('helvetica', 'normal'); let lf = 9; doc.setFontSize(lf)
-            while (lf > 6 && doc.getTextWidth(l.texto) > colW - 3) { lf -= 0.5; doc.setFontSize(lf) }
-            doc.text(l.texto, x + colW / 2, ly + 3.1, { align: 'center' })
-          }
-          ly += 4.4
-        })
-      })
-    })
-
-    // contador general GRANDE, centrado abajo
-    doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK_C); doc.setFontSize(24)
-    doc.text(`${pi + 1} / ${total}`, PW / 2, PH - 5, { align: 'center' })
-  })
-
-  const url = doc.output('bloburl')
-  const win = window.open(url as unknown as string, '_blank')
-  if (win) win.addEventListener('load', () => { try { win.focus(); win.print() } catch { /* imprime desde el visor */ } })
-}
-
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 
 export default function Esquemas() {
@@ -188,18 +96,8 @@ export default function Esquemas() {
     esquemas.filter(e => e.gama === gamaActiva && (verHistorico ? e.estado !== 'vigente' : e.estado === 'vigente'))
     , [esquemas, gamaActiva, verHistorico])
 
-  function imprimir() {
-    const platos = esquemas.filter(e => e.gama === gamaActiva && e.estado === 'vigente')
-    if (platos.length) construirEsquemasPDF([{ nombre: gamaActiva, platos }])
-  }
-  function imprimirTodo() {
-    const orden = ['Asiática', 'Casera', 'Raciones', 'Binagre', 'Italiana', 'Green', 'French Tacos']
-    const nombres = Array.from(new Set([...orden, ...gamas.map(g => g.nombre)]))
-    const grupos = nombres
-      .map(n => ({ nombre: n, platos: esquemas.filter(e => e.gama === n && e.estado === 'vigente') }))
-      .filter(x => x.platos.length > 0)
-    if (grupos.length) construirEsquemasPDF(grupos)
-  }
+  function imprimir() { window.print() }
+  function imprimirTodo() { setImprimiendoTodo(true) }
 
   if (loading) return <div style={{ padding: 32, color: T.sec, fontFamily: FONT.body }}>Cargando esquemas…</div>
   if (error) return <div style={{ padding: 32, color: '#B01D23', fontFamily: FONT.body }}>{error}</div>
