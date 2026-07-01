@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { Receta } from './types'
-import { fmtEurES, fmtES, fmtDateES, n } from './types'
+import { fmtES, fmtDateES, n } from './types'
 import { supabase } from '@/lib/supabase'
 import { semaforoColor } from '@/styles/tokens'
 import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 import { useConfig } from '@/hooks/useConfig'
-import { INK, CREMA, CLARO, SHADOW, BORDER_CARD, OSW, LEX, AMA, VERDE, GRANATE, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, OSW, LEX, AMA, VERDE, GRANATE, GRIS } from '@/styles/neobrutal'
+import { th, thR, thC, td, tdNum, tdCod, zebra, BAND } from './estilosTabla'
 
 interface Props { recetasList: Receta[]; busqueda?: string; onSelect: (r: Receta) => void; onNew?: () => void }
 
@@ -64,18 +65,6 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
     return suma / conPvp.length
   }, [filtered, configCanales, estructura_pct])
 
-  const th: CSSProperties = {
-    fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-    color: CREMA, padding: '9px 12px', background: INK,
-    textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0,
-    borderRight: '2px solid #4a3f2c',
-  }
-  const td: CSSProperties = {
-    fontFamily: LEX, fontSize: 13, color: INK, padding: '6px 11px',
-    borderTop: `3px solid ${INK}`, borderRight: '2px solid rgba(20,15,8,.14)', whiteSpace: 'nowrap',
-  }
-  const num: CSSProperties = { ...td, textAlign: 'right', fontFamily: OSW, fontWeight: 700, fontSize: 17 }
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -104,45 +93,46 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
                 <tr>
                   <th style={th}>CÓDIGO</th>
                   <th style={th}>RECETA</th>
-                  <th style={{ ...th, textAlign: 'right' }}>RACIONES</th>
-                  <th style={{ ...th, textAlign: 'right' }}>TAMAÑO</th>
-                  <th style={{ ...th, textAlign: 'right' }}>COSTE TANDA €</th>
-                  <th style={{ ...th, textAlign: 'right' }}>COSTE/RAC €</th>
-                  <th style={{ ...th, textAlign: 'right' }}>PVP UE €</th>
-                  <th style={{ ...th, textAlign: 'center' }}>MARGEN %</th>
-                  <th style={{ ...th, textAlign: 'center', borderRight: 'none' }}>FECHA</th>
+                  <th style={thR}>RACIONES</th>
+                  <th style={thR}>TAMAÑO</th>
+                  <th style={thR}>COSTE TANDA €</th>
+                  <th style={thR}>COSTE/RAC €</th>
+                  <th style={thR}>PVP UE €</th>
+                  <th style={thC}>MARGEN %</th>
+                  <th style={{ ...thC, borderRight: 'none' }}>FECHA</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(r => {
+                {filtered.map((r, idx) => {
                   const m = margenUber(r, configCanales, estructura_pct)
                   const hasPvp = n(r.pvp_uber) > 0
                   const col = semaforoColor(m)
                   const band = hasPvp ? col : GRIS
+                  const bg = zebra(idx)
                   return (
-                    <tr key={r.id} onClick={() => onSelect(r)} style={{ cursor: 'pointer', background: '#ffffff' }}>
-                      <td style={{ ...td, color: GRANATE, fontFamily: OSW, fontWeight: 700, fontSize: 15, borderLeft: `14px solid ${band}` }}>{r.codigo ?? ''}</td>
+                    <tr key={r.id} onClick={() => onSelect(r)} style={{ cursor: 'pointer', background: bg }}>
+                      <td style={{ ...tdCod, color: GRANATE, borderLeft: `${BAND}px solid ${band}` }}>{r.codigo ?? ''}</td>
                       <td style={td}>
-                        <div style={{ fontFamily: LEX, fontSize: 16, fontWeight: 700, color: INK, lineHeight: 1.03, whiteSpace: 'normal' }}>{r.nombre}</div>
+                        <div style={{ fontFamily: LEX, fontSize: 15, fontWeight: 700, color: INK, lineHeight: 1.05, whiteSpace: 'normal' }}>{r.nombre}</div>
                         {(r.categoria || r.unidad) && (
-                          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '.4px', textTransform: 'uppercase', color: '#5a4f3a', marginTop: 1 }}>
+                          <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '.3px', textTransform: 'uppercase', color: '#5a4f3a', marginTop: 1 }}>
                             {[r.categoria, r.unidad].filter(Boolean).join(' · ')}
                           </div>
                         )}
                       </td>
-                      <td style={num}>{r.raciones ? fmtES(r.raciones, 0) : ''}</td>
-                      <td style={num}>{r.tamano_rac != null ? fmtES(r.tamano_rac) : ''}</td>
-                      <td style={{ ...num, color: '#5a4f3a' }}>{fmtES(r.coste_tanda, 2)}</td>
-                      <td style={num}>{fmtES(r.coste_rac, 2)}</td>
-                      <td style={num}>{hasPvp ? fmtES(r.pvp_uber, 2) : ''}</td>
+                      <td style={tdNum}>{r.raciones ? fmtES(r.raciones, 0) : ''}</td>
+                      <td style={tdNum}>{r.tamano_rac != null ? fmtES(r.tamano_rac) : ''}</td>
+                      <td style={{ ...tdNum, color: '#5a4f3a' }}>{fmtES(r.coste_tanda, 2)}</td>
+                      <td style={tdNum}>{fmtES(r.coste_rac, 2)}</td>
+                      <td style={tdNum}>{hasPvp ? fmtES(r.pvp_uber, 2) : ''}</td>
                       <td style={{ ...td, padding: 0, textAlign: 'center' }}>
                         {hasPvp ? (
-                          <div style={{ background: col, color: '#ffffff', fontFamily: OSW, fontWeight: 700, fontSize: 20, padding: '7px 6px', borderLeft: `3px solid ${INK}`, borderRight: `3px solid ${INK}` }}>
+                          <div style={{ background: col, color: '#ffffff', fontFamily: OSW, fontWeight: 700, fontSize: 18, padding: '6px 6px', borderLeft: `3px solid ${INK}`, borderRight: `3px solid ${INK}` }}>
                             {m.toFixed(0)}%
                           </div>
                         ) : <span style={{ fontFamily: OSW, color: GRIS, fontSize: 14 }}>—</span>}
                       </td>
-                      <td style={{ ...td, textAlign: 'center', color: GRIS, fontSize: 12, fontFamily: OSW, borderRight: 'none' }}>{r.fecha ? fmtDateES(r.fecha) : ''}</td>
+                      <td style={{ ...td, textAlign: 'center', color: GRIS, fontSize: 13, fontFamily: OSW, borderRight: 'none' }}>{r.fecha ? fmtDateES(r.fecha) : ''}</td>
                     </tr>
                   )
                 })}
@@ -165,7 +155,7 @@ export default function TabRecetas({ recetasList, busqueda = '', onSelect, onNew
         )}
 
         {!!filtered.length && (
-          <div style={{ background: CLARO, borderTop: `3px solid ${INK}`, padding: '10px 14px', display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ background: '#EFF0EC', borderTop: `3px solid ${INK}`, padding: '10px 14px', display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: INK }}>Margen Uber:</span>
             {[
               { c: semaforoColor(60), t: 'Sano · cubre gastos + margen (≥50%)' },
@@ -189,6 +179,3 @@ const btnNuevo: CSSProperties = {
   textTransform: 'uppercase', background: VERDE, color: '#ffffff', border: `2px solid ${INK}`,
   boxShadow: `3px 3px 0 ${INK}`, padding: '8px 16px', cursor: 'pointer', borderRadius: 0,
 }
-
-// Tokens legacy importados y reservados para futuras pasadas de tabla.
-void SHADOW; void BORDER_CARD; void fmtEurES
