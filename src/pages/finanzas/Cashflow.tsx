@@ -317,12 +317,18 @@ export default function Cashflow() {
 
   const simTabs: { id: Sim; label: string }[] = [{ id: -10, label: '−10%' }, { id: 0, label: 'Real' }, { id: 10, label: '+10%' }]
 
-  const thIng: CSSProperties = { fontFamily: OSW, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, background: INK, padding: '10px 12px', borderBottom: `1px solid ${INK}`, whiteSpace: 'nowrap' }
-  const tdLIng: CSSProperties = { fontFamily: LEX, fontSize: 13, color: INK, padding: '9px 12px', borderBottom: `0.5px solid rgba(20,15,8,0.15)` }
-  const tdRIng: CSSProperties = { ...tdLIng, fontFamily: OSW, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
-  const th: CSSProperties = { padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: CREMA, background: INK }
-  const tdL: CSSProperties = { padding: '9px 12px', textAlign: 'left', fontFamily: LEX, fontSize: 12.5 }
-  const tdR: CSSProperties = { padding: '9px 12px', textAlign: 'right', fontFamily: OSW, fontSize: 13 }
+  // Tabla canónica Escandallo (patrón Notion 38dc8b1f): contenedor 5px + sombra 7px,
+  // cabecera INK, banda lateral de estado, columna-bloque del KPI crítico, total INK.
+  const CONT: CSSProperties = { background: CREMA, border: `5px solid ${INK}`, boxShadow: `7px 7px 0 ${INK}` }
+  const thT: CSSProperties = { fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: CREMA, background: INK, padding: '9px 8px', textAlign: 'left', whiteSpace: 'nowrap', borderRight: '1px solid #4a3f2c' }
+  const thTR: CSSProperties = { ...thT, textAlign: 'right' }
+  const thTC: CSSProperties = { ...thT, textAlign: 'center' }
+  const tdT: CSSProperties = { fontFamily: LEX, fontSize: 14, fontWeight: 600, color: INK, padding: '6px 8px', borderTop: `3px solid ${INK}`, borderRight: '2px solid rgba(20,15,8,.12)', whiteSpace: 'nowrap' }
+  const tdTN: CSSProperties = { ...tdT, fontFamily: OSW, fontWeight: 700, fontSize: 15.5, textAlign: 'right' }
+  const totTd: CSSProperties = { background: INK, color: CREMA, fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '0.6px', textTransform: 'uppercase', padding: '9px 10px', borderTop: `5px solid ${INK}` }
+  const totTdN: CSSProperties = { ...totTd, textAlign: 'right' }
+  const zebra = (i: number): string => (i % 2 ? '#EFF0EC' : '#ffffff')
+  const BAND = 12
   const dot = (c: string): CSSProperties => ({ display: 'inline-block', width: 8, height: 8, background: c, marginRight: 6 })
   const SUBC: CSSProperties = { display: 'inline-flex', gap: 4, padding: '3px 4px', background: INK, border: `2px solid ${INK}` }
   const subA: CSSProperties = { padding: '4px 10px', border: 'none', background: '#fff', color: INK, fontFamily: OSW, fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
@@ -399,6 +405,7 @@ export default function Cashflow() {
               <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
                 {[0, 1, 2, 3].map(g => { const v = maxY / 3 * g; const y = Y(v); return (<g key={g}><line x1={P.l} y1={y} x2={W - P.r} y2={y} stroke={TRACK} /><text x={P.l - 6} y={y + 3} textAnchor="end" fontSize="9" fill={GRIS} fontFamily="Lexend">{nf0(v)}</text></g>) })}
                 {idxFut > 0 && (() => { const xh = (X(idxFut - 1) + X(idxFut)) / 2; return (<g><line x1={xh} y1={P.t} x2={xh} y2={H - P.b} stroke={INK} strokeWidth="1" strokeDasharray="3 3" /><text x={xh} y={P.t - 6} textAnchor="middle" fontSize="9" fill={INK} fontFamily="Oswald">HOY</text></g>) })()}
+                {graf.length > 1 && <polygon points={`${X(0)} ${H - P.b} ${graf.map((p, i) => `${X(i)} ${Y(p.total)}`).join(' ')} ${X(graf.length - 1)} ${H - P.b}`} fill={VERDE} opacity={0.1} />}
                 {graf.length > 1 && <polyline points={graf.map((p, i) => `${X(i) + 2} ${Y(p.total) + 3}`).join(' ')} fill="none" stroke={INK} strokeWidth="4" opacity={0.22} />}
                 {graf.length > 1 && <polyline points={graf.map((p, i) => `${X(i)} ${Y(p.total)}`).join(' ')} fill="none" stroke={VERDE} strokeWidth="4" strokeLinejoin="round" />}
                 {graf.map((p, i) => (<g key={i}><circle cx={X(i)} cy={Y(p.total)} r={hover === i ? 7 : 5} fill={p.futuro ? '#fff' : VERDE} stroke={INK} strokeWidth="2.5" style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} /><text x={X(i)} y={H - P.b + 14} textAnchor="middle" fontSize="9" fill={GRIS} fontFamily="Lexend">{fmtCorta(p.pago)}</text></g>))}
@@ -454,57 +461,72 @@ export default function Cashflow() {
           {futuros.length === 0
             ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin cobros pendientes.</div>
             : (
-              <div style={{ overflowX: 'auto', marginTop: 18 }}>
-                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 680 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...thIng, textAlign: 'left' }}>Plataforma</th>
-                      <th style={{ ...thIng, textAlign: 'left' }}>Ventas de</th>
-                      <th style={{ ...thIng, textAlign: 'right' }}>Pedidos</th>
-                      <th style={{ ...thIng, textAlign: 'left' }}>Cobro</th>
-                      <th style={{ ...thIng, textAlign: 'right' }}>Bruto</th>
-                      <th style={{ ...thIng, textAlign: 'right' }}>Neto est.</th>
-                      <th style={{ ...thIng, textAlign: 'right' }}>% neto</th>
-                      <th style={{ ...thIng, textAlign: 'center' }}>Cobrado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {futuros.map((c, i) => {
-                      const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0
-                      const porBanco = cobradoBanco(c)
-                      const cobrado = porBanco || !!cobradoMap[claveCobro(c)]
-                      const vencido = c.pago <= hoy && !cobrado
-                      return (
-                        <tr key={i} style={{ opacity: cobrado ? 0.5 : 1, background: i % 2 === 0 ? '#fff' : CLARO }}>
-                          <td style={{ ...tdLIng, paddingLeft: 0 }}><span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', background: CORP[c.canal] ?? c.color, color: CLARA[c.canal] ? INK : '#fff', fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.3px', whiteSpace: 'nowrap', border: `2px solid ${INK}` }}>{c.label}</span></td>
-                          <td style={{ ...tdLIng, color: GRIS }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
-                          <td style={tdRIng}>{c.pedidos}</td>
-                          <td style={{ ...tdLIng, color: vencido ? NAR : INK, fontWeight: vencido ? 700 : 400 }}>{fmtCorta(c.pago)}{vencido ? ' · reclamar' : ''}</td>
-                          <td style={tdRIng}>{nf0(c.bruto)}</td>
-                          <td style={{ ...tdRIng, fontWeight: 700, color: VERDE, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
-                          <td style={{ ...tdRIng, color: pct >= 58 ? VERDE : NAR }}>{pct.toFixed(1)}%</td>
-                          <td style={{ ...tdRIng, textAlign: 'center' }}>{porBanco
-                            ? <span title="Cobrado · confirmado por el banco" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: VERDE, color: '#fff', fontFamily: OSW, fontSize: 11, fontWeight: 700, border: `2px solid ${INK}` }}>✓ banco</span>
-                            : <button onClick={() => toggleCobrado(c)} aria-label={cobrado ? 'Cobrado' : 'Pendiente'} title={cobrado ? 'Cobrado' : 'Marcar como cobrado'} style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'transparent', display: 'inline-flex', alignItems: 'center' }}><span style={{ position: 'relative', width: 38, height: 22, background: cobrado ? VERDE : TRACK, transition: 'background .15s', display: 'inline-block', border: `2px solid ${INK}` }}><span style={{ position: 'absolute', top: 2, left: cobrado ? 16 : 2, width: 14, height: 14, background: '#fff', border: `2px solid ${INK}`, transition: 'left .15s' }} /></span></button>
-                          }</td>
-                        </tr>
-                      )
-                    })}
-                    <tr style={{ background: '#faf4e6' }}>
-                      <td style={{ ...tdLIng, paddingLeft: 0, fontFamily: OSW, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>TOTAL</td>
-                      <td style={{ ...tdLIng, borderTop: `2px solid ${INK}`, borderBottom: 'none' }} />
-                      <td style={{ ...tdRIng, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{futuros.reduce((s, c) => s + c.pedidos, 0)}</td>
-                      <td style={{ ...tdLIng, borderTop: `2px solid ${INK}`, borderBottom: 'none' }} />
-                      <td style={{ ...tdRIng, fontWeight: 700, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{nf0(futuros.reduce((s, c) => s + c.bruto, 0))}</td>
-                      <td style={{ ...tdRIng, fontWeight: 700, color: VERDE, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{nf0(futuros.filter(c => !estaCobrado(c)).reduce((s, c) => s + c.neto, 0) * factor)}</td>
-                      <td style={{ ...tdRIng, fontWeight: 700, color: GRIS, borderTop: `2px solid ${INK}`, borderBottom: 'none' }}>{(() => { const b = futuros.reduce((s, c) => s + c.bruto, 0); return b > 0 ? ((futuros.reduce((s, c) => s + c.neto, 0) / b) * 100).toFixed(1) : '0' })()}%</td>
-                      <td style={{ ...tdRIng, borderTop: `2px solid ${INK}`, borderBottom: 'none' }} />
-                    </tr>
-                  </tbody>
-                </table>
+              <div style={{ ...CONT, marginTop: 18 }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+                    <thead>
+                      <tr>
+                        <th style={thT}>Plataforma</th>
+                        <th style={thT}>Ventas de</th>
+                        <th style={thTR}>Pedidos</th>
+                        <th style={thT}>Cobro</th>
+                        <th style={thTR}>Bruto</th>
+                        <th style={thTR}>Neto est. €</th>
+                        <th style={thTC}>% neto</th>
+                        <th style={{ ...thTC, borderRight: 'none' }}>Cobrado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {futuros.map((c, i) => {
+                        const pct = c.bruto > 0 ? (c.neto / c.bruto) * 100 : 0
+                        const porBanco = cobradoBanco(c)
+                        const cobrado = porBanco || !!cobradoMap[claveCobro(c)]
+                        const vencido = c.pago <= hoy && !cobrado
+                        const band = cobrado ? VERDE : vencido ? ROJO : AZUL
+                        const pctCol = pct >= 58 ? VERDE : NAR
+                        return (
+                          <tr key={i} style={{ background: zebra(i), opacity: cobrado ? 0.55 : 1 }}>
+                            <td style={{ ...tdT, borderLeft: `${BAND}px solid ${band}` }}><span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', background: CORP[c.canal] ?? c.color, color: CLARA[c.canal] ? INK : '#fff', fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '0.3px', whiteSpace: 'nowrap', border: `2px solid ${INK}` }}>{c.label}</span></td>
+                            <td style={{ ...tdT, color: '#5a4f3a', fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '.3px', textTransform: 'uppercase' }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
+                            <td style={tdTN}>{c.pedidos}</td>
+                            <td style={{ ...tdT, fontFamily: OSW, fontWeight: 700, fontSize: 14, color: vencido ? ROJO : INK }}>{fmtCorta(c.pago)}{vencido ? ' · reclamar' : ''}</td>
+                            <td style={{ ...tdTN, color: '#5a4f3a' }}>{nf0(c.bruto)}</td>
+                            <td style={{ ...tdTN, color: VERDE, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
+                            <td style={{ ...tdT, padding: 0, textAlign: 'center' }}><div style={{ background: pctCol, color: '#fff', fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '8px 6px', borderLeft: `3px solid ${INK}`, borderRight: `3px solid ${INK}` }}>{pct.toFixed(0)}%</div></td>
+                            <td style={{ ...tdT, textAlign: 'center', borderRight: 'none' }}>{porBanco
+                              ? <span title="Cobrado · confirmado por el banco" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: VERDE, color: '#fff', fontFamily: OSW, fontSize: 11, fontWeight: 700, border: `2px solid ${INK}` }}>✓ banco</span>
+                              : <button onClick={() => toggleCobrado(c)} aria-label={cobrado ? 'Cobrado' : 'Pendiente'} title={cobrado ? 'Cobrado' : 'Marcar como cobrado'} style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'transparent', display: 'inline-flex', alignItems: 'center' }}><span style={{ position: 'relative', width: 38, height: 22, background: cobrado ? VERDE : TRACK, transition: 'background .15s', display: 'inline-block', border: `2px solid ${INK}` }}><span style={{ position: 'absolute', top: 2, left: cobrado ? 16 : 2, width: 14, height: 14, background: '#fff', border: `2px solid ${INK}`, transition: 'left .15s' }} /></span></button>
+                            }</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td style={totTd}>Total pendiente</td>
+                        <td style={totTd} />
+                        <td style={totTdN}>{futuros.reduce((s, c) => s + c.pedidos, 0)}</td>
+                        <td style={totTd} />
+                        <td style={totTdN}>{nf0(futuros.reduce((s, c) => s + c.bruto, 0))}</td>
+                        <td style={{ ...totTdN, padding: 6, textAlign: 'center' }}><span style={{ display: 'inline-block', background: AMA, color: INK, fontFamily: OSW, fontWeight: 700, fontSize: 15, border: `3px solid ${INK}`, padding: '4px 10px' }}>{nf0(futuros.filter(c => !estaCobrado(c)).reduce((s, c) => s + c.neto, 0) * factor)}</span></td>
+                        <td style={{ ...totTdN, color: AMA }}>{(() => { const b = futuros.reduce((s, c) => s + c.bruto, 0); return b > 0 ? ((futuros.reduce((s, c) => s + c.neto, 0) / b) * 100).toFixed(0) : '0' })()}%</td>
+                        <td style={{ ...totTd, borderRight: 'none' }} />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <div style={{ background: CLARO, borderTop: `3px solid ${INK}`, padding: '10px 14px', display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: INK }}>Estado del cobro:</span>
+                  {[{ c: AZUL, t: 'Pendiente · aún no vence' }, { c: ROJO, t: 'Vencido · a reclamar' }, { c: VERDE, t: 'Cobrado' }].map((it, k) => (
+                    <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: LEX, fontSize: 12, color: INK }}>
+                      <span style={{ width: 14, height: 14, background: it.c, border: `2px solid ${INK}`, display: 'inline-block' }} />{it.t}
+                    </span>
+                  ))}
+                  <span style={{ fontFamily: LEX, fontSize: 11, color: '#5a4f3a', marginLeft: 'auto' }}>Neto estimado · del 19-jun hacia atrás ya cobrado.</span>
+                </div>
               </div>
             )}
-          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 10 }}>Del 19-jun hacia atrás: cobrado. Desde el 20-jun: pendiente hasta que entra en banco o lo marcas.</div>
+          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 10 }}>Desde el 20-jun: pendiente hasta que entra en banco o lo marcas a mano.</div>
         </div>
         {/* Derecha: caja por marca */}
         <div style={{ padding: `44px ${PAD}`, background: CLARO }}>
@@ -545,32 +567,53 @@ export default function Cashflow() {
           {gastosCat.length === 0
             ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin facturas registradas este mes.</div>
             : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 18 }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...th, textAlign: 'left' }}>Categoría</th>
-                    <th style={th}>Facturas</th>
-                    <th style={th}>Importe</th>
-                    <th style={th}>IVA</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {gastosCat.slice(0, 10).map((g, i) => (
-                    <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : CLARO }}>
-                      <td style={tdL}><span style={dot(ROJO)} />{g.nombre}</td>
-                      <td style={{ ...tdR, color: GRIS, fontFamily: LEX, fontSize: 12 }}>{g.n}</td>
-                      <td style={{ ...tdR, fontWeight: 700, color: ROJO }}>{nf0(g.total)}</td>
-                      <td style={{ ...tdR, color: GRIS }}>{nf0(g.iva)}</td>
-                    </tr>
+              <div style={{ ...CONT, marginTop: 18 }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+                    <thead>
+                      <tr>
+                        <th style={thT}>Categoría</th>
+                        <th style={thTR}>Facturas</th>
+                        <th style={thTR}>Importe €</th>
+                        <th style={thTR}>IVA €</th>
+                        <th style={{ ...thTC, borderRight: 'none' }}>% mes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gastosCat.slice(0, 10).map((g, i) => {
+                        const share = gastoMesTotal > 0 ? (g.total / gastoMesTotal) * 100 : 0
+                        const band = share >= 25 ? ROJO : share >= 10 ? NAR : GRIS
+                        return (
+                          <tr key={i} style={{ background: zebra(i) }}>
+                            <td style={{ ...tdT, borderLeft: `${BAND}px solid ${band}`, whiteSpace: 'normal' }}><span style={{ display: 'inline-block', width: 10, height: 10, background: band, border: `2px solid ${INK}`, marginRight: 8, verticalAlign: 'middle' }} />{g.nombre}</td>
+                            <td style={{ ...tdTN, color: '#5a4f3a', fontSize: 14 }}>{g.n}</td>
+                            <td style={{ ...tdTN, color: ROJO }}>{nf0(g.total)}</td>
+                            <td style={{ ...tdTN, color: '#5a4f3a' }}>{nf0(g.iva)}</td>
+                            <td style={{ ...tdT, padding: 0, textAlign: 'center', borderRight: 'none' }}><div style={{ background: band, color: '#fff', fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '8px 6px', borderLeft: `3px solid ${INK}` }}>{share.toFixed(0)}%</div></td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td style={totTd}>Total mes</td>
+                        <td style={totTdN}>{nFacturasMes}</td>
+                        <td style={{ ...totTdN, padding: 6 }}><span style={{ display: 'inline-block', background: AMA, color: INK, fontFamily: OSW, fontWeight: 700, fontSize: 15, border: `3px solid ${INK}`, padding: '4px 10px' }}>{nf0(gastoMesTotal)}</span></td>
+                        <td style={totTdN}>{nf0(gastosCat.reduce((s, c) => s + c.iva, 0))}</td>
+                        <td style={{ ...totTd, borderRight: 'none' }} />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <div style={{ background: CLARO, borderTop: `3px solid ${INK}`, padding: '10px 14px', display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: INK }}>Peso en el mes:</span>
+                  {[{ c: ROJO, t: 'Gordo · ≥25%' }, { c: NAR, t: 'Medio · 10–25%' }, { c: GRIS, t: 'Menor · <10%' }].map((it, k) => (
+                    <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: LEX, fontSize: 12, color: INK }}>
+                      <span style={{ width: 14, height: 14, background: it.c, border: `2px solid ${INK}`, display: 'inline-block' }} />{it.t}
+                    </span>
                   ))}
-                  <tr style={{ background: '#faf4e6', borderTop: `2px solid ${INK}` }}>
-                    <td style={{ ...tdL, fontFamily: OSW, fontWeight: 700 }}>TOTAL MES</td>
-                    <td style={{ ...tdR, fontWeight: 700 }}>{nFacturasMes}</td>
-                    <td style={{ ...tdR, fontWeight: 700, color: ROJO }}>{nf0(gastoMesTotal)}</td>
-                    <td style={{ ...tdR, fontWeight: 700, color: GRIS }}>{nf0(gastosCat.reduce((s, c) => s + c.iva, 0))}</td>
-                  </tr>
-                </tbody>
-              </table>
+                </div>
+              </div>
             )}
           <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 10 }}>Datos reales de facturas. El estado de pago/vencimiento aún no se registra.</div>
         </div>
