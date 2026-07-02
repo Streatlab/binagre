@@ -170,8 +170,8 @@ export default function Documentacion() {
     <div style={{ background: CREMA, padding: '24px 28px', minHeight: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <span style={eyebrow(CLARO)}>Finanzas · Papeleo</span>
-          <h2 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '8px 0 0 0' }}>DOCUMENTACIÓN</h2>
+          <span style={eyebrow(CLARO)}>Finanzas · Documentos</span>
+          <h2 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '8px 0 0 0' }}>PAPELEO</h2>
         </div>
         <SelectorFechaUniversal
           nombreModulo="documentacion"
