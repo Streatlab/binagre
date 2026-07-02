@@ -82,7 +82,7 @@ export default function Carta() {
   const thStyle: CSSProperties = {
     fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px',
     textTransform: 'uppercase', color: T.mut, padding: '9px 12px',
-    textAlign: 'left', whiteSpace: 'nowrap', background: '#0a0a0a',
+    textAlign: 'left', whiteSpace: 'nowrap', background: 'var(--sl-thead)',
     borderBottom: `1px solid ${T.brd}`,
   }
   const tdStyle: CSSProperties = {
@@ -221,7 +221,7 @@ function TabPlatos({ platos, recetaMap, T, thStyle, tdStyle, onEdit, onToggle, o
                   <span style={{
                     display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11,
                     fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase',
-                    background: p.activo ? '#1D9E7533' : '#33333388',
+                    background: p.activo ? '#1D9E7533' : 'var(--sl-hover)',
                     color: p.activo ? '#1D9E75' : T.mut,
                   }}>
                     {p.activo ? 'Activo' : 'Pausado'}
@@ -381,16 +381,16 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
   }
 
   const overlayStyle: CSSProperties = {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 1000,
+    position: 'fixed', inset: 0, background: 'var(--sl-overlay)', zIndex: 1000,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   }
   const modalStyle: CSSProperties = {
-    backgroundColor: '#1a1a1a', border: `1px solid ${T.brd}`, borderRadius: 12,
+    backgroundColor: 'var(--sl-modal-bg)', border: `1px solid ${T.brd}`, borderRadius: 12,
     padding: '24px 28px', width: '90%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 14,
   }
   const labelStyle: CSSProperties = { fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 4, display: 'block' }
   const inputStyle: CSSProperties = {
-    background: '#1e1e1e', border: `1px solid ${T.brd}`, borderRadius: 6,
+    background: 'var(--sl-input-edit)', border: `1px solid ${T.brd}`, borderRadius: 6,
     color: T.pri, fontFamily: FONT.body, fontSize: 13,
     padding: '8px 10px', width: '100%', boxSizing: 'border-box',
   }
@@ -424,7 +424,7 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
         </div>
         {err && <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#ff6b70' }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ background: '#222222', border: '1px solid #383838', color: T.sec, fontFamily: FONT.body, fontSize: 13, padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ background: 'var(--sl-btn-cancel-bg)', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.body, fontSize: 13, padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}>
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving} style={{ background: saving ? '#555' : '#B01D23', color: '#fff', border: 'none', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 20px', borderRadius: 6, cursor: saving ? 'default' : 'pointer' }}>
