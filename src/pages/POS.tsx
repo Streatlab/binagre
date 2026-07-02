@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { OSW, LEX, INK, CLARO, TRACK, VERDE, ROJO, AMA, NAR, AZUL, GRANATE, GRIS, BORDER_CARD, SHADOW, eyebrow, d, EUR, E2 } from '@/styles/neobrutal'
 
@@ -170,7 +170,7 @@ function CardPedido({ p, onEstado }: { p: Pedido; onEstado: (p: Pedido, e: strin
   )
 }
 
-const btn = (bg: string, color: string): React.CSSProperties => ({
+const btn = (bg: string, color: string): CSSProperties => ({
   fontFamily: OSW, fontWeight: 700, textTransform: 'uppercase', fontSize: 12,
   padding: '6px 12px', border: `2px solid ${INK}`, background: bg, color, cursor: 'pointer', boxShadow: `2px 2px 0 ${INK}`,
 })
