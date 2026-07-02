@@ -61,13 +61,13 @@ const SELECT = 'fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto
 const NETO_GREEN = '#1D9E75'
 
 // tokens neobrutal (chrome Panel Global)
-const INK = '#140f08'
+const INK = 'var(--neo-ink)'
 const ROSA = '#FF2E63'
 const AMA = '#FFC400'
-const CREMA = '#FCEFD6'
+const CREMA = 'var(--neo-bg)'
 const OSW = 'Oswald, sans-serif'
 const LEX = 'Lexend, sans-serif'
-const SHADOW = `4px 4px 0 ${INK}`
+const SHADOW = '4px 4px 0 var(--neo-shadow-color)'
 
 const MAIN_TABS = [
   { id: 'resumen',     label: 'Resumen' },
