@@ -1,6 +1,10 @@
 /**
- * Tokens literales del spec Panel Global — mockups validados
- * NO improvisar. NO interpretar. Hex y medidas exactas del spec.
+ * Tokens del Panel Global — mockups validados.
+ *
+ * ⚠️ THEME-AWARE (02-jul-2026): los colores ESTRUCTURALES (fondo, card, borde,
+ * texto) apuntan a var(--sl-*) → se adaptan solos a modo claro/oscuro.
+ * Los colores SEMÁNTICOS (semáforo), de CANAL y de DÍA siguen fijos: significan
+ * lo mismo en ambos modos. NO improvisar hex nuevos: usar estas constantes.
  */
 
 import type { CSSProperties } from 'react'
@@ -9,17 +13,17 @@ import type { CSSProperties } from 'react'
 export const OSWALD = "'Oswald', sans-serif"
 export const LEXEND = "'Lexend', sans-serif"
 
-/* ── COLORS (spec literal) ────────────────────────── */
+/* ── COLORS ───────────────────────────────────────── */
 export const COLORS = {
-  // Backgrounds
-  bg: '#f5f3ef',
-  group: '#ebe8e2',
-  card: '#ffffff',
-  brd: '#d0c8bc',
-  // Texto
-  pri: '#111111',
-  sec: '#3a4050',
-  mut: '#7a8090',
+  // Backgrounds (theme-aware)
+  bg: 'var(--sl-app)',
+  group: 'var(--sl-thead)',
+  card: 'var(--sl-card)',
+  brd: 'var(--sl-border)',
+  // Texto (theme-aware)
+  pri: 'var(--sl-text-primary)',
+  sec: 'var(--sl-text-secondary)',
+  mut: 'var(--sl-text-muted)',
   // Marca
   redSL: '#B01D23',
   sidebar: '#1e2233',
@@ -95,20 +99,20 @@ export const SIZES = {
 /* ── CARDS ────────────────────────────────────────── */
 export const CARDS = {
   big: {
-    background: '#ffffff',
-    border: '0.5px solid #d0c8bc',
+    background: 'var(--sl-card)',
+    border: '0.5px solid var(--sl-border)',
     borderRadius: 16,
     padding: '24px 28px',
   } as CSSProperties,
   std: {
-    background: '#ffffff',
-    border: '0.5px solid #d0c8bc',
+    background: 'var(--sl-card)',
+    border: '0.5px solid var(--sl-border)',
     borderRadius: 14,
     padding: 18,
   } as CSSProperties,
   filter: {
-    background: '#ffffff',
-    border: '0.5px solid #d0c8bc',
+    background: 'var(--sl-card)',
+    border: '0.5px solid var(--sl-border)',
     borderRadius: 12,
     padding: '14px 16px',
     cursor: 'pointer',
@@ -122,11 +126,10 @@ export const CARDS = {
 } as const
 
 /* ── TABS PASTILLA ────────────────────────────────── */
-/* R9-08: tabs pegados a la zona blanca — ~1mm = 3px arriba y abajo */
 export const TABS_PILL = {
   container: {
-    background: '#ffffff',
-    border: '0.5px solid #d0c8bc',
+    background: 'var(--sl-card)',
+    border: '0.5px solid var(--sl-border)',
     borderRadius: 10,
     padding: '4px 6px',
     marginBottom: 3,
@@ -149,9 +152,9 @@ export const TABS_PILL = {
   inactive: {
     padding: '5px 12px',
     borderRadius: 5,
-    border: '0.5px solid #d0c8bc',
+    border: '0.5px solid var(--sl-border)',
     background: 'transparent',
-    color: '#3a4050',
+    color: 'var(--sl-text-secondary)',
     fontFamily: 'Lexend',
     fontSize: 13,
     fontWeight: 500,
@@ -160,12 +163,12 @@ export const TABS_PILL = {
 } as const
 
 /* ── SUBTABS ──────────────────────────────────────── */
-/* v10: modelo V2 verde — inverso neobrutal, activo verde con sombra negra dura */
+/* modelo V2 verde — inverso neobrutal, activo verde con sombra dura */
 export const SUBTABS = {
   active: {
     padding: '6px 13px',
     borderRadius: 0,
-    border: '2px solid #140f08',
+    border: '2px solid var(--neo-ink)',
     background: '#0FB86B',
     color: '#ffffff',
     fontFamily: "'Oswald', sans-serif",
@@ -173,15 +176,15 @@ export const SUBTABS = {
     fontWeight: 600,
     letterSpacing: '0.5px',
     textTransform: 'uppercase',
-    boxShadow: '3px 3px 0 #140f08',
+    boxShadow: '3px 3px 0 var(--neo-shadow-color)',
     cursor: 'pointer',
   } as CSSProperties,
   inactive: {
     padding: '6px 13px',
     borderRadius: 0,
-    border: '2px solid #140f08',
-    background: '#ffffff',
-    color: '#7a8090',
+    border: '2px solid var(--neo-ink)',
+    background: 'var(--sl-card)',
+    color: 'var(--sl-text-muted)',
     fontFamily: "'Oswald', sans-serif",
     fontSize: 12,
     fontWeight: 600,
@@ -195,11 +198,11 @@ export const SUBTABS = {
 export const DROPDOWN_BTN: CSSProperties = {
   padding: '6px 10px',
   borderRadius: 8,
-  border: '0.5px solid #d0c8bc',
-  background: '#ffffff',
+  border: '0.5px solid var(--sl-border)',
+  background: 'var(--sl-card)',
   fontSize: 13,
   fontFamily: 'Lexend',
-  color: '#111111',
+  color: 'var(--sl-text-primary)',
   cursor: 'pointer',
 }
 
@@ -208,21 +211,21 @@ export const BAR = {
   track: {
     height: 8,
     borderRadius: 4,
-    background: '#ebe8e2',
+    background: 'var(--sl-thead)',
     overflow: 'hidden',
     display: 'flex',
   } as CSSProperties,
   trackSm: {
     height: 6,
     borderRadius: 3,
-    background: '#ebe8e2',
+    background: 'var(--sl-thead)',
     overflow: 'hidden',
     display: 'flex',
   } as CSSProperties,
   trackXs: {
     height: 5,
     borderRadius: 3,
-    background: '#ebe8e2',
+    background: 'var(--sl-thead)',
     overflow: 'hidden',
     display: 'flex',
   } as CSSProperties,
@@ -240,9 +243,9 @@ export const LAYOUT = {
 
 /* ── EDITABLE inline ──────────────────────────────── */
 export const EDITABLE: CSSProperties = {
-  borderBottom: '1px dashed #d0c8bc',
+  borderBottom: '1px dashed var(--sl-border)',
   cursor: 'text',
-  color: '#3a4050',
+  color: 'var(--sl-text-secondary)',
   padding: '0 2px',
 }
 
@@ -381,7 +384,6 @@ export function colorPrimeCost(pct: number): { color: string; estado: 'OK' | 'Al
 }
 
 /* ── Format helpers ───────────────────────────────── */
-/* R9: añadir useGrouping:true para forzar separador de miles */
 export function fmtDec(v: number, decimals = 1): string {
   if (!isFinite(v)) return '—'
   return v.toLocaleString('es-ES', {
