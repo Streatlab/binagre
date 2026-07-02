@@ -1,7 +1,9 @@
+// ocrUploadStore v44 — Ley 100%: solo se autocierra el toast cuando el lote
+// terminó sin errores ni achtung. Si hay algo pendiente de verdad, se queda
+// visible hasta que Rubén lo cierre a mano (no puede desaparecer un error solo).
 // ocrUploadStore v43 — PDF >20MB se comprime SOLO en el navegador antes de subir.
 // Si tras comprimir sigue >20MB, se parte en varios PDF por páginas (cada parte <20MB),
 // y cada parte se procesa como un archivo más. El usuario no hace nada.
-// Mantiene v41: toast autocierre SIEMPRE a 1 min (60s).
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -221,7 +223,10 @@ function programarAutoCerrar(sesionId: string) {
 }
 
 function debeAutoCerrar(s: OcrSession): boolean {
-  return !s.procesando && !s.cancelado && s.visible
+  // Ley 100%: solo se autocierra el toast de lotes terminados al 100% sin errores.
+  // Un lote con errores o achtung se queda visible hasta que Rubén lo cierre a mano,
+  // para que ningún error real desaparezca solo.
+  return !s.procesando && !s.cancelado && s.visible && s.errores === 0 && s.achtung === 0
 }
 
 async function cargarSesionesActivas() {
