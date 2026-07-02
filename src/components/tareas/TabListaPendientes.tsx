@@ -11,6 +11,7 @@ interface TareaPendiente {
   fecha_cumplida: string | null
   nombre?: string
   modulo_destino?: string
+  responsable?: string
 }
 
 function toDateStr(d: Date): string {
@@ -42,17 +43,24 @@ const ESTADO_COLORS: Record<string, string> = {
   cumplida: '#1D9E75',
 }
 
+const RESPONSABLE_COLORS: Record<string, string> = {
+  'Rubén': '#B01D23',
+  'Emilio': '#e8f442',
+  'Ambos': '#484f66',
+}
+
 export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => void }) {
   const { T } = useTheme()
   const navigate = useNavigate()
   const [tareas, setTareas] = useState<TareaPendiente[]>([])
   const [loading, setLoading] = useState(true)
+  const [filtroResponsable, setFiltroResponsable] = useState<string>('Todos')
 
   const cargar = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
       .from('tareas_pendientes')
-      .select('id, tarea_periodica_id, fecha_esperada, estado, fecha_cumplida, tareas_periodicas(nombre, modulo_destino)')
+      .select('id, tarea_periodica_id, fecha_esperada, estado, fecha_cumplida, tareas_periodicas(nombre, modulo_destino, responsable)')
       .in('estado', ['pendiente', 'atrasada'])
       .order('fecha_esperada', { ascending: true })
 
@@ -68,6 +76,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
           fecha_cumplida: r.fecha_cumplida as string | null,
           nombre: tp?.nombre ?? '',
           modulo_destino: tp?.modulo_destino ?? '',
+          responsable: tp?.responsable ?? '',
         }
       })
       mapped.sort((a, b) => urgenciaOrden(a) - urgenciaOrden(b) || a.fecha_esperada.localeCompare(b.fecha_esperada))
@@ -112,128 +121,166 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
     }
   }
 
+  const tareasFiltradas = filtroResponsable === 'Todos'
+    ? tareas
+    : tareas.filter(t => t.responsable === filtroResponsable)
+
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
       <div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
-  if (tareas.length === 0) return (
-    <div style={{ textAlign: 'center', padding: 40, color: '#777', fontFamily: 'Lexend, sans-serif', fontSize: 14 }}>
-      Sin tareas pendientes ni atrasadas.
-    </div>
-  )
-
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
-        <thead>
-          <tr style={{ background: '#0a0a0a' }}>
-            {['Tarea', 'Fecha esperada', 'Estado', 'Días retraso', 'Acción'].map(h => (
-              <th
-                key={h}
-                style={{
-                  padding: '10px 12px',
-                  textAlign: 'left',
-                  fontFamily: 'Oswald, sans-serif',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: '#cccccc',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  borderBottom: `1px solid #2a2a2a`,
-                  whiteSpace: 'nowrap',
-                }}
-              >{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {tareas.map((t, idx) => {
-            const retraso = diasRetraso(t.fecha_esperada)
-            return (
-              <tr
-                key={t.id}
-                style={{ background: idx % 2 === 0 ? '#111111' : '#141414', borderBottom: `1px solid #2a2a2a` }}
-              >
-                <td style={{ padding: '10px 12px', color: '#ffffff' }}>{t.nombre}</td>
-                <td style={{ padding: '10px 12px', color: '#cccccc', whiteSpace: 'nowrap' }}>{t.fecha_esperada}</td>
-                <td style={{ padding: '10px 12px' }}>
-                  <span style={{
-                    padding: '3px 10px',
-                    borderRadius: 4,
-                    background: (ESTADO_COLORS[t.estado] ?? '#888') + '22',
-                    color: ESTADO_COLORS[t.estado] ?? '#888',
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {['Todos', 'Rubén', 'Emilio', 'Ambos'].map(r => (
+          <button
+            key={r}
+            onClick={() => setFiltroResponsable(r)}
+            style={{
+              background: filtroResponsable === r ? '#B01D23' : '#1e1e1e',
+              color: filtroResponsable === r ? '#fff' : '#ccc',
+              border: `1px solid #2a2a2a`,
+              borderRadius: 6,
+              padding: '6px 14px',
+              fontSize: 12,
+              fontFamily: 'Oswald, sans-serif',
+              fontWeight: 600,
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+            }}
+          >{r}</button>
+        ))}
+      </div>
+
+      {tareasFiltradas.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#777', fontFamily: 'Lexend, sans-serif', fontSize: 14 }}>
+          Sin tareas pendientes ni atrasadas.
+        </div>
+      ) : (
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: '#0a0a0a' }}>
+              {['Tarea', 'Responsable', 'Fecha esperada', 'Estado', 'Días retraso', 'Acción'].map(h => (
+                <th
+                  key={h}
+                  style={{
+                    padding: '10px 12px',
+                    textAlign: 'left',
                     fontFamily: 'Oswald, sans-serif',
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: 600,
+                    color: '#cccccc',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                  }}>{t.estado}</span>
-                </td>
-                <td style={{ padding: '10px 12px', color: retraso > 0 ? '#B01D23' : '#777', fontWeight: retraso > 0 ? 600 : 400 }}>
-                  {retraso > 0 ? `+${retraso}d` : '—'}
-                </td>
-                <td style={{ padding: '10px 12px' }}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <button
-                      onClick={() => irImportador(t.id, t.modulo_destino ?? '')}
-                      style={{
-                        background: '#B01D23',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: 6,
-                        padding: '5px 10px',
-                        fontSize: 11,
-                        fontFamily: 'Oswald, sans-serif',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >Marcar subida</button>
-                    <button
-                      onClick={() => posponer(t.id, t.fecha_esperada)}
-                      style={{
-                        background: '#222222',
-                        color: '#cccccc',
-                        border: `1px solid #383838`,
-                        borderRadius: 6,
-                        padding: '5px 10px',
-                        fontSize: 11,
-                        fontFamily: 'Oswald, sans-serif',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >+1 día</button>
-                    <button
-                      onClick={() => eliminar(t.id)}
-                      style={{
-                        background: 'none',
-                        color: '#777',
-                        border: `1px solid #383838`,
-                        borderRadius: 6,
-                        padding: '5px 10px',
-                        fontSize: 11,
-                        fontFamily: 'Oswald, sans-serif',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >Eliminar</button>
-                  </div>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                    borderBottom: `1px solid #2a2a2a`,
+                    whiteSpace: 'nowrap',
+                  }}
+                >{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tareasFiltradas.map((t, idx) => {
+              const retraso = diasRetraso(t.fecha_esperada)
+              return (
+                <tr
+                  key={t.id}
+                  style={{ background: idx % 2 === 0 ? '#111111' : '#141414', borderBottom: `1px solid #2a2a2a` }}
+                >
+                  <td style={{ padding: '10px 12px', color: '#ffffff' }}>{t.nombre}</td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span style={{
+                      padding: '3px 10px',
+                      borderRadius: 4,
+                      background: (RESPONSABLE_COLORS[t.responsable ?? ''] ?? '#888') + '22',
+                      color: RESPONSABLE_COLORS[t.responsable ?? ''] ?? '#888',
+                      fontFamily: 'Oswald, sans-serif',
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}>{t.responsable || '—'}</span>
+                  </td>
+                  <td style={{ padding: '10px 12px', color: '#cccccc', whiteSpace: 'nowrap' }}>{t.fecha_esperada}</td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span style={{
+                      padding: '3px 10px',
+                      borderRadius: 4,
+                      background: (ESTADO_COLORS[t.estado] ?? '#888') + '22',
+                      color: ESTADO_COLORS[t.estado] ?? '#888',
+                      fontFamily: 'Oswald, sans-serif',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                    }}>{t.estado}</span>
+                  </td>
+                  <td style={{ padding: '10px 12px', color: retraso > 0 ? '#B01D23' : '#777', fontWeight: retraso > 0 ? 600 : 400 }}>
+                    {retraso > 0 ? `+${retraso}d` : '—'}
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => irImportador(t.id, t.modulo_destino ?? '')}
+                        style={{
+                          background: '#B01D23',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '5px 10px',
+                          fontSize: 11,
+                          fontFamily: 'Oswald, sans-serif',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >{t.modulo_destino === 'importador' ? 'Marcar subida' : 'Marcar hecha'}</button>
+                      <button
+                        onClick={() => posponer(t.id, t.fecha_esperada)}
+                        style={{
+                          background: '#222222',
+                          color: '#cccccc',
+                          border: `1px solid #383838`,
+                          borderRadius: 6,
+                          padding: '5px 10px',
+                          fontSize: 11,
+                          fontFamily: 'Oswald, sans-serif',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >+1 día</button>
+                      <button
+                        onClick={() => eliminar(t.id)}
+                        style={{
+                          background: 'none',
+                          color: '#777',
+                          border: `1px solid #383838`,
+                          borderRadius: 6,
+                          padding: '5px 10px',
+                          fontSize: 11,
+                          fontFamily: 'Oswald, sans-serif',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      )}
     </div>
   )
 }
