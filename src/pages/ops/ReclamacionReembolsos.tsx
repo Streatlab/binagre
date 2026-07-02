@@ -23,9 +23,11 @@ const C = {
   reclBg: "#eaf0fd", reclTx: "#2255bb", reclBd: "#b0c8f0",
   cobrBg: "#e8f7ef", cobrTx: "#06873f", cobrBd: "#b3dfc4",
   rechBg: "#fdeaea", rechTx: "#900",     rechBd: "#f0aaaa",
+  doblBg: "#e6f2ff", doblTx: "#1a5fb4", doblBd: "#a8ccf0",
+  incoBg: "#efedeb", incoTx: "#6b6560", incoBd: "#d5d1cc",
 };
 
-type TabKey = "todas" | "pendiente" | "reclamada" | "cobrada" | "rechazada";
+type TabKey = "todas" | "pendiente" | "reclamada" | "cobrada" | "cobrada_doble" | "rechazada" | "incobrable";
 
 const fmtEur = (n: number) =>
   Number(n).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -120,7 +122,8 @@ export default function ReclamacionReembolsos() {
             <div style={progressBg}><div style={{ ...progressFill, width: `${m.tasaResolucion}%`, background: C.green }} /></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <Line label="Cobradas" valueA={<span style={{ color: C.green, fontWeight: 600 }}>{m.cobradas}</span>} valueB={fmtEur(m.cobrado)} />
-              <Line label="Rechazadas / perdido" valueA={<span style={{ color: C.red, fontWeight: 600 }}>{m.rechazadas}</span>} valueB={fmtEur(m.perdido)} />
+              <Line label="Cobradas doble (extra)" valueA={<span style={{ color: C.doblTx, fontWeight: 600 }}>{m.dobles}</span>} valueB={m.extraDoble > 0 ? "+" + fmtEur(m.extraDoble) : "—"} />
+              <Line label="Rechazadas + incobrables" valueA={<span style={{ color: C.red, fontWeight: 600 }}>{m.rechazadas + m.incobrables}</span>} valueB={fmtEur(m.perdido)} />
               <Line label="Neto recuperado" valueA={<span style={{ fontWeight: 600 }}>{fmtEur(m.cobrado - m.perdido)}</span>} />
             </div>
           </div>
@@ -137,11 +140,13 @@ export default function ReclamacionReembolsos() {
 
         {/* TABS */}
         <div style={{ display: "flex", gap: 5, marginBottom: 10, overflowX: "auto", whiteSpace: "nowrap", paddingBottom: 2 }}>
-          <TabBtn active={tab === "todas"}      onClick={() => setTab("todas")}      label="Todas"      count={m.abiertas + m.cobradas + m.rechazadas} />
-          <TabBtn active={tab === "pendiente"}  onClick={() => setTab("pendiente")}  label="Pendientes" count={m.pendientes} />
-          <TabBtn active={tab === "reclamada"}  onClick={() => setTab("reclamada")}  label="Reclamadas" count={m.reclamadas} />
-          <TabBtn active={tab === "cobrada"}    onClick={() => setTab("cobrada")}    label="Cobradas"   count={m.cobradas} />
-          <TabBtn active={tab === "rechazada"}  onClick={() => setTab("rechazada")}  label="Rechazadas" count={m.rechazadas} />
+          <TabBtn active={tab === "todas"}         onClick={() => setTab("todas")}         label="Todas"       count={data.length} />
+          <TabBtn active={tab === "pendiente"}     onClick={() => setTab("pendiente")}     label="Pendientes"  count={m.pendientes} />
+          <TabBtn active={tab === "reclamada"}     onClick={() => setTab("reclamada")}     label="Reclamadas"  count={m.reclamadas} />
+          <TabBtn active={tab === "cobrada"}       onClick={() => setTab("cobrada")}       label="Cobradas"    count={m.cobradas - m.dobles} />
+          <TabBtn active={tab === "cobrada_doble"} onClick={() => setTab("cobrada_doble")} label="Dobles"      count={m.dobles} />
+          <TabBtn active={tab === "rechazada"}     onClick={() => setTab("rechazada")}     label="Rechazadas"  count={m.rechazadas} />
+          <TabBtn active={tab === "incobrable"}    onClick={() => setTab("incobrable")}    label="Incobrables" count={m.incobrables} />
         </div>
 
         {/* CONTROLS */}
@@ -248,6 +253,7 @@ export default function ReclamacionReembolsos() {
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 20, padding: "8px 14px", background: "#f5f3f0", borderTop: `1px solid ${C.border}`, fontSize: 11, color: "#888" }}>
             <span>Reclamado: <strong style={{ marginLeft: 4, color: C.red }}>-{fmtEur(m.totalReclamado)}</strong></span>
             <span>Cobrado: <strong style={{ marginLeft: 4, color: C.green }}>+{fmtEur(m.cobrado)}</strong></span>
+            <span>Perdido: <strong style={{ marginLeft: 4, color: C.red }}>-{fmtEur(m.perdido)}</strong></span>
             <span>Pendiente: <strong style={{ marginLeft: 4, color: C.red }}>-{fmtEur(m.enRiesgo)}</strong></span>
           </div>
         </div>
@@ -338,10 +344,12 @@ function TabBtn({ active, onClick, label, count }: { active: boolean; onClick: (
 
 function EstadoBadge({ estado, compact = false }: { estado: EstadoReclamacion; compact?: boolean }) {
   const styles: Record<EstadoReclamacion, { bg: string; tx: string; bd: string }> = {
-    pendiente: { bg: C.pendBg, tx: C.pendTx, bd: C.pendBd },
-    reclamada: { bg: C.reclBg, tx: C.reclTx, bd: C.reclBd },
-    cobrada:   { bg: C.cobrBg, tx: C.cobrTx, bd: C.cobrBd },
-    rechazada: { bg: C.rechBg, tx: C.rechTx, bd: C.rechBd },
+    pendiente:     { bg: C.pendBg, tx: C.pendTx, bd: C.pendBd },
+    reclamada:     { bg: C.reclBg, tx: C.reclTx, bd: C.reclBd },
+    cobrada:       { bg: C.cobrBg, tx: C.cobrTx, bd: C.cobrBd },
+    cobrada_doble: { bg: C.doblBg, tx: C.doblTx, bd: C.doblBd },
+    rechazada:     { bg: C.rechBg, tx: C.rechTx, bd: C.rechBd },
+    incobrable:    { bg: C.incoBg, tx: C.incoTx, bd: C.incoBd },
   };
   const s = styles[estado];
   const label = compact ? ESTADO_LABELS[estado].short : ESTADO_LABELS[estado].full;
@@ -373,11 +381,15 @@ function ModalReclamacion({ existing, onClose, onSave, onDelete }: {
   const [descripcion, setDescripcion] = useState(existing?.descripcion ?? "");
   const [estado, setEstado] = useState<EstadoReclamacion>(existing?.estado ?? "pendiente");
   const [fechaEnvio, setFechaEnvio] = useState(existing?.fecha_envio ?? "");
+  const [fechaResolucion, setFechaResolucion] = useState(existing?.fecha_resolucion ?? "");
+  const [fechaIncobrable, setFechaIncobrable] = useState(existing?.fecha_incobrable ?? "");
   const [importeCompensado, setImporteCompensado] = useState(existing?.importe_compensado?.toString() ?? "");
   const [facturaCobroPeriodo, setFacturaCobroPeriodo] = useState(existing?.factura_cobro_periodo ?? "");
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+
+  const esCobro = estado === "cobrada" || estado === "cobrada_doble";
 
   const handleSave = async () => {
     setErr("");
@@ -390,6 +402,8 @@ function ModalReclamacion({ existing, onClose, onSave, onDelete }: {
         importe_reclamado: parseFloat(importe.replace(",", ".")) || 0,
         importe_compensado: importeCompensado ? parseFloat(importeCompensado.replace(",", ".")) : 0,
         estado, fecha_envio: fechaEnvio || null,
+        fecha_resolucion: esCobro ? (fechaResolucion || new Date().toISOString().slice(0, 10)) : (fechaResolucion || null),
+        fecha_incobrable: estado === "incobrable" ? (fechaIncobrable || new Date().toISOString().slice(0, 10)) : null,
         factura_cobro_periodo: facturaCobroPeriodo || null,
       }, file);
     } catch (e) {
@@ -463,14 +477,37 @@ function ModalReclamacion({ existing, onClose, onSave, onDelete }: {
             </Field>
           </div>
 
-          {estado === "cobrada" && (
+          {esCobro && (
+            <>
+              <div style={fg2}>
+                <Field label={estado === "cobrada_doble" ? "Importe total recibido (€)" : "Importe compensado (€)"}>
+                  <input style={inputSt} value={importeCompensado} onChange={e => setImporteCompensado(e.target.value)} placeholder="0,00" />
+                </Field>
+                <Field label="Cobrado en factura">
+                  <input style={inputSt} value={facturaCobroPeriodo} onChange={e => setFacturaCobroPeriodo(e.target.value)} placeholder="Fact. abr-2026" />
+                </Field>
+              </div>
+              <div style={fg2}>
+                <Field label="Fecha cobro">
+                  <input type="date" style={inputSt} value={fechaResolucion || ""} onChange={e => setFechaResolucion(e.target.value)} />
+                </Field>
+                {estado === "cobrada_doble" && (
+                  <div style={{ fontSize: 10, color: C.doblTx, alignSelf: "end", paddingBottom: 6 }}>
+                    La plataforma lo ha abonado dos veces: el extra sobre lo reclamado computa como ingreso.
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {estado === "incobrable" && (
             <div style={fg2}>
-              <Field label="Importe compensado (€)">
-                <input style={inputSt} value={importeCompensado} onChange={e => setImporteCompensado(e.target.value)} placeholder="0,00" />
+              <Field label="Fecha en que se da por perdido">
+                <input type="date" style={inputSt} value={fechaIncobrable || ""} onChange={e => setFechaIncobrable(e.target.value)} />
               </Field>
-              <Field label="Cobrado en factura">
-                <input style={inputSt} value={facturaCobroPeriodo} onChange={e => setFacturaCobroPeriodo(e.target.value)} placeholder="Fact. abr-2026" />
-              </Field>
+              <div style={{ fontSize: 10, color: C.red, alignSelf: "end", paddingBottom: 6 }}>
+                Este importe computa como pérdida en el Running del mes.
+              </div>
             </div>
           )}
 
