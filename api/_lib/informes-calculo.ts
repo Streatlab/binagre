@@ -100,41 +100,55 @@ export async function cierreDiario(fecha?: Date): Promise<InformeContenido> {
 }
 
 /**
- * 2) COBROS PENDIENTES SEMANALES — qué nos tienen que ingresar las plataformas
+ * 2) COBROS PENDIENTES SEMANALES — qué nos tienen que ingresar las plataformas.
+ * Expande las reglas de facturas_esperadas (frecuencia + días) a fechas
+ * concretas de los próximos 7 días.
  */
 export async function cobrosLunes(): Promise<InformeContenido> {
   const hoy = new Date()
-  const finSemana = new Date(hoy)
-  finSemana.setDate(hoy.getDate() + 7)
 
-  const hoyStr = hoy.toISOString().split('T')[0]
-  const finStr = finSemana.toISOString().split('T')[0]
-
-  const { data: pendientes } = await supabaseAdmin
+  const { data: reglas } = await supabaseAdmin
     .from('facturas_esperadas')
-    .select('*')
-    .gte('fecha_esperada', hoyStr)
-    .lte('fecha_esperada', finStr)
-    .order('fecha_esperada')
+    .select('proveedor_nombre, frecuencia, dia_semana, dia_mes_1, dia_mes_2, importe_estimado')
+    .eq('activo', true)
 
-  const total = (pendientes || []).reduce((s, p: any) => s + Number(p.importe || 0), 0)
+  // Expandir ocurrencias de los próximos 7 días según frecuencia
+  const proximos: Array<{ fecha: Date; nombre: string; importe: number | null }> = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(hoy)
+    d.setDate(hoy.getDate() + i)
+    for (const r of (reglas || []) as any[]) {
+      const nombre = r.proveedor_nombre || 'Plataforma'
+      const importe = r.importe_estimado != null ? Number(r.importe_estimado) : null
+      const coincideSemana = r.dia_semana != null && d.getDay() === Number(r.dia_semana)
+      const coincideMes = [r.dia_mes_1, r.dia_mes_2].some((dm: any) => dm != null && Number(dm) === d.getDate())
+      const esSemanal = r.frecuencia === 'semanal' && coincideSemana
+      const esPorDiaMes = ['quincenal', 'mensual', 'bimensual'].includes(r.frecuencia) && coincideMes
+      if (esSemanal || esPorDiaMes) {
+        proximos.push({ fecha: new Date(d), nombre, importe })
+      }
+    }
+  }
+  proximos.sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
+
+  const total = proximos.reduce((s, p) => s + (p.importe || 0), 0)
+  const hayImportes = proximos.some(p => p.importe != null)
 
   const wa = [
     `💰 *COBROS ESTA SEMANA*`,
     `━━━━━━━━━━━━━━━━━`,
-    `Total esperado: *${fmtEur(total)}*`,
-    ``,
-    ...((pendientes || []).length === 0
+    hayImportes ? `Total estimado: *${fmtEur(total)}*` : '',
+    ...(proximos.length === 0
       ? ['Sin cobros previstos esta semana.']
-      : (pendientes || []).map((p: any) => {
-          const fecha = new Date(p.fecha_esperada).toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })
-          return `${fecha} · ${p.proveedor || p.concepto || 'Plataforma'}: ${fmtEur(Number(p.importe || 0))}`
+      : proximos.map(p => {
+          const fecha = p.fecha.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })
+          return `${fecha} · ${p.nombre}${p.importe != null ? `: ${fmtEur(p.importe)}` : ''}`
         })),
     `━━━━━━━━━━━━━━━━━`,
-  ].join('\n')
+  ].filter(Boolean).join('\n')
 
   return {
-    asunto: `Cobros esta semana · ${fmtEur(total)}`,
+    asunto: hayImportes ? `Cobros esta semana · ${fmtEur(total)}` : `Cobros esta semana · ${proximos.length} previstos`,
     contenido_whatsapp: wa,
     contenido_email: wa,
   }
