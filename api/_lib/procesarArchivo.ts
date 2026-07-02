@@ -1,3 +1,7 @@
+// procesarArchivo v24 — SUPER DICCIONARIO NIF gana siempre (Rubén 02/07/26):
+//      antes de asignar categoría o nombre de proveedor, se consulta primero
+//      diccionario_nif_proveedor (415 NIFs con instrucciones OCR completas).
+//      Solo si no hay entrada ahí, cae al fallback legacy (reglas_conciliacion).
 // procesarArchivo v23 — CANDADO ÚNICO DE PAGO POR PROVEEDOR (Rubén 20/06/26):
 //      cualquier motor de pago (Mistral / Anthropic texto / Anthropic visión) se usa
 //      como MÁXIMO UNA VEZ por NIF. Esa lectura aprende la plantilla; después el
@@ -315,8 +319,37 @@ async function marcarVisionUsada(supabase: SupabaseClient, nif: string | null): 
   } catch (e) { console.error('[marcarVisionUsada]', errMsg(e)) }
 }
 
+// Super diccionario NIF → instrucciones OCR (fuente de verdad única, jun-2026).
+// Se consulta ANTES de procesar: categoría, nombre canónico e instrucciones.
+export interface InstruccionesNif {
+  categoria: string | null
+  proveedorCanonico: string | null
+  instruccionesOcr: string | null
+  debeConciliar: boolean | null
+  tipoDocumento: string | null
+}
+async function instruccionesPorNif(supabase: SupabaseClient, nif: string | null): Promise<InstruccionesNif | null> {
+  if (!nif) return null
+  const { data } = await supabase.from('diccionario_nif_proveedor')
+    .select('categoria_codigo, proveedor_canonico, instrucciones_ocr, debe_conciliar, tipo_documento, es_valido')
+    .eq('nif', nif).maybeSingle()
+  if (!data || (data as any).es_valido === false) return null
+  const d: any = data
+  return {
+    categoria: (d.categoria_codigo as string) || null,
+    proveedorCanonico: (d.proveedor_canonico as string) || null,
+    instruccionesOcr: (d.instrucciones_ocr as string) || null,
+    debeConciliar: typeof d.debe_conciliar === 'boolean' ? d.debe_conciliar : null,
+    tipoDocumento: (d.tipo_documento as string) || null,
+  }
+}
+
 async function categoriaPorNif(supabase: SupabaseClient, nif: string | null): Promise<string | null> {
   if (!nif) return null
+  // 1) Super diccionario NIF (gana siempre; ignora entradas es_valido=false)
+  const dic = await instruccionesPorNif(supabase, nif)
+  if (dic?.categoria) return dic.categoria
+  // 2) Fallback legacy: reglas de conciliación por patrón de NIF
   const { data } = await supabase.from('reglas_conciliacion').select('categoria_codigo')
     .eq('patron_nif', nif).eq('activa', true).not('categoria_codigo', 'is', null)
     .order('prioridad', { ascending: false }).limit(1).maybeSingle()
@@ -652,6 +685,11 @@ async function procesarContenidoPrincipal(
 
   try {
     const nifEmisorNorm = normalizarNif(extracted.nif_emisor)
+    // Super diccionario: nombre canónico del proveedor si el OCR no lo leyó bien.
+    const dicNif = await instruccionesPorNif(supabase, nifEmisorNorm)
+    if (dicNif?.proveedorCanonico && (!extracted.proveedor_nombre || !extracted.proveedor_nombre.trim() || extracted.proveedor_nombre === 'PENDIENTE LECTURA MANUAL')) {
+      extracted.proveedor_nombre = dicNif.proveedorCanonico
+    }
     let proveedorId: string | undefined
     {
       const provNombre = extracted.proveedor_nombre.trim()
@@ -823,6 +861,11 @@ async function guardarFacturasMulti(
     const nifPlatMulti = nifCanonicoPlataforma(extracted)
     if (nifPlatMulti) extracted.nif_emisor = nifPlatMulti
     const nifEmisorNorm = normalizarNif(extracted.nif_emisor)
+    // Super diccionario: nombre canónico del proveedor si el OCR no lo leyó bien.
+    const dicNif = await instruccionesPorNif(supabase, nifEmisorNorm)
+    if (dicNif?.proveedorCanonico && (!extracted.proveedor_nombre || !extracted.proveedor_nombre.trim() || extracted.proveedor_nombre === 'PENDIENTE LECTURA MANUAL')) {
+      extracted.proveedor_nombre = dicNif.proveedorCanonico
+    }
     const { data: nueva, error: errInsert } = await supabase.from('facturas').insert({
       pdf_original_name: file.nombre, pdf_hash: hashSub,
       proveedor_nombre: extracted.proveedor_nombre, numero_factura: numFactura,
