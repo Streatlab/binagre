@@ -127,9 +127,12 @@ const SECTIONS: NavSection[] = [
   {
     key: 'mkt', label: 'MKT', perfiles: ['admin'],
     items: [
-      { path: '/clientes/crm',                    label: 'CRM Streat Lab',          emoji: '🛍️', perfiles: ['admin'] },
-      { path: '/clientes/club',                   label: 'Club Fidelización',       emoji: '🎖️', perfiles: ['admin'] },
-      { path: '/clientes/resenas',                label: 'Panel Reseñas',           emoji: '⭐',  perfiles: ['admin'] },
+      { path: '/marketing/panel',                  label: 'Panel MKT',               emoji: '🚀', perfiles: ['admin'] },
+      { path: '/clientes/crm',                     label: 'CRM Streat Lab',          emoji: '🛍️', perfiles: ['admin'] },
+      { path: '/clientes/club',                    label: 'Club Fidelización',       emoji: '🎖️', perfiles: ['admin'] },
+      { path: '/clientes/resenas',                 label: 'Panel Reseñas',           emoji: '⭐',  perfiles: ['admin'] },
+      { path: '/clientes/benchmark',               label: 'Benchmark',               emoji: '🎯', perfiles: ['admin'] },
+      { path: '/marketing/plan',                   label: 'Plan Campañas',           emoji: '🗓️', perfiles: ['admin'] },
       { path: '/marketing/rendimiento-ads-promo',  label: 'Rendimiento Ads y Promo', emoji: '📈', perfiles: ['admin'] },
       { path: '/clientes/playbook-tp',             label: 'Playbook ThinkPaladar',   emoji: '📣', perfiles: ['admin'] },
     ],
