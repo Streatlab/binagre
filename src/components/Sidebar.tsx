@@ -14,6 +14,7 @@ import {
   FileText,
   ClipboardList,
   Megaphone,
+  BarChart3,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -48,8 +49,21 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio',  emoji: '⚖️', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running',              emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',       emoji: '💳', perfiles: ['admin'] },
+      { path: '/finanzas/gestoria',             label: 'Gestoría',             emoji: '📤', perfiles: ['admin'] },
       { path: '/finanzas/verifactu',            label: 'Verifactu',            emoji: '✅', perfiles: ['admin'] },
       { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería', emoji: '🔮', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'analytics', label: 'Analytics', perfiles: ['admin'],
+    items: [
+      { path: '/analytics/revenue',       label: 'Revenue & Ticket',   emoji: '🎫', perfiles: ['admin'] },
+      { path: '/analytics/ventas-marca',  label: 'Ventas por Marca',   emoji: '🏷️', perfiles: ['admin'] },
+      { path: '/analytics/margen',        label: 'Margen por Canal',   emoji: '📐', perfiles: ['admin'] },
+      { path: '/analytics/cogs',          label: 'COGS / Coste MP',    emoji: '🥩', perfiles: ['admin'] },
+      { path: '/analytics/ranking',       label: 'Ranking Productos',  emoji: '🏆', perfiles: ['admin'] },
+      { path: '/analytics/pareto-ventas', label: 'Pareto Ventas',      emoji: '📊', perfiles: ['admin'] },
+      { path: '/analytics/demanda',       label: 'Predicción Demanda', emoji: '🔮', perfiles: ['admin'] },
     ],
   },
   {
@@ -103,10 +117,11 @@ const SECTIONS: NavSection[] = [
   {
     key: 'equipo', label: 'Equipo', perfiles: ['admin'],
     items: [
-      { path: '/equipo',             label: 'Personas',    emoji: '👥', perfiles: ['admin'] },
-      { path: '/equipo/organigrama', label: 'Organigrama', emoji: '🏢', perfiles: ['admin'] },
-      { path: '/equipo/horarios',    label: 'Horarios',    emoji: '🗓️', perfiles: ['admin'] },
-      { path: '/equipo/presencia',   label: 'Presencia',   emoji: '🕐', perfiles: ['admin'] },
+      { path: '/equipo',             label: 'Personas',         emoji: '👥', perfiles: ['admin'] },
+      { path: '/equipo/empleados',   label: 'Fichas Empleados', emoji: '👤', perfiles: ['admin'] },
+      { path: '/equipo/organigrama', label: 'Organigrama',      emoji: '🏢', perfiles: ['admin'] },
+      { path: '/equipo/horarios',    label: 'Horarios',         emoji: '🗓️', perfiles: ['admin'] },
+      { path: '/equipo/presencia',   label: 'Presencia',        emoji: '🕐', perfiles: ['admin'] },
     ],
   },
   {
@@ -124,6 +139,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { path: '/configuracion/compras/categorias',   label: 'Catálogos · Compras',  emoji: '🛒', perfiles: ['admin'] },
       { path: '/configuracion/integraciones',        label: 'Integraciones',        emoji: '🔌', perfiles: ['admin'] },
+      { path: '/integraciones/pos',                  label: 'POS Ventas',           emoji: '🖥️', perfiles: ['admin'] },
       { path: '/configuracion/reglas',               label: 'Reglas',               emoji: '📐', perfiles: ['admin'] },
       { path: '/configuracion/bancos-y-cuentas',     label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
       { path: '/configuracion/usuarios',             label: 'Usuarios',             emoji: '👤', perfiles: ['admin'] },
@@ -137,6 +153,7 @@ const SECTIONS: NavSection[] = [
 // Variante B: cada sec-head con su color de fondo sólido (literal del mock)
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
   finanzas:      { icon: TrendingUp,    headBg: '#0FB86B', headColor: '#fff'  },
+  analytics:     { icon: BarChart3,     headBg: '#7C3AED', headColor: '#fff'  },
   cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: '#0a0a0a' },
   operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: '#fff'  },
   stock:         { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: '#fff'  },
@@ -147,26 +164,17 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
 }
 
 const PROXIMAMENTE: { label: string; emoji: string }[] = [
-  { label: 'Revenue & Ticket',        emoji: '🎫' },
-  { label: 'Predicción Demanda',      emoji: '🔮' },
-  { label: 'Tesorería',               emoji: '💳' },
-  { label: 'BPM / Calidad',           emoji: '✅' },
-  { label: 'Almacén',                 emoji: '🏭' },
-  { label: 'Stock Mínimo Alertas',    emoji: '⚠️' },
-  { label: 'POS',                     emoji: '🖥️' },
-  { label: 'Fichas Empleados',        emoji: '👤' },
-  { label: 'CRM Tienda Propia',       emoji: '🛍️' },
   { label: 'Ventas por Hora',         emoji: '🕐' },
-  { label: 'Ranking Productos',       emoji: '🏆' },
-  { label: 'Alérgenos',               emoji: '🥜' },
-  { label: 'BI / Informes Avanzados', emoji: '📈' },
-  { label: 'Control Mermas',          emoji: '📉' },
-  { label: 'Email Marketing',         emoji: '✉️' },
-  { label: 'Exportación a Gestoría',  emoji: '📤' },
-  { label: 'Inventario Tiempo Real',  emoji: '📡' },
-  { label: 'Marketing Automation',    emoji: '🤖' },
-  { label: 'Planificación Turnos',    emoji: '🗓️' },
   { label: 'Promociones por Día/Hora',emoji: '⏰' },
+  { label: 'Email Marketing',         emoji: '✉️' },
+  { label: 'Control Mermas',          emoji: '📉' },
+  { label: 'Stock Mínimo Alertas',    emoji: '⚠️' },
+  { label: 'Inventario Tiempo Real',  emoji: '📡' },
+  { label: 'Almacén',                 emoji: '🏭' },
+  { label: 'Tesorería',               emoji: '💳' },
+  { label: 'Alérgenos',               emoji: '🥜' },
+  { label: 'Marketing Automation',    emoji: '🤖' },
+  { label: 'BI / Informes Avanzados', emoji: '📈' },
 ]
 
 const PROXIMAMENTE_LS_KEY  = 'streatlab.sidebar.proximamente.open'
