@@ -82,6 +82,7 @@ const SECTIONS: NavSection[] = [
   {
     key: 'operaciones', label: 'Operaciones', perfiles: ['admin'],
     items: [
+      { path: '/pos',               label: 'POS',              emoji: '🖥️', perfiles: ['admin'] },
       { path: '/ops/checklists',    label: 'Checklists',       emoji: '✅', perfiles: ['admin'] },
       { path: '/ops/tareas',        label: 'Tareas',           emoji: '📝', perfiles: ['admin'] },
       { path: '/ops/manuales',      label: 'Manuales',         emoji: '📚', perfiles: ['admin'] },
@@ -142,7 +143,6 @@ const SECTIONS: NavSection[] = [
     items: [
       { path: '/configuracion/compras/categorias',   label: 'Catálogos · Compras',  emoji: '🛒', perfiles: ['admin'] },
       { path: '/configuracion/integraciones',        label: 'Integraciones',        emoji: '🔌', perfiles: ['admin'] },
-      { path: '/integraciones/pos',                  label: 'POS Ventas',           emoji: '🖥️', perfiles: ['admin'] },
       { path: '/configuracion/reglas',               label: 'Reglas',               emoji: '📐', perfiles: ['admin'] },
       { path: '/configuracion/bancos-y-cuentas',     label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
       { path: '/configuracion/usuarios',             label: 'Usuarios',             emoji: '👤', perfiles: ['admin'] },
