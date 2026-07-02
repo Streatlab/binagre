@@ -61,6 +61,19 @@
   --sl-topbar-height: 57px;
   --sl-shadow-sm: 0 1px 4px rgba(0,0,0,0.4);
   --sl-shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+
+  /* ── NEOBRUTAL Food-Pop · estructurales (modo OSCURO) ── */
+  --neo-ink:           #e8ecff;
+  --neo-osc:           #0a0e1a;
+  --neo-bg:            #0d1120;
+  --neo-bg-2:          #1a1f32;
+  --neo-card-ratio:    #2a1d28;
+  --neo-card-pe:       #182035;
+  --neo-card-result:   #0f3d35;
+  --neo-track:         #2a3050;
+  --neo-track-canal:   #2a3050;
+  --neo-on-dark:       #FCEFD6;
+  --neo-shadow-color:  rgba(0,0,0,0.55);
 }
 
 [data-theme="light"] {
@@ -116,6 +129,19 @@
   --sl-btn-danger-text:  #ffffff;
   --sl-shadow-sm: 0 1px 4px rgba(100,60,20,0.12);
   --sl-shadow-md: 0 4px 16px rgba(100,60,20,0.12);
+
+  /* ── NEOBRUTAL Food-Pop · estructurales (modo CLARO) ── */
+  --neo-ink:           #140f08;
+  --neo-osc:           #2b2117;
+  --neo-bg:            #FCEFD6;
+  --neo-bg-2:          #F3D9A8;
+  --neo-card-ratio:    #ffe0ea;
+  --neo-card-pe:       #d8e3ff;
+  --neo-card-result:   #0F3D35;
+  --neo-track:         #ecdcb8;
+  --neo-track-canal:   #e2dac9;
+  --neo-on-dark:       #FCEFD6;
+  --neo-shadow-color:  #140f08;
 }
 
 @theme {
@@ -159,6 +185,66 @@ tbody tr:hover { background: var(--sl-hover) !important; }
 /* Excepciones — sin transición larga en elementos interactivos */
 button, input, select, textarea {
   transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+/* ============================================================
+   RESPONSIVE TABLET — 641px a 1024px
+   Complementa responsive-movil.css (que cubre <=640 táctil).
+   Rejillas muy anchas bajan a 2 columnas; modales se estrechan
+   al viewport; padding lateral intermedio. No toca escritorio.
+   ============================================================ */
+@media (min-width: 641px) and (max-width: 1024px) {
+  main { padding-left: 20px !important; padding-right: 20px !important; }
+  /* Rejillas de 3+ columnas (inline o Tailwind) → 2 columnas en tablet */
+  main [style*="grid-template-columns"],
+  main [class*="grid-cols-3"],
+  main [class*="grid-cols-4"],
+  main [class*="grid-cols-5"],
+  main [class*="grid-cols-6"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  /* Modales: nunca más anchos que el viewport, con respiración lateral */
+  .ds-modal, .modal-merma, [role="dialog"] > div {
+    max-width: calc(100vw - 40px) !important;
+  }
+}
+
+/* ============================================================
+   MODAL FULL-SCREEN EN MÓVIL (neobrutal: ficha a pantalla completa)
+   En dispositivo táctil, cualquier modal ocupa toda la pantalla en
+   vez de ventana flotante minúscula. Botones táctiles >= 44px.
+   ============================================================ */
+html.sl-movil .ds-modal,
+html.sl-movil .modal-merma,
+html.sl-movil [role="dialog"] > div {
+  position: fixed !important;
+  inset: 0 !important;
+  max-width: 100vw !important;
+  max-height: 100dvh !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+html.sl-movil button,
+html.sl-movil .ds-btn-save,
+html.sl-movil .ds-btn-add,
+html.sl-movil .ds-btn-cancel,
+html.sl-movil [role="tab"] {
+  min-height: 44px !important;
+}
+
+/* Tabs en móvil: scroll horizontal con snap, sin romper la fila */
+html.sl-movil [role="tablist"],
+html.sl-movil .sl-tabs {
+  display: flex !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  scroll-snap-type: x proximity !important;
+  flex-wrap: nowrap !important;
 }
 
 /* ============ RUNNING FINANCIERO V2 ============ */
