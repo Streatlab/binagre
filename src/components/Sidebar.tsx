@@ -14,7 +14,6 @@ import {
   FileText,
   ClipboardList,
   Megaphone,
-  BarChart3,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -42,28 +41,15 @@ const SECTIONS: NavSection[] = [
   {
     key: 'finanzas', label: 'Finanzas', perfiles: ['admin'],
     items: [
-      { path: '/finanzas/documentacion',        label: 'Documentación',        emoji: '📥', perfiles: ['admin'] },
+      { path: '/finanzas/documentacion',        label: 'Papeleo',        emoji: '📥', perfiles: ['admin'] },
       { path: '/facturacion',                   label: 'Facturación',          emoji: '🧾', perfiles: ['admin'] },
       { path: '/finanzas/ventas',               label: 'Ventas',               emoji: '💰', perfiles: ['admin'] },
       { path: '/finanzas/objetivos',            label: 'Objetivos',            emoji: '🎯', perfiles: ['admin'] },
       { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio',  emoji: '⚖️', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running',              emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',       emoji: '💳', perfiles: ['admin'] },
-      { path: '/finanzas/gestoria',             label: 'Gestoría',             emoji: '📤', perfiles: ['admin'] },
       { path: '/finanzas/verifactu',            label: 'Verifactu',            emoji: '✅', perfiles: ['admin'] },
       { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería', emoji: '🔮', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'analytics', label: 'Analytics', perfiles: ['admin'],
-    items: [
-      { path: '/analytics/revenue',       label: 'Revenue & Ticket',   emoji: '🎫', perfiles: ['admin'] },
-      { path: '/analytics/ventas-marca',  label: 'Ventas por Marca',   emoji: '🏷️', perfiles: ['admin'] },
-      { path: '/analytics/margen',        label: 'Margen por Canal',   emoji: '📐', perfiles: ['admin'] },
-      { path: '/analytics/cogs',          label: 'COGS / Coste MP',    emoji: '🥩', perfiles: ['admin'] },
-      { path: '/analytics/ranking',       label: 'Ranking Productos',  emoji: '🏆', perfiles: ['admin'] },
-      { path: '/analytics/pareto-ventas', label: 'Pareto Ventas',      emoji: '📊', perfiles: ['admin'] },
-      { path: '/analytics/demanda',       label: 'Predicción Demanda', emoji: '🔮', perfiles: ['admin'] },
     ],
   },
   {
@@ -82,7 +68,6 @@ const SECTIONS: NavSection[] = [
   {
     key: 'operaciones', label: 'Operaciones', perfiles: ['admin'],
     items: [
-      { path: '/pos',               label: 'POS',              emoji: '🖥️', perfiles: ['admin'] },
       { path: '/ops/checklists',    label: 'Checklists',       emoji: '✅', perfiles: ['admin'] },
       { path: '/ops/tareas',        label: 'Tareas',           emoji: '📝', perfiles: ['admin'] },
       { path: '/ops/manuales',      label: 'Manuales',         emoji: '📚', perfiles: ['admin'] },
@@ -118,22 +103,18 @@ const SECTIONS: NavSection[] = [
   {
     key: 'equipo', label: 'Equipo', perfiles: ['admin'],
     items: [
-      { path: '/equipo',             label: 'Personas',         emoji: '👥', perfiles: ['admin'] },
-      { path: '/equipo/empleados',   label: 'Fichas Empleados', emoji: '👤', perfiles: ['admin'] },
-      { path: '/equipo/organigrama', label: 'Organigrama',      emoji: '🏢', perfiles: ['admin'] },
-      { path: '/equipo/horarios',    label: 'Horarios',         emoji: '🗓️', perfiles: ['admin'] },
-      { path: '/equipo/presencia',   label: 'Presencia',        emoji: '🕐', perfiles: ['admin'] },
+      { path: '/equipo',             label: 'Personas',    emoji: '👥', perfiles: ['admin'] },
+      { path: '/equipo/organigrama', label: 'Organigrama', emoji: '🏢', perfiles: ['admin'] },
+      { path: '/equipo/horarios',    label: 'Horarios',    emoji: '🗓️', perfiles: ['admin'] },
+      { path: '/equipo/presencia',   label: 'Presencia',   emoji: '🕐', perfiles: ['admin'] },
     ],
   },
   {
     key: 'mkt', label: 'MKT', perfiles: ['admin'],
     items: [
-      { path: '/marketing/panel',                  label: 'Panel MKT',               emoji: '🚀', perfiles: ['admin'] },
-      { path: '/clientes/crm',                     label: 'CRM Streat Lab',          emoji: '🛍️', perfiles: ['admin'] },
-      { path: '/clientes/club',                    label: 'Club Fidelización',       emoji: '🎖️', perfiles: ['admin'] },
-      { path: '/clientes/resenas',                 label: 'Panel Reseñas',           emoji: '⭐',  perfiles: ['admin'] },
-      { path: '/clientes/benchmark',               label: 'Benchmark',               emoji: '🎯', perfiles: ['admin'] },
-      { path: '/marketing/plan',                   label: 'Plan Campañas',           emoji: '🗓️', perfiles: ['admin'] },
+      { path: '/clientes/crm',                    label: 'CRM Streat Lab',          emoji: '🛍️', perfiles: ['admin'] },
+      { path: '/clientes/club',                   label: 'Club Fidelización',       emoji: '🎖️', perfiles: ['admin'] },
+      { path: '/clientes/resenas',                label: 'Panel Reseñas',           emoji: '⭐',  perfiles: ['admin'] },
       { path: '/marketing/rendimiento-ads-promo',  label: 'Rendimiento Ads y Promo', emoji: '📈', perfiles: ['admin'] },
       { path: '/clientes/playbook-tp',             label: 'Playbook ThinkPaladar',   emoji: '📣', perfiles: ['admin'] },
     ],
@@ -156,7 +137,6 @@ const SECTIONS: NavSection[] = [
 // Variante B: cada sec-head con su color de fondo sólido (literal del mock)
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
   finanzas:      { icon: TrendingUp,    headBg: '#0FB86B', headColor: '#fff'  },
-  analytics:     { icon: BarChart3,     headBg: '#7C3AED', headColor: '#fff'  },
   cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: '#0a0a0a' },
   operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: '#fff'  },
   stock:         { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: '#fff'  },
@@ -167,17 +147,26 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
 }
 
 const PROXIMAMENTE: { label: string; emoji: string }[] = [
-  { label: 'Ventas por Hora',         emoji: '🕐' },
-  { label: 'Promociones por Día/Hora',emoji: '⏰' },
-  { label: 'Email Marketing',         emoji: '✉️' },
-  { label: 'Control Mermas',          emoji: '📉' },
-  { label: 'Stock Mínimo Alertas',    emoji: '⚠️' },
-  { label: 'Inventario Tiempo Real',  emoji: '📡' },
-  { label: 'Almacén',                 emoji: '🏭' },
+  { label: 'Revenue & Ticket',        emoji: '🎫' },
+  { label: 'Predicción Demanda',      emoji: '🔮' },
   { label: 'Tesorería',               emoji: '💳' },
+  { label: 'BPM / Calidad',           emoji: '✅' },
+  { label: 'Almacén',                 emoji: '🏭' },
+  { label: 'Stock Mínimo Alertas',    emoji: '⚠️' },
+  { label: 'POS',                     emoji: '🖥️' },
+  { label: 'Fichas Empleados',        emoji: '👤' },
+  { label: 'CRM Tienda Propia',       emoji: '🛍️' },
+  { label: 'Ventas por Hora',         emoji: '🕐' },
+  { label: 'Ranking Productos',       emoji: '🏆' },
   { label: 'Alérgenos',               emoji: '🥜' },
-  { label: 'Marketing Automation',    emoji: '🤖' },
   { label: 'BI / Informes Avanzados', emoji: '📈' },
+  { label: 'Control Mermas',          emoji: '📉' },
+  { label: 'Email Marketing',         emoji: '✉️' },
+  { label: 'Exportación a Gestoría',  emoji: '📤' },
+  { label: 'Inventario Tiempo Real',  emoji: '📡' },
+  { label: 'Marketing Automation',    emoji: '🤖' },
+  { label: 'Planificación Turnos',    emoji: '🗓️' },
+  { label: 'Promociones por Día/Hora',emoji: '⏰' },
 ]
 
 const PROXIMAMENTE_LS_KEY  = 'streatlab.sidebar.proximamente.open'
@@ -206,7 +195,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     return localStorage.getItem(PROXIMAMENTE_LS_KEY) === '1'
   })
   const [tareasBadge, setTareasBadge] = useState(0)
-  const [ocrBadge,    setOcrBadge]    = useState(0)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -225,16 +213,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       .in('estado', ['pendiente', 'atrasada'])
       .then(({ count }) => setTareasBadge(count ?? 0))
   }, [])
-
-  useEffect(() => {
-    if (perfil !== 'admin') return
-    supabase
-      .from('facturas')
-      .select('id', { count: 'exact', head: true })
-      .in('tipo', ['proveedor', 'plataforma'])
-      .or('total.lte.0,titular_id.is.null,categoria_factura.is.null')
-      .then(({ count }) => setOcrBadge(count ?? 0))
-  }, [perfil])
 
   // ── Colapso original: al interactuar (clic o HOVER) se ABRE y queda abierto 20 s; luego autocolapsa ──
   const [abierto, setAbierto] = useState(false)
@@ -438,7 +416,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                           <>
                             <span style={{ width: 7, height: 7, flexShrink: 0, background: isActive ? AMA : INK, display: 'inline-block' }} />
                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                            {item.path === '/finanzas/documentacion' && <SidebarBadge count={ocrBadge} />}
+                            
                           </>
                         )}
                       </NavLink>
