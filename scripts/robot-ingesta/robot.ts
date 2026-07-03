@@ -1,15 +1,15 @@
 /**
  * Robot de ingesta diaria · Rushour + Sinqro → Supabase
  * ------------------------------------------------------
- * Entra cada día a Rushour (Uber Eats + Glovo) y a Sinqro (Glovo + Just Eat),
- * descarga las ventas del día anterior por marca y plataforma, y las deja en
- * la tabla de aterrizaje `ingesta_robot_diaria` (NO toca tablas de conciliación).
+ * Descarga ventas del día anterior por marca y plataforma y las deja en la
+ * tabla de aterrizaje `ingesta_robot_diaria` (NO toca tablas de conciliación).
  *
  * ESTADO CALIBRACIÓN (2026-07-03):
- *   - SINQRO login: CALIBRADO (id=login-email, id=login-password, id=loginButton).
- *   - RUSHOUR login: URL corregida a https://manager.rushour.io/login (pendiente
- *     ver HTML real de sus campos y de su pantalla de ventas).
- *   - Pantallas de ventas de ambos: pendientes de calibrar con nuevas capturas.
+ *   - SINQRO login: CALIBRADO (id=login-email/#login-password/#loginButton).
+ *   - SINQRO dominio real: app.sinqro.com · local sp/6416.
+ *       · Históricos (ventas): #/sp/6416/online/orders
+ *       · En vivo (POS): #/sp/6416/pos/services
+ *   - RUSHOUR login: manager.rushour.io/login (campos pendientes de HTML real).
  */
 
 import { chromium, Browser, Page } from 'playwright';
@@ -39,15 +39,16 @@ const CFG = {
   },
   sinqro: {
     nombre: 'sinqro',
-    loginUrl: 'https://dash.sinqro.com/',              // CALIBRADO
+    loginUrl: 'https://app.sinqro.com/',               // CALIBRADO (dominio real)
     user: process.env.SINQRO_USER || '',
     pass: process.env.SINQRO_PASS || '',
     sel: {
       userInput: '#login-email',                              // CALIBRADO
       passInput: '#login-password',                           // CALIBRADO
       submitBtn: '#loginButton',                              // CALIBRADO
-      reportUrl: 'https://dash.sinqro.com/#/orders',          // CALIBRAR pantalla ventas
-      rows: 'table tbody tr',                                 // CALIBRAR
+      // Históricos de ventas (lo que alimenta ingesta diaria):
+      reportUrl: 'https://app.sinqro.com/#/sp/6416/online/orders',   // CALIBRADO (falta mapear tabla)
+      rows: 'table tbody tr',                                 // CALIBRAR estructura tabla
     },
   },
 };
@@ -109,7 +110,7 @@ async function login(page: Page, c: typeof CFG.rushour) {
 // ---------- Extracción de ventas ----------
 async function extraer(page: Page, c: typeof CFG.rushour, fecha: string): Promise<Fila[]> {
   await page.goto(c.sel.reportUrl, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(3500);
   await diag(page, `${c.nombre}-03-report`);
 
   const filas = await page.$$eval(c.sel.rows, (trs) =>
