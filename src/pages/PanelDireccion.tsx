@@ -70,8 +70,8 @@ function isoWeekLabel(dateStr: string): string {
 // ── styles constantes ────────────────────────────────────────────────────────
 
 const cardStyle = {
-  background: '#1a1a1a',
-  border: '1px solid #2a2a2a',
+  background: 'var(--sl-card-alt)',
+  border: '1px solid var(--sl-border)',
   borderRadius: 10,
   padding: '18px 20px',
 } as const
@@ -81,7 +81,7 @@ const labelStyle = {
   fontSize: 10,
   letterSpacing: '1.5px',
   textTransform: 'uppercase' as const,
-  color: '#777777',
+  color: 'var(--sl-text-muted)',
   marginBottom: 6,
 } as const
 
@@ -90,10 +90,10 @@ const bigStyle = {
   fontSize: 28,
   fontWeight: 700,
   lineHeight: 1.1,
-  color: '#ffffff',
+  color: 'var(--sl-text-primary)',
 } as const
 
-const mutedStyle = { color: '#777777', fontSize: 11, fontFamily: 'Lexend, sans-serif' } as const
+const mutedStyle = { color: 'var(--sl-text-muted)', fontSize: 11, fontFamily: 'Lexend, sans-serif' } as const
 
 // ── component ─────────────────────────────────────────────────────────────────
 
@@ -303,7 +303,7 @@ export default function PanelDireccion() {
   function renderBarraProgreso(pct: number) {
     const color = pct >= 80 ? '#1D9E75' : pct >= 50 ? '#e8f442' : '#B01D23'
     return (
-      <div style={{ height: 8, background: '#2a2a2a', borderRadius: 4, marginTop: 8 }}>
+      <div style={{ height: 8, background: 'var(--sl-border)', borderRadius: 4, marginTop: 8 }}>
         <div style={{ height: 8, width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 4, transition: 'width 0.4s' }} />
       </div>
     )
@@ -321,7 +321,7 @@ export default function PanelDireccion() {
         display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8,
       }}>
         <span style={{ fontSize: 14, flexShrink: 0 }}>{iconoMap[a.nivel]}</span>
-        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#ffffff', lineHeight: 1.4 }}>
+        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#f0f0f0', lineHeight: 1.4 }}>
           {a.texto}
         </span>
       </div>
@@ -339,8 +339,8 @@ export default function PanelDireccion() {
   if (loading) {
     return (
       <div style={{
-        fontFamily: 'Lexend, sans-serif', background: '#111111', minHeight: '100vh',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#777777', fontSize: 14,
+        fontFamily: 'Lexend, sans-serif', background: 'var(--sl-app)', minHeight: '100vh',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sl-text-muted)', fontSize: 14,
       }}>
         Cargando Panel de Dirección…
       </div>
@@ -348,22 +348,22 @@ export default function PanelDireccion() {
   }
 
   return (
-    <div style={{ fontFamily: 'Lexend, sans-serif', background: '#111111', minHeight: '100vh', padding: '24px 20px', color: '#ffffff' }}>
+    <div style={{ fontFamily: 'Lexend, sans-serif', background: 'var(--sl-app)', minHeight: '100vh', padding: '24px 20px', color: 'var(--sl-text-primary)' }}>
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginBottom: 28 }}>
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-primary)' }}>
             Panel de Dirección
           </div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#777777', marginTop: 2, textTransform: 'capitalize' }}>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-muted)', marginTop: 2, textTransform: 'capitalize' }}>
             {fechaHoraStr}
           </div>
         </div>
 
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
-          background: '#1a1a1a', border: `1px solid ${colorEstado}`, borderRadius: 8, padding: '8px 18px',
+          background: 'var(--sl-card-alt)', border: `1px solid ${colorEstado}`, borderRadius: 8, padding: '8px 18px',
         }}>
           <div style={{ width: 10, height: 10, borderRadius: '50%', background: colorEstado, flexShrink: 0 }} />
           <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: colorEstado, letterSpacing: '1.5px' }}>
@@ -413,7 +413,7 @@ export default function PanelDireccion() {
             ...bigStyle,
             color: pctCobertura !== null
               ? (pctCobertura >= 80 ? '#1D9E75' : pctCobertura >= 50 ? '#e8f442' : '#B01D23')
-              : '#777777',
+              : 'var(--sl-text-muted)',
           }}>
             {pctCobertura !== null ? `${pctCobertura.toFixed(1)}%` : '—'}
           </div>
@@ -430,12 +430,12 @@ export default function PanelDireccion() {
           <div style={labelStyle}>Días hasta fin de mes</div>
           <div style={bigStyle}>{diasFinMes} días</div>
           <div style={{ marginTop: 8 }}>
-            <div style={mutedStyle}>Ventas mes: <span style={{ color: '#cccccc' }}>{fmtEur(ventasMes)}</span></div>
+            <div style={mutedStyle}>Ventas mes: <span style={{ color: 'var(--sl-btn-cancel-text)' }}>{fmtEur(ventasMes)}</span></div>
             <div style={{ ...mutedStyle, marginTop: 3 }}>
               Proyección: <span style={{ color: proyeccionMes >= objetivoMensual ? '#1D9E75' : '#e8f442' }}>{fmtEur(proyeccionMes)}</span>
             </div>
-            <div style={{ ...mutedStyle, marginTop: 3 }}>Objetivo: <span style={{ color: '#cccccc' }}>{fmtEur(objetivoMensual)}</span></div>
-            <div style={{ height: 5, background: '#2a2a2a', borderRadius: 3, marginTop: 6 }}>
+            <div style={{ ...mutedStyle, marginTop: 3 }}>Objetivo: <span style={{ color: 'var(--sl-btn-cancel-text)' }}>{fmtEur(objetivoMensual)}</span></div>
+            <div style={{ height: 5, background: 'var(--sl-border)', borderRadius: 3, marginTop: 6 }}>
               <div style={{
                 height: 5,
                 width: `${Math.min(objetivoMensual > 0 ? (ventasMes / objetivoMensual) * 100 : 0, 100)}%`,
@@ -477,8 +477,8 @@ export default function PanelDireccion() {
                     padding: '8px 12px',
                     textAlign: h === 'Semana' ? 'left' : 'right',
                     fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px',
-                    textTransform: 'uppercase', color: '#777777',
-                    borderBottom: '1px solid #2a2a2a',
+                    textTransform: 'uppercase', color: 'var(--sl-text-muted)',
+                    borderBottom: '1px solid var(--sl-border)',
                   }}>
                     {h}
                   </th>
@@ -490,24 +490,24 @@ export default function PanelDireccion() {
                 <tr key={i}>
                   <td style={{
                     padding: '10px 12px',
-                    color: i === 0 ? '#e8f442' : '#ffffff',
-                    borderBottom: '1px solid #2a2a2a',
+                    color: i === 0 ? '#e8f442' : 'var(--sl-text-primary)',
+                    borderBottom: '1px solid var(--sl-border)',
                     fontWeight: i === 0 ? 600 : 400,
                   }}>
                     {sem.label}{i === 0 ? ' ★' : ''}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#ffffff', borderBottom: '1px solid #2a2a2a', fontFamily: 'Oswald, sans-serif' }}>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--sl-text-primary)', borderBottom: '1px solid var(--sl-border)', fontFamily: 'Oswald, sans-serif' }}>
                     {fmtEur(sem.ventas)}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#cccccc', borderBottom: '1px solid #2a2a2a' }}>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--sl-btn-cancel-text)', borderBottom: '1px solid var(--sl-border)' }}>
                     {Math.round(sem.pedidos).toLocaleString('es-ES')}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#cccccc', borderBottom: '1px solid #2a2a2a' }}>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--sl-btn-cancel-text)', borderBottom: '1px solid var(--sl-border)' }}>
                     {sem.ticket > 0 ? fmtEur(sem.ticket) : '—'}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', borderBottom: '1px solid #2a2a2a' }}>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', borderBottom: '1px solid var(--sl-border)' }}>
                     {sem.variacion === null
-                      ? <span style={{ color: '#777777' }}>—</span>
+                      ? <span style={{ color: 'var(--sl-text-muted)' }}>—</span>
                       : <span style={{ color: sem.variacion >= 0 ? '#1D9E75' : '#B01D23' }}>
                           {sem.variacion >= 0 ? '▲' : '▼'} {Math.abs(sem.variacion).toFixed(1)}%
                         </span>
