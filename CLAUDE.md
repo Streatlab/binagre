@@ -1,33 +1,33 @@
-# CLAUDE.md — Binagre ERP (Streat Lab)
+# CLAUDE.md — ERP Binagre / Streat Lab
 
-Este archivo es la Constitución del proyecto. Máx 30 líneas.
-Para detalle, ver `.claude/rules/` y `.claude/plans/active-plan.md`.
+## Contexto mínimo
+- ERP React/TypeScript/Vite. Supabase: eryauogxcpbgdryeimdq. Vercel: proyecto "binagre".
+- El usuario NO es programador. Todo se ejecuta vía herramientas, nunca se le pide código, SQL ni prompts.
 
-## ⛔ SOLO LOCALHOST (regla fija, prioritaria)
-- Trabajar y probar SIEMPRE en local.
-- NO publicar/desplegar a producción (push a main / deploy Vercel) hasta que Rubén diga explícitamente "publica" o "sube a producción".
-- Mientras tanto: cambios solo en local, sin push a producción.
+## Comunicación (obligatorio)
+1. Respuestas máx 3-4 líneas. Sin preámbulos, sin postambles, sin recapitulaciones.
+2. Prohibido narrar: nunca "voy a", "déjame", "estoy revisando", ni anunciar herramientas.
+3. Formato único: "Hecho: X" / "Resultado: X" / "Pendiente tuyo: X" / "Falla X. Alternativa: Y".
+4. Cero código en chat. Cero nombres de archivos, funciones, tablas, hex, commits (salvo valor de negocio directo).
+5. No pedir permisos ni confirmaciones: ejecutar. Preguntar SOLO ante bloqueo real (1 pregunta, 1 línea).
+6. Si el usuario dice "silencio" o "corta": modo silencio total inmediato.
 
-## Stack
-- Next.js + Supabase + Tailwind v4 + Vercel
-- URL prod: https://binagre.vercel.app
-- Repo: github.com/Streatlab/binagre
+## Protocolo token-cero (obligatorio)
+1. Lecturas quirúrgicas: solo la sección/función que se toca. NUNCA leer repo completo ni archivos enteros si basta un fragmento.
+2. Ediciones dirigidas (reemplazos puntuales). Nunca reescribir archivos completos.
+3. Un módulo por sesión. No tocar módulos no relacionados.
+4. No releer módulos congelados (registro "frozen modules" en Notion).
+5. Antes de explorar repo o Supabase: consultar el mapa de contexto cacheado en Notion "99 Claude".
+6. Agrupar llamadas a herramientas en un solo turno cuando sea posible.
+7. Al saturar contexto: volcar estado a Notion "99 Claude" antes de perder información.
 
-## Design tokens (canónicos, nunca hardcodear otros)
-- Rojo principal: #B01D23
-- Negro: #0a0a0a
-- Sidebar: #1e2233
-- Panel global: #e8f442
-- Modal: #484f66
-- Master: src/styles/tokens.ts, src/styles/design-tokens.css
+## Deploy (obligatorio)
+1. Vercel cobra por build. Agrupar TODOS los cambios de la sesión en 1 commit → 1 deploy. Objetivo: 1-3 deploys/sesión máximo.
+2. Nunca 1 build por microajuste.
+3. Tras deploy: verificar estado en Vercel (1 sola verificación) y reportar READY o fallo, sin preguntar.
 
-## Aislamiento absoluto Binagre ↔ David
-- NUNCA tocar Supabase de David (idclhnxttdbwayxeowrm)
-- NUNCA importar tokens Marino+Fuego (#16355C, #F26B1F)
-- NUNCA mezclar lógica de negocio (rutas Cade, Mercadona/Lidl/Carrefour/Día)
+## Aislamiento absoluto
+- Este repo = Binagre / Streat Lab. JAMÁS mezclar con erp-david / David Reparte / davidparte: ni repos, ni Supabase, ni design tokens, ni lógica de negocio.
 
-## Pipeline obligatorio (ver .claude/plans/active-plan.md)
-1. pm-spec → 2. architect-review → 3. implementer (ctx bifurcado) → 4. qa-reviewer → 5. integrator
-- Cada etapa produce un archivo en `.claude/plans/`
-- Commit antes de cada etapa
-- Code NUNCA pregunta a Rubén durante ejecución
+## OCR/Conciliación
+- Procedimiento oficial en Notion "📌 OBLIGATORIO LEER · Flujo OCR + Conciliación" (regla 3 bis). Leerlo antes de tocar OCR, no reinventar.
