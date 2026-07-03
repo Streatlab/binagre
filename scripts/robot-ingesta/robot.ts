@@ -9,7 +9,8 @@
  *   - GitHub Actions (cron diario)  -> credenciales desde Secrets del repo
  *   - Local:  tsx scripts/robot-ingesta/robot.ts        (lee .env.local)
  *   - Diagnóstico: DIAG=1 tsx scripts/robot-ingesta/robot.ts
- *       (abre navegador visible + guarda capturas/HTML en ./robot-artifacts)
+ *       (guarda capturas/HTML en ./robot-artifacts; el navegador SIGUE siendo
+ *        headless para que funcione en servidores sin pantalla como GitHub Actions)
  *
  * IMPORTANTE — CALIBRACIÓN:
  *   Los selectores de cada web (marcados con // CALIBRAR) son la única parte que
@@ -22,6 +23,8 @@ import { createClient } from '@supabase/supabase-js';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 
 // ---------- Configuración ----------
+// DIAG solo controla si se guardan capturas/HTML. NUNCA abre navegador visible:
+// en GitHub Actions no hay pantalla (X server), así que headless es obligatorio.
 const DIAG = process.env.DIAG === '1';
 const ART_DIR = './robot-artifacts';
 
@@ -182,7 +185,11 @@ async function guardar(filas: Fila[]) {
 async function main() {
   const fecha = ayer();
   console.log(`== Robot ingesta diaria · fecha=${fecha} · DIAG=${DIAG ? 'on' : 'off'} ==`);
-  const browser = await chromium.launch({ headless: !DIAG });
+  // headless SIEMPRE true: los runners de GitHub Actions no tienen pantalla.
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  });
   try {
     const rush = await procesar(browser, CFG.rushour, fecha);
     const sinq = await procesar(browser, CFG.sinqro, fecha);
