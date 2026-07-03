@@ -12,10 +12,10 @@
  *       (guarda capturas/HTML en ./robot-artifacts; el navegador SIGUE siendo
  *        headless para que funcione en servidores sin pantalla como GitHub Actions)
  *
- * IMPORTANTE — CALIBRACIÓN:
- *   Los selectores de cada web (marcados con // CALIBRAR) son la única parte que
- *   depende del HTML real de Rushour/Sinqro. En la primera corrida el robot
- *   guarda captura + HTML de cada paso para poder afinarlos sin adivinar.
+ * ESTADO CALIBRACIÓN (2026-07-03):
+ *   - SINQRO login: CALIBRADO con HTML real (id=login-email, id=login-password,
+ *     id=loginButton "Access"). Falta calibrar la pantalla de ventas.
+ *   - RUSHOUR: URL de login pendiente (la probada devolvió página en blanco).
  */
 
 import { chromium, Browser, Page } from 'playwright';
@@ -23,8 +23,6 @@ import { createClient } from '@supabase/supabase-js';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 
 // ---------- Configuración ----------
-// DIAG solo controla si se guardan capturas/HTML. NUNCA abre navegador visible:
-// en GitHub Actions no hay pantalla (X server), así que headless es obligatorio.
 const DIAG = process.env.DIAG === '1';
 const ART_DIR = './robot-artifacts';
 
@@ -34,29 +32,28 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const CFG = {
   rushour: {
     nombre: 'rushour',
-    loginUrl: 'https://app.rushour.io/login',          // CALIBRAR si la URL real difiere
+    loginUrl: 'https://app.rushour.io/login',          // CALIBRAR — URL real pendiente
     user: process.env.RUSHOUR_USER || '',
     pass: process.env.RUSHOUR_PASS || '',
     sel: {
       userInput: 'input[type="email"], input[name="email"]',   // CALIBRAR
       passInput: 'input[type="password"]',                     // CALIBRAR
       submitBtn: 'button[type="submit"]',                      // CALIBRAR
-      // Página/tabla de ventas diarias por marca:
       reportUrl: 'https://app.rushour.io/reports/sales',       // CALIBRAR
       rows: 'table tbody tr',                                  // CALIBRAR
     },
   },
   sinqro: {
     nombre: 'sinqro',
-    loginUrl: 'https://app.sinqro.com/login',          // CALIBRAR
+    loginUrl: 'https://dash.sinqro.com/',              // CALIBRADO (HTML real)
     user: process.env.SINQRO_USER || '',
     pass: process.env.SINQRO_PASS || '',
     sel: {
-      userInput: 'input[type="email"], input[name="email"]',   // CALIBRAR
-      passInput: 'input[type="password"]',                     // CALIBRAR
-      submitBtn: 'button[type="submit"]',                      // CALIBRAR
-      reportUrl: 'https://app.sinqro.com/reports/sales',       // CALIBRAR
-      rows: 'table tbody tr',                                  // CALIBRAR
+      userInput: '#login-email',                              // CALIBRADO
+      passInput: '#login-password',                           // CALIBRADO
+      submitBtn: '#loginButton',                              // CALIBRADO ("Access")
+      reportUrl: 'https://dash.sinqro.com/#/orders',          // CALIBRAR pantalla ventas
+      rows: 'table tbody tr',                                 // CALIBRAR
     },
   },
 };
@@ -84,8 +81,8 @@ async function diag(page: Page, etiqueta: string) {
 
 type Fila = {
   fecha: string;
-  agregador: string;       // rushour | sinqro
-  plataforma: string;      // uber_eats | glovo | just_eat
+  agregador: string;
+  plataforma: string;
   marca: string;
   pedidos: number | null;
   bruto: number | null;
@@ -102,20 +99,23 @@ function numero(txt: string | null | undefined): number | null {
 // ---------- Login genérico ----------
 async function login(page: Page, c: typeof CFG.rushour) {
   await page.goto(c.loginUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
   await diag(page, `${c.nombre}-01-login`);
+  await page.waitForSelector(c.sel.userInput, { timeout: 15000 });
   await page.fill(c.sel.userInput, c.user);
   await page.fill(c.sel.passInput, c.pass);
   await Promise.all([
     page.waitForLoadState('networkidle').catch(() => {}),
     page.click(c.sel.submitBtn),
   ]);
+  await page.waitForTimeout(2500);
   await diag(page, `${c.nombre}-02-postlogin`);
 }
 
 // ---------- Extracción de ventas ----------
 async function extraer(page: Page, c: typeof CFG.rushour, fecha: string): Promise<Fila[]> {
   await page.goto(c.sel.reportUrl, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(3000);
   await diag(page, `${c.nombre}-03-report`);
 
   const filas = await page.$$eval(c.sel.rows, (trs) =>
@@ -123,14 +123,12 @@ async function extraer(page: Page, c: typeof CFG.rushour, fecha: string): Promis
   ).catch(() => [] as string[][]);
 
   if (!filas.length) {
-    // Sin filas => casi seguro selector a calibrar. Forzar diagnóstico.
     ensureArtDir();
     writeFileSync(`${ART_DIR}/${c.nombre}-EMPTY.html`, await page.content());
     console.warn(`  ⚠ ${c.nombre}: 0 filas. Revisar selectores en robot-artifacts/${c.nombre}-EMPTY.html`);
     return [];
   }
 
-  // Mapeo de columnas: [marca, plataforma, pedidos, bruto, ...] — CALIBRAR el orden real
   return filas.map((cols) => ({
     fecha,
     agregador: c.nombre,
@@ -185,7 +183,6 @@ async function guardar(filas: Fila[]) {
 async function main() {
   const fecha = ayer();
   console.log(`== Robot ingesta diaria · fecha=${fecha} · DIAG=${DIAG ? 'on' : 'off'} ==`);
-  // headless SIEMPRE true: los runners de GitHub Actions no tienen pantalla.
   const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
