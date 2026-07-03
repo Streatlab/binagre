@@ -1,3 +1,13 @@
+// Worker v24: RELEVO AUTOMÁTICO (auto-encadenado) — la sesión NUNCA muere a mitad.
+//  Causa raíz del parón 03/07/26: el runtime de Edge Functions tiene un límite duro de
+//  tiempo por invocación. Con lotes de miles de archivos (auditoría 16k), el worker
+//  moría a mitad de sesión y la sesión quedaba en 'procesando' con latido caducado.
+//  Nadie volvía a invocar la función (reactivarColgadas solo corre al ser invocada),
+//  así que TODO se paraba hasta que un humano lo tocaba.
+//  FIX v24: (A) el worker vigila su propio reloj; antes de acercarse al límite,
+//  persiste el estado, deja la sesión en 'en_espera' y SE AUTO-REINVOCA (relevo).
+//  (B) tras completar o cancelar, encadena la siguiente como siempre. Resultado:
+//  una cadena de invocaciones cortas que procesa lotes de cualquier tamaño sin morir.
 // Worker v23: CIERRE SOLO AL 100% + manifiesto + estado 'ignorada'.
 //  - Cada archivo procesado actualiza su fila de ocr_manifiesto a estado FINAL
 //    (leida / lectura_manual / duplicada / ignorada / error) con detalle.
@@ -10,22 +20,7 @@
 // Worker v22: + AUTO-REPESCA al cerrar sesión (dispara archivar-pendientes para subir a
 //  Drive lo que quedó en drive_pendiente por fallos transitorios; el usuario no pulsa nada).
 // Worker v21: Drive desconectado PAUSA y conserva pendientes (Ruben).
-//  Cambio v20 -> v21: si se detecta "Drive desconectado" a mitad de lote, ANTES se
-//  descartaban los archivos pendientes y se marcaba la sesion 'completada' (se perdian
-//  los 517 de 532 que faltaban -> habia que volver a subirlos). AHORA: el lote se PAUSA
-//  conservando archivos_pendientes; en cuanto se reconecta Drive, con "Reanudar" la sesion
-//  CONTINUA por donde iba. Los ya guardados como drive_pendiente suben solos por repesca.
-//  El parON global por creditos/api_key/modelo se mantiene (no tiene sentido seguir).
-//
-// Worker v20: FIX reproceso en bucle.
-//  Causa raiz (v19): (A) al cortar el lote se persistia SIN refrescar el latido, asi que
-//  si el lote tardaba >70s reactivarColgadas() reencolaba la sesion AUNQUE seguia viva; y
-//  (B) no habia candado por-sesion, por lo que dos invocaciones podian arrancar dos workers
-//  sobre la MISMA sesion y releer la lista -> cada archivo se procesaba muchas veces (dedup
-//  por hash lo frenaba en BBDD, pero generaba 14-84 reintentos 'duplicada' por archivo).
-//  FIX: (A) refrescar latido ANTES de procesar cada lote. (B) candado atomico: marcar la
-//  sesion 'procesando'+latido antes de arrancar y, si ya esta viva, no lanzar un 2o worker.
-//  Mantiene v19 (F7 duplicado real vs ya-retirado, timeout 45s/archivo, reactivar colgadas).
+// Worker v20: FIX reproceso en bucle (candado por sesión + latido antes de cada lote).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const PARALELO = 4
@@ -37,6 +32,9 @@ const STORAGE_REINTENTOS = 3
 const STORAGE_BACKOFF_MS = 1500
 const HEARTBEAT_TIMEOUT_MS = 70 * 1000
 const ARCHIVO_TIMEOUT_MS = 45 * 1000
+// v24: presupuesto de tiempo por invocación. Muy por debajo del límite del runtime
+// para que SIEMPRE dé tiempo a persistir + auto-reinvocarse (relevo limpio).
+const MAX_RUN_MS = 4 * 60 * 1000
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const VERCEL_BASE = Deno.env.get('VERCEL_PUBLIC_BASE') || 'https://binagre.vercel.app'
@@ -297,6 +295,18 @@ async function encadenarSiguiente() {
   }
 }
 
+// v24: RELEVO. Persiste el estado actual, deja la sesión lista para retomar
+// ('en_espera') y se auto-reinvoca con la MISMA sesión. La nueva invocación
+// continúa exactamente por donde iba (archivos_pendientes ya persistidos).
+async function pasarRelevo(sessionId: string) {
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/ocr-procesar-sesion`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+      body: JSON.stringify({ sessionId })
+    })
+  } catch { /* si falla, reactivarColgadas o el watchdog del cliente la retomarán */ }
+}
+
 // ── MANIFIESTO (cero pérdidas) ─────────────────────────────────────────────
 // Estados finales de una fila de manifiesto. Solo con 0 filas NO-finales se cierra.
 const MANIFIESTO_FINALES = ['leida', 'lectura_manual', 'duplicada', 'ignorada', 'error', 'error_subida']
@@ -369,6 +379,7 @@ async function reconciliarManifiesto(sb: any, sessionId: string, yaReconciliado:
 
 async function trabajarSesion(sessionId: string) {
   const sb = createClient(supabaseUrl, serviceKey)
+  const inicioRun = Date.now() // v24: reloj de la invocación (relevo antes del límite)
   const { data: ses0 } = await sb.from('ocr_sessions').select('*').eq('id', sessionId).single()
   if (!ses0) return
   let pendientes: any[] = [...((ses0.archivos_pendientes as any[]) || [])]
@@ -414,6 +425,13 @@ async function trabajarSesion(sessionId: string) {
   let reconciliadoUnaVez = false
   while (true) {
     while (pendientes.length > 0) {
+      // v24 RELEVO: si esta invocación se acerca a su límite de tiempo, persistir todo,
+      // dejar la sesión 'en_espera' y auto-reinvocarse. La sesión NUNCA muere a mitad.
+      if (Date.now() - inicioRun > MAX_RUN_MS) {
+        await persistir({ estado: 'procesando', estado_cola: 'en_espera' }, false)
+        await pasarRelevo(sessionId)
+        return
+      }
       const { data: chk } = await sb.from('ocr_sessions').select('cancelar_solicitado, pausar_solicitado').eq('id', sessionId).single()
       if (chk?.cancelar_solicitado) { pendientes = []; await persistir({ estado: 'cancelada', estado_cola: 'cancelada', completado_en: new Date().toISOString() }); return encadenarSiguiente() }
       if (chk?.pausar_solicitado) { await persistir({ estado: 'procesando', estado_cola: 'pausada' }); return }
