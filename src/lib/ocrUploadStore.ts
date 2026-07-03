@@ -1,9 +1,11 @@
+// ocrUploadStore v45 — AHORRO SUPABASE + PERSISTENCIA (03/07/26):
+//   · El sondeo a la BD SOLO corre mientras hay una subida o procesamiento en marcha.
+//     En reposo: 1 consulta al abrir la app y listo (realtime cubre el resto).
+//   · Si se hace F5, se cambia de ordenador o de módulo con lotes en cola, el
+//     procesamiento se retoma solo en el servidor al abrir la app.
 // ocrUploadStore v44 — Ley 100%: solo se autocierra el toast cuando el lote
-// terminó sin errores ni achtung. Si hay algo pendiente de verdad, se queda
-// visible hasta que Rubén lo cierre a mano (no puede desaparecer un error solo).
-// ocrUploadStore v43 — PDF >20MB se comprime SOLO en el navegador antes de subir.
-// Si tras comprimir sigue >20MB, se parte en varios PDF por páginas (cada parte <20MB),
-// y cada parte se procesa como un archivo más. El usuario no hace nada.
+// terminó sin errores ni achtung; con errores queda visible hasta cierre manual.
+// ocrUploadStore v43 — PDF >20MB se parte por páginas en el navegador antes de subir.
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -245,6 +247,15 @@ async function cargarSesionesActivas() {
       if (debeAutoCerrar(s)) programarAutoCerrar(s.id)
     }
     rawSessions = nuevas; emit()
+
+    // Poll condicionado a actividad real (ahorro de peticiones a Supabase)
+    const hayActividad = nuevas.some(s => s.procesando) || preparandoLocal.length > 0
+    if (hayActividad) lanzarPoll(); else pararPoll()
+
+    // Persistencia: si hay lotes en cola con archivos ya en el servidor y ningún
+    // worker en marcha (F5, otro ordenador, cambio de módulo), relanzar el worker.
+    const hayCola = nuevas.some(s => s.estadoCola === 'en_espera' && (s.archivosPendientes?.length ?? 0) > 0)
+    if (hayCola && Date.now() - ultimoWorkerMs > 60_000) { ultimoWorkerMs = Date.now(); lanzarWorker() }
     if (typeof window !== 'undefined' && nuevas.some(s => s.procesando)) { try { window.dispatchEvent(new Event('facturas:changed')) } catch {} }
 
     // Detectar sesiones staging interrumpidas (pestaña cerrada durante la subida al Storage).
@@ -279,11 +290,15 @@ function suscribirRealtime() {
   } catch {}
 }
 
-function lanzarPoll() { if (pollTimer) return; pollTimer = window.setInterval(() => { cargarSesionesActivas() }, 3000) }
-function inicializar() { if (inicializado) return; inicializado = true; cargarSesionesActivas(); suscribirRealtime(); lanzarPoll() }
+function lanzarPoll() { if (pollTimer) return; pollTimer = window.setInterval(() => { cargarSesionesActivas() }, 5000) }
+function pararPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
+// AHORRO SUPABASE (03/07/26): el poll SOLO corre mientras hay subida o procesamiento
+// en marcha. En reposo, la app hace 1 consulta al abrir y se apoya en realtime.
+function inicializar() { if (inicializado) return; inicializado = true; cargarSesionesActivas(); suscribirRealtime() }
 if (typeof window !== 'undefined') inicializar()
 
 let errorWorkerGlobal: string | null = null
+let ultimoWorkerMs = 0
 async function lanzarWorker() {
   for (let i = 0; i < 3; i++) {
     try {
@@ -532,6 +547,7 @@ export function useOcrUpload() {
       if (files.length === 0) return
     }
 
+    lanzarPoll() // subida en marcha → seguimiento activo
     const idLocal = `prep_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
     const grupoId = `g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
     const baseOrden = Math.floor(Date.now() / 1000)
