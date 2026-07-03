@@ -1,26 +1,16 @@
-// Worker v24: RELEVO AUTOMÁTICO (auto-encadenado) — la sesión NUNCA muere a mitad.
-//  Causa raíz del parón 03/07/26: el runtime de Edge Functions tiene un límite duro de
-//  tiempo por invocación. Con lotes de miles de archivos (auditoría 16k), el worker
-//  moría a mitad de sesión y la sesión quedaba en 'procesando' con latido caducado.
-//  Nadie volvía a invocar la función (reactivarColgadas solo corre al ser invocada),
-//  así que TODO se paraba hasta que un humano lo tocaba.
-//  FIX v24: (A) el worker vigila su propio reloj; antes de acercarse al límite,
-//  persiste el estado, deja la sesión en 'en_espera' y SE AUTO-REINVOCA (relevo).
-//  (B) tras completar o cancelar, encadena la siguiente como siempre. Resultado:
-//  una cadena de invocaciones cortas que procesa lotes de cualquier tamaño sin morir.
-// Worker v23: CIERRE SOLO AL 100% + manifiesto + estado 'ignorada'.
-//  - Cada archivo procesado actualiza su fila de ocr_manifiesto a estado FINAL
-//    (leida / lectura_manual / duplicada / ignorada / error) con detalle.
-//  - ANTES de marcar la sesión 'completada': verificación contra ocr_manifiesto.
-//    Si quedan filas sin estado final → se reencolan (1 vuelta) y, si tras esa vuelta
-//    siguen sin procesar, se fuerzan a estado final (error / error_subida). NUNCA se
-//    cierra una sesión con filas sin estado final: el cierre es 100% o no es.
-//  - Nuevo estado 'ignorada' (CSV de ingresos / resúmenes): NO cuenta como duplicada.
-//  - Mantiene v22 (auto-repesca a Drive al cerrar) y v20/v21 (candado + latido + pausa Drive).
-// Worker v22: + AUTO-REPESCA al cerrar sesión (dispara archivar-pendientes para subir a
-//  Drive lo que quedó en drive_pendiente por fallos transitorios; el usuario no pulsa nada).
-// Worker v21: Drive desconectado PAUSA y conserva pendientes (Ruben).
-// Worker v20: FIX reproceso en bucle (candado por sesión + latido antes de cada lote).
+// Worker v25: RELEVO AUTOMÁTICO (auto-encadenado) — la sesión NUNCA muere a mitad.
+//  Causa raíz del parón 03/07/26 (auditoría 16k): el runtime de Edge Functions tiene un
+//  límite duro de tiempo por invocación. Con lotes de miles de archivos, el worker moría
+//  a mitad de sesión y la sesión quedaba en 'procesando' con latido caducado. Nadie
+//  volvía a invocar la función (reactivarColgadas solo corre al ser invocada), así que
+//  TODO se paraba hasta que un humano lo tocaba.
+//  FIX v25: el worker vigila su propio reloj; antes de acercarse al límite, persiste el
+//  estado, deja la sesión en 'en_espera' y SE AUTO-REINVOCA (relevo). Resultado: una
+//  cadena de invocaciones cortas que procesa lotes de cualquier tamaño sin morir.
+// Worker v24: + RESUMEN DE VENTAS de plataforma (Uber/Glovo/Just Eat).
+//  - procesarFacturaRemoto reconoce data.tipo_documento==='resumen_ventas' y lo cuenta
+//    como 'ok' (no como factura), mostrando el tipo en el toast ("Resumen de ventas Uber Eats").
+//  - Mantiene v23: CIERRE SOLO AL 100% + manifiesto + estado 'ignorada'.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const PARALELO = 4
@@ -32,7 +22,7 @@ const STORAGE_REINTENTOS = 3
 const STORAGE_BACKOFF_MS = 1500
 const HEARTBEAT_TIMEOUT_MS = 70 * 1000
 const ARCHIVO_TIMEOUT_MS = 45 * 1000
-// v24: presupuesto de tiempo por invocación. Muy por debajo del límite del runtime
+// v25: presupuesto de tiempo por invocación. Muy por debajo del límite del runtime
 // para que SIEMPRE dé tiempo a persistir + auto-reinvocarse (relevo limpio).
 const MAX_RUN_MS = 4 * 60 * 1000
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -54,6 +44,12 @@ function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 function str(x: any): string { return typeof x === 'string' ? x : (x == null ? '' : String(x)) }
 function conTimeout<T>(p: Promise<T>, ms: number, etiqueta: string): Promise<T> {
   return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`timeout ${etiqueta} (${ms}ms)`)), ms))])
+}
+
+// Nombre bonito de plataforma para el toast (la BD guarda el codigo).
+function nombrePlataforma(p: string): string {
+  const m: Record<string, string> = { uber: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat' }
+  return m[p] || p
 }
 
 function esRateLimit(d: any): boolean { const t = str(d).toLowerCase(); return t.includes('429') || t.includes('rate_limit') || t.includes('rate limit') }
@@ -117,6 +113,14 @@ async function procesarFacturaRemoto(item: { name: string; type: string; base64:
       if (esDuplicadoContenido(data?.error)) return { filename: item.name, status: 'duplicado', detalle: 'Ya existe (mismo PDF)' }
       const ach = detectarAchtung(data?.error || '')
       return ach ? { filename: item.name, status: 'achtung', detalle: str(data?.error), achtungTipo: ach.tipo } : { filename: item.name, status: 'error', detalle: `HTTP ${res.status}: ${str(data?.error)}` }
+    }
+    // RESUMEN DE VENTAS de plataforma (Uber/Glovo/Just Eat): NO es factura, va a Ventas.
+    // Se cuenta como OK y el toast muestra el tipo detectado.
+    if (data?.tipo_documento === 'resumen_ventas' && data?.resumen_ventas) {
+      const rv = data.resumen_ventas
+      const plat = nombrePlataforma(str(rv.plataforma))
+      const marca = rv.marca && rv.marca !== 'SIN_MARCA' ? ` · ${rv.marca}` : ''
+      return { filename: item.name, status: 'ok', detalle: `Resumen de ventas ${plat}${marca} · ${rv.bruto}€ (${rv.pedidos} pedidos) → Ventas` }
     }
     if (data?.estado === 'duplicada') {
       const fe = data?.factura_existente
@@ -243,8 +247,6 @@ async function procesarItemNormal(sb: any, item: any, fnName: string, titular: s
   try {
     const buf = await descargarStorage(sb, item.storagePath)
     const base64 = toBase64(buf)
-    // Enrutado por origen: la pestaña de Extractos bancarios SIEMPRE procesa como extracto,
-    // nunca como factura. Cualquier otra pestaña usa el pipeline de factura.
     const result = fnName === 'ocr-procesar-extracto'
       ? await procesarExtractoRemoto({ name: item.name, type: item.type, base64 }, titular)
       : await procesarConReintentos({ name: item.name, type: item.type, base64 })
@@ -295,9 +297,9 @@ async function encadenarSiguiente() {
   }
 }
 
-// v24: RELEVO. Persiste el estado actual, deja la sesión lista para retomar
-// ('en_espera') y se auto-reinvoca con la MISMA sesión. La nueva invocación
-// continúa exactamente por donde iba (archivos_pendientes ya persistidos).
+// v25: RELEVO. La invocación saliente deja la sesión 'en_espera' (ya persistida) y
+// llama a la función de nuevo con la MISMA sesión. La nueva invocación continúa
+// exactamente por donde iba (archivos_pendientes ya persistidos).
 async function pasarRelevo(sessionId: string) {
   try {
     await fetch(`${supabaseUrl}/functions/v1/ocr-procesar-sesion`, {
@@ -307,14 +309,8 @@ async function pasarRelevo(sessionId: string) {
   } catch { /* si falla, reactivarColgadas o el watchdog del cliente la retomarán */ }
 }
 
-// ── MANIFIESTO (cero pérdidas) ─────────────────────────────────────────────
-// Estados finales de una fila de manifiesto. Solo con 0 filas NO-finales se cierra.
 const MANIFIESTO_FINALES = ['leida', 'lectura_manual', 'duplicada', 'ignorada', 'error', 'error_subida']
 
-// Mapea el status del worker → estado final de manifiesto. 'achtung'/'cancelado'
-// devuelven null: NO se marcan finales (achtung global se reintenta al reanudar;
-// la reconciliación los cierra si nunca resuelven). Así nada queda como 'error'
-// falso (p.ej. una factura guardada en drive_pendiente que la repesca sí archiva).
 function estadoManifiesto(status: string): string | null {
   switch (status) {
     case 'ok': return 'leida'
@@ -338,10 +334,6 @@ async function marcarManifiesto(sb: any, sessionId: string, storagePath: string 
 
 function esComprimidoExt(nombre: string): boolean { return ['zip', 'rar', '7z'].includes(getExt(nombre)) }
 
-// Verificación 100%: ¿quedan filas de manifiesto sin estado final? Devuelve la lista
-// de pendientes a REENCOLAR (en_storage no procesados). Cierra como final lo que no se
-// puede procesar: 'registrado' sin storage → error_subida; y, si ya se reintentó una
-// vez, los en_storage que sigan colgados → error. Garantiza terminación (≤1 reintento).
 async function reconciliarManifiesto(sb: any, sessionId: string, yaReconciliado: boolean): Promise<any[]> {
   let noFinal: any[] = []
   try {
@@ -353,9 +345,6 @@ async function reconciliarManifiesto(sb: any, sessionId: string, yaReconciliado:
   } catch { return [] }
   if (noFinal.length === 0) return []
 
-  // Solo se reencola lo REALMENTE subido (estado 'en_storage' + ruta). Un 'registrado'
-  // sin subida confirmada NO se reencola (su archivo no está en el almacén; reprocesarlo
-  // lo leería como "retirado" y lo ocultaría): se cierra como 'error_subida' (visible).
   const aReencolar = noFinal.filter(r => r.estado === 'en_storage' && r.storage_path)
   const nuncaSubidos = noFinal.filter(r => r.estado !== 'en_storage')
 
@@ -366,20 +355,18 @@ async function reconciliarManifiesto(sb: any, sessionId: string, yaReconciliado:
   if (aReencolar.length === 0) return []
 
   if (yaReconciliado) {
-    // 2ª pasada: siguen colgados pese al reintento → cerrar como error (terminación dura).
     for (const r of aReencolar) {
       try { await sb.from('ocr_manifiesto').update({ estado: 'error', detalle: 'no se pudo procesar tras reintento', actualizado: new Date().toISOString() }).eq('id', r.id) } catch {}
     }
     return []
   }
 
-  // 1ª pasada: reencolar los en_storage no procesados.
   return aReencolar.map(r => ({ name: r.nombre, type: getMime(r.nombre), storagePath: r.storage_path, esComprimido: esComprimidoExt(r.nombre) }))
 }
 
 async function trabajarSesion(sessionId: string) {
   const sb = createClient(supabaseUrl, serviceKey)
-  const inicioRun = Date.now() // v24: reloj de la invocación (relevo antes del límite)
+  const inicioRun = Date.now() // v25: reloj de la invocación (relevo antes del límite)
   const { data: ses0 } = await sb.from('ocr_sessions').select('*').eq('id', sessionId).single()
   if (!ses0) return
   let pendientes: any[] = [...((ses0.archivos_pendientes as any[]) || [])]
@@ -419,13 +406,10 @@ async function trabajarSesion(sessionId: string) {
     } else cont.err++
   }
 
-  // Bucle EXTERNO: tras vaciar la cola, se RECONCILIA contra el manifiesto. Si quedan
-  // filas sin estado final (archivos subidos que nunca se procesaron), se reencolan y se
-  // da otra vuelta. Solo se sale (y se cierra 'completada') con 0 filas sin estado final.
   let reconciliadoUnaVez = false
   while (true) {
     while (pendientes.length > 0) {
-      // v24 RELEVO: si esta invocación se acerca a su límite de tiempo, persistir todo,
+      // v25 RELEVO: si esta invocación se acerca a su límite de tiempo, persistir todo,
       // dejar la sesión 'en_espera' y auto-reinvocarse. La sesión NUNCA muere a mitad.
       if (Date.now() - inicioRun > MAX_RUN_MS) {
         await persistir({ estado: 'procesando', estado_cola: 'en_espera' }, false)
@@ -438,9 +422,6 @@ async function trabajarSesion(sessionId: string) {
 
       const bloque = pendientes.slice(0, LOTE)
       pendientes = pendientes.slice(bloque.length)
-      // FIX v20 (A): refrescar el LATIDO al cortar el lote (antes de procesarlo, que puede tardar
-      // >70s). Asi reactivarColgadas() no considera 'colgada' una sesion que en realidad esta
-      // trabajando, y no la reencola para que un 2o worker reprocese los mismos archivos.
       await persistir({}, true)
 
       const normales = bloque.filter(it => !esComprimidoItem(it))
@@ -449,7 +430,6 @@ async function trabajarSesion(sessionId: string) {
         try { return await conTimeout(procesarItemNormal(sb, it, fnName, titular), ARCHIVO_TIMEOUT_MS, 'archivo') }
         catch (e) { const m = e instanceof Error ? e.message : String(e); return { filename: it.name, status: 'error', detalle: m } }
       }))
-      // Aplicar + marcar manifiesto FINAL por archivo (orden preservado por Promise.all).
       for (let i = 0; i < resN.length; i++) {
         aplicar(resN[i])
         await marcarManifiesto(sb, sessionId, normales[i].storagePath, resN[i].status, resN[i].detalle)
@@ -470,20 +450,14 @@ async function trabajarSesion(sessionId: string) {
       if (globalAchtung) {
         const esDrive = (achMsg || '').includes('DRIVE')
         if (esDrive) {
-          // FIX v21: Drive desconectado NO descarta los pendientes. Se PAUSA conservando
-          // archivos_pendientes (los que faltan) + se pide pausa. En cuanto se reconecte
-          // Drive, con "Reanudar" la sesion CONTINUA por donde iba (no se pierde nada).
-          // Los ya guardados como drive_pendiente suben a Drive solos por la repesca.
           await persistir({ estado: 'procesando', estado_cola: 'pausada', pausar_solicitado: true })
           return
         }
-        // creditos/api_key/modelo: parON global (no tiene sentido seguir gastando/fallando).
         pendientes = []; await persistir({ estado: 'error', estado_cola: 'completada', completado_en: new Date().toISOString() }); return encadenarSiguiente()
       }
       await persistir({}, true)
     }
 
-    // VERIFICACIÓN 100% (cero pérdidas): ¿quedan filas de manifiesto sin estado final?
     const refill = await reconciliarManifiesto(sb, sessionId, reconciliadoUnaVez)
     if (refill.length === 0) break
     reconciliadoUnaVez = true
@@ -492,9 +466,6 @@ async function trabajarSesion(sessionId: string) {
   }
 
   await persistir({ estado: 'completada', estado_cola: 'completada', completado_en: new Date().toISOString() })
-  // AUTO-REPESCA: al cerrar la sesión, dispara el barrido que sube a Drive cualquier
-  // factura que quedara en drive_pendiente por un fallo transitorio de Drive durante el
-  // lote. Fire-and-forget: no bloquea ni rompe el cierre. El usuario no pulsa nada.
   try { fetch(`${VERCEL_BASE}/api/facturas?action=archivar-pendientes`, { method: 'GET' }).catch(() => {}) } catch { /* noop */ }
   return encadenarSiguiente()
 }
@@ -527,17 +498,12 @@ Deno.serve(async (req) => {
       sessionId = enEspera.id
     }
     const vivaCutoff = new Date(Date.now() - HEARTBEAT_TIMEOUT_MS).toISOString()
-    // Candado contra OTRA sesion viva (cola en serie: una sesion a la vez).
     const { data: enMarcha } = await sb.from('ocr_sessions').select('id').eq('estado_cola', 'procesando').gte('ultimo_heartbeat', vivaCutoff).neq('id', sessionId).limit(1).maybeSingle()
     if (enMarcha) return new Response(JSON.stringify({ ok: true, en_cola: sessionId, esperando_a: enMarcha.id }), { headers: { ...cors, 'Content-Type': 'application/json' } })
-    // FIX v20 (B): candado POR-SESION. Si ESTA misma sesion ya esta viva procesando, no arrancar
-    // un 2o worker sobre ella (esa doble entrada era la que releia la lista y reprocesaba).
     const { data: yo } = await sb.from('ocr_sessions').select('estado_cola, ultimo_heartbeat').eq('id', sessionId).maybeSingle()
     if (yo?.estado_cola === 'procesando' && yo.ultimo_heartbeat && yo.ultimo_heartbeat >= vivaCutoff) {
       return new Response(JSON.stringify({ ok: true, ya_procesando: sessionId }), { headers: { ...cors, 'Content-Type': 'application/json' } })
     }
-    // Marcar procesando + latido ATOMICAMENTE antes de arrancar, para cerrar la ventana en la que
-    // dos invocaciones casi simultaneas podrian arrancar dos workers sobre la misma sesion.
     await sb.from('ocr_sessions').update({ estado: 'procesando', estado_cola: 'procesando', ultimo_heartbeat: new Date().toISOString() }).eq('id', sessionId)
     EdgeRuntime.waitUntil(trabajarSesion(sessionId))
     return new Response(JSON.stringify({ ok: true, sessionId }), { headers: { ...cors, 'Content-Type': 'application/json' } })
