@@ -195,7 +195,7 @@ export default function CocinaInventario() {
   // ─── RENDER LISTA ─────────────────────────────────────────────────────────
   if (vista === 'lista') {
     return (
-      <div style={{ background: '#111111', minHeight: '100vh', padding: '24px 28px' }}>
+      <div style={{ background: 'var(--sl-app)', minHeight: '100vh', padding: '24px 28px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
           <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', textTransform: 'uppercase', color: '#B01D23', margin: 0 }}>
             Inventario Cocina
@@ -225,18 +225,18 @@ export default function CocinaInventario() {
         </div>
 
         {cargandoInv ? (
-          <div style={{ fontFamily: FONT.body, fontSize: 13, color: '#5a6880', padding: '32px 0' }}>Cargando…</div>
+          <div style={{ fontFamily: FONT.body, fontSize: 13, color: 'var(--sl-text-muted)', padding: '32px 0' }}>Cargando…</div>
         ) : inventarios.length === 0 ? (
-          <div style={{ background: '#141414', border: '0.5px solid #2a3050', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
-            <div style={{ fontFamily: FONT.heading, fontSize: 16, color: '#5a6880', letterSpacing: 1, marginBottom: 8 }}>Sin inventarios</div>
-            <div style={{ fontFamily: FONT.body, fontSize: 13, color: '#5a6880' }}>Crea el primer inventario para empezar</div>
+          <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
+            <div style={{ fontFamily: FONT.heading, fontSize: 16, color: 'var(--sl-text-muted)', letterSpacing: 1, marginBottom: 8 }}>Sin inventarios</div>
+            <div style={{ fontFamily: FONT.body, fontSize: 13, color: 'var(--sl-text-muted)' }}>Crea el primer inventario para empezar</div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {inventarios.map(inv => (
               <div
                 key={inv.id}
-                style={{ background: '#141414', border: '0.5px solid #2a3050', borderRadius: 12, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}
+                style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <span style={{
@@ -254,10 +254,10 @@ export default function CocinaInventario() {
                     {inv.estado}
                   </span>
                   <div>
-                    <div style={{ fontFamily: FONT.heading, fontSize: 14, color: '#f0f0ff', letterSpacing: '1px' }}>
+                    <div style={{ fontFamily: FONT.heading, fontSize: 14, color: 'var(--sl-text-primary)', letterSpacing: '1px' }}>
                       {new Date(inv.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
                     </div>
-                    <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#5a6880', marginTop: 2 }}>
+                    <div style={{ fontFamily: FONT.body, fontSize: 12, color: 'var(--sl-text-muted)', marginTop: 2 }}>
                       {inv.usuario}
                     </div>
                   </div>
@@ -265,7 +265,7 @@ export default function CocinaInventario() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     onClick={() => handleVerDetalle(inv)}
-                    style={{ padding: '8px 16px', borderRadius: 8, border: '0.5px solid #2a3050', background: '#1a1f32', color: '#9ba8c0', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', minHeight: 36 }}
+                    style={{ padding: '8px 16px', borderRadius: 8, border: '0.5px solid var(--sl-border)', background: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', minHeight: 36 }}
                   >
                     Ver
                   </button>
@@ -291,49 +291,49 @@ export default function CocinaInventario() {
   if (vista === 'detalle' && inventarioActivo) {
     const totalCoste = lineasDetalle.reduce((s, l) => s + ((l.cantidad ?? 0) * (l.coste_unitario ?? 0)), 0)
     return (
-      <div style={{ background: '#111111', minHeight: '100vh', padding: '24px 28px' }}>
+      <div style={{ background: 'var(--sl-app)', minHeight: '100vh', padding: '24px 28px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
-          <button onClick={() => setVista('lista')} style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #2a3050', background: '#1a1f32', color: '#9ba8c0', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', minHeight: 36 }}>
+          <button onClick={() => setVista('lista')} style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid var(--sl-border)', background: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', minHeight: 36 }}>
             ← Volver
           </button>
           <div>
             <h2 style={{ fontFamily: FONT.heading, fontSize: 18, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', margin: 0 }}>
               Inventario {new Date(inventarioActivo.fecha + 'T12:00:00').toLocaleDateString('es-ES')}
             </h2>
-            <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#5a6880', marginTop: 2 }}>
+            <div style={{ fontFamily: FONT.body, fontSize: 12, color: 'var(--sl-text-muted)', marginTop: 2 }}>
               {inventarioActivo.usuario} · <span style={{ color: inventarioActivo.estado === 'ABIERTO' ? '#e8f442' : '#1D9E75' }}>{inventarioActivo.estado}</span>
             </div>
           </div>
-          <div style={{ marginLeft: 'auto', fontFamily: FONT.heading, fontSize: 14, color: '#f0f0ff', letterSpacing: '1px' }}>
+          <div style={{ marginLeft: 'auto', fontFamily: FONT.heading, fontSize: 14, color: 'var(--sl-text-primary)', letterSpacing: '1px' }}>
             Total coste: <span style={{ color: '#e8f442' }}>{fmtEur(totalCoste)}</span>
           </div>
         </div>
-        <div style={{ background: '#141414', border: '0.5px solid #2a3050', borderRadius: 14, overflowX: 'auto' }}>
+        <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 14, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontFamily: FONT.body, fontSize: 13, minWidth: 500 }}>
             <thead>
-              <tr style={{ background: '#0a0a0a' }}>
-                <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#5a6880', borderBottom: '0.5px solid #2a3050' }}>IDING</th>
-                <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#5a6880', borderBottom: '0.5px solid #2a3050' }}>Nombre</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#5a6880', borderBottom: '0.5px solid #2a3050' }}>Cantidad</th>
-                <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#5a6880', borderBottom: '0.5px solid #2a3050' }}>Unidad</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#5a6880', borderBottom: '0.5px solid #2a3050' }}>Coste unit.</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#5a6880', borderBottom: '0.5px solid #2a3050' }}>Total</th>
+              <tr style={{ background: 'var(--sl-thead)' }}>
+                <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', borderBottom: '0.5px solid var(--sl-border)' }}>IDING</th>
+                <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', borderBottom: '0.5px solid var(--sl-border)' }}>Nombre</th>
+                <th style={{ padding: '10px 16px', textAlign: 'right', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', borderBottom: '0.5px solid var(--sl-border)' }}>Cantidad</th>
+                <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', borderBottom: '0.5px solid var(--sl-border)' }}>Unidad</th>
+                <th style={{ padding: '10px 16px', textAlign: 'right', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', borderBottom: '0.5px solid var(--sl-border)' }}>Coste unit.</th>
+                <th style={{ padding: '10px 16px', textAlign: 'right', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', borderBottom: '0.5px solid var(--sl-border)' }}>Total</th>
               </tr>
             </thead>
             <tbody>
               {lineasDetalle.length === 0 ? (
-                <tr><td colSpan={6} style={{ padding: '32px 16px', textAlign: 'center', color: '#5a6880' }}>Sin líneas registradas</td></tr>
+                <tr><td colSpan={6} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--sl-text-muted)' }}>Sin líneas registradas</td></tr>
               ) : lineasDetalle.map((l, i) => {
                 const isLast = i === lineasDetalle.length - 1
                 const total = (l.cantidad ?? 0) * (l.coste_unitario ?? 0)
                 return (
                   <tr key={l.id ?? l.iding}>
-                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid #2a3050', color: '#9ba8c0', fontFamily: FONT.heading, fontSize: 12 }}>{l.iding}</td>
-                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid #2a3050', color: '#f0f0ff' }}>{l.nombre ?? l.iding}</td>
-                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid #2a3050', textAlign: 'right', color: '#f0f0ff' }}>{l.cantidad ?? '—'}</td>
-                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid #2a3050', color: '#9ba8c0' }}>{l.unidad}</td>
-                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid #2a3050', textAlign: 'right', color: '#9ba8c0', fontFamily: FONT.heading, fontSize: 12 }}>{l.coste_unitario != null ? fmtEur(l.coste_unitario) : '—'}</td>
-                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid #2a3050', textAlign: 'right', color: '#e8f442', fontFamily: FONT.heading, fontSize: 13 }}>{fmtEur(total)}</td>
+                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid var(--sl-border)', color: 'var(--sl-text-secondary)', fontFamily: FONT.heading, fontSize: 12 }}>{l.iding}</td>
+                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid var(--sl-border)', color: 'var(--sl-text-primary)' }}>{l.nombre ?? l.iding}</td>
+                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid var(--sl-border)', textAlign: 'right', color: 'var(--sl-text-primary)' }}>{l.cantidad ?? '—'}</td>
+                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid var(--sl-border)', color: 'var(--sl-text-secondary)' }}>{l.unidad}</td>
+                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid var(--sl-border)', textAlign: 'right', color: 'var(--sl-text-secondary)', fontFamily: FONT.heading, fontSize: 12 }}>{l.coste_unitario != null ? fmtEur(l.coste_unitario) : '—'}</td>
+                    <td style={{ padding: '9px 16px', borderBottom: isLast ? 'none' : '0.5px solid var(--sl-border)', textAlign: 'right', color: '#e8f442', fontFamily: FONT.heading, fontSize: 13 }}>{fmtEur(total)}</td>
                   </tr>
                 )
               })}
@@ -346,9 +346,9 @@ export default function CocinaInventario() {
 
   // ─── RENDER NUEVO ──────────────────────────────────────────────────────────
   return (
-    <div style={{ background: '#111111', minHeight: '100vh', padding: '24px 28px' }}>
+    <div style={{ background: 'var(--sl-app)', minHeight: '100vh', padding: '24px 28px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
-        <button onClick={() => setVista('lista')} style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #2a3050', background: '#1a1f32', color: '#9ba8c0', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', minHeight: 36 }}>
+        <button onClick={() => setVista('lista')} style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid var(--sl-border)', background: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', minHeight: 36 }}>
           ← Volver
         </button>
         <h2 style={{ fontFamily: FONT.heading, fontSize: 18, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', margin: 0 }}>
@@ -363,35 +363,35 @@ export default function CocinaInventario() {
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
           placeholder="Buscar por nombre o IDING…"
-          style={{ width: '100%', maxWidth: 400, padding: '10px 14px', borderRadius: 10, border: '0.5px solid #2a3050', background: '#1a1f32', color: '#f0f0ff', fontFamily: FONT.body, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+          style={{ width: '100%', maxWidth: 400, padding: '10px 14px', borderRadius: 10, border: '0.5px solid var(--sl-border)', background: 'var(--sl-input-edit)', color: 'var(--sl-text-primary)', fontFamily: FONT.body, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
         />
       </div>
 
       {cargandoIng ? (
-        <div style={{ fontFamily: FONT.body, fontSize: 13, color: '#5a6880', padding: '32px 0' }}>Cargando ingredientes…</div>
+        <div style={{ fontFamily: FONT.body, fontSize: 13, color: 'var(--sl-text-muted)', padding: '32px 0' }}>Cargando ingredientes…</div>
       ) : (
         <>
-          <div style={{ background: '#141414', border: '0.5px solid #2a3050', borderRadius: 14, overflowX: 'auto', marginBottom: 20 }}>
+          <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 14, overflowX: 'auto', marginBottom: 20 }}>
             <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontFamily: FONT.body, fontSize: 13, minWidth: 480 }}>
               <thead>
-                <tr style={{ background: '#0a0a0a' }}>
-                  <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#5a6880', borderBottom: '0.5px solid #2a3050' }}>IDING</th>
-                  <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#5a6880', borderBottom: '0.5px solid #2a3050' }}>Nombre</th>
-                  <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#5a6880', borderBottom: '0.5px solid #2a3050' }}>Unidad</th>
-                  <th style={{ padding: '10px 16px', textAlign: 'center', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#5a6880', borderBottom: '0.5px solid #2a3050', width: 130 }}>Cantidad</th>
+                <tr style={{ background: 'var(--sl-thead)' }}>
+                  <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', borderBottom: '0.5px solid var(--sl-border)' }}>IDING</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', borderBottom: '0.5px solid var(--sl-border)' }}>Nombre</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', borderBottom: '0.5px solid var(--sl-border)' }}>Unidad</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'center', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', borderBottom: '0.5px solid var(--sl-border)', width: 130 }}>Cantidad</th>
                 </tr>
               </thead>
               <tbody>
                 {lineasFiltradas.length === 0 ? (
-                  <tr><td colSpan={4} style={{ padding: '32px 16px', textAlign: 'center', color: '#5a6880' }}>Sin resultados</td></tr>
+                  <tr><td colSpan={4} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--sl-text-muted)' }}>Sin resultados</td></tr>
                 ) : lineasFiltradas.map((l, i) => {
                   const isLast = i === lineasFiltradas.length - 1
                   return (
                     <tr key={l.iding}>
-                      <td style={{ padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #2a3050', color: '#9ba8c0', fontFamily: FONT.heading, fontSize: 12 }}>{l.iding}</td>
-                      <td style={{ padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #2a3050', color: '#f0f0ff' }}>{l.nombre}</td>
-                      <td style={{ padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #2a3050', color: '#9ba8c0' }}>{l.unidad}</td>
-                      <td style={{ padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #2a3050', textAlign: 'center' }}>
+                      <td style={{ padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid var(--sl-border)', color: 'var(--sl-text-secondary)', fontFamily: FONT.heading, fontSize: 12 }}>{l.iding}</td>
+                      <td style={{ padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid var(--sl-border)', color: 'var(--sl-text-primary)' }}>{l.nombre}</td>
+                      <td style={{ padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid var(--sl-border)', color: 'var(--sl-text-secondary)' }}>{l.unidad}</td>
+                      <td style={{ padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid var(--sl-border)', textAlign: 'center' }}>
                         <input
                           type="number"
                           min="0"
@@ -399,7 +399,7 @@ export default function CocinaInventario() {
                           value={l.cantidad === null ? '' : l.cantidad}
                           onChange={e => handleCantidadChange(l.iding, e.target.value)}
                           placeholder="—"
-                          style={{ width: 90, padding: '6px 10px', borderRadius: 8, border: '0.5px solid #2a3050', background: '#1a1f32', color: '#f0f0ff', fontFamily: FONT.body, fontSize: 13, outline: 'none', textAlign: 'right' }}
+                          style={{ width: 90, padding: '6px 10px', borderRadius: 8, border: '0.5px solid var(--sl-border)', background: 'var(--sl-input-edit)', color: 'var(--sl-text-primary)', fontFamily: FONT.body, fontSize: 13, outline: 'none', textAlign: 'right' }}
                         />
                       </td>
                     </tr>
@@ -412,7 +412,7 @@ export default function CocinaInventario() {
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <button
               onClick={() => setVista('lista')}
-              style={{ padding: '12px 24px', borderRadius: 8, border: '0.5px solid #2a3050', background: '#1a1f32', color: '#9ba8c0', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', minHeight: 44 }}
+              style={{ padding: '12px 24px', borderRadius: 8, border: '0.5px solid var(--sl-border)', background: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', minHeight: 44 }}
             >
               Cancelar
             </button>
