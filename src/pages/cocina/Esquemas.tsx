@@ -58,12 +58,47 @@ const GREY_BG: [number, number, number] = [226, 226, 226]
 const INK_C: [number, number, number] = [26, 26, 26]
 const CARD_R = 2.2 // radio de esquina de las tarjetas (mm) — mismo look redondeado que la vista en pantalla
 
+// Fuentes reales de la foto (Anton para titulos, Barlow Semi Condensed para cuerpo).
+// Se cargan bajo demanda al imprimir y se cachean; si fallan, el PDF cae a Helvetica.
+const FUENTES_ESQUEMAS_URLS: Record<string, string> = {
+  anton: 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/anton@0.4.2/400Regular/Anton_400Regular.ttf',
+  barlow: 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/barlow-semi-condensed@0.4.1/600SemiBold/BarlowSemiCondensed_600SemiBold.ttf',
+  barlowBold: 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/barlow-semi-condensed@0.4.1/700Bold/BarlowSemiCondensed_700Bold.ttf',
+}
+let _fuentesEsquemasCache: Record<string, string> | null = null
+async function cargarFuentesEsquemas(): Promise<Record<string, string> | null> {
+  if (_fuentesEsquemasCache) return _fuentesEsquemasCache
+  try {
+    const pares = await Promise.all(Object.entries(FUENTES_ESQUEMAS_URLS).map(async ([k, u]) => {
+      const r = await fetch(u)
+      if (!r.ok) throw new Error('font ' + k)
+      const bytes = new Uint8Array(await r.arrayBuffer())
+      let bin = ''
+      const CH = 0x8000
+      for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CH)))
+      return [k, btoa(bin)] as const
+    }))
+    _fuentesEsquemasCache = Object.fromEntries(pares)
+    return _fuentesEsquemasCache
+  } catch { return null }
+}
+function registrarFuentesEsquemas(doc: jsPDF, fonts: Record<string, string> | null): boolean {
+  if (!fonts) return false
+  try {
+    doc.addFileToVFS('AntonEsq.ttf', fonts.anton); doc.addFont('AntonEsq.ttf', 'Anton', 'normal')
+    doc.addFileToVFS('BarlowEsq.ttf', fonts.barlow); doc.addFont('BarlowEsq.ttf', 'BarlowSC', 'normal')
+    doc.addFileToVFS('BarlowEsqB.ttf', fonts.barlowBold); doc.addFont('BarlowEsqB.ttf', 'BarlowSC', 'bold')
+    return true
+  } catch { return false }
+}
+
 function alturaCard(e: Esquema): number {
   return 8 + e.lineas.length * 4.4 + 3
 }
 
-function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[]) {
+function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[], fonts: Record<string, string> | null) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const emb = registrarFuentesEsquemas(doc, fonts)
   const PW = doc.internal.pageSize.getWidth()
   const PH = doc.internal.pageSize.getHeight()
   const M = 8, bandH = 12, footerH = 14
@@ -97,10 +132,10 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[]) {
     if (pi > 0) doc.addPage()
     // banda de gama (en cada página de la gama), nombre centrado
     doc.setFillColor(...INK_C); doc.roundedRect(M, M, usableW, bandH, 2, 2, 'F')
-    doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255)
+    doc.setFont(emb ? 'BarlowSC' : 'helvetica', 'bold'); doc.setTextColor(255, 255, 255)
     let fs = 20; doc.setFontSize(fs)
     while (fs > 11 && doc.getTextWidth(pg.gama.toUpperCase()) > usableW - 32) { fs -= 1; doc.setFontSize(fs) }
-    doc.text(pg.gama.toUpperCase(), PW / 2, M + bandH - 3.6, { align: 'center' })
+    doc.text(pg.gama.toUpperCase(), PW / 2, M + bandH - 3.6, { align: 'center', charSpace: emb ? 0.6 : 0 })
     doc.setFontSize(15)
     doc.text(`${pg.gp}/${pg.gt}`, PW - M - 4, M + bandH - 3.6, { align: 'right' })
 
@@ -114,7 +149,7 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[]) {
         doc.setFillColor(...GREY_BG); doc.roundedRect(x, cy, colW, 8, CARD_R, CARD_R, 'F')
         doc.setFillColor(...GREY_BG); doc.rect(x, cy + 4, colW, 4, 'F') // tapa el redondeo inferior de la cabecera para que case con la raya
         doc.setDrawColor(...INK_C); doc.line(x, cy + 8, x + colW, cy + 8)
-        doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK_C)
+        doc.setFont(emb ? 'Anton' : 'helvetica', emb ? 'normal' : 'bold'); doc.setTextColor(...INK_C)
         let tf = 12; doc.setFontSize(tf)
         while (tf > 7 && doc.getTextWidth(e.nombre) > colW - 4) { tf -= 0.5; doc.setFontSize(tf) }
         doc.text(e.nombre, x + colW / 2, cy + 5.7, { align: 'center' })
@@ -126,10 +161,10 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[]) {
             doc.setDrawColor(...INK_C); doc.setLineWidth(0.4)
             if (!prevAccion) doc.line(x + 4, ly + 0.5, x + colW - 4, ly + 0.5)
             if (!nextAccion) doc.line(x + 4, ly + 4, x + colW - 4, ly + 4)
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(9)
+            doc.setFont(emb ? 'BarlowSC' : 'helvetica', 'bold'); doc.setFontSize(9)
             doc.text(l.texto, x + colW / 2, ly + 3.2, { align: 'center' })
           } else {
-            doc.setFont('helvetica', 'normal'); let lf = 9; doc.setFontSize(lf)
+            doc.setFont(emb ? 'BarlowSC' : 'helvetica', 'normal'); let lf = 9; doc.setFontSize(lf)
             while (lf > 6 && doc.getTextWidth(l.texto) > colW - 3) { lf -= 0.5; doc.setFontSize(lf) }
             doc.text(l.texto, x + colW / 2, ly + 3.1, { align: 'center' })
           }
@@ -139,7 +174,7 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[]) {
     })
 
     // contador general GRANDE, centrado abajo
-    doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK_C); doc.setFontSize(24)
+    doc.setFont(emb ? 'BarlowSC' : 'helvetica', 'bold'); doc.setTextColor(...INK_C); doc.setFontSize(24)
     doc.text(`${pi + 1} / ${total}`, PW / 2, PH - 5, { align: 'center' })
   })
 
@@ -193,17 +228,21 @@ export default function Esquemas() {
     esquemas.filter(e => e.gama === gamaActiva && (verHistorico ? e.estado !== 'vigente' : e.estado === 'vigente'))
     , [esquemas, gamaActiva, verHistorico])
 
-  function imprimir() {
+  async function imprimir() {
     const platos = esquemas.filter(e => e.gama === gamaActiva && e.estado === 'vigente')
-    if (platos.length) construirEsquemasPDF([{ nombre: gamaActiva, platos }])
+    if (!platos.length) return
+    const fonts = await cargarFuentesEsquemas()
+    construirEsquemasPDF([{ nombre: gamaActiva, platos }], fonts)
   }
-  function imprimirTodo() {
+  async function imprimirTodo() {
     const orden = ['Asiática', 'Casera', 'Raciones', 'Binagre', 'Italiana', 'Green', 'French Tacos']
     const nombres = Array.from(new Set([...orden, ...gamas.map(g => g.nombre)]))
     const grupos = nombres
       .map(n => ({ nombre: n, platos: esquemas.filter(e => e.gama === n && e.estado === 'vigente') }))
       .filter(x => x.platos.length > 0)
-    if (grupos.length) construirEsquemasPDF(grupos)
+    if (!grupos.length) return
+    const fonts = await cargarFuentesEsquemas()
+    construirEsquemasPDF(grupos, fonts)
   }
 
   if (loading) return <div style={{ padding: 32, color: T.sec, fontFamily: FONT.body }}>Cargando esquemas…</div>
