@@ -5,17 +5,11 @@
  * descarga las ventas del día anterior por marca y plataforma, y las deja en
  * la tabla de aterrizaje `ingesta_robot_diaria` (NO toca tablas de conciliación).
  *
- * Ejecución:
- *   - GitHub Actions (cron diario)  -> credenciales desde Secrets del repo
- *   - Local:  tsx scripts/robot-ingesta/robot.ts        (lee .env.local)
- *   - Diagnóstico: DIAG=1 tsx scripts/robot-ingesta/robot.ts
- *       (guarda capturas/HTML en ./robot-artifacts; el navegador SIGUE siendo
- *        headless para que funcione en servidores sin pantalla como GitHub Actions)
- *
  * ESTADO CALIBRACIÓN (2026-07-03):
- *   - SINQRO login: CALIBRADO con HTML real (id=login-email, id=login-password,
- *     id=loginButton "Access"). Falta calibrar la pantalla de ventas.
- *   - RUSHOUR: URL de login pendiente (la probada devolvió página en blanco).
+ *   - SINQRO login: CALIBRADO (id=login-email, id=login-password, id=loginButton).
+ *   - RUSHOUR login: URL corregida a https://manager.rushour.io/login (pendiente
+ *     ver HTML real de sus campos y de su pantalla de ventas).
+ *   - Pantallas de ventas de ambos: pendientes de calibrar con nuevas capturas.
  */
 
 import { chromium, Browser, Page } from 'playwright';
@@ -32,26 +26,26 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const CFG = {
   rushour: {
     nombre: 'rushour',
-    loginUrl: 'https://app.rushour.io/login',          // CALIBRAR — URL real pendiente
+    loginUrl: 'https://manager.rushour.io/login',      // CALIBRADO (URL real)
     user: process.env.RUSHOUR_USER || '',
     pass: process.env.RUSHOUR_PASS || '',
     sel: {
-      userInput: 'input[type="email"], input[name="email"]',   // CALIBRAR
+      userInput: 'input[type="email"], input[name="email"], input[type="text"]',  // CALIBRAR con HTML
       passInput: 'input[type="password"]',                     // CALIBRAR
-      submitBtn: 'button[type="submit"]',                      // CALIBRAR
-      reportUrl: 'https://app.rushour.io/reports/sales',       // CALIBRAR
+      submitBtn: 'button[type="submit"], button',              // CALIBRAR
+      reportUrl: 'https://manager.rushour.io/',                // CALIBRAR pantalla ventas
       rows: 'table tbody tr',                                  // CALIBRAR
     },
   },
   sinqro: {
     nombre: 'sinqro',
-    loginUrl: 'https://dash.sinqro.com/',              // CALIBRADO (HTML real)
+    loginUrl: 'https://dash.sinqro.com/',              // CALIBRADO
     user: process.env.SINQRO_USER || '',
     pass: process.env.SINQRO_PASS || '',
     sel: {
       userInput: '#login-email',                              // CALIBRADO
       passInput: '#login-password',                           // CALIBRADO
-      submitBtn: '#loginButton',                              // CALIBRADO ("Access")
+      submitBtn: '#loginButton',                              // CALIBRADO
       reportUrl: 'https://dash.sinqro.com/#/orders',          // CALIBRAR pantalla ventas
       rows: 'table tbody tr',                                 // CALIBRAR
     },
@@ -62,7 +56,7 @@ const CFG = {
 function ayer(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  return d.toISOString().slice(0, 10);
 }
 
 function ensureArtDir() {
