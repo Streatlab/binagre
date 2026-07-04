@@ -12,13 +12,12 @@
 // El idioma es español (spa). El worker cachea el modelo en /tmp (único FS
 // escribible en serverless).
 //
-// FIX 03/07/26 (auditoría 16k): TODOS los escaneados fallaban con
-// "The API version 4.10.38 does not match the Worker version 4.6.82".
-// Causa: otro módulo del bundle deja en GlobalWorkerOptions un worker de una
-// versión distinta a la del pdf.mjs importado aquí (singleton compartido).
-// Fix: antes de abrir el PDF, forzar que el workerSrc apunte EXACTAMENTE al
-// worker del mismo paquete que la API (misma versión garantizada). El import
-// con literal además obliga a Vercel a incluir el fichero del worker en el bundle.
+// FIX 04/07/26: TODO rasterizado de PDF escaneado moría en producción con
+// "The API version 4.10.38 does not match the Worker version 4.6.82": otro
+// módulo del proceso dejaba registrado en GlobalWorkerOptions un worker de
+// pdfjs de una versión distinta a la API importada aquí. Fix: antes de abrir
+// el documento, forzamos que el worker sea EXACTAMENTE el del mismo paquete
+// que la API (resolución local por createRequire), garantizando versión idéntica.
 
 const MAX_PAGINAS_OCR = 3      // facturas suelen ser 1-2 pág; tope anti-timeout
 const ESCALA_RASTER = 2.0      // 2x: legibilidad sin disparar memoria
@@ -44,28 +43,35 @@ export async function ocrImagen(buffer: Buffer): Promise<string> {
   }
 }
 
+// FIX 04/07/26: alinear API y worker de pdfjs al MISMO paquete instalado.
+// Sin esto, un workerSrc "heredado" de otro módulo (versión distinta) rompe
+// TODO el rasterizado con mismatch de versiones. Best-effort: si la resolución
+// falla, se deja lo que haya (y el catch general degrada a lectura manual).
+async function alinearWorkerPdfjs(pdfjs: any): Promise<void> {
+  try {
+    const { createRequire } = await import('node:module')
+    const { pathToFileURL } = await import('node:url')
+    const req = createRequire(import.meta.url)
+    const workerPath = req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
+    if (pdfjs?.GlobalWorkerOptions) {
+      pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
+      // Anular cualquier puerto de worker heredado de otra versión.
+      try { pdfjs.GlobalWorkerOptions.workerPort = null } catch { /* noop */ }
+    }
+  } catch (e) {
+    console.error('[alinearWorkerPdfjs] no se pudo fijar workerSrc:', e instanceof Error ? e.message : String(e))
+  }
+}
+
 // Rasteriza un PDF escaneado a PNG (primeras páginas) y le pasa Tesseract.
 export async function ocrPdfEscaneado(buffer: Buffer): Promise<string> {
   try {
     // import dinámico con cast a any: la subruta legacy de pdfjs no expone
     // typings y romperia `tsc -b`. En runtime resuelve perfectamente.
     const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
+    await alinearWorkerPdfjs(pdfjs)
     const canvasMod: any = await import('@napi-rs/canvas')
     const createCanvas = canvasMod.createCanvas
-
-    // FIX 03/07/26: alinear API y Worker a la MISMA versión del MISMO paquete.
-    // Sin esto, un workerSrc heredado de otro módulo (versión distinta) rompe
-    // TODO el rasterizado con "API version X does not match Worker version Y".
-    try {
-      const { createRequire } = await import('node:module')
-      const { pathToFileURL } = await import('node:url')
-      const req = createRequire(import.meta.url)
-      // Import con literal: garantiza que Vercel empaquete el fichero del worker.
-      await import('pdfjs-dist/legacy/build/pdf.worker.mjs' as string).catch(() => null)
-      if (pdfjs.GlobalWorkerOptions) {
-        pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')).href
-      }
-    } catch { /* best-effort: si falla, se intenta con la config previa */ }
 
     const uint8 = new Uint8Array(buffer)
     const loadingTask = pdfjs.getDocument({ data: uint8, useSystemFonts: true })
