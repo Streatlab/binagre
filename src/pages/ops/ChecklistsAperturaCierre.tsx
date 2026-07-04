@@ -1,15 +1,21 @@
 /**
- * Checklists Operativos — Apertura / Cierres / Limpiezas / Recepción / Histórico
+ * Checklists Operativos — estética Neobrutal Food-Pop (tokens de @/styles/neobrutal).
  *
- * - 6 checklists diarios/semanales con plantillas editables (checklist_plantillas).
- * - Impresión en blanco (A4) para rellenar a boli en cocina.
- * - Lectura por foto: se sube la foto del papel rellenado y /api/checklists
- *   (visión Anthropic) marca automáticamente los items cumplidos.
+ * - 6 checklists (apertura, cierres, limpiezas, recepción) con plantillas editables.
+ * - Impresión bajo la LEY DE IMPRESIÓN (src/lib/impresion.ts + docs/LEY_IMPRESION.md).
+ * - Lectura por foto: /api/checklists (visión) autorrellena lo cumplido.
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FONT } from '@/styles/tokens'
+import {
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD,
+  GRANATE, AMA, VERDE, ROJO, GRIS, eyebrow,
+} from '@/styles/neobrutal'
+import {
+  nuevoDocA4, pintarMarco, pintarCabecera, pintarCamposId, pintarPie,
+  abrirImprimir, descargar, P_INK, P_GREY, P_LINE, P_WRITE, P_RED_SOFT2, P_RED_DARK, MARGEN, BOX,
+} from '@/lib/impresion'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -165,9 +171,9 @@ function fmtFechaCorta(dateStr: string): string {
 }
 
 function progressColor(pct: number): string {
-  if (pct < 30) return '#B01D23'
-  if (pct < 70) return '#f5a623'
-  return '#1D9E75'
+  if (pct < 30) return ROJO
+  if (pct < 70) return AMA
+  return VERDE
 }
 
 // Redimensiona la foto a máx 1568px de lado largo y devuelve base64 JPEG.
@@ -201,67 +207,51 @@ function comprimirFoto(file: File): Promise<{ base64: string; mime: string }> {
   })
 }
 
-// Genera e imprime la versión en papel (en blanco) del checklist.
-function imprimirChecklist(tipo: TipoChecklist, nombres: string[]) {
-  const filas = nombres.map((n, i) => `
-    <tr>
-      <td class="num">${i + 1}</td>
-      <td class="check"><div class="box"></div></td>
-      <td class="nombre">${n}</td>
-      <td class="obs"></td>
-    </tr>`).join('')
+// ─── PDF del checklist (LEY DE IMPRESIÓN) ─────────────────────────────────────
 
-  const html = `<!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8"><title>Checklist ${TIPO_LABEL[tipo]}</title>
-<style>
-  @page { size: A4; margin: 14mm; }
-  * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; }
-  h1 { font-size: 20px; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 2px; }
-  .sub { font-size: 11px; color: #555; margin-bottom: 14px; }
-  .campos { display: flex; gap: 24px; margin-bottom: 14px; font-size: 13px; }
-  .campos .campo { flex: 1; border-bottom: 1px solid #111; padding-bottom: 3px; }
-  .campos .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #555; display:block; margin-bottom: 6px; }
-  table { width: 100%; border-collapse: collapse; }
-  th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #555; border-bottom: 2px solid #111; padding: 4px 6px; }
-  td { border-bottom: 1px solid #999; padding: 7px 6px; font-size: 13px; vertical-align: middle; }
-  td.num { width: 26px; color: #555; font-size: 11px; }
-  td.check { width: 40px; }
-  .box { width: 22px; height: 22px; border: 2px solid #111; }
-  td.obs { width: 32%; }
-  .footer { margin-top: 16px; font-size: 13px; }
-  .footer .linea { border-bottom: 1px solid #111; height: 42px; margin-top: 6px; }
-  .footer .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #555; }
-  .firma { display:flex; gap: 24px; margin-top: 18px; }
-  .firma > div { flex: 1; }
-  .aviso { margin-top: 12px; font-size: 10px; color: #777; }
-</style></head><body>
-  <h1>Checklist · ${TIPO_LABEL[tipo]}</h1>
-  <div class="sub">Streat Lab · C/ Pico de la Maliciosa 6 · Marca con X la casilla de cada punto cumplido</div>
-  <div class="campos">
-    <div class="campo"><span class="lbl">Fecha</span>&nbsp;</div>
-    <div class="campo"><span class="lbl">Responsable</span>&nbsp;</div>
-    <div class="campo"><span class="lbl">Hora</span>&nbsp;</div>
-  </div>
-  <table>
-    <thead><tr><th></th><th>OK</th><th>Punto de control</th><th>Observación</th></tr></thead>
-    <tbody>${filas}</tbody>
-  </table>
-  <div class="footer">
-    <span class="lbl">Observaciones / Incidencias</span>
-    <div class="linea"></div>
-  </div>
-  <div class="firma">
-    <div><span class="lbl" style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#555;">Firma responsable</span><div class="linea" style="border-bottom:1px solid #111;height:42px;margin-top:6px;"></div></div>
-  </div>
-  <div class="aviso">Al terminar: haz una foto de esta hoja (plana y con luz) y súbela en el ERP → Ops → Checklists. Se rellena solo.</div>
-<script>window.onload = function(){ window.print(); }</script>
-</body></html>`
+function construirChecklistPDF(tipo: TipoChecklist, nombres: string[]) {
+  const doc = nuevoDocA4('portrait')
+  const PW = doc.internal.pageSize.getWidth()
+  const PH = doc.internal.pageSize.getHeight()
+  const usableW = PW - MARGEN * 2
 
-  const w = window.open('', '_blank', 'width=900,height=1100')
-  if (!w) { alert('El navegador ha bloqueado la ventana de impresión. Permite pop-ups para binagre.vercel.app.'); return }
-  w.document.write(html)
-  w.document.close()
+  let y = pintarCabecera(doc, `Checklist · ${TIPO_LABEL[tipo]}`, 'C/ Pico de la Maliciosa 6')
+  y = pintarCamposId(doc, y, ['Fecha', 'Responsable', 'Hora'])
+
+  // Subcabecera de la tabla
+  doc.setFillColor(...P_RED_SOFT2); doc.rect(MARGEN, y, usableW, 6, 'F')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...P_RED_DARK)
+  doc.text('OK', MARGEN + 9, y + 4)
+  doc.text('PUNTO DE CONTROL', MARGEN + 22, y + 4)
+  doc.text('OBSERVACIÓN', MARGEN + usableW * 0.66, y + 4)
+  y += 8
+
+  // Filas: altura adaptada para caber en una hoja dejando sitio al pie (40mm)
+  const dispon = PH - MARGEN - 42 - y
+  const rowH = Math.max(8, Math.min(12, dispon / Math.max(nombres.length, 1)))
+
+  nombres.forEach((nombre, i) => {
+    // número
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...P_GREY)
+    doc.text(String(i + 1), MARGEN + 2, y + rowH / 2 + 1.2)
+    // casilla
+    doc.setDrawColor(...P_INK); doc.setLineWidth(0.5)
+    doc.rect(MARGEN + 7, y + (rowH - BOX) / 2, BOX, BOX)
+    // nombre
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(...P_INK)
+    doc.text(nombre, MARGEN + 22, y + rowH / 2 + 1.4)
+    // línea de observación
+    doc.setDrawColor(...P_WRITE); doc.setLineWidth(0.3)
+    doc.line(MARGEN + usableW * 0.66, y + rowH - 2.2, MARGEN + usableW - 2, y + rowH - 2.2)
+    // separador
+    doc.setDrawColor(...P_LINE); doc.setLineWidth(0.15)
+    doc.line(MARGEN, y + rowH, MARGEN + usableW, y + rowH)
+    y += rowH
+  })
+
+  pintarPie(doc, 'Al terminar: foto de la hoja (plana, con luz) → ERP · Ops · Checklists. Se rellena solo.')
+  pintarMarco(doc)
+  return doc
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -283,7 +273,7 @@ export default function ChecklistsAperturaCierre() {
   const [msgFoto, setMsgFoto] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ─── Load checklist for active tab ──────────────────────────────────────────
+  // ─── Carga ───────────────────────────────────────────────────────────────────
 
   const cargarChecklist = useCallback(async (tipo: TipoChecklist) => {
     setLoading(true)
@@ -536,43 +526,55 @@ export default function ChecklistsAperturaCierre() {
   const pct = totalItems > 0 ? Math.round((completadosCount / totalItems) * 100) : 0
   const todoCompleto = totalItems > 0 && completadosCount === totalItems
 
-  const btnPrimario: React.CSSProperties = { padding: '8px 16px', background: '#e8f442', color: '#111111', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }
-  const btnSecundario: React.CSSProperties = { padding: '8px 16px', background: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }
+  // ─── Estilos neobrutal ───────────────────────────────────────────────────────
+
+  const btnBase: React.CSSProperties = {
+    fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase',
+    border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '9px 16px', cursor: 'pointer', color: INK,
+  }
+  const btnPrimario: React.CSSProperties = { ...btnBase, background: AMA }
+  const btnSecundario: React.CSSProperties = { ...btnBase, background: CLARO }
+  const btnGranate: React.CSSProperties = { ...btnBase, background: GRANATE, color: '#ffffff' }
+  const inputNeo: React.CSSProperties = {
+    padding: '9px 12px', background: '#ffffff', border: `3px solid ${INK}`, color: INK,
+    fontFamily: LEX, fontSize: 14, outline: 'none',
+  }
+  const card: React.CSSProperties = { background: '#ffffff', border: BORDER_CARD, boxShadow: SHADOW }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: '#111111', minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: LEX, padding: '28px', background: CREMA, minHeight: '100vh', color: INK }}>
 
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>
+      <div style={{ marginBottom: 20 }}>
+        <span style={eyebrow(AMA)}>OPERACIONES</span>
+        <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
           CHECKLISTS OPERATIVOS
         </h1>
-        <span style={{ fontFamily: FONT.body, fontSize: 13, color: '#777777' }}>
+        <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>
           {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
         </span>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             style={{
-              padding: '7px 18px',
-              borderRadius: 20,
-              border: 'none',
-              background: activeTab === tab.key ? '#e8f442' : '#1e1e1e',
-              color: activeTab === tab.key ? '#111111' : '#cccccc',
-              fontFamily: FONT.heading,
+              padding: '8px 16px',
+              border: `3px solid ${INK}`,
+              background: activeTab === tab.key ? GRANATE : '#ffffff',
+              color: activeTab === tab.key ? '#ffffff' : INK,
+              boxShadow: activeTab === tab.key ? SHADOW : 'none',
+              fontFamily: OSW,
               fontSize: 13,
               fontWeight: 600,
               letterSpacing: '1px',
               textTransform: 'uppercase',
               cursor: 'pointer',
-              transition: 'all 150ms',
             }}
           >
             {tab.label}
@@ -580,26 +582,26 @@ export default function ChecklistsAperturaCierre() {
         ))}
       </div>
 
-      {/* Error state */}
+      {/* Error */}
       {error && (
-        <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: '#ffaaaa', fontSize: 13, marginBottom: 20 }}>
+        <div style={{ ...card, background: ROJO, color: '#ffffff', padding: '12px 18px', fontFamily: LEX, fontSize: 13, marginBottom: 20 }}>
           {error}
         </div>
       )}
 
       {/* Loading */}
       {loading && (
-        <div style={{ color: '#777777', fontSize: 13, padding: '20px 0' }}>Cargando…</div>
+        <div style={{ color: GRIS, fontFamily: OSW, textTransform: 'uppercase', letterSpacing: '1px', fontSize: 13, padding: '20px 0' }}>Cargando…</div>
       )}
 
-      {/* ─── Histórico Tab ─────────────────────────────────────────────── */}
+      {/* ─── Histórico ─────────────────────────────────────────────── */}
       {!loading && !error && activeTab === 'historico' && (
-        <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #2a2a2a' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div style={{ ...card, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
             <thead>
-              <tr style={{ background: '#0a0a0a' }}>
-                {['Fecha', 'Tipo', 'Responsable', 'Completados', '%', 'Origen', 'Estado', 'Foto'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777', fontWeight: 600, borderBottom: '1px solid #2a2a2a' }}>
+              <tr style={{ background: INK }}>
+                {['Fecha', 'Tipo', 'Responsable', 'Puntos', '%', 'Origen', 'Estado', 'Foto'].map(h => (
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, fontWeight: 600 }}>
                     {h}
                   </th>
                 ))}
@@ -608,31 +610,31 @@ export default function ChecklistsAperturaCierre() {
             <tbody>
               {historico.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: '20px 14px', color: '#777777', textAlign: 'center' }}>Sin registros aún</td>
+                  <td colSpan={8} style={{ padding: '20px 14px', color: GRIS, textAlign: 'center' }}>Sin registros aún</td>
                 </tr>
-              ) : historico.map((h, i) => {
+              ) : historico.map(h => {
                 const p = h.items_totales > 0 ? Math.round((h.items_completados / h.items_totales) * 100) : 0
                 return (
-                  <tr key={h.id} style={{ background: i % 2 === 0 ? '#111111' : '#141414', borderBottom: '1px solid #2a2a2a' }}>
-                    <td style={{ padding: '10px 14px', fontFamily: FONT.body }}>{fmtFechaCorta(h.fecha)}</td>
-                    <td style={{ padding: '10px 14px', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: '#cccccc' }}>{TIPO_LABEL[h.tipo as TipoChecklist] ?? h.tipo}</td>
-                    <td style={{ padding: '10px 14px', color: '#cccccc' }}>{h.responsable || '—'}</td>
-                    <td style={{ padding: '10px 14px' }}>{h.items_completados}/{h.items_totales}</td>
-                    <td style={{ padding: '10px 14px', color: progressColor(p), fontWeight: 600 }}>{p}%</td>
+                  <tr key={h.id} style={{ borderBottom: `2px solid ${INK}` }}>
+                    <td style={{ padding: '10px 14px' }}>{fmtFechaCorta(h.fecha)}</td>
+                    <td style={{ padding: '10px 14px', fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase' }}>{TIPO_LABEL[h.tipo as TipoChecklist] ?? h.tipo}</td>
+                    <td style={{ padding: '10px 14px' }}>{h.responsable || '—'}</td>
+                    <td style={{ padding: '10px 14px', fontFamily: OSW, fontWeight: 700 }}>{h.items_completados}/{h.items_totales}</td>
                     <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontSize: 11, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', color: h.origen === 'foto' ? '#e8f442' : '#777777' }}>
-                        {h.origen === 'foto' ? '📷 Foto' : 'Manual'}
-                      </span>
+                      <span style={{ fontFamily: OSW, fontWeight: 700, color: '#ffffff', background: progressColor(p), border: `2px solid ${INK}`, padding: '2px 8px' }}>{p}%</span>
+                    </td>
+                    <td style={{ padding: '10px 14px', fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: h.origen === 'foto' ? GRANATE : GRIS }}>
+                      {h.origen === 'foto' ? '📷 Foto' : 'Manual'}
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       <span style={{
-                        background: h.completado ? '#1D9E7522' : '#B01D2322',
-                        color: h.completado ? '#1D9E75' : '#B01D23',
-                        border: `1px solid ${h.completado ? '#1D9E75' : '#B01D23'}`,
-                        padding: '2px 10px',
-                        borderRadius: 12,
+                        background: h.completado ? VERDE : ROJO,
+                        color: '#ffffff',
+                        border: `2px solid ${INK}`,
+                        padding: '3px 10px',
                         fontSize: 11,
-                        fontFamily: FONT.heading,
+                        fontFamily: OSW,
+                        fontWeight: 600,
                         letterSpacing: '1px',
                         textTransform: 'uppercase',
                       }}>
@@ -641,8 +643,8 @@ export default function ChecklistsAperturaCierre() {
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       {h.foto_url
-                        ? <a href={h.foto_url} target="_blank" rel="noreferrer" style={{ color: '#e8f442', fontSize: 12 }}>Ver</a>
-                        : <span style={{ color: '#444444' }}>—</span>}
+                        ? <a href={h.foto_url} target="_blank" rel="noreferrer" style={{ color: GRANATE, fontFamily: OSW, fontWeight: 600, textTransform: 'uppercase', fontSize: 12 }}>Ver</a>
+                        : <span style={{ color: GRIS }}>—</span>}
                     </td>
                   </tr>
                 )
@@ -652,23 +654,29 @@ export default function ChecklistsAperturaCierre() {
         </div>
       )}
 
-      {/* ─── Checklist Tab ─────────────────────────────────────────────── */}
+      {/* ─── Checklist del día ─────────────────────────────────────── */}
       {!loading && !error && activeTab !== 'historico' && !modoEdicion && (
         <div>
-          {/* Barra acciones: imprimir + foto + responsable */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Acciones */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
             <button
-              onClick={() => imprimirChecklist(activeTab as TipoChecklist, items.map(i => i.item_nombre))}
+              onClick={() => imprimirDesde(activeTab as TipoChecklist, items.map(i => i.item_nombre), 'imprimir')}
               style={btnSecundario}
             >
-              🖨 Imprimir en blanco
+              🖨 Imprimir
+            </button>
+            <button
+              onClick={() => imprimirDesde(activeTab as TipoChecklist, items.map(i => i.item_nombre), 'descargar')}
+              style={btnSecundario}
+            >
+              ⬇ PDF
             </button>
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={subiendoFoto}
               style={{ ...btnPrimario, opacity: subiendoFoto ? 0.6 : 1 }}
             >
-              {subiendoFoto ? 'Leyendo foto…' : '📷 Subir foto del checklist'}
+              {subiendoFoto ? 'Leyendo foto…' : '📷 Subir foto'}
             </button>
             <input
               ref={fileInputRef}
@@ -678,71 +686,60 @@ export default function ChecklistsAperturaCierre() {
               style={{ display: 'none' }}
               onChange={e => onFotoSeleccionada(e.target.files?.[0] ?? null)}
             />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: '#777777' }}>Responsable</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+              <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>Responsable</span>
               <input
                 type="text"
                 defaultValue={ejecucion?.responsable ?? ''}
                 onBlur={e => guardarResponsable(e.target.value.trim())}
                 placeholder="Nombre..."
-                style={{ padding: '7px 12px', background: '#1e1e1e', border: '1px solid #383838', borderRadius: 6, color: '#ffffff', fontFamily: FONT.body, fontSize: 13, outline: 'none', width: 140 }}
+                style={{ ...inputNeo, width: 150 }}
               />
             </div>
           </div>
 
           {/* Mensaje resultado foto */}
           {msgFoto && (
-            <div style={{ background: msgFoto.startsWith('Foto leída') ? '#1D9E7520' : '#2d1515', border: `1px solid ${msgFoto.startsWith('Foto leída') ? '#1D9E75' : '#aa3030'}`, borderRadius: 8, padding: '10px 16px', fontSize: 13, marginBottom: 16, color: msgFoto.startsWith('Foto leída') ? '#aaffdd' : '#ffaaaa' }}>
+            <div style={{ ...card, background: msgFoto.startsWith('Foto leída') ? VERDE : ROJO, color: '#ffffff', padding: '10px 16px', fontSize: 13, marginBottom: 16, fontFamily: LEX }}>
               {msgFoto}
             </div>
           )}
 
-          {/* Incidencias leídas de la foto */}
+          {/* Incidencias */}
           {ejecucion?.incidencias && (
-            <div style={{ background: '#f5a62315', border: '1px solid #f5a623', borderRadius: 8, padding: '10px 16px', fontSize: 13, marginBottom: 16, color: '#ffd894' }}>
-              <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: '#f5a623', marginRight: 8 }}>Incidencias</span>
+            <div style={{ ...card, background: AMA, padding: '10px 16px', fontSize: 13, marginBottom: 16 }}>
+              <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', marginRight: 10 }}>Incidencias</span>
               {ejecucion.incidencias}
             </div>
           )}
 
-          {/* Progress bar */}
+          {/* Progreso */}
           {ejecucion && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777' }}>
+            <div style={{ ...card, padding: '16px 18px', marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+                <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>
                   Progreso
                 </span>
-                <span style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: progressColor(pct) }}>
-                  {completadosCount}/{totalItems} — {pct}%
+                <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 28, lineHeight: 1, color: progressColor(pct) }}>
+                  {completadosCount}/{totalItems} <span style={{ fontSize: 18 }}>— {pct}%</span>
                 </span>
               </div>
-              <div style={{ background: '#2a2a2a', borderRadius: 6, height: 10, overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%',
-                  width: `${pct}%`,
-                  background: progressColor(pct),
-                  borderRadius: 6,
-                  transition: 'width 0.4s ease',
-                }} />
+              <div style={{ background: CLARO, border: `2px solid ${INK}`, height: 16, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pct}%`, background: progressColor(pct), borderRight: pct > 0 && pct < 100 ? `2px solid ${INK}` : 'none', transition: 'width 0.4s ease' }} />
               </div>
               {todoCompleto && (
-                <div style={{ marginTop: 14, background: '#1D9E7520', border: '1px solid #1D9E75', borderRadius: 8, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 22 }}>✓</span>
-                  <div>
-                    <div style={{ fontFamily: FONT.heading, fontSize: 14, letterSpacing: '1px', textTransform: 'uppercase', color: '#1D9E75', fontWeight: 700 }}>
-                      COMPLETADO
-                    </div>
-                    <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#cccccc', marginTop: 2 }}>
-                      Todos los items del checklist han sido verificados.
-                    </div>
-                  </div>
+                <div style={{ marginTop: 14, background: VERDE, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 22, color: '#ffffff' }}>✓</span>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: '#ffffff' }}>
+                    Checklist completado
+                  </span>
                 </div>
               )}
             </div>
           )}
 
           {/* Items */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
             {items.map(item => (
               <div
                 key={item.id}
@@ -752,37 +749,34 @@ export default function ChecklistsAperturaCierre() {
                   alignItems: 'center',
                   gap: 14,
                   padding: '12px 16px',
-                  borderRadius: 8,
-                  border: `1px solid ${item.completado ? '#1D9E7530' : '#2a2a2a'}`,
-                  background: item.completado ? '#1D9E7515' : '#141414',
+                  border: BORDER_CARD,
+                  boxShadow: item.completado ? 'none' : SHADOW,
+                  background: item.completado ? CLARO : '#ffffff',
                   cursor: 'pointer',
-                  transition: 'all 150ms',
                   userSelect: 'none',
                 }}
               >
                 <div style={{
                   width: 28,
                   height: 28,
-                  borderRadius: 6,
-                  border: `2px solid ${item.completado ? '#1D9E75' : '#383838'}`,
-                  background: item.completado ? '#1D9E75' : 'transparent',
+                  border: `3px solid ${INK}`,
+                  background: item.completado ? VERDE : '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexShrink: 0,
-                  transition: 'all 150ms',
                 }}>
                   {item.completado && (
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M2 7L6 11L12 3" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M2 7L6 11L12 3" stroke="#ffffff" strokeWidth="3" strokeLinecap="square" />
                     </svg>
                   )}
                 </div>
 
                 <span style={{
-                  fontFamily: FONT.body,
-                  fontSize: 14,
-                  color: item.completado ? '#777777' : '#ffffff',
+                  fontFamily: LEX,
+                  fontSize: 15,
+                  color: item.completado ? GRIS : INK,
                   textDecoration: item.completado ? 'line-through' : 'none',
                   flex: 1,
                 }}>
@@ -790,7 +784,7 @@ export default function ChecklistsAperturaCierre() {
                 </span>
 
                 {item.completado_at && (
-                  <span style={{ fontFamily: FONT.heading, fontSize: 12, color: '#1D9E75', letterSpacing: '0.5px', flexShrink: 0 }}>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, color: VERDE, flexShrink: 0 }}>
                     {fmtHora(item.completado_at)}
                   </span>
                 )}
@@ -798,9 +792,9 @@ export default function ChecklistsAperturaCierre() {
             ))}
           </div>
 
-          {/* Add temp item */}
+          {/* Añadir item temporal */}
           {showAddTemp ? (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
               <input
                 type="text"
                 value={nuevoItemTempNombre}
@@ -808,63 +802,45 @@ export default function ChecklistsAperturaCierre() {
                 onKeyDown={e => e.key === 'Enter' && addItemTemp()}
                 placeholder="Nombre del item temporal..."
                 autoFocus
-                style={{
-                  flex: 1, minWidth: 200, padding: '8px 12px', background: '#1e1e1e', border: '1px solid #383838',
-                  borderRadius: 6, color: '#ffffff', fontFamily: FONT.body, fontSize: 13, outline: 'none',
-                }}
+                style={{ ...inputNeo, flex: 1, minWidth: 200 }}
               />
-              <button onClick={addItemTemp} style={btnPrimario}>
-                Añadir
-              </button>
-              <button onClick={() => { setShowAddTemp(false); setNuevoItemTempNombre('') }} style={{ padding: '8px 14px', background: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }}>
-                Cancelar
-              </button>
+              <button onClick={addItemTemp} style={btnPrimario}>Añadir</button>
+              <button onClick={() => { setShowAddTemp(false); setNuevoItemTempNombre('') }} style={btnSecundario}>Cancelar</button>
             </div>
           ) : (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button onClick={() => setShowAddTemp(true)} style={btnPrimario}>
-                + Añadir item temporal
-              </button>
-              <button onClick={toggleModoEdicion} style={btnSecundario}>
-                Editar plantilla
-              </button>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <button onClick={() => setShowAddTemp(true)} style={btnPrimario}>+ Item temporal</button>
+              <button onClick={toggleModoEdicion} style={btnSecundario}>Editar plantilla</button>
             </div>
           )}
         </div>
       )}
 
-      {/* ─── Modo edición plantilla ─────────────────────────────────────── */}
+      {/* ─── Edición plantilla ─────────────────────────────────────── */}
       {!loading && !error && activeTab !== 'historico' && modoEdicion && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-            <h2 style={{ fontFamily: FONT.heading, fontSize: 15, letterSpacing: '2px', textTransform: 'uppercase', color: '#e8f442', margin: 0 }}>
-              EDITANDO PLANTILLA — {TIPO_LABEL[activeTab as TipoChecklist].toUpperCase()}
-            </h2>
-            <button
-              onClick={toggleModoEdicion}
-              style={{ padding: '7px 16px', background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}
-            >
-              Guardar y cerrar
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+            <span style={eyebrow(AMA)}>EDITANDO PLANTILLA — {TIPO_LABEL[activeTab as TipoChecklist].toUpperCase()}</span>
+            <button onClick={toggleModoEdicion} style={btnGranate}>Guardar y cerrar</button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
             {plantillas.length === 0 && (
-              <div style={{ color: '#777777', fontSize: 13, padding: '12px 0', fontFamily: FONT.body }}>
+              <div style={{ color: GRIS, fontSize: 13, padding: '12px 0', fontFamily: LEX }}>
                 No hay items en la plantilla. Añade items con el botón de abajo.
               </div>
             )}
             {plantillas.map((p, idx) => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8 }}>
-                <span style={{ fontFamily: FONT.heading, fontSize: 12, color: '#777777', minWidth: 24, textAlign: 'right' }}>
+              <div key={p.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', boxShadow: 'none' }}>
+                <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, color: GRIS, minWidth: 24, textAlign: 'right' }}>
                   {idx + 1}
                 </span>
-                <span style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: '#cccccc' }}>
+                <span style={{ flex: 1, fontFamily: LEX, fontSize: 14 }}>
                   {p.nombre}
                 </span>
                 <button
                   onClick={() => deleteItemPlantilla(p.id)}
-                  style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #B01D23', color: '#B01D23', borderRadius: 4, fontFamily: FONT.body, fontSize: 11, cursor: 'pointer' }}
+                  style={{ padding: '4px 10px', background: '#ffffff', border: `2px solid ${ROJO}`, color: ROJO, fontFamily: OSW, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', cursor: 'pointer' }}
                 >
                   Eliminar
                 </button>
@@ -873,7 +849,7 @@ export default function ChecklistsAperturaCierre() {
           </div>
 
           {showAddPlantilla ? (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <input
                 type="text"
                 value={nuevoItemPlantillaNombre}
@@ -881,22 +857,23 @@ export default function ChecklistsAperturaCierre() {
                 onKeyDown={e => e.key === 'Enter' && addItemPlantilla()}
                 placeholder="Nombre del item de plantilla..."
                 autoFocus
-                style={{ flex: 1, minWidth: 200, padding: '8px 12px', background: '#1e1e1e', border: '1px solid #383838', borderRadius: 6, color: '#ffffff', fontFamily: FONT.body, fontSize: 13, outline: 'none' }}
+                style={{ ...inputNeo, flex: 1, minWidth: 200 }}
               />
-              <button onClick={addItemPlantilla} style={btnPrimario}>
-                Añadir
-              </button>
-              <button onClick={() => { setShowAddPlantilla(false); setNuevoItemPlantillaNombre('') }} style={{ padding: '8px 14px', background: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }}>
-                Cancelar
-              </button>
+              <button onClick={addItemPlantilla} style={btnPrimario}>Añadir</button>
+              <button onClick={() => { setShowAddPlantilla(false); setNuevoItemPlantillaNombre('') }} style={btnSecundario}>Cancelar</button>
             </div>
           ) : (
-            <button onClick={() => setShowAddPlantilla(true)} style={btnPrimario}>
-              + Añadir item
-            </button>
+            <button onClick={() => setShowAddPlantilla(true)} style={btnPrimario}>+ Añadir item</button>
           )}
         </div>
       )}
     </div>
   )
+}
+
+// Genera el PDF bajo la LEY DE IMPRESIÓN y lo imprime o descarga.
+function imprimirDesde(tipo: TipoChecklist, nombres: string[], modo: 'imprimir' | 'descargar') {
+  const doc = construirChecklistPDF(tipo, nombres)
+  if (modo === 'imprimir') abrirImprimir(doc)
+  else descargar(doc, `checklist-${TIPO_LABEL[tipo]}`)
 }
