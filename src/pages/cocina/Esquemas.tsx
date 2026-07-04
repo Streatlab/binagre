@@ -91,7 +91,7 @@ function registrarFuentesEsquemas(doc: jsPDF, fonts: Record<string, string> | nu
 }
 
 function alturaCard(e: Esquema): number {
-  const cuerpo = e.lineas.reduce((s, l) => s + (l.tipo === 'accion' ? 6.2 : 4.6), 0)
+  const cuerpo = e.lineas.reduce((s, l) => s + (l.tipo === 'accion' ? 7.6 : 4.6), 0)
   return 9 + cuerpo + 3
 }
 
@@ -158,11 +158,11 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[], f
             const prevAccion = li > 0 && e.lineas[li - 1].tipo === 'accion'
             const nextAccion = li < e.lineas.length - 1 && e.lineas[li + 1].tipo === 'accion'
             doc.setDrawColor(...INK_C); doc.setLineWidth(0.4)
-            if (!prevAccion) doc.line(x + 4, ly + 0.9, x + colW - 4, ly + 0.9)
-            if (!nextAccion) doc.line(x + 4, ly + 5.4, x + colW - 4, ly + 5.4)
+            if (!prevAccion) doc.line(x + 4, ly + 1.8, x + colW - 4, ly + 1.8)
+            if (!nextAccion) doc.line(x + 4, ly + 6.4, x + colW - 4, ly + 6.4)
             doc.setFont(emb ? 'Oswald' : 'helvetica', 'bold'); doc.setFontSize(10.5)
-            doc.text(l.texto, x + colW / 2, ly + 3.95, { align: 'center' })
-            ly += 6.2
+            doc.text(l.texto, x + colW / 2, ly + 5.4, { align: 'center' })
+            ly += 7.6
           } else {
             doc.setFont(emb ? 'BarlowSC' : 'helvetica', 'normal'); let lf = 10.5; doc.setFontSize(lf)
             while (lf > 7 && doc.getTextWidth(l.texto) > colW - 3) { lf -= 0.5; doc.setFontSize(lf) }
