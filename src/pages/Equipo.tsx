@@ -5,12 +5,14 @@ import TabNominas from './equipo/TabNominas'
 import TabCalendarioLaboral from './equipo/TabCalendarioLaboral'
 import TabPermisos from './equipo/TabPermisos'
 import TabPortal from './equipo/TabPortal'
+import TabIncentivos from './equipo/TabIncentivos'
 
-type TabKey = 'empleados' | 'nominas' | 'calendario' | 'permisos' | 'portal'
+type TabKey = 'empleados' | 'nominas' | 'incentivos' | 'calendario' | 'permisos' | 'portal'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'empleados',  label: 'Empleados' },
   { key: 'nominas',    label: 'Nóminas' },
+  { key: 'incentivos', label: 'Incentivos' },
   { key: 'calendario', label: 'Calendario laboral' },
   { key: 'permisos',   label: 'Permisos' },
   { key: 'portal',     label: 'Portal' },
@@ -47,6 +49,7 @@ export default function Equipo() {
       <div>
         {activeTab === 'empleados'  && <TabEmpleados />}
         {activeTab === 'nominas'    && <TabNominas />}
+        {activeTab === 'incentivos' && <TabIncentivos />}
         {activeTab === 'calendario' && <TabCalendarioLaboral />}
         {activeTab === 'permisos'   && <TabPermisos />}
         {activeTab === 'portal'     && <TabPortal />}
