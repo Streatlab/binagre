@@ -3,7 +3,7 @@
  * Estetica CANONICA validada por Ruben (jul-2026): Oswald Bold en titulo/gama/nubes
  * + Barlow Semi Condensed en ingredientes, banda gris del plato con titulo centrado,
  * banda negra de gama con contador X/Y, contador total, tarjeta redondeada y nubes
- * (MICRO/FREIDORA...) con aire entre texto y rayas.
+ * (MICRO/FREIDORA...) SIEMPRE en mayusculas y con aire entre texto y rayas.
  * PROHIBIDO cambiar el look de impresion, las fuentes o las medidas de la tarjeta sin
  * que Ruben lo pida EXPLICITAMENTE. Registro: Notion "Modulos blindados - Binagre".
  * ============================================================================== */
@@ -181,7 +181,7 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[], f
             doc.setDrawColor(...INK_C); doc.setLineWidth(0.4)
             doc.line(x + 4, ly + 1.3, x + colW - 4, ly + 1.3)
             doc.setFont(emb ? 'Oswald' : 'helvetica', 'bold'); doc.setFontSize(10.5)
-            for (let a = 0; a < k; a++) doc.text(e.lineas[li + a].texto, x + colW / 2, ly + 5.6 + a * 3.9, { align: 'center' })
+            for (let a = 0; a < k; a++) doc.text(e.lineas[li + a].texto.toUpperCase(), x + colW / 2, ly + 5.6 + a * 3.9, { align: 'center' })
             const ultima = ly + 5.6 + (k - 1) * 3.9
             doc.line(x + 4, ultima + 1.6, x + colW - 4, ultima + 1.6)
             ly += 8.5 + (k - 1) * 3.9
@@ -379,7 +379,7 @@ function TarjetaEsquema({ esquema: e, T, isDark, onEdit, onChange }: { esquema: 
               borderBottom: nextAccion ? 'none' : brd,
               padding: '2px 0',
               marginTop: prevAccion ? 0 : 5, marginBottom: nextAccion ? 0 : 5, marginLeft: 8, marginRight: 8,
-              letterSpacing: '1px',
+              letterSpacing: '1px', textTransform: 'uppercase',
             }}>{l.texto}</div>
           )
         })}
