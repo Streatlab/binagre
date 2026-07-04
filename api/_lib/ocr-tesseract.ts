@@ -11,6 +11,14 @@
 // y el flujo de procesarArchivo degrada la factura a lectura manual SIN romperse.
 // El idioma es español (spa). El worker cachea el modelo en /tmp (único FS
 // escribible en serverless).
+//
+// FIX 03/07/26 (auditoría 16k): TODOS los escaneados fallaban con
+// "The API version 4.10.38 does not match the Worker version 4.6.82".
+// Causa: otro módulo del bundle deja en GlobalWorkerOptions un worker de una
+// versión distinta a la del pdf.mjs importado aquí (singleton compartido).
+// Fix: antes de abrir el PDF, forzar que el workerSrc apunte EXACTAMENTE al
+// worker del mismo paquete que la API (misma versión garantizada). El import
+// con literal además obliga a Vercel a incluir el fichero del worker en el bundle.
 
 const MAX_PAGINAS_OCR = 3      // facturas suelen ser 1-2 pág; tope anti-timeout
 const ESCALA_RASTER = 2.0      // 2x: legibilidad sin disparar memoria
@@ -44,6 +52,20 @@ export async function ocrPdfEscaneado(buffer: Buffer): Promise<string> {
     const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
     const canvasMod: any = await import('@napi-rs/canvas')
     const createCanvas = canvasMod.createCanvas
+
+    // FIX 03/07/26: alinear API y Worker a la MISMA versión del MISMO paquete.
+    // Sin esto, un workerSrc heredado de otro módulo (versión distinta) rompe
+    // TODO el rasterizado con "API version X does not match Worker version Y".
+    try {
+      const { createRequire } = await import('node:module')
+      const { pathToFileURL } = await import('node:url')
+      const req = createRequire(import.meta.url)
+      // Import con literal: garantiza que Vercel empaquete el fichero del worker.
+      await import('pdfjs-dist/legacy/build/pdf.worker.mjs' as string).catch(() => null)
+      if (pdfjs.GlobalWorkerOptions) {
+        pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')).href
+      }
+    } catch { /* best-effort: si falla, se intenta con la config previa */ }
 
     const uint8 = new Uint8Array(buffer)
     const loadingTask = pdfjs.getDocument({ data: uint8, useSystemFonts: true })
