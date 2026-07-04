@@ -578,16 +578,14 @@ export default function TabResumen({
   }, [gastos, presupuestosBD, presupuestosGrupo, netoEstimado, fechaDesde, fechaHasta])
 
   const diasPico: DiaPico[] = useMemo(() => {
-    const m = toLocalDateStr(new Date()).slice(0, 7)
     const acum = [0, 0, 0, 0, 0, 0, 0]
-    for (const r of rowsAll) {
-      if (!r.fecha.startsWith(m)) continue
+    for (const r of rowsPeriodo) {
       const d = parseLocalDate(r.fecha)
       const idx = (d.getDay() + 6) % 7
       acum[idx] += r.total_bruto || 0
     }
     return acum.map((v, i) => ({ idx: i, nombre: NOMBRES_DIAS[i], valor: v, color: COLORES_DIAS[i] }))
-  }, [rowsAll])
+  }, [rowsPeriodo])
   const mediaDiariaPico = useMemo(() => {
     const validos = diasPico.filter(d => d.valor > 0)
     if (validos.length === 0) return 0

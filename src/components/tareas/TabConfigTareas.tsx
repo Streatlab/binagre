@@ -10,11 +10,13 @@ interface TareaPeriodica {
   dia_esperado: number | null
   modulo_destino: string | null
   activa: boolean
+  responsable: string | null
   created_at: string
 }
 
 const FRECUENCIAS = ['diaria', 'semanal', 'quincenal', 'mensual', 'trimestral'] as const
-const MODULOS = ['importador', 'conciliacion', 'general']
+const MODULOS = ['importador', 'conciliacion', 'operativo', 'general']
+const RESPONSABLES = ['Rubén', 'Emilio', 'Ambos']
 
 const EMPTY_FORM: Omit<TareaPeriodica, 'id' | 'created_at'> = {
   nombre: '',
@@ -23,6 +25,7 @@ const EMPTY_FORM: Omit<TareaPeriodica, 'id' | 'created_at'> = {
   dia_esperado: 1,
   modulo_destino: 'importador',
   activa: true,
+  responsable: 'Rubén',
 }
 
 export default function TabConfigTareas() {
@@ -61,6 +64,7 @@ export default function TabConfigTareas() {
       dia_esperado: t.dia_esperado ?? 1,
       modulo_destino: t.modulo_destino ?? 'importador',
       activa: t.activa,
+      responsable: t.responsable ?? 'Rubén',
     })
     setModalOpen(true)
   }
@@ -75,6 +79,7 @@ export default function TabConfigTareas() {
       dia_esperado: Number(form.dia_esperado) || 1,
       modulo_destino: form.modulo_destino || 'general',
       activa: form.activa,
+      responsable: form.responsable || 'Rubén',
     }
     if (editando) {
       await supabase.from('tareas_periodicas').update(payload).eq('id', editando.id)
@@ -113,6 +118,12 @@ export default function TabConfigTareas() {
     display: 'block',
   }
 
+  const RESPONSABLE_COLORS: Record<string, string> = {
+    'Rubén': '#B01D23',
+    'Emilio': '#e8f442',
+    'Ambos': '#484f66',
+  }
+
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
       <div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -149,7 +160,7 @@ export default function TabConfigTareas() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
             <tr style={{ background: '#0a0a0a' }}>
-              {['Nombre', 'Frecuencia', 'Día', 'Módulo', 'Estado', 'Acciones'].map(h => (
+              {['Nombre', 'Responsable', 'Frecuencia', 'Día', 'Módulo', 'Estado', 'Acciones'].map(h => (
                 <th
                   key={h}
                   style={{
@@ -175,6 +186,17 @@ export default function TabConfigTareas() {
                 style={{ background: idx % 2 === 0 ? '#111111' : '#141414', borderBottom: `1px solid #2a2a2a`, opacity: t.activa ? 1 : 0.5 }}
               >
                 <td style={{ padding: '10px 12px', color: '#ffffff' }}>{t.nombre}</td>
+                <td style={{ padding: '10px 12px' }}>
+                  <span style={{
+                    padding: '3px 10px',
+                    borderRadius: 4,
+                    background: (RESPONSABLE_COLORS[t.responsable ?? ''] ?? '#888') + '22',
+                    color: RESPONSABLE_COLORS[t.responsable ?? ''] ?? '#888',
+                    fontFamily: 'Oswald, sans-serif',
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}>{t.responsable ?? '—'}</span>
+                </td>
                 <td style={{ padding: '10px 12px', color: '#cccccc', textTransform: 'capitalize' }}>{t.frecuencia}</td>
                 <td style={{ padding: '10px 12px', color: '#cccccc' }}>{t.dia_esperado ?? '—'}</td>
                 <td style={{ padding: '10px 12px', color: '#cccccc' }}>{t.modulo_destino ?? '—'}</td>
@@ -269,17 +291,31 @@ export default function TabConfigTareas() {
                   />
                 </div>
               </div>
-              <div>
-                <label style={labelStyle}>Módulo destino</label>
-                <select
-                  style={{ ...inputStyle, cursor: 'pointer' }}
-                  value={form.modulo_destino ?? 'importador'}
-                  onChange={e => setForm(f => ({ ...f, modulo_destino: e.target.value }))}
-                >
-                  {MODULOS.map(m => (
-                    <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
-                  ))}
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>Módulo destino</label>
+                  <select
+                    style={{ ...inputStyle, cursor: 'pointer' }}
+                    value={form.modulo_destino ?? 'importador'}
+                    onChange={e => setForm(f => ({ ...f, modulo_destino: e.target.value }))}
+                  >
+                    {MODULOS.map(m => (
+                      <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Responsable</label>
+                  <select
+                    style={{ ...inputStyle, cursor: 'pointer' }}
+                    value={form.responsable ?? 'Rubén'}
+                    onChange={e => setForm(f => ({ ...f, responsable: e.target.value }))}
+                  >
+                    {RESPONSABLES.map(r => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input

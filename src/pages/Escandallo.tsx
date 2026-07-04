@@ -13,6 +13,8 @@ import ModalMerma from '@/components/escandallo/ModalMerma'
 import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, ROSA, GRANATE, ROJO } from '@/styles/neobrutal'
 
 type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas'
+const TAB_KEY = 'sl_fichas_tab'
+const esTab = (v: string | null): v is Tab => v === 'indice' || v === 'ingredientes' || v === 'mermas' || v === 'eps' || v === 'recetas'
 
 const TABS: { id: Tab; label: string; count: (d: Data) => number }[] = [
   { id: 'indice', label: 'Índice', count: d => d.epsList.length + d.recetasList.length },
@@ -30,7 +32,9 @@ interface Data {
 }
 
 export default function Escandallo() {
-  const [tab, setTab] = useState<Tab>('indice')
+  const [tab, setTab] = useState<Tab>(() => { const s = localStorage.getItem(TAB_KEY); return esTab(s) ? s : 'indice' })
+  useEffect(() => { localStorage.setItem(TAB_KEY, tab) }, [tab])
+
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([])
   const [mermas, setMermas] = useState<Merma[]>([])
   const [epsList, setEpsList] = useState<EPS[]>([])
@@ -125,20 +129,7 @@ export default function Escandallo() {
         </div>
       </div>
 
-      {/* ===== CONTROL STRIP: buscador ===== */}
-      <div style={{ background: CREMA, borderBottom: `4px solid ${INK}`, padding: '16px 32px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input
-          style={{
-            flex: 1, minWidth: 220, background: '#ffffff', border: BORDER_CARD, borderRadius: 0,
-            padding: '10px 14px', fontFamily: LEX, fontSize: 14, color: INK, outline: 'none',
-          }}
-          placeholder="🔎  Buscar por nombre, ABV, proveedor, categoría…"
-          value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
-        />
-      </div>
-
-      {/* ===== CONTENIDO ===== */}
+      {/* ===== CONTENIDO (cada pestaña trae su propia cabecera amarilla con buscador) ===== */}
       <div style={{ padding: '24px 32px 40px' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>
@@ -156,6 +147,7 @@ export default function Escandallo() {
                 epsList={epsList}
                 recetasList={recetasList}
                 busqueda={busqueda}
+                onBuscar={setBusqueda}
                 onOpenEps={eps => setModalEPS({ open: true, eps })}
                 onOpenReceta={receta => setModalReceta({ open: true, receta })}
               />
@@ -164,6 +156,7 @@ export default function Escandallo() {
               <TabIngredientes
                 ingredientes={ingredientes}
                 busqueda={busqueda}
+                onBuscar={setBusqueda}
                 onSelect={ing => setModalIng({ open: true, ing })}
                 onNew={() => setModalIng({ open: true, ing: null })}
               />
@@ -172,6 +165,7 @@ export default function Escandallo() {
               <TabMermas
                 mermas={mermas}
                 busqueda={busqueda}
+                onBuscar={setBusqueda}
                 onSelect={merma => setModalMerma({ open: true, merma })}
                 onNew={() => setModalMerma({ open: true, merma: null })}
               />
@@ -180,6 +174,7 @@ export default function Escandallo() {
               <TabEPS
                 epsList={epsList}
                 busqueda={busqueda}
+                onBuscar={setBusqueda}
                 onSelect={eps => setModalEPS({ open: true, eps })}
                 onNew={() => setModalEPS({ open: true, eps: null })}
               />
@@ -188,6 +183,7 @@ export default function Escandallo() {
               <TabRecetas
                 recetasList={recetasList}
                 busqueda={busqueda}
+                onBuscar={setBusqueda}
                 onSelect={receta => setModalReceta({ open: true, receta })}
                 onNew={() => setModalReceta({ open: true, receta: null })}
               />

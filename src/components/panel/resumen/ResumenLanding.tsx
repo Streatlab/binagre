@@ -398,7 +398,7 @@ export default function ResumenLanding(p: Props) {
               const saludOk = c.margen >= objM * 0.9
               const pesoPct = totalCanal > 0 ? (c.bruto / totalCanal) * 100 : 0
               return (
-                <div key={c.id} style={{ border: `3px solid ${INK}`, borderLeft: `12px solid ${col}`, background: '#fff', boxShadow: SHADOW, padding: '13px 16px' }}>
+                <div key={c.id} style={{ border: `3px solid ${INK}`, borderLeft: `12px solid ${col}`, background: `${col}18`, boxShadow: SHADOW, padding: '13px 16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                     <span style={{ ...eyebrow(col, CLARA[c.id] ? INK : '#fff'), fontSize: 13 }}>{c.label}</span>
                     {c.id === canalRent && <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 11 }}>+ rentable</span>}
@@ -455,14 +455,12 @@ export default function ResumenLanding(p: Props) {
           {/* Rectángulo 2 · Días pico (AMA) */}
           <div style={{ background: AMA, padding: `26px ${PAD}`, borderBottom: `4px solid ${INK}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-              <span style={eyebrow(INK, AMA)}>Días pico · {p.mesLabel}</span>
+              <span style={eyebrow(INK, AMA)}>Días pico · {p.periodoLabel ?? p.mesLabel}</span>
               <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Media {E(p.mediaDiariaPico)}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flex: 1, minHeight: 150, marginBottom: 14 }}>
               {p.diasPico.map(x => {
-                const esFlojo = diaFlojo ? x.idx === diaFlojo.idx && x.valor > 0 : false
-                const esFuerte = diaFuerte ? x.idx === diaFuerte.idx && x.valor > 0 : false
-                const barCol = esFlojo ? ROJO : esFuerte ? VERDE : x.color
+                const barCol = x.color
                 return (
                   <button key={x.idx} onClick={() => p.onFiltrarDiaSemana?.(x.idx)} title={E(x.valor)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, height: '100%', justifyContent: 'flex-end' }}>
                     <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 600 }}>{x.valor > 0 ? E(x.valor) : ''}</span>

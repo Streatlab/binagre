@@ -1,7 +1,16 @@
-// ocrUploadStore v43 — PDF >20MB se comprime SOLO en el navegador antes de subir.
-// Si tras comprimir sigue >20MB, se parte en varios PDF por páginas (cada parte <20MB),
-// y cada parte se procesa como un archivo más. El usuario no hace nada.
-// Mantiene v41: toast autocierre SIEMPRE a 1 min (60s).
+// ocrUploadStore v46 — WATCHDOG ANTI-PARÓN (03/07/26):
+//   · Si una sesión queda 'procesando' con latido caducado (worker del servidor muerto
+//     a mitad de lote), el cliente relanza el worker (máx 1 vez/min). Antes solo se
+//     relanzaba para sesiones 'en_espera', y una sesión colgada en 'procesando' se
+//     quedaba muerta para siempre → el parón de la auditoría 16k.
+// ocrUploadStore v45 — AHORRO SUPABASE + PERSISTENCIA (03/07/26):
+//   · El sondeo a la BD SOLO corre mientras hay una subida o procesamiento en marcha.
+//     En reposo: 1 consulta al abrir la app y listo (realtime cubre el resto).
+//   · Si se hace F5, se cambia de ordenador o de módulo con lotes en cola, el
+//     procesamiento se retoma solo en el servidor al abrir la app.
+// ocrUploadStore v44 — Ley 100%: solo se autocierra el toast cuando el lote
+// terminó sin errores ni achtung; con errores queda visible hasta cierre manual.
+// ocrUploadStore v43 — PDF >20MB se parte por páginas en el navegador antes de subir.
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -23,6 +32,7 @@ export interface OcrSession {
   grupoId?: string | null; lotesIds?: string[]
   subidosStorage?: number; totalStorage?: number
   estadoCola?: string | null
+  ultimoHeartbeat?: number | null
 }
 
 const emitter = new EventTarget()
@@ -42,6 +52,9 @@ const RETRY_CAP_MS = 30000
 const MAX_REINTENTOS = 10
 const MAX_ARCHIVO_MB = 20
 const MAX_BYTES = MAX_ARCHIVO_MB * 1024 * 1024
+// Watchdog: una sesión 'procesando' cuyo latido supera esta edad se considera colgada
+// (el servidor la reencola y la retoma al relanzar el worker).
+const HEARTBEAT_COLGADA_MS = 90_000
 const ERRORES_PERMANENTES = ['Bucket not found']
 
 function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
@@ -182,7 +195,7 @@ async function normalizar(file: File): Promise<ArchivoNormalizado[]> {
 function sanitizeForPath(name: string, idx: number): string { return `${String(idx).padStart(5, '0')}_${name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)}` }
 
 function dbToSession(s: any): OcrSession {
-  return { id: s.id, total: s.total || 0, enviados: s.enviados || 0, ok: s.ok || 0, pendientes: s.pendientes || 0, duplicados: s.duplicados || 0, ignorados: s.ignorados || 0, errores: s.errores || 0, achtung: s.achtung || 0, cancelados: s.cancelados || 0, achtungMensaje: s.achtung_mensaje || null, achtungTipo: s.achtung_tipo || null, log: (s.log as any[]) || [], visible: s.visible !== false, procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera' || s.estado_cola === 'staging' || s.estado_cola === 'pausada', cancelado: s.estado === 'cancelada', pausada: s.estado_cola === 'pausada', fnName: s.fn_name || null, titular_id: s.titular_id || null, archivosPendientes: (s.archivos_pendientes as any[]) || [], creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(), completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null, orden: s.orden_cola || 0, grupoId: s.grupo_id || null, subidosStorage: s.subidos_storage || 0, totalStorage: s.total_storage || 0, estadoCola: s.estado_cola || null }
+  return { id: s.id, total: s.total || 0, enviados: s.enviados || 0, ok: s.ok || 0, pendientes: s.pendientes || 0, duplicados: s.duplicados || 0, ignorados: s.ignorados || 0, errores: s.errores || 0, achtung: s.achtung || 0, cancelados: s.cancelados || 0, achtungMensaje: s.achtung_mensaje || null, achtungTipo: s.achtung_tipo || null, log: (s.log as any[]) || [], visible: s.visible !== false, procesando: s.estado_cola === 'procesando' || s.estado_cola === 'en_espera' || s.estado_cola === 'staging' || s.estado_cola === 'pausada', cancelado: s.estado === 'cancelada', pausada: s.estado_cola === 'pausada', fnName: s.fn_name || null, titular_id: s.titular_id || null, archivosPendientes: (s.archivos_pendientes as any[]) || [], creadoEn: s.creado_en ? new Date(s.creado_en).getTime() : Date.now(), completadoEn: s.completado_en ? new Date(s.completado_en).getTime() : null, orden: s.orden_cola || 0, grupoId: s.grupo_id || null, subidosStorage: s.subidos_storage || 0, totalStorage: s.total_storage || 0, estadoCola: s.estado_cola || null, ultimoHeartbeat: s.ultimo_heartbeat ? new Date(s.ultimo_heartbeat).getTime() : null }
 }
 
 function colapsarPorGrupo(raw: OcrSession[]): OcrSession[] {
@@ -221,7 +234,10 @@ function programarAutoCerrar(sesionId: string) {
 }
 
 function debeAutoCerrar(s: OcrSession): boolean {
-  return !s.procesando && !s.cancelado && s.visible
+  // Ley 100%: solo se autocierra el toast de lotes terminados al 100% sin errores.
+  // Un lote con errores o achtung se queda visible hasta que Rubén lo cierre a mano,
+  // para que ningún error real desaparezca solo.
+  return !s.procesando && !s.cancelado && s.visible && s.errores === 0 && s.achtung === 0
 }
 
 async function cargarSesionesActivas() {
@@ -229,7 +245,7 @@ async function cargarSesionesActivas() {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data, error } = await supabase
       .from('ocr_sessions')
-      .select('id,total,enviados,ok,pendientes,duplicados,ignorados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id,subidos_storage,total_storage')
+      .select('id,total,enviados,ok,pendientes,duplicados,ignorados,errores,achtung,cancelados,achtung_mensaje,achtung_tipo,log,estado,estado_cola,fn_name,titular_id,visible,cancelar_solicitado,creado_en,completado_en,orden_cola,archivos_pendientes,grupo_id,subidos_storage,total_storage,ultimo_heartbeat')
       .gte('creado_en', cutoff)
       .eq('visible', true)
       .in('estado_cola', ['staging', 'en_espera', 'procesando', 'completada', 'pausada'])
@@ -240,6 +256,24 @@ async function cargarSesionesActivas() {
       if (debeAutoCerrar(s)) programarAutoCerrar(s.id)
     }
     rawSessions = nuevas; emit()
+
+    // Poll condicionado a actividad real (ahorro de peticiones a Supabase)
+    const hayActividad = nuevas.some(s => s.procesando) || preparandoLocal.length > 0
+    if (hayActividad) lanzarPoll(); else pararPoll()
+
+    // Persistencia: si hay lotes en cola con archivos ya en el servidor y ningún
+    // worker en marcha (F5, otro ordenador, cambio de módulo), relanzar el worker.
+    const hayCola = nuevas.some(s => s.estadoCola === 'en_espera' && (s.archivosPendientes?.length ?? 0) > 0)
+    // WATCHDOG v46: sesión 'procesando' con latido caducado = worker del servidor
+    // muerto a mitad de lote. Relanzar el worker (el servidor la reencola con
+    // reactivarColgadas y la retoma por donde iba). Sin esto, el parón es eterno.
+    const ahoraMs = Date.now()
+    const hayColgada = nuevas.some(s =>
+      s.estadoCola === 'procesando' &&
+      s.ultimoHeartbeat != null &&
+      ahoraMs - s.ultimoHeartbeat > HEARTBEAT_COLGADA_MS
+    )
+    if ((hayCola || hayColgada) && Date.now() - ultimoWorkerMs > 60_000) { ultimoWorkerMs = Date.now(); lanzarWorker() }
     if (typeof window !== 'undefined' && nuevas.some(s => s.procesando)) { try { window.dispatchEvent(new Event('facturas:changed')) } catch {} }
 
     // Detectar sesiones staging interrumpidas (pestaña cerrada durante la subida al Storage).
@@ -274,11 +308,15 @@ function suscribirRealtime() {
   } catch {}
 }
 
-function lanzarPoll() { if (pollTimer) return; pollTimer = window.setInterval(() => { cargarSesionesActivas() }, 3000) }
-function inicializar() { if (inicializado) return; inicializado = true; cargarSesionesActivas(); suscribirRealtime(); lanzarPoll() }
+function lanzarPoll() { if (pollTimer) return; pollTimer = window.setInterval(() => { cargarSesionesActivas() }, 5000) }
+function pararPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
+// AHORRO SUPABASE (03/07/26): el poll SOLO corre mientras hay subida o procesamiento
+// en marcha. En reposo, la app hace 1 consulta al abrir y se apoya en realtime.
+function inicializar() { if (inicializado) return; inicializado = true; cargarSesionesActivas(); suscribirRealtime() }
 if (typeof window !== 'undefined') inicializar()
 
 let errorWorkerGlobal: string | null = null
+let ultimoWorkerMs = 0
 async function lanzarWorker() {
   for (let i = 0; i < 3; i++) {
     try {
@@ -527,6 +565,7 @@ export function useOcrUpload() {
       if (files.length === 0) return
     }
 
+    lanzarPoll() // subida en marcha → seguimiento activo
     const idLocal = `prep_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
     const grupoId = `g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
     const baseOrden = Math.floor(Date.now() / 1000)

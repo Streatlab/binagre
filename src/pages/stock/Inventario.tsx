@@ -4,12 +4,26 @@ import TabConteos from '@/components/inventario/TabConteos'
 import TabMovimientos from '@/components/inventario/TabMovimientos'
 import TabMermas from '@/components/inventario/TabMermas'
 import TabAnalisisFoodCost from '@/components/inventario/TabAnalisisFoodCost'
+import TabStockReal from '@/components/compras/TabStockReal'
+import TabComprasEntradas from '@/components/compras/TabComprasEntradas'
+import TabPreciosProveedor from '@/components/compras/TabPreciosProveedor'
+import TabListasCompra from '@/components/compras/TabListasCompra'
+import TabPricingGen from '@/components/compras/TabPricingGen'
+import TabMenusMarcas from '@/components/compras/TabMenusMarcas'
+import TabPatronesPrecio from '@/components/compras/TabPatronesPrecio'
 
 export type PeriodoInventario = 'semana' | 'mes' | 'mes_anterior' | 'tres_meses' | 'anio'
 
-type TabKey = 'conteos' | 'movimientos' | 'mermas' | 'foodcost'
+type TabKey = 'stockreal' | 'entradas' | 'precios' | 'listas' | 'pricing' | 'menus' | 'patrones' | 'conteos' | 'movimientos' | 'mermas' | 'foodcost'
 
 const TABS: { key: TabKey; label: string }[] = [
+  { key: 'stockreal',    label: 'Stock Real' },
+  { key: 'entradas',     label: 'Compras' },
+  { key: 'precios',      label: 'Precios Proveedor' },
+  { key: 'listas',       label: 'Listas de Compra' },
+  { key: 'pricing',      label: 'Pricing' },
+  { key: 'menus',        label: 'Menús' },
+  { key: 'patrones',     label: 'Patrones Precio' },
   { key: 'conteos',      label: 'Conteos' },
   { key: 'movimientos',  label: 'Movimientos' },
   { key: 'mermas',       label: 'Mermas' },
@@ -60,9 +74,11 @@ export function getPeriodoFechas(periodo: PeriodoInventario): { desde: string; h
   }
 }
 
+const CON_PERIODO: TabKey[] = ['conteos', 'movimientos', 'mermas']
+
 export default function Inventario() {
   const { T, isDark } = useTheme()
-  const [tab, setTab] = useState<TabKey>('conteos')
+  const [tab, setTab] = useState<TabKey>('stockreal')
   const [periodo, setPeriodo] = useState<PeriodoInventario>('mes')
 
   const { desde, hasta } = getPeriodoFechas(periodo)
@@ -71,31 +87,32 @@ export default function Inventario() {
     <div style={{ padding: '24px 28px', minHeight: '100vh', background: T.bg, fontFamily: FONT.body }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h1 style={pageTitleStyle(T)}>Inventario</h1>
+        <h1 style={pageTitleStyle(T)}>Compras & Inventario</h1>
 
-        {/* Selector periodo */}
-        <select
-          value={periodo}
-          onChange={e => setPeriodo(e.target.value as PeriodoInventario)}
-          style={{
-            padding: '7px 12px',
-            borderRadius: 8,
-            border: `0.5px solid ${T.brd}`,
-            background: T.inp,
-            color: T.pri,
-            fontSize: 13,
-            fontFamily: FONT.body,
-            cursor: 'pointer',
-          }}
-        >
-          {PERIODOS.map(p => (
-            <option key={p.key} value={p.key}>{p.label}</option>
-          ))}
-        </select>
+        {CON_PERIODO.includes(tab) && (
+          <select
+            value={periodo}
+            onChange={e => setPeriodo(e.target.value as PeriodoInventario)}
+            style={{
+              padding: '7px 12px',
+              borderRadius: 8,
+              border: `0.5px solid ${T.brd}`,
+              background: T.inp,
+              color: T.pri,
+              fontSize: 13,
+              fontFamily: FONT.body,
+              cursor: 'pointer',
+            }}
+          >
+            {PERIODOS.map(p => (
+              <option key={p.key} value={p.key}>{p.label}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Tabs */}
-      <div style={tabsContainerStyle()}>
+      <div style={{ ...tabsContainerStyle(), flexWrap: 'wrap' }}>
         {TABS.map(t => (
           <button
             key={t.key}
@@ -108,6 +125,13 @@ export default function Inventario() {
       </div>
 
       {/* Tab content */}
+      {tab === 'stockreal'   && <TabStockReal />}
+      {tab === 'entradas'    && <TabComprasEntradas />}
+      {tab === 'precios'     && <TabPreciosProveedor />}
+      {tab === 'listas'      && <TabListasCompra />}
+      {tab === 'pricing'     && <TabPricingGen />}
+      {tab === 'menus'       && <TabMenusMarcas />}
+      {tab === 'patrones'    && <TabPatronesPrecio />}
       {tab === 'conteos'     && <TabConteos     desde={desde} hasta={hasta} periodo={periodo} />}
       {tab === 'movimientos' && <TabMovimientos  desde={desde} hasta={hasta} />}
       {tab === 'mermas'      && <TabMermas       desde={desde} hasta={hasta} />}

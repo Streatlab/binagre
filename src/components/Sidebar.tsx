@@ -41,7 +41,7 @@ const SECTIONS: NavSection[] = [
   {
     key: 'finanzas', label: 'Finanzas', perfiles: ['admin'],
     items: [
-      { path: '/finanzas/documentacion',        label: 'Documentación',        emoji: '📥', perfiles: ['admin'] },
+      { path: '/finanzas/documentacion',        label: 'Papeleo',        emoji: '📥', perfiles: ['admin'] },
       { path: '/facturacion',                   label: 'Facturación',          emoji: '🧾', perfiles: ['admin'] },
       { path: '/finanzas/ventas',               label: 'Ventas',               emoji: '💰', perfiles: ['admin'] },
       { path: '/finanzas/objetivos',            label: 'Objetivos',            emoji: '🎯', perfiles: ['admin'] },
@@ -112,10 +112,14 @@ const SECTIONS: NavSection[] = [
   {
     key: 'mkt', label: 'MKT', perfiles: ['admin'],
     items: [
-      { path: '/clientes/crm',         label: 'CRM Streat Lab',        emoji: '🛍️', perfiles: ['admin'] },
-      { path: '/clientes/club',        label: 'Club Fidelización',     emoji: '🎖️', perfiles: ['admin'] },
-      { path: '/clientes/resenas',     label: 'Panel Reseñas',         emoji: '⭐',  perfiles: ['admin'] },
-      { path: '/clientes/playbook-tp', label: 'Playbook ThinkPaladar', emoji: '📣', perfiles: ['admin'] },
+      { path: '/marketing/panel',                 label: 'Panel MKT',               emoji: '📣', perfiles: ['admin'] },
+      { path: '/marketing/plan',                  label: 'Campañas y Promos',       emoji: '🗓️', perfiles: ['admin'] },
+      { path: '/marketing/rendimiento-ads-promo', label: 'Rendimiento Ads y Promo', emoji: '📈', perfiles: ['admin'] },
+      { path: '/clientes/resenas',                label: 'Panel Reseñas',           emoji: '⭐',  perfiles: ['admin'] },
+      { path: '/clientes/benchmark',              label: 'Benchmark',               emoji: '🎯', perfiles: ['admin'] },
+      { path: '/clientes/playbook-tp',            label: 'Playbook ThinkPaladar',   emoji: '📘', perfiles: ['admin'] },
+      { path: '/clientes/crm',                    label: 'CRM Streat Lab',          emoji: '🛍️', perfiles: ['admin'] },
+      { path: '/clientes/club',                   label: 'Club Fidelización',       emoji: '🎖️', perfiles: ['admin'] },
     ],
   },
   {
@@ -154,18 +158,14 @@ const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Stock Mínimo Alertas',    emoji: '⚠️' },
   { label: 'POS',                     emoji: '🖥️' },
   { label: 'Fichas Empleados',        emoji: '👤' },
-  { label: 'CRM Tienda Propia',       emoji: '🛍️' },
   { label: 'Ventas por Hora',         emoji: '🕐' },
   { label: 'Ranking Productos',       emoji: '🏆' },
   { label: 'Alérgenos',               emoji: '🥜' },
   { label: 'BI / Informes Avanzados', emoji: '📈' },
   { label: 'Control Mermas',          emoji: '📉' },
-  { label: 'Email Marketing',         emoji: '✉️' },
   { label: 'Exportación a Gestoría',  emoji: '📤' },
   { label: 'Inventario Tiempo Real',  emoji: '📡' },
-  { label: 'Marketing Automation',    emoji: '🤖' },
   { label: 'Planificación Turnos',    emoji: '🗓️' },
-  { label: 'Promociones por Día/Hora',emoji: '⏰' },
 ]
 
 const PROXIMAMENTE_LS_KEY  = 'streatlab.sidebar.proximamente.open'
@@ -194,7 +194,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     return localStorage.getItem(PROXIMAMENTE_LS_KEY) === '1'
   })
   const [tareasBadge, setTareasBadge] = useState(0)
-  const [ocrBadge,    setOcrBadge]    = useState(0)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -213,16 +212,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       .in('estado', ['pendiente', 'atrasada'])
       .then(({ count }) => setTareasBadge(count ?? 0))
   }, [])
-
-  useEffect(() => {
-    if (perfil !== 'admin') return
-    supabase
-      .from('facturas')
-      .select('id', { count: 'exact', head: true })
-      .in('tipo', ['proveedor', 'plataforma'])
-      .or('total.lte.0,titular_id.is.null,categoria_factura.is.null')
-      .then(({ count }) => setOcrBadge(count ?? 0))
-  }, [perfil])
 
   // ── Colapso original: al interactuar (clic o HOVER) se ABRE y queda abierto 20 s; luego autocolapsa ──
   const [abierto, setAbierto] = useState(false)
@@ -426,7 +415,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                           <>
                             <span style={{ width: 7, height: 7, flexShrink: 0, background: isActive ? AMA : INK, display: 'inline-block' }} />
                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                            {item.path === '/finanzas/documentacion' && <SidebarBadge count={ocrBadge} />}
+                            
                           </>
                         )}
                       </NavLink>

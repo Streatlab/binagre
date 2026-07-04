@@ -5,7 +5,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabase';
 
 export type Canal = 'uber_eats' | 'glovo' | 'just_eat' | 'web' | 'directo';
-export type EstadoReclamacion = 'pendiente' | 'reclamada' | 'cobrada' | 'rechazada';
+export type EstadoReclamacion =
+  | 'pendiente' | 'reclamada' | 'cobrada' | 'cobrada_doble' | 'rechazada' | 'incobrable';
 export type TipoReclamacion =
   | 'producto_faltante' | 'producto_erroneo' | 'mala_calidad'
   | 'pedido_cancelado' | 'cobro_incorrecto' | 'otro';
@@ -25,8 +26,11 @@ export interface Reclamacion {
   estado: EstadoReclamacion;
   fecha_envio: string | null;
   fecha_resolucion: string | null;
+  fecha_incobrable: string | null;
   foto_url: string | null;
   factura_cobro_periodo: string | null;
+  factura_descuento_id: string | null;
+  factura_cobro_id: string | null;
   resolucion_notas: string | null;
 }
 
@@ -95,6 +99,22 @@ export function useReclamaciones() {
   return { data, loading, error, refetch: fetchData, insert, update, remove, uploadFoto };
 }
 
+// ===== Reembolsos pendientes por canal (para Facturación) =====
+
+export interface ReembolsoPendienteCanal {
+  canal: Canal;
+  num_pendientes: number;
+  importe_pendiente: number;
+}
+
+export async function fetchReembolsosPendientes(): Promise<ReembolsoPendienteCanal[]> {
+  const { data, error } = await supabase
+    .from('v_reembolsos_pendientes')
+    .select('*');
+  if (error) throw error;
+  return (data as ReembolsoPendienteCanal[]) || [];
+}
+
 // ===== Helpers de presentación =====
 
 export const CANAL_LABELS: Record<Canal, string> = {
@@ -115,10 +135,12 @@ export const TIPO_LABELS: Record<TipoReclamacion, string> = {
 };
 
 export const ESTADO_LABELS: Record<EstadoReclamacion, { full: string; short: string }> = {
-  pendiente: { full: 'Pendiente', short: 'Pend.' },
-  reclamada: { full: 'Reclamada', short: 'Recl.' },
-  cobrada:   { full: 'Cobrada',   short: 'Cobr.' },
-  rechazada: { full: 'Rechazada', short: 'Rech.' },
+  pendiente:     { full: 'Pendiente',      short: 'Pend.' },
+  reclamada:     { full: 'Reclamada',      short: 'Recl.' },
+  cobrada:       { full: 'Cobrada',        short: 'Cobr.' },
+  cobrada_doble: { full: 'Cobrada doble',  short: '2x' },
+  rechazada:     { full: 'Rechazada',      short: 'Rech.' },
+  incobrable:    { full: 'Incobrable',     short: 'Incob.' },
 };
 
 // ===== Métricas agregadas =====
@@ -126,12 +148,14 @@ export const ESTADO_LABELS: Record<EstadoReclamacion, { full: string; short: str
 export function computeMetricas(rows: Reclamacion[]) {
   const abiertas = rows.filter(r => r.estado === 'pendiente' || r.estado === 'reclamada');
   const enRiesgo = abiertas.reduce((s, r) => s + Number(r.importe_reclamado), 0);
-  const cobradas = rows.filter(r => r.estado === 'cobrada');
+  const cobradas = rows.filter(r => r.estado === 'cobrada' || r.estado === 'cobrada_doble');
   const cobrado = cobradas.reduce((s, r) => s + Number(r.importe_compensado), 0);
-  const rechazadas = rows.filter(r => r.estado === 'rechazada');
-  const perdido = rechazadas.reduce((s, r) => s + Number(r.importe_reclamado), 0);
+  const dobles = rows.filter(r => r.estado === 'cobrada_doble');
+  const extraDoble = dobles.reduce((s, r) => s + (Number(r.importe_compensado) - Number(r.importe_reclamado)), 0);
+  const perdidas = rows.filter(r => r.estado === 'rechazada' || r.estado === 'incobrable');
+  const perdido = perdidas.reduce((s, r) => s + Number(r.importe_reclamado), 0);
   const totalReclamado = rows.reduce((s, r) => s + Number(r.importe_reclamado), 0);
-  const resueltas = cobradas.length + rechazadas.length;
+  const resueltas = cobradas.length + perdidas.length;
   const tasaResolucion = resueltas > 0 ? Math.round((cobradas.length / resueltas) * 100) : 0;
 
   return {
@@ -140,7 +164,10 @@ export function computeMetricas(rows: Reclamacion[]) {
     pendientes: rows.filter(r => r.estado === 'pendiente').length,
     reclamadas: rows.filter(r => r.estado === 'reclamada').length,
     cobradas: cobradas.length,
-    rechazadas: rechazadas.length,
+    dobles: dobles.length,
+    extraDoble,
+    rechazadas: rows.filter(r => r.estado === 'rechazada').length,
+    incobrables: rows.filter(r => r.estado === 'incobrable').length,
     cobrado,
     perdido,
     totalReclamado,
@@ -154,11 +181,11 @@ export function computeMetricasPorCanal(rows: Reclamacion[], canal: Canal) {
     .filter(r => r.estado === 'pendiente' || r.estado === 'reclamada')
     .reduce((s, r) => s + Number(r.importe_reclamado), 0);
   const cobrado = sub
-    .filter(r => r.estado === 'cobrada')
+    .filter(r => r.estado === 'cobrada' || r.estado === 'cobrada_doble')
     .reduce((s, r) => s + Number(r.importe_compensado), 0);
-  const cobradas = sub.filter(r => r.estado === 'cobrada').length;
-  const rechazadas = sub.filter(r => r.estado === 'rechazada').length;
-  const resueltas = cobradas + rechazadas;
+  const cobradas = sub.filter(r => r.estado === 'cobrada' || r.estado === 'cobrada_doble').length;
+  const perdidas = sub.filter(r => r.estado === 'rechazada' || r.estado === 'incobrable').length;
+  const resueltas = cobradas + perdidas;
   const tasa = resueltas > 0 ? Math.round((cobradas / resueltas) * 100) : null;
   return { count: sub.length, enRiesgo, cobrado, tasa };
 }

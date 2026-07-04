@@ -59,10 +59,10 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
   useEffect(() => { setForm(prov ?? { activo: true }) }, [prov])
 
   const inp: CSSProperties = {
-    background: '#1e1e1e',
-    border: '1px solid #2a2a2a',
+    background: 'var(--sl-input-edit)',
+    border: '1px solid var(--sl-border)',
     borderRadius: 6,
-    color: '#ffffff',
+    color: 'var(--sl-text-primary)',
     padding: '7px 10px',
     fontSize: 13,
     fontFamily: FONT.body,
@@ -75,7 +75,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
     fontSize: 11,
     letterSpacing: '1.5px',
     textTransform: 'uppercase',
-    color: '#777777',
+    color: 'var(--sl-text-muted)',
     marginBottom: 4,
     display: 'block',
   }
@@ -90,8 +90,8 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div style={{
-        backgroundColor: '#1a1a1a',
-        border: '1px solid #383838',
+        backgroundColor: 'var(--sl-card-alt)',
+        border: '1px solid var(--sl-btn-cancel-border)',
         borderRadius: 12,
         width: '90%',
         maxWidth: 680,
@@ -100,12 +100,12 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
         padding: '28px 32px',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-          <span style={{ fontFamily: 'Oswald,sans-serif', fontSize: 16, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff' }}>
+          <span style={{ fontFamily: 'Oswald,sans-serif', fontSize: 16, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-primary)' }}>
             {isNew ? 'Nuevo proveedor' : form.nombre}
           </span>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#777777', cursor: 'pointer', fontSize: 20 }}
+            style={{ background: 'none', border: 'none', color: 'var(--sl-text-muted)', cursor: 'pointer', fontSize: 20 }}
           >×</button>
         </div>
 
@@ -164,23 +164,23 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
         {/* Historial pedidos */}
         {!isNew && pedidos.length > 0 && (
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#777777', marginBottom: 10 }}>
+            <div style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-muted)', marginBottom: 10 }}>
               Historial de pedidos ({pedidos.length})
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
-                <tr style={{ background: '#0a0a0a' }}>
+                <tr style={{ background: 'var(--sl-thead)' }}>
                   {['Fecha','Estado','Total'].map(h => (
-                    <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Total' ? 'right' : 'left', color: '#777777', fontFamily: 'Oswald,sans-serif', fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', borderBottom: '1px solid #2a2a2a' }}>{h}</th>
+                    <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Total' ? 'right' : 'left', color: 'var(--sl-text-muted)', fontFamily: 'Oswald,sans-serif', fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', borderBottom: '1px solid var(--sl-border)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {pedidos.slice(0, 10).map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #1e1e1e' }}>
-                    <td style={{ padding: '6px 10px', color: '#cccccc' }}>{fmtDate(p.fecha)}</td>
-                    <td style={{ padding: '6px 10px', color: '#777777' }}>{p.estado ?? '—'}</td>
-                    <td style={{ padding: '6px 10px', textAlign: 'right', color: '#cccccc' }}>{p.total_estimado != null ? fmtEur(p.total_estimado) : '—'}</td>
+                  <tr key={p.id} style={{ borderBottom: '1px solid var(--sl-border)' }}>
+                    <td style={{ padding: '6px 10px', color: 'var(--sl-btn-cancel-text)' }}>{fmtDate(p.fecha)}</td>
+                    <td style={{ padding: '6px 10px', color: 'var(--sl-text-muted)' }}>{p.estado ?? '—'}</td>
+                    <td style={{ padding: '6px 10px', textAlign: 'right', color: 'var(--sl-btn-cancel-text)' }}>{p.total_estimado != null ? fmtEur(p.total_estimado) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -204,14 +204,14 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
                 ¿Seguro?{' '}
                 <button onClick={() => onDelete(prov!.id)} style={{ color: '#B01D23', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, textDecoration: 'underline' }}>Sí, eliminar</button>
                 {' '}
-                <button onClick={() => setConfirmDelete(false)} style={{ color: '#777777', background: 'none', border: 'none', cursor: 'pointer' }}>Cancelar</button>
+                <button onClick={() => setConfirmDelete(false)} style={{ color: 'var(--sl-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancelar</button>
               </span>
             )}
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button
               onClick={onClose}
-              style={{ background: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, padding: '7px 16px', cursor: 'pointer', fontSize: 13, fontFamily: FONT.body }}
+              style={{ background: 'var(--sl-btn-cancel-bg)', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', borderRadius: 6, padding: '7px 16px', cursor: 'pointer', fontSize: 13, fontFamily: FONT.body }}
             >
               Cancelar
             </button>
@@ -375,14 +375,14 @@ export default function Proveedores() {
     fontSize: 11,
     letterSpacing: '1.5px',
     textTransform: 'uppercase',
-    color: '#777777',
-    background: '#0a0a0a',
-    borderBottom: '1px solid #2a2a2a',
+    color: 'var(--sl-text-muted)',
+    background: 'var(--sl-thead)',
+    borderBottom: '1px solid var(--sl-border)',
     whiteSpace: 'nowrap',
   }
 
   return (
-    <div style={{ padding: 28, fontFamily: FONT.body, background: '#111111', minHeight: '100vh' }}>
+    <div style={{ padding: 28, fontFamily: FONT.body, background: 'var(--sl-app)', minHeight: '100vh' }}>
       <h1 style={pageTitleStyle(T)}>Proveedores</h1>
 
       {/* Toolbar */}
@@ -392,10 +392,10 @@ export default function Proveedores() {
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
           style={{
-            background: '#1e1e1e',
-            border: '1px solid #2a2a2a',
+            background: 'var(--sl-input-edit)',
+            border: '1px solid var(--sl-border)',
             borderRadius: 8,
-            color: '#ffffff',
+            color: 'var(--sl-text-primary)',
             padding: '8px 14px',
             fontSize: 13,
             fontFamily: FONT.body,
@@ -404,7 +404,7 @@ export default function Proveedores() {
             maxWidth: 360,
           }}
         />
-        <span style={{ color: '#777777', fontSize: 12 }}>{filtrados.length} proveedores</span>
+        <span style={{ color: 'var(--sl-text-muted)', fontSize: 12 }}>{filtrados.length} proveedores</span>
         <div style={{ marginLeft: 'auto' }}>
           <button
             onClick={() => openModal(null)}
@@ -433,7 +433,7 @@ export default function Proveedores() {
       )}
 
       {loading && (
-        <div style={{ color: '#777777', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Cargando proveedores…</div>
+        <div style={{ color: 'var(--sl-text-muted)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Cargando proveedores…</div>
       )}
 
       {!loading && movil && (
@@ -448,7 +448,7 @@ export default function Proveedores() {
       )}
 
       {!loading && !movil && (
-        <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--sl-card-alt)', border: '1px solid var(--sl-border)', borderRadius: 10, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr>
@@ -466,7 +466,7 @@ export default function Proveedores() {
             <tbody>
               {filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: '#777777' }}>
+                  <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: 'var(--sl-text-muted)' }}>
                     {busqueda ? 'Sin resultados para la búsqueda' : 'Sin proveedores registrados'}
                   </td>
                 </tr>
@@ -475,27 +475,27 @@ export default function Proveedores() {
                 <tr
                   key={p.id}
                   style={{
-                    background: i % 2 === 0 ? 'transparent' : '#141414',
-                    borderBottom: '1px solid #1e1e1e',
+                    background: i % 2 === 0 ? 'transparent' : 'var(--sl-card-alt)',
+                    borderBottom: '1px solid var(--sl-border)',
                     cursor: 'pointer',
                   }}
                   onClick={() => openModal(p)}
                 >
                   <td style={{ padding: '10px 14px' }}>
-                    <div style={{ color: '#ffffff', fontWeight: 500 }}>{p.nombre}</div>
-                    {p.abv && <div style={{ color: '#777777', fontSize: 11, marginTop: 2 }}>{p.abv}</div>}
+                    <div style={{ color: 'var(--sl-text-primary)', fontWeight: 500 }}>{p.nombre}</div>
+                    {p.abv && <div style={{ color: 'var(--sl-text-muted)', fontSize: 11, marginTop: 2 }}>{p.abv}</div>}
                   </td>
-                  <td style={{ padding: '10px 14px', color: '#cccccc' }}>{p.categoria ?? '—'}</td>
-                  <td style={{ padding: '10px 14px', color: '#777777', fontSize: 12 }}>{p.tipo ?? '—'}</td>
-                  <td style={{ padding: '10px 14px', color: '#777777', fontSize: 12 }}>{p.frecuencia ?? '—'}</td>
-                  <td style={{ padding: '10px 14px', color: '#cccccc' }}>{p.ultimo_pedido ? fmtDate(p.ultimo_pedido) : '—'}</td>
-                  <td style={{ padding: '10px 14px', textAlign: 'right', color: p.total_comprado > 0 ? '#ffffff' : '#777777' }}>
+                  <td style={{ padding: '10px 14px', color: 'var(--sl-btn-cancel-text)' }}>{p.categoria ?? '—'}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--sl-text-muted)', fontSize: 12 }}>{p.tipo ?? '—'}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--sl-text-muted)', fontSize: 12 }}>{p.frecuencia ?? '—'}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--sl-btn-cancel-text)' }}>{p.ultimo_pedido ? fmtDate(p.ultimo_pedido) : '—'}</td>
+                  <td style={{ padding: '10px 14px', textAlign: 'right', color: p.total_comprado > 0 ? 'var(--sl-text-primary)' : 'var(--sl-text-muted)' }}>
                     {p.total_comprado > 0 ? fmtEur(p.total_comprado) : '—'}
                   </td>
                   <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                     {p.facturas_count > 0
-                      ? <span style={{ background: '#1e1e1e', border: '1px solid #383838', borderRadius: 4, padding: '2px 8px', fontSize: 11, color: '#cccccc' }}>{p.facturas_count}</span>
-                      : <span style={{ color: '#777777', fontSize: 12 }}>—</span>
+                      ? <span style={{ background: 'var(--sl-input-edit)', border: '1px solid var(--sl-btn-cancel-border)', borderRadius: 4, padding: '2px 8px', fontSize: 11, color: 'var(--sl-btn-cancel-text)' }}>{p.facturas_count}</span>
+                      : <span style={{ color: 'var(--sl-text-muted)', fontSize: 12 }}>—</span>
                     }
                   </td>
                   <td style={{ padding: '10px 14px', textAlign: 'center' }}>
@@ -511,7 +511,7 @@ export default function Proveedores() {
                     </span>
                   </td>
                   <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                    <span style={{ color: '#777777', fontSize: 16 }}>›</span>
+                    <span style={{ color: 'var(--sl-text-muted)', fontSize: 16 }}>›</span>
                   </td>
                 </tr>
               ))}
@@ -552,18 +552,18 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
       onClick={() => onSelect(p)}
       style={{
         textAlign: 'left', width: '100%', background: 'transparent', border: 'none',
-        borderBottom: conBorde ? '0.5px solid #1e1e1e' : 'none',
+        borderBottom: conBorde ? '0.5px solid var(--sl-border)' : 'none',
         padding: '11px 13px', display: 'flex', justifyContent: 'space-between',
         alignItems: 'center', gap: 10, cursor: 'pointer',
       }}
     >
       <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ fontFamily: FONT.body, fontSize: 13, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</span>
-        {p.abv && <span style={{ fontSize: 11, color: '#777777' }}>{p.abv}</span>}
+        <span style={{ fontFamily: FONT.body, fontSize: 13, color: 'var(--sl-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</span>
+        {p.abv && <span style={{ fontSize: 11, color: 'var(--sl-text-muted)' }}>{p.abv}</span>}
       </span>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         {p.total_comprado > 0 && (
-          <span style={{ fontFamily: 'Oswald,sans-serif', fontSize: 12, fontWeight: 700, color: '#cccccc' }}>{fmtEur(p.total_comprado)}</span>
+          <span style={{ fontFamily: 'Oswald,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--sl-btn-cancel-text)' }}>{fmtEur(p.total_comprado)}</span>
         )}
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.activo ? '#1D9E75' : '#B01D23', display: 'inline-block' }} />
       </span>
@@ -572,7 +572,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
 
   if (filtrados.length === 0) {
     return (
-      <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, padding: 40, textAlign: 'center', color: '#777777', fontSize: 13 }}>
+      <div style={{ background: 'var(--sl-card-alt)', border: '1px solid var(--sl-border)', borderRadius: 10, padding: 40, textAlign: 'center', color: 'var(--sl-text-muted)', fontSize: 13 }}>
         {buscando ? 'Sin resultados para la búsqueda' : 'Sin proveedores registrados'}
       </div>
     )
@@ -580,7 +580,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
 
   if (buscando) {
     return (
-      <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--sl-card-alt)', border: '1px solid var(--sl-border)', borderRadius: 10, overflow: 'hidden' }}>
         {filtrados.map((p, idx) => fila(p, idx < filtrados.length - 1))}
       </div>
     )
@@ -591,21 +591,21 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
       {grupos.map(([cat, items]) => {
         const open = abiertos.has(cat)
         return (
-          <div key={cat} style={{ background: '#1a1a1a', border: `1px solid ${open ? '#e8f442' : '#2a2a2a'}`, borderRadius: 10, overflow: 'hidden' }}>
+          <div key={cat} style={{ background: 'var(--sl-card-alt)', border: `1px solid ${open ? '#e8f442' : 'var(--sl-border)'}`, borderRadius: 10, overflow: 'hidden' }}>
             <button
               onClick={() => toggleGrupo(cat)}
               style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={open ? '#e8f442' : '#777777'} strokeWidth="2.5" style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s', flexShrink: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={open ? '#e8f442' : 'var(--sl-text-muted)'} strokeWidth="2.5" style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s', flexShrink: 0 }}>
                   <path d="M9 6l6 6-6 6" />
                 </svg>
-                <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</span>
+                <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: 'var(--sl-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</span>
               </span>
-              <span style={{ fontFamily: FONT.body, fontSize: 11, color: '#cccccc', background: '#222222', padding: '3px 9px', borderRadius: 20, flexShrink: 0 }}>{items.length}</span>
+              <span style={{ fontFamily: FONT.body, fontSize: 11, color: 'var(--sl-btn-cancel-text)', background: 'var(--sl-btn-cancel-bg)', padding: '3px 9px', borderRadius: 20, flexShrink: 0 }}>{items.length}</span>
             </button>
             {open && (
-              <div style={{ borderTop: '0.5px solid #2a2a2a' }}>
+              <div style={{ borderTop: '0.5px solid var(--sl-border)' }}>
                 {items.map((p, idx) => fila(p, idx < items.length - 1))}
               </div>
             )}

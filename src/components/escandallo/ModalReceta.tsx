@@ -338,13 +338,13 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="relative bg-white border-[3px] border-[#140f08] rounded-none w-full max-w-7xl my-8 shadow-[4px_4px_0_#140f08]" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b-[3px] border-[#140f08]">
+      <div className="relative bg-[#FCEFD6] border-[4px] border-[#140f08] rounded-none w-full max-w-7xl my-8 shadow-[6px_6px_0_#140f08]" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b-[4px] border-[#140f08] bg-[#FFC400]">
           <div>
-            <h3 className="text-base text-[#140f08]" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
+            <h3 className="text-[#140f08]" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
             {receta?.codigo && <p className="text-xs text-[#9a8f78] mt-0.5 font-mono">{receta.codigo}</p>}
           </div>
-          <button onClick={onClose} className="text-[#9a8f78] hover:text-[#140f08] transition text-lg leading-none">×</button>
+          <button onClick={onClose} style={{ background: '#fff', border: '2px solid #140f08', width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: '#140f08', flexShrink: 0 }}>×</button>
         </div>
         <div className="p-5 space-y-5">
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
@@ -460,7 +460,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t-[3px] border-[#140f08]">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t-[4px] border-[#140f08]">
           <div className="flex items-center gap-2">
             {receta && !confirmEliminar && (<button onClick={() => setConfirmEliminar(true)} style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '10px 16px', borderRadius: '0', fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}>ELIMINAR</button>)}
             {receta && confirmEliminar && (

@@ -1,3 +1,12 @@
+/* ==============================================================================
+ * MODULO BLINDADO - ESQUEMAS DE COCINA (impresion/PDF)
+ * Estetica CANONICA validada por Ruben (jul-2026): Oswald Bold en titulo/gama/nubes
+ * + Barlow Semi Condensed en ingredientes, banda gris del plato con titulo centrado,
+ * banda negra de gama con contador X/Y, contador total, tarjeta redondeada y nubes
+ * (MICRO/FREIDORA...) SIEMPRE en mayusculas y con aire entre texto y rayas.
+ * PROHIBIDO cambiar el look de impresion, las fuentes o las medidas de la tarjeta sin
+ * que Ruben lo pida EXPLICITAMENTE. Registro: Notion "Modulos blindados - Binagre".
+ * ============================================================================== */
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { LayoutGrid, Mic, Printer, Plus, Trash2, X, Check, Pencil, Tags, Archive, History } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -52,17 +61,62 @@ function trocearIngredientes(texto: string): Linea[] {
     .map(normalizarLinea)
 }
 
-// ─── IMPRESIÓN PDF (A4 vertical · cabecera de gama por página + contador X/Y de gama + contador general grande) ──
+// ─── IMPRESIÓN PDF (A4 vertical · cabecera de gama por página + contador X/Y de gama + contador general grande + tarjetas redondeadas) ──
 
 const GREY_BG: [number, number, number] = [226, 226, 226]
 const INK_C: [number, number, number] = [26, 26, 26]
+const CARD_R = 2.2 // radio de esquina de las tarjetas (mm) — mismo look redondeado que la vista en pantalla
 
-function alturaCard(e: Esquema): number {
-  return 8 + e.lineas.length * 4.4 + 3
+// Fuentes reales de la foto (Oswald Bold titulos/gama/nubes, Barlow Semi Condensed ingredientes).
+// Se cargan bajo demanda al imprimir y se cachean; si fallan, el PDF cae a Helvetica.
+const FUENTES_ESQUEMAS_URLS: Record<string, string> = {
+  oswald: 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/oswald@0.4.2/700Bold/Oswald_700Bold.ttf',
+  barlow: 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/barlow-semi-condensed@0.4.1/600SemiBold/BarlowSemiCondensed_600SemiBold.ttf',
+}
+let _fuentesEsquemasCache: Record<string, string> | null = null
+async function cargarFuentesEsquemas(): Promise<Record<string, string> | null> {
+  if (_fuentesEsquemasCache) return _fuentesEsquemasCache
+  try {
+    const pares = await Promise.all(Object.entries(FUENTES_ESQUEMAS_URLS).map(async ([k, u]) => {
+      const r = await fetch(u)
+      if (!r.ok) throw new Error('font ' + k)
+      const bytes = new Uint8Array(await r.arrayBuffer())
+      let bin = ''
+      const CH = 0x8000
+      for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CH)))
+      return [k, btoa(bin)] as const
+    }))
+    _fuentesEsquemasCache = Object.fromEntries(pares)
+    return _fuentesEsquemasCache
+  } catch { return null }
+}
+function registrarFuentesEsquemas(doc: jsPDF, fonts: Record<string, string> | null): boolean {
+  if (!fonts) return false
+  try {
+    doc.addFileToVFS('OswaldEsq.ttf', fonts.oswald); doc.addFont('OswaldEsq.ttf', 'Oswald', 'normal'); doc.addFont('OswaldEsq.ttf', 'Oswald', 'bold')
+    doc.addFileToVFS('BarlowEsq.ttf', fonts.barlow); doc.addFont('BarlowEsq.ttf', 'BarlowSC', 'normal')
+    return true
+  } catch { return false }
 }
 
-function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[]) {
+function alturaCard(e: Esquema): number {
+  let cuerpo = 0
+  let i = 0
+  while (i < e.lineas.length) {
+    if (e.lineas[i].tipo === 'accion') {
+      let k = 0
+      while (i < e.lineas.length && e.lineas[i].tipo === 'accion') { k++; i++ }
+      cuerpo += 8.5 + (k - 1) * 3.9
+    } else {
+      cuerpo += 4.6; i++
+    }
+  }
+  return 9 + 1.4 + cuerpo + 2.5
+}
+
+function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[], fonts: Record<string, string> | null) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const emb = registrarFuentesEsquemas(doc, fonts)
   const PW = doc.internal.pageSize.getWidth()
   const PH = doc.internal.pageSize.getHeight()
   const M = 8, bandH = 12, footerH = 14
@@ -94,12 +148,12 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[]) {
   const total = pages.length
   pages.forEach((pg, pi) => {
     if (pi > 0) doc.addPage()
-    // banda de gama (en cada página de la gama)
-    doc.setFillColor(...INK_C); doc.rect(M, M, usableW, bandH, 'F')
-    doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255)
+    // banda de gama (en cada página de la gama), nombre centrado
+    doc.setFillColor(...INK_C); doc.roundedRect(M, M, usableW, bandH, 2, 2, 'F')
+    doc.setFont(emb ? 'Oswald' : 'helvetica', 'bold'); doc.setTextColor(255, 255, 255)
     let fs = 20; doc.setFontSize(fs)
     while (fs > 11 && doc.getTextWidth(pg.gama.toUpperCase()) > usableW - 32) { fs -= 1; doc.setFontSize(fs) }
-    doc.text(pg.gama.toUpperCase(), M + 4, M + bandH - 3.6)
+    doc.text(pg.gama.toUpperCase(), PW / 2, M + bandH - 3.6, { align: 'center', charSpace: emb ? 0.6 : 0 })
     doc.setFontSize(15)
     doc.text(`${pg.gp}/${pg.gt}`, PW - M - 4, M + bandH - 3.6, { align: 'right' })
 
@@ -108,33 +162,43 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[]) {
       col.forEach(({ e, y }) => {
         const cy = topY + y
         const h = alturaCard(e)
-        doc.setDrawColor(...INK_C); doc.setLineWidth(0.4); doc.rect(x, cy, colW, h)
-        doc.setFillColor(...GREY_BG); doc.rect(x, cy, colW, 8, 'F')
-        doc.setDrawColor(...INK_C); doc.line(x, cy + 8, x + colW, cy + 8)
-        doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK_C)
-        let tf = 12; doc.setFontSize(tf)
-        while (tf > 7 && doc.getTextWidth(e.nombre) > colW - 4) { tf -= 0.5; doc.setFontSize(tf) }
-        doc.text(e.nombre, x + colW / 2, cy + 5.7, { align: 'center' })
-        let ly = cy + 8
-        e.lineas.forEach(l => {
-          if (l.tipo === 'accion') {
+        // tarjeta redondeada (mismo look que la vista en pantalla)
+        doc.setDrawColor(...INK_C); doc.setLineWidth(0.4); doc.roundedRect(x, cy, colW, h, CARD_R, CARD_R, 'S')
+        doc.setFillColor(...GREY_BG); doc.roundedRect(x, cy, colW, 9, CARD_R, CARD_R, 'F')
+        doc.setFillColor(...GREY_BG); doc.rect(x, cy + 4.5, colW, 4.5, 'F') // tapa el redondeo inferior de la cabecera para que case con la raya
+        doc.setDrawColor(...INK_C); doc.line(x, cy + 9, x + colW, cy + 9)
+        doc.setFont(emb ? 'Oswald' : 'helvetica', 'bold'); doc.setTextColor(...INK_C)
+        let tf = 16; doc.setFontSize(tf)
+        while (tf > 10 && doc.getTextWidth(e.nombre) > colW - 4) { tf -= 0.5; doc.setFontSize(tf) }
+        doc.text(e.nombre, x + colW / 2, cy + 6.6, { align: 'center' })
+        let ly = cy + 9 + 1.4 // aire entre el titulo y el primer ingrediente
+        let li = 0
+        while (li < e.lineas.length) {
+          if (e.lineas[li].tipo === 'accion') {
+            // nube: agrupa acciones consecutivas en un bloque con aire entre texto y rayas
+            let k = 0
+            while (li + k < e.lineas.length && e.lineas[li + k].tipo === 'accion') k++
             doc.setDrawColor(...INK_C); doc.setLineWidth(0.4)
-            doc.line(x + 4, ly + 0.5, x + colW - 4, ly + 0.5)
-            doc.line(x + 4, ly + 4, x + colW - 4, ly + 4)
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(9)
-            doc.text(l.texto, x + colW / 2, ly + 3.2, { align: 'center' })
+            doc.line(x + 4, ly + 1.3, x + colW - 4, ly + 1.3)
+            doc.setFont(emb ? 'Oswald' : 'helvetica', 'bold'); doc.setFontSize(10.5)
+            for (let a = 0; a < k; a++) doc.text(e.lineas[li + a].texto.toUpperCase(), x + colW / 2, ly + 5.6 + a * 3.9, { align: 'center' })
+            const ultima = ly + 5.6 + (k - 1) * 3.9
+            doc.line(x + 4, ultima + 1.6, x + colW - 4, ultima + 1.6)
+            ly += 8.5 + (k - 1) * 3.9
+            li += k
           } else {
-            doc.setFont('helvetica', 'normal'); let lf = 9; doc.setFontSize(lf)
-            while (lf > 6 && doc.getTextWidth(l.texto) > colW - 3) { lf -= 0.5; doc.setFontSize(lf) }
-            doc.text(l.texto, x + colW / 2, ly + 3.1, { align: 'center' })
+            doc.setFont(emb ? 'BarlowSC' : 'helvetica', 'normal'); let lf = 10.5; doc.setFontSize(lf)
+            while (lf > 7 && doc.getTextWidth(e.lineas[li].texto) > colW - 3) { lf -= 0.5; doc.setFontSize(lf) }
+            doc.text(e.lineas[li].texto, x + colW / 2, ly + 3.4, { align: 'center' })
+            ly += 4.6
+            li += 1
           }
-          ly += 4.4
-        })
+        }
       })
     })
 
     // contador general GRANDE, centrado abajo
-    doc.setFont('helvetica', 'bold'); doc.setTextColor(...INK_C); doc.setFontSize(24)
+    doc.setFont(emb ? 'BarlowSC' : 'helvetica', 'bold'); doc.setTextColor(...INK_C); doc.setFontSize(24)
     doc.text(`${pi + 1} / ${total}`, PW / 2, PH - 5, { align: 'center' })
   })
 
@@ -188,17 +252,21 @@ export default function Esquemas() {
     esquemas.filter(e => e.gama === gamaActiva && (verHistorico ? e.estado !== 'vigente' : e.estado === 'vigente'))
     , [esquemas, gamaActiva, verHistorico])
 
-  function imprimir() {
+  async function imprimir() {
     const platos = esquemas.filter(e => e.gama === gamaActiva && e.estado === 'vigente')
-    if (platos.length) construirEsquemasPDF([{ nombre: gamaActiva, platos }])
+    if (!platos.length) return
+    const fonts = await cargarFuentesEsquemas()
+    construirEsquemasPDF([{ nombre: gamaActiva, platos }], fonts)
   }
-  function imprimirTodo() {
+  async function imprimirTodo() {
     const orden = ['Asiática', 'Casera', 'Raciones', 'Binagre', 'Italiana', 'Green', 'French Tacos']
     const nombres = Array.from(new Set([...orden, ...gamas.map(g => g.nombre)]))
     const grupos = nombres
       .map(n => ({ nombre: n, platos: esquemas.filter(e => e.gama === n && e.estado === 'vigente') }))
       .filter(x => x.platos.length > 0)
-    if (grupos.length) construirEsquemasPDF(grupos)
+    if (!grupos.length) return
+    const fonts = await cargarFuentesEsquemas()
+    construirEsquemasPDF(grupos, fonts)
   }
 
   if (loading) return <div style={{ padding: 32, color: T.sec, fontFamily: FONT.body }}>Cargando esquemas…</div>
@@ -295,12 +363,26 @@ function TarjetaEsquema({ esquema: e, T, isDark, onEdit, onChange }: { esquema: 
           ? <button onClick={descatalogar} style={iconBtn(T)} title="Descatalogar"><Archive size={12} /></button>
           : <button onClick={restaurar} style={iconBtn(T)} title="Restaurar"><Check size={12} /></button>}
       </div>
-      <div className="print-head" style={{ background: isDark ? '#1e2233' : '#e2e2e2', color: isDark ? T.pri : '#1a1a1a', fontFamily: "'Anton','Oswald',sans-serif", fontSize: 30, fontWeight: 400, lineHeight: 1, textAlign: 'center', padding: '6px 8px 5px', letterSpacing: '0.5px', borderBottom: `2px solid #1a1a1a` }}>{e.nombre}</div>
+      <div className="print-head" style={{ background: isDark ? '#1e2233' : '#e2e2e2', color: isDark ? T.pri : '#1a1a1a', fontFamily: "'Oswald',sans-serif", fontSize: 30, fontWeight: 400, lineHeight: 1, textAlign: 'center', padding: '6px 8px 5px', letterSpacing: '0.5px', borderBottom: `2px solid #1a1a1a` }}>{e.nombre}</div>
       <div style={{ padding: '5px 9px 6px' }}>
-        {e.lineas.map((l, i) => l.tipo === 'accion'
-          ? <div key={i} className="print-act" style={{ background: 'transparent', color: isDark ? T.pri : '#1a1a1a', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, textAlign: 'center', borderTop: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, borderBottom: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, padding: '2px 0', margin: '5px 8px', letterSpacing: '1px' }}>{l.texto}</div>
-          : <div key={i} className="print-ing" style={{ fontFamily: "'Barlow Semi Condensed','Oswald',sans-serif", fontWeight: 600, fontSize: 16, lineHeight: 1.1, textAlign: 'center', padding: '0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
-        )}
+        {e.lineas.map((l, i) => {
+          if (l.tipo !== 'accion') {
+            return <div key={i} className="print-ing" style={{ fontFamily: "'Barlow Semi Condensed','Oswald',sans-serif", fontWeight: 600, fontSize: 16, lineHeight: 1.1, textAlign: 'center', padding: '0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
+          }
+          const prevAccion = i > 0 && e.lineas[i - 1].tipo === 'accion'
+          const nextAccion = i < e.lineas.length - 1 && e.lineas[i + 1].tipo === 'accion'
+          const brd = `2px solid ${isDark ? T.brd : '#1a1a1a'}`
+          return (
+            <div key={i} className="print-act" style={{
+              background: 'transparent', color: isDark ? T.pri : '#1a1a1a', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, textAlign: 'center',
+              borderTop: prevAccion ? 'none' : brd,
+              borderBottom: nextAccion ? 'none' : brd,
+              padding: '2px 0',
+              marginTop: prevAccion ? 0 : 5, marginBottom: nextAccion ? 0 : 5, marginLeft: 8, marginRight: 8,
+              letterSpacing: '1px', textTransform: 'uppercase',
+            }}>{l.texto}</div>
+          )
+        })}
       </div>
       {archivado && e.archivado_at && (
         <div className="no-print" style={{ fontFamily: FONT.body, fontSize: 10, color: T.mut, textAlign: 'center', padding: '2px 0 5px' }}>
@@ -519,27 +601,12 @@ const iconBtn = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({
 const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }
 const modalBox: React.CSSProperties = { borderRadius: 16, width: 600, maxWidth: '100%', maxHeight: '90vh', overflow: 'auto', padding: 24 }
 
-// Vista: masonry uniforme (tarjetas mismo ancho, fluyen sin huecos). Impresión: A4 vertical B/N compacto.
+// Vista: masonry uniforme (tarjetas mismo ancho, fluyen sin huecos). Impresión: PDF (jsPDF) generado en construirEsquemasPDF.
 const PRINT_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap');
 .esquemas-masonry { column-count: 4; column-gap: 14px; }
 .esquemas-masonry .esquema-card { break-inside: avoid; margin-bottom: 14px; display: inline-block; width: 100%; }
 @media (max-width: 1100px) { .esquemas-masonry { column-count: 3; } }
 @media (max-width: 800px)  { .esquemas-masonry { column-count: 2; } }
 @media (max-width: 520px)  { .esquemas-masonry { column-count: 1; } }
-
-@media print {
-  @page { size: A4 portrait; margin: 6mm; }
-  body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
-  .no-print { display: none !important; }
-  .solo-print { display: block !important; }
-  .print-area { position: absolute; left: 0; right: 0; top: 0; padding: 10mm; box-sizing: border-box; }
-  .print-gama { font-family: Oswald, sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #fff; background: #1a1a1a; text-align: center; margin: 0 0 13px; padding: 9px 8px; border-radius: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .print-grid { column-count: 3 !important; column-gap: 15px; }
-  .print-card { break-inside: avoid; margin-bottom: 16px; border: 1.5px solid #1a1a1a !important; border-radius: 6px; box-sizing: border-box; }
-  .print-head { background: #e2e2e2 !important; color: #1a1a1a !important; font-family: 'Anton','Oswald',sans-serif !important; font-size: 31px !important; font-weight: 400 !important; line-height: 1 !important; letter-spacing: 0.5px !important; border-bottom: 2px solid #1a1a1a !important; padding: 6px 8px 5px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .print-act { background: transparent !important; color: #1a1a1a !important; border-top: 2px solid #1a1a1a !important; border-bottom: 2px solid #1a1a1a !important; border-radius: 0 !important; margin: 5px 8px !important; }
-  .print-ing { color: #1a1a1a !important; font-family: 'Barlow Semi Condensed','Oswald',sans-serif !important; font-weight: 600 !important; font-size: 16px !important; line-height: 1.1 !important; }
-}
 `

@@ -21,11 +21,11 @@ interface MarcaItem { id: string; nombre: string }
 
 type TabId = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'evolucion' | 'marcas'
 
-// Fondo crema único, coherente con el sidebar y el wrapper del ERP
-const PAGE_BG = '#FCEFD6'
-const INK = '#140f08'
+// Theme-aware: fondo e INK salen de variables → cambian solos en claro/oscuro
+const PAGE_BG = 'var(--neo-bg)'
+const INK = 'var(--neo-ink)'
 const ROSA = '#FF2E63'
-const SHADOW = `4px 4px 0 ${INK}`
+const SHADOW = `4px 4px 0 var(--neo-shadow-color)`
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'resumen',     label: 'Resumen' },
@@ -44,12 +44,12 @@ const CANALES_DISPONIBLES = [
   { id: 'dir',   label: 'Directa' },
 ]
 
-// Desplegable neobrutal: borde negro, cero redondez, sombra única de 4px
+// Desplegable neobrutal: borde, cero redondez, sombra única de 4px
 const dropdownBtn: React.CSSProperties = {
   padding: '9px 14px',
   borderRadius: 0,
   border: `3px solid ${INK}`,
-  background: '#ffffff',
+  background: 'var(--sl-card)',
   fontSize: 14,
   fontFamily: 'Lexend, sans-serif',
   fontWeight: 600,
@@ -67,7 +67,7 @@ const menuStyle: React.CSSProperties = {
   position: 'absolute',
   top: 50,
   right: 0,
-  background: '#ffffff',
+  background: 'var(--sl-card)',
   border: `3px solid ${INK}`,
   borderRadius: 0,
   width: 280,
@@ -133,7 +133,7 @@ function MultiSelect({
                 background: selected.includes(o.id) ? `${ROSA}1f` : 'transparent',
                 color: INK,
                 fontFamily: 'Lexend, sans-serif', fontSize: 13, whiteSpace: 'nowrap',
-                borderBottom: `1px solid ${INK}1a`,
+                borderBottom: `1px solid var(--sl-border)`,
               }}
             >
               <input
@@ -212,7 +212,7 @@ export default function PanelGlobal() {
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 700, color: INK, letterSpacing: 3, textTransform: 'uppercase' }}>
             PANEL GLOBAL
           </div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#6b5d45', marginTop: 2 }}>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-secondary)', marginTop: 2 }}>
             {subtitulo}
           </div>
         </div>
