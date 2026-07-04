@@ -512,6 +512,16 @@ async function reconciliarPendientes(req: VercelRequest, res: VercelResponse) {
 // disparo avanza mucho y basta una red de seguridad ESPACIADA (cada 10 min, no
 // cada minuto) para reanudar si el proceso se corta. Lee de BD en tandas de
 // LOTE_DB para no cargar miles de filas de golpe.
+//
+// MODO solo_lectura_manual (04/07/26): reprocesa SOLO las facturas en estado
+// 'pendiente_lectura_manual' por la cascada completa (plantilla → Tesseract →
+// bootstrap de pago 1 vez por NIF, regla 3 bis). La primera lectura de pago de
+// cada NIF nuevo APRENDE su plantilla; el resto de facturas de ese proveedor se
+// leen gratis. Cursor: las leídas SALEN del conjunto (cambian de estado), así
+// que con progreso real se vuelve al inicio; una tanda entera sin progreso
+// avanza el offset y salta el bloque atascado. Termina cuando la consulta no
+// devuelve filas. El candado vision_usada impide gastar API dos veces en el
+// mismo NIF aunque siga fallando.
 const LOTE_DB = 4
 const PRESUPUESTO_MS = 250_000
 
@@ -529,6 +539,7 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
   if (!job) return res.status(200).json({ ok: true, mensaje: 'Sin jobs activos' })
 
   const soloSinLeer = !!job.solo_sin_leer
+  const soloLM = !!job.solo_lectura_manual
   const sesionId = (job.sesion_id as string) || `reproc-${job.id}`
   const objetivo = Number(job.total_objetivo || 0)
 
@@ -549,7 +560,9 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
       .not('pdf_drive_id', 'is', null)
       .order('fecha_factura', { ascending: true })
 
-    if (soloSinLeer) {
+    if (soloLM) {
+      q = q.eq('estado', 'pendiente_lectura_manual').range(offset, offset + LOTE_DB - 1)
+    } else if (soloSinLeer) {
       q = q.neq('estado', 'pendiente_lectura_manual').or('total.is.null,total.eq.0,nif_emisor.is.null').range(0, LOTE_DB - 1)
     } else {
       q = q.range(offset, offset + LOTE_DB - 1)
@@ -563,6 +576,7 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
     if (!facturas || facturas.length === 0) { agotadas = true; break }
 
     let okEstaTanda = 0
+    let progresoLM = 0
     for (const f of facturas) {
       const driveId = f.pdf_drive_id as string
       const nombre = (f.pdf_original_name as string) || `${f.id}.pdf`
@@ -597,6 +611,7 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
           const conc = ['conciliada', 'asociada'].includes(estadoFinal || '')
           const resultado = r.estado === 'duplicada' ? 'duplicada' : 'ok'
           okTanda++; okTotal++; okEstaTanda++
+          if (r.estado !== 'lectura_manual') progresoLM++
           if (conc) concTotal++
           const facNif = (fac?.nif_emisor as string) || null
           const facTotal = fac?.total != null ? Number(fac.total) : null
@@ -636,6 +651,11 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
       if (soloSinLeer && objetivo > 0 && procesadasAcum >= objetivo) break
     }
 
+    // Modo lectura_manual: si la tanda logró progreso real (leídas/duplicadas que
+    // SALEN del conjunto), el cursor vuelve al inicio; sin progreso, el offset ya
+    // avanzó y salta el bloque atascado.
+    if (soloLM && progresoLM > 0) offset = 0
+
     await supabaseAdmin.from('reproc_control').update({
       offset_actual: offset, procesadas: procesadasAcum,
       ok: okTotal, errores: errTotal, conciliadas: concTotal,
@@ -663,7 +683,7 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
     ok_tanda: okTanda, errores_tanda: errTanda,
     procesadas: procesadasAcum, terminado,
     motivo_fin: terminado ? (agotadas ? 'agotadas' : sinProgreso ? 'sin_progreso' : 'objetivo') : 'tiempo',
-    modo: soloSinLeer ? 'solo_sin_leer' : 'completo',
+    modo: soloLM ? 'solo_lectura_manual' : soloSinLeer ? 'solo_sin_leer' : 'completo',
   })
 }
 
