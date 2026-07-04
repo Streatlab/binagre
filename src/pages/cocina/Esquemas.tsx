@@ -1,3 +1,12 @@
+/* ==============================================================================
+ * MODULO BLINDADO - ESQUEMAS DE COCINA (impresion/PDF)
+ * Estetica CANONICA validada por Ruben (jul-2026): Oswald Bold en titulo/gama/nubes
+ * + Barlow Semi Condensed en ingredientes, banda gris del plato con titulo centrado,
+ * banda negra de gama con contador X/Y, contador total, tarjeta redondeada y nubes
+ * (MICRO/FREIDORA...) con aire entre texto y rayas.
+ * PROHIBIDO cambiar el look de impresion, las fuentes o las medidas de la tarjeta sin
+ * que Ruben lo pida EXPLICITAMENTE. Registro: Notion "Modulos blindados - Binagre".
+ * ============================================================================== */
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { LayoutGrid, Mic, Printer, Plus, Trash2, X, Check, Pencil, Tags, Archive, History } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -91,8 +100,18 @@ function registrarFuentesEsquemas(doc: jsPDF, fonts: Record<string, string> | nu
 }
 
 function alturaCard(e: Esquema): number {
-  const cuerpo = e.lineas.reduce((s, l) => s + (l.tipo === 'accion' ? 7.6 : 4.6), 0)
-  return 9 + cuerpo + 3
+  let cuerpo = 0
+  let i = 0
+  while (i < e.lineas.length) {
+    if (e.lineas[i].tipo === 'accion') {
+      let k = 0
+      while (i < e.lineas.length && e.lineas[i].tipo === 'accion') { k++; i++ }
+      cuerpo += 8.5 + (k - 1) * 3.9
+    } else {
+      cuerpo += 4.6; i++
+    }
+  }
+  return 9 + 1.4 + cuerpo + 2.5
 }
 
 function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[], fonts: Record<string, string> | null) {
@@ -152,24 +171,29 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[], f
         let tf = 16; doc.setFontSize(tf)
         while (tf > 10 && doc.getTextWidth(e.nombre) > colW - 4) { tf -= 0.5; doc.setFontSize(tf) }
         doc.text(e.nombre, x + colW / 2, cy + 6.6, { align: 'center' })
-        let ly = cy + 9
-        e.lineas.forEach((l, li) => {
-          if (l.tipo === 'accion') {
-            const prevAccion = li > 0 && e.lineas[li - 1].tipo === 'accion'
-            const nextAccion = li < e.lineas.length - 1 && e.lineas[li + 1].tipo === 'accion'
+        let ly = cy + 9 + 1.4 // aire entre el titulo y el primer ingrediente
+        let li = 0
+        while (li < e.lineas.length) {
+          if (e.lineas[li].tipo === 'accion') {
+            // nube: agrupa acciones consecutivas en un bloque con aire entre texto y rayas
+            let k = 0
+            while (li + k < e.lineas.length && e.lineas[li + k].tipo === 'accion') k++
             doc.setDrawColor(...INK_C); doc.setLineWidth(0.4)
-            if (!prevAccion) doc.line(x + 4, ly + 1.8, x + colW - 4, ly + 1.8)
-            if (!nextAccion) doc.line(x + 4, ly + 6.4, x + colW - 4, ly + 6.4)
+            doc.line(x + 4, ly + 1.3, x + colW - 4, ly + 1.3)
             doc.setFont(emb ? 'Oswald' : 'helvetica', 'bold'); doc.setFontSize(10.5)
-            doc.text(l.texto, x + colW / 2, ly + 5.4, { align: 'center' })
-            ly += 7.6
+            for (let a = 0; a < k; a++) doc.text(e.lineas[li + a].texto, x + colW / 2, ly + 5.6 + a * 3.9, { align: 'center' })
+            const ultima = ly + 5.6 + (k - 1) * 3.9
+            doc.line(x + 4, ultima + 1.6, x + colW - 4, ultima + 1.6)
+            ly += 8.5 + (k - 1) * 3.9
+            li += k
           } else {
             doc.setFont(emb ? 'BarlowSC' : 'helvetica', 'normal'); let lf = 10.5; doc.setFontSize(lf)
-            while (lf > 7 && doc.getTextWidth(l.texto) > colW - 3) { lf -= 0.5; doc.setFontSize(lf) }
-            doc.text(l.texto, x + colW / 2, ly + 3.4, { align: 'center' })
+            while (lf > 7 && doc.getTextWidth(e.lineas[li].texto) > colW - 3) { lf -= 0.5; doc.setFontSize(lf) }
+            doc.text(e.lineas[li].texto, x + colW / 2, ly + 3.4, { align: 'center' })
             ly += 4.6
+            li += 1
           }
-        })
+        }
       })
     })
 
