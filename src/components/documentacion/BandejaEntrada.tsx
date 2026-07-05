@@ -4,6 +4,7 @@ import { toast } from '@/lib/toastStore'
 import CardFacturasCorreo from '@/components/panel/resumen/CardFacturasCorreo'
 import CardSaludOcr from '@/components/panel/resumen/CardSaludOcr'
 import ChuletaPlataformas from '@/components/ChuletaPlataformas'
+import AvisosBandeja from '@/components/documentacion/AvisosBandeja'
 
 // ── Bandeja de entrada — 3 BOTONES, UN SOLO PICKER CADA UNO ─────────────────
 //   · BANCO    → extracto (CSV/PDF). Pregunta titular (Rubén/Emilio) y vuelca a
@@ -266,6 +267,9 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#140f08', marginBottom: 16, textAlign: 'center' }}>
         Si un documento entra por el botón equivocado, el sistema lo detecta por contenido, lo redirige solo y te avisa. Los duplicados no se procesan dos veces.
       </div>
+
+      {/* ── Avisos autoaprendibles: dudas abiertas con solución en un clic ── */}
+      <AvisosBandeja onResuelto={() => onProcesado?.()} />
 
       {/* Tres columnas iguales: correo · salud OCR · chuleta plataformas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, alignItems: 'stretch' }}>
