@@ -71,7 +71,7 @@ const SECTIONS: NavSection[] = [
       { path: '/ops/checklists',    label: 'Checklists',       emoji: '✅', perfiles: ['admin'] },
       { path: '/ops/tareas',        label: 'Tareas',           emoji: '📝', perfiles: ['admin'] },
       { path: '/ops/manuales',      label: 'Manuales',         emoji: '📚', perfiles: ['admin'] },
-      { path: '/ops/reembolsos',    label: 'Reclamaciones',    emoji: '💸', perfiles: ['admin'] },
+      { path: '/ops/reembolsos',    label: 'Reembolsos',       emoji: '💸', perfiles: ['admin'] },
       { path: '/ops/pulso',         label: 'Pulso Cocina',     emoji: '📡', perfiles: ['admin'] },
       { path: '/ops/temperaturas',  label: 'Temperaturas',     emoji: '🌡️', perfiles: ['admin'] },
       { path: '/ops/bpm',           label: 'BPM / Calidad',    emoji: '✅', perfiles: ['admin'] },
