@@ -4,66 +4,30 @@
  * Descarga ventas del día anterior por marca y plataforma y las deja en la
  * tabla de aterrizaje `ingesta_robot_diaria` (NO toca tablas de conciliación).
  *
- * ESTADO CALIBRACIÓN (2026-07-03):
- *   - SINQRO login: CALIBRADO (id=login-email/#login-password/#loginButton).
- *   - SINQRO dominio real: app.sinqro.com · local sp/6416.
- *       · Históricos (ventas): #/sp/6416/online/orders
- *       · En vivo (POS): #/sp/6416/pos/services
- *   - RUSHOUR login: manager.rushour.io/login (campos pendientes de HTML real).
+ * ESTADO CALIBRACIÓN (2026-07-03) — login de ambos CALIBRADO con HTML real:
+ *   - RUSHOUR: manager.rushour.io/login · input[name=username] / input[name=password]
+ *     / button[type=submit] "Log In". Ventas: menú "Historique/Terminés" en la app —
+ *     el robot navega al panel y lee las tarjetas de pedido.
+ *   - SINQRO: app.sinqro.com · #login-email / #login-password / #loginButton.
+ *     Ventas históricas: #/sp/6416/online/orders → hay que pulsar "Buscar" con rango
+ *     de fechas; los pedidos salen como filas. El robot rellena fecha y busca.
  */
 
 import { chromium, Browser, Page } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 
-// ---------- Configuración ----------
 const DIAG = process.env.DIAG === '1';
 const ART_DIR = './robot-artifacts';
-
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-const CFG = {
-  rushour: {
-    nombre: 'rushour',
-    loginUrl: 'https://manager.rushour.io/login',      // CALIBRADO (URL real)
-    user: process.env.RUSHOUR_USER || '',
-    pass: process.env.RUSHOUR_PASS || '',
-    sel: {
-      userInput: 'input[type="email"], input[name="email"], input[type="text"]',  // CALIBRAR con HTML
-      passInput: 'input[type="password"]',                     // CALIBRAR
-      submitBtn: 'button[type="submit"], button',              // CALIBRAR
-      reportUrl: 'https://manager.rushour.io/',                // CALIBRAR pantalla ventas
-      rows: 'table tbody tr',                                  // CALIBRAR
-    },
-  },
-  sinqro: {
-    nombre: 'sinqro',
-    loginUrl: 'https://app.sinqro.com/',               // CALIBRADO (dominio real)
-    user: process.env.SINQRO_USER || '',
-    pass: process.env.SINQRO_PASS || '',
-    sel: {
-      userInput: '#login-email',                              // CALIBRADO
-      passInput: '#login-password',                           // CALIBRADO
-      submitBtn: '#loginButton',                              // CALIBRADO
-      // Históricos de ventas (lo que alimenta ingesta diaria):
-      reportUrl: 'https://app.sinqro.com/#/sp/6416/online/orders',   // CALIBRADO (falta mapear tabla)
-      rows: 'table tbody tr',                                 // CALIBRAR estructura tabla
-    },
-  },
-};
-
-// ---------- Utilidades ----------
 function ayer(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
   return d.toISOString().slice(0, 10);
 }
-
-function ensureArtDir() {
-  if (!existsSync(ART_DIR)) mkdirSync(ART_DIR, { recursive: true });
-}
-
+function ensureArtDir() { if (!existsSync(ART_DIR)) mkdirSync(ART_DIR, { recursive: true }); }
 async function diag(page: Page, etiqueta: string) {
   if (!DIAG) return;
   ensureArtDir();
@@ -71,125 +35,157 @@ async function diag(page: Page, etiqueta: string) {
     await page.screenshot({ path: `${ART_DIR}/${etiqueta}.png`, fullPage: true });
     writeFileSync(`${ART_DIR}/${etiqueta}.html`, await page.content());
     console.log(`  · diagnóstico guardado: ${etiqueta}`);
-  } catch { /* no romper por un fallo de captura */ }
+  } catch {}
 }
-
-type Fila = {
-  fecha: string;
-  agregador: string;
-  plataforma: string;
-  marca: string;
-  pedidos: number | null;
-  bruto: number | null;
-  neto: number | null;
-  ticket_medio: number | null;
-};
-
 function numero(txt: string | null | undefined): number | null {
   if (!txt) return null;
   const n = parseFloat(txt.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 }
 
-// ---------- Login genérico ----------
-async function login(page: Page, c: typeof CFG.rushour) {
-  await page.goto(c.loginUrl, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1500);
-  await diag(page, `${c.nombre}-01-login`);
-  await page.waitForSelector(c.sel.userInput, { timeout: 15000 });
-  await page.fill(c.sel.userInput, c.user);
-  await page.fill(c.sel.passInput, c.pass);
-  await Promise.all([
-    page.waitForLoadState('networkidle').catch(() => {}),
-    page.click(c.sel.submitBtn),
-  ]);
-  await page.waitForTimeout(2500);
-  await diag(page, `${c.nombre}-02-postlogin`);
-}
+type Fila = {
+  fecha: string; agregador: string; plataforma: string; marca: string;
+  pedidos: number | null; bruto: number | null; neto: number | null; ticket_medio: number | null;
+};
 
-// ---------- Extracción de ventas ----------
-async function extraer(page: Page, c: typeof CFG.rushour, fecha: string): Promise<Fila[]> {
-  await page.goto(c.sel.reportUrl, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(3500);
-  await diag(page, `${c.nombre}-03-report`);
+const RUSHOUR = {
+  nombre: 'rushour',
+  loginUrl: 'https://manager.rushour.io/login',
+  user: process.env.RUSHOUR_USER || '',
+  pass: process.env.RUSHOUR_PASS || '',
+  userInput: 'input[name="username"]',
+  passInput: 'input[name="password"]',
+  submitBtn: 'button[type="submit"]',
+};
+const SINQRO = {
+  nombre: 'sinqro',
+  loginUrl: 'https://app.sinqro.com/',
+  user: process.env.SINQRO_USER || '',
+  pass: process.env.SINQRO_PASS || '',
+  userInput: '#login-email',
+  passInput: '#login-password',
+  submitBtn: '#loginButton',
+  ventasUrl: 'https://app.sinqro.com/#/sp/6416/online/orders',
+};
 
-  const filas = await page.$$eval(c.sel.rows, (trs) =>
-    trs.map((tr) => Array.from(tr.querySelectorAll('td')).map((td) => (td.textContent || '').trim()))
-  ).catch(() => [] as string[][]);
-
-  if (!filas.length) {
-    ensureArtDir();
-    writeFileSync(`${ART_DIR}/${c.nombre}-EMPTY.html`, await page.content());
-    console.warn(`  ⚠ ${c.nombre}: 0 filas. Revisar selectores en robot-artifacts/${c.nombre}-EMPTY.html`);
-    return [];
-  }
-
-  return filas.map((cols) => ({
-    fecha,
-    agregador: c.nombre,
-    plataforma: (cols[1] || '').toLowerCase().replace(/\s+/g, '_') || 'desconocida',
-    marca: cols[0] || 'desconocida',
-    pedidos: numero(cols[2]),
-    bruto: numero(cols[3]),
-    neto: numero(cols[4]),
-    ticket_medio: numero(cols[5]),
-  }));
-}
-
-// ---------- Procesar una plataforma ----------
-async function procesar(browser: Browser, c: typeof CFG.rushour, fecha: string): Promise<Fila[]> {
-  if (!c.user || !c.pass) {
-    console.warn(`  ⚠ ${c.nombre}: faltan credenciales, se omite.`);
-    return [];
-  }
+// ---------- RUSHOUR ----------
+async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> {
+  if (!RUSHOUR.user || !RUSHOUR.pass) { console.warn('  ⚠ rushour: sin credenciales.'); return []; }
   const page = await browser.newPage();
   try {
-    console.log(`→ ${c.nombre}: login…`);
-    await login(page, c);
-    console.log(`→ ${c.nombre}: extrayendo ventas de ${fecha}…`);
-    const filas = await extraer(page, c, fecha);
-    console.log(`  ✓ ${c.nombre}: ${filas.length} filas`);
+    console.log('→ rushour: login…');
+    await page.goto(RUSHOUR.loginUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    await diag(page, 'rushour-01-login');
+    await page.waitForSelector(RUSHOUR.userInput, { timeout: 15000 });
+    await page.fill(RUSHOUR.userInput, RUSHOUR.user);
+    await page.fill(RUSHOUR.passInput, RUSHOUR.pass);
+    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(RUSHOUR.submitBtn)]);
+    await page.waitForTimeout(3500);
+    await diag(page, 'rushour-02-postlogin');
+
+    // Rushour Business Manager es una SPA de tarjetas de pedido (no tabla).
+    // Se leen las tarjetas del día: nº pedido, marca/artículos e importe.
+    const tarjetas = await page.$$eval('[class*="order"], [class*="commande"], [class*="card"]', (els) =>
+      els.map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()).filter((t) => /€/.test(t))
+    ).catch(() => [] as string[]);
+    await diag(page, 'rushour-03-report');
+
+    if (!tarjetas.length) {
+      ensureArtDir();
+      writeFileSync(`${ART_DIR}/rushour-EMPTY.html`, await page.content());
+      console.warn('  ⚠ rushour: 0 tarjetas de pedido leídas (revisar rushour-EMPTY.html).');
+      return [];
+    }
+    // Cada tarjeta → una venta. Plataforma/marca se afinan tras ver datos reales.
+    const filas: Fila[] = tarjetas.map((t) => ({
+      fecha, agregador: 'rushour',
+      plataforma: /glovo/i.test(t) ? 'glovo' : /uber/i.test(t) ? 'uber_eats' : 'desconocida',
+      marca: 'desconocida',
+      pedidos: 1, bruto: numero((t.match(/([\d.,]+)\s*€/) || [])[1]), neto: null, ticket_medio: null,
+    }));
+    console.log(`  ✓ rushour: ${filas.length} pedidos leídos`);
     return filas;
   } catch (e: any) {
-    console.error(`  ✗ ${c.nombre}: ${e?.message || e}`);
-    await diag(page, `${c.nombre}-ERROR`);
+    console.error(`  ✗ rushour: ${e?.message || e}`);
+    await diag(page, 'rushour-ERROR');
     return [];
-  } finally {
-    await page.close();
-  }
+  } finally { await page.close(); }
 }
 
-// ---------- Guardar en Supabase ----------
+// ---------- SINQRO ----------
+async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
+  if (!SINQRO.user || !SINQRO.pass) { console.warn('  ⚠ sinqro: sin credenciales.'); return []; }
+  const page = await browser.newPage();
+  try {
+    console.log('→ sinqro: login…');
+    await page.goto(SINQRO.loginUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    await diag(page, 'sinqro-01-login');
+    await page.waitForSelector(SINQRO.userInput, { timeout: 15000 });
+    await page.fill(SINQRO.userInput, SINQRO.user);
+    await page.fill(SINQRO.passInput, SINQRO.pass);
+    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(SINQRO.submitBtn)]);
+    await page.waitForTimeout(3000);
+    await diag(page, 'sinqro-02-postlogin');
+
+    // Ir a Historial de ventas, fijar rango = ayer, y buscar.
+    await page.goto(SINQRO.ventasUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+    // Rellenar fechas si existen los inputs (placeholder "Inicio" / "Fin").
+    const inicio = page.locator('input[placeholder="Inicio"]').first();
+    const fin = page.locator('input[placeholder="Fin"]').first();
+    if (await inicio.count()) { await inicio.fill(fecha).catch(() => {}); }
+    if (await fin.count()) { await fin.fill(fecha).catch(() => {}); }
+    // Pulsar "Buscar".
+    const buscar = page.getByRole('button', { name: /buscar/i }).first();
+    if (await buscar.count()) { await buscar.click().catch(() => {}); await page.waitForTimeout(3000); }
+    await diag(page, 'sinqro-03-report');
+
+    const filas = await page.$$eval('table tbody tr', (trs) =>
+      trs.map((tr) => Array.from(tr.querySelectorAll('td')).map((td) => (td.textContent || '').trim()))
+    ).catch(() => [] as string[][]);
+
+    if (!filas.length) {
+      ensureArtDir();
+      writeFileSync(`${ART_DIR}/sinqro-EMPTY.html`, await page.content());
+      console.warn('  ⚠ sinqro: 0 filas (posible sin ventas ayer o tabla distinta; revisar sinqro-EMPTY.html).');
+      return [];
+    }
+    const out: Fila[] = filas.map((cols) => ({
+      fecha, agregador: 'sinqro',
+      plataforma: (cols.find((c) => /glovo|just|uber/i.test(c)) || '').toLowerCase().replace(/\s+/g, '_') || 'desconocida',
+      marca: cols[0] || 'desconocida',
+      pedidos: 1, bruto: numero(cols.find((c) => /€/.test(c))), neto: null, ticket_medio: null,
+    }));
+    console.log(`  ✓ sinqro: ${out.length} filas`);
+    return out;
+  } catch (e: any) {
+    console.error(`  ✗ sinqro: ${e?.message || e}`);
+    await diag(page, 'sinqro-ERROR');
+    return [];
+  } finally { await page.close(); }
+}
+
+// ---------- Guardar ----------
 async function guardar(filas: Fila[]) {
   if (!filas.length) { console.log('Nada que guardar.'); return; }
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.warn('⚠ Faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY: no se guarda.');
-    return;
-  }
+  if (!SUPABASE_URL || !SUPABASE_KEY) { console.warn('⚠ Faltan credenciales Supabase.'); return; }
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-  const { error } = await sb
-    .from('ingesta_robot_diaria')
-    .upsert(filas, { onConflict: 'fecha,agregador,plataforma,marca' });
-  if (error) { console.error('✗ Error guardando en Supabase:', error.message); process.exitCode = 1; }
-  else console.log(`✓ Guardadas ${filas.length} filas en ingesta_robot_diaria.`);
+  const { error } = await sb.from('ingesta_robot_diaria').upsert(filas, { onConflict: 'fecha,agregador,plataforma,marca' });
+  if (error) { console.error('✗ Error Supabase:', error.message); process.exitCode = 1; }
+  else console.log(`✓ Guardadas ${filas.length} filas.`);
 }
 
-// ---------- Main ----------
 async function main() {
   const fecha = ayer();
   console.log(`== Robot ingesta diaria · fecha=${fecha} · DIAG=${DIAG ? 'on' : 'off'} ==`);
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
-  });
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   try {
-    const rush = await procesar(browser, CFG.rushour, fecha);
-    const sinq = await procesar(browser, CFG.sinqro, fecha);
+    const rush = await ingestaRushour(browser, fecha);
+    const sinq = await ingestaSinqro(browser, fecha);
     await guardar([...rush, ...sinq]);
-  } finally {
-    await browser.close();
-  }
+  } finally { await browser.close(); }
   console.log('== Fin ==');
 }
-
 main().catch((e) => { console.error(e); process.exit(1); });
