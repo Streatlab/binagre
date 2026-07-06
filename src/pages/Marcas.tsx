@@ -78,12 +78,12 @@ export default function Marcas() {
           <span style={{ fontSize: 13, color: 'var(--sl-text-muted)' }}>Gestion de marcas del negocio</span>
         </div>
         <button onClick={openCreate}
-          style={{ padding: '8px 18px', background: '#e8f442', color: '#111111', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
+          style={{ padding: '8px 18px', background: '#e8f442', color: 'var(--sl-text-primary)', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
           + Nueva marca
         </button>
       </div>
 
-      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: '#ffaaaa', fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ backgroundColor: '#B01D2318', border: '1px solid #B01D2355', borderRadius: 8, padding: '14px 18px', color: '#B01D23', fontSize: 13, marginBottom: 20 }}>{error}</div>}
 
       {showForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'var(--sl-overlay)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -109,7 +109,7 @@ export default function Marcas() {
               <button onClick={() => { setShowForm(false); setEditId(null) }}
                 style={{ padding: '8px 16px', background: 'var(--sl-btn-cancel-bg)', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Cancelar</button>
               <button onClick={save} disabled={saving}
-                style={{ padding: '8px 18px', background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+                style={{ padding: '8px 18px', background: '#B01D23', color: '#fff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
