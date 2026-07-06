@@ -29,6 +29,11 @@ export function parseLiquidacionGlovo(
   const neto = imp((pdfTexto.match(/Ingreso a cuenta colaborador\s+([\d.,]+)\s*EUR/i) || [])[1])
   if (bruto == null || neto == null) return null
 
+  // Comisión total de Glovo (su factura, IVA incluido) y promo asumida por el partner
+  const comision = imp((pdfTexto.match(/Total factura \(IVA[^)]*\)\s+([\d.,]+)\s*EUR/i) || [])[1])
+  const promoM = pdfTexto.match(/Promoci[óo]n producto asumida por partner\s+(-?[\d.,]+)\s*EUR/i)
+  const promo = promoM ? Math.abs(imp(promoM[1]) ?? 0) : null
+
   const per = pdfTexto.match(/entre\s+(\d{2}\.\d{2}\.\d{4})\s*[-–]\s*(\d{2}\.\d{2}\.\d{4})/i)
   const ini = per ? ddmmyyyy(per[1]) : null
   const fin = per ? ddmmyyyy(per[2]) : null
@@ -74,5 +79,7 @@ export function parseLiquidacionGlovo(
     referencia,
     pedidos_prime,
     pedidos_promo,
-  }
+    ...(comision != null ? { comision_eur: comision } : {}),
+    ...(promo != null ? { promo_eur: promo } : {}),
+  } as VentaPlataformaParseada
 }
