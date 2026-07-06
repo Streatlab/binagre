@@ -3,8 +3,7 @@ import { ChevronLeft, ChevronRight, FileDown, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import {
-  type Empleado,
-  type Turno,
+  type Empleado, type Turno,
   lunesDeSemana, fmtRangoSemana, numeroSemanaISO,
 } from './utils'
 import { getSemanaPorLunes } from './datosReales'
@@ -52,17 +51,17 @@ export default function TabEstaSemana() {
     const iso = isoDeFecha(lunes)
 
     async function load() {
-      // 1. Histórico hardcodeado (semanas registradas o con override puntual) — MANDA sobre la BD
-      const sem = getSemanaPorLunes(iso)
-      if (sem) {
-        if (cancelled) return
-        setTurnos(expandirTurnos(empleados, sem.turnos)); setCierres({}); setFuente('historico'); setLoading(false); return
-      }
-      // 2. Datos reales de la BD
+      // 1. Datos reales de la BD — MANDA siempre que existan (son ediciones reales del usuario)
       const turnosBD = await fetchTurnosDB(iso)
       if (cancelled) return
       if (turnosBD.length > 0) {
         setTurnos(turnosBD); setCierres({}); setFuente('bd'); setLoading(false); return
+      }
+      // 2. Histórico hardcodeado (semanas registradas o con override puntual) — solo si no hay nada en BD
+      const sem = getSemanaPorLunes(iso)
+      if (sem) {
+        if (cancelled) return
+        setTurnos(expandirTurnos(empleados, sem.turnos)); setCierres({}); setFuente('historico'); setLoading(false); return
       }
       // 3. Plantilla asignada a esa semana
       const asig = getAsignacionPorLunes(iso)

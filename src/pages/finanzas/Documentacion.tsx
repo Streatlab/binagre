@@ -9,19 +9,20 @@ import {
 import BandejaEntrada from '@/components/documentacion/BandejaEntrada'
 
 // Monta los módulos EXISTENTES sin tocar su lógica (solo se reubican como pestañas).
+// La antigua pestaña "Ventas" (importador CSV) se eliminó: toda subida entra por
+// la Bandeja de entrada y las ventas viven en Finanzas → Ventas.
 const OcrConToast = lazy(() => import('@/pages/OcrConToast'))
-const ImportarVentas = lazy(() => import('@/pages/ImportarVentas'))
 const Conciliacion = lazy(() => import('@/pages/Conciliacion'))
 const GestionFacturas = lazy(() => import('@/pages/finanzas/GestionFacturas'))
 
-type Tab = 'bandeja' | 'facturas' | 'ventas' | 'conciliacion' | 'documental'
+type Tab = 'bandeja' | 'facturas' | 'conciliacion' | 'documental'
 
 const STORAGE_KEY = 'documentacion:tab'
 
 function loadTab(): Tab {
   try {
     const r = sessionStorage.getItem(STORAGE_KEY)
-    if (r === 'bandeja' || r === 'facturas' || r === 'ventas' || r === 'conciliacion' || r === 'documental') return r
+    if (r === 'bandeja' || r === 'facturas' || r === 'conciliacion' || r === 'documental') return r
   } catch { /* swallow */ }
   return 'bandeja'
 }
@@ -112,7 +113,6 @@ function FraseCabecera({ kpi }: { kpi: KpiRow | null }) {
 const TABS: { id: Tab; label: string }[] = [
   { id: 'bandeja', label: 'Bandeja entrada' },
   { id: 'facturas', label: 'Facturas' },
-  { id: 'ventas', label: 'Ventas' },
   { id: 'conciliacion', label: 'Conciliación' },
   { id: 'documental', label: 'Gestor documental' },
 ]
@@ -188,7 +188,6 @@ export default function Documentacion() {
       <Suspense fallback={<div style={{ padding: 24, color: GRIS, fontFamily: LEX }}>Cargando…</div>}>
         {tab === 'bandeja' && <BandejaEntrada desde={desdeStr} hasta={hastaStr} onProcesado={() => setReloadTick(x => x + 1)} />}
         {tab === 'facturas' && <OcrConToast periodoExterno={{ desde, hasta }} />}
-        {tab === 'ventas' && <ImportarVentas />}
         {tab === 'conciliacion' && <Conciliacion periodoExterno={{ desde, hasta }} />}
         {tab === 'documental' && <GestionFacturas />}
       </Suspense>

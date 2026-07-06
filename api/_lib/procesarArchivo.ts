@@ -1,3 +1,11 @@
+// procesarArchivo v25 — DICCIONARIO NIF = FUENTE ÚNICA DE PLANTILLAS (Rubén 04/07/26):
+//      (a) el lector carga las plantillas TAMBIÉN de diccionario_nif_proveedor
+//          (antes las ignoraba y solo miraba reglas_conciliacion): el diccionario
+//          gana, con merge por campo con las reglas legacy.
+//      (b) proveedor NUEVO → se crea automáticamente su ficha en el diccionario con
+//          plantilla funcional aprendida de la primera factura; ficha existente sin
+//          plantilla → se completa; cada lectura refresca veces_visto/fecha/importe.
+//      (c) la lectura manual toma el nombre canónico del diccionario primero.
 // procesarArchivo v24 — SUPER DICCIONARIO NIF gana siempre (Rubén 02/07/26):
 //      antes de asignar categoría o nombre de proveedor, se consulta primero
 //      diccionario_nif_proveedor (415 NIFs con instrucciones OCR completas).
@@ -295,6 +303,30 @@ async function cargarDiccionarioNif(
       },
     })
   }
+  // SUPER DICCIONARIO NIF (fuente de verdad única, Rubén 04/07/26): GANA sobre
+  // las reglas legacy. Antes el lector IGNORABA las plantillas guardadas en
+  // diccionario_nif_proveedor y solo miraba reglas_conciliacion; ahora el
+  // diccionario pisa nombre y plantilla, con merge por campo (si un campo está
+  // vacío en el diccionario se conserva el de la regla).
+  try {
+    const { data: dicc } = await supabase
+      .from('diccionario_nif_proveedor')
+      .select('nif, proveedor_canonico, plantilla_total_label, plantilla_fecha_formato, plantilla_num_label, es_valido')
+    for (const row of dicc || []) {
+      if ((row as { es_valido?: boolean }).es_valido === false) continue
+      const nif = normalizarNif(row.nif as string)
+      if (!nif) continue
+      const previo = dic.get(nif)
+      dic.set(nif, {
+        nombre: (row.proveedor_canonico as string) || previo?.nombre || null,
+        plantilla: {
+          totalLabel: (row.plantilla_total_label as string) || previo?.plantilla.totalLabel || null,
+          fechaFormato: (row.plantilla_fecha_formato as string) || previo?.plantilla.fechaFormato || null,
+          numLabel: (row.plantilla_num_label as string) || previo?.plantilla.numLabel || null,
+        },
+      })
+    }
+  } catch (e) { console.error('[cargarDiccionarioNif] diccionario:', errMsg(e)) }
   return dic
 }
 
@@ -401,22 +433,73 @@ async function resolverTitular(
   return { titularId, carpeta, pendienteTitularManual: false, nifClienteNorm }
 }
 
+// Aprendizaje de proveedor (fuente de verdad única: diccionario NIF, Rubén 04/07/26).
+// - NIF nuevo → se crea su FICHA en diccionario_nif_proveedor con plantilla funcional
+//   derivada de la primera factura leída.
+// - Ficha existente SIN plantilla → se le rellena la plantilla aprendida (antes el
+//   aprendizaje abortaba si ya había regla, y proveedores como Amazon o Campofrío se
+//   quedaban para siempre sin plantilla pese a leerse bien una vez).
+// - Cada lectura actualiza la ficha: veces_visto, última fecha, último importe.
+// - reglas_conciliacion se mantiene como respaldo legacy (se crea si falta y se le
+//   rellena la plantilla si existía sin ella).
 async function aprenderProveedorNif(
   supabase: SupabaseClient, extracted: ExtractedFactura, texto?: string | null,
 ): Promise<void> {
+  const nif = normalizarNif(extracted.nif_emisor)
+  if (!nif || !extracted.proveedor_nombre) return
+  const plantilla = derivarPlantilla(texto, extracted)
+
+  // 1) SUPER DICCIONARIO NIF — crear ficha nueva o completar/refrescar la existente.
   try {
-    const nif = normalizarNif(extracted.nif_emisor)
-    if (!nif || !extracted.proveedor_nombre) return
-    const { data: ya } = await supabase.from('reglas_conciliacion').select('id').eq('patron_nif', nif).maybeSingle()
-    if (ya) return
-    const plantilla = derivarPlantilla(texto, extracted)
-    await supabase.from('reglas_conciliacion').insert({
-      patron: extracted.proveedor_nombre, tipo_categoria: 'gasto', patron_nif: nif,
-      razon_social: extracted.proveedor_nombre, plantilla_total_label: plantilla.totalLabel,
-      plantilla_fecha_formato: plantilla.fechaFormato, plantilla_num_label: plantilla.numLabel,
-      activa: true, prioridad: 50,
-    })
-  } catch (e) { console.error('[aprenderProveedorNif]', errMsg(e)) }
+    const { data: ficha } = await supabase.from('diccionario_nif_proveedor')
+      .select('nif, plantilla_total_label, veces_visto').eq('nif', nif).maybeSingle()
+    if (!ficha) {
+      await supabase.from('diccionario_nif_proveedor').insert({
+        nif, proveedor_canonico: extracted.proveedor_nombre,
+        plantilla_total_label: plantilla.totalLabel,
+        plantilla_fecha_formato: plantilla.fechaFormato,
+        plantilla_num_label: plantilla.numLabel,
+        veces_visto: 1,
+        ultima_fecha: fechaValida(extracted.fecha_factura) ? extracted.fecha_factura : null,
+        ultimo_importe: extracted.total ?? null,
+        categoria_origen: 'aprendizaje_ocr',
+        es_valido: true,
+      })
+    } else {
+      const upd: Record<string, unknown> = {
+        veces_visto: (Number((ficha as { veces_visto?: number }).veces_visto) || 0) + 1,
+        actualizado_en: new Date().toISOString(),
+      }
+      if (fechaValida(extracted.fecha_factura)) upd.ultima_fecha = extracted.fecha_factura
+      if (extracted.total != null) upd.ultimo_importe = extracted.total
+      if (!(ficha as { plantilla_total_label?: string }).plantilla_total_label && plantilla.totalLabel) {
+        upd.plantilla_total_label = plantilla.totalLabel
+        upd.plantilla_fecha_formato = plantilla.fechaFormato
+        upd.plantilla_num_label = plantilla.numLabel
+      }
+      await supabase.from('diccionario_nif_proveedor').update(upd).eq('nif', nif)
+    }
+  } catch (e) { console.error('[aprenderProveedorNif] diccionario:', errMsg(e)) }
+
+  // 2) Respaldo legacy: reglas_conciliacion (crear si falta; completar plantilla si existía vacía).
+  try {
+    const { data: ya } = await supabase.from('reglas_conciliacion')
+      .select('id, plantilla_total_label').eq('patron_nif', nif).maybeSingle()
+    if (!ya) {
+      await supabase.from('reglas_conciliacion').insert({
+        patron: extracted.proveedor_nombre, tipo_categoria: 'gasto', patron_nif: nif,
+        razon_social: extracted.proveedor_nombre, plantilla_total_label: plantilla.totalLabel,
+        plantilla_fecha_formato: plantilla.fechaFormato, plantilla_num_label: plantilla.numLabel,
+        activa: true, prioridad: 50,
+      })
+    } else if (!(ya as { plantilla_total_label?: string }).plantilla_total_label && plantilla.totalLabel) {
+      await supabase.from('reglas_conciliacion').update({
+        plantilla_total_label: plantilla.totalLabel,
+        plantilla_fecha_formato: plantilla.fechaFormato,
+        plantilla_num_label: plantilla.numLabel,
+      }).eq('id', (ya as { id: string }).id)
+    }
+  } catch (e) { console.error('[aprenderProveedorNif] reglas:', errMsg(e)) }
 }
 
 async function guardarResumenPlataforma(
@@ -940,8 +1023,10 @@ async function guardarLecturaManual(
   const nifEmisor = textoPdf ? extraerNifEmisorLibre(textoPdf) : null
   let proveedorNombre = 'PENDIENTE LECTURA MANUAL'
   if (nifEmisor) {
+    // Fuente única: primero el diccionario NIF, luego la regla legacy.
+    const { data: dicc } = await supabase.from('diccionario_nif_proveedor').select('proveedor_canonico').eq('nif', nifEmisor).maybeSingle()
     const { data: regla } = await supabase.from('reglas_conciliacion').select('razon_social').eq('patron_nif', nifEmisor).maybeSingle()
-    proveedorNombre = (regla?.razon_social as string) || `NIF ${nifEmisor} (sin plantilla)`
+    proveedorNombre = (dicc?.proveedor_canonico as string) || (regla?.razon_social as string) || `NIF ${nifEmisor} (sin plantilla)`
   }
   const titTexto = titularPorNifEnTexto(textoPdf)
   const carpetaTitular = titTexto?.carpeta ?? 'SIN_TITULAR'

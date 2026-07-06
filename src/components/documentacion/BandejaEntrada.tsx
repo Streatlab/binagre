@@ -4,15 +4,16 @@ import { toast } from '@/lib/toastStore'
 import CardFacturasCorreo from '@/components/panel/resumen/CardFacturasCorreo'
 import CardSaludOcr from '@/components/panel/resumen/CardSaludOcr'
 import ChuletaPlataformas from '@/components/ChuletaPlataformas'
+import AvisosBandeja from '@/components/documentacion/AvisosBandeja'
 
-// ── Bandeja de entrada — FUENTE ÚNICA DE SUBIDA ────────────────────────────
-// Diseño definitivo (simple y 100% efectivo): CERO clasificación manual.
-//   · "Subir documentos"  → facturas y liquidaciones de venta. El sistema mira
-//     el CONTENIDO: si es un resumen de ventas (Uber) lo manda a Ventas
-//     (uber_liquidaciones); el resto va al motor OCR de facturas.
-//   · "Subir extracto bancario" → único caso que va a otro flujo y pregunta de
-//     quién es (Rubén/Emilio). Vuelca los movimientos a Conciliación.
-// Incluye el cartero (facturas que llegan por correo) y la salud del OCR.
+// ── Bandeja de entrada — 3 BOTONES, UN SOLO PICKER CADA UNO ─────────────────
+//   · BANCO    → extracto (CSV/PDF). Pregunta titular (Rubén/Emilio) y vuelca a
+//     Conciliación. El match retroactivo con facturas ya cargadas es automático.
+//   · VENTAS   → liquidaciones/resúmenes de plataforma → Ventas de Finanzas.
+//     Si un archivo NO es de ventas, se redirige solo al motor de Facturas y avisa.
+//   · FACTURAS → OCR + Drive + contraste con Conciliación. Si un archivo ES un
+//     resumen de ventas, se redirige solo a Ventas y avisa.
+//   Duplicados: mismo archivo subido dos veces en la sesión no se reprocesa.
 
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
@@ -23,10 +24,7 @@ const EXT_COMPRIMIDOS = ['zip', 'rar', '7z']
 const EXT_ACEPTADAS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_COMPRIMIDOS]
 const ACCEPT = EXT_ACEPTADAS.map(e => `.${e}`).join(',')
 
-const ES_MOVIL = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
-
 // ── Reconocimiento cliente del "resumen de ganancias" de Uber (CSV) ─────────
-// Mismas cabeceras que el parser de servidor. Solo se mira en .csv/.txt.
 function esResumenUberTexto(texto: string): boolean {
   const cab = (texto || '').slice(0, 2000).toLowerCase()
   const marca = cab.includes('nombre del restaurante') || cab.includes('store name') || cab.includes('restaurant name')
@@ -88,46 +86,76 @@ async function expandirArchivos(files: File[]): Promise<{ aceptados: File[]; com
   return { aceptados, comprimidos, rechazados }
 }
 
-function BtnSubirSplit({ label, variante, onArchivos, preparando, setPreparando }: { label: string; variante: 'rojo' | 'azul'; onArchivos: (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => void; preparando: boolean; setPreparando: (v: boolean) => void }) {
-  const inputFileRef = useRef<HTMLInputElement>(null)
-  const inputFolderRef = useRef<HTMLInputElement>(null)
-  const [overL, setOverL] = useState(false)
-  const [overR, setOverR] = useState(false)
-  const base = variante === 'rojo' ? '#B01D23' : '#1E5BCC'
-  const baseHover = variante === 'rojo' ? '#8f1519' : '#16459e'
-  const handleFiles = async (files: FileList | File[] | null) => { if (!files || files.length === 0) return; setPreparando(true); try { const arr = Array.isArray(files) ? files : Array.from(files); onArchivos(await expandirArchivos(arr)) } finally { setPreparando(false) } }
-  const halfBase: React.CSSProperties = { flex: 1, padding: '15px 12px', cursor: preparando ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', transition: 'background 0.15s', opacity: preparando ? 0.6 : 1 }
-  const labelDerecha = ES_MOVIL ? 'varios archivos' : 'por carpetas'
+type Destino = 'banco' | 'ventas' | 'facturas'
+
+// ── Botón de subida: UN solo picker (clic = selector de archivos múltiple; también admite arrastrar) ──
+function BtnSubir({ label, sub, color, colorHover, onArchivos, preparando }: {
+  label: string; sub: string; color: string; colorHover: string
+  onArchivos: (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => void
+  preparando: boolean
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [over, setOver] = useState(false)
+  const [ocupado, setOcupado] = useState(false)
+  const handleFiles = async (files: FileList | File[] | null) => {
+    if (!files || files.length === 0) return
+    setOcupado(true)
+    try { const arr = Array.isArray(files) ? files : Array.from(files); onArchivos(await expandirArchivos(arr)) }
+    finally { setOcupado(false) }
+  }
+  const bloqueado = preparando || ocupado
   return (
-    <div style={{ display: 'flex', border: '3px solid #140f08', boxShadow: '4px 4px 0 #140f08', overflow: 'hidden', position: 'relative' }}>
-      <input ref={inputFileRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFileRef.current) inputFileRef.current.value = '' }} />
-      <input ref={inputFolderRef} type="file" /* @ts-ignore */ webkitdirectory="" directory="" multiple style={{ display: 'none' }} onChange={e => { handleFiles(e.target.files); if (inputFolderRef.current) inputFolderRef.current.value = '' }} />
-      <div onDragOver={e => { if (preparando) return; e.preventDefault(); setOverL(true) }} onDragLeave={() => setOverL(false)} onDrop={e => { if (preparando) return; e.preventDefault(); setOverL(false); handleFiles(e.dataTransfer.files) }} onClick={() => { if (!preparando) inputFileRef.current?.click() }} style={{ ...halfBase, background: overL ? baseHover : base, borderRight: '3px solid #140f08' }}>
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13.5, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label} por archivos</div>
-      </div>
-      <div onDragOver={e => { if (preparando) return; e.preventDefault(); setOverR(true) }} onDragLeave={() => setOverR(false)} onDrop={e => { if (preparando) return; e.preventDefault(); setOverR(false); handleFiles(e.dataTransfer.files) }} onClick={() => { if (preparando) return; if (ES_MOVIL) inputFileRef.current?.click(); else inputFolderRef.current?.click() }} style={{ ...halfBase, background: overR ? baseHover : base }}>
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13.5, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff', textAlign: 'center', lineHeight: 1.25 }}>{label} {labelDerecha}</div>
-      </div>
-      {preparando && (<div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', pointerEvents: 'none' }}><div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: '#fff', letterSpacing: '2px', textTransform: 'uppercase' }}>Preparando…</div></div>)}
+    <div
+      onDragOver={e => { if (bloqueado) return; e.preventDefault(); setOver(true) }}
+      onDragLeave={() => setOver(false)}
+      onDrop={e => { if (bloqueado) return; e.preventDefault(); setOver(false); handleFiles(e.dataTransfer.files) }}
+      onClick={() => { if (!bloqueado) inputRef.current?.click() }}
+      style={{
+        flex: 1, minWidth: 220, border: '3px solid #140f08', boxShadow: '4px 4px 0 #140f08',
+        background: over ? colorHover : color, cursor: bloqueado ? 'wait' : 'pointer',
+        padding: '18px 14px', textAlign: 'center', userSelect: 'none', position: 'relative',
+        transition: 'background 0.15s', opacity: bloqueado ? 0.6 : 1,
+      }}
+    >
+      <input ref={inputRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }}
+        onChange={e => { handleFiles(e.target.files); if (inputRef.current) inputRef.current.value = '' }} />
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 17, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', lineHeight: 1.2 }}>{label}</div>
+      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,0.92)', marginTop: 6, lineHeight: 1.35 }}>{sub}</div>
+      {ocupado && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', pointerEvents: 'none' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: '#fff', letterSpacing: '2px', textTransform: 'uppercase' }}>Preparando…</div>
+        </div>
+      )}
     </div>
   )
 }
 
 export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: string; hasta: string; onProcesado?: () => void }) {
   const { procesar } = useOcrUpload()
-  const [preparando, setPreparando] = useState(false)
+  const [preparando] = useState(false)
   const [verRechazados, setVerRechazados] = useState(false)
-  // Modal de confirmación (documentos: facturas/ventas) — el motor clasifica solo
-  const [modalDoc, setModalDoc] = useState<{ archivos: File[]; rechazados: string[]; visible: boolean }>({ archivos: [], rechazados: [], visible: false })
-  // Modal de extracto — pregunta titular
-  const [modalExtracto, setModalExtracto] = useState<{ archivos: File[]; rechazados: string[]; visible: boolean }>({ archivos: [], rechazados: [], visible: false })
+  // Control de duplicados en sesión: nombre|tamaño ya enviados no se reprocesan
+  const enviadosRef = useRef<Set<string>>(new Set())
 
-  const onDoc = (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => { setVerRechazados(false); setModalDoc({ archivos: [...r.aceptados, ...r.comprimidos], rechazados: r.rechazados, visible: true }) }
-  const onExtracto = (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => { setVerRechazados(false); setModalExtracto({ archivos: [...r.aceptados, ...r.comprimidos], rechazados: r.rechazados, visible: true }) }
+  const [modal, setModal] = useState<{ destino: Destino; archivos: File[]; duplicados: string[]; rechazados: string[]; visible: boolean }>({ destino: 'facturas', archivos: [], duplicados: [], rechazados: [], visible: false })
 
-  // Procesa los CSV de "resumen de ventas" (Uber) por el endpoint de plataformas,
-  // con UN solo aviso veraz. Devuelve los archivos NO reconocidos como ventas.
-  const procesarVentas = async (archivos: File[]): Promise<File[]> => {
+  const abrirModal = (destino: Destino) => (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => {
+    setVerRechazados(false)
+    const todos = [...r.aceptados, ...r.comprimidos]
+    const nuevos: File[] = []
+    const duplicados: string[] = []
+    for (const f of todos) {
+      const clave = `${f.name}|${f.size}`
+      if (enviadosRef.current.has(clave)) duplicados.push(f.name)
+      else nuevos.push(f)
+    }
+    setModal({ destino, archivos: nuevos, duplicados, rechazados: r.rechazados, visible: true })
+  }
+
+  const marcarEnviados = (archivos: File[]) => { for (const f of archivos) enviadosRef.current.add(`${f.name}|${f.size}`) }
+
+  // Separa resúmenes de ventas (Uber CSV) del resto mirando el contenido
+  const separarVentas = async (archivos: File[]): Promise<{ ventas: File[]; resto: File[] }> => {
     const ventas: File[] = []
     const resto: File[] = []
     for (const f of archivos) {
@@ -137,8 +165,12 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
       }
       resto.push(f)
     }
-    if (ventas.length === 0) return resto
+    return { ventas, resto }
+  }
 
+  // Envía archivos de ventas al endpoint de plataformas con un único aviso veraz
+  const enviarAVentas = async (ventas: File[]) => {
+    if (ventas.length === 0) return
     const tid = toast.loading(`Leyendo resumen de ventas (${ventas.length})…`)
     let tiendas = 0, nuevas = 0, actualizadas = 0, pedidos = 0, neto = 0
     const errs: string[] = []
@@ -163,83 +195,138 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
         errs.push(e?.message || 'error de red')
       }
     }
-
     if (errs.length > 0 && nuevas + actualizadas === 0) {
-      toast.error(`No se pudo leer el resumen de Uber: ${errs[0]}`, { id: tid })
+      toast.error(`No se pudo leer el resumen de ventas: ${errs[0]}`, { id: tid })
     } else {
       toast.success(
-        `Ventas Uber · ${tiendas} tiendas · ${nuevas} nuevas, ${actualizadas} actualizadas · ${pedidos} pedidos · neto ${neto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+        `Ventas · ${tiendas} tiendas · ${nuevas} nuevas, ${actualizadas} actualizadas · ${pedidos} pedidos · neto ${neto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
         { id: tid }
       )
     }
-    return resto
   }
 
-  const enviarDoc = async () => {
-    const a = modalDoc.archivos
-    setModalDoc({ archivos: [], rechazados: [], visible: false })
-    // 1) Resúmenes de ventas (Uber) → Ventas, con un único aviso veraz.
-    const resto = await procesarVentas(a)
-    // 2) El resto (facturas) → motor OCR como siempre.
+  // ── Envío según destino, con redirección automática de documentos mal ubicados ──
+  const enviar = async (titular?: string) => {
+    const { destino, archivos } = modal
+    setModal(m => ({ ...m, visible: false, archivos: [], duplicados: [], rechazados: [] }))
+    if (archivos.length === 0) return
+    marcarEnviados(archivos)
+
+    if (destino === 'banco') {
+      procesar(archivos, 'ocr-procesar-extracto', titular ?? null)
+      onProcesado?.()
+      return
+    }
+
+    const { ventas, resto } = await separarVentas(archivos)
+
+    if (destino === 'ventas') {
+      // Lo que no es de ventas se redirige solo a Facturas y se avisa
+      if (resto.length > 0) {
+        // El motor clasifica por contenido: liquidaciones Just Eat/Glovo, resúmenes
+        // Uber y CSV de platos/franjas van SOLOS a Ventas; lo demás sigue a Facturas.
+        toast.success(`${resto.length} documento${resto.length !== 1 ? 's' : ''} enviado${resto.length !== 1 ? 's' : ''} al clasificador: lo que sea de ventas entra en Ventas y el resto en Facturas.`)
+        procesar(resto, 'ocr-procesar-factura', null)
+      }
+      await enviarAVentas(ventas)
+      onProcesado?.()
+      return
+    }
+
+    // destino === 'facturas'
+    if (ventas.length > 0) {
+      // Resúmenes de ventas subidos por el botón equivocado → redirigidos solos
+      toast.success(`${ventas.length} resumen${ventas.length !== 1 ? 'es' : ''} de ventas detectado${ventas.length !== 1 ? 's' : ''}: enviado${ventas.length !== 1 ? 's' : ''} a Ventas.`)
+      await enviarAVentas(ventas)
+    }
     if (resto.length > 0) procesar(resto, 'ocr-procesar-factura', null)
     onProcesado?.()
   }
-  const enviarExtracto = (titular: string) => { const a = modalExtracto.archivos; setModalExtracto({ archivos: [], rechazados: [], visible: false }); procesar(a, 'ocr-procesar-extracto', titular); onProcesado?.() }
+
+  const tituloModal = modal.destino === 'banco' ? 'Extracto bancario' : modal.destino === 'ventas' ? 'Documentos de ventas' : 'Facturas'
+  const colorTitulo = modal.destino === 'banco' ? '#1E5BCC' : modal.destino === 'ventas' ? '#1D9E75' : '#B01D23'
 
   return (
     <div style={{ marginTop: 16 }}>
-      {/* Subida 1: documentos (facturas + ventas) — el contenido manda */}
-      <div style={{ marginBottom: 12 }}>
-        <BtnSubirSplit label="Subir documentos" variante="rojo" onArchivos={onDoc} preparando={preparando} setPreparando={setPreparando} />
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#140f08', marginTop: 8, textAlign: 'center' }}>
-          Entrada única: cualquier documento (facturas, liquidaciones, resúmenes de venta…). El sistema lo identifica por contenido, consulta el diccionario de proveedores y reparte cada dato a su módulo.
-        </div>
+      {/* ── 3 botones: Banco · Ventas · Facturas ── */}
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
+        <BtnSubir
+          label="Banco" color="#1E5BCC" colorHover="#16459e"
+          sub="Extractos del banco (CSV o PDF). Pregunta de quién es y vuelca a Conciliación."
+          onArchivos={abrirModal('banco')} preparando={preparando}
+        />
+        <BtnSubir
+          label="Ventas" color="#1D9E75" colorHover="#157a5a"
+          sub="Liquidaciones y resúmenes de plataforma. Van directos a Ventas de Finanzas."
+          onArchivos={abrirModal('ventas')} preparando={preparando}
+        />
+        <BtnSubir
+          label="Facturas" color="#B01D23" colorHover="#8f1519"
+          sub="Facturas de proveedores y plataformas. OCR, Drive y cruce con Conciliación."
+          onArchivos={abrirModal('facturas')} preparando={preparando}
+        />
+      </div>
+      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#140f08', marginBottom: 16, textAlign: 'center' }}>
+        Si un documento entra por el botón equivocado, el sistema lo detecta por contenido, lo redirige solo y te avisa. Los duplicados no se procesan dos veces.
       </div>
 
-      {/* Subida 2: extracto bancario — pregunta titular */}
-      <div style={{ marginBottom: 16 }}>
-        <BtnSubirSplit label="Subir extracto banco" variante="azul" onArchivos={onExtracto} preparando={preparando} setPreparando={setPreparando} />
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#140f08', marginTop: 8, textAlign: 'center' }}>
-          Solo extractos del banco. Te preguntará de quién es y vuelca los movimientos a Conciliación. Mejor en Excel/CSV que en PDF.
-        </div>
-      </div>
+      {/* ── Avisos autoaprendibles: dudas abiertas con solución en un clic ── */}
+      <AvisosBandeja onResuelto={() => onProcesado?.()} />
 
-      {/* Tres columnas iguales (33/33/33): correo · salud OCR · chuleta plataformas */}
+      {/* Tres columnas iguales: correo · salud OCR · chuleta plataformas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, alignItems: 'stretch' }}>
         <CardFacturasCorreo tipo="factura" desde={desde} hasta={hasta} onBarrido={() => onProcesado?.()} />
         <CardSaludOcr />
         <ChuletaPlataformas />
       </div>
 
-      {/* Modal documentos */}
-      {modalDoc.visible && (
+      {/* ── Modal único de confirmación ── */}
+      {modal.visible && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ background: '#FCEFD6', padding: 28, minWidth: 380, maxWidth: 560, border: '4px solid #140f08', boxShadow: '6px 6px 0 #140f08' }}>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 12 }}>Confirmar subida</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, color: '#111', marginBottom: 6 }}>Vas a subir <strong style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, color: '#1D9E75' }}>{modalDoc.archivos.length}</strong> documento{modalDoc.archivos.length !== 1 ? 's' : ''}</div>
-            {modalDoc.rechazados.length > 0 && (<><div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalDoc.rechazados.length}</strong>{' '}<button onClick={() => setVerRechazados(v => !v)} style={{ background: 'none', border: 'none', color: '#B01D23', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>{verRechazados ? 'ocultar' : 'ver lista'}</button></div>{verRechazados && (<div style={{ background: '#fff5f5', border: '2px solid #140f08', borderRadius: 0, padding: '10px 12px', maxHeight: 180, overflowY: 'auto', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginBottom: 8 }}>{modalDoc.rechazados.map((nm, i) => <div key={i} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '2px 0' }}>{nm}</div>)}</div>)}</>)}
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 8, marginBottom: 18 }}>El sistema clasifica cada uno por su contenido y aplica las instrucciones del diccionario de proveedores (categoría, contraparte y conciliación).</div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => { setModalDoc({ archivos: [], rechazados: [], visible: false }); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', background: '#fff', color: '#140f08', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
-              <button disabled={modalDoc.archivos.length === 0} onClick={enviarDoc} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', boxShadow: '3px 3px 0 #140f08', background: modalDoc.archivos.length === 0 ? '#d0c8bc' : '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modalDoc.archivos.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modalDoc.archivos.length}</button>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: colorTitulo, marginBottom: 12 }}>{tituloModal}</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, color: '#111', marginBottom: 6 }}>
+              Vas a subir <strong style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, color: '#1D9E75' }}>{modal.archivos.length}</strong> documento{modal.archivos.length !== 1 ? 's' : ''}
             </div>
-          </div>
-        </div>
-      )}
+            {modal.duplicados.length > 0 && (
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#c47f00', marginBottom: 6 }}>
+                {modal.duplicados.length} ya subido{modal.duplicados.length !== 1 ? 's' : ''} en esta sesión: no se repite{modal.duplicados.length !== 1 ? 'n' : ''}.
+              </div>
+            )}
+            {modal.rechazados.length > 0 && (
+              <>
+                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 14, color: '#E24B4A', marginBottom: 8 }}>
+                  Rechazados: <strong>{modal.rechazados.length}</strong>{' '}
+                  <button onClick={() => setVerRechazados(v => !v)} style={{ background: 'none', border: 'none', color: '#B01D23', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>{verRechazados ? 'ocultar' : 'ver lista'}</button>
+                </div>
+                {verRechazados && (
+                  <div style={{ background: '#fff5f5', border: '2px solid #140f08', borderRadius: 0, padding: '10px 12px', maxHeight: 180, overflowY: 'auto', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginBottom: 8 }}>
+                    {modal.rechazados.map((nm, i) => <div key={i} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '2px 0' }}>{nm}</div>)}
+                  </div>
+                )}
+              </>
+            )}
 
-      {/* Modal extracto (titular) */}
-      {modalExtracto.visible && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: '#FCEFD6', padding: 28, minWidth: 380, maxWidth: 560, border: '4px solid #140f08', boxShadow: '6px 6px 0 #140f08' }}>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: '#1E5BCC', marginBottom: 12 }}>Extracto bancario</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, color: '#111', marginBottom: 6 }}>Vas a subir <strong style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, color: '#1D9E75' }}>{modalExtracto.archivos.length}</strong> archivo{modalExtracto.archivos.length !== 1 ? 's' : ''}</div>
-            {modalExtracto.rechazados.length > 0 && (<div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#E24B4A', marginBottom: 8 }}>Rechazados: <strong>{modalExtracto.rechazados.length}</strong></div>)}
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', marginTop: 10, marginBottom: 14 }}>¿De quién es este extracto?</div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button disabled={modalExtracto.archivos.length === 0} onClick={() => enviarExtracto(RUBEN_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', boxShadow: '3px 3px 0 #140f08', background: '#FF6A1A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalExtracto.archivos.length === 0 ? 0.4 : 1 }}>Rubén</button>
-              <button disabled={modalExtracto.archivos.length === 0} onClick={() => enviarExtracto(EMILIO_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', boxShadow: '3px 3px 0 #140f08', background: '#2D5BFF', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modalExtracto.archivos.length === 0 ? 0.4 : 1 }}>Emilio</button>
-            </div>
-            <button onClick={() => setModalExtracto({ archivos: [], rechazados: [], visible: false })} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+            {modal.destino === 'banco' ? (
+              <>
+                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', marginTop: 10, marginBottom: 14 }}>¿De quién es este extracto?</div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button disabled={modal.archivos.length === 0} onClick={() => enviar(RUBEN_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', boxShadow: '3px 3px 0 #140f08', background: '#FF6A1A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modal.archivos.length === 0 ? 0.4 : 1 }}>Rubén</button>
+                  <button disabled={modal.archivos.length === 0} onClick={() => enviar(EMILIO_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', boxShadow: '3px 3px 0 #140f08', background: '#2D5BFF', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modal.archivos.length === 0 ? 0.4 : 1 }}>Emilio</button>
+                </div>
+                <button onClick={() => setModal(m => ({ ...m, visible: false, archivos: [], duplicados: [], rechazados: [] }))} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 8, marginBottom: 18 }}>
+                  El sistema clasifica cada documento por su contenido, aplica el diccionario de proveedores y lo redirige si no corresponde a este botón.
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => { setModal(m => ({ ...m, visible: false, archivos: [], duplicados: [], rechazados: [] })); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', background: '#fff', color: '#140f08', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+                  <button disabled={modal.archivos.length === 0} onClick={() => enviar()} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: '3px solid #140f08', boxShadow: '3px 3px 0 #140f08', background: modal.archivos.length === 0 ? '#d0c8bc' : colorTitulo, color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modal.archivos.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modal.archivos.length}</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

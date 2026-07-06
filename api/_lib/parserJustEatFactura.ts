@@ -16,6 +16,8 @@ export interface VentaPlataformaParseada {
   referencia: string | null
   pedidos_prime?: number       // solo Glovo/Uber
   pedidos_promo?: number       // solo Glovo/Uber
+  comision_eur?: number
+  promo_eur?: number
 }
 
 const MESES_ES: Record<string, number> = {
@@ -89,6 +91,10 @@ export function parseFacturaJustEat(html: string | null | undefined): VentaPlata
 
   const ref = (full.match(/N[ºo°]\s*Factura\s*\n?\s*(\d+)/i) || [])[1] || null
 
+  // Comisión = "Total incluido IVA" de la factura de Just Eat (verificado en las
+  // 3 facturas reales: 223,61 / 505,22 / 579,01)
+  const com = importe((full.match(/Total incluido IVA\s*\n\s*([\d.,]+)/i) || [])[1])
+
   return {
     plataforma: 'just_eat',
     marcaRaw: marcaRaw || 'DESCONOCIDA',
@@ -99,5 +105,6 @@ export function parseFacturaJustEat(html: string | null | undefined): VentaPlata
     neto,
     fecha_pago,
     referencia: ref,
-  }
+    ...(com != null ? { comision_eur: com } : {}),
+  } as VentaPlataformaParseada
 }
