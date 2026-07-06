@@ -43,7 +43,7 @@ export default function RevenueTicketMedio() {
       .from('resumenes_plataforma_marca_mensual')
       .select('plataforma, mes, año, bruto, neto_real_cobrado, pedidos')
       .then(({ data }) => {
-        setRows((data ?? []) as Row[])
+        setRows((data ?? []) as unknown as Row[])
         setLoading(false)
       })
   }, [])
@@ -105,7 +105,7 @@ export default function RevenueTicketMedio() {
                   <XAxis dataKey="label" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} />
                   <YAxis yAxisId="l" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.mut }} />
                   <YAxis yAxisId="r" orientation="right" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.mut }} unit="€" />
-                  <Tooltip formatter={(v: number, n: string) => [n === 'ticket' ? fmtEur(v) : fmtEur(v), n === 'ticket' ? 'Ticket medio' : 'Ventas']} />
+                  <Tooltip formatter={((v: number, n: string) => [fmtEur(v), n === 'ticket' ? 'Ticket medio' : 'Ventas']) as never} />
                   <Bar yAxisId="l" dataKey="bruto" fill={COLORS.uber} radius={[6, 6, 0, 0]} />
                   <Line yAxisId="r" type="monotone" dataKey="ticket" stroke="#B01D23" strokeWidth={2.5} dot={{ r: 3 }} />
                 </ComposedChart>
