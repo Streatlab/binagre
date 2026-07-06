@@ -45,7 +45,7 @@ export default function Tareas() {
           {nPendientes > 0 && (
             <span style={{
               background: '#B01D23',
-              color: '#ffffff',
+              color: '#fff',
               borderRadius: 10,
               padding: '2px 10px',
               fontSize: 12,
