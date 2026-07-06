@@ -2,11 +2,11 @@ import { useRef, useState, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { useAuth } from '@/context/AuthContext'
 
-const BG = '#f5f3ef'
-const CARD = '#ffffff'
-const BRD = '#d0c8bc'
-const PRI = '#111111'
-const MUT = '#7a8090'
+const BG = 'var(--sl-app)'
+const CARD = 'var(--sl-card)'
+const BRD = 'var(--sl-border)'
+const PRI = 'var(--sl-text-primary)'
+const MUT = 'var(--sl-text-muted)'
 const RED = '#B01D23'
 const FONT_BODY = 'Lexend, sans-serif'
 const FONT_HEADING = 'Oswald, sans-serif'
@@ -200,7 +200,7 @@ export default function Login() {
               fontSize: 14,
               fontWeight: 700,
               backgroundColor: RED,
-              color: '#ffffff',
+              color: '#fff',
               border: 'none',
               borderRadius: 8,
               padding: '12px 0',
