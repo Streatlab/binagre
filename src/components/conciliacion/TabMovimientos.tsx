@@ -789,12 +789,12 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                             <span style={{ color: '#7a8090', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>—</span>
                           </td>
                         ) : (
-                          <td style={tdDocBase}>
+                          <td style={tdDocBase} title="Pendiente de documento">
                             <div style={{
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               width: '100%', height: '100%', minHeight: 38,
-                              fontSize: 18, lineHeight: 1, color: '#F26B1F', fontWeight: 600,
-                            }}>✕</div>
+                              fontSize: 18, lineHeight: 1,
+                            }}>⏳</div>
                           </td>
                         )}
                         <td style={tdBase}>
