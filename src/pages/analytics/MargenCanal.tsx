@@ -62,7 +62,7 @@ export default function MargenCanal() {
       .from('resumenes_plataforma_marca_mensual')
       .select('plataforma, mes, año, bruto, neto_real_cobrado, comisiones, cargos_promocion, pedidos')
       .then(({ data }) => {
-        setRows((data ?? []) as Row[])
+        setRows((data ?? []) as unknown as Row[])
         setLoading(false)
       })
   }, [])
@@ -149,7 +149,7 @@ export default function MargenCanal() {
                   <CartesianGrid strokeDasharray="3 3" stroke={COLORS.brd} vertical={false} />
                   <XAxis dataKey="name" tick={{ fontFamily: FONT.body, fontSize: 12, fill: COLORS.sec }} />
                   <YAxis tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.mut }} unit="%" />
-                  <Tooltip formatter={(v: number) => [`${v}%`, 'Margen']} />
+                  <Tooltip formatter={((v: number) => [`${v}%`, 'Margen']) as never} />
                   <Bar dataKey="margen" radius={[6, 6, 0, 0]}>
                     {chartData.map((d, i) => <Cell key={i} fill={d.color} />)}
                   </Bar>
