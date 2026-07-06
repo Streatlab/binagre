@@ -1,55 +1,40 @@
-// parserSincroProductos — Lee el CSV "sold_products" de Sincro (gestor de pedidos).
-// VERIFICADO con 20260625130142_sold_products_3976805.csv (may-jun 2026).
+// parserSincroProductos — Lee el CSV "sold_products" de Sinqro (gestor de pedidos).
+// VERIFICADO al céntimo con 20260705151609_sold_products_3976805.csv (jun-jul 2026)
+// contra la verdad cargada y comprobada en BD el 05/07/2026:
+//   franjas glovo 195 filas = 8.900,71 € · justeat 104 filas = 4.436,81 €
+//   platos  glovo jun 9.767,77 / jul 1.471,23 · justeat jun 3.781,54 / jul 655,27
 //
 // COLUMNAS (separador ';', SIN cabecera):
-//   0  id_pedido_interno
-//   1  id_pedido_plataforma  (ej. "729 | 101639281727")
-//   2  tipo                  ("Delivery")
-//   3  canal                 ("Glovo" | "JustEat" | "Uber")
-//   4  dirección/local       (→ para mapear a marca)
-//   5  cliente               ("No facilitada" generalmente)
-//   6  vacío
-//   7  cantidad              (int)
-//   8  nombre_producto_o_modificador
-//   9  categoría             ("External platforms")
-//   10 descuento
-//   11 fecha_hora            "YYYY-MM-DD HH:MM:SS"
-//   12 precio_línea          (€ del producto o modificador)
-//   13 total_pedido          (€ total)
-//   14 neto_pedido           (€ neto)
+//   0 id_pedido · 3 canal (Glovo|JustEat|Uber) · 4 dirección local · 7 cantidad
+//   8 nombre línea · 11 fecha_hora "YYYY-MM-DD HH:MM:SS" EN UTC · 12 TOTAL de la línea
 //
-// DISTINCIÓN plato vs modificador:
-//   - Modificadores: texto en MAYÚSCULAS, empieza por "Tamaño", "LA ", "Sin ", "Con ", "Extra ", "Añadir "
-//   - Platos: cualquier otra cosa con nombre y precio > 0
-//   - Filas con precio = 0 son notas/instrucciones, no se cuentan
-//
-// SALIDA:
-//   - VentaPlato[]: para ventas_plato (platos reales, origen 'sincro', estimado=false)
-//   - VentaModificador[]: para ventas_plato con flag modificador=true (o tabla aparte si se crea)
-//   - VentaFranja[]: para ventas_franja (hora/día/canal/marca)
+// REGLAS CANÓNICAS (no cambiar sin re-verificar contra BD):
+//   · col 12 es el TOTAL de la línea (2 uds → ya multiplicado). NUNCA multiplicar por cantidad.
+//   · Hora en UTC → convertir a Europe/Madrid (verano +2 / invierno +1).
+//   · canal en BD: 'glovo' | 'justeat' | 'uber' (sin guion bajo).
+//   · marca: Sinqro no la trae → '' (cadena vacía), igual que la verdad cargada.
+//   · ventas_plato: TODAS las líneas menos las llamadas exactamente 'Promos' (Glovo).
+//     'Descuento' y 'Gastos de envío' (JustEat) SÍ cuentan (así cuadra el bruto).
+//   · ventas_franja: TODAS las líneas sin excepción, agrupadas por fecha+hora Madrid.
+//   · dia_semana: 0=domingo … 6=sábado (convención de la BD; isodow rompe el CHECK).
 
 export interface VentaPlato {
-  canal: string            // 'glovo' | 'just_eat' | 'uber'
-  marca: string            // nombre canónico de marcas (mapeo externo)
-  marcaRaw: string         // dirección/local crudo para mapeo
+  canal: string
+  marca: string
   plato: string
-  es_modificador: boolean
   mes: number
   anio: number
   unidades: number
   importe: number
-  origen: 'sincro'
-  estimado: false
 }
 
 export interface VentaFranja {
   canal: string
   marca: string
-  marcaRaw: string
-  fecha: string            // YYYY-MM-DD
-  hora: number             // 0-23
-  dia_semana: number       // 0=lunes … 6=domingo
-  pedidos: number          // nº pedidos distintos en esa franja
+  fecha: string            // YYYY-MM-DD (hora Madrid)
+  hora: number             // 0-23 (hora Madrid)
+  dia_semana: number       // 0=domingo … 6=sábado
+  pedidos: number
   unidades: number
   importe: number
 }
@@ -58,104 +43,66 @@ export interface SincroResultado {
   ventas_plato: VentaPlato[]
   ventas_franja: VentaFranja[]
   canales: string[]
-  marcas_raw: string[]
   errores: string[]
 }
 
 const CANAL_MAP: Record<string, string> = {
-  glovo: 'glovo',
-  justeat: 'just_eat',
-  'just eat': 'just_eat',
-  uber: 'uber',
-  ubereats: 'uber',
-  'uber eats': 'uber',
+  glovo: 'glovo', justeat: 'justeat', 'just eat': 'justeat',
+  uber: 'uber', ubereats: 'uber', 'uber eats': 'uber',
 }
 
-function normCanal(s: string): string {
-  return CANAL_MAP[s.toLowerCase().trim()] || s.toLowerCase().trim()
+// 'YYYY-MM-DD HH:MM:SS' en UTC → 'YYYY-MM-DD HH:MM:SS' en Europe/Madrid
+const FMT_MADRID = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+})
+function utcAMadrid(fechaHoraUtc: string): string | null {
+  const d = new Date(fechaHoraUtc.replace(' ', 'T') + 'Z')
+  if (isNaN(d.getTime())) return null
+  return FMT_MADRID.format(d).replace(',', '')
 }
-
-function esMod(nombre: string): boolean {
-  return (
-    nombre === nombre.toUpperCase() && nombre.length > 2 ||
-    /^(Tamaño|LA |Sin |Con |Extra |Añadir )/i.test(nombre)
-  )
+function dowDeFecha(fechaISO: string): number {
+  return new Date(fechaISO + 'T12:00:00Z').getUTCDay() // 0=domingo
 }
 
 export function parseSincroProductos(csvText: string): SincroResultado {
   const lineas = csvText.split('\n').map(l => l.trim()).filter(Boolean)
-  // Quitar BOM si existe
   if (lineas[0]?.charCodeAt(0) === 0xFEFF) lineas[0] = lineas[0].slice(1)
 
-  // Acumuladores por (canal, localRaw, plato, año, mes)
   const platosMap = new Map<string, VentaPlato>()
-  // Acumuladores por (canal, localRaw, fecha, hora, dia)
   const franjasMap = new Map<string, VentaFranja & { _pedidos: Set<string> }>()
-
   const errores: string[] = []
   const canalesSet = new Set<string>()
-  const marcasRawSet = new Set<string>()
 
   for (let i = 0; i < lineas.length; i++) {
     const cols = lineas[i].split(';')
     if (cols.length < 13) continue
 
     const idPedido = cols[0]?.trim() || ''
-    const canal = normCanal(cols[3]?.trim() || '')
-    const localRaw = cols[4]?.trim() || ''
+    const canal = CANAL_MAP[(cols[3] || '').toLowerCase().trim()]
     const nombre = cols[8]?.trim() || ''
-    const fechaHora = cols[11]?.trim() || ''
-    const precioStr = cols[12]?.replace(',', '.').trim() || '0'
-    const totalStr = cols[13]?.replace(',', '.').trim() || '0'
+    const fechaHoraUtc = cols[11]?.trim() || ''
+    if (!canal || !nombre || !fechaHoraUtc) continue
+
+    // col 12 = TOTAL de la línea (ya multiplicado por cantidad)
+    const importeLinea = parseFloat((cols[12] || '0').replace(',', '.')) || 0
     let cantidad = parseInt(cols[7]?.trim() || '1', 10)
-    if (isNaN(cantidad)) cantidad = 1
+    if (isNaN(cantidad) || cantidad < 1) cantidad = 1
 
-    if (!nombre || !fechaHora) continue
-
-    const precio = parseFloat(precioStr) || 0
-    // Ignorar filas sin precio (notas/instrucciones) que no sean modificadores
-    if (precio === 0 && !esMod(nombre)) continue
-
-    let dt: Date
-    try {
-      dt = new Date(fechaHora.replace(' ', 'T'))
-      if (isNaN(dt.getTime())) throw new Error('invalid')
-    } catch {
-      errores.push(`fila ${i}: fecha inválida "${fechaHora}"`)
-      continue
-    }
-
-    const mes = dt.getMonth() + 1
-    const anio = dt.getFullYear()
-    const hora = dt.getHours()
-    const diaSemana = dt.getDay() === 0 ? 6 : dt.getDay() - 1 // 0=lunes
-    const fecha = fechaHora.slice(0, 10)
-    const esModificador = esMod(nombre)
+    const madrid = utcAMadrid(fechaHoraUtc)
+    if (!madrid) { errores.push(`fila ${i}: fecha inválida "${fechaHoraUtc}"`); continue }
+    const fecha = madrid.slice(0, 10)
+    const hora = parseInt(madrid.slice(11, 13), 10)
+    const mes = parseInt(madrid.slice(5, 7), 10)
+    const anio = parseInt(madrid.slice(0, 4), 10)
 
     canalesSet.add(canal)
-    marcasRawSet.add(localRaw)
 
-    // Ignorar líneas de Promos/Descuento/Gastos de envío (no son platos reales)
-    if (/^(Promos|Descuento|Gastos de envío)/i.test(nombre)) continue
-
-    // ── ventas_plato ──
-    const kp = `${canal}||${localRaw}||${nombre}||${anio}||${mes}`
-    if (!platosMap.has(kp)) {
-      platosMap.set(kp, {
-        canal, marcaRaw: localRaw, marca: '', plato: nombre,
-        es_modificador: esModificador, mes, anio,
-        unidades: 0, importe: 0, origen: 'sincro', estimado: false,
-      })
-    }
-    const vp = platosMap.get(kp)!
-    vp.unidades += cantidad
-    vp.importe += precio * cantidad
-
-    // ── ventas_franja ──
-    const kf = `${canal}||${localRaw}||${fecha}||${hora}||${diaSemana}`
+    // ── ventas_franja: TODAS las líneas ──
+    const kf = `${canal}||${fecha}||${hora}`
     if (!franjasMap.has(kf)) {
       franjasMap.set(kf, {
-        canal, marcaRaw: localRaw, marca: '', fecha, hora, dia_semana: diaSemana,
+        canal, marca: '', fecha, hora, dia_semana: dowDeFecha(fecha),
         pedidos: 0, unidades: 0, importe: 0, _pedidos: new Set(),
       })
     }
@@ -163,21 +110,26 @@ export function parseSincroProductos(csvText: string): SincroResultado {
     vf._pedidos.add(idPedido)
     vf.pedidos = vf._pedidos.size
     vf.unidades += cantidad
-    vf.importe += precio * cantidad
+    vf.importe += importeLinea
+
+    // ── ventas_plato: todo menos las líneas 'Promos' (Glovo) ──
+    if (nombre === 'Promos') continue
+    const kp = `${canal}||${nombre}||${anio}||${mes}`
+    if (!platosMap.has(kp)) {
+      platosMap.set(kp, { canal, marca: '', plato: nombre, mes, anio, unidades: 0, importe: 0 })
+    }
+    const vp = platosMap.get(kp)!
+    vp.unidades += cantidad
+    vp.importe += importeLinea
   }
 
-  // Limpiar _pedidos antes de devolver
-  const franjasClean: VentaFranja[] = []
+  const franjas: VentaFranja[] = []
   for (const f of franjasMap.values()) {
     const { _pedidos, ...clean } = f
-    franjasClean.push(clean)
+    void _pedidos
+    franjas.push({ ...clean, importe: Math.round(clean.importe * 100) / 100 })
   }
+  const platos = Array.from(platosMap.values()).map(p => ({ ...p, importe: Math.round(p.importe * 100) / 100 }))
 
-  return {
-    ventas_plato: Array.from(platosMap.values()),
-    ventas_franja: franjasClean,
-    canales: Array.from(canalesSet),
-    marcas_raw: Array.from(marcasRawSet),
-    errores,
-  }
+  return { ventas_plato: platos, ventas_franja: franjas, canales: Array.from(canalesSet), errores }
 }
