@@ -64,16 +64,21 @@ async function upsertPlatos(
   platos: Array<{ canal: string; marca: string; plato: string; mes: number; anio: number; unidades: number; importe: number }>,
   origen: string,
 ): Promise<number> {
+  // Upsert por lotes (una sola llamada por cada 300 filas): imprescindible para no
+  // agotar el tiempo de la función en Vercel con archivos grandes.
+  const filas = platos.map(p => ({
+    canal: p.canal, marca: p.marca, plato: p.plato,
+    mes: p.mes, ['año']: p.anio,
+    unidades: p.unidades, ingresos_brutos: p.importe,
+    precio_medio: p.unidades > 0 ? Math.round((p.importe / p.unidades) * 100) / 100 : 0,
+    origen, estimado: false, updated_at: new Date().toISOString(),
+  }))
   let ok = 0
-  for (const p of platos) {
-    const preciomedio = p.unidades > 0 ? Math.round((p.importe / p.unidades) * 100) / 100 : 0
-    const { error } = await supabase.from('ventas_plato').upsert({
-      canal: p.canal, marca: p.marca, plato: p.plato,
-      mes: p.mes, ['año']: p.anio,
-      unidades: p.unidades, ingresos_brutos: p.importe, precio_medio: preciomedio,
-      origen, estimado: false, updated_at: new Date().toISOString(),
-    }, { onConflict: 'canal,marca,plato,mes,año' })
-    if (!error) ok++
+  for (let i = 0; i < filas.length; i += 300) {
+    const lote = filas.slice(i, i + 300)
+    const { error } = await supabase.from('ventas_plato').upsert(lote, { onConflict: 'canal,marca,plato,mes,año' })
+    if (!error) ok += lote.length
+    else console.error('[upsertPlatos] lote falló:', error.message)
   }
   return ok
 }
@@ -83,15 +88,18 @@ async function upsertFranjas(
   franjas: Array<{ canal: string; marca: string; fecha: string; hora: number; dia_semana: number; pedidos: number; unidades: number; importe: number }>,
   origen: string,
 ): Promise<number> {
+  const filas = franjas.map(f => ({
+    canal: f.canal, marca: f.marca, fecha: f.fecha, hora: f.hora,
+    dia_semana: f.dia_semana, pedidos: f.pedidos,
+    unidades: f.unidades, importe: Math.round(f.importe * 100) / 100,
+    origen, updated_at: new Date().toISOString(),
+  }))
   let ok = 0
-  for (const f of franjas) {
-    const { error } = await supabase.from('ventas_franja').upsert({
-      canal: f.canal, marca: f.marca, fecha: f.fecha, hora: f.hora,
-      dia_semana: f.dia_semana, pedidos: f.pedidos,
-      unidades: f.unidades, importe: Math.round(f.importe * 100) / 100,
-      origen, updated_at: new Date().toISOString(),
-    }, { onConflict: 'canal,marca,fecha,hora' })
-    if (!error) ok++
+  for (let i = 0; i < filas.length; i += 300) {
+    const lote = filas.slice(i, i + 300)
+    const { error } = await supabase.from('ventas_franja').upsert(lote, { onConflict: 'canal,marca,fecha,hora' })
+    if (!error) ok += lote.length
+    else console.error('[upsertFranjas] lote falló:', error.message)
   }
   return ok
 }
