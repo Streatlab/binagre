@@ -223,7 +223,9 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
     if (destino === 'ventas') {
       // Lo que no es de ventas se redirige solo a Facturas y se avisa
       if (resto.length > 0) {
-        toast.success(`${resto.length} documento${resto.length !== 1 ? 's' : ''} no ${resto.length !== 1 ? 'son' : 'es'} de ventas: ${resto.length !== 1 ? 'van' : 'va'} al motor de Facturas.`)
+        // El motor clasifica por contenido: liquidaciones Just Eat/Glovo, resúmenes
+        // Uber y CSV de platos/franjas van SOLOS a Ventas; lo demás sigue a Facturas.
+        toast.success(`${resto.length} documento${resto.length !== 1 ? 's' : ''} enviado${resto.length !== 1 ? 's' : ''} al clasificador: lo que sea de ventas entra en Ventas y el resto en Facturas.`)
         procesar(resto, 'ocr-procesar-factura', null)
       }
       await enviarAVentas(ventas)
