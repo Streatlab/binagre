@@ -56,7 +56,7 @@ export default function VentasMarca() {
       .from('resumenes_plataforma_marca_mensual')
       .select('marca, plataforma, mes, año, bruto, neto_real_cobrado, pedidos')
       .then(({ data }) => {
-        setRows((data ?? []) as Row[])
+        setRows((data ?? []) as unknown as Row[])
         setLoading(false)
       })
   }, [])
@@ -140,7 +140,7 @@ export default function VentasMarca() {
                   <CartesianGrid strokeDasharray="3 3" stroke={COLORS.brd} horizontal={false} />
                   <XAxis type="number" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.mut }} />
                   <YAxis type="category" dataKey="name" width={130} tick={{ fontFamily: FONT.body, fontSize: 12, fill: COLORS.sec }} />
-                  <Tooltip formatter={(v: number) => [fmtEur(v), 'Bruto']} />
+                  <Tooltip formatter={((v: number) => [fmtEur(v), 'Bruto']) as never} />
                   <Bar dataKey="bruto" radius={[0, 6, 6, 0]}>
                     {chartData.map((d, i) => <Cell key={i} fill={d.color} />)}
                   </Bar>
