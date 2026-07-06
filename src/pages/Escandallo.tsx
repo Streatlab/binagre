@@ -117,7 +117,7 @@ export default function Escandallo() {
                   fontFamily: OSW, fontWeight: 700, fontSize: 13.5, letterSpacing: '0.5px',
                   textTransform: 'uppercase', padding: on ? '11px 18px 15px' : '11px 18px',
                   cursor: 'pointer', border: `3px solid ${INK}`, borderBottom: 'none', borderRadius: 0,
-                  background: on ? ROSA : '#ffffff', color: on ? '#ffffff' : INK,
+                  background: on ? ROSA : 'var(--sl-card)', color: on ? '#fff' : INK,
                   position: 'relative', top: on ? 0 : 4, marginBottom: -4,
                 }}
               >
@@ -136,7 +136,7 @@ export default function Escandallo() {
             <div style={{ height: 28, width: 28, border: `3px solid ${INK}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           </div>
         ) : error ? (
-          <div style={{ background: '#ffffff', border: BORDER_CARD, boxShadow: SHADOW, padding: 28, textAlign: 'center' }}>
+          <div style={{ background: 'var(--sl-card)', border: BORDER_CARD, boxShadow: SHADOW, padding: 28, textAlign: 'center' }}>
             <p style={{ fontFamily: LEX, color: ROJO, fontSize: 14, margin: 0 }}>{error}</p>
             <button onClick={fetchData} style={{ marginTop: 12, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', background: AMA, color: INK, border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, padding: '6px 14px', cursor: 'pointer' }}>Reintentar</button>
           </div>
