@@ -77,9 +77,9 @@ export default function BandejaPendientes() {
     [filas, filtro],
   )
 
-  const wrap: React.CSSProperties = { background: '#f5f3ef', padding: '24px 28px', minHeight: '100%' }
+  const wrap: React.CSSProperties = { background: 'var(--sl-app)', padding: '24px 28px', minHeight: '100%' }
   const h2: React.CSSProperties = { color: '#B01D23', fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }
-  const sub: React.CSSProperties = { fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', display: 'block', marginTop: 4 }
+  const sub: React.CSSProperties = { fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-muted)', display: 'block', marginTop: 4 }
 
   return (
     <div style={wrap}>
@@ -91,7 +91,7 @@ export default function BandejaPendientes() {
       </div>
 
       {error && (
-        <div style={{ background: '#fde8e8', color: '#B01D23', padding: '10px 14px', borderRadius: 8, fontFamily: 'Lexend, sans-serif', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ background: '#B01D2318', color: '#B01D23', padding: '10px 14px', borderRadius: 8, fontFamily: 'Lexend, sans-serif', fontSize: 13, marginBottom: 16 }}>
           {error}
         </div>
       )}
@@ -112,7 +112,7 @@ export default function BandejaPendientes() {
       </div>
 
       {/* Tabla */}
-      <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+      <div style={{ background: 'var(--sl-card)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
             <tr style={{ background: '#1e2233', color: '#fff', textAlign: 'left' }}>
@@ -125,17 +125,17 @@ export default function BandejaPendientes() {
           </thead>
           <tbody>
             {!cargando && visibles.length === 0 && (
-              <tr><td colSpan={5} style={{ ...td, textAlign: 'center', color: '#7a8090', padding: '24px' }}>
+              <tr><td colSpan={5} style={{ ...td, textAlign: 'center', color: 'var(--sl-text-muted)', padding: '24px' }}>
                 Nada pendiente. Todo al 100%.
               </td></tr>
             )}
             {visibles.map(f => (
-              <tr key={f.id} style={{ borderTop: '1px solid #eee' }}>
+              <tr key={f.id} style={{ borderTop: '1px solid var(--sl-border)' }}>
                 <td style={td}><span style={badge(f.motivo)}>{f.motivo}</span></td>
                 <td style={td}>{f.proveedor_nombre || '—'}</td>
                 <td style={{ ...td, textAlign: 'right' }}>{fmtEur(f.total)}</td>
                 <td style={td}>{f.fecha_factura || '—'}</td>
-                <td style={{ ...td, color: '#7a8090' }}>{f.estado || '—'}</td>
+                <td style={{ ...td, color: 'var(--sl-text-muted)' }}>{f.estado || '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -150,9 +150,9 @@ const td: React.CSSProperties = { padding: '9px 14px' }
 
 function chip(activo: boolean): React.CSSProperties {
   return {
-    background: activo ? '#B01D23' : '#fff',
-    color: activo ? '#fff' : '#484f66',
-    border: '1px solid ' + (activo ? '#B01D23' : '#dcd7d0'),
+    background: activo ? '#B01D23' : 'var(--sl-card)',
+    color: activo ? '#fff' : 'var(--sl-text-secondary)',
+    border: '1px solid ' + (activo ? '#B01D23' : 'var(--sl-border)'),
     borderRadius: 999,
     padding: '6px 14px',
     fontFamily: 'Oswald, sans-serif',
@@ -167,8 +167,8 @@ function chip(activo: boolean): React.CSSProperties {
 function badge(motivo: string): React.CSSProperties {
   const rojo = motivo === 'Sin importe' || motivo === 'Importe pendiente de releer' || motivo === 'Sin NIF'
   return {
-    background: rojo ? '#fde8e8' : '#eef0f4',
-    color: rojo ? '#B01D23' : '#484f66',
+    background: rojo ? '#B01D2318' : 'var(--sl-thead)',
+    color: rojo ? '#B01D23' : 'var(--sl-text-secondary)',
     borderRadius: 6,
     padding: '3px 9px',
     fontSize: 11,
