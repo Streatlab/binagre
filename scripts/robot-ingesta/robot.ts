@@ -4,15 +4,17 @@
  * Descarga ventas del día anterior por marca/plataforma y las deja en
  * `ingesta_robot_diaria` (NO toca tablas de conciliación).
  *
- * CALIBRACIÓN (2026-07-03) con HTML real:
- *   RUSHOUR: manager.rushour.io/login · input[name=username]/password · "Log In".
- *            Panel "Real-time view" es SPA de tarjetas con €.
+ * CALIBRACIÓN (2026-07-07) con HTML real:
+ *   RUSHOUR: manager.rushour.io/login · input[name=username]/password.
+ *            Tras login aparece modal promocional "Evolve your brand" que tapa
+ *            los KPIs: hay que cerrarlo (botón Close) antes de leer.
+ *            Panel "Real-time view": Turnover / Volume of orders.
  *   SINQRO:  app.sinqro.com · #login-email/#login-password/#loginButton.
- *            Historial ventas #/sp/6416/online/orders EXIGE marcar tipo de pedido:
- *            checkboxes #deliveryFilter #collectionFilter #insideFilter
- *            #insituFilter #reservationFilter, fechas #startDateFilter
- *            #endDateFilter, y pulsar "Buscar". Sin marcar tipo → "Selecciona
- *            como mínimo un tipo de pedido" y 0 resultados.
+ *            Historial #/sp/6416/online/orders es AngularJS. Los checkboxes de
+ *            tipo de pedido están OCULTOS dentro de un <label>; check() sobre el
+ *            input queda "pristine" y la web responde "Selecciona como mínimo un
+ *            tipo de pedido". Solución: clic en el label + disparar evento
+ *            change/click para que ng-model se actualice.
  */
 
 import { chromium, Browser, Page } from 'playwright';
@@ -67,6 +69,17 @@ const SINQRO = {
   startDate: '#startDateFilter', endDate: '#endDateFilter',
 };
 
+// Cierra modales/overlays comunes (promos, cookies) que tapan el contenido.
+async function cerrarModales(page: Page) {
+  const nombres = [/close/i, /cerrar/i, /no,? gracias/i, /aceptar/i, /got it/i, /entendido/i, /×/];
+  for (const re of nombres) {
+    await page.getByRole('button', { name: re }).first().click({ timeout: 1200 }).catch(() => {});
+  }
+  // Botón "Close" del modal promocional de Rushour (texto exacto).
+  await page.getByText(/^Close$/).first().click({ timeout: 1200 }).catch(() => {});
+  await page.keyboard.press('Escape').catch(() => {});
+}
+
 // ---------- RUSHOUR ----------
 async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> {
   if (!RUSHOUR.user || !RUSHOUR.pass) { console.warn('  ⚠ rushour: sin credenciales.'); return []; }
@@ -81,12 +94,14 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
     await page.fill(RUSHOUR.passInput, RUSHOUR.pass);
     await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(RUSHOUR.submitBtn)]);
     await page.waitForTimeout(4000);
-    // Cerrar posible modal promocional.
-    await page.getByRole('button', { name: /close|cerrar/i }).first().click().catch(() => {});
-    await page.waitForTimeout(1000);
+    // Cerrar modal promocional "Evolve your brand" que tapa los KPIs.
+    await cerrarModales(page);
+    await page.waitForTimeout(1200);
+    await cerrarModales(page);
+    await page.waitForTimeout(800);
     await diag(page, 'rushour-02-postlogin');
 
-    // Real-time view: KPIs de cabecera (Turnover / Volume of orders) + tarjetas.
+    // Real-time view: KPIs de cabecera (Turnover / Volume of orders).
     const texto = await page.evaluate(() => document.body.innerText).catch(() => '');
     const turnover = numero((texto.match(/([\d.,]+)\s*€/) || [])[1]);
     const volumen = numero((texto.match(/orders?\s*[\r\n]+\s*([\d.,]+)/i) || [])[1]);
@@ -97,7 +112,6 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
       console.warn('  ⚠ rushour: no se leyeron KPIs (revisar rushour-EMPTY.html).');
       return [];
     }
-    // El panel muestra "ubereats, glovo" combinados; se guarda como fila agregada.
     console.log(`  ✓ rushour: turnover=${turnover} volumen=${volumen}`);
     return [{
       fecha, agregador: 'rushour', plataforma: 'uber_glovo', marca: 'Streat Lab',
@@ -130,17 +144,37 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
     await page.goto(SINQRO.ventasUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(3500);
 
-    // 1) Marcar TODOS los tipos de pedido (obligatorio para que el buscador funcione).
+    // 1) Marcar TODOS los tipos de pedido. AngularJS: clic en el <label> que
+    //    envuelve el checkbox oculto + disparar evento para actualizar ng-model.
     for (const sel of SINQRO.tipoChecks) {
       const chk = page.locator(sel).first();
-      if (await chk.count()) { await chk.check().catch(() => chk.click().catch(() => {})); }
+      if (!(await chk.count())) continue;
+      const yaMarcado = await chk.isChecked().catch(() => false);
+      if (yaMarcado) continue;
+      const label = page.locator(`label:has(${sel})`).first();
+      if (await label.count()) {
+        await label.click({ force: true }).catch(() => {});
+      } else {
+        await chk.click({ force: true }).catch(() => {});
+      }
+      await page.evaluate((id) => {
+        const el = document.getElementById(id) as HTMLInputElement | null;
+        if (el && !el.checked) {
+          el.checked = true;
+          el.dispatchEvent(new Event('click', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, sel.replace('#', '')).catch(() => {});
     }
+    await page.waitForTimeout(800);
+
     // 2) Rango de fechas = ayer (formato dd/mm/yyyy del datepicker).
     const f = ddmmyyyy(fecha);
     const sd = page.locator(SINQRO.startDate).first();
     const ed = page.locator(SINQRO.endDate).first();
     if (await sd.count()) { await sd.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
     if (await ed.count()) { await ed.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
+
     // 3) Buscar.
     await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
     await page.waitForTimeout(4000);
