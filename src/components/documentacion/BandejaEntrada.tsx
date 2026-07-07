@@ -128,9 +128,11 @@ function BtnSubir({ label, sub, color, colorHover, onArchivos, preparando }: {
       }}
     >
       <input ref={inputRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }}
+        onClick={e => e.stopPropagation()}
         onChange={e => { handleFiles(e.target.files); if (inputRef.current) inputRef.current.value = '' }} />
       <input ref={carpetaRef} type="file" style={{ display: 'none' }}
         {...({ webkitdirectory: '', directory: '', mozdirectory: '' } as any)}
+        onClick={e => e.stopPropagation()}
         onChange={e => { handleFiles(e.target.files); if (carpetaRef.current) carpetaRef.current.value = '' }} />
       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 17, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', lineHeight: 1.2 }}>{label}</div>
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,0.92)', marginTop: 6, lineHeight: 1.35 }}>{sub}</div>
@@ -177,14 +179,14 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
     const nuevos: File[] = []
     const duplicados: string[] = []
     for (const f of todos) {
-      const clave = `${f.name}|${f.size}`
+      const clave = `${destino}|${f.name}|${f.size}`
       if (enviadosRef.current.has(clave)) duplicados.push(f.name)
       else nuevos.push(f)
     }
     setModal({ destino, archivos: nuevos, duplicados, rechazados: r.rechazados, visible: true })
   }
 
-  const marcarEnviados = (archivos: File[]) => { for (const f of archivos) enviadosRef.current.add(`${f.name}|${f.size}`) }
+  const marcarEnviados = (destino: Destino, archivos: File[]) => { for (const f of archivos) enviadosRef.current.add(`${destino}|${f.name}|${f.size}`) }
 
   // Separa documentos de ventas (Uber CSV: resumen o historial) del resto por contenido
   const separarVentas = async (archivos: File[]): Promise<{ ventas: File[]; resto: File[] }> => {
@@ -244,7 +246,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
     const { destino, archivos } = modal
     setModal(m => ({ ...m, visible: false, archivos: [], duplicados: [], rechazados: [] }))
     if (archivos.length === 0) return
-    marcarEnviados(archivos)
+    marcarEnviados(destino, archivos)
 
     if (destino === 'banco') {
       procesar(archivos, 'ocr-procesar-extracto', titular ?? null)
