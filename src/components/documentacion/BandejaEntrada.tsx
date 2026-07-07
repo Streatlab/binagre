@@ -24,13 +24,22 @@ const EXT_COMPRIMIDOS = ['zip', 'rar', '7z']
 const EXT_ACEPTADAS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_COMPRIMIDOS]
 const ACCEPT = EXT_ACEPTADAS.map(e => `.${e}`).join(',')
 
-// ── Reconocimiento cliente del "resumen de ganancias" de Uber (CSV) ─────────
+// ── Reconocimiento cliente de documentos de VENTAS (CSV) ────────────────────
 function esResumenUberTexto(texto: string): boolean {
   const cab = (texto || '').slice(0, 2000).toLowerCase()
-  // Historial de pedidos (order history): una fila por pedido con tiempos/estado.
   const primera = (texto.split('\n')[0] || '').toLowerCase()
-  const esHistorial = primera.includes('restaurante') && primera.includes('valor del recibo') && primera.includes('estado del pedido')
-  if (esHistorial) return true
+  // Historial de pedidos Uber
+  if (primera.includes('restaurante') && primera.includes('valor del recibo') && primera.includes('estado del pedido')) return true
+  // Detalle a nivel de artículo Uber
+  if (primera.includes('id. del pedido') && primera.includes('nombre del artículo') && primera.includes('precio unitario')) return true
+  // Just Eat orderDetails
+  if (primera.includes('order id') && primera.includes('order received at') && primera.includes('order status')) return true
+  // Productos vendidos sueltos (Sinqro/Rushour): pocas columnas nombre+cantidad
+  const cols = primera.replace(/csv\./g, '').split(',')
+  const nombre = cols.some(c => c.includes('nombre') || c.includes('producto') || c.includes('name'))
+  const cantidad = cols.some(c => c.includes('cantidad') || c.includes('unidades') || c.includes('vendidas'))
+  if (nombre && cantidad && cols.length <= 6) return true
+  // Resumen de ganancias Uber
   const marca = cab.includes('nombre del restaurante') || cab.includes('store name') || cab.includes('restaurant name')
   const pago = cab.includes('pago total') || cab.includes('net payout') || cab.includes('total payout')
   const ref = cab.includes('referencia de ganancias') || cab.includes('earnings reference') || cab.includes('payment reference')
@@ -158,7 +167,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
 
   const marcarEnviados = (archivos: File[]) => { for (const f of archivos) enviadosRef.current.add(`${f.name}|${f.size}`) }
 
-  // Separa documentos de ventas (Uber CSV: resumen o historial) del resto por contenido
+  // Separa documentos de ventas (CSV Uber/Just Eat/productos) del resto por contenido
   const separarVentas = async (archivos: File[]): Promise<{ ventas: File[]; resto: File[] }> => {
     const ventas: File[] = []
     const resto: File[] = []
@@ -176,7 +185,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
   const enviarAVentas = async (ventas: File[]) => {
     if (ventas.length === 0) return
     const tid = toast.loading(`Leyendo documentos de ventas (${ventas.length})…`)
-    let tiendas = 0, nuevas = 0, actualizadas = 0, pedidos = 0, neto = 0
+    let tiendas = 0, nuevas = 0, actualizadas = 0, pedidos = 0, productos = 0, neto = 0
     const errs: string[] = []
     for (const f of ventas) {
       try {
@@ -192,8 +201,11 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
           actualizadas += Number(j.actualizadas) || 0
           pedidos += Number(j.totalPedidos) || 0
           neto += Number(j.totalNeto) || 0
-        } else if (j.ok && j.tipo_detectado === 'uber_historial_pedidos') {
+        } else if (j.ok && (j.tipo_detectado === 'uber_historial_pedidos' || j.tipo_detectado === 'just_eat_pedidos' || j.tipo_detectado === 'uber_detalle_articulo')) {
           pedidos += Number(j.pedidos) || 0
+          productos += Number(j.productos) || 0
+        } else if (j.ok && j.tipo_detectado === 'productos_vendidos') {
+          productos += Number(j.productos) || 0
         } else {
           errs.push(j.mensaje || 'no reconocido')
         }
@@ -201,13 +213,16 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
         errs.push(e?.message || 'error de red')
       }
     }
-    if (errs.length > 0 && nuevas + actualizadas + pedidos === 0) {
+    if (errs.length > 0 && nuevas + actualizadas + pedidos + productos === 0) {
       toast.error(`No se pudo leer el documento de ventas: ${errs[0]}`, { id: tid })
     } else {
-      toast.success(
-        `Ventas · ${tiendas} tiendas · ${nuevas} nuevas, ${actualizadas} actualizadas · ${pedidos} pedidos · neto ${neto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-        { id: tid }
-      )
+      const partes: string[] = []
+      if (tiendas) partes.push(`${tiendas} tiendas`)
+      if (nuevas || actualizadas) partes.push(`${nuevas} nuevas, ${actualizadas} actualizadas`)
+      if (pedidos) partes.push(`${pedidos} pedidos`)
+      if (productos) partes.push(`${productos} productos`)
+      if (neto) partes.push(`neto ${neto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`)
+      toast.success(`Ventas · ${partes.join(' · ') || 'procesado'}`, { id: tid })
     }
   }
 
@@ -229,8 +244,6 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
     if (destino === 'ventas') {
       // Lo que no es de ventas se redirige solo a Facturas y se avisa
       if (resto.length > 0) {
-        // El motor clasifica por contenido: liquidaciones Just Eat/Glovo, resúmenes
-        // Uber y CSV de platos/franjas van SOLOS a Ventas; lo demás sigue a Facturas.
         toast.success(`${resto.length} documento${resto.length !== 1 ? 's' : ''} enviado${resto.length !== 1 ? 's' : ''} al clasificador: lo que sea de ventas entra en Ventas y el resto en Facturas.`)
         procesar(resto, 'ocr-procesar-factura', null)
       }
@@ -241,7 +254,6 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
 
     // destino === 'facturas'
     if (ventas.length > 0) {
-      // Resúmenes de ventas subidos por el botón equivocado → redirigidos solos
       toast.success(`${ventas.length} documento${ventas.length !== 1 ? 's' : ''} de ventas detectado${ventas.length !== 1 ? 's' : ''}: enviado${ventas.length !== 1 ? 's' : ''} a Ventas.`)
       await enviarAVentas(ventas)
     }
@@ -263,7 +275,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
         />
         <BtnSubir
           label="Ventas" color="#1D9E75" colorHover="#157a5a"
-          sub="Liquidaciones, resúmenes e historial de pedidos de plataforma. Van directos a Ventas."
+          sub="Liquidaciones, resúmenes, historial de pedidos y productos de plataforma. Van directos a Ventas."
           onArchivos={abrirModal('ventas')} preparando={preparando}
         />
         <BtnSubir
