@@ -14,11 +14,22 @@ export interface ResumenPlataforma {
   ticket_medio: number;
 }
 
+// Detecta el separador real de la primera línea con datos (; , o tab)
+function detectSep(text: string): string {
+  const firstLine = text.split(/\r?\n/).find((l) => l.trim() !== '') || '';
+  const counts: Record<string, number> = {
+    ';': (firstLine.match(/;/g) || []).length,
+    ',': (firstLine.match(/,/g) || []).length,
+    '\t': (firstLine.match(/\t/g) || []).length,
+  };
+  const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return best[1] > 0 ? best[0] : ',';
+}
+
 function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   let current = '', inQuotes = false, row: string[] = [];
-  // Detectar separador: coma o punto y coma
-  const sep = text.indexOf(';') !== -1 && text.indexOf(';') < text.indexOf(',') ? ';' : ',';
+  const sep = detectSep(text);
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
     if (inQuotes) {
@@ -64,9 +75,9 @@ export function parseRushourPlataformas(csvText: string): ResumenPlataforma[] {
   const dataRows = allRows.slice(1);
 
   const colCanal   = findCol(headers, 'platform', 'plataforma', 'canal', 'channel', 'source');
-  const colMarca   = findCol(headers, 'brand', 'marca', 'restaurant', 'store', 'tienda', 'nombre');
-  const colPedidos = findCol(headers, 'orders', 'pedidos', 'quantity', 'count', 'total_orders');
-  const colIngreso = findCol(headers, 'revenue', 'ingresos', 'total', 'sales', 'ventas', 'gmv');
+  const colMarca   = findCol(headers, 'brand', 'marca', 'restaurant', 'store', 'tienda', 'nombre', 'establecimiento');
+  const colPedidos = findCol(headers, 'orders', 'pedidos', 'quantity', 'count', 'total_orders', 'nº pedidos', 'num pedidos');
+  const colIngreso = findCol(headers, 'revenue', 'ingresos', 'total', 'sales', 'ventas', 'gmv', 'facturación', 'facturacion', 'importe');
   const colFecha   = findCol(headers, 'date', 'fecha', 'month', 'mes', 'period', 'periodo');
 
   if (colCanal === -1 && colMarca === -1) {
