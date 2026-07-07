@@ -27,6 +27,10 @@ const ACCEPT = EXT_ACEPTADAS.map(e => `.${e}`).join(',')
 // ── Reconocimiento cliente del "resumen de ganancias" de Uber (CSV) ─────────
 function esResumenUberTexto(texto: string): boolean {
   const cab = (texto || '').slice(0, 2000).toLowerCase()
+  // Historial de pedidos (order history): una fila por pedido con tiempos/estado.
+  const primera = (texto.split('\n')[0] || '').toLowerCase()
+  const esHistorial = primera.includes('restaurante') && primera.includes('valor del recibo') && primera.includes('estado del pedido')
+  if (esHistorial) return true
   const marca = cab.includes('nombre del restaurante') || cab.includes('store name') || cab.includes('restaurant name')
   const pago = cab.includes('pago total') || cab.includes('net payout') || cab.includes('total payout')
   const ref = cab.includes('referencia de ganancias') || cab.includes('earnings reference') || cab.includes('payment reference')
@@ -154,7 +158,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
 
   const marcarEnviados = (archivos: File[]) => { for (const f of archivos) enviadosRef.current.add(`${f.name}|${f.size}`) }
 
-  // Separa resúmenes de ventas (Uber CSV) del resto mirando el contenido
+  // Separa documentos de ventas (Uber CSV: resumen o historial) del resto por contenido
   const separarVentas = async (archivos: File[]): Promise<{ ventas: File[]; resto: File[] }> => {
     const ventas: File[] = []
     const resto: File[] = []
@@ -171,7 +175,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
   // Envía archivos de ventas al endpoint de plataformas con un único aviso veraz
   const enviarAVentas = async (ventas: File[]) => {
     if (ventas.length === 0) return
-    const tid = toast.loading(`Leyendo resumen de ventas (${ventas.length})…`)
+    const tid = toast.loading(`Leyendo documentos de ventas (${ventas.length})…`)
     let tiendas = 0, nuevas = 0, actualizadas = 0, pedidos = 0, neto = 0
     const errs: string[] = []
     for (const f of ventas) {
@@ -188,6 +192,8 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
           actualizadas += Number(j.actualizadas) || 0
           pedidos += Number(j.totalPedidos) || 0
           neto += Number(j.totalNeto) || 0
+        } else if (j.ok && j.tipo_detectado === 'uber_historial_pedidos') {
+          pedidos += Number(j.pedidos) || 0
         } else {
           errs.push(j.mensaje || 'no reconocido')
         }
@@ -195,8 +201,8 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
         errs.push(e?.message || 'error de red')
       }
     }
-    if (errs.length > 0 && nuevas + actualizadas === 0) {
-      toast.error(`No se pudo leer el resumen de ventas: ${errs[0]}`, { id: tid })
+    if (errs.length > 0 && nuevas + actualizadas + pedidos === 0) {
+      toast.error(`No se pudo leer el documento de ventas: ${errs[0]}`, { id: tid })
     } else {
       toast.success(
         `Ventas · ${tiendas} tiendas · ${nuevas} nuevas, ${actualizadas} actualizadas · ${pedidos} pedidos · neto ${neto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
@@ -236,7 +242,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
     // destino === 'facturas'
     if (ventas.length > 0) {
       // Resúmenes de ventas subidos por el botón equivocado → redirigidos solos
-      toast.success(`${ventas.length} resumen${ventas.length !== 1 ? 'es' : ''} de ventas detectado${ventas.length !== 1 ? 's' : ''}: enviado${ventas.length !== 1 ? 's' : ''} a Ventas.`)
+      toast.success(`${ventas.length} documento${ventas.length !== 1 ? 's' : ''} de ventas detectado${ventas.length !== 1 ? 's' : ''}: enviado${ventas.length !== 1 ? 's' : ''} a Ventas.`)
       await enviarAVentas(ventas)
     }
     if (resto.length > 0) procesar(resto, 'ocr-procesar-factura', null)
@@ -257,7 +263,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
         />
         <BtnSubir
           label="Ventas" color="#1D9E75" colorHover="#157a5a"
-          sub="Liquidaciones y resúmenes de plataforma. Van directos a Ventas de Finanzas."
+          sub="Liquidaciones, resúmenes e historial de pedidos de plataforma. Van directos a Ventas."
           onArchivos={abrirModal('ventas')} preparando={preparando}
         />
         <BtnSubir
