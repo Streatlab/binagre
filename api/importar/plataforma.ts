@@ -25,6 +25,7 @@ import { parseRushourFactura } from '../_lib/parsers/rushourParser.js'
 import { esCSVResumenUber, parseUberResumenLiquidaciones } from '../_lib/parsers/uberResumenParser.js'
 import { esHistorialPedidosUber, procesarHistorialPedidosUber } from '../_lib/parsers/uberHistorialOperativa.js'
 import { esOrderDetailsJustEat, procesarOrderDetailsJustEat } from '../_lib/parsers/justEatOperativa.js'
+import { esOrderDetailsGlovo, procesarOrderDetailsGlovo } from '../_lib/parsers/glovoOperativa.js'
 import { esDetalleArticuloUber, procesarDetalleArticuloUber } from '../_lib/parsers/uberArticuloProducto.js'
 import { esProductosVendidos, procesarProductosVendidos } from '../_lib/parsers/productosVendidos.js'
 import { upsertVentaPlataforma, insertarPedidosPlataforma } from '../_lib/upsertVentaPlataforma.js'
@@ -107,6 +108,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ ok: true, plataforma: 'just_eat', tipo_detectado: 'just_eat_pedidos', pedidos: r.pedidos, prime: r.prime, incidencias: r.incidencias, productos: r.productos, mensaje: `Just Eat: ${r.pedidos} pedidos · ${r.prime} Prime · ${r.incidencias} incidencias · ${r.productos} productos.` })
       } catch (err) {
         return res.status(200).json({ ok: false, plataforma: 'just_eat', tipo_detectado: 'just_eat_pedidos', mensaje: err instanceof Error ? err.message : String(err) })
+      }
+    }
+
+    // ── Glovo orderDetails (Historial de pedidos, español) → pedidos + productos ──
+    if (esOrderDetailsGlovo(textoExtraido)) {
+      try {
+        const r = await procesarOrderDetailsGlovo(supabaseAdmin, textoExtraido)
+        await logImport({ plataforma: 'glovo', archivo: filename, estado: 'ok' })
+        return res.status(200).json({ ok: true, plataforma: 'glovo', tipo_detectado: 'glovo_orderdetails', pedidos: r.pedidos, incidencias: r.incidencias, productos: r.productos, mensaje: `Glovo: ${r.pedidos} pedidos · ${r.incidencias} incidencias · ${r.productos} productos.` })
+      } catch (err) {
+        return res.status(200).json({ ok: false, plataforma: 'glovo', tipo_detectado: 'glovo_orderdetails', mensaje: err instanceof Error ? err.message : String(err) })
       }
     }
 
