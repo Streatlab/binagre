@@ -118,8 +118,8 @@ export default function CocinaRecetas() {
   }), [recetas, busqueda, filtroCat])
 
   const inputStyle: React.CSSProperties = {
-    background: isDark ? '#3a4058' : '#ffffff',
-    border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
+    background: isDark ? '#3a4058' : 'var(--sl-card)',
+    border: `1px solid ${isDark ? '#4a5270' : 'var(--sl-border)'}`,
     color: T.pri,
     fontFamily: FONT.body,
     fontSize: 12,
@@ -174,7 +174,7 @@ export default function CocinaRecetas() {
                   cursor: 'pointer',
                   padding: '10px 14px',
                   border: isSelected ? `1px solid ${T.emphasis}` : `0.5px solid ${T.brd}`,
-                  background: isSelected ? (isDark ? '#1a1f32' : '#ffffff') : T.card,
+                  background: isSelected ? (isDark ? 'var(--sl-card)' : 'var(--sl-card)') : T.card,
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
                 }}
               >
