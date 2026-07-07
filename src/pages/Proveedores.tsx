@@ -218,7 +218,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
             <button
               onClick={() => onSave(form)}
               disabled={saving || !form.nombre}
-              style={{ background: '#B01D23', border: 'none', color: '#ffffff', borderRadius: 6, padding: '7px 20px', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontFamily: FONT.body, opacity: saving ? 0.7 : 1 }}
+              style={{ background: '#B01D23', border: 'none', color: '#fff', borderRadius: 6, padding: '7px 20px', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontFamily: FONT.body, opacity: saving ? 0.7 : 1 }}
             >
               {saving ? 'Guardando…' : 'Guardar'}
             </button>
@@ -411,7 +411,7 @@ export default function Proveedores() {
             style={{
               background: '#e8f442',
               border: 'none',
-              color: '#111111',
+              color: 'var(--sl-text-primary)',
               borderRadius: 7,
               padding: '8px 18px',
               cursor: 'pointer',
@@ -427,7 +427,7 @@ export default function Proveedores() {
       </div>
 
       {error && (
-        <div style={{ color: '#B01D23', backgroundColor: '#B01D2318', border: '1px solid #B01D23', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
+        <div style={{ color: '#B01D23', backgroundColor: '#B01D2318', border: '1px solid #B01D2355', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
           {error}
         </div>
       )}
