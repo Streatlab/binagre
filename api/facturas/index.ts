@@ -947,6 +947,7 @@ async function extraerLineasBatch(req: VercelRequest, res: VercelResponse) {
       const marcarSinDetalle = async (motivo: string, diff?: number) => {
         await supabaseAdmin.from('facturas').update({
           lineas_estado: 'sin_detalle_lineas',
+          notas_error: `[lineas] ${motivo}`,
           ...(diff !== undefined ? { detalle_lineas_diff: diff } : {}),
         }).eq('id', facturaId)
         sinDetalle++
@@ -1006,7 +1007,7 @@ async function extraerLineasBatch(req: VercelRequest, res: VercelResponse) {
       } catch (err) {
         errores++
         const motivo = err instanceof Error ? err.message : String(err)
-        await supabaseAdmin.from('facturas').update({ lineas_estado: 'sin_detalle_lineas' }).eq('id', facturaId)
+        await supabaseAdmin.from('facturas').update({ lineas_estado: 'sin_detalle_lineas', notas_error: `[lineas] error: ${motivo}` }).eq('id', facturaId)
         detalle.push({ id: facturaId, proveedor, resultado: 'error', motivo })
       }
     }
