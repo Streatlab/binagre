@@ -31,6 +31,10 @@ const ORDEN_MOTIVOS = [
   'Otro',
 ]
 
+const NEO_INK = 'var(--neo-ink)'
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
+const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
+
 function fmtEur(n: number | null): string {
   if (n === null || n === undefined) return '—'
   return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
@@ -77,7 +81,7 @@ export default function BandejaPendientes() {
     [filas, filtro],
   )
 
-  const wrap: React.CSSProperties = { background: 'var(--sl-app)', padding: '24px 28px', minHeight: '100%' }
+  const wrap: React.CSSProperties = { background: 'var(--neo-bg)', padding: '24px 28px', minHeight: '100vh' }
   const h2: React.CSSProperties = { color: '#B01D23', fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }
   const sub: React.CSSProperties = { fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-muted)', display: 'block', marginTop: 4 }
 
@@ -112,7 +116,7 @@ export default function BandejaPendientes() {
       </div>
 
       {/* Tabla */}
-      <div style={{ background: 'var(--sl-card)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+      <div style={{ background: 'var(--sl-card)', overflow: 'hidden', ...NEO_CARD }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
             <tr style={{ background: '#1e2233', color: '#fff', textAlign: 'left' }}>

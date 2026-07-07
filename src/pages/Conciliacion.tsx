@@ -176,7 +176,7 @@ export default function Conciliacion({ periodoExterno }: { periodoExterno?: { de
   const diasRestantes = Math.max(0, ultimoDiaMes - hoyDate.getDate())
 
   return (
-    <div style={{ background: integrado ? 'transparent' : 'var(--sl-app)', padding: integrado ? 0 : '24px 28px' }}>
+    <div style={{ background: integrado ? 'transparent' : 'var(--neo-bg)', minHeight: integrado ? undefined : '100vh', padding: integrado ? 0 : '24px 28px' }}>
       {!integrado && (
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
           <div>
