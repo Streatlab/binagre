@@ -1,7 +1,7 @@
 /**
  * Robot de ingesta diaria · Rushour + Sinqro → Supabase
  * ------------------------------------------------------
- * Descarga ventas del día anterior por marca/plataforma y las deja en
+ * Descarga ventas del DÍA EN CURSO por marca/plataforma y las deja en
  * `ingesta_robot_diaria` (NO toca tablas de conciliación).
  *
  * CALIBRACIÓN (2026-07-07) con HTML real:
@@ -16,6 +16,8 @@
  *            input queda "pristine" y la web responde "Selecciona como mínimo un
  *            tipo de pedido". Solución: clic en el label + disparar evento
  *            change/click para que ng-model se actualice.
+ *   FECHA:   Rushour/Sinqro muestran por defecto el día actual, así que se
+ *            ingiere el día en curso (no ayer).
  */
 
 import { chromium, Browser, Page } from 'playwright';
@@ -27,8 +29,8 @@ const ART_DIR = './robot-artifacts';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-function ayer(): string {
-  const d = new Date(); d.setDate(d.getDate() - 1);
+function hoy(): string {
+  const d = new Date();
   return d.toISOString().slice(0, 10);
 }
 // Sinqro datepicker usa formato dd/mm/yyyy
@@ -189,7 +191,7 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
     }
     await page.waitForTimeout(800);
 
-    // 2) Rango de fechas = ayer (formato dd/mm/yyyy del datepicker).
+    // 2) Rango de fechas = día en curso (formato dd/mm/yyyy del datepicker).
     const f = ddmmyyyy(fecha);
     const sd = page.locator(SINQRO.startDate).first();
     const ed = page.locator(SINQRO.endDate).first();
@@ -208,7 +210,7 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
 
     if (!filas.length) {
       ensureArtDir(); writeFileSync(`${ART_DIR}/sinqro-EMPTY.html`, await page.content());
-      console.warn('  ⚠ sinqro: 0 filas (sin ventas ayer o estructura distinta; revisar sinqro-EMPTY.html).');
+      console.warn('  ⚠ sinqro: 0 filas (sin ventas hoy o estructura distinta; revisar sinqro-EMPTY.html).');
       return [];
     }
     const out: Fila[] = filas.map((cols) => {
@@ -239,7 +241,7 @@ async function guardar(filas: Fila[]) {
 }
 
 async function main() {
-  const fecha = ayer();
+  const fecha = hoy();
   console.log(`== Robot ingesta diaria · fecha=${fecha} · DIAG=${DIAG ? 'on' : 'off'} ==`);
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   try {
