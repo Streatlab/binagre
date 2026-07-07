@@ -31,8 +31,10 @@ function esResumenUberTexto(texto: string): boolean {
   if (primera.includes('restaurante') && primera.includes('valor del recibo') && primera.includes('estado del pedido')) return true
   // Detalle a nivel de artículo Uber
   if (primera.includes('id. del pedido') && primera.includes('nombre del artículo') && primera.includes('precio unitario')) return true
-  // Just Eat / Glovo orderDetails
+  // Just Eat / Glovo orderDetails (inglés)
   if (primera.includes('order id') && primera.includes('order received at') && primera.includes('order status')) return true
+  // Glovo orderDetails en español (Historial de pedidos del portal)
+  if (cab.includes('nombre del local') && cab.includes('total parcial')) return true
   // Productos vendidos sueltos (Sinqro/Rushour): pocas columnas nombre+cantidad
   const cols = primera.replace(/csv\./g, '').split(',')
   const nombre = cols.some(c => c.includes('nombre') || c.includes('producto') || c.includes('name'))
@@ -133,9 +135,11 @@ function BtnSubir({ label, sub, color, colorHover, onArchivos, preparando }: {
       }}
     >
       <input ref={inputRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }}
+        onClick={e => e.stopPropagation()}
         onChange={e => { handleFiles(e.target.files); if (inputRef.current) inputRef.current.value = '' }} />
       <input ref={carpetaRef} type="file" style={{ display: 'none' }}
         {...({ webkitdirectory: '', directory: '', mozdirectory: '' } as any)}
+        onClick={e => e.stopPropagation()}
         onChange={e => { handleFiles(e.target.files); if (carpetaRef.current) carpetaRef.current.value = '' }} />
       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 17, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', lineHeight: 1.2 }}>{label}</div>
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,0.92)', marginTop: 6, lineHeight: 1.35 }}>{sub}</div>
@@ -215,7 +219,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
           actualizadas += Number(j.actualizadas) || 0
           pedidos += Number(j.totalPedidos) || 0
           neto += Number(j.totalNeto) || 0
-        } else if (j.ok && (j.tipo_detectado === 'uber_historial_pedidos' || j.tipo_detectado === 'just_eat_pedidos' || j.tipo_detectado === 'uber_detalle_articulo')) {
+        } else if (j.ok && (j.tipo_detectado === 'uber_historial_pedidos' || j.tipo_detectado === 'just_eat_pedidos' || j.tipo_detectado === 'uber_detalle_articulo' || j.tipo_detectado === 'glovo_orderdetails')) {
           pedidos += Number(j.pedidos) || 0
           productos += Number(j.productos) || 0
         } else if (j.ok && j.tipo_detectado === 'productos_vendidos') {
