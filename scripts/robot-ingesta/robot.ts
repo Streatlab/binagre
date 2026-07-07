@@ -4,20 +4,23 @@
  * Descarga ventas del DÍA EN CURSO por marca/plataforma y las deja en
  * `ingesta_robot_diaria` (NO toca tablas de conciliación).
  *
+ * FUENTES Y DEDUPE:
+ *   RUSHOUR integra Uber Eats + Glovo (dato agregado, sin separar).
+ *   SINQRO  integra Just Eat + Glovo.
+ *   Único solape = GLOVO → se contabiliza SIEMPRE desde Rushour; de Sinqro solo
+ *   se guarda Just Eat. Así no se duplica Glovo y Uber (solo en Rushour) no se
+ *   pierde.
+ *
  * CALIBRACIÓN (2026-07-07) con HTML real:
- *   RUSHOUR: manager.rushour.io/login · input[name=username]/password.
- *            Tras login aparece modal promocional "Evolve your brand". El panel
- *            "Real-time view" muestra "Turnover including VAT" y "Volume of
- *            orders". Se lee por textContent con reintentos (el modal a veces
- *            tapa los KPIs en headless) y recarga si sigue vacío.
- *   SINQRO:  app.sinqro.com · #login-email/#login-password/#loginButton.
- *            Historial #/sp/6416/online/orders es AngularJS. Los pedidos NO están
- *            en una <table> (la única <table> es el datepicker). Cada pedido es un
- *            bloque ng-repeat="order in orders" con .orderClientBox (cliente) y
- *            .orderAmountBox (importe €). Los checkboxes de tipo de pedido están
- *            OCULTOS dentro de un <label>; se clica el label + evento change.
- *   FECHA:   Rushour/Sinqro muestran por defecto el día actual, así que se
- *            ingiere el día en curso (no ayer).
+ *   RUSHOUR: manager.rushour.io/login. Panel "Real-time view": cada KPI es una
+ *            card <div> con el <span> etiqueta dentro de un <div flex> y el VALOR
+ *            en un <span> hermano. Se lee por estructura (etiqueta→card→valor),
+ *            con reintentos y recarga (el modal promocional tapa los KPIs).
+ *   SINQRO:  app.sinqro.com. Historial AngularJS. Los pedidos son bloques
+ *            ng-repeat="order in orders" con .orderClientBox y .orderAmountBox
+ *            (NO la <table>, que es el datepicker). Checkboxes de tipo ocultos en
+ *            <label>: se clica el label + evento change.
+ *   FECHA:   ambos muestran el día actual por defecto → se ingiere el día en curso.
  */
 
 import { chromium, Browser, Page } from 'playwright';
@@ -106,28 +109,35 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
     await page.waitForTimeout(800);
     await diag(page, 'rushour-02-postlogin');
 
-    // Real-time view: leer Turnover y Volume of orders. En headless el panel a
-    // veces tarda o el modal tapa los KPIs, así que se reintenta hasta 4 veces
-    // cerrando modales y, si sigue vacío, recargando la vista.
+    // Real-time view: leer Turnover y Volume of orders por estructura de card,
+    // con reintentos y recarga (en headless el panel tarda o el modal tapa).
     const leerKpis = () => page.evaluate(() => {
       const norm = (s: string | null | undefined) => {
         if (!s) return null;
         const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
         return Number.isFinite(n) ? n : null;
       };
-      // textContent ve también el texto tapado por el modal.
-      const full = (document.body.textContent || '').replace(/\s+/g, ' ');
-      const mT = full.match(/Turnover(?:\s+including\s+VAT)?[^\d]*([\d.,]+)\s*€/i);
-      const mV = full.match(/Volume of orders[^\d]*([\d.,]+)/i);
-      let turnover = norm(mT?.[1]);
-      let volumen = norm(mV?.[1]);
-      // Respaldo: nodo-etiqueta "Turnover" → primer número € de su contenedor.
+      // Cada KPI de Rushour es una "card": un <div> con el <span> etiqueta dentro
+      // de un <div flex> y el VALOR en un <span> hermano. Se localiza la etiqueta,
+      // se sube a la card (2 niveles) y se lee el valor de esa card.
+      const valorDeCard = (etiqueta: RegExp, conEuro: boolean): number | null => {
+        const spans = Array.from(document.querySelectorAll('span'));
+        const lbl = spans.find((s) => etiqueta.test((s.textContent || '').trim()));
+        if (!lbl) return null;
+        const card = lbl.parentElement?.parentElement || lbl.parentElement;
+        if (!card) return null;
+        const cands = Array.from(card.querySelectorAll('span'))
+          .map((s) => (s.textContent || '').trim())
+          .filter((t) => (conEuro ? /€/.test(t) : /^\s*[\d.,]+\s*$/.test(t)) && /\d/.test(t));
+        return norm(cands[0]);
+      };
+      let turnover = valorDeCard(/Turnover/i, true);
+      const volumen = valorDeCard(/Volume of orders/i, false);
+      // Respaldo por texto plano si la estructura cambió.
       if (turnover == null) {
-        const nodos = Array.from(document.querySelectorAll('*'));
-        const lbl = nodos.find((n) => /turnover/i.test(n.textContent || '') && (n.childElementCount <= 3));
-        const cont = lbl?.closest('div,section,article') || lbl?.parentElement;
-        const m = (cont?.textContent || '').match(/([\d.,]+)\s*€/);
-        turnover = norm(m?.[1]);
+        const full = (document.body.textContent || '').replace(/\s+/g, ' ');
+        const mT = full.match(/Turnover(?:\s+including\s+VAT)?[^\d]*([\d.,]+)\s*€/i);
+        turnover = norm(mT?.[1]);
       }
       return { turnover, volumen };
     }).catch(() => ({ turnover: null as number | null, volumen: null as number | null }));
@@ -240,9 +250,10 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
       return [];
     }
 
-    // Agrupar por plataforma inferida del texto del pedido. Sinqro solo etiqueta
-    // con claridad JustEat; el resto (nombres de cliente reales) se agrupa como
-    // "sinqro_otros" para no inventar plataforma.
+    // DEDUPE: Sinqro integra Just Eat + Glovo; Rushour integra Uber + Glovo. El
+    // único solape es GLOVO, que se contabiliza siempre desde Rushour. Por eso de
+    // Sinqro solo guardamos Just Eat; los pedidos de cliente-con-nombre (Glovo)
+    // se descartan aquí para no duplicar.
     const norm = (s: string) => {
       const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
       return Number.isFinite(n) ? n : 0;
@@ -250,10 +261,9 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
     const acc = new Map<string, { pedidos: number; bruto: number }>();
     for (const p of pedidos) {
       const t = `${p.cliente} ${p.importe}`.toLowerCase();
-      const plataforma = /glovo/.test(t) ? 'glovo'
-        : /just\s?eat/.test(t) ? 'just_eat'
-        : /uber/.test(t) ? 'uber_eats'
-        : 'sinqro_otros';
+      const esJustEat = /just\s?eat/.test(t);
+      if (!esJustEat) continue; // Glovo (y cualquier otro) → ya viene por Rushour.
+      const plataforma = 'just_eat';
       const cur = acc.get(plataforma) || { pedidos: 0, bruto: 0 };
       cur.pedidos += 1;
       cur.bruto += norm(p.importe);
@@ -264,7 +274,7 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
       pedidos: v.pedidos, bruto: Math.round(v.bruto * 100) / 100, neto: null,
       ticket_medio: v.pedidos ? Math.round((v.bruto / v.pedidos) * 100) / 100 : null,
     }));
-    console.log(`  ✓ sinqro: ${pedidos.length} pedidos → ${out.length} filas por plataforma`);
+    console.log(`  ✓ sinqro: ${pedidos.length} pedidos leídos → ${out.length} filas guardadas (solo Just Eat)`);
     return out;
   } catch (e: any) {
     console.error(`  ✗ sinqro: ${e?.message || e}`);
