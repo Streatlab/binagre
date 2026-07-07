@@ -1,4 +1,4 @@
-// OcrCompletadoGlobal v4 — aviso GRANDE y veraz fuera de /ocr al terminar un lote.
+// OcrCompletadoGlobal v4 — aviso GRANDE y veraz fuera de Papeleo al terminar un lote.
 // v4: el mensaje refleja el desglose real (nuevas / ya estaban / a revisar / con error).
 //     Las DUPLICADAS no son un fallo: "ya estaban" no pinta de rojo. Solo hay error si
 //     errores>0. Antes mostraba "{ok} de {total}" y un lote de duplicados (p.ej. 9/144)
@@ -23,7 +23,7 @@ const DURACION_MS = 60000
 export default function OcrCompletadoGlobal() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const esOcr = pathname === '/ocr'
+  const esOcr = pathname === '/finanzas/documentacion'
   const [notifs, setNotifs] = useState<Notif[]>([])
   const vistasRef = useRef<Set<string>>(new Set())
 
@@ -132,7 +132,7 @@ export default function OcrCompletadoGlobal() {
               <br />Ve a revisar el resultado.
             </div>
             <button
-              onClick={() => { setNotifs(prev => prev.filter(x => x.id !== n.id)); navigate('/ocr') }}
+              onClick={() => { setNotifs(prev => prev.filter(x => x.id !== n.id)); navigate('/finanzas/documentacion') }}
               style={{
                 width: '100%', background: acento, color: '#fff', border: 'none',
                 borderRadius: 8, padding: '10px 12px', cursor: 'pointer',
