@@ -554,7 +554,7 @@ function TabGastos() {
                 <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--sl-btn-cancel-text)', textTransform: 'capitalize' }}>{g.periodicidad}</td>
                 <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)' }}>{fmtDate(g.proxima_fecha_pago)}</td>
                 <td style={{ padding: '12px 16px' }}>
-                  <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, backgroundColor: g.activo ? '#1D9E7520' : '#77777720', color: g.activo ? '#1D9E75' : '#777777', fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
+                  <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, backgroundColor: g.activo ? '#1D9E7520' : 'var(--sl-hover)', color: g.activo ? '#1D9E75' : 'var(--sl-text-muted)', fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
                     {g.activo ? 'ACTIVO' : 'ARCHIVADO'}
                   </span>
                 </td>
