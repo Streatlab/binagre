@@ -70,6 +70,14 @@ function findCol(headers: string[], ...candidates: string[]): number {
   return -1;
 }
 
+// Deja solo el nombre del local: corta en el primer "(" o salto de línea y limpia
+function limpiarMarca(raw: string): string {
+  let s = (raw || '').replace(/[\r\n]+/g, ' ');
+  const corte = s.indexOf('(');
+  if (corte > 0) s = s.slice(0, corte);
+  return s.trim() || 'Sin marca';
+}
+
 function parseFechaGlovo(fecha: string): { mes: number; año: number } | null {
   if (!fecha) return null;
   // Formatos comunes: DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY, DD/MM/YY
@@ -100,8 +108,11 @@ export function parseGlovoOrderDetails(csvText: string): EstadisticaPrimePromo[]
   );
   const colMarca = findCol(
     headers,
-    'Restaurant name', 'Store name', 'restaurant_name', 'Store',
-    'Establecimiento', 'Nombre del establecimiento', 'Tienda', 'Nombre de tienda', 'Marca',
+    'Nombre del local', 'Nombre del establecimiento', 'Nombre de tienda',
+    'Restaurant name', 'Store name', 'restaurant_name',
+    'Local', 'Establecimiento', 'Restaurante', 'Marca',
+    // 'Store'/'Tienda' al final: evita capturar "ID de tienda" antes que el nombre real
+    'Store', 'Tienda',
   );
   const colPrime = findCol(
     headers,
@@ -142,7 +153,7 @@ export function parseGlovoOrderDetails(csvText: string): EstadisticaPrimePromo[]
       if (estado && !estado.includes('delivered') && !estado.includes('entregado')) continue;
     }
 
-    const marca = row[colMarca] || 'Sin marca';
+    const marca = limpiarMarca(row[colMarca] || 'Sin marca');
 
     // Fecha
     let parsed: { mes: number; año: number } | null = null;
