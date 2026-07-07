@@ -6,8 +6,9 @@
  *
  * CALIBRACIÓN (2026-07-07) con HTML real:
  *   RUSHOUR: manager.rushour.io/login · input[name=username]/password.
- *            Tras login aparece modal promocional "Evolve your brand" que tapa
- *            los KPIs: hay que cerrarlo (botón Close, texto en <span>) antes de leer.
+ *            Tras login aparece modal promocional "Evolve your brand". El dato
+ *            de Turnover está en el DOM aunque el modal lo tape; se lee por
+ *            etiqueta ("Turnover ... N €"), no por el primer número de la página.
  *            Panel "Real-time view": Turnover / Volume of orders.
  *   SINQRO:  app.sinqro.com · #login-email/#login-password/#loginButton.
  *            Historial #/sp/6416/online/orders es AngularJS. Los checkboxes de
@@ -108,10 +109,23 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
     await page.waitForTimeout(800);
     await diag(page, 'rushour-02-postlogin');
 
-    // Real-time view: KPIs de cabecera (Turnover / Volume of orders).
-    const texto = await page.evaluate(() => document.body.innerText).catch(() => '');
-    const turnover = numero((texto.match(/([\d.,]+)\s*€/) || [])[1]);
-    const volumen = numero((texto.match(/orders?\s*[\r\n]+\s*([\d.,]+)/i) || [])[1]);
+    // Real-time view: leer Turnover y Volume of orders por su etiqueta concreta
+    // (no el primer número de la página, que puede ser un céntimo suelto).
+    const datos = await page.evaluate(() => {
+      const txt = document.body.innerText || '';
+      const norm = (s: string | undefined) => {
+        if (!s) return null;
+        const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
+        return Number.isFinite(n) ? n : null;
+      };
+      // Turnover: número con € que sigue a la palabra Turnover.
+      const mT = txt.match(/Turnover[^\d]*([\d.,]+)\s*€/i) || txt.match(/([\d.,]+)\s*€/);
+      // Volume of orders: entero que sigue a esa etiqueta.
+      const mV = txt.match(/Volume of orders[^\d]*([\d.,]+)/i);
+      return { turnover: norm(mT?.[1]), volumen: norm(mV?.[1]) };
+    }).catch(() => ({ turnover: null as number | null, volumen: null as number | null }));
+    const turnover = datos.turnover;
+    const volumen = datos.volumen;
     await diag(page, 'rushour-03-report');
 
     if (turnover == null && volumen == null) {
