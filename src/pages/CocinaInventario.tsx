@@ -217,7 +217,7 @@ export default function CocinaInventario() {
             </span>
             <button
               onClick={handleNuevoInventario}
-              style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600, minHeight: 44 }}
+              style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: '#e8f442', color: 'var(--sl-text-primary)', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600, minHeight: 44 }}
             >
               + Nuevo inventario
             </button>
