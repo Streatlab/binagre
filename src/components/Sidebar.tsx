@@ -68,12 +68,12 @@ const SECTIONS: NavSection[] = [
   {
     key: 'operaciones', label: 'Operaciones', perfiles: ['admin'],
     items: [
-      { path: '/pos',               label: 'POS',              emoji: '🖥️', perfiles: ['admin'] },
       { path: '/ops/checklists',    label: 'Checklists',       emoji: '✅', perfiles: ['admin'] },
       { path: '/ops/tareas',        label: 'Tareas',           emoji: '📝', perfiles: ['admin'] },
       { path: '/ops/manuales',      label: 'Manuales',         emoji: '📚', perfiles: ['admin'] },
-      { path: '/ops/reembolsos',    label: 'Reembolsos',       emoji: '💸', perfiles: ['admin'] },
+      { path: '/ops/reembolsos',    label: 'Reclamaciones',    emoji: '💸', perfiles: ['admin'] },
       { path: '/ops/pulso',         label: 'Pulso Cocina',     emoji: '📡', perfiles: ['admin'] },
+      { path: '/analytics/demanda', label: 'Pulso Operativa',  emoji: '⏱️', perfiles: ['admin'] },
       { path: '/ops/temperaturas',  label: 'Temperaturas',     emoji: '🌡️', perfiles: ['admin'] },
       { path: '/ops/bpm',           label: 'BPM / Calidad',    emoji: '✅', perfiles: ['admin'] },
       { path: '/ops/equipos',       label: 'Libro Equipos',    emoji: '🔧', perfiles: ['admin'] },
@@ -152,11 +152,11 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
 
 const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Revenue & Ticket',        emoji: '🎫' },
-  { label: 'Predicción Demanda',      emoji: '🔮' },
   { label: 'Tesorería',               emoji: '💳' },
   { label: 'BPM / Calidad',           emoji: '✅' },
   { label: 'Almacén',                 emoji: '🏭' },
   { label: 'Stock Mínimo Alertas',    emoji: '⚠️' },
+  { label: 'POS',                     emoji: '🖥️' },
   { label: 'Fichas Empleados',        emoji: '👤' },
   { label: 'Ventas por Hora',         emoji: '🕐' },
   { label: 'Ranking Productos',       emoji: '🏆' },
