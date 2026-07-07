@@ -1,9 +1,7 @@
 name: Robot ingesta diaria (Rushour + Sinqro)
 
-# AUTO-RUN DIARIO DESACTIVADO (29-jun-2026): el robot aún no está calibrado a las
-# webs reales de Rushour/Sinqro, así que el cron diario solo generaba errores cada
-# mañana. Se ejecuta a mano desde la pestaña Actions (Run workflow) hasta calibrarlo.
-# Para reactivar el diario: volver a añadir el bloque schedule con el cron.
+# El robot se dispara solo al actualizar su código (push a este path) para poder
+# probarlo sin tocar la pestaña Actions. También queda el botón manual.
 on:
   workflow_dispatch:
     inputs:
@@ -11,6 +9,11 @@ on:
         description: "Modo diagnóstico (guarda capturas/HTML)"
         type: boolean
         default: true
+  push:
+    branches: [master]
+    paths:
+      - "scripts/robot-ingesta/**"
+      - ".github/workflows/robot-ingesta-diaria.yml"
 
 jobs:
   ingesta:
