@@ -106,7 +106,8 @@ async function checkMargenBajoObjetivo(): Promise<AlertaRankeada[]> {
     .from('resumenes_plataforma_marca_mensual')
     .select('plataforma,bruto,neto_real_cobrado,mes,año')
     .eq('año', anioActual)
-    .order('mes', { ascending: false });
+    .order('mes', { ascending: false })
+    .returns<{ plataforma: string; bruto: number | null; neto_real_cobrado: number | null; mes: number; año: number }[]>();
   if (errRes) throw new Error(`Margen: ${errRes.message}`);
   if (!resumenes || resumenes.length === 0) return [];
 

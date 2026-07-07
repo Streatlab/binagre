@@ -114,6 +114,7 @@ export function useBreakEvenCanal(): BreakEvenCanalState {
           .select('marca,plataforma,mes,año,bruto,comisiones,fees,cargos_promocion,neto_real_cobrado,pedidos')
           .eq('año', añoActual)
           .order('mes', { ascending: false })
+          .returns<{ marca: string; plataforma: string; mes: number; año: number; bruto: number | null; comisiones: number | null; fees: number | null; cargos_promocion: number | null; neto_real_cobrado: number | null; pedidos: number | null }[]>()
         if (resErr) throw resErr
         if (cancel) return
 
