@@ -3,26 +3,16 @@ import { supabase } from '@/lib/supabase'
 import { OSW, LEX, INK, CLARO, TRACK, VERDE, ROJO, AMA, NAR, AZUL, GRANATE, GRIS, BORDER_CARD, SHADOW, eyebrow, d, EUR, E2 } from '@/styles/neobrutal'
 
 /* ══════════════ Tipos ══════════════ */
-type ItemPedido = { nombre: string; cantidad: number; precio: number; notas?: string }
+type ItemPedido = { nombre: string; cantidad: number; precio: number; notas?: string; modificadores?: string[]; categoria?: string }
 type Pedido = {
-  id: string
-  origen: string
-  pedido_ref: string | null
-  marca: string | null
-  canal: string | null
-  cliente_nombre: string | null
-  estado: string
-  items: ItemPedido[]
-  total: number
-  metodo_pago: string | null
-  notas: string | null
-  cobrado: boolean
-  created_at: string
+  id: string; origen: string; pedido_ref: string | null; marca: string | null; canal: string | null
+  cliente_nombre: string | null; estado: string; items: ItemPedido[]; total: number
+  metodo_pago: string | null; notas: string | null; cobrado: boolean; created_at: string
 }
-type Receta = { id: string; nombre: string; categoria: string | null; pvp_directa: number | null; pvp_web: number | null }
-type LineaCarrito = { receta_id: string; nombre: string; precio: number; cantidad: number }
+type Linea = { id: string; producto: string; categoria: string | null; marca: string | null; cantidad: number; precio_unit: number; modificadores: string[]; created_at: string }
+type CartaItem = { id: string; producto: string; categoria: string; marca: string | null; precio: number; activo: boolean }
 
-const ESTADOS: { id: string; label: string; color: string }[] = [
+const ESTADOS = [
   { id: 'nuevo', label: 'NUEVO', color: ROJO },
   { id: 'aceptado', label: 'ACEPTADO', color: NAR },
   { id: 'preparando', label: 'PREPARANDO', color: AMA },
@@ -35,6 +25,12 @@ const CANAL_LABEL: Record<string, string> = { uber: 'UBER EATS', glovo: 'GLOVO',
 
 const hoyISO = () => new Date().toISOString().slice(0, 10)
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+
+const btn = (bg: string, color: string): CSSProperties => ({
+  fontFamily: OSW, fontWeight: 700, textTransform: 'uppercase', fontSize: 12,
+  padding: '6px 12px', border: `2px solid ${INK}`, background: bg, color, cursor: 'pointer', boxShadow: `2px 2px 0 ${INK}`,
+})
+const input: CSSProperties = { fontFamily: LEX, fontSize: 14, padding: '8px 10px', border: `2px solid ${INK}`, background: '#fff', color: INK }
 
 /* ══════════════ Página ══════════════ */
 export default function POS() {
@@ -69,20 +65,12 @@ function TabPedidos() {
   const [cargando, setCargando] = useState(true)
 
   const cargar = useCallback(async () => {
-    const { data } = await supabase
-      .from('pos_pedidos')
-      .select('*')
-      .gte('created_at', hoyISO())
-      .order('created_at', { ascending: false })
+    const { data } = await supabase.from('pos_pedidos').select('*').gte('created_at', hoyISO()).order('created_at', { ascending: false })
     setPedidos((data as Pedido[]) || [])
     setCargando(false)
   }, [])
 
-  useEffect(() => {
-    cargar()
-    const t = setInterval(cargar, 15000)
-    return () => clearInterval(t)
-  }, [cargar])
+  useEffect(() => { cargar(); const t = setInterval(cargar, 15000); return () => clearInterval(t) }, [cargar])
 
   const cambiarEstado = async (p: Pedido, estado: string) => {
     setPedidos(prev => prev.map(x => (x.id === p.id ? { ...x, estado } : x)))
@@ -106,18 +94,15 @@ function TabPedidos() {
           )
         })}
       </div>
-
       {cargando && <div style={{ color: GRIS }}>Cargando pedidos…</div>}
       {!cargando && activos.length === 0 && (
         <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 32, textAlign: 'center', fontFamily: OSW, textTransform: 'uppercase', color: GRIS }}>
-          Sin pedidos activos — en cuanto Rushour, Sinqro o la tienda online envíen un pedido, aparece aquí solo
+          Sin pedidos activos — cuando Rushour, Sinqro o la tienda online envíen un pedido, aparece aquí solo
         </div>
       )}
-
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
         {activos.map(p => <CardPedido key={p.id} p={p} onEstado={cambiarEstado} />)}
       </div>
-
       {cerrados.length > 0 && (
         <>
           <div style={{ ...eyebrow(TRACK), marginTop: 28, marginBottom: 12 }}>Cerrados hoy · {cerrados.length}</div>
@@ -148,21 +133,23 @@ function CardPedido({ p, onEstado }: { p: Pedido; onEstado: (p: Pedido, e: strin
           {p.cliente_nombre && <span style={{ fontSize: 12, color: INK }}>{p.cliente_nombre}</span>}
         </div>
         {(p.items || []).map((it, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '3px 0', color: INK }}>
-            <span><b>{it.cantidad}×</b> {it.nombre}{it.notas ? <em style={{ color: NAR }}> — {it.notas}</em> : null}</span>
-            <span>{E2(it.precio * it.cantidad)}</span>
+          <div key={i} style={{ fontSize: 14, padding: '3px 0', color: INK }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span><b>{it.cantidad}×</b> {it.nombre}</span>
+              <span>{E2(it.precio * it.cantidad)}</span>
+            </div>
+            {it.modificadores && it.modificadores.length > 0 && (
+              <div style={{ fontSize: 12, color: NAR, paddingLeft: 16 }}>+ {it.modificadores.join(', ')}</div>
+            )}
+            {it.notas && <div style={{ fontSize: 12, color: NAR, paddingLeft: 16 }}>— {it.notas}</div>}
           </div>
         ))}
         {p.notas && <div style={{ fontSize: 13, color: NAR, marginTop: 6 }}>⚠ {p.notas}</div>}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, alignItems: 'center' }}>
           <span style={d('22px')}>{EUR(p.total)}</span>
           <div style={{ display: 'flex', gap: 6 }}>
-            {p.estado === 'nuevo' && (
-              <button onClick={() => onEstado(p, 'cancelado')} style={btn(ROJO, '#fff')}>✕</button>
-            )}
-            {sig && (
-              <button onClick={() => onEstado(p, sig)} style={btn(AMA, INK)}>→ {ESTADOS.find(e => e.id === sig)?.label}</button>
-            )}
+            {p.estado === 'nuevo' && <button onClick={() => onEstado(p, 'cancelado')} style={btn(ROJO, '#fff')}>✕</button>}
+            {sig && <button onClick={() => onEstado(p, sig)} style={btn(AMA, INK)}>→ {ESTADOS.find(e => e.id === sig)?.label}</button>}
           </div>
         </div>
       </div>
@@ -170,77 +157,90 @@ function CardPedido({ p, onEstado }: { p: Pedido; onEstado: (p: Pedido, e: strin
   )
 }
 
-const btn = (bg: string, color: string): CSSProperties => ({
-  fontFamily: OSW, fontWeight: 700, textTransform: 'uppercase', fontSize: 12,
-  padding: '6px 12px', border: `2px solid ${INK}`, background: bg, color, cursor: 'pointer', boxShadow: `2px 2px 0 ${INK}`,
-})
-
-/* ══════════════ VENTA DIRECTA ══════════════ */
+/* ══════════════ VENTA MANUAL (carta propia por categoría) ══════════════ */
 function TabVenta() {
-  const [recetas, setRecetas] = useState<Receta[]>([])
+  const [carta, setCarta] = useState<CartaItem[]>([])
   const [cat, setCat] = useState<string>('TODAS')
-  const [carrito, setCarrito] = useState<LineaCarrito[]>([])
-  const [guardando, setGuardando] = useState(false)
+  const [carrito, setCarrito] = useState<{ id: string; nombre: string; precio: number; cantidad: number }[]>([])
   const [ok, setOk] = useState<string | null>(null)
+  const [nuevo, setNuevo] = useState({ producto: '', categoria: '', marca: '', precio: '' })
+  const [showAlta, setShowAlta] = useState(false)
 
-  useEffect(() => {
-    supabase
-      .from('recetas')
-      .select('id, nombre, categoria, pvp_directa, pvp_web')
-      .order('nombre')
-      .then(({ data }) => setRecetas(((data as Receta[]) || []).filter(r => (r.pvp_directa ?? r.pvp_web ?? 0) > 0)))
+  const cargar = useCallback(async () => {
+    const { data } = await supabase.from('pos_carta').select('*').eq('activo', true).order('categoria').order('producto')
+    setCarta((data as CartaItem[]) || [])
   }, [])
+  useEffect(() => { cargar() }, [cargar])
 
-  const cats = useMemo(() => ['TODAS', ...Array.from(new Set(recetas.map(r => r.categoria || 'OTROS')))], [recetas])
-  const visibles = cat === 'TODAS' ? recetas : recetas.filter(r => (r.categoria || 'OTROS') === cat)
+  const cats = useMemo(() => ['TODAS', ...Array.from(new Set(carta.map(c => c.categoria)))], [carta])
+  const visibles = cat === 'TODAS' ? carta : carta.filter(c => c.categoria === cat)
   const total = carrito.reduce((s, l) => s + l.precio * l.cantidad, 0)
 
-  const añadir = (r: Receta) => {
-    const precio = r.pvp_directa ?? r.pvp_web ?? 0
+  const añadir = (c: { id: string; producto: string; precio: number }) => {
     setOk(null)
     setCarrito(prev => {
-      const ex = prev.find(l => l.receta_id === r.id)
-      if (ex) return prev.map(l => (l.receta_id === r.id ? { ...l, cantidad: l.cantidad + 1 } : l))
-      return [...prev, { receta_id: r.id, nombre: r.nombre, precio, cantidad: 1 }]
+      const ex = prev.find(l => l.id === c.id)
+      if (ex) return prev.map(l => (l.id === c.id ? { ...l, cantidad: l.cantidad + 1 } : l))
+      return [...prev, { id: c.id, nombre: c.producto, precio: c.precio, cantidad: 1 }]
     })
   }
-  const quitar = (id: string) =>
-    setCarrito(prev => prev.map(l => (l.receta_id === id ? { ...l, cantidad: l.cantidad - 1 } : l)).filter(l => l.cantidad > 0))
+  const quitar = (id: string) => setCarrito(prev => prev.map(l => (l.id === id ? { ...l, cantidad: l.cantidad - 1 } : l)).filter(l => l.cantidad > 0))
+
+  const altaProducto = async () => {
+    if (!nuevo.producto || !nuevo.precio) return
+    await supabase.from('pos_carta').insert({
+      producto: nuevo.producto, categoria: nuevo.categoria || 'Sin categoría',
+      marca: nuevo.marca || null, precio: Number(nuevo.precio), origen: 'manual',
+    })
+    setNuevo({ producto: '', categoria: '', marca: '', precio: '' })
+    setShowAlta(false)
+    cargar()
+  }
 
   const cobrar = async (metodo: string) => {
-    if (!carrito.length || guardando) return
-    setGuardando(true)
-    const { error } = await supabase.from('pos_pedidos').insert({
-      origen: 'directo',
-      canal: 'dir',
-      pedido_ref: `POS-${Date.now()}`,
-      estado: 'entregado',
-      cobrado: true,
-      metodo_pago: metodo,
-      items: carrito.map(l => ({ nombre: l.nombre, cantidad: l.cantidad, precio: l.precio })),
-      total,
-    })
-    setGuardando(false)
-    if (!error) {
-      setOk(`Cobrado ${EUR(total)} · ${metodo}`)
-      setCarrito([])
+    if (!carrito.length) return
+    const { data } = await supabase.from('pos_pedidos').insert({
+      origen: 'directo', canal: 'dir', pedido_ref: `POS-${Date.now()}`, estado: 'entregado', cobrado: true,
+      metodo_pago: metodo, items: carrito.map(l => ({ nombre: l.nombre, cantidad: l.cantidad, precio: l.precio })), total,
+    }).select()
+    const pedido = data?.[0]
+    if (pedido) {
+      await supabase.from('pos_pedido_lineas').insert(carrito.map(l => ({
+        pedido_id: pedido.id, producto: l.nombre, cantidad: l.cantidad, precio_unit: l.precio, modificadores: [],
+      })))
+      setOk(`Cobrado ${EUR(total)} · ${metodo}`); setCarrito([])
     }
   }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 340px', gap: 20, alignItems: 'start' }}>
       <div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-          {cats.map(c => (
-            <button key={c} onClick={() => setCat(c)} style={{ ...btn(cat === c ? AMA : CLARO, INK), fontSize: 11 }}>{c}</button>
-          ))}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
+          {cats.map(c => <button key={c} onClick={() => setCat(c)} style={{ ...btn(cat === c ? AMA : CLARO, INK), fontSize: 11 }}>{c}</button>)}
+          <button onClick={() => setShowAlta(s => !s)} style={{ ...btn(VERDE, '#fff'), fontSize: 11, marginLeft: 'auto' }}>+ Producto</button>
         </div>
+
+        {showAlta && (
+          <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 14, marginBottom: 14, display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr 1fr auto', gap: 8, alignItems: 'center' }}>
+            <input style={input} placeholder="Producto" value={nuevo.producto} onChange={e => setNuevo({ ...nuevo, producto: e.target.value })} />
+            <input style={input} placeholder="Categoría (Casera, Green…)" value={nuevo.categoria} onChange={e => setNuevo({ ...nuevo, categoria: e.target.value })} />
+            <input style={input} placeholder="Marca" value={nuevo.marca} onChange={e => setNuevo({ ...nuevo, marca: e.target.value })} />
+            <input style={input} placeholder="€" value={nuevo.precio} onChange={e => setNuevo({ ...nuevo, precio: e.target.value })} />
+            <button onClick={altaProducto} style={btn(GRANATE, '#fff')}>Guardar</button>
+          </div>
+        )}
+
+        {carta.length === 0 && !showAlta && (
+          <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 24, textAlign: 'center', color: GRIS, fontFamily: OSW, textTransform: 'uppercase' }}>
+            Carta vacía — pulsa "+ Producto" para dar de alta, o se llenará sola con los productos que lleguen de las plataformas
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
-          {visibles.map(r => (
-            <button key={r.id} onClick={() => añadir(r)}
-              style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 12, cursor: 'pointer', textAlign: 'left', minHeight: 84 }}>
-              <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK, marginBottom: 6 }}>{r.nombre}</div>
-              <div style={d('16px', GRANATE)}>{E2(r.pvp_directa ?? r.pvp_web ?? 0)}</div>
+          {visibles.map(c => (
+            <button key={c.id} onClick={() => añadir(c)} style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 12, cursor: 'pointer', textAlign: 'left', minHeight: 84 }}>
+              <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK, marginBottom: 4 }}>{c.producto}</div>
+              {c.marca && <div style={{ fontSize: 11, color: GRIS, marginBottom: 4 }}>{c.marca}</div>}
+              <div style={d('16px', GRANATE)}>{E2(c.precio)}</div>
             </button>
           ))}
         </div>
@@ -248,13 +248,13 @@ function TabVenta() {
 
       <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 16, position: 'sticky', top: 16 }}>
         <div style={{ ...eyebrow(AMA), marginBottom: 12 }}>Ticket</div>
-        {carrito.length === 0 && <div style={{ color: GRIS, fontSize: 13 }}>Toca platos para añadir</div>}
+        {carrito.length === 0 && <div style={{ color: GRIS, fontSize: 13 }}>Toca productos para añadir</div>}
         {carrito.map(l => (
-          <div key={l.receta_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 14, color: INK }}>
+          <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 14, color: INK }}>
             <span style={{ flex: 1 }}>{l.nombre}</span>
-            <button onClick={() => quitar(l.receta_id)} style={{ ...btn(CLARO, INK), padding: '2px 8px' }}>−</button>
+            <button onClick={() => quitar(l.id)} style={{ ...btn(CLARO, INK), padding: '2px 8px' }}>−</button>
             <span style={{ width: 26, textAlign: 'center', fontFamily: OSW, fontWeight: 700 }}>{l.cantidad}</span>
-            <button onClick={() => añadir({ id: l.receta_id, nombre: l.nombre, categoria: null, pvp_directa: l.precio, pvp_web: null })} style={{ ...btn(CLARO, INK), padding: '2px 8px' }}>+</button>
+            <button onClick={() => añadir({ id: l.id, producto: l.nombre, precio: l.precio })} style={{ ...btn(CLARO, INK), padding: '2px 8px' }}>+</button>
             <span style={{ width: 70, textAlign: 'right' }}>{E2(l.precio * l.cantidad)}</span>
           </div>
         ))}
@@ -280,10 +280,8 @@ function TabCierre() {
   const [msg, setMsg] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.from('pos_pedidos').select('*').gte('created_at', hoyISO()).eq('cobrado', true)
-      .then(({ data }) => setPedidos((data as Pedido[]) || []))
-    supabase.from('pos_cierres').select('id').eq('fecha', hoyISO()).maybeSingle()
-      .then(({ data }) => setCerrado(!!data))
+    supabase.from('pos_pedidos').select('*').gte('created_at', hoyISO()).eq('cobrado', true).then(({ data }) => setPedidos((data as Pedido[]) || []))
+    supabase.from('pos_cierres').select('id').eq('fecha', hoyISO()).maybeSingle().then(({ data }) => setCerrado(!!data))
   }, [])
 
   const suma = (m: string) => pedidos.filter(p => p.metodo_pago === m).reduce((s, p) => s + Number(p.total), 0)
@@ -292,10 +290,7 @@ function TabCierre() {
   const total = efectivo + tarjeta + bizum + otros
 
   const cerrar = async () => {
-    const { error } = await supabase.from('pos_cierres').upsert(
-      { fecha: hoyISO(), efectivo, tarjeta, bizum, otros, total, num_tickets: pedidos.length },
-      { onConflict: 'fecha' }
-    )
+    const { error } = await supabase.from('pos_cierres').upsert({ fecha: hoyISO(), efectivo, tarjeta, bizum, otros, total, num_tickets: pedidos.length }, { onConflict: 'fecha' })
     if (!error) { setCerrado(true); setMsg(`Caja cerrada: ${EUR(total)} · ${pedidos.length} tickets`) }
   }
 
@@ -326,63 +321,151 @@ function TabCierre() {
   )
 }
 
-/* ══════════════ INFORMES ══════════════ */
+/* ══════════════ INFORMES TIPO POS ══════════════ */
 function TabInformes() {
+  const [desde, setDesde] = useState(() => new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10))
+  const [hasta, setHasta] = useState(hoyISO())
+  const [horaIni, setHoraIni] = useState('')
+  const [horaFin, setHoraFin] = useState('')
   const [pedidos, setPedidos] = useState<Pedido[]>([])
+  const [lineas, setLineas] = useState<Linea[]>([])
+  const [cargando, setCargando] = useState(false)
 
-  useEffect(() => {
-    const desde = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10)
-    supabase.from('pos_pedidos').select('*').gte('created_at', desde).neq('estado', 'cancelado')
-      .then(({ data }) => setPedidos((data as Pedido[]) || []))
-  }, [])
+  const consultar = useCallback(async () => {
+    setCargando(true)
+    const desdeTs = `${desde}T00:00:00`
+    const hastaTs = `${hasta}T23:59:59`
+    const [pd, ln] = await Promise.all([
+      supabase.from('pos_pedidos').select('*').gte('created_at', desdeTs).lte('created_at', hastaTs).neq('estado', 'cancelado'),
+      supabase.from('pos_pedido_lineas').select('*').gte('created_at', desdeTs).lte('created_at', hastaTs),
+    ])
+    setPedidos((pd.data as Pedido[]) || [])
+    setLineas((ln.data as Linea[]) || [])
+    setCargando(false)
+  }, [desde, hasta])
 
-  const porDia = useMemo(() => {
+  useEffect(() => { consultar() }, [consultar])
+
+  // Filtro por franja horaria (si se rellena)
+  const enFranja = (iso: string) => {
+    if (!horaIni && !horaFin) return true
+    const h = new Date(iso).getHours() + new Date(iso).getMinutes() / 60
+    const a = horaIni ? parseInt(horaIni.slice(0, 2)) + parseInt(horaIni.slice(3, 5) || '0') / 60 : 0
+    const b = horaFin ? parseInt(horaFin.slice(0, 2)) + parseInt(horaFin.slice(3, 5) || '0') / 60 : 24
+    return h >= a && h <= b
+  }
+  const pedFilt = pedidos.filter(p => enFranja(p.created_at))
+  const linFilt = lineas.filter(l => enFranja(l.created_at))
+
+  const totalVentas = pedFilt.reduce((s, p) => s + Number(p.total), 0)
+  const numPedidos = pedFilt.length
+  const ticketMedio = numPedidos ? totalVentas / numPedidos : 0
+
+  const agrupa = <T,>(arr: T[], key: (t: T) => string, val: (t: T) => number) => {
     const m = new Map<string, number>()
-    for (let i = 6; i >= 0; i--) m.set(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10), 0)
-    pedidos.forEach(p => {
-      const k = p.created_at.slice(0, 10)
-      if (m.has(k)) m.set(k, (m.get(k) || 0) + Number(p.total))
-    })
+    arr.forEach(t => { const k = key(t) || '—'; m.set(k, (m.get(k) || 0) + val(t)) })
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1])
+  }
+
+  const porProducto = agrupa(linFilt, l => l.producto, l => Number(l.cantidad))
+  const porMarca = agrupa(pedFilt, p => p.marca || '—', p => Number(p.total))
+  const porCanal = agrupa(pedFilt, p => p.canal || p.origen, p => Number(p.total))
+  const porMomento = useMemo(() => {
+    const m = new Map<string, number>()
+    for (let h = 0; h < 24; h++) m.set(String(h).padStart(2, '0'), 0)
+    pedFilt.forEach(p => { const h = String(new Date(p.created_at).getHours()).padStart(2, '0'); m.set(h, (m.get(h) || 0) + Number(p.total)) })
     return Array.from(m.entries())
-  }, [pedidos])
+  }, [pedFilt])
+  const porModificador = useMemo(() => {
+    const m = new Map<string, number>()
+    linFilt.forEach(l => (l.modificadores || []).forEach(mod => m.set(mod, (m.get(mod) || 0) + Number(l.cantidad))))
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]).slice(0, 15)
+  }, [linFilt])
 
-  const porOrigen = useMemo(() => {
-    const m = new Map<string, { total: number; n: number }>()
-    pedidos.forEach(p => {
-      const e = m.get(p.origen) || { total: 0, n: 0 }
-      e.total += Number(p.total); e.n += 1
-      m.set(p.origen, e)
-    })
-    return Array.from(m.entries()).sort((a, b) => b[1].total - a[1].total)
-  }, [pedidos])
+  const maxMomento = Math.max(1, ...porMomento.map(([, v]) => v))
 
-  const max = Math.max(1, ...porDia.map(([, v]) => v))
-  const total7 = pedidos.reduce((s, p) => s + Number(p.total), 0)
+  const rangoRapido = (dias: number) => {
+    setDesde(new Date(Date.now() - (dias - 1) * 86400000).toISOString().slice(0, 10))
+    setHasta(hoyISO())
+  }
+  const hoy = () => { setDesde(hoyISO()); setHasta(hoyISO()) }
+  const esteMes = () => { const n = new Date(); setDesde(new Date(n.getFullYear(), n.getMonth(), 1).toISOString().slice(0, 10)); setHasta(hoyISO()) }
+  const esteAno = () => { const n = new Date(); setDesde(new Date(n.getFullYear(), 0, 1).toISOString().slice(0, 10)); setHasta(hoyISO()) }
+
+  const KPI = ({ label, valor, color }: { label: string; valor: string; color: string }) => (
+    <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 18, flex: 1, minWidth: 160 }}>
+      <div style={{ ...eyebrow(color, '#fff'), marginBottom: 10 }}>{label}</div>
+      <div style={d('30px')}>{valor}</div>
+    </div>
+  )
+  const Tabla = ({ titulo, filas, color, sufijo = '' }: { titulo: string; filas: [string, number][]; color: string; sufijo?: string }) => (
+    <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 18 }}>
+      <div style={{ ...eyebrow(color, '#fff'), marginBottom: 12 }}>{titulo}</div>
+      {filas.length === 0 && <div style={{ color: GRIS, fontSize: 13 }}>Sin datos en este rango</div>}
+      {filas.slice(0, 12).map(([k, v]) => (
+        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${TRACK}`, color: INK }}>
+          <span style={{ fontFamily: LEX, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{k}</span>
+          <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13 }}>{sufijo === '€' ? EUR(v) : `${v}${sufijo}`}</span>
+        </div>
+      ))}
+    </div>
+  )
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
-      <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 18 }}>
-        <div style={{ ...eyebrow(AMA), marginBottom: 14 }}>Ventas POS · últimos 7 días · {EUR(total7)}</div>
-        {porDia.map(([dia, v]) => (
-          <div key={dia} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-            <span style={{ fontFamily: OSW, fontSize: 12, width: 46, color: INK }}>{dia.slice(8, 10)}/{dia.slice(5, 7)}</span>
-            <div style={{ flex: 1, background: TRACK, border: `2px solid ${INK}`, height: 20 }}>
-              <div style={{ width: `${(v / max) * 100}%`, height: '100%', background: GRANATE }} />
-            </div>
-            <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, width: 80, textAlign: 'right', color: INK }}>{EUR(v)}</span>
-          </div>
-        ))}
+    <div>
+      {/* Barra de consulta */}
+      <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 16, marginBottom: 18 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+          <button onClick={hoy} style={{ ...btn(CLARO, INK), fontSize: 11 }}>Hoy</button>
+          <button onClick={() => rangoRapido(7)} style={{ ...btn(CLARO, INK), fontSize: 11 }}>7 días</button>
+          <button onClick={() => rangoRapido(30)} style={{ ...btn(CLARO, INK), fontSize: 11 }}>30 días</button>
+          <button onClick={esteMes} style={{ ...btn(CLARO, INK), fontSize: 11 }}>Este mes</button>
+          <button onClick={esteAno} style={{ ...btn(CLARO, INK), fontSize: 11 }}>Este año</button>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontFamily: OSW, fontSize: 12, textTransform: 'uppercase', color: GRIS }}>Desde</span>
+          <input type="date" style={input} value={desde} onChange={e => setDesde(e.target.value)} />
+          <span style={{ fontFamily: OSW, fontSize: 12, textTransform: 'uppercase', color: GRIS }}>Hasta</span>
+          <input type="date" style={input} value={hasta} onChange={e => setHasta(e.target.value)} />
+          <span style={{ fontFamily: OSW, fontSize: 12, textTransform: 'uppercase', color: GRIS }}>Hora</span>
+          <input type="time" style={input} value={horaIni} onChange={e => setHoraIni(e.target.value)} />
+          <span style={{ color: GRIS }}>–</span>
+          <input type="time" style={input} value={horaFin} onChange={e => setHoraFin(e.target.value)} />
+          <button onClick={consultar} style={{ ...btn(GRANATE, '#fff'), fontSize: 13, padding: '8px 18px' }}>Consultar</button>
+        </div>
       </div>
-      <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 18 }}>
-        <div style={{ ...eyebrow(NAR, '#fff'), marginBottom: 14 }}>Por origen · 7 días</div>
-        {porOrigen.length === 0 && <div style={{ color: GRIS, fontSize: 13 }}>Sin datos todavía</div>}
-        {porOrigen.map(([o, v]) => (
-          <div key={o} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${TRACK}`, color: INK }}>
-            <span style={{ fontFamily: OSW, textTransform: 'uppercase', fontSize: 13 }}>{o} · {v.n} pedidos</span>
-            <span style={{ fontFamily: OSW, fontWeight: 700 }}>{EUR(v.total)}</span>
+
+      {cargando ? <div style={{ color: GRIS }}>Consultando…</div> : (
+        <>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
+            <KPI label="Ventas" valor={EUR(totalVentas)} color={GRANATE} />
+            <KPI label="Pedidos" valor={String(numPedidos)} color={AZUL} />
+            <KPI label="Ticket medio" valor={EUR(ticketMedio)} color={VERDE} />
+            <KPI label="Productos vendidos" valor={String(linFilt.reduce((s, l) => s + Number(l.cantidad), 0))} color={NAR} />
           </div>
-        ))}
-      </div>
+
+          {/* Ventas por hora del día */}
+          <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 18, marginBottom: 18 }}>
+            <div style={{ ...eyebrow(AMA), marginBottom: 14 }}>Ventas por hora / momento de compra</div>
+            {porMomento.map(([h, v]) => (
+              <div key={h} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                <span style={{ fontFamily: OSW, fontSize: 12, width: 40, color: INK }}>{h}h</span>
+                <div style={{ flex: 1, background: TRACK, border: `2px solid ${INK}`, height: 16 }}>
+                  <div style={{ width: `${(v / maxMomento) * 100}%`, height: '100%', background: GRANATE }} />
+                </div>
+                <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12, width: 80, textAlign: 'right', color: INK }}>{EUR(v)}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
+            <Tabla titulo="Productos más vendidos" filas={porProducto} color={GRANATE} sufijo=" ud" />
+            <Tabla titulo="Modificadores vendidos" filas={porModificador} color={NAR} sufijo=" ud" />
+            <Tabla titulo="Ventas por marca" filas={porMarca} color={AZUL} sufijo="€" />
+            <Tabla titulo="Ventas por canal / plataforma" filas={porCanal} color={VERDE} sufijo="€" />
+          </div>
+        </>
+      )}
     </div>
   )
 }
