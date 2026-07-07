@@ -241,7 +241,7 @@ export default function PagosCobros() {
               border: 'none',
               cursor: 'pointer',
               backgroundColor: tab === t.id ? '#e8f442' : 'var(--sl-card-alt)',
-              color: tab === t.id ? '#111111' : 'var(--sl-text-secondary)',
+              color: tab === t.id ? 'var(--sl-text-primary)' : 'var(--sl-text-secondary)',
               transition: 'all 0.15s',
             }}
           >
@@ -479,7 +479,7 @@ function TabGastos() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
         <button
           onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(v => !v) }}
-          style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: 1, padding: '8px 20px', borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: '#e8f442', color: '#111111' }}
+          style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: 1, padding: '8px 20px', borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: '#e8f442', color: 'var(--sl-text-primary)' }}
         >
           + AÑADIR GASTO FIJO
         </button>
@@ -515,7 +515,7 @@ function TabGastos() {
             <button
               onClick={guardar}
               disabled={saving}
-              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, padding: '8px 20px', borderRadius: 6, border: 'none', backgroundColor: '#B01D23', color: '#ffffff', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
+              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, padding: '8px 20px', borderRadius: 6, border: 'none', backgroundColor: '#B01D23', color: '#fff', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? 'GUARDANDO...' : 'GUARDAR'}
             </button>
@@ -554,7 +554,7 @@ function TabGastos() {
                 <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--sl-btn-cancel-text)', textTransform: 'capitalize' }}>{g.periodicidad}</td>
                 <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)' }}>{fmtDate(g.proxima_fecha_pago)}</td>
                 <td style={{ padding: '12px 16px' }}>
-                  <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, backgroundColor: g.activo ? '#1D9E7520' : 'var(--sl-hover)', color: g.activo ? '#1D9E75' : 'var(--sl-text-muted)', fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
+                  <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, backgroundColor: g.activo ? '#1D9E7520' : '#77777720', color: g.activo ? '#1D9E75' : 'var(--sl-text-muted)', fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
                     {g.activo ? 'ACTIVO' : 'ARCHIVADO'}
                   </span>
                 </td>
@@ -633,7 +633,7 @@ function TabHistorial() {
               cursor: 'pointer',
               textTransform: 'uppercase',
               backgroundColor: filtro === f ? '#e8f442' : 'var(--sl-card-alt)',
-              color: filtro === f ? '#111111' : 'var(--sl-text-secondary)',
+              color: filtro === f ? 'var(--sl-text-primary)' : 'var(--sl-text-secondary)',
             }}
           >
             {f === 'todos' ? 'Todos' : f === 'ingreso' ? 'Ingresos' : 'Pagos'}
