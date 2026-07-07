@@ -11,16 +11,8 @@
  *   se guarda Just Eat. Así no se duplica Glovo y Uber (solo en Rushour) no se
  *   pierde.
  *
- * CALIBRACIÓN (2026-07-07) con HTML real:
- *   RUSHOUR: manager.rushour.io/login. Panel "Real-time view": cada KPI es una
- *            card <div> con el <span> etiqueta dentro de un <div flex> y el VALOR
- *            en un <span> hermano. Se lee por estructura (etiqueta→card→valor),
- *            con reintentos y recarga (el modal promocional tapa los KPIs).
- *   SINQRO:  app.sinqro.com. Historial AngularJS. Los pedidos son bloques
- *            ng-repeat="order in orders" con .orderClientBox y .orderAmountBox
- *            (NO la <table>, que es el datepicker). Checkboxes de tipo ocultos en
- *            <label>: se clica el label + evento change.
- *   FECHA:   ambos muestran el día actual por defecto → se ingiere el día en curso.
+ * Escribe además un diagnóstico en la tabla `robot_log` para poder verificar sin
+ * descargar artefactos.
  */
 
 import { chromium, Browser, Page } from 'playwright';
@@ -36,7 +28,6 @@ function hoy(): string {
   const d = new Date();
   return d.toISOString().slice(0, 10);
 }
-// Sinqro datepicker usa formato dd/mm/yyyy
 function ddmmyyyy(iso: string): string {
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
@@ -70,14 +61,11 @@ const SINQRO = {
   startDate: '#startDateFilter', endDate: '#endDateFilter',
 };
 
-// Cierra modales/overlays comunes (promos, cookies) que tapan el contenido.
 async function cerrarModales(page: Page) {
   const nombres = [/close/i, /cerrar/i, /no,? gracias/i, /aceptar/i, /got it/i, /entendido/i, /×/];
   for (const re of nombres) {
     await page.getByRole('button', { name: re }).first().click({ timeout: 1200 }).catch(() => {});
   }
-  // Botón "Close" del modal promocional de Rushour: el texto está dentro de un
-  // <span> hijo de <button>, así que se clica el button que lo contiene.
   await page.locator('button:has(span:text-is("Close"))').first().click({ timeout: 1500 }).catch(() => {});
   await page.getByRole('button', { name: 'Close', exact: true }).first().click({ timeout: 1500 }).catch(() => {});
   await page.evaluate(() => {
@@ -88,9 +76,18 @@ async function cerrarModales(page: Page) {
   await page.keyboard.press('Escape').catch(() => {});
 }
 
+// ---------- Log a Supabase (para verificar sin subir zips) ----------
+async function logRobot(fuente: string, estado: string, detalle: string) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  try {
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+    await sb.from('robot_log').insert([{ fuente, estado, detalle }]);
+  } catch {}
+}
+
 // ---------- RUSHOUR ----------
 async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> {
-  if (!RUSHOUR.user || !RUSHOUR.pass) { console.warn('  ⚠ rushour: sin credenciales.'); return []; }
+  if (!RUSHOUR.user || !RUSHOUR.pass) { console.warn('  ⚠ rushour: sin credenciales.'); await logRobot('rushour', 'error', 'sin credenciales'); return []; }
   const page = await browser.newPage();
   try {
     console.log('→ rushour: login…');
@@ -102,24 +99,18 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
     await page.fill(RUSHOUR.passInput, RUSHOUR.pass);
     await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(RUSHOUR.submitBtn)]);
     await page.waitForTimeout(4000);
-    // Cerrar modal promocional "Evolve your brand" que tapa los KPIs.
     await cerrarModales(page);
     await page.waitForTimeout(1200);
     await cerrarModales(page);
     await page.waitForTimeout(800);
     await diag(page, 'rushour-02-postlogin');
 
-    // Real-time view: leer Turnover y Volume of orders por estructura de card,
-    // con reintentos y recarga (en headless el panel tarda o el modal tapa).
     const leerKpis = () => page.evaluate(() => {
       const norm = (s: string | null | undefined) => {
         if (!s) return null;
         const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
         return Number.isFinite(n) ? n : null;
       };
-      // Cada KPI de Rushour es una "card": un <div> con el <span> etiqueta dentro
-      // de un <div flex> y el VALOR en un <span> hermano. Se localiza la etiqueta,
-      // se sube a la card (2 niveles) y se lee el valor de esa card.
       const valorDeCard = (etiqueta: RegExp, conEuro: boolean): number | null => {
         const spans = Array.from(document.querySelectorAll('span'));
         const lbl = spans.find((s) => etiqueta.test((s.textContent || '').trim()));
@@ -133,25 +124,30 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
       };
       let turnover = valorDeCard(/Turnover/i, true);
       const volumen = valorDeCard(/Volume of orders/i, false);
-      // Respaldo por texto plano si la estructura cambió.
       if (turnover == null) {
         const full = (document.body.textContent || '').replace(/\s+/g, ' ');
         const mT = full.match(/Turnover(?:\s+including\s+VAT)?[^\d]*([\d.,]+)\s*€/i);
         turnover = norm(mT?.[1]);
       }
-      return { turnover, volumen };
-    }).catch(() => ({ turnover: null as number | null, volumen: null as number | null }));
+      const spans = Array.from(document.querySelectorAll('span')).map((s) => (s.textContent || '').trim());
+      const dg = {
+        hayLabelTurnover: spans.some((t) => /turnover/i.test(t)),
+        spansEuro: spans.filter((t) => /€/.test(t) && /\d/.test(t)).slice(0, 6),
+        enLogin: !!document.querySelector('input[name="password"]') && !spans.some((t) => /turnover/i.test(t)),
+      };
+      return { turnover, volumen, dg };
+    }).catch(() => ({ turnover: null as number | null, volumen: null as number | null, dg: { error: true } as any }));
 
     let turnover: number | null = null;
     let volumen: number | null = null;
+    let ultimoDiag: any = null;
     for (let intento = 1; intento <= 4; intento++) {
       const d = await leerKpis();
-      turnover = d.turnover; volumen = d.volumen;
+      turnover = d.turnover; volumen = d.volumen; ultimoDiag = d.dg;
       if (turnover != null || volumen != null) break;
       await cerrarModales(page);
       await page.waitForTimeout(2500);
       if (intento === 2) {
-        // Recargar la vista Real-time por si no había pintado los KPIs.
         await page.goto('https://manager.rushour.io/', { waitUntil: 'domcontentloaded' }).catch(() => {});
         await page.waitForTimeout(3500);
         await cerrarModales(page);
@@ -159,10 +155,12 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
       }
     }
     await diag(page, 'rushour-03-report');
+    await logRobot('rushour', turnover != null ? 'ok' : 'vacio',
+      `turnover=${turnover} volumen=${volumen} diag=${JSON.stringify(ultimoDiag)}`);
 
     if (turnover == null && volumen == null) {
       ensureArtDir(); writeFileSync(`${ART_DIR}/rushour-EMPTY.html`, await page.content());
-      console.warn('  ⚠ rushour: no se leyeron KPIs (revisar rushour-EMPTY.html).');
+      console.warn('  ⚠ rushour: no se leyeron KPIs.');
       return [];
     }
     console.log(`  ✓ rushour: turnover=${turnover} volumen=${volumen}`);
@@ -173,6 +171,7 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
     }];
   } catch (e: any) {
     console.error(`  ✗ rushour: ${e?.message || e}`);
+    await logRobot('rushour', 'error', String(e?.message || e));
     await diag(page, 'rushour-ERROR');
     return [];
   } finally { await page.close(); }
@@ -180,7 +179,7 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
 
 // ---------- SINQRO ----------
 async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
-  if (!SINQRO.user || !SINQRO.pass) { console.warn('  ⚠ sinqro: sin credenciales.'); return []; }
+  if (!SINQRO.user || !SINQRO.pass) { console.warn('  ⚠ sinqro: sin credenciales.'); await logRobot('sinqro', 'error', 'sin credenciales'); return []; }
   const page = await browser.newPage();
   try {
     console.log('→ sinqro: login…');
@@ -197,8 +196,6 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
     await page.goto(SINQRO.ventasUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(3500);
 
-    // 1) Marcar TODOS los tipos de pedido. AngularJS: clic en el <label> que
-    //    envuelve el checkbox oculto + disparar evento para actualizar ng-model.
     for (const sel of SINQRO.tipoChecks) {
       const chk = page.locator(sel).first();
       if (!(await chk.count())) continue;
@@ -221,20 +218,16 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
     }
     await page.waitForTimeout(800);
 
-    // 2) Rango de fechas = día en curso (formato dd/mm/yyyy del datepicker).
     const f = ddmmyyyy(fecha);
     const sd = page.locator(SINQRO.startDate).first();
     const ed = page.locator(SINQRO.endDate).first();
     if (await sd.count()) { await sd.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
     if (await ed.count()) { await ed.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
 
-    // 3) Buscar.
     await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
     await page.waitForTimeout(4000);
     await diag(page, 'sinqro-03-report');
 
-    // 4) Leer los pedidos (bloques ng-repeat="order in orders"), NO la <table>
-    //    del datepicker. Cada pedido: .orderClientBox (cliente) + .orderAmountBox (€).
     const pedidos = await page.evaluate(() => {
       const bloques = Array.from(document.querySelectorAll('[ng-repeat*="order in orders"]'));
       return bloques.map((b) => {
@@ -246,14 +239,12 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
 
     if (!pedidos.length) {
       ensureArtDir(); writeFileSync(`${ART_DIR}/sinqro-EMPTY.html`, await page.content());
-      console.warn('  ⚠ sinqro: 0 pedidos (sin ventas hoy o estructura distinta; revisar sinqro-EMPTY.html).');
+      console.warn('  ⚠ sinqro: 0 pedidos.');
+      await logRobot('sinqro', 'vacio', 'pedidos_leidos=0');
       return [];
     }
 
-    // DEDUPE: Sinqro integra Just Eat + Glovo; Rushour integra Uber + Glovo. El
-    // único solape es GLOVO, que se contabiliza siempre desde Rushour. Por eso de
-    // Sinqro solo guardamos Just Eat; los pedidos de cliente-con-nombre (Glovo)
-    // se descartan aquí para no duplicar.
+    // DEDUPE: de Sinqro solo Just Eat (Glovo se cuenta desde Rushour).
     const norm = (s: string) => {
       const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
       return Number.isFinite(n) ? n : 0;
@@ -262,7 +253,7 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
     for (const p of pedidos) {
       const t = `${p.cliente} ${p.importe}`.toLowerCase();
       const esJustEat = /just\s?eat/.test(t);
-      if (!esJustEat) continue; // Glovo (y cualquier otro) → ya viene por Rushour.
+      if (!esJustEat) continue;
       const plataforma = 'just_eat';
       const cur = acc.get(plataforma) || { pedidos: 0, bruto: 0 };
       cur.pedidos += 1;
@@ -274,10 +265,12 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
       pedidos: v.pedidos, bruto: Math.round(v.bruto * 100) / 100, neto: null,
       ticket_medio: v.pedidos ? Math.round((v.bruto / v.pedidos) * 100) / 100 : null,
     }));
-    console.log(`  ✓ sinqro: ${pedidos.length} pedidos leídos → ${out.length} filas guardadas (solo Just Eat)`);
+    console.log(`  ✓ sinqro: ${pedidos.length} pedidos → ${out.length} filas (solo Just Eat)`);
+    await logRobot('sinqro', 'ok', `pedidos_leidos=${pedidos.length} filas_justeat=${out.length}`);
     return out;
   } catch (e: any) {
     console.error(`  ✗ sinqro: ${e?.message || e}`);
+    await logRobot('sinqro', 'error', String(e?.message || e));
     await diag(page, 'sinqro-ERROR');
     return [];
   } finally { await page.close(); }
@@ -285,12 +278,12 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
 
 // ---------- Guardar ----------
 async function guardar(filas: Fila[]) {
-  if (!filas.length) { console.log('Nada que guardar.'); return; }
+  if (!filas.length) { console.log('Nada que guardar.'); await logRobot('guardar', 'vacio', '0 filas'); return; }
   if (!SUPABASE_URL || !SUPABASE_KEY) { console.warn('⚠ Faltan credenciales Supabase.'); return; }
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
   const { error } = await sb.from('ingesta_robot_diaria').upsert(filas, { onConflict: 'fecha,agregador,plataforma,marca' });
-  if (error) { console.error('✗ Error Supabase:', error.message); process.exitCode = 1; }
-  else console.log(`✓ Guardadas ${filas.length} filas.`);
+  if (error) { console.error('✗ Error Supabase:', error.message); await logRobot('guardar', 'error', error.message); process.exitCode = 1; }
+  else { console.log(`✓ Guardadas ${filas.length} filas.`); await logRobot('guardar', 'ok', `${filas.length} filas`); }
 }
 
 async function main() {
