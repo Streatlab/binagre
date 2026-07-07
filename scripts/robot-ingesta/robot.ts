@@ -3,6 +3,10 @@
  * FUENTES: Rushour = Uber + Glovo (agregado). Sinqro = Just Eat + Glovo.
  * DEDUPE: Glovo se cuenta desde Rushour; de Sinqro solo Just Eat.
  * Escribe diagnóstico en `robot_log` para verificar sin descargar artefactos.
+ *
+ * NOTA: la lectura de los KPIs de Rushour se hace con LOCATORS de Playwright (en
+ * Node), NO con page.evaluate, porque tsx/esbuild inyecta el helper `__name` que
+ * no existe dentro del navegador y rompía el evaluate ("__name is not defined").
  */
 
 import { chromium, Browser, Page } from 'playwright';
@@ -17,6 +21,11 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 function hoy(): string { return new Date().toISOString().slice(0, 10); }
 function ddmmyyyy(iso: string): string { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; }
 function ensureArtDir() { if (!existsSync(ART_DIR)) mkdirSync(ART_DIR, { recursive: true }); }
+function numES(s: string | null | undefined): number | null {
+  if (!s) return null;
+  const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
 async function diag(page: Page, etiqueta: string) {
   if (!DIAG) return;
   ensureArtDir();
@@ -51,10 +60,6 @@ async function cerrarModales(page: Page) {
   }
   await page.locator('button:has(span:text-is("Close"))').first().click({ timeout: 1500 }).catch(() => {});
   await page.getByRole('button', { name: 'Close', exact: true }).first().click({ timeout: 1500 }).catch(() => {});
-  await page.evaluate(() => {
-    const b = Array.from(document.querySelectorAll('button')).find((x) => (x.textContent || '').trim() === 'Close');
-    if (b) (b as HTMLButtonElement).click();
-  }).catch(() => {});
   await page.keyboard.press('Escape').catch(() => {});
 }
 
@@ -64,6 +69,29 @@ async function logRobot(fuente: string, estado: string, detalle: string) {
     const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
     await sb.from('robot_log').insert([{ fuente, estado, detalle }]);
   } catch {}
+}
+
+// Lee un KPI de Rushour con locators: localiza el <span> etiqueta, sube por sus
+// ancestros <div> (la card) y devuelve el primer valor numérico (con € para
+// importes, entero para volumen). Todo en Node → sin page.evaluate.
+async function leerKpiRushour(page: Page, etiqueta: RegExp, conEuro: boolean): Promise<number | null> {
+  const lbl = page.locator('span').filter({ hasText: etiqueta }).first();
+  if (!(await lbl.count().catch(() => 0))) return null;
+  for (const lvl of [2, 3, 1, 4]) {
+    const card = lbl.locator(`xpath=ancestor::div[${lvl}]`);
+    if (!(await card.count().catch(() => 0))) continue;
+    const spans = card.locator('span');
+    const total = await spans.count().catch(() => 0);
+    for (let i = 0; i < total; i++) {
+      const t = ((await spans.nth(i).textContent().catch(() => '')) || '').trim();
+      if (!/\d/.test(t)) continue;
+      if (conEuro ? /€/.test(t) : /^[\d.,]+$/.test(t)) {
+        const v = numES(t);
+        if (v != null) return v;
+      }
+    }
+  }
+  return null;
 }
 
 // ---------- RUSHOUR ----------
@@ -85,48 +113,14 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
     await page.waitForTimeout(800);
     await diag(page, 'rushour-02-postlogin');
 
-    const leerKpis = () => page.evaluate(() => {
-      const norm = (s: string | null | undefined) => {
-        if (!s) return null;
-        const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
-        return Number.isFinite(n) ? n : null;
-      };
-      const valorDeCard = (etiqueta: RegExp, conEuro: boolean): number | null => {
-        const spans = Array.from(document.querySelectorAll('span'));
-        const lbl = spans.find((s) => etiqueta.test((s.textContent || '').trim()));
-        if (!lbl) return null;
-        const card = lbl.parentElement?.parentElement || lbl.parentElement;
-        if (!card) return null;
-        const cands = Array.from(card.querySelectorAll('span'))
-          .map((s) => (s.textContent || '').trim())
-          .filter((t) => (conEuro ? /€/.test(t) : /^\s*[\d.,]+\s*$/.test(t)) && /\d/.test(t));
-        return norm(cands[0]);
-      };
-      let turnover = valorDeCard(/Turnover/i, true);
-      const volumen = valorDeCard(/Volume of orders/i, false);
-      if (turnover == null) {
-        const full = (document.body.textContent || '').replace(/\s+/g, ' ');
-        const mT = full.match(/Turnover(?:\s+including\s+VAT)?[^\d]*([\d.,]+)\s*€/i);
-        turnover = norm(mT?.[1]);
-      }
-      const spans = Array.from(document.querySelectorAll('span')).map((s) => (s.textContent || '').trim());
-      const dg = {
-        hayLabelTurnover: spans.some((t) => /turnover/i.test(t)),
-        spansEuro: spans.filter((t) => /€/.test(t) && /\d/.test(t)).slice(0, 6),
-        url: location.href,
-      };
-      return { turnover, volumen, dg };
-    }).catch((e: any) => ({ turnover: null as number | null, volumen: null as number | null, dg: { error: String(e?.message || e) } as any }));
-
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForSelector('span', { timeout: 10000 }).catch(() => {});
 
     let turnover: number | null = null;
     let volumen: number | null = null;
-    let ultimoDiag: any = null;
-    for (let intento = 1; intento <= 4; intento++) {
-      const d = await leerKpis();
-      turnover = d.turnover; volumen = d.volumen; ultimoDiag = d.dg;
+    for (let intento = 1; intento <= 5; intento++) {
+      turnover = await leerKpiRushour(page, /Turnover/i, true);
+      volumen = await leerKpiRushour(page, /Volume of orders/i, false);
       if (turnover != null || volumen != null) break;
       await cerrarModales(page);
       await page.waitForTimeout(2500);
@@ -139,8 +133,7 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
       }
     }
     await diag(page, 'rushour-03-report');
-    await logRobot('rushour', turnover != null ? 'ok' : 'vacio',
-      `turnover=${turnover} volumen=${volumen} diag=${JSON.stringify(ultimoDiag)}`);
+    await logRobot('rushour', turnover != null ? 'ok' : 'vacio', `turnover=${turnover} volumen=${volumen}`);
 
     if (turnover == null && volumen == null) return [];
     return [{
@@ -180,14 +173,6 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
       const label = page.locator(`label:has(${sel})`).first();
       if (await label.count()) { await label.click({ force: true }).catch(() => {}); }
       else { await chk.click({ force: true }).catch(() => {}); }
-      await page.evaluate((id) => {
-        const el = document.getElementById(id) as HTMLInputElement | null;
-        if (el && !el.checked) {
-          el.checked = true;
-          el.dispatchEvent(new Event('click', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      }, sel.replace('#', '')).catch(() => {});
     }
     await page.waitForTimeout(800);
 
@@ -201,27 +186,26 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
     await page.waitForTimeout(4000);
     await diag(page, 'sinqro-03-report');
 
-    const pedidos = await page.evaluate(() => {
-      const bloques = Array.from(document.querySelectorAll('[ng-repeat*="order in orders"]'));
-      return bloques.map((b) => {
-        const cli = (b.querySelector('.orderClientBox') as HTMLElement | null)?.textContent || '';
-        const amt = (b.querySelector('.orderAmountBox') as HTMLElement | null)?.textContent || '';
-        return { cliente: cli.replace(/\s+/g, ' ').trim(), importe: amt.replace(/\s+/g, ' ').trim() };
-      });
-    }).catch(() => [] as { cliente: string; importe: string }[]);
+    // Leer pedidos con locators (cada pedido = bloque ng-repeat "order in orders").
+    const bloques = page.locator('[ng-repeat*="order in orders"]');
+    const total = await bloques.count().catch(() => 0);
+    const pedidos: { cliente: string; importe: string }[] = [];
+    for (let i = 0; i < total; i++) {
+      const b = bloques.nth(i);
+      const cliente = ((await b.locator('.orderClientBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      const importe = ((await b.locator('.orderAmountBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      pedidos.push({ cliente, importe });
+    }
 
     if (!pedidos.length) { await logRobot('sinqro', 'vacio', 'pedidos_leidos=0'); return []; }
 
-    const norm = (s: string) => {
-      const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
-      return Number.isFinite(n) ? n : 0;
-    };
+    // DEDUPE: de Sinqro solo Just Eat (Glovo se cuenta desde Rushour).
     const acc = new Map<string, { pedidos: number; bruto: number }>();
     for (const p of pedidos) {
       const t = `${p.cliente} ${p.importe}`.toLowerCase();
-      if (!/just\s?eat/.test(t)) continue; // Glovo → viene de Rushour.
+      if (!/just\s?eat/.test(t)) continue;
       const cur = acc.get('just_eat') || { pedidos: 0, bruto: 0 };
-      cur.pedidos += 1; cur.bruto += norm(p.importe);
+      cur.pedidos += 1; cur.bruto += (numES(p.importe) || 0);
       acc.set('just_eat', cur);
     }
     const out: Fila[] = Array.from(acc.entries()).map(([plataforma, v]) => ({
