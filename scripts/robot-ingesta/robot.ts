@@ -8,9 +8,8 @@
  *   RUSHOUR: manager.rushour.io/login · input[name=username]/password.
  *            Tras login aparece modal promocional "Evolve your brand". El panel
  *            "Real-time view" muestra "Turnover including VAT" y "Volume of
- *            orders". El modal NO usa display:none, así que innerText a veces no
- *            devuelve los KPIs → se leen recorriendo el DOM con textContent y
- *            emparejando cada etiqueta con el número € más cercano.
+ *            orders". Se lee por textContent con reintentos (el modal a veces
+ *            tapa los KPIs en headless) y recarga si sigue vacío.
  *   SINQRO:  app.sinqro.com · #login-email/#login-password/#loginButton.
  *            Historial #/sp/6416/online/orders es AngularJS. Los pedidos NO están
  *            en una <table> (la única <table> es el datepicker). Cada pedido es un
@@ -107,22 +106,22 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
     await page.waitForTimeout(800);
     await diag(page, 'rushour-02-postlogin');
 
-    // Real-time view: recorrer el DOM (textContent, que SÍ ve el texto tapado por
-    // el modal) y emparejar cada etiqueta con el número que la acompaña.
-    const datos = await page.evaluate(() => {
+    // Real-time view: leer Turnover y Volume of orders. En headless el panel a
+    // veces tarda o el modal tapa los KPIs, así que se reintenta hasta 4 veces
+    // cerrando modales y, si sigue vacío, recargando la vista.
+    const leerKpis = () => page.evaluate(() => {
       const norm = (s: string | null | undefined) => {
         if (!s) return null;
         const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
         return Number.isFinite(n) ? n : null;
       };
-      // Texto completo del DOM (incluye lo que innerText oculta bajo el modal).
+      // textContent ve también el texto tapado por el modal.
       const full = (document.body.textContent || '').replace(/\s+/g, ' ');
       const mT = full.match(/Turnover(?:\s+including\s+VAT)?[^\d]*([\d.,]+)\s*€/i);
       const mV = full.match(/Volume of orders[^\d]*([\d.,]+)/i);
       let turnover = norm(mT?.[1]);
       let volumen = norm(mV?.[1]);
-      // Respaldo: buscar el nodo cuya etiqueta contenga "Turnover" y leer el
-      // primer número € de su bloque contenedor.
+      // Respaldo: nodo-etiqueta "Turnover" → primer número € de su contenedor.
       if (turnover == null) {
         const nodos = Array.from(document.querySelectorAll('*'));
         const lbl = nodos.find((n) => /turnover/i.test(n.textContent || '') && (n.childElementCount <= 3));
@@ -132,8 +131,23 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
       }
       return { turnover, volumen };
     }).catch(() => ({ turnover: null as number | null, volumen: null as number | null }));
-    const turnover = datos.turnover;
-    const volumen = datos.volumen;
+
+    let turnover: number | null = null;
+    let volumen: number | null = null;
+    for (let intento = 1; intento <= 4; intento++) {
+      const d = await leerKpis();
+      turnover = d.turnover; volumen = d.volumen;
+      if (turnover != null || volumen != null) break;
+      await cerrarModales(page);
+      await page.waitForTimeout(2500);
+      if (intento === 2) {
+        // Recargar la vista Real-time por si no había pintado los KPIs.
+        await page.goto('https://manager.rushour.io/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+        await page.waitForTimeout(3500);
+        await cerrarModales(page);
+        await page.waitForTimeout(1000);
+      }
+    }
     await diag(page, 'rushour-03-report');
 
     if (turnover == null && volumen == null) {
