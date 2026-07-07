@@ -3,12 +3,14 @@
  * Dispara una alerta SOLO cuando un ratio se rompe respecto a su umbral.
  * Si todo está sano, `alertas` viene vacío y la UI debe mostrarlo explícitamente.
  *
- * Módulo autónomo: consulta Supabase directamente, sin depender de otros
- * hooks del ERP (Panel de Alertas / Finanzas).
+ * Módulo autónomo: consulta Supabase directamente (solo comparte la utilidad
+ * de caja automática `cajaExtracto.ts`), sin depender de otros hooks de
+ * página del ERP.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { fmtEur, fmtPct, fmtDate } from '@/lib/format';
+import { getCajaAutomatica } from './cajaExtracto';
 
 export type Severidad = 'roja' | 'ambar';
 
@@ -61,18 +63,12 @@ function diasDesde(fechaIso: string, hoy: Date): number {
 
 /* ── Check 1: caja bajo umbral ────────────────────────────────────── */
 async function checkCajaBajoUmbral(): Promise<AlertaRankeada[]> {
-  const { data, error } = await supabase
-    .from('configuracion')
-    .select('clave,valor')
-    .eq('clave', 'saldo_banco_actual');
-  if (error) throw new Error(`Caja: ${error.message}`);
+  // Caja automática: último saldo real del extracto bancario por titular
+  // (ver cajaExtracto.ts), con respaldo a la clave manual si no hay extracto.
+  const cajaAuto = await getCajaAutomatica();
+  if (cajaAuto.origen === 'sin_datos') return [];
 
-  if (!data || data.length === 0) {
-    // TODO fuente de datos: clave 'saldo_banco_actual' no existe aún en configuracion
-    return [];
-  }
-
-  const saldo = Number(data[0].valor);
+  const saldo = cajaAuto.caja;
   if (!Number.isFinite(saldo)) return [];
 
   if (saldo < 0) {

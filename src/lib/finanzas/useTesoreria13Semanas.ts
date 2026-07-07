@@ -12,6 +12,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCajaAutomatica } from './cajaExtracto'
 import { fmtDate } from '@/lib/format'
 
 /* ────────────────────────────────────────────────────────────
@@ -57,7 +58,7 @@ export interface Tesoreria13SemanasResult {
   loading: boolean
   error: string | null
   saldoInicial: number
-  saldoInicialFuente: 'configuracion' | 'sin_dato'
+  saldoInicialFuente: 'extracto' | 'manual' | 'sin_datos'
   semanas: SemanaTesoreria[]
   semanaCritica: SemanaTesoreria | null
   saldoMinimo: number
@@ -175,7 +176,7 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
   const [error, setError] = useState<string | null>(null)
 
   const [saldoInicial, setSaldoInicial] = useState(0)
-  const [saldoInicialFuente, setSaldoInicialFuente] = useState<'configuracion' | 'sin_dato'>('sin_dato')
+  const [saldoInicialFuente, setSaldoInicialFuente] = useState<'extracto' | 'manual' | 'sin_datos'>('sin_datos')
   const [facturacion, setFacturacion] = useState<FacturacionRow[]>([])
   const [gastosFijos, setGastosFijos] = useState<GastoFijoRow[]>([])
   const [gastosConciliacion, setGastosConciliacion] = useState<ConciliacionGastoRow[]>([])
@@ -189,17 +190,15 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
         const hoy = new Date()
         const desdeHistorico = toLocal(addDays(hoy, -DIAS_HISTORICO))
 
-        const [cfgRes, facRes, gfRes, concRes] = await Promise.all([
-          // TODO fuente de datos: la clave 'saldo_banco_actual' aún no existe en
-          // configuracion. Cuando se rellene, saldoInicial dejará de ser 0.
-          supabase.from('configuracion').select('clave,valor').eq('clave', 'saldo_banco_actual'),
+        const [cajaAuto, facRes, gfRes, concRes] = await Promise.all([
+          // Saldo inicial: último saldo real del extracto bancario (ver cajaExtracto.ts),
+          // con respaldo a la clave manual configuracion.saldo_banco_actual si no hay extracto.
+          getCajaAutomatica(),
           supabase
             .from('facturacion_diario')
             .select('fecha,uber_bruto,glovo_bruto,je_bruto,web_bruto,directa_bruto')
             .gte('fecha', desdeHistorico)
             .order('fecha'),
-          // TODO fuente de datos: gastos_fijos está vacía hoy (0 filas activas).
-          // La normalización a importe semanal queda lista para cuando se cargue.
           supabase.from('gastos_fijos').select('concepto,importe,periodicidad,activo').eq('activo', true),
           supabase
             .from('conciliacion')
@@ -210,19 +209,12 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
 
         if (cancelado) return
 
-        if (cfgRes.error) throw cfgRes.error
         if (facRes.error) throw facRes.error
         if (gfRes.error) throw gfRes.error
         if (concRes.error) throw concRes.error
 
-        const cfgRow = (cfgRes.data ?? [])[0] as { clave: string; valor: string } | undefined
-        if (cfgRow?.valor != null && cfgRow.valor !== '') {
-          const v = parseFloat(String(cfgRow.valor).replace(',', '.'))
-          if (!isNaN(v)) {
-            setSaldoInicial(v)
-            setSaldoInicialFuente('configuracion')
-          }
-        }
+        setSaldoInicial(cajaAuto.caja)
+        setSaldoInicialFuente(cajaAuto.origen)
 
         setFacturacion((facRes.data ?? []) as FacturacionRow[])
         setGastosFijos((gfRes.data ?? []) as GastoFijoRow[])

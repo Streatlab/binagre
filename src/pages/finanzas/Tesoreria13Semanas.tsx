@@ -53,7 +53,9 @@ export default function Tesoreria13Semanas() {
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Saldo hoy</div>
           <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: INK }}>{fmtEur(saldoInicial, { decimals: 2 })}</div>
           <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 6 }}>
-            {saldoInicialFuente === 'configuracion' ? 'Saldo de banco configurado' : 'Sin saldo configurado · asumido 0 €'}
+            {saldoInicialFuente === 'extracto' ? 'Extracto bancario real'
+              : saldoInicialFuente === 'manual' ? 'Saldo de banco manual'
+              : 'Sin saldo disponible · asumido 0 €'}
           </div>
         </div>
         <div style={{ ...card, padding: '16px 20px' }}>

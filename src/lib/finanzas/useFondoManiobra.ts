@@ -2,9 +2,11 @@
  * useFondoManiobra — Fondo de Maniobra (FM) y NOF (Necesidades Operativas de Fondos).
  *
  * FM = Activo corriente − Pasivo corriente
- *   Activo corriente  = caja (configuracion.saldo_banco_actual) + cobros pendientes de
- *                        plataformas (ventas_plataforma sin fecha_pago)
- *   Pasivo corriente   = facturas de proveedor aún no procesadas/conciliadas (proxy)
+ *   Activo corriente  = caja (automática desde el último saldo del extracto bancario,
+ *                        ver `cajaExtracto.ts`; respaldo: configuracion.saldo_banco_actual)
+ *                        + cobros pendientes de plataformas (ventas_plataforma sin fecha_pago)
+ *   Pasivo corriente   = facturas de proveedor vivas sin conciliar (últimos 60 días,
+ *                        ver `pasivoFacturas.ts`), no todo el histórico sin procesar
  *
  * NOF = versión operativa sin caja: cobros pendientes − pasivo corriente.
  *
@@ -17,6 +19,8 @@
  */
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCajaAutomatica } from './cajaExtracto'
+import { getPasivoFacturasVivas } from './pasivoFacturas'
 
 /* ── Tipos ────────────────────────────────────────── */
 
@@ -39,7 +43,7 @@ export interface FondoManiobraData {
 
   // Activo corriente
   caja: number
-  cajaOrigenBD: boolean // false = TODO, no existe la clave en configuracion todavía
+  cajaOrigen: 'extracto' | 'manual' | 'sin_datos'
   cobrosPendientes: number
   cobrosPendientesCount: number
   activoCorriente: number
@@ -61,13 +65,6 @@ export interface FondoManiobraData {
   flujoNetoMedioMensual: number
 }
 
-const ESTADOS_PASIVO_CORRIENTE = [
-  'pendiente_revision',
-  'pendiente_lectura_manual',
-  'sin_match',
-  'pendiente_titular_manual',
-]
-
 // Categorías de categorias_pyg, bloque='PASIVO' (Préstamo Ben Menjat / Préstamo ING).
 const CATEGORIAS_DEUDA = ['4', '4.2', '4.2.1', '4.2.2']
 
@@ -88,7 +85,7 @@ export function useFondoManiobra(): FondoManiobraData & { refetch: () => void } 
   const [error, setError] = useState<string | null>(null)
 
   const [caja, setCaja] = useState(0)
-  const [cajaOrigenBD, setCajaOrigenBD] = useState(false)
+  const [cajaOrigen, setCajaOrigen] = useState<'extracto' | 'manual' | 'sin_datos'>('sin_datos')
   const [cobrosPendientes, setCobrosPendientes] = useState(0)
   const [cobrosPendientesCount, setCobrosPendientesCount] = useState(0)
   const [pasivoCorrienteFacturas, setPasivoCorrienteFacturas] = useState(0)
@@ -110,19 +107,15 @@ export function useFondoManiobra(): FondoManiobraData & { refetch: () => void } 
         const hoy = new Date()
         const hace6meses = new Date(hoy.getFullYear(), hoy.getMonth() - 6, 1).toISOString().slice(0, 10)
 
-        const [cfgRes, ventasRes, facturasRes, deudaRes, facturacionDiarioRes, conciliacionRes] = await Promise.all([
-          // 1. Caja
-          // TODO fuente de datos: la clave 'saldo_banco_actual' aún no existe en la tabla
-          // `configuracion` (id uuid, clave text, valor text) — cuando se registre desde
-          // la conciliación bancaria, este bloque la recogerá automáticamente.
-          supabase.from('configuracion').select('clave,valor').eq('clave', 'saldo_banco_actual').maybeSingle(),
+        const [cajaAuto, ventasRes, pasivoVivo, deudaRes, facturacionDiarioRes, conciliacionRes] = await Promise.all([
+          // 1. Caja: último saldo real del extracto bancario por titular (con respaldo
+          // a la clave manual configuracion.saldo_banco_actual si no hay extracto).
+          getCajaAutomatica(),
           // 2. Cobros pendientes de plataformas
           supabase.from('ventas_plataforma').select('neto,fecha_pago,plataforma,marca,fecha_fin_periodo').is('fecha_pago', null),
-          // 3. Pasivo corriente — proxy: facturas de proveedor aún no procesadas/conciliadas.
-          // TODO fuente de datos: no existe una tabla de "saldo vivo de préstamo" ni
-          // "cuentas por pagar" explícita; se usa el estado de facturas como proxy de
-          // pasivo corriente operativo.
-          supabase.from('facturas').select('total,estado').in('estado', ESTADOS_PASIVO_CORRIENTE),
+          // 3. Pasivo corriente: solo facturas de proveedor sin conciliar y realmente
+          // vivas (últimos 60 días, no duplicadas ni marcadas no-conciliables).
+          getPasivoFacturasVivas(),
           // 4. Deuda financiera (referencia informativa, no forma parte del FM/NOF)
           supabase.from('conciliacion').select('fecha,importe,categoria').eq('tipo', 'gasto').in('categoria', CATEGORIAS_DEUDA).order('fecha', { ascending: false }).limit(24),
           // 5. Ventas para detectar meses crecientes (últimos 6 meses)
@@ -133,16 +126,9 @@ export function useFondoManiobra(): FondoManiobraData & { refetch: () => void } 
 
         if (cancelled) return
 
-        // ── 1. Caja ──
-        const cfgRow = cfgRes.data as { clave: string; valor: string } | null
-        if (cfgRow?.valor != null) {
-          const v = parseFloat(String(cfgRow.valor).replace(',', '.'))
-          setCaja(isNaN(v) ? 0 : v)
-          setCajaOrigenBD(true)
-        } else {
-          setCaja(0)
-          setCajaOrigenBD(false)
-        }
+        // ── 1. Caja (automática desde extracto) ──
+        setCaja(cajaAuto.caja)
+        setCajaOrigen(cajaAuto.origen)
 
         // ── 2. Cobros pendientes de plataformas ──
         const ventasRows = (ventasRes.data ?? []) as { neto: number | null }[]
@@ -150,11 +136,9 @@ export function useFondoManiobra(): FondoManiobraData & { refetch: () => void } 
         setCobrosPendientes(sumaCobrosPendientes)
         setCobrosPendientesCount(ventasRows.length)
 
-        // ── 3. Pasivo corriente (proxy: facturas sin procesar) ──
-        const facturasRows = (facturasRes.data ?? []) as { total: number | null; estado: string }[]
-        const sumaPasivo = facturasRows.reduce((s, r) => s + Number(r.total ?? 0), 0)
-        setPasivoCorrienteFacturas(sumaPasivo)
-        setPasivoCorrienteFacturasCount(facturasRows.length)
+        // ── 3. Pasivo corriente (facturas vivas, no todo el histórico sin procesar) ──
+        setPasivoCorrienteFacturas(pasivoVivo.total)
+        setPasivoCorrienteFacturasCount(pasivoVivo.count)
 
         // ── 4. Deuda financiera (referencia) ──
         // TODO fuente de datos: no hay tabla de saldo vivo de deuda en BD; solo se
@@ -241,7 +225,7 @@ export function useFondoManiobra(): FondoManiobraData & { refetch: () => void } 
 
   return {
     loading, error,
-    caja, cajaOrigenBD,
+    caja, cajaOrigen,
     cobrosPendientes, cobrosPendientesCount,
     activoCorriente,
     pasivoCorrienteFacturas, pasivoCorrienteFacturasCount,

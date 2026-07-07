@@ -25,7 +25,7 @@ function labelMes(mesKey: string): string {
 export default function FondoManiobra() {
   const {
     loading, error,
-    caja, cajaOrigenBD,
+    caja, cajaOrigen,
     cobrosPendientes, cobrosPendientesCount,
     activoCorriente,
     pasivoCorrienteFacturas, pasivoCorrienteFacturasCount,
@@ -124,7 +124,9 @@ export default function FondoManiobra() {
               <tr style={{ borderBottom: `2px solid ${INK}` }}>
                 <td style={tdStyle}>
                   Caja
-                  {!cajaOrigenBD && <span style={{ marginLeft: 6, color: GRIS, fontSize: 11 }}>(sin dato — TODO)</span>}
+                  {cajaOrigen === 'extracto' && <span style={{ marginLeft: 6, color: VERDE, fontSize: 11 }}>(extracto real)</span>}
+                  {cajaOrigen === 'manual' && <span style={{ marginLeft: 6, color: GRIS, fontSize: 11 }}>(manual, sin extracto)</span>}
+                  {cajaOrigen === 'sin_datos' && <span style={{ marginLeft: 6, color: GRIS, fontSize: 11 }}>(sin dato)</span>}
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right', fontFamily: OSW, fontWeight: 700 }}>{fmtEur(caja, { decimals: 0 })}</td>
               </tr>
@@ -150,7 +152,7 @@ export default function FondoManiobra() {
             <tbody>
               <tr style={{ borderBottom: `2px solid ${INK}` }}>
                 <td style={tdStyle}>
-                  Facturas de proveedor sin procesar/conciliar <span style={{ color: GRIS, fontSize: 11 }}>({pasivoCorrienteFacturasCount})</span>
+                  Facturas de proveedor vivas sin conciliar <span style={{ color: GRIS, fontSize: 11 }}>({pasivoCorrienteFacturasCount})</span>
                   <div style={{ color: GRIS, fontSize: 11, marginTop: 2 }}>Proxy: no existe tabla de cuentas por pagar dedicada</div>
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right', fontFamily: OSW, fontWeight: 700 }}>{fmtEur(pasivoCorrienteFacturas, { decimals: 0 })}</td>

@@ -134,7 +134,9 @@ export default function EstadosFinancieros() {
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Caja actual</div>
           <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 32, lineHeight: 1, color: '#fff' }}>{fmt0(balance.caja)}</div>
           <div style={{ fontFamily: LEX, fontSize: 12, color: '#fff', marginTop: 6 }}>
-            {balance.cajaDisponible ? `a ${fmtDate(balance.fecha)}` : 'sin saldo de banco configurado'}
+            {balance.cajaOrigen === 'extracto' ? `extracto real a ${fmtDate(balance.fecha)}`
+              : balance.cajaOrigen === 'manual' ? `manual a ${fmtDate(balance.fecha)}`
+              : 'sin saldo de banco disponible'}
           </div>
         </div>
         <div style={{ ...card, padding: '16px 20px', background: INK }}>
@@ -256,7 +258,7 @@ function BalanceTabla({ balance, card, btnPrim, onExport }: {
     { label: 'Caja', value: balance.caja, color: AZUL },
     { label: 'Cobros pendientes de plataformas', value: balance.cobrosPendientesPlataformas, color: AZUL },
     { label: 'ACTIVO TOTAL', value: balance.activo, color: VERDE, bold: true },
-    { label: 'Facturas de proveedor pendientes', value: balance.pasivoFacturasPendientes, color: NAR, nota: 'no incluye saldo vivo de préstamos: esa tabla no existe en BD' },
+    { label: 'Facturas de proveedor vivas sin conciliar', value: balance.pasivoFacturasPendientes, color: NAR, nota: 'últimos 60 días; no incluye saldo vivo de préstamos: esa tabla no existe en BD' },
     { label: 'PASIVO TOTAL', value: balance.pasivo, color: ROJO, bold: true },
     { label: 'PATRIMONIO NETO (estimado, residual)', value: balance.patrimonioNeto, color: balance.patrimonioNeto >= 0 ? VERDE : ROJO, bold: true },
   ]
@@ -264,7 +266,7 @@ function BalanceTabla({ balance, card, btnPrim, onExport }: {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
-          Foto a fecha {fmtDate(balance.fecha)}{!balance.cajaDisponible ? ' · sin saldo de banco configurado (caja = 0)' : ''}
+          Foto a fecha {fmtDate(balance.fecha)}{balance.cajaOrigen === 'sin_datos' ? ' · sin saldo de banco disponible (caja = 0)' : ''}
         </span>
         <button onClick={onExport} style={btnPrim}>Exportar CSV</button>
       </div>

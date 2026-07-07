@@ -8,6 +8,8 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCajaAutomatica } from './cajaExtracto'
+import { getPasivoFacturasVivas } from './pasivoFacturas'
 
 /* ── Tipos de dominio ────────────────────────────────────────── */
 
@@ -43,7 +45,7 @@ export interface PygAnual {
 export interface BalanceEstado {
   fecha: string // YYYY-MM-DD (hoy)
   caja: number
-  cajaDisponible: boolean // false si no hay fila configuracion.saldo_banco_actual
+  cajaOrigen: 'extracto' | 'manual' | 'sin_datos'
   cobrosPendientesPlataformas: number
   activo: number
   pasivoFacturasPendientes: number
@@ -187,11 +189,11 @@ function buildCashFlow(año: number, filas: { fecha: string; categoria: string |
 async function fetchBalance(): Promise<BalanceEstado> {
   const fecha = new Date().toISOString().slice(0, 10)
 
-  // TODO fuente de datos: la clave 'saldo_banco_actual' en configuracion se asume actualizada
-  // manualmente; si no existe la fila, la caja se muestra en 0 y se marca como no disponible.
-  const { data: dConf } = await supabase.from('configuracion').select('valor').eq('clave', 'saldo_banco_actual').maybeSingle()
-  const cajaDisponible = dConf?.valor != null && dConf.valor !== ''
-  const caja = cajaDisponible ? Number(dConf!.valor) || 0 : 0
+  // Caja: último saldo real del extracto bancario por titular (ver cajaExtracto.ts),
+  // con respaldo a la clave manual configuracion.saldo_banco_actual si no hay extracto.
+  const cajaAuto = await getCajaAutomatica()
+  const caja = cajaAuto.caja
+  const cajaOrigen = cajaAuto.origen
 
   const { data: dVentas } = await supabase.from('ventas_plataforma').select('neto').is('fecha_pago', null)
   const cobrosPendientesPlataformas = (dVentas || []).reduce((s: number, r: any) => s + Number(r.neto || 0), 0)
@@ -199,14 +201,14 @@ async function fetchBalance(): Promise<BalanceEstado> {
   const activo = caja + cobrosPendientesPlataformas
 
   // TODO fuente de datos: no existe tabla de saldo vivo de préstamos en BD; el pasivo mostrado
-  // es solo el operativo de facturas de proveedor sin conciliar/procesar.
-  const ESTADOS_PASIVO = ['pendiente_revision', 'pendiente_lectura_manual', 'sin_match', 'pendiente_titular_manual']
-  const { data: dFacturas } = await supabase.from('facturas').select('total,estado').in('estado', ESTADOS_PASIVO)
-  const pasivoFacturasPendientes = (dFacturas || []).reduce((s: number, r: any) => s + Number(r.total || 0), 0)
+  // es solo el operativo de facturas de proveedor vivas sin conciliar (ver pasivoFacturas.ts:
+  // últimos 60 días, no todo el histórico sin procesar).
+  const pasivoVivo = await getPasivoFacturasVivas()
+  const pasivoFacturasPendientes = pasivoVivo.total
   const pasivo = pasivoFacturasPendientes
 
   return {
-    fecha, caja, cajaDisponible, cobrosPendientesPlataformas, activo,
+    fecha, caja, cajaOrigen, cobrosPendientesPlataformas, activo,
     pasivoFacturasPendientes, pasivo, patrimonioNeto: activo - pasivo,
   }
 }
