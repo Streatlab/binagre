@@ -50,6 +50,16 @@ const Documentacion = React.lazy(() => import('@/pages/finanzas/Documentacion'))
 const BandejaPendientes = React.lazy(() => import('@/pages/BandejaPendientes'))
 const Ventas = React.lazy(() => import('@/pages/finanzas/Ventas'))
 
+const Tesoreria13Semanas = React.lazy(() => import('@/pages/finanzas/Tesoreria13Semanas'))
+const FondoManiobra = React.lazy(() => import('@/pages/finanzas/FondoManiobra'))
+const EstadosFinancieros = React.lazy(() => import('@/pages/finanzas/EstadosFinancieros'))
+const BreakEvenCanal = React.lazy(() => import('@/pages/finanzas/BreakEvenCanal'))
+const AnalisisHorizontalVertical = React.lazy(() => import('@/pages/finanzas/AnalisisHorizontalVertical'))
+const PanelAlertas = React.lazy(() => import('@/pages/finanzas/PanelAlertas'))
+const RepeticionClientes = React.lazy(() => import('@/pages/finanzas/RepeticionClientes'))
+const RoiCanal = React.lazy(() => import('@/pages/finanzas/RoiCanal'))
+const TicketMedio = React.lazy(() => import('@/pages/finanzas/TicketMedio'))
+
 const PanelGlobal = React.lazy(() => import('@/pages/PanelGlobal'))
 const PanelDireccion = React.lazy(() => import('@/pages/PanelDireccion'))
 const OcrConToast = React.lazy(() => import('@/pages/OcrConToast'))
@@ -206,6 +216,16 @@ function AppRoutes() {
           <Route path="finanzas/pagos-cobros" element={<ProtectedRoute solo={['admin']}><PagosCobros /></ProtectedRoute>} />
           <Route path="finanzas/gestoria" element={<ProtectedRoute solo={['admin']}><Gestoria /></ProtectedRoute>} />
           <Route path="finanzas/escenarios-tesoreria" element={<ProtectedRoute solo={['admin']}><EscenariosTesoreria /></ProtectedRoute>} />
+
+          <Route path="finanzas/tesoreria-13-semanas" element={<ProtectedRoute solo={['admin']}><Tesoreria13Semanas /></ProtectedRoute>} />
+          <Route path="finanzas/fondo-maniobra" element={<ProtectedRoute solo={['admin']}><FondoManiobra /></ProtectedRoute>} />
+          <Route path="finanzas/estados-financieros" element={<ProtectedRoute solo={['admin']}><EstadosFinancieros /></ProtectedRoute>} />
+          <Route path="finanzas/break-even" element={<ProtectedRoute solo={['admin']}><BreakEvenCanal /></ProtectedRoute>} />
+          <Route path="finanzas/analisis-horizontal-vertical" element={<ProtectedRoute solo={['admin']}><AnalisisHorizontalVertical /></ProtectedRoute>} />
+          <Route path="finanzas/panel-alertas" element={<ProtectedRoute solo={['admin']}><PanelAlertas /></ProtectedRoute>} />
+          <Route path="finanzas/repeticion-clientes" element={<ProtectedRoute solo={['admin']}><RepeticionClientes /></ProtectedRoute>} />
+          <Route path="finanzas/roi-canal" element={<ProtectedRoute solo={['admin']}><RoiCanal /></ProtectedRoute>} />
+          <Route path="finanzas/ticket-medio" element={<ProtectedRoute solo={['admin']}><TicketMedio /></ProtectedRoute>} />
 
           <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
           <Route path="panel-direccion" element={<ProtectedRoute solo={['admin']}><PanelDireccion /></ProtectedRoute>} />
