@@ -24,6 +24,9 @@ import { parseJustEatFactura } from '../_lib/parsers/justEatParser.js'
 import { parseRushourFactura } from '../_lib/parsers/rushourParser.js'
 import { esCSVResumenUber, parseUberResumenLiquidaciones } from '../_lib/parsers/uberResumenParser.js'
 import { esHistorialPedidosUber, procesarHistorialPedidosUber } from '../_lib/parsers/uberHistorialOperativa.js'
+import { esOrderDetailsJustEat, procesarOrderDetailsJustEat } from '../_lib/parsers/justEatOperativa.js'
+import { esDetalleArticuloUber, procesarDetalleArticuloUber } from '../_lib/parsers/uberArticuloProducto.js'
+import { esProductosVendidos, procesarProductosVendidos } from '../_lib/parsers/productosVendidos.js'
 import { upsertVentaPlataforma, insertarPedidosPlataforma } from '../_lib/upsertVentaPlataforma.js'
 import { extraerTexto, extraerExcel, prepararVision } from '../_lib/extractores.js'
 import { detectarTipoArchivo } from '../_lib/detectarTipo.js'
@@ -83,6 +86,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       return res.status(422).json({ ok: false, mensaje: `Error extrayendo texto: ${msg}` })
+    }
+
+    // ── Detalle a nivel de artículo Uber → productos por pedido ────────────
+    if (esDetalleArticuloUber(textoExtraido)) {
+      try {
+        const r = await procesarDetalleArticuloUber(supabaseAdmin, textoExtraido)
+        await logImport({ plataforma: 'uber', archivo: filename, estado: 'ok' })
+        return res.status(200).json({ ok: true, plataforma: 'uber', tipo_detectado: 'uber_detalle_articulo', productos: r.productos, pedidos: r.pedidos, mensaje: `Detalle Uber: ${r.productos} líneas de producto en ${r.pedidos} pedidos.` })
+      } catch (err) {
+        return res.status(200).json({ ok: false, plataforma: 'uber', tipo_detectado: 'uber_detalle_articulo', mensaje: err instanceof Error ? err.message : String(err) })
+      }
+    }
+
+    // ── Just Eat orderDetails → pedidos + productos ────────────────────────
+    if (esOrderDetailsJustEat(textoExtraido)) {
+      try {
+        const r = await procesarOrderDetailsJustEat(supabaseAdmin, textoExtraido)
+        await logImport({ plataforma: 'just_eat', archivo: filename, estado: 'ok' })
+        return res.status(200).json({ ok: true, plataforma: 'just_eat', tipo_detectado: 'just_eat_pedidos', pedidos: r.pedidos, prime: r.prime, incidencias: r.incidencias, productos: r.productos, mensaje: `Just Eat: ${r.pedidos} pedidos · ${r.prime} Prime · ${r.incidencias} incidencias · ${r.productos} productos.` })
+      } catch (err) {
+        return res.status(200).json({ ok: false, plataforma: 'just_eat', tipo_detectado: 'just_eat_pedidos', mensaje: err instanceof Error ? err.message : String(err) })
+      }
     }
 
     // ── Historial de pedidos Uber → pedidos_operativa + ventas_franja ──────
@@ -155,6 +180,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         totalPedidos,
         mensaje: `Resumen Uber: ${marcasSet.size} tiendas · ${nuevas} nuevas, ${actualizadas} actualizadas (${items.length} liquidaciones).`,
       })
+    }
+
+    // ── Productos vendidos sueltos (Sinqro / Rushour) → ranking producto ───
+    if (esProductosVendidos(textoExtraido)) {
+      try {
+        const r = await procesarProductosVendidos(supabaseAdmin, textoExtraido, filename)
+        await logImport({ plataforma: r.origen, archivo: filename, estado: 'ok' })
+        return res.status(200).json({ ok: true, plataforma: r.origen, tipo_detectado: 'productos_vendidos', productos: r.productos, mensaje: `Productos (${r.origen}): ${r.productos} referencias.` })
+      } catch (err) {
+        return res.status(200).json({ ok: false, tipo_detectado: 'productos_vendidos', mensaje: err instanceof Error ? err.message : String(err) })
+      }
     }
 
     // ── Detectar plataforma ────────────────────────────────────────────────
