@@ -97,7 +97,7 @@ export default function Carta() {
         <button
           onClick={() => { setEditId(null); setShowForm(true) }}
           style={{
-            background: '#e8f442', color: '#111111', border: 'none', borderRadius: 6,
+            background: '#e8f442', color: 'var(--sl-text-primary)', border: 'none', borderRadius: 6,
             fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase',
             padding: '8px 18px', cursor: 'pointer',
           }}
@@ -427,7 +427,7 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
           <button onClick={onClose} style={{ background: 'var(--sl-btn-cancel-bg)', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.body, fontSize: 13, padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}>
             Cancelar
           </button>
-          <button onClick={handleSave} disabled={saving} style={{ background: saving ? '#555' : '#B01D23', color: '#fff', border: 'none', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 20px', borderRadius: 6, cursor: saving ? 'default' : 'pointer' }}>
+          <button onClick={handleSave} disabled={saving} style={{ background: saving ? 'var(--sl-text-muted)' : '#B01D23', color: '#fff', border: 'none', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 20px', borderRadius: 6, cursor: saving ? 'default' : 'pointer' }}>
             {saving ? 'Guardando...' : 'Guardar'}
           </button>
         </div>
