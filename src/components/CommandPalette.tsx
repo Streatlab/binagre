@@ -106,7 +106,7 @@ export default function CommandPalette() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const isK = e.key.toLowerCase() === 'k'
-      if ((e.metaKey || e.ctrlKey) && isK) {
+      if (e.altKey && isK) {
         e.preventDefault()
         setOpen((o) => !o)
       } else if (e.key === 'Escape') {
@@ -216,7 +216,7 @@ export default function CommandPalette() {
           ))}
         </div>
         <div style={{ borderTop: `3px solid ${INK}`, padding: '6px 14px', fontFamily: LEX, fontSize: 11, color: INK, opacity: 0.6 }}>
-          ↑↓ moverse · Enter abrir · Esc cerrar
+          Alt+K abre · ↑↓ moverse · Enter abrir · Esc cerrar
         </div>
       </div>
     </div>
