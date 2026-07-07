@@ -6,6 +6,7 @@ import ToastHost from '@/components/ui/ToastHost'
 import ResponsiveTables from '@/components/ResponsiveTables'
 import OcrCompletadoGlobal from '@/components/ocr/OcrCompletadoGlobal'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
+import CommandPalette from '@/components/CommandPalette'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useTheme } from '@/styles/tokens'
 
@@ -48,6 +49,7 @@ export default function Layout() {
       <ResponsiveTables />
       <OcrUploadToast />
       <OcrCompletadoGlobal />
+      <CommandPalette />
     </div>
   )
 }
