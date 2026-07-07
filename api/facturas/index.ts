@@ -14,6 +14,7 @@
  *   GET  /api/facturas?action=papelera-info[&horas=NN] → cuenta archivos en papelera reciente
  *   GET  /api/facturas?action=recuperar-papelera[&lote=NN&horas=NN] → recupera borrados (lote)
  *   GET  /api/facturas?action=archivar-pendientes[&lote=NN] → repesca: sube a Drive lo que falte (lote + auto-encadenado)
+ *   GET  /api/facturas?action=extraer-lineas     → detalle de líneas por factura (lote + presupuesto de tiempo)
  *   POST /api/facturas?action=upload            → subir/procesar archivo
  *   POST /api/facturas?action=limpieza          → borrar facturas zombie
  *
@@ -30,6 +31,8 @@ import { recogerFacturasDelCorreo } from '../_lib/gmail-cartero.js'
 import { extraerTextoPDF, pdfTieneTexto } from '../_lib/extractores.js'
 import { extraerTextoOCRGratis } from '../_lib/ocr-tesseract.js'
 import type { ExtractedFactura } from '../_lib/ocr-types.js'
+import { descargarRespaldoStorage } from '../_lib/google-drive.js'
+import { extraerLineasFacturaTexto, sumaConIva } from '../_lib/extraerLineasFactura.js'
 
 export const config = {
   api: { bodyParser: { sizeLimit: '20mb' } },
@@ -68,6 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'recuperar-papelera') return recuperarPapelera(req, res)
   if (action === 'archivar-pendientes') return archivarPendientes(req, res)
   if (action === 'encolar-reproc')     return encolarReproc(res)
+  if (action === 'extraer-lineas')     return extraerLineasBatch(req, res)
 
   // ── GET sin action → lista de facturas ───────────────────────────────────
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
@@ -896,4 +900,121 @@ async function encolarReproc(res: VercelResponse) {
   const { data, error } = await supabaseAdmin.rpc('fn_encolar_reproc_pendientes')
   if (error) return res.status(500).json({ error: error.message })
   return res.json({ encoladas: data })
+}
+
+// ── Handler: extraer líneas de detalle de facturas de proveedor ───────────
+// Fuente 1 del PROMPT MAESTRO granularidad total. Reprocesa histórico por
+// tandas: cada invocación toma un lote de facturas con lineas_estado IS NULL,
+// recupera el PDF original desde el respaldo de Storage (nunca pide a Rubén
+// que resuba nada), extrae texto (nativo del PDF o Tesseract si hace falta),
+// pide a Anthropic las líneas y solo las inserta si la suma (+IVA de línea)
+// cuadra con el total de cabecera en ±0.05€. Si no cuadra o no hay texto
+// suficiente, la factura queda marcada 'sin_detalle_lineas' — nunca a medias.
+const LOTE_LINEAS = 6
+const PRESUPUESTO_LINEAS_MS = 240_000
+
+async function extraerLineasBatch(req: VercelRequest, res: VercelResponse) {
+  const arranque = Date.now()
+  const limiteParam = Number(req.query.limite || 0)
+  const limiteTotal = limiteParam > 0 ? limiteParam : Infinity
+
+  let procesadas = 0, ok = 0, sinDetalle = 0, errores = 0
+  const detalle: Array<{ id: string; proveedor: string | null; resultado: string; motivo?: string }> = []
+
+  while (Date.now() - arranque < PRESUPUESTO_LINEAS_MS && procesadas < limiteTotal) {
+    const restLote = Math.min(LOTE_LINEAS, limiteTotal - procesadas)
+    const { data: facturas, error } = await supabaseAdmin
+      .from('facturas')
+      .select('id, pdf_hash, proveedor_nombre, total, fecha_factura')
+      .eq('tipo', 'proveedor')
+      .is('lineas_estado', null)
+      .not('total', 'is', null)
+      .gt('total', 0)
+      .order('fecha_factura', { ascending: true })
+      .limit(restLote)
+
+    if (error) return res.status(500).json({ error: error.message })
+    if (!facturas || facturas.length === 0) break
+
+    for (const f of facturas) {
+      const facturaId = f.id as string
+      const total = Number(f.total)
+      const proveedor = (f.proveedor_nombre as string) || 'PROVEEDOR'
+      const hash = f.pdf_hash as string | null
+      procesadas++
+
+      const marcarSinDetalle = async (motivo: string) => {
+        await supabaseAdmin.from('facturas').update({ lineas_estado: 'sin_detalle_lineas' }).eq('id', facturaId)
+        sinDetalle++
+        detalle.push({ id: facturaId, proveedor, resultado: 'sin_detalle_lineas', motivo })
+      }
+
+      try {
+        if (!hash) { await marcarSinDetalle('sin pdf_hash (sin respaldo localizable)'); continue }
+
+        const { data: respaldo } = await supabaseAdmin
+          .from('archivo_respaldo')
+          .select('storage_path')
+          .eq('hash', hash)
+          .maybeSingle()
+        if (!respaldo?.storage_path) { await marcarSinDetalle('sin fila en archivo_respaldo'); continue }
+
+        const buffer = await descargarRespaldoStorage(respaldo.storage_path as string)
+        if (!buffer) { await marcarSinDetalle('descarga de Storage fallida'); continue }
+
+        let texto = await extraerTextoPDF(buffer)
+        if (!pdfTieneTexto(texto)) {
+          texto = await extraerTextoOCRGratis(buffer, 'pdf')
+        }
+        if (!texto || texto.trim().length < 20) { await marcarSinDetalle('sin texto extraíble del PDF'); continue }
+
+        const lineas = await extraerLineasFacturaTexto(texto, total, proveedor)
+        if (!lineas || lineas.length === 0) { await marcarSinDetalle('IA no devolvió líneas (posible factura recapitulativa sin desglose)'); continue }
+
+        const suma = sumaConIva(lineas)
+        const diff = Math.round(Math.abs(suma - total) * 100) / 100
+        if (diff > 0.05) {
+          await marcarSinDetalle(`descuadre ${diff.toFixed(2)}€ (líneas ${suma.toFixed(2)} vs total ${total.toFixed(2)})`)
+          continue
+        }
+
+        const filas = lineas.map(l => {
+          let precioUnit = l.precio_unitario
+          if (precioUnit == null && l.total_linea != null && l.cantidad > 0) precioUnit = Math.round((l.total_linea / l.cantidad) * 10000) / 10000
+          return {
+            factura_id: facturaId,
+            descripcion: l.descripcion,
+            cantidad: l.cantidad,
+            unidad: l.unidad,
+            precio_unitario: precioUnit,
+            total_linea: l.total_linea,
+            proveedor_nombre: proveedor,
+            fecha: f.fecha_factura,
+            origen: 'ocr_anthropic',
+          }
+        })
+        const { error: insErr } = await supabaseAdmin.from('facturas_lineas').insert(filas)
+        if (insErr) { await marcarSinDetalle(`insert fallido: ${insErr.message}`); continue }
+
+        await supabaseAdmin.from('facturas').update({ lineas_estado: 'ok' }).eq('id', facturaId)
+        ok++
+        detalle.push({ id: facturaId, proveedor, resultado: 'ok' })
+      } catch (err) {
+        errores++
+        const motivo = err instanceof Error ? err.message : String(err)
+        await supabaseAdmin.from('facturas').update({ lineas_estado: 'sin_detalle_lineas' }).eq('id', facturaId)
+        detalle.push({ id: facturaId, proveedor, resultado: 'error', motivo })
+      }
+    }
+  }
+
+  const { count: restantes } = await supabaseAdmin
+    .from('facturas')
+    .select('id', { count: 'exact', head: true })
+    .eq('tipo', 'proveedor')
+    .is('lineas_estado', null)
+    .not('total', 'is', null)
+    .gt('total', 0)
+
+  return res.status(200).json({ procesadas, ok, sin_detalle_lineas: sinDetalle, errores, restantes: restantes ?? 0, detalle })
 }
