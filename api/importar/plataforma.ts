@@ -23,6 +23,7 @@ import { parseGlovoFormatoB } from '../_lib/parsers/glovoFormatoB.js'
 import { parseJustEatFactura } from '../_lib/parsers/justEatParser.js'
 import { parseRushourFactura } from '../_lib/parsers/rushourParser.js'
 import { esCSVResumenUber, parseUberResumenLiquidaciones } from '../_lib/parsers/uberResumenParser.js'
+import { esHistorialPedidosUber, procesarHistorialPedidosUber } from '../_lib/parsers/uberHistorialOperativa.js'
 import { upsertVentaPlataforma, insertarPedidosPlataforma } from '../_lib/upsertVentaPlataforma.js'
 import { extraerTexto, extraerExcel, prepararVision } from '../_lib/extractores.js'
 import { detectarTipoArchivo } from '../_lib/detectarTipo.js'
@@ -82,6 +83,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       return res.status(422).json({ ok: false, mensaje: `Error extrayendo texto: ${msg}` })
+    }
+
+    // ── Historial de pedidos Uber → pedidos_operativa + ventas_franja ──────
+    // Una fila por pedido con tiempos, Prime, incidencias y canal. Se reconoce
+    // por sus cabeceras y se procesa antes que cualquier factura/liquidación.
+    if (esHistorialPedidosUber(textoExtraido)) {
+      try {
+        const r = await procesarHistorialPedidosUber(supabaseAdmin, textoExtraido)
+        await logImport({ plataforma: 'uber', archivo: filename, estado: 'ok', totalBruto: 0 })
+        return res.status(200).json({
+          ok: true, plataforma: 'uber', tipo_detectado: 'uber_historial_pedidos',
+          pedidos: r.pedidos, prime: r.prime, incidencias: r.incidencias, franjas: r.franjas,
+          mensaje: `Historial Uber: ${r.pedidos} pedidos · ${r.prime} Prime · ${r.incidencias} incidencias · ${r.franjas} franjas.`,
+        })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        return res.status(200).json({ ok: false, plataforma: 'uber', tipo_detectado: 'uber_historial_pedidos', mensaje: msg })
+      }
     }
 
     // ── CSV resumen de ganancias Uber → uber_liquidaciones ─────────────────
