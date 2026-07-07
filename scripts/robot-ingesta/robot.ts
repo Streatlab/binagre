@@ -6,16 +6,17 @@
  *
  * CALIBRACIÓN (2026-07-07) con HTML real:
  *   RUSHOUR: manager.rushour.io/login · input[name=username]/password.
- *            Tras login aparece modal promocional "Evolve your brand". El dato
- *            de Turnover está en el DOM aunque el modal lo tape; se lee por
- *            etiqueta ("Turnover ... N €"), no por el primer número de la página.
- *            Panel "Real-time view": Turnover / Volume of orders.
+ *            Tras login aparece modal promocional "Evolve your brand". El panel
+ *            "Real-time view" muestra "Turnover including VAT" y "Volume of
+ *            orders". El modal NO usa display:none, así que innerText a veces no
+ *            devuelve los KPIs → se leen recorriendo el DOM con textContent y
+ *            emparejando cada etiqueta con el número € más cercano.
  *   SINQRO:  app.sinqro.com · #login-email/#login-password/#loginButton.
- *            Historial #/sp/6416/online/orders es AngularJS. Los checkboxes de
- *            tipo de pedido están OCULTOS dentro de un <label>; check() sobre el
- *            input queda "pristine" y la web responde "Selecciona como mínimo un
- *            tipo de pedido". Solución: clic en el label + disparar evento
- *            change/click para que ng-model se actualice.
+ *            Historial #/sp/6416/online/orders es AngularJS. Los pedidos NO están
+ *            en una <table> (la única <table> es el datepicker). Cada pedido es un
+ *            bloque ng-repeat="order in orders" con .orderClientBox (cliente) y
+ *            .orderAmountBox (importe €). Los checkboxes de tipo de pedido están
+ *            OCULTOS dentro de un <label>; se clica el label + evento change.
  *   FECHA:   Rushour/Sinqro muestran por defecto el día actual, así que se
  *            ingiere el día en curso (no ayer).
  */
@@ -47,11 +48,6 @@ async function diag(page: Page, etiqueta: string) {
     writeFileSync(`${ART_DIR}/${etiqueta}.html`, await page.content());
     console.log(`  · diagnóstico: ${etiqueta}`);
   } catch {}
-}
-function numero(txt: string | null | undefined): number | null {
-  if (!txt) return null;
-  const n = parseFloat(txt.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
 }
 
 type Fila = {
@@ -111,20 +107,30 @@ async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> 
     await page.waitForTimeout(800);
     await diag(page, 'rushour-02-postlogin');
 
-    // Real-time view: leer Turnover y Volume of orders por su etiqueta concreta
-    // (no el primer número de la página, que puede ser un céntimo suelto).
+    // Real-time view: recorrer el DOM (textContent, que SÍ ve el texto tapado por
+    // el modal) y emparejar cada etiqueta con el número que la acompaña.
     const datos = await page.evaluate(() => {
-      const txt = document.body.innerText || '';
-      const norm = (s: string | undefined) => {
+      const norm = (s: string | null | undefined) => {
         if (!s) return null;
         const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
         return Number.isFinite(n) ? n : null;
       };
-      // Turnover: número con € que sigue a la palabra Turnover.
-      const mT = txt.match(/Turnover[^\d]*([\d.,]+)\s*€/i) || txt.match(/([\d.,]+)\s*€/);
-      // Volume of orders: entero que sigue a esa etiqueta.
-      const mV = txt.match(/Volume of orders[^\d]*([\d.,]+)/i);
-      return { turnover: norm(mT?.[1]), volumen: norm(mV?.[1]) };
+      // Texto completo del DOM (incluye lo que innerText oculta bajo el modal).
+      const full = (document.body.textContent || '').replace(/\s+/g, ' ');
+      const mT = full.match(/Turnover(?:\s+including\s+VAT)?[^\d]*([\d.,]+)\s*€/i);
+      const mV = full.match(/Volume of orders[^\d]*([\d.,]+)/i);
+      let turnover = norm(mT?.[1]);
+      let volumen = norm(mV?.[1]);
+      // Respaldo: buscar el nodo cuya etiqueta contenga "Turnover" y leer el
+      // primer número € de su bloque contenedor.
+      if (turnover == null) {
+        const nodos = Array.from(document.querySelectorAll('*'));
+        const lbl = nodos.find((n) => /turnover/i.test(n.textContent || '') && (n.childElementCount <= 3));
+        const cont = lbl?.closest('div,section,article') || lbl?.parentElement;
+        const m = (cont?.textContent || '').match(/([\d.,]+)\s*€/);
+        turnover = norm(m?.[1]);
+      }
+      return { turnover, volumen };
     }).catch(() => ({ turnover: null as number | null, volumen: null as number | null }));
     const turnover = datos.turnover;
     const volumen = datos.volumen;
@@ -203,25 +209,48 @@ async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
     await page.waitForTimeout(4000);
     await diag(page, 'sinqro-03-report');
 
-    // 4) Leer filas de la tabla de resultados.
-    const filas = await page.$$eval('table tbody tr', (trs) =>
-      trs.map((tr) => Array.from(tr.querySelectorAll('td')).map((td) => (td.textContent || '').trim())).filter(c => c.length)
-    ).catch(() => [] as string[][]);
+    // 4) Leer los pedidos (bloques ng-repeat="order in orders"), NO la <table>
+    //    del datepicker. Cada pedido: .orderClientBox (cliente) + .orderAmountBox (€).
+    const pedidos = await page.evaluate(() => {
+      const bloques = Array.from(document.querySelectorAll('[ng-repeat*="order in orders"]'));
+      return bloques.map((b) => {
+        const cli = (b.querySelector('.orderClientBox') as HTMLElement | null)?.textContent || '';
+        const amt = (b.querySelector('.orderAmountBox') as HTMLElement | null)?.textContent || '';
+        return { cliente: cli.replace(/\s+/g, ' ').trim(), importe: amt.replace(/\s+/g, ' ').trim() };
+      });
+    }).catch(() => [] as { cliente: string; importe: string }[]);
 
-    if (!filas.length) {
+    if (!pedidos.length) {
       ensureArtDir(); writeFileSync(`${ART_DIR}/sinqro-EMPTY.html`, await page.content());
-      console.warn('  ⚠ sinqro: 0 filas (sin ventas hoy o estructura distinta; revisar sinqro-EMPTY.html).');
+      console.warn('  ⚠ sinqro: 0 pedidos (sin ventas hoy o estructura distinta; revisar sinqro-EMPTY.html).');
       return [];
     }
-    const out: Fila[] = filas.map((cols) => {
-      const joined = cols.join(' | ').toLowerCase();
-      const plataforma = /glovo/.test(joined) ? 'glovo' : /just|justeat/.test(joined) ? 'just_eat' : /uber/.test(joined) ? 'uber_eats' : 'desconocida';
-      return {
-        fecha, agregador: 'sinqro', plataforma, marca: cols[0] || 'desconocida',
-        pedidos: 1, bruto: numero(cols.find((c) => /€/.test(c))), neto: null, ticket_medio: null,
-      };
-    });
-    console.log(`  ✓ sinqro: ${out.length} filas`);
+
+    // Agrupar por plataforma inferida del texto del pedido. Sinqro solo etiqueta
+    // con claridad JustEat; el resto (nombres de cliente reales) se agrupa como
+    // "sinqro_otros" para no inventar plataforma.
+    const norm = (s: string) => {
+      const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
+      return Number.isFinite(n) ? n : 0;
+    };
+    const acc = new Map<string, { pedidos: number; bruto: number }>();
+    for (const p of pedidos) {
+      const t = `${p.cliente} ${p.importe}`.toLowerCase();
+      const plataforma = /glovo/.test(t) ? 'glovo'
+        : /just\s?eat/.test(t) ? 'just_eat'
+        : /uber/.test(t) ? 'uber_eats'
+        : 'sinqro_otros';
+      const cur = acc.get(plataforma) || { pedidos: 0, bruto: 0 };
+      cur.pedidos += 1;
+      cur.bruto += norm(p.importe);
+      acc.set(plataforma, cur);
+    }
+    const out: Fila[] = Array.from(acc.entries()).map(([plataforma, v]) => ({
+      fecha, agregador: 'sinqro', plataforma, marca: 'Streat Lab',
+      pedidos: v.pedidos, bruto: Math.round(v.bruto * 100) / 100, neto: null,
+      ticket_medio: v.pedidos ? Math.round((v.bruto / v.pedidos) * 100) / 100 : null,
+    }));
+    console.log(`  ✓ sinqro: ${pedidos.length} pedidos → ${out.length} filas por plataforma`);
     return out;
   } catch (e: any) {
     console.error(`  ✗ sinqro: ${e?.message || e}`);
