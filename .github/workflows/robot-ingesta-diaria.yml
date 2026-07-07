@@ -2,6 +2,7 @@ name: Robot ingesta diaria (Rushour + Sinqro)
 
 # El robot se dispara solo al actualizar su código (push a este path) para poder
 # probarlo sin tocar la pestaña Actions. También queda el botón manual.
+# Relanzado 2026-07-07 (tarde) tras cargar el secret de escritura a Supabase.
 on:
   workflow_dispatch:
     inputs:
