@@ -321,7 +321,7 @@ export default function PanelDireccion() {
         display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8,
       }}>
         <span style={{ fontSize: 14, flexShrink: 0 }}>{iconoMap[a.nivel]}</span>
-        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#f0f0f0', lineHeight: 1.4 }}>
+        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-primary)', lineHeight: 1.4 }}>
           {a.texto}
         </span>
       </div>
@@ -374,7 +374,7 @@ export default function PanelDireccion() {
         <button
           onClick={cargar}
           style={{
-            background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 8,
+            background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8,
             padding: '9px 20px', fontFamily: 'Oswald, sans-serif', fontSize: 13,
             letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer',
           }}
