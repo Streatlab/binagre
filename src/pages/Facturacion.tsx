@@ -109,6 +109,10 @@ const SUBTAB_INACTIVE: CSSProperties = {
   letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer', outline: 'none',
 }
 
+const NEO_INK = 'var(--neo-ink)'
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
+const NEO_CARD: CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
+
 function aggregate(rows: RawDiario[]): AggRow {
   const a: AggRow = { uber_pedidos:0,uber_bruto:0,glovo_pedidos:0,glovo_bruto:0,je_pedidos:0,je_bruto:0,web_pedidos:0,web_bruto:0,directa_pedidos:0,directa_bruto:0,total_pedidos:0,total_bruto:0 }
   for (const r of rows) {
@@ -250,7 +254,7 @@ export default function Facturacion() {
   }
 
   return (
-    <div style={{ background:COLORS.bg, minHeight:'100vh', padding: isMobile ? '14px 12px' : '24px 28px', fontFamily:FONT.body, color:COLORS.pri }}>
+    <div style={{ background:'var(--neo-bg)', minHeight:'100vh', padding: isMobile ? '14px 12px' : '24px 28px', fontFamily:FONT.body, color:COLORS.pri }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:18, flexWrap:'wrap', gap:12 }}>
         <div>
           <div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.redSL, letterSpacing:3, textTransform:'uppercase' }}>FACTURACIÓN</div>
@@ -314,7 +318,7 @@ interface KpiCardsProps { totals:AggRow; dias:number; tm:number; tmNeto:number; 
 function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd, onExport }: KpiCardsProps) {
   const isMobile = useIsMobile()
   const netoLabel = totals.total_bruto > 0 ? `NETO EST. · ${((netoEstimado/totals.total_bruto)*100).toFixed(0)}%` : 'NETO EST.'
-  const cardEvo: CSSProperties = { background:COLORS.card, border:`0.5px solid ${COLORS.brd}`, borderRadius:16, padding: isMobile ? '16px 16px' : '18px 20px' }
+  const cardEvo: CSSProperties = { background:COLORS.card, ...NEO_CARD, padding: isMobile ? '16px 16px' : '18px 20px' }
   const lblS: CSSProperties = { fontFamily:FONT.heading, fontSize:11, letterSpacing:'2px', textTransform:'uppercase', color:COLORS.mut }
   return (
     <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 25%', gap:14, marginBottom:14, alignItems:'stretch' }}>
@@ -342,7 +346,7 @@ function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDi
 
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         <div onClick={onAdd} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onAdd()}}
-          style={{ flex:'0 0 70%', ...cardEvo, background:COLORS.redSL, border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, userSelect:'none' }}
+          style={{ flex:'0 0 70%', ...cardEvo, background:COLORS.redSL, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, userSelect:'none' }}
           onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.opacity='0.88'}}
           onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.opacity='1'}}>
           <span style={{ fontSize:20, lineHeight:1, color:'#fff' }}>↑</span>
@@ -351,7 +355,7 @@ function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDi
         </div>
         {onExport && (
           <button onClick={onExport}
-            style={{ flex:'0 0 30%', ...cardEvo, border:`0.5px solid ${COLORS.brd}`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:FONT.body, fontSize:12, color:COLORS.mut, fontWeight:500, background:COLORS.card }}>
+            style={{ flex:'0 0 30%', ...cardEvo, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:FONT.body, fontSize:12, color:COLORS.mut, fontWeight:500, background:COLORS.card }}>
             <span style={{ fontSize:13 }}>↓</span> Exportar CSV
           </button>
         )}
@@ -393,7 +397,7 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
       {ms.showClearButton && <div style={{marginBottom:10}}><ClearSortButton show={true} onClear={ms.clearSorts} /></div>}
       {weekFilter && <div style={{ marginBottom:10 }}><span style={{ padding:'4px 10px', background:`${COLORS.redSL}12`, color:COLORS.redSL, borderRadius:8, border:`0.5px solid ${COLORS.redSL}30`, fontFamily:FONT.body, fontSize:12 }}>S{weekFilter.week}</span></div>}
-      <div style={{ ...CARDS.std, padding:0, overflow:'hidden' }}>
+      <div style={{ ...CARDS.std, ...NEO_CARD, padding:0, overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', whiteSpace:'nowrap', minWidth:860 }}>
             <thead>
@@ -454,7 +458,7 @@ function TabSemanas({ allData, cols, onDrill, totals, dias, tm, tmNeto, netoEsti
   return (
     <>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
-      <div style={{ ...CARDS.std, padding:0, overflow:'hidden' }}>
+      <div style={{ ...CARDS.std, ...NEO_CARD, padding:0, overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', whiteSpace:'nowrap' }}>
             <thead><tr><th style={TH_BASE}>Sem</th><th style={TH_BASE}>Periodo</th><th style={{ ...TH_BASE, textAlign:'center' }}>Días</th>{cols.map(c=><th key={c.id} style={{ ...TH_BASE, color:c.color, textAlign:'right' }}>{c.label}</th>)}<th style={{ ...TH_BASE, color:COLORS.sec, textAlign:'right' }}>Total</th></tr></thead>
@@ -490,7 +494,7 @@ function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, media
     <>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
       {years.length>1&&(<div style={{ marginBottom:12 }}><select value={selYear} onChange={e=>setSelYear(Number(e.target.value))} style={{ padding:'9px 14px', borderRadius:10, border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, fontFamily:FONT.body, fontSize:13, color:COLORS.sec, cursor:'pointer' }}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select></div>)}
-      <div style={{ ...CARDS.std, padding:0, overflow:'hidden' }}>
+      <div style={{ ...CARDS.std, ...NEO_CARD, padding:0, overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', whiteSpace:'nowrap' }}>
             <thead><tr><th style={TH_BASE}>Mes</th><th style={{ ...TH_BASE, textAlign:'center' }}>Días</th>{cols.map(c=><th key={c.id} style={{ ...TH_BASE, color:c.color, textAlign:'right' }}>{c.label}</th>)}<th style={{ ...TH_BASE, color:COLORS.sec, textAlign:'right' }}>Total</th><th style={{ ...TH_BASE, textAlign:'right' }}>Media/día</th><th style={{ ...TH_BASE, textAlign:'right' }}>vs Anterior</th></tr></thead>
@@ -520,7 +524,7 @@ function TabAnual({ allData, totals, dias, tm, tmNeto, netoEstimado, mediadiaria
   return (
     <div>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
-      <div style={{ ...CARDS.std, padding:0, overflow:'hidden' }}>
+      <div style={{ ...CARDS.std, ...NEO_CARD, padding:0, overflow:'hidden' }}>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead><tr><th style={TH_BASE}>Año</th><th style={{ ...TH_BASE, textAlign:'right' }}>Facturación bruta</th><th style={TH_BASE}>vs año anterior</th><th style={{ ...TH_BASE, textAlign:'right' }}>Media mensual</th><th style={{ ...TH_BASE, textAlign:'right' }}>Pedidos</th><th style={{ ...TH_BASE, textAlign:'right' }}>Ticket medio</th></tr></thead>
           <tbody>
