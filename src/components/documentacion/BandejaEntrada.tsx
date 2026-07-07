@@ -13,6 +13,9 @@ import AvisosBandeja from '@/components/documentacion/AvisosBandeja'
 //     Si un archivo NO es de ventas, se redirige solo al motor de Facturas y avisa.
 //   · FACTURAS → OCR + Drive + contraste con Conciliación. Si un archivo ES un
 //     resumen de ventas, se redirige solo a Ventas y avisa.
+//   Al pulsar cada botón se abre un modal intermedio para elegir entre subir
+//   archivos sueltos o una carpeta entera (el navegador no permite ambos en un
+//   único picker). Arrastrar y soltar sigue admitiendo archivos y carpetas.
 //   Duplicados: mismo archivo subido dos veces en la sesión no se reprocesa.
 
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
@@ -27,6 +30,10 @@ const ACCEPT = EXT_ACEPTADAS.map(e => `.${e}`).join(',')
 // ── Reconocimiento cliente del "resumen de ganancias" de Uber (CSV) ─────────
 function esResumenUberTexto(texto: string): boolean {
   const cab = (texto || '').slice(0, 2000).toLowerCase()
+  // Historial de pedidos (order history): una fila por pedido con tiempos/estado.
+  const primera = (texto.split('\n')[0] || '').toLowerCase()
+  const esHistorial = primera.includes('restaurante') && primera.includes('valor del recibo') && primera.includes('estado del pedido')
+  if (esHistorial) return true
   const marca = cab.includes('nombre del restaurante') || cab.includes('store name') || cab.includes('restaurant name')
   const pago = cab.includes('pago total') || cab.includes('net payout') || cab.includes('total payout')
   const ref = cab.includes('referencia de ganancias') || cab.includes('earnings reference') || cab.includes('payment reference')
@@ -88,15 +95,18 @@ async function expandirArchivos(files: File[]): Promise<{ aceptados: File[]; com
 
 type Destino = 'banco' | 'ventas' | 'facturas'
 
-// ── Botón de subida: UN solo picker (clic = selector de archivos múltiple; también admite arrastrar) ──
+// ── Botón de subida: al pulsar abre modal intermedio (archivos sueltos o carpeta);
+//    también admite arrastrar y soltar archivos o carpetas directamente ──
 function BtnSubir({ label, sub, color, colorHover, onArchivos, preparando }: {
   label: string; sub: string; color: string; colorHover: string
   onArchivos: (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => void
   preparando: boolean
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const carpetaRef = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
   const [ocupado, setOcupado] = useState(false)
+  const [elegir, setElegir] = useState(false)
   const handleFiles = async (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return
     setOcupado(true)
@@ -109,7 +119,7 @@ function BtnSubir({ label, sub, color, colorHover, onArchivos, preparando }: {
       onDragOver={e => { if (bloqueado) return; e.preventDefault(); setOver(true) }}
       onDragLeave={() => setOver(false)}
       onDrop={e => { if (bloqueado) return; e.preventDefault(); setOver(false); handleFiles(e.dataTransfer.files) }}
-      onClick={() => { if (!bloqueado) inputRef.current?.click() }}
+      onClick={() => { if (!bloqueado) setElegir(true) }}
       style={{
         flex: 1, minWidth: 220, border: '3px solid #140f08', boxShadow: '4px 4px 0 #140f08',
         background: over ? colorHover : color, cursor: bloqueado ? 'wait' : 'pointer',
@@ -119,11 +129,33 @@ function BtnSubir({ label, sub, color, colorHover, onArchivos, preparando }: {
     >
       <input ref={inputRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }}
         onChange={e => { handleFiles(e.target.files); if (inputRef.current) inputRef.current.value = '' }} />
+      <input ref={carpetaRef} type="file" style={{ display: 'none' }}
+        {...({ webkitdirectory: '', directory: '', mozdirectory: '' } as any)}
+        onChange={e => { handleFiles(e.target.files); if (carpetaRef.current) carpetaRef.current.value = '' }} />
       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 17, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', lineHeight: 1.2 }}>{label}</div>
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,0.92)', marginTop: 6, lineHeight: 1.35 }}>{sub}</div>
       {ocupado && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', pointerEvents: 'none' }}>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: '#fff', letterSpacing: '2px', textTransform: 'uppercase' }}>Preparando…</div>
+        </div>
+      )}
+
+      {/* ── Modal intermedio: archivos sueltos o carpeta entera ── */}
+      {elegir && (
+        <div onClick={e => { e.stopPropagation(); setElegir(false) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 120 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#FCEFD6', padding: 24, minWidth: 300, maxWidth: 360, border: '4px solid #140f08', boxShadow: '6px 6px 0 #140f08' }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color, marginBottom: 4 }}>{label}</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', marginBottom: 16 }}>¿Qué quieres subir?</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button onClick={() => { setElegir(false); inputRef.current?.click() }}
+                style={{ padding: '14px', border: '3px solid #140f08', boxShadow: '3px 3px 0 #140f08', background: color, color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Archivos sueltos</button>
+              <button onClick={() => { setElegir(false); carpetaRef.current?.click() }}
+                style={{ padding: '14px', border: '3px solid #140f08', boxShadow: '3px 3px 0 #140f08', background: '#fff', color: '#140f08', fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Carpeta entera</button>
+            </div>
+            <button onClick={() => setElegir(false)} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+          </div>
         </div>
       )}
     </div>
@@ -154,7 +186,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
 
   const marcarEnviados = (archivos: File[]) => { for (const f of archivos) enviadosRef.current.add(`${f.name}|${f.size}`) }
 
-  // Separa resúmenes de ventas (Uber CSV) del resto mirando el contenido
+  // Separa documentos de ventas (Uber CSV: resumen o historial) del resto por contenido
   const separarVentas = async (archivos: File[]): Promise<{ ventas: File[]; resto: File[] }> => {
     const ventas: File[] = []
     const resto: File[] = []
@@ -171,7 +203,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
   // Envía archivos de ventas al endpoint de plataformas con un único aviso veraz
   const enviarAVentas = async (ventas: File[]) => {
     if (ventas.length === 0) return
-    const tid = toast.loading(`Leyendo resumen de ventas (${ventas.length})…`)
+    const tid = toast.loading(`Leyendo documentos de ventas (${ventas.length})…`)
     let tiendas = 0, nuevas = 0, actualizadas = 0, pedidos = 0, neto = 0
     const errs: string[] = []
     for (const f of ventas) {
@@ -188,6 +220,8 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
           actualizadas += Number(j.actualizadas) || 0
           pedidos += Number(j.totalPedidos) || 0
           neto += Number(j.totalNeto) || 0
+        } else if (j.ok && j.tipo_detectado === 'uber_historial_pedidos') {
+          pedidos += Number(j.pedidos) || 0
         } else {
           errs.push(j.mensaje || 'no reconocido')
         }
@@ -195,8 +229,8 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
         errs.push(e?.message || 'error de red')
       }
     }
-    if (errs.length > 0 && nuevas + actualizadas === 0) {
-      toast.error(`No se pudo leer el resumen de ventas: ${errs[0]}`, { id: tid })
+    if (errs.length > 0 && nuevas + actualizadas + pedidos === 0) {
+      toast.error(`No se pudo leer el documento de ventas: ${errs[0]}`, { id: tid })
     } else {
       toast.success(
         `Ventas · ${tiendas} tiendas · ${nuevas} nuevas, ${actualizadas} actualizadas · ${pedidos} pedidos · neto ${neto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
@@ -236,7 +270,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
     // destino === 'facturas'
     if (ventas.length > 0) {
       // Resúmenes de ventas subidos por el botón equivocado → redirigidos solos
-      toast.success(`${ventas.length} resumen${ventas.length !== 1 ? 'es' : ''} de ventas detectado${ventas.length !== 1 ? 's' : ''}: enviado${ventas.length !== 1 ? 's' : ''} a Ventas.`)
+      toast.success(`${ventas.length} documento${ventas.length !== 1 ? 's' : ''} de ventas detectado${ventas.length !== 1 ? 's' : ''}: enviado${ventas.length !== 1 ? 's' : ''} a Ventas.`)
       await enviarAVentas(ventas)
     }
     if (resto.length > 0) procesar(resto, 'ocr-procesar-factura', null)
@@ -257,7 +291,7 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
         />
         <BtnSubir
           label="Ventas" color="#1D9E75" colorHover="#157a5a"
-          sub="Liquidaciones y resúmenes de plataforma. Van directos a Ventas de Finanzas."
+          sub="Liquidaciones, resúmenes e historial de pedidos de plataforma. Van directos a Ventas."
           onArchivos={abrirModal('ventas')} preparando={preparando}
         />
         <BtnSubir
