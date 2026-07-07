@@ -156,10 +156,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       for (const it of items) {
         const campos = {
           plataforma: 'uber', marca: it.marca, referencia_pago: it.referencia_pago,
+          ref_uber: it.ref_uber || null,
           fecha_deposito: it.fecha_deposito,
           fecha_inicio_periodo: it.fecha_inicio_periodo, fecha_fin_periodo: it.fecha_fin_periodo,
           num_pedidos: it.num_pedidos, ventas_bruto: it.ventas_bruto,
-          promociones: it.promociones, comision_uber: it.comision_uber,
+          promociones: it.promociones, comision_uber: it.comision_uber, ads: it.ads,
           pago_neto: it.pago_neto, estado: 'pendiente',
         }
         marcasSet.add(it.marca)

@@ -591,6 +591,7 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
         const buffer = await descargarArchivoDeDrive(driveId)
         await supabaseAdmin.from('facturas_gastos').delete().eq('factura_id', f.id as string)
         await supabaseAdmin.from('facturas_plataforma_detalle').delete().eq('factura_id', f.id as string)
+        await supabaseAdmin.from('facturas_lineas').delete().eq('factura_id', f.id as string)
         await supabaseAdmin.from('facturas').delete().eq('id', f.id as string)
         borrada = true
 
@@ -943,8 +944,11 @@ async function extraerLineasBatch(req: VercelRequest, res: VercelResponse) {
       const hash = f.pdf_hash as string | null
       procesadas++
 
-      const marcarSinDetalle = async (motivo: string) => {
-        await supabaseAdmin.from('facturas').update({ lineas_estado: 'sin_detalle_lineas' }).eq('id', facturaId)
+      const marcarSinDetalle = async (motivo: string, diff?: number) => {
+        await supabaseAdmin.from('facturas').update({
+          lineas_estado: 'sin_detalle_lineas',
+          ...(diff !== undefined ? { detalle_lineas_diff: diff } : {}),
+        }).eq('id', facturaId)
         sinDetalle++
         detalle.push({ id: facturaId, proveedor, resultado: 'sin_detalle_lineas', motivo })
       }
@@ -974,7 +978,7 @@ async function extraerLineasBatch(req: VercelRequest, res: VercelResponse) {
         const suma = sumaConIva(lineas)
         const diff = Math.round(Math.abs(suma - total) * 100) / 100
         if (diff > 0.05) {
-          await marcarSinDetalle(`descuadre ${diff.toFixed(2)}€ (líneas ${suma.toFixed(2)} vs total ${total.toFixed(2)})`)
+          await marcarSinDetalle(`descuadre ${diff.toFixed(2)}€ (líneas ${suma.toFixed(2)} vs total ${total.toFixed(2)})`, diff)
           continue
         }
 
@@ -996,7 +1000,7 @@ async function extraerLineasBatch(req: VercelRequest, res: VercelResponse) {
         const { error: insErr } = await supabaseAdmin.from('facturas_lineas').insert(filas)
         if (insErr) { await marcarSinDetalle(`insert fallido: ${insErr.message}`); continue }
 
-        await supabaseAdmin.from('facturas').update({ lineas_estado: 'ok' }).eq('id', facturaId)
+        await supabaseAdmin.from('facturas').update({ lineas_estado: 'ok', detalle_lineas_diff: diff }).eq('id', facturaId)
         ok++
         detalle.push({ id: facturaId, proveedor, resultado: 'ok' })
       } catch (err) {

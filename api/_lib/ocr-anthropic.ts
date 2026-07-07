@@ -46,7 +46,8 @@ const PROMPT = `Eres un extractor de datos de facturas españolas. Recibes el te
   "base_10": number, "iva_10": number,
   "base_21": number, "iva_21": number,
   "total": number|null,
-  "moneda": string|null
+  "moneda": string|null,
+  "lineas": [{"descripcion": string, "cantidad": number, "unidad": string|null, "precio_unitario": number|null, "importe": number, "iva_pct": number|null}] | null
 }
 Reglas:
 - El EMISOR es quien emite/cobra la factura (su NIF suele ir arriba). El CLIENTE (Rubén Rodriguez Vinagre 21669051S / Emilio Dorca 53484832B / Streat Lab) NO es el emisor.
@@ -54,6 +55,7 @@ Reglas:
 - Desglosa el IVA por tipo (4%, 10%, 21%). Si un tipo no aparece, su base y cuota van a 0.
 - total = importe total a pagar con IVA incluido.
 - fecha_factura en formato YYYY-MM-DD.
+- "lineas": una entrada por cada línea/concepto real del cuerpo de la factura (descripción, cantidad, precio unitario, importe, % IVA de esa línea). Inclúyelas SOLO si puedes leerlas con claridad línea a línea. Si la factura no desglosa por líneas, o no estás seguro de haberlas leído bien, deja "lineas" como null. NO inventes líneas ni precios.
 - Si un dato no aparece, usa null (o 0 en las bases/cuotas). NO inventes.
 Responde SOLO el JSON.`
 
@@ -204,7 +206,29 @@ function parsearFactura(raw: string): ExtractedFactura | null {
     base_21: numero(j.base_21) ?? 0, iva_21: numero(j.iva_21) ?? 0,
     total,
     confianza: 0.9,
+    lineas: parsearLineas(j.lineas),
   }
+}
+
+function parsearLineas(v: unknown): ExtractedFactura['lineas'] {
+  if (!Array.isArray(v) || v.length === 0) return undefined
+  const out: NonNullable<ExtractedFactura['lineas']> = []
+  for (const raw of v) {
+    if (!raw || typeof raw !== 'object') continue
+    const l = raw as Record<string, unknown>
+    const descripcion = String(l.descripcion || '').trim()
+    const importe = numero(l.importe)
+    if (!descripcion || importe === null) continue // sin descripción o importe no es una línea usable
+    out.push({
+      descripcion,
+      cantidad: numero(l.cantidad) ?? 1,
+      unidad: l.unidad ? String(l.unidad).trim() : null,
+      precio_unitario: numero(l.precio_unitario),
+      importe,
+      iva_pct: numero(l.iva_pct),
+    })
+  }
+  return out.length > 0 ? out : undefined
 }
 
 function numero(v: unknown): number | null {
