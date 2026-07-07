@@ -7,7 +7,7 @@
  * CALIBRACIÓN (2026-07-07) con HTML real:
  *   RUSHOUR: manager.rushour.io/login · input[name=username]/password.
  *            Tras login aparece modal promocional "Evolve your brand" que tapa
- *            los KPIs: hay que cerrarlo (botón Close) antes de leer.
+ *            los KPIs: hay que cerrarlo (botón Close, texto en <span>) antes de leer.
  *            Panel "Real-time view": Turnover / Volume of orders.
  *   SINQRO:  app.sinqro.com · #login-email/#login-password/#loginButton.
  *            Historial #/sp/6416/online/orders es AngularJS. Los checkboxes de
@@ -75,8 +75,15 @@ async function cerrarModales(page: Page) {
   for (const re of nombres) {
     await page.getByRole('button', { name: re }).first().click({ timeout: 1200 }).catch(() => {});
   }
-  // Botón "Close" del modal promocional de Rushour (texto exacto).
-  await page.getByText(/^Close$/).first().click({ timeout: 1200 }).catch(() => {});
+  // Botón "Close" del modal promocional de Rushour: el texto está dentro de un
+  // <span> hijo de <button>, así que se clica el button que lo contiene.
+  await page.locator('button:has(span:text-is("Close"))').first().click({ timeout: 1500 }).catch(() => {});
+  await page.getByRole('button', { name: 'Close', exact: true }).first().click({ timeout: 1500 }).catch(() => {});
+  await page.evaluate(() => {
+    const btns = Array.from(document.querySelectorAll('button'));
+    const b = btns.find((x) => (x.textContent || '').trim() === 'Close');
+    if (b) (b as HTMLButtonElement).click();
+  }).catch(() => {});
   await page.keyboard.press('Escape').catch(() => {});
 }
 
