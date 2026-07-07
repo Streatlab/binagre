@@ -142,7 +142,7 @@ export default function PulsoOperativa() {
                   <CartesianGrid strokeDasharray="3 3" stroke={COLORS.brd} vertical={false} />
                   <XAxis dataKey="franja" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} />
                   <YAxis tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.mut }} />
-                  <Tooltip formatter={(v: number, n: string) => [v, n === 'pedidos' ? 'Pedidos' : n]} />
+                  <Tooltip formatter={((v: unknown, n: unknown) => [v as number, n === 'pedidos' ? 'Pedidos' : (n as string)]) as never} />
                   <Bar dataKey="pedidos" radius={[6, 6, 0, 0]}>
                     {momFiltrados.map((d, i) => (
                       <Cell key={i} fill={d.hora >= 13 && d.hora <= 15 ? COLORS.uber : d.hora >= 20 && d.hora <= 23 ? '#B01D23' : COLORS.mut} />
