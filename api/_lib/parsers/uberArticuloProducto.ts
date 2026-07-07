@@ -3,6 +3,7 @@
 // por pedido. Se reconoce por: "Id. del pedido" + "Nombre del artículo" + "Precio unitario".
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizarMarca, type MarcaCanonica } from './normalizarMarca'
 
 function partirCSV(linea: string): string[] {
   const out: string[] = []
@@ -29,6 +30,9 @@ export function esDetalleArticuloUber(texto: string): boolean {
 interface Ln { plataforma: string; marca: string; pedido_ref: string; fecha: string | null; hora: number | null; producto: string; cantidad: number; precio_unit: number | null; importe: number | null; es_prime: boolean; origen: string }
 
 export async function procesarDetalleArticuloUber(supabase: SupabaseClient, texto: string) {
+  const { data: marcasCanonicasData } = await supabase.from('marcas').select('nombre')
+  const marcasCanonicas: MarcaCanonica[] = marcasCanonicasData ?? []
+
   const lineas = texto.split('\n').filter(l => l.trim())
   if (lineas[0]?.charCodeAt(0) === 0xFEFF) lineas[0] = lineas[0].slice(1)
   const hdr = partirCSV(lineas[0])
@@ -38,12 +42,15 @@ export async function procesarDetalleArticuloUber(supabase: SupabaseClient, text
   const iProd = ix(/^Nombre del art[ií]culo$/i), iCant = ix(/^Cantidad final$/i)
   const iCantSol = ix(/^Cantidad solicitada$/i), iPrecio = ix(/^Precio unitario$/i)
   const iConIva = ix(/^Ventas \(con IVA\)$/i), iPrime = ix(/membres[ií]a de Uber/i)
+  // Líneas sin artículo (tarifas / ads / promo) llevan su propia descripción.
+  // Nombre de columna no confirmado con un export real: sondeo tolerante,
+  // falla seguro (0 líneas de otros pagos) si ninguna cabecera coincide.
+  const iOtrosDesc = ix(/^descripci[oó]n de otros pagos$/i, /otros pagos/i)
 
   const acc = new Map<string, Ln>()
   for (const linea of lineas.slice(1)) {
     const c = partirCSV(linea)
     const producto = (c[iProd] || '').trim()
-    if (!producto) continue // filas sin artículo (tarifas) se ignoran
     const uuid = iUuid >= 0 ? (c[iUuid] || '').trim() : ''
     const idCorto = (c[iId] || '').trim()
     const ref = uuid || idCorto
@@ -54,10 +61,31 @@ export async function procesarDetalleArticuloUber(supabase: SupabaseClient, text
     const fs = (c[iFecha] || '').trim() // dd/mm/yy
     const mf = fs.match(/(\d{2})\/(\d{2})\/(\d{2,4})/)
     if (mf) { const yy = mf[3].length === 2 ? '20' + mf[3] : mf[3]; fecha = `${yy}-${mf[2]}-${mf[1]}` }
-    const cant = iCant >= 0 && num(c[iCant]) ? num(c[iCant]) : (iCantSol >= 0 ? num(c[iCantSol]) || 1 : 1)
     const prime = /uber one/i.test(c[iPrime] || '')
-    const precio = iPrecio >= 0 ? (num(c[iPrecio]) || null) : null
     const imp = iConIva >= 0 ? (num(c[iConIva]) || null) : null
+    const marca = normalizarMarca((c[iMarca] || '').trim() || 'Sin marca', marcasCanonicas)
+
+    if (!producto) {
+      // Fila sin artículo: tarifa/ads/promo. Se guarda como línea propia,
+      // separada del neto estructural, si trae descripción de "otros pagos".
+      const otrosDesc = iOtrosDesc >= 0 ? (c[iOtrosDesc] || '').trim() : ''
+      if (!otrosDesc || !ref) continue
+      const keyOtros = `${ref}||__otros__${otrosDesc}`
+      const yaOtros = acc.get(keyOtros)
+      if (yaOtros) {
+        if (imp != null) yaOtros.importe = (yaOtros.importe || 0) + imp
+      } else {
+        acc.set(keyOtros, {
+          plataforma: 'uber', marca, pedido_ref: ref, fecha, hora,
+          producto: `[Otros pagos] ${otrosDesc}`, cantidad: 1,
+          precio_unit: null, importe: imp, es_prime: prime, origen: 'uber_detalle_articulo_otros_pagos',
+        })
+      }
+      continue
+    }
+
+    const cant = iCant >= 0 && num(c[iCant]) ? num(c[iCant]) : (iCantSol >= 0 ? num(c[iCantSol]) || 1 : 1)
+    const precio = iPrecio >= 0 ? (num(c[iPrecio]) || null) : null
     const key = `${ref}||${producto}`
     const ya = acc.get(key)
     if (ya) {
@@ -65,7 +93,7 @@ export async function procesarDetalleArticuloUber(supabase: SupabaseClient, text
       if (imp != null) ya.importe = (ya.importe || 0) + imp
     } else {
       acc.set(key, {
-        plataforma: 'uber', marca: (c[iMarca] || '').trim() || 'Sin marca',
+        plataforma: 'uber', marca,
         pedido_ref: ref || `${fecha}_${producto}`, fecha, hora,
         producto, cantidad: cant, precio_unit: precio, importe: imp, es_prime: prime, origen: 'uber_detalle_articulo',
       })
@@ -75,5 +103,9 @@ export async function procesarDetalleArticuloUber(supabase: SupabaseClient, text
   for (let i = 0; i < lns.length; i += 200)
     await supabase.from('lineas_producto_operativa').upsert(lns.slice(i, i + 200), { onConflict: 'plataforma,pedido_ref,producto' })
   const refs = new Set(lns.map(l => l.pedido_ref))
-  return { productos: lns.length, pedidos: refs.size }
+  return {
+    productos: lns.filter(l => l.origen === 'uber_detalle_articulo').length,
+    otrosPagos: lns.filter(l => l.origen === 'uber_detalle_articulo_otros_pagos').length,
+    pedidos: refs.size,
+  }
 }

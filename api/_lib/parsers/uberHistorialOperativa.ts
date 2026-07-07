@@ -7,6 +7,7 @@
 // Es un documento de OPERATIVA de ventas, no una factura ni una liquidación.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizarMarca, type MarcaCanonica } from './normalizarMarca'
 
 function partirCSV(linea: string): string[] {
   const out: string[] = []
@@ -45,7 +46,7 @@ interface FilaFranja {
   pedidos: number; unidades: number; importe: number
 }
 
-function parsear(texto: string): { operativa: FilaOperativa[]; franjas: FilaFranja[] } {
+function parsear(texto: string, marcasCanonicas: MarcaCanonica[]): { operativa: FilaOperativa[]; franjas: FilaFranja[] } {
   const lineas = texto.split('\n').filter(l => l.trim())
   if (lineas[0]?.charCodeAt(0) === 0xFEFF) lineas[0] = lineas[0].slice(1)
   const hdr = partirCSV(lineas[0])
@@ -74,7 +75,7 @@ function parsear(texto: string): { operativa: FilaOperativa[]; franjas: FilaFran
     const hora = isNaN(horaN) ? null : horaN
     const estado = (c[iE] || '').trim().toLowerCase()
     const cancelado = estado === 'canceled' || estado === 'cancelado' || estado === 'failed'
-    const marca = (c[iR] || '').trim() || 'Sin marca'
+    const marca = normalizarMarca((c[iR] || '').trim() || 'Sin marca', marcasCanonicas)
     const primeRaw = iPrime >= 0 ? (c[iPrime] || '').trim().toLowerCase() : ''
 
     operativa.push({
@@ -107,7 +108,8 @@ export async function procesarHistorialPedidosUber(
   supabase: SupabaseClient,
   texto: string,
 ): Promise<{ pedidos: number; prime: number; incidencias: number; franjas: number }> {
-  const { operativa, franjas } = parsear(texto)
+  const { data: marcasCanonicas } = await supabase.from('marcas').select('nombre')
+  const { operativa, franjas } = parsear(texto, marcasCanonicas ?? [])
 
   for (let i = 0; i < operativa.length; i += 200) {
     const lote = operativa.slice(i, i + 200)

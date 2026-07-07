@@ -94,7 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const r = await procesarDetalleArticuloUber(supabaseAdmin, textoExtraido)
         await logImport({ plataforma: 'uber', archivo: filename, estado: 'ok' })
-        return res.status(200).json({ ok: true, plataforma: 'uber', tipo_detectado: 'uber_detalle_articulo', productos: r.productos, pedidos: r.pedidos, mensaje: `Detalle Uber: ${r.productos} líneas de producto en ${r.pedidos} pedidos.` })
+        return res.status(200).json({ ok: true, plataforma: 'uber', tipo_detectado: 'uber_detalle_articulo', productos: r.productos, pedidos: r.pedidos, otrosPagos: r.otrosPagos, mensaje: `Detalle Uber: ${r.productos} líneas de producto en ${r.pedidos} pedidos${r.otrosPagos ? ` (${r.otrosPagos} líneas de ads/otros pagos)` : ''}.` })
       } catch (err) {
         return res.status(200).json({ ok: false, plataforma: 'uber', tipo_detectado: 'uber_detalle_articulo', mensaje: err instanceof Error ? err.message : String(err) })
       }

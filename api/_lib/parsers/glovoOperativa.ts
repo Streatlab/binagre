@@ -9,6 +9,7 @@
 // local), así que se parsea el CSV completo respetando las comillas.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizarMarca, limpiarSufijoLocal, type MarcaCanonica } from './normalizarMarca'
 
 // CSV robusto: respeta comillas y saltos de línea dentro de campos.
 function parseCSV(text: string): string[][] {
@@ -40,14 +41,6 @@ function num(s: string | undefined): number {
 }
 function dow(f: string): number { return new Date(f + 'T12:00:00Z').getUTCDay() }
 
-// Deja solo el nombre del local: corta en el primer "(" o salto de línea.
-function limpiarMarca(raw: string): string {
-  let s = (raw || '').replace(/[\r\n]+/g, ' ')
-  const corte = s.indexOf('(')
-  if (corte > 0) s = s.slice(0, corte)
-  return s.trim() || 'Sin marca'
-}
-
 export function esOrderDetailsGlovo(texto: string): boolean {
   const cab = (texto || '').slice(0, 4000).toLowerCase()
   return cab.includes('nombre del local') && cab.includes('total parcial')
@@ -74,7 +67,7 @@ interface Op {
 interface Fr { canal: string; marca: string; fecha: string; hora: number; dia_semana: number; pedidos: number; unidades: number; importe: number }
 interface Ln { plataforma: string; marca: string; pedido_ref: string; fecha: string; hora: number | null; producto: string; cantidad: number; precio_unit: number | null; importe: number | null; es_prime: boolean; origen: string }
 
-export function parsear(texto: string): { operativa: Op[]; franjas: Fr[]; lineas: Ln[] } {
+export function parsear(texto: string, marcasCanonicas: MarcaCanonica[]): { operativa: Op[]; franjas: Fr[]; lineas: Ln[] } {
   const rows = parseCSV(texto)
   if (rows.length < 2) return { operativa: [], franjas: [], lineas: [] }
   const hdr = rows[0].map(h => h.toLowerCase())
@@ -87,6 +80,9 @@ export function parsear(texto: string): { operativa: Op[]; franjas: Fr[]; lineas
   const iCancel = ix(/cancelado el/)
   const iTotal = ix(/^total parcial$/, /total parcial/)
   const iItems = ix(/^art[íi]culos$/, /art[íi]culos/)
+  // Prime: nombre de columna no confirmado con un export real (fallo seguro a
+  // false si ninguna cabecera de la lista coincide, igual que antes de esto).
+  const iPrime = ix(/es pedido pro/, /pedido pro/, /^pro\??$/, /suscrip/, /glovo\s*prime/)
 
   const operativa: Op[] = [], lns: Ln[] = []
   const agg = new Map<string, Fr>()
@@ -102,15 +98,16 @@ export function parsear(texto: string): { operativa: Op[]; franjas: Fr[]; lineas
     const est = (iEst >= 0 ? c[iEst] || '' : '').trim().toLowerCase()
     const cancelado = est.includes('cancel') || est.includes('rechaz') || est.includes('reject') || (iCancel >= 0 && !!(c[iCancel] || '').trim())
     const reclamo = /^s/i.test((iReclamo >= 0 ? c[iReclamo] || '' : '').trim()) // "Sí"
-    const marca = limpiarMarca(iRest >= 0 ? c[iRest] || '' : '')
+    const marca = normalizarMarca(iRest >= 0 ? c[iRest] || '' : '', marcasCanonicas)
     const total = iTotal >= 0 ? num(c[iTotal]) : 0
     const items = iItems >= 0 ? parseItems(c[iItems] || '') : []
     const nart = items.reduce((a, x) => a + x.cantidad, 0)
+    const prime = iPrime >= 0 ? /^s[ií]|^y|^true|^1$/i.test((c[iPrime] || '').trim()) : false
 
     operativa.push({
       plataforma: 'glovo', marca, pedido_ref: ref, fecha, hora,
       estado: est || null, completado: !cancelado, articulos: nart || null,
-      valor_recibo: total || null, es_prime: false, canal_origen: null,
+      valor_recibo: total || null, es_prime: prime, canal_origen: null,
       min_preparacion: null, min_entrega: null,
       incidencia: cancelado ? (est || 'cancelado') : (reclamo ? 'reclamacion' : null),
     })
@@ -121,7 +118,7 @@ export function parsear(texto: string): { operativa: Op[]; franjas: Fr[]; lineas
       lns.push({
         plataforma: 'glovo', marca, pedido_ref: ref, fecha, hora,
         producto: it.producto, cantidad: it.cantidad,
-        precio_unit: null, importe: null, es_prime: false, origen: 'glovo_orderdetails',
+        precio_unit: null, importe: null, es_prime: prime, origen: 'glovo_orderdetails',
       })
     }
 
@@ -135,7 +132,8 @@ export function parsear(texto: string): { operativa: Op[]; franjas: Fr[]; lineas
 }
 
 export async function procesarOrderDetailsGlovo(supabase: SupabaseClient, texto: string) {
-  const { operativa, franjas, lineas } = parsear(texto)
+  const { data: marcasCanonicas } = await supabase.from('marcas').select('nombre')
+  const { operativa, franjas, lineas } = parsear(texto, marcasCanonicas ?? [])
   for (let i = 0; i < operativa.length; i += 200)
     await supabase.from('pedidos_operativa').upsert(operativa.slice(i, i + 200), { onConflict: 'plataforma,pedido_ref' })
   const ff = franjas.map(f => ({ canal: f.canal, marca: f.marca, fecha: f.fecha, hora: f.hora, dia_semana: f.dia_semana, pedidos: f.pedidos, unidades: f.unidades, importe: Math.round(f.importe * 100) / 100, origen: 'glovo_orderdetails', updated_at: new Date().toISOString() }))
@@ -145,7 +143,7 @@ export async function procesarOrderDetailsGlovo(supabase: SupabaseClient, texto:
     await supabase.from('lineas_producto_operativa').upsert(lineas.slice(i, i + 200), { onConflict: 'plataforma,pedido_ref,producto' })
   return {
     pedidos: operativa.length,
-    prime: 0,
+    prime: operativa.filter(o => o.es_prime).length,
     incidencias: operativa.filter(o => o.incidencia).length,
     productos: lineas.length,
   }

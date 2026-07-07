@@ -5,6 +5,7 @@
 // Se reconoce por cabecera: "Order ID" + "Order received at" + "Order status".
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizarMarca, type MarcaCanonica } from './normalizarMarca'
 
 function partirCSV(linea: string): string[] {
   const out: string[] = []
@@ -50,7 +51,7 @@ interface Op {
 interface Fr { canal: string; marca: string; fecha: string; hora: number; dia_semana: number; pedidos: number; unidades: number; importe: number }
 interface Ln { plataforma: string; marca: string; pedido_ref: string; fecha: string; hora: number | null; producto: string; cantidad: number; precio_unit: number | null; importe: number | null; es_prime: boolean; origen: string }
 
-function parsear(texto: string): { operativa: Op[]; franjas: Fr[]; lineas: Ln[] } {
+function parsear(texto: string, marcasCanonicas: MarcaCanonica[]): { operativa: Op[]; franjas: Fr[]; lineas: Ln[] } {
   const lineas = texto.split('\n').filter(l => l.trim())
   if (lineas[0]?.charCodeAt(0) === 0xFEFF) lineas[0] = lineas[0].slice(1)
   const hdr = partirCSV(lineas[0])
@@ -70,7 +71,7 @@ function parsear(texto: string): { operativa: Op[]; franjas: Fr[]; lineas: Ln[] 
     const est = (c[iEst] || '').trim().toLowerCase()
     const cancelado = est.includes('cancel') || est.includes('reject') || est.includes('fail')
     const complaint = /^y/i.test(c[iComp] || '')
-    const marca = (c[iRest] || '').split(':')[0].trim() || 'Sin marca'
+    const marca = normalizarMarca((c[iRest] || '').split(':')[0].trim() || 'Sin marca', marcasCanonicas)
     const prime = /^y/i.test(c[iSub] || '')
     const ref = (c[iId] || '').trim()
     const subtotal = iSubtotal >= 0 ? num(c[iSubtotal]) : 0
@@ -105,7 +106,8 @@ function parsear(texto: string): { operativa: Op[]; franjas: Fr[]; lineas: Ln[] 
 }
 
 export async function procesarOrderDetailsJustEat(supabase: SupabaseClient, texto: string) {
-  const { operativa, franjas, lineas } = parsear(texto)
+  const { data: marcasCanonicas } = await supabase.from('marcas').select('nombre')
+  const { operativa, franjas, lineas } = parsear(texto, marcasCanonicas ?? [])
   for (let i = 0; i < operativa.length; i += 200)
     await supabase.from('pedidos_operativa').upsert(operativa.slice(i, i + 200), { onConflict: 'plataforma,pedido_ref' })
   const ff = franjas.map(f => ({ canal: f.canal, marca: f.marca, fecha: f.fecha, hora: f.hora, dia_semana: f.dia_semana, pedidos: f.pedidos, unidades: f.unidades, importe: Math.round(f.importe * 100) / 100, origen: 'just_eat_orderdetails', updated_at: new Date().toISOString() }))
