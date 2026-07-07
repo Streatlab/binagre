@@ -1,9 +1,6 @@
 import { useState, useRef } from 'react'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import { toast } from '@/lib/toastStore'
-import CardFacturasCorreo from '@/components/panel/resumen/CardFacturasCorreo'
-import CardSaludOcr from '@/components/panel/resumen/CardSaludOcr'
-import ChuletaPlataformas from '@/components/ChuletaPlataformas'
 import AvisosBandeja from '@/components/documentacion/AvisosBandeja'
 
 // ── Bandeja de entrada — 3 BOTONES ──────────────────────────────────────────
@@ -100,6 +97,31 @@ async function expandirArchivos(files: File[]): Promise<{ aceptados: File[]; com
   return { aceptados, comprimidos, rechazados }
 }
 
+// ── Botón de acción directa (no sube archivos): recoge el buzón de correo ──
+function BtnCorreo({ label, sub, color, colorHover, onClick, ocupado }: {
+  label: string; sub: string; color: string; colorHover: string
+  onClick: () => void; ocupado: boolean
+}) {
+  const [over, setOver] = useState(false)
+  return (
+    <div
+      onMouseEnter={() => setOver(true)} onMouseLeave={() => setOver(false)}
+      onClick={() => { if (!ocupado) onClick() }}
+      style={{
+        flex: 1, minWidth: 160, border: '3px solid #140f08', boxShadow: '4px 4px 0 #140f08',
+        background: over && !ocupado ? colorHover : color, cursor: ocupado ? 'wait' : 'pointer',
+        padding: '18px 14px', textAlign: 'center', userSelect: 'none', position: 'relative',
+        transition: 'background 0.15s', opacity: ocupado ? 0.6 : 1,
+      }}
+    >
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 17, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', lineHeight: 1.2 }}>
+        {ocupado ? 'Recogiendo…' : label}
+      </div>
+      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,0.92)', marginTop: 6, lineHeight: 1.35 }}>{sub}</div>
+    </div>
+  )
+}
+
 type Destino = 'banco' | 'ventas' | 'facturas'
 
 // ── Botón: al pulsar abre modal (archivos sueltos o carpeta); también admite
@@ -128,7 +150,7 @@ function BtnSubir({ label, sub, color, colorHover, onArchivos, preparando }: {
       onDrop={e => { if (bloqueado) return; e.preventDefault(); setOver(false); handleFiles(e.dataTransfer.files) }}
       onClick={() => { if (!bloqueado) setElegir(true) }}
       style={{
-        flex: 1, minWidth: 220, border: '3px solid #140f08', boxShadow: '4px 4px 0 #140f08',
+        flex: 1, minWidth: 160, border: '3px solid #140f08', boxShadow: '4px 4px 0 #140f08',
         background: over ? colorHover : color, cursor: bloqueado ? 'wait' : 'pointer',
         padding: '18px 14px', textAlign: 'center', userSelect: 'none', position: 'relative',
         transition: 'background 0.15s', opacity: bloqueado ? 0.6 : 1,
@@ -171,10 +193,38 @@ function BtnSubir({ label, sub, color, colorHover, onArchivos, preparando }: {
   )
 }
 
-export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: string; hasta: string; onProcesado?: () => void }) {
+export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?: string; onProcesado?: () => void }) {
   const { procesar } = useOcrUpload()
   const [preparando] = useState(false)
   const [verRechazados, setVerRechazados] = useState(false)
+  const [recogiendoCorreo, setRecogiendoCorreo] = useState(false)
+
+  // Recoge el buzón de correo al instante (no espera al cron). Acción directa: no sube archivos.
+  const recogerCorreo = async () => {
+    if (recogiendoCorreo) return
+    setRecogiendoCorreo(true)
+    const tid = toast.loading('Recogiendo correo…')
+    try {
+      const r = await fetch('/api/facturas?action=cartero')
+      const j = await r.json()
+      if (j.ok) {
+        const nFac = Number(j.nuevas) || 0
+        const dup = Number(j.duplicadas) || 0
+        const man = Number(j.lectura_manual) || 0
+        const partes = [`${nFac} nueva${nFac === 1 ? '' : 's'}`]
+        if (dup > 0) partes.push(`${dup} ya estaban`)
+        if (man > 0) partes.push(`${man} a revisar`)
+        toast.success(`Correo recogido · ${partes.join(' · ')}`, { id: tid })
+        onProcesado?.()
+      } else {
+        toast.error(j.error || 'No se pudo recoger el correo', { id: tid })
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Error de red al recoger el correo', { id: tid })
+    } finally {
+      setRecogiendoCorreo(false)
+    }
+  }
 
   const [modal, setModal] = useState<{ destino: Destino; archivos: File[]; rechazados: string[]; visible: boolean }>({ destino: 'facturas', archivos: [], rechazados: [], visible: false })
 
@@ -299,6 +349,11 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
           sub="Facturas de proveedores y plataformas. OCR, Drive y cruce con Conciliación."
           onArchivos={abrirModal('facturas')} preparando={preparando}
         />
+        <BtnCorreo
+          label="Correo" color="#6C4BD8" colorHover="#5636ab"
+          sub="Recoge el buzón ahora mismo, sin esperar al robot de las 07:00."
+          onClick={recogerCorreo} ocupado={recogiendoCorreo}
+        />
       </div>
       <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#140f08', marginBottom: 16, textAlign: 'center' }}>
         Si un documento entra por el botón equivocado, el sistema lo detecta por contenido, lo redirige solo y te avisa.
@@ -306,13 +361,6 @@ export default function BandejaEntrada({ desde, hasta, onProcesado }: { desde: s
 
       {/* ── Avisos autoaprendibles ── */}
       <AvisosBandeja onResuelto={() => onProcesado?.()} />
-
-      {/* Tres columnas: correo · salud OCR · chuleta plataformas */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, alignItems: 'stretch' }}>
-        <CardFacturasCorreo tipo="factura" desde={desde} hasta={hasta} onBarrido={() => onProcesado?.()} />
-        <CardSaludOcr />
-        <ChuletaPlataformas />
-      </div>
 
       {/* ── Modal único de confirmación ── */}
       {modal.visible && (
