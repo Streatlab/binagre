@@ -376,6 +376,10 @@ export default function Dashboard() {
   const ventasMes    = useMemo(() => data.filter(r => r.fecha.startsWith(currentMonth)).reduce((a,r) => a + (r.total_bruto || 0), 0), [data, currentMonth])
   const ventasAno    = useMemo(() => data.filter(r => r.fecha.startsWith(currentYear)).reduce((a,r) => a + (r.total_bruto || 0), 0), [data, currentYear])
 
+  const rowsHoy = useMemo(() => data.filter(r => r.fecha === hoy), [data, hoy])
+  const ventasHoy = useMemo(() => rowsHoy.reduce((a, r) => a + (r.total_bruto || 0), 0), [rowsHoy])
+  const pedidosHoy = useMemo(() => rowsHoy.reduce((a, r) => a + (r.total_pedidos || 0), 0), [rowsHoy])
+
   const diasPico = useMemo(() => {
     const vals = [0,0,0,0,0,0,0]
     for (const r of rowsPeriodo) {
@@ -448,6 +452,30 @@ export default function Dashboard() {
             color: '#fff', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontFamily: 'Lexend,sans-serif',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
           }}>{t.msg}</div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" style={{ marginBottom: 16 }}>
+        {[
+          { label: 'Ventas hoy', value: fmtEur(ventasHoy), color: NETO_GREEN, onClick: () => setMainTab('resumen') },
+          { label: 'Pedidos hoy', value: Math.round(pedidosHoy).toLocaleString('es-ES'), color: AMA, onClick: () => setMainTab('resumen') },
+          { label: 'Tareas atrasadas', value: String(tareasAtrasadas.length), color: tareasAtrasadas.length > 0 ? '#E24B4A' : NETO_GREEN, onClick: () => navigate('/tareas') },
+        ].map(hero => (
+          <button
+            key={hero.label}
+            onClick={hero.onClick}
+            style={{
+              textAlign: 'left', cursor: 'pointer', background: CREMA, border: `3px solid ${INK}`,
+              boxShadow: SHADOW, padding: '14px 18px',
+            }}
+          >
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK, opacity: 0.7 }}>
+              {hero.label}
+            </div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 28, color: hero.color, marginTop: 4 }}>
+              {hero.value}
+            </div>
+          </button>
         ))}
       </div>
 
