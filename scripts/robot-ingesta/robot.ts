@@ -1,57 +1,64 @@
 /**
  * Robot de ingesta diaria · Rushour + Sinqro → Supabase
- * ------------------------------------------------------
- * Descarga ventas del DÍA EN CURSO por marca/plataforma y las deja en
- * `ingesta_robot_diaria` (NO toca tablas de conciliación).
+ * FUENTES: Rushour = Uber + Glovo (agregado, solo total del día). Sinqro = Just Eat (por pedido, con hora).
+ * DEDUPE: Glovo se cuenta desde Rushour; de Sinqro solo Just Eat.
+ * TURNOS: comida = antes de las 17:00 (Madrid), cena = 17:00 en adelante.
+ * Escribe diagnóstico en `robot_log` para verificar sin descargar artefactos.
  *
- * CALIBRACIÓN (2026-07-07) con HTML real:
- *   RUSHOUR: manager.rushour.io/login · input[name=username]/password.
- *            Tras login aparece modal promocional "Evolve your brand". El panel
- *            "Real-time view" muestra "Turnover including VAT" y "Volume of
- *            orders". El modal NO usa display:none, así que innerText a veces no
- *            devuelve los KPIs → se leen recorriendo el DOM con textContent y
- *            emparejando cada etiqueta con el número € más cercano.
- *   SINQRO:  app.sinqro.com · #login-email/#login-password/#loginButton.
- *            Historial #/sp/6416/online/orders es AngularJS. Los pedidos NO están
- *            en una <table> (la única <table> es el datepicker). Cada pedido es un
- *            bloque ng-repeat="order in orders" con .orderClientBox (cliente) y
- *            .orderAmountBox (importe €). Los checkboxes de tipo de pedido están
- *            OCULTOS dentro de un <label>; se clica el label + evento change.
- *   FECHA:   Rushour/Sinqro muestran por defecto el día actual, así que se
- *            ingiere el día en curso (no ayer).
+ * NOTA: la lectura de los KPIs de Rushour se hace con LOCATORS de Playwright (en
+ * Node), NO con page.evaluate, porque tsx/esbuild inyecta el helper `__name` que
+ * no existe dentro del navegador y rompía el evaluate ("__name is not defined").
  */
 
 import { chromium, Browser, Page } from 'playwright';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const DIAG = process.env.DIAG === '1';
 const ART_DIR = './robot-artifacts';
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-function hoy(): string {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
+export type Toma = 'comida' | 'cena';
+export type Turno = 'comida' | 'cena' | 'dia';
+
+// ---------- Fecha/hora Madrid (el runner de Actions va en UTC) ----------
+export function fechaMadrid(offsetDias = 0): string {
+  const base = new Date(Date.now() + offsetDias * 86400000);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' }).format(base);
 }
-// Sinqro datepicker usa formato dd/mm/yyyy
-function ddmmyyyy(iso: string): string {
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
+export function horaMadridActual(): number {
+  const s = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', hour12: false }).format(new Date());
+  return parseInt(s, 10);
 }
+// Deriva la toma cuando no viene explícita (crons de calendario, sin inputs).
+// Ventana comida: 12h-19h Madrid (cubre 16:30 verano e invierno). Todo lo demás
+// (22h-03h aprox, cubre 23:00/00:00/01:00/02:00 verano+invierno) → cena. Así el
+// disparo "de más" que provoca el cambio de hora (los 4 crons están siempre
+// activos) cae en la ventana correcta en vez de romper el reparto.
+export function tomaPorHoraMadrid(): Toma {
+  const h = horaMadridActual();
+  return h >= 12 && h < 20 ? 'comida' : 'cena';
+}
+function ddmmyyyy(iso: string): string { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; }
 function ensureArtDir() { if (!existsSync(ART_DIR)) mkdirSync(ART_DIR, { recursive: true }); }
+function numES(s: string | null | undefined): number | null {
+  if (!s) return null;
+  const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
 async function diag(page: Page, etiqueta: string) {
   if (!DIAG) return;
   ensureArtDir();
   try {
     await page.screenshot({ path: `${ART_DIR}/${etiqueta}.png`, fullPage: true });
     writeFileSync(`${ART_DIR}/${etiqueta}.html`, await page.content());
-    console.log(`  · diagnóstico: ${etiqueta}`);
   } catch {}
 }
 
-type Fila = {
-  fecha: string; agregador: string; plataforma: string; marca: string;
+export type Fila = {
+  fecha: string; agregador: string; plataforma: string; marca: string; turno: Turno;
   pedidos: number | null; bruto: number | null; neto: number | null; ticket_medio: number | null;
 };
 
@@ -68,216 +75,268 @@ const SINQRO = {
   startDate: '#startDateFilter', endDate: '#endDateFilter',
 };
 
-// Cierra modales/overlays comunes (promos, cookies) que tapan el contenido.
 async function cerrarModales(page: Page) {
   const nombres = [/close/i, /cerrar/i, /no,? gracias/i, /aceptar/i, /got it/i, /entendido/i, /×/];
   for (const re of nombres) {
     await page.getByRole('button', { name: re }).first().click({ timeout: 1200 }).catch(() => {});
   }
-  // Botón "Close" del modal promocional de Rushour: el texto está dentro de un
-  // <span> hijo de <button>, así que se clica el button que lo contiene.
   await page.locator('button:has(span:text-is("Close"))').first().click({ timeout: 1500 }).catch(() => {});
   await page.getByRole('button', { name: 'Close', exact: true }).first().click({ timeout: 1500 }).catch(() => {});
-  await page.evaluate(() => {
-    const btns = Array.from(document.querySelectorAll('button'));
-    const b = btns.find((x) => (x.textContent || '').trim() === 'Close');
-    if (b) (b as HTMLButtonElement).click();
-  }).catch(() => {});
   await page.keyboard.press('Escape').catch(() => {});
 }
 
-// ---------- RUSHOUR ----------
-async function ingestaRushour(browser: Browser, fecha: string): Promise<Fila[]> {
-  if (!RUSHOUR.user || !RUSHOUR.pass) { console.warn('  ⚠ rushour: sin credenciales.'); return []; }
+export async function logRobot(fuente: string, estado: string, detalle: string) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  try {
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+    await sb.from('robot_log').insert([{ fuente, estado, detalle }]);
+  } catch {}
+}
+
+// Lee un KPI de Rushour con locators: localiza el <span> etiqueta, sube por sus
+// ancestros <div> (la card) y devuelve el primer valor numérico (con € para
+// importes, entero para volumen). Todo en Node → sin page.evaluate.
+async function leerKpiRushour(page: Page, etiqueta: RegExp, conEuro: boolean): Promise<number | null> {
+  const lbl = page.locator('span').filter({ hasText: etiqueta }).first();
+  if (!(await lbl.count().catch(() => 0))) return null;
+  for (const lvl of [2, 3, 1, 4]) {
+    const card = lbl.locator(`xpath=ancestor::div[${lvl}]`);
+    if (!(await card.count().catch(() => 0))) continue;
+    const spans = card.locator('span');
+    const total = await spans.count().catch(() => 0);
+    for (let i = 0; i < total; i++) {
+      const t = ((await spans.nth(i).textContent().catch(() => '')) || '').trim();
+      if (!/\d/.test(t)) continue;
+      if (conEuro ? /€/.test(t) : /^[\d.,]+$/.test(t)) {
+        const v = numES(t);
+        if (v != null) return v;
+      }
+    }
+  }
+  return null;
+}
+
+async function loginRushour(page: Page) {
+  await page.goto(RUSHOUR.loginUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+  await diag(page, 'rushour-01-login');
+  await page.waitForSelector(RUSHOUR.userInput, { timeout: 15000 });
+  await page.fill(RUSHOUR.userInput, RUSHOUR.user);
+  await page.fill(RUSHOUR.passInput, RUSHOUR.pass);
+  await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(RUSHOUR.submitBtn)]);
+  await page.waitForTimeout(4000);
+  await cerrarModales(page);
+  await page.waitForTimeout(1200);
+  await cerrarModales(page);
+  await page.waitForTimeout(800);
+  await diag(page, 'rushour-02-postlogin');
+}
+
+async function leerKpisConReintentos(page: Page): Promise<{ turnover: number | null; volumen: number | null }> {
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForSelector('span', { timeout: 10000 }).catch(() => {});
+  let turnover: number | null = null;
+  let volumen: number | null = null;
+  for (let intento = 1; intento <= 5; intento++) {
+    turnover = await leerKpiRushour(page, /Turnover/i, true);
+    volumen = await leerKpiRushour(page, /Volume of orders/i, false);
+    if (turnover != null || volumen != null) break;
+    await cerrarModales(page);
+    await page.waitForTimeout(2500);
+    if (intento === 2) {
+      await page.goto('https://manager.rushour.io/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForTimeout(3500);
+      await cerrarModales(page);
+      await page.waitForTimeout(1000);
+    }
+  }
+  return { turnover, volumen };
+}
+
+// Fila 'rushour/comida' de Supabase ya guardada para esa fecha (para restar en la toma de cena).
+async function leerComidaGuardada(sb: SupabaseClient | null, fecha: string): Promise<{ pedidos: number; bruto: number } | null> {
+  if (!sb) return null;
+  const { data } = await sb
+    .from('ingesta_robot_diaria')
+    .select('pedidos, bruto')
+    .eq('fecha', fecha).eq('agregador', 'rushour').eq('plataforma', 'uber_glovo').eq('marca', 'Streat Lab').eq('turno', 'comida')
+    .maybeSingle();
+  if (!data) return null;
+  return { pedidos: Number(data.pedidos) || 0, bruto: Number(data.bruto) || 0 };
+}
+
+// ---------- RUSHOUR (toma del día en curso) ----------
+export async function ingestaRushour(browser: Browser, fecha: string, toma: Toma): Promise<Fila[]> {
+  if (!RUSHOUR.user || !RUSHOUR.pass) { await logRobot('rushour', 'error', 'sin credenciales'); return []; }
   const page = await browser.newPage();
   try {
-    console.log('→ rushour: login…');
-    await page.goto(RUSHOUR.loginUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
-    await diag(page, 'rushour-01-login');
-    await page.waitForSelector(RUSHOUR.userInput, { timeout: 15000 });
-    await page.fill(RUSHOUR.userInput, RUSHOUR.user);
-    await page.fill(RUSHOUR.passInput, RUSHOUR.pass);
-    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(RUSHOUR.submitBtn)]);
-    await page.waitForTimeout(4000);
-    // Cerrar modal promocional "Evolve your brand" que tapa los KPIs.
-    await cerrarModales(page);
-    await page.waitForTimeout(1200);
-    await cerrarModales(page);
-    await page.waitForTimeout(800);
-    await diag(page, 'rushour-02-postlogin');
-
-    // Real-time view: recorrer el DOM (textContent, que SÍ ve el texto tapado por
-    // el modal) y emparejar cada etiqueta con el número que la acompaña.
-    const datos = await page.evaluate(() => {
-      const norm = (s: string | null | undefined) => {
-        if (!s) return null;
-        const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
-        return Number.isFinite(n) ? n : null;
-      };
-      // Texto completo del DOM (incluye lo que innerText oculta bajo el modal).
-      const full = (document.body.textContent || '').replace(/\s+/g, ' ');
-      const mT = full.match(/Turnover(?:\s+including\s+VAT)?[^\d]*([\d.,]+)\s*€/i);
-      const mV = full.match(/Volume of orders[^\d]*([\d.,]+)/i);
-      let turnover = norm(mT?.[1]);
-      let volumen = norm(mV?.[1]);
-      // Respaldo: buscar el nodo cuya etiqueta contenga "Turnover" y leer el
-      // primer número € de su bloque contenedor.
-      if (turnover == null) {
-        const nodos = Array.from(document.querySelectorAll('*'));
-        const lbl = nodos.find((n) => /turnover/i.test(n.textContent || '') && (n.childElementCount <= 3));
-        const cont = lbl?.closest('div,section,article') || lbl?.parentElement;
-        const m = (cont?.textContent || '').match(/([\d.,]+)\s*€/);
-        turnover = norm(m?.[1]);
-      }
-      return { turnover, volumen };
-    }).catch(() => ({ turnover: null as number | null, volumen: null as number | null }));
-    const turnover = datos.turnover;
-    const volumen = datos.volumen;
+    await loginRushour(page);
+    const { turnover, volumen } = await leerKpisConReintentos(page);
     await diag(page, 'rushour-03-report');
+    await logRobot('rushour', turnover != null ? 'ok' : 'vacio', `toma=${toma} turnover=${turnover} volumen=${volumen}`);
 
-    if (turnover == null && volumen == null) {
-      ensureArtDir(); writeFileSync(`${ART_DIR}/rushour-EMPTY.html`, await page.content());
-      console.warn('  ⚠ rushour: no se leyeron KPIs (revisar rushour-EMPTY.html).');
-      return [];
+    if (turnover == null && volumen == null) return [];
+
+    if (toma === 'comida') {
+      return [{
+        fecha, agregador: 'rushour', plataforma: 'uber_glovo', marca: 'Streat Lab', turno: 'comida',
+        pedidos: volumen, bruto: turnover, neto: null,
+        ticket_medio: turnover && volumen ? turnover / volumen : null,
+      }];
     }
-    console.log(`  ✓ rushour: turnover=${turnover} volumen=${volumen}`);
+
+    // toma === 'cena': el KPI de Rushour es el acumulado del día → restar lo ya
+    // guardado en el turno de comida para quedarnos solo con la franja de cena.
+    const sb = SUPABASE_URL && SUPABASE_KEY ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+    const comida = await leerComidaGuardada(sb, fecha);
+    if (!comida) {
+      return [{
+        fecha, agregador: 'rushour', plataforma: 'uber_glovo', marca: 'Streat Lab', turno: 'dia',
+        pedidos: volumen, bruto: turnover, neto: null,
+        ticket_medio: turnover && volumen ? turnover / volumen : null,
+      }];
+    }
+    const brutoCena = (turnover ?? 0) - comida.bruto;
+    const pedidosCena = (volumen ?? 0) - comida.pedidos;
+    if (brutoCena < 0 || pedidosCena < 0) {
+      await logRobot('rushour', 'aviso', `resta negativa cena (bruto=${brutoCena} pedidos=${pedidosCena}) → guardado como turno=dia con el total`);
+      return [{
+        fecha, agregador: 'rushour', plataforma: 'uber_glovo', marca: 'Streat Lab', turno: 'dia',
+        pedidos: volumen, bruto: turnover, neto: null,
+        ticket_medio: turnover && volumen ? turnover / volumen : null,
+      }];
+    }
     return [{
-      fecha, agregador: 'rushour', plataforma: 'uber_glovo', marca: 'Streat Lab',
-      pedidos: volumen, bruto: turnover, neto: null,
-      ticket_medio: turnover && volumen ? turnover / volumen : null,
+      fecha, agregador: 'rushour', plataforma: 'uber_glovo', marca: 'Streat Lab', turno: 'cena',
+      pedidos: pedidosCena, bruto: Math.round(brutoCena * 100) / 100, neto: null,
+      ticket_medio: pedidosCena ? Math.round((brutoCena / pedidosCena) * 100) / 100 : null,
     }];
   } catch (e: any) {
-    console.error(`  ✗ rushour: ${e?.message || e}`);
+    await logRobot('rushour', 'error', String(e?.message || e));
     await diag(page, 'rushour-ERROR');
     return [];
   } finally { await page.close(); }
 }
 
-// ---------- SINQRO ----------
-async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
-  if (!SINQRO.user || !SINQRO.pass) { console.warn('  ⚠ sinqro: sin credenciales.'); return []; }
+async function loginSinqro(page: Page) {
+  await page.goto(SINQRO.loginUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+  await diag(page, 'sinqro-01-login');
+  await page.waitForSelector(SINQRO.userInput, { timeout: 15000 });
+  await page.fill(SINQRO.userInput, SINQRO.user);
+  await page.fill(SINQRO.passInput, SINQRO.pass);
+  await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(SINQRO.submitBtn)]);
+  await page.waitForTimeout(3000);
+  await diag(page, 'sinqro-02-postlogin');
+}
+
+async function irAVentasSinqro(page: Page, fecha: string) {
+  await page.goto(SINQRO.ventasUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(3500);
+
+  for (const sel of SINQRO.tipoChecks) {
+    const chk = page.locator(sel).first();
+    if (!(await chk.count())) continue;
+    if (await chk.isChecked().catch(() => false)) continue;
+    const label = page.locator(`label:has(${sel})`).first();
+    if (await label.count()) { await label.click({ force: true }).catch(() => {}); }
+    else { await chk.click({ force: true }).catch(() => {}); }
+  }
+  await page.waitForTimeout(800);
+
+  const f = ddmmyyyy(fecha);
+  const sd = page.locator(SINQRO.startDate).first();
+  const ed = page.locator(SINQRO.endDate).first();
+  if (await sd.count()) { await sd.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
+  if (await ed.count()) { await ed.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
+
+  await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
+  await page.waitForTimeout(4000);
+}
+
+// Clasifica un texto de bloque de pedido en comida (<17:00) / cena (>=17:00) Madrid.
+// Busca "a las HH:MMh" (p.ej. "Entregar hoy a las 13:42h"). Si no encuentra hora, null.
+export function turnoDeTextoPedido(texto: string): Turno | null {
+  const m = texto.match(/(\d{1,2}):(\d{2})\s*h/);
+  if (!m) return null;
+  const horas = parseInt(m[1], 10);
+  return horas < 17 ? 'comida' : 'cena';
+}
+
+// ---------- SINQRO (una fecha completa: separa comida/cena por hora real del pedido) ----------
+export async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
+  if (!SINQRO.user || !SINQRO.pass) { await logRobot('sinqro', 'error', 'sin credenciales'); return []; }
   const page = await browser.newPage();
   try {
-    console.log('→ sinqro: login…');
-    await page.goto(SINQRO.loginUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
-    await diag(page, 'sinqro-01-login');
-    await page.waitForSelector(SINQRO.userInput, { timeout: 15000 });
-    await page.fill(SINQRO.userInput, SINQRO.user);
-    await page.fill(SINQRO.passInput, SINQRO.pass);
-    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(SINQRO.submitBtn)]);
-    await page.waitForTimeout(3000);
-    await diag(page, 'sinqro-02-postlogin');
-
-    await page.goto(SINQRO.ventasUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3500);
-
-    // 1) Marcar TODOS los tipos de pedido. AngularJS: clic en el <label> que
-    //    envuelve el checkbox oculto + disparar evento para actualizar ng-model.
-    for (const sel of SINQRO.tipoChecks) {
-      const chk = page.locator(sel).first();
-      if (!(await chk.count())) continue;
-      const yaMarcado = await chk.isChecked().catch(() => false);
-      if (yaMarcado) continue;
-      const label = page.locator(`label:has(${sel})`).first();
-      if (await label.count()) {
-        await label.click({ force: true }).catch(() => {});
-      } else {
-        await chk.click({ force: true }).catch(() => {});
-      }
-      await page.evaluate((id) => {
-        const el = document.getElementById(id) as HTMLInputElement | null;
-        if (el && !el.checked) {
-          el.checked = true;
-          el.dispatchEvent(new Event('click', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      }, sel.replace('#', '')).catch(() => {});
-    }
-    await page.waitForTimeout(800);
-
-    // 2) Rango de fechas = día en curso (formato dd/mm/yyyy del datepicker).
-    const f = ddmmyyyy(fecha);
-    const sd = page.locator(SINQRO.startDate).first();
-    const ed = page.locator(SINQRO.endDate).first();
-    if (await sd.count()) { await sd.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
-    if (await ed.count()) { await ed.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
-
-    // 3) Buscar.
-    await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
-    await page.waitForTimeout(4000);
+    await loginSinqro(page);
+    await irAVentasSinqro(page, fecha);
     await diag(page, 'sinqro-03-report');
 
-    // 4) Leer los pedidos (bloques ng-repeat="order in orders"), NO la <table>
-    //    del datepicker. Cada pedido: .orderClientBox (cliente) + .orderAmountBox (€).
-    const pedidos = await page.evaluate(() => {
-      const bloques = Array.from(document.querySelectorAll('[ng-repeat*="order in orders"]'));
-      return bloques.map((b) => {
-        const cli = (b.querySelector('.orderClientBox') as HTMLElement | null)?.textContent || '';
-        const amt = (b.querySelector('.orderAmountBox') as HTMLElement | null)?.textContent || '';
-        return { cliente: cli.replace(/\s+/g, ' ').trim(), importe: amt.replace(/\s+/g, ' ').trim() };
-      });
-    }).catch(() => [] as { cliente: string; importe: string }[]);
-
-    if (!pedidos.length) {
-      ensureArtDir(); writeFileSync(`${ART_DIR}/sinqro-EMPTY.html`, await page.content());
-      console.warn('  ⚠ sinqro: 0 pedidos (sin ventas hoy o estructura distinta; revisar sinqro-EMPTY.html).');
-      return [];
+    // Leer pedidos con locators (cada pedido = bloque ng-repeat "order in orders").
+    const bloques = page.locator('[ng-repeat*="order in orders"]');
+    const total = await bloques.count().catch(() => 0);
+    const pedidos: { cliente: string; importe: string; textoBloque: string }[] = [];
+    for (let i = 0; i < total; i++) {
+      const b = bloques.nth(i);
+      const cliente = ((await b.locator('.orderClientBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      const importe = ((await b.locator('.orderAmountBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      const textoBloque = ((await b.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      pedidos.push({ cliente, importe, textoBloque });
     }
 
-    // Agrupar por plataforma inferida del texto del pedido. Sinqro solo etiqueta
-    // con claridad JustEat; el resto (nombres de cliente reales) se agrupa como
-    // "sinqro_otros" para no inventar plataforma.
-    const norm = (s: string) => {
-      const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
-      return Number.isFinite(n) ? n : 0;
-    };
-    const acc = new Map<string, { pedidos: number; bruto: number }>();
+    if (!pedidos.length) { await logRobot('sinqro', 'vacio', 'pedidos_leidos=0'); return []; }
+
+    // DEDUPE: de Sinqro solo Just Eat (Glovo se cuenta desde Rushour).
+    const acc = new Map<Turno, { pedidos: number; bruto: number }>();
+    let sinHora = 0;
     for (const p of pedidos) {
       const t = `${p.cliente} ${p.importe}`.toLowerCase();
-      const plataforma = /glovo/.test(t) ? 'glovo'
-        : /just\s?eat/.test(t) ? 'just_eat'
-        : /uber/.test(t) ? 'uber_eats'
-        : 'sinqro_otros';
-      const cur = acc.get(plataforma) || { pedidos: 0, bruto: 0 };
-      cur.pedidos += 1;
-      cur.bruto += norm(p.importe);
-      acc.set(plataforma, cur);
+      if (!/just\s?eat/.test(t)) continue;
+      const turno = turnoDeTextoPedido(p.textoBloque);
+      if (!turno) { sinHora++; continue; } // sin hora legible: no se inventa turno, se descarta del reparto
+      const cur = acc.get(turno) || { pedidos: 0, bruto: 0 };
+      cur.pedidos += 1; cur.bruto += (numES(p.importe) || 0);
+      acc.set(turno, cur);
     }
-    const out: Fila[] = Array.from(acc.entries()).map(([plataforma, v]) => ({
-      fecha, agregador: 'sinqro', plataforma, marca: 'Streat Lab',
+    const out: Fila[] = Array.from(acc.entries()).map(([turno, v]) => ({
+      fecha, agregador: 'sinqro', plataforma: 'just_eat', marca: 'Streat Lab', turno,
       pedidos: v.pedidos, bruto: Math.round(v.bruto * 100) / 100, neto: null,
       ticket_medio: v.pedidos ? Math.round((v.bruto / v.pedidos) * 100) / 100 : null,
     }));
-    console.log(`  ✓ sinqro: ${pedidos.length} pedidos → ${out.length} filas por plataforma`);
+    await logRobot('sinqro', 'ok', `pedidos_leidos=${pedidos.length} filas_justeat=${out.length} sin_hora=${sinHora}`);
     return out;
   } catch (e: any) {
-    console.error(`  ✗ sinqro: ${e?.message || e}`);
+    await logRobot('sinqro', 'error', String(e?.message || e));
     await diag(page, 'sinqro-ERROR');
     return [];
   } finally { await page.close(); }
 }
 
-// ---------- Guardar ----------
-async function guardar(filas: Fila[]) {
-  if (!filas.length) { console.log('Nada que guardar.'); return; }
-  if (!SUPABASE_URL || !SUPABASE_KEY) { console.warn('⚠ Faltan credenciales Supabase.'); return; }
+export async function guardar(filas: Fila[]) {
+  if (!filas.length) { await logRobot('guardar', 'vacio', '0 filas'); return; }
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-  const { error } = await sb.from('ingesta_robot_diaria').upsert(filas, { onConflict: 'fecha,agregador,plataforma,marca' });
-  if (error) { console.error('✗ Error Supabase:', error.message); process.exitCode = 1; }
-  else console.log(`✓ Guardadas ${filas.length} filas.`);
+  const { error } = await sb.from('ingesta_robot_diaria').upsert(filas, { onConflict: 'fecha,agregador,plataforma,marca,turno' });
+  if (error) { await logRobot('guardar', 'error', error.message); process.exitCode = 1; }
+  else { await logRobot('guardar', 'ok', `${filas.length} filas`); }
 }
 
 async function main() {
-  const fecha = hoy();
-  console.log(`== Robot ingesta diaria · fecha=${fecha} · DIAG=${DIAG ? 'on' : 'off'} ==`);
+  const toma: Toma = process.env.TOMA === 'comida' ? 'comida' : (process.env.TOMA === 'cena' ? 'cena' : tomaPorHoraMadrid());
+  const fecha = process.env.FECHA || (toma === 'cena' ? fechaMadrid(-1) : fechaMadrid(0));
+  await logRobot('main', 'inicio', `toma=${toma} fecha=${fecha}`);
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   try {
-    const rush = await ingestaRushour(browser, fecha);
+    const rush = await ingestaRushour(browser, fecha, toma);
     const sinq = await ingestaSinqro(browser, fecha);
     await guardar([...rush, ...sinq]);
   } finally { await browser.close(); }
-  console.log('== Fin ==');
 }
-main().catch((e) => { console.error(e); process.exit(1); });
+
+// Solo se auto-ejecuta cuando este archivo es el punto de entrada directo
+// (tsx robot.ts), nunca cuando backfill.ts lo importa como módulo.
+const esEntryPoint = !!process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+if (esEntryPoint) {
+  main().catch((e) => { console.error(e); process.exit(1); });
+}
