@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNum } from '@/utils/format'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -73,7 +74,7 @@ const cardStyle = {
   background: 'var(--sl-card-alt)',
   border: '1px solid var(--sl-border)',
   borderRadius: 10,
-  padding: '18px 20px',
+  padding: 'clamp(14px,3vw,20px)',
 } as const
 
 const labelStyle = {
@@ -87,7 +88,7 @@ const labelStyle = {
 
 const bigStyle = {
   fontFamily: 'Oswald, sans-serif',
-  fontSize: 28,
+  fontSize: 'clamp(20px,6vw,28px)',
   fontWeight: 700,
   lineHeight: 1.1,
   color: 'var(--sl-text-primary)',
@@ -98,6 +99,7 @@ const mutedStyle = { color: 'var(--sl-text-muted)', fontSize: 11, fontFamily: 'L
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function PanelDireccion() {
+  const isMobile = useIsMobile()
   const [diario, setDiario] = useState<DiarioRow[]>([])
   const [cobertura, setCobertura] = useState<KpiCobertura | null>(null)
   const [gastosFijos, setGastosFijos] = useState<GastoFijo[]>([])
@@ -321,7 +323,7 @@ export default function PanelDireccion() {
         display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8,
       }}>
         <span style={{ fontSize: 14, flexShrink: 0 }}>{iconoMap[a.nivel]}</span>
-        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-primary)', lineHeight: 1.4 }}>
+        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#fff', lineHeight: 1.4 }}>
           {a.texto}
         </span>
       </div>
@@ -348,12 +350,12 @@ export default function PanelDireccion() {
   }
 
   return (
-    <div style={{ fontFamily: 'Lexend, sans-serif', background: 'var(--sl-app)', minHeight: '100vh', padding: '24px 20px', color: 'var(--sl-text-primary)' }}>
+    <div style={{ fontFamily: 'Lexend, sans-serif', background: 'var(--sl-app)', minHeight: '100vh', padding: isMobile ? '16px 12px' : '24px 20px', color: 'var(--sl-text-primary)' }}>
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginBottom: 28 }}>
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-primary)' }}>
+        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 'clamp(18px,5.5vw,26px)', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-primary)' }}>
             Panel de Dirección
           </div>
           <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-muted)', marginTop: 2, textTransform: 'capitalize' }}>
@@ -375,7 +377,7 @@ export default function PanelDireccion() {
           onClick={cargar}
           style={{
             background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8,
-            padding: '9px 20px', fontFamily: 'Oswald, sans-serif', fontSize: 13,
+            padding: '12px 20px', minHeight: 44, fontFamily: 'Oswald, sans-serif', fontSize: 13,
             letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer',
           }}
         >
@@ -390,7 +392,7 @@ export default function PanelDireccion() {
         <div style={cardStyle}>
           <div style={labelStyle}>Ventas esta semana</div>
           <div style={bigStyle}>{fmtEur(ventasSemActual)}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
             {renderDelta(varVentas)}
             <span style={mutedStyle}>vs sem. ant. ({fmtEur(ventasSemAnterior)})</span>
           </div>
@@ -400,7 +402,7 @@ export default function PanelDireccion() {
         <div style={cardStyle}>
           <div style={labelStyle}>Ticket medio esta semana</div>
           <div style={bigStyle}>{ticketSemActual > 0 ? fmtEur(ticketSemActual) : '—'}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
             {renderDelta(varTicket)}
             <span style={mutedStyle}>vs sem. ant. ({ticketSemAnterior > 0 ? fmtEur(ticketSemAnterior) : '—'})</span>
           </div>
@@ -469,7 +471,7 @@ export default function PanelDireccion() {
       <div style={cardStyle}>
         <div style={{ ...labelStyle, marginBottom: 16 }}>Resumen semanal — últimas 4 semanas</div>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13, minWidth: 520 }}>
             <thead>
               <tr>
                 {['Semana', 'Ventas brutas', 'Pedidos', 'Ticket medio', 'Variación %'].map(h => (
@@ -478,7 +480,7 @@ export default function PanelDireccion() {
                     textAlign: h === 'Semana' ? 'left' : 'right',
                     fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px',
                     textTransform: 'uppercase', color: 'var(--sl-text-muted)',
-                    borderBottom: '1px solid var(--sl-border)',
+                    borderBottom: '1px solid var(--sl-border)', whiteSpace: 'nowrap',
                   }}>
                     {h}
                   </th>
@@ -492,20 +494,20 @@ export default function PanelDireccion() {
                     padding: '10px 12px',
                     color: i === 0 ? '#e8f442' : 'var(--sl-text-primary)',
                     borderBottom: '1px solid var(--sl-border)',
-                    fontWeight: i === 0 ? 600 : 400,
+                    fontWeight: i === 0 ? 600 : 400, whiteSpace: 'nowrap',
                   }}>
                     {sem.label}{i === 0 ? ' ★' : ''}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--sl-text-primary)', borderBottom: '1px solid var(--sl-border)', fontFamily: 'Oswald, sans-serif' }}>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--sl-text-primary)', borderBottom: '1px solid var(--sl-border)', fontFamily: 'Oswald, sans-serif', whiteSpace: 'nowrap' }}>
                     {fmtEur(sem.ventas)}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--sl-btn-cancel-text)', borderBottom: '1px solid var(--sl-border)' }}>
                     {Math.round(sem.pedidos).toLocaleString('es-ES')}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--sl-btn-cancel-text)', borderBottom: '1px solid var(--sl-border)' }}>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--sl-btn-cancel-text)', borderBottom: '1px solid var(--sl-border)', whiteSpace: 'nowrap' }}>
                     {sem.ticket > 0 ? fmtEur(sem.ticket) : '—'}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', borderBottom: '1px solid var(--sl-border)' }}>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', borderBottom: '1px solid var(--sl-border)', whiteSpace: 'nowrap' }}>
                     {sem.variacion === null
                       ? <span style={{ color: 'var(--sl-text-muted)' }}>—</span>
                       : <span style={{ color: sem.variacion >= 0 ? '#1D9E75' : '#B01D23' }}>
