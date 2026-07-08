@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useTheme, FONT, pageTitleStyle, groupStyle, cardStyle } from '@/styles/tokens'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { fmtEur } from '@/utils/format'
 
 interface Inventario {
@@ -35,6 +36,7 @@ type Vista = 'lista' | 'nuevo' | 'detalle'
 export default function CocinaInventario() {
   const { T } = useTheme()
   const { usuario } = useAuth()
+  const isMobile = useIsMobile()
 
   const [vista, setVista] = useState<Vista>('lista')
   const [inventarios, setInventarios] = useState<Inventario[]>([])
@@ -195,12 +197,12 @@ export default function CocinaInventario() {
   // ─── RENDER LISTA ─────────────────────────────────────────────────────────
   if (vista === 'lista') {
     return (
-      <div style={{ background: 'var(--sl-app)', minHeight: '100vh', padding: '24px 28px' }}>
+      <div style={{ background: 'var(--sl-app)', minHeight: '100vh', padding: isMobile ? '16px 12px' : '24px 28px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', textTransform: 'uppercase', color: '#B01D23', margin: 0 }}>
+          <h1 style={{ fontFamily: FONT.heading, fontSize: 'clamp(16px,5vw,22px)', letterSpacing: '3px', textTransform: 'uppercase', color: '#B01D23', margin: 0 }}>
             Inventario Cocina
           </h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{
               padding: '4px 12px',
               borderRadius: 6,
@@ -291,20 +293,20 @@ export default function CocinaInventario() {
   if (vista === 'detalle' && inventarioActivo) {
     const totalCoste = lineasDetalle.reduce((s, l) => s + ((l.cantidad ?? 0) * (l.coste_unitario ?? 0)), 0)
     return (
-      <div style={{ background: 'var(--sl-app)', minHeight: '100vh', padding: '24px 28px' }}>
+      <div style={{ background: 'var(--sl-app)', minHeight: '100vh', padding: isMobile ? '16px 12px' : '24px 28px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
           <button onClick={() => setVista('lista')} style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid var(--sl-border)', background: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', minHeight: 36 }}>
             ← Volver
           </button>
           <div>
-            <h2 style={{ fontFamily: FONT.heading, fontSize: 18, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', margin: 0 }}>
+            <h2 style={{ fontFamily: FONT.heading, fontSize: 'clamp(15px,4.5vw,18px)', letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', margin: 0 }}>
               Inventario {new Date(inventarioActivo.fecha + 'T12:00:00').toLocaleDateString('es-ES')}
             </h2>
             <div style={{ fontFamily: FONT.body, fontSize: 12, color: 'var(--sl-text-muted)', marginTop: 2 }}>
               {inventarioActivo.usuario} · <span style={{ color: inventarioActivo.estado === 'ABIERTO' ? '#e8f442' : '#1D9E75' }}>{inventarioActivo.estado}</span>
             </div>
           </div>
-          <div style={{ marginLeft: 'auto', fontFamily: FONT.heading, fontSize: 14, color: 'var(--sl-text-primary)', letterSpacing: '1px' }}>
+          <div style={{ marginLeft: isMobile ? 0 : 'auto', width: isMobile ? '100%' : undefined, fontFamily: FONT.heading, fontSize: 14, color: 'var(--sl-text-primary)', letterSpacing: '1px' }}>
             Total coste: <span style={{ color: '#e8f442' }}>{fmtEur(totalCoste)}</span>
           </div>
         </div>
@@ -346,12 +348,12 @@ export default function CocinaInventario() {
 
   // ─── RENDER NUEVO ──────────────────────────────────────────────────────────
   return (
-    <div style={{ background: 'var(--sl-app)', minHeight: '100vh', padding: '24px 28px' }}>
+    <div style={{ background: 'var(--sl-app)', minHeight: '100vh', padding: isMobile ? '16px 12px' : '24px 28px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
         <button onClick={() => setVista('lista')} style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid var(--sl-border)', background: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', minHeight: 36 }}>
           ← Volver
         </button>
-        <h2 style={{ fontFamily: FONT.heading, fontSize: 18, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', margin: 0 }}>
+        <h2 style={{ fontFamily: FONT.heading, fontSize: 'clamp(15px,4.5vw,18px)', letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', margin: 0 }}>
           Nuevo inventario
         </h2>
       </div>
