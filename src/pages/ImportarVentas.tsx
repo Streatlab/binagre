@@ -156,7 +156,7 @@ export default function ImportarVentas() {
   const fmtEur = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div style={{ padding: '28px', maxWidth: 960 }}>
+    <div style={{ padding: 'clamp(14px,3vw,28px)', maxWidth: 960 }}>
       <h2 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 22, fontWeight: 500, color: 'var(--sl-text-primary)', marginBottom: 6 }}>
         Importar datos de ventas
       </h2>
@@ -170,7 +170,7 @@ export default function ImportarVentas() {
         <select
           value={tipo}
           onChange={e => { setTipo(e.target.value as TipoCSV); setDatos(null); setError(null); setResultado(null); setFileName(null); }}
-          style={{ padding: '8px 12px', borderRadius: 6, border: '0.5px solid var(--sl-border)', fontSize: 14, background: 'var(--sl-card)', minWidth: 300 }}
+          style={{ padding: '10px 12px', minHeight: 44, borderRadius: 6, border: '0.5px solid var(--sl-border)', fontSize: 14, background: 'var(--sl-card)', minWidth: 0, width: '100%', maxWidth: 340, boxSizing: 'border-box' }}
         >
           {[1,2,3,4].map(fase => (
             <optgroup key={fase} label={`Fase ${fase}${fase === 1 ? ' — Activo' : ''}`}>
@@ -188,9 +188,9 @@ export default function ImportarVentas() {
       </div>
 
       {/* Upload */}
-      <div style={{ border: '2px dashed var(--sl-border)', borderRadius: 16, padding: 32, textAlign: 'center', background: 'var(--sl-card)', marginBottom: 20 }}>
+      <div style={{ border: '2px dashed var(--sl-border)', borderRadius: 16, padding: 'clamp(18px,4vw,32px)', textAlign: 'center', background: 'var(--sl-card)', marginBottom: 20 }}>
         <input type="file" accept=".csv" onChange={handleFile} style={{ display: 'none' }} id="csv-upload" key={tipo} />
-        <label htmlFor="csv-upload" style={{ cursor: 'pointer', padding: '10px 24px', background: '#B01D23', color: '#fff', borderRadius: 6, fontSize: 14, fontWeight: 500 }}>
+        <label htmlFor="csv-upload" style={{ cursor: 'pointer', display: 'inline-block', padding: '13px 24px', background: '#B01D23', color: '#fff', borderRadius: 6, fontSize: 14, fontWeight: 500 }}>
           Seleccionar CSV
         </label>
         {fileName && <p style={{ marginTop: 12, fontSize: 13, color: 'var(--sl-text-muted)' }}>📄 {fileName}</p>}
@@ -214,7 +214,7 @@ export default function ImportarVentas() {
       {datos && (
         <>
           <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 10, overflow: 'auto', marginBottom: 20 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
               <thead>
                 <tr style={{ background: 'var(--sl-app)' }}>
                   {datos.kind === 'prime' && <>
@@ -311,11 +311,11 @@ export default function ImportarVentas() {
 
           <div style={{ display: 'flex', gap: 12 }}>
             <button onClick={handleGuardar} disabled={guardando}
-              style={{ padding: '10px 24px', background: guardando ? 'var(--sl-text-muted)' : '#1D9E75', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 500, cursor: guardando ? 'default' : 'pointer' }}>
+              style={{ padding: '12px 24px', minHeight: 44, background: guardando ? 'var(--sl-text-muted)' : '#1D9E75', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 500, cursor: guardando ? 'default' : 'pointer' }}>
               {guardando ? 'Guardando...' : `Confirmar (${datos.data.length} platos${datos.kind === 'plato' && datos.franjas?.length ? ` + ${datos.franjas.length} franjas` : ''})`}
             </button>
             <button onClick={handleCancelar}
-              style={{ padding: '10px 24px', background: 'var(--sl-app)', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }}>
+              style={{ padding: '12px 24px', minHeight: 44, background: 'var(--sl-app)', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }}>
               Cancelar
             </button>
           </div>
