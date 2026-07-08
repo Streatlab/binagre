@@ -6,6 +6,7 @@ import {
   cardStyle,
   FONT,
 } from '@/styles/tokens'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 // ─── TIPOS ───────────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ const CATEGORIAS = ['Entrante','Principal','Postre','Bebida','Guarnición','Sals
 
 export default function CocinaRecetas() {
   const { T, isDark } = useTheme()
+  const isMobile = useIsMobile()
   const [recetas, setRecetas] = useState<Receta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -132,7 +134,7 @@ export default function CocinaRecetas() {
   if (error) return <div style={{ padding: 32, color: '#E24B4A', fontFamily: FONT.body }}>{error}</div>
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16, height: '100%', minHeight: '80vh' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '320px 1fr', gap: 16, height: '100%', minHeight: '80vh', padding: isMobile ? 12 : 0 }}>
 
       {/* LISTA IZQUIERDA */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -161,7 +163,7 @@ export default function CocinaRecetas() {
         </div>
 
         {/* Lista */}
-        <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ overflowY: 'auto', flex: 1, maxHeight: isMobile ? '42vh' : undefined, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {recetasFiltradas.map(r => {
             const isSelected = selected?.id === r.id
             const tieneElaboracion = !!r.elaboracion
@@ -203,7 +205,7 @@ export default function CocinaRecetas() {
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
             <div>
-              <div style={{ fontFamily: FONT.heading, fontSize: 20, letterSpacing: '2px', textTransform: 'uppercase', color: "#B01D23", marginBottom: 4 }}>
+              <div style={{ fontFamily: FONT.heading, fontSize: 'clamp(15px,4.5vw,20px)', letterSpacing: '2px', textTransform: 'uppercase', color: "#B01D23", marginBottom: 4, wordBreak: 'break-word' }}>
                 {selected.nombre}
               </div>
               <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
@@ -213,7 +215,7 @@ export default function CocinaRecetas() {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {!editMode ? (
-                <button onClick={() => setEditMode(true)} style={{ padding: '6px 14px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}>
+                <button onClick={() => setEditMode(true)} style={{ padding: '10px 16px', minHeight: 44, borderRadius: 8, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}>
                   Editar
                 </button>
               ) : (
@@ -249,7 +251,8 @@ export default function CocinaRecetas() {
             {loadingLineas ? (
               <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>Cargando…</div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body, fontSize: 13 }}>
+              <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body, fontSize: 13, minWidth: 320 }}>
                 <thead>
                   <tr style={{ borderBottom: `0.5px solid ${T.brd}` }}>
                     <th style={{ textAlign: 'left', padding: '4px 8px', color: T.mut, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 400 }}>Ingrediente</th>
@@ -267,6 +270,7 @@ export default function CocinaRecetas() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
 
