@@ -1,34 +1,83 @@
 {
   "rewrites": [
-    { "source": "/api/ocr-queue", "destination": "/api/ocr-cleanup?fn=queue" },
-    { "source": "/api/oauth/google/start", "destination": "/api/oauth/google?action=start" },
-    { "source": "/api/oauth/google/connect", "destination": "/api/oauth/google?action=connect" },
-    { "source": "/api/oauth/google/status", "destination": "/api/oauth/google?action=status" },
-    { "source": "/api/oauth/google/disconnect", "destination": "/api/oauth/google?action=disconnect" },
-    { "source": "/api/oauth/google/callback", "destination": "/api/oauth/google?action=callback" },
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/ocr-queue",
+      "destination": "/api/ocr-cleanup?fn=queue"
+    },
+    {
+      "source": "/api/oauth/google/start",
+      "destination": "/api/oauth/google?action=start"
+    },
+    {
+      "source": "/api/oauth/google/connect",
+      "destination": "/api/oauth/google?action=connect"
+    },
+    {
+      "source": "/api/oauth/google/status",
+      "destination": "/api/oauth/google?action=status"
+    },
+    {
+      "source": "/api/oauth/google/disconnect",
+      "destination": "/api/oauth/google?action=disconnect"
+    },
+    {
+      "source": "/api/oauth/google/callback",
+      "destination": "/api/oauth/google?action=callback"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
       ]
     },
     {
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     }
   ],
   "crons": [
-    { "path": "/api/facturas?action=cartero", "schedule": "0 5 * * *" },
-    { "path": "/api/facturas?action=archivar-pendientes", "schedule": "0 6 * * *" },
-    { "path": "/api/facturas?action=reproc", "schedule": "30 6 * * *" },
-    { "path": "/api/facturas?action=extraer-lineas", "schedule": "0 */2 * * *" },
-    { "path": "/api/ocr-queue", "schedule": "0 7 * * *" },
-    { "path": "/api/ocr-cleanup", "schedule": "0 3 * * 0" }
-  ]
+    {
+      "path": "/api/facturas?action=cartero",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/facturas?action=archivar-pendientes",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/facturas?action=reproc",
+      "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/ocr-queue",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/ocr-cleanup",
+      "schedule": "0 3 * * 0"
+    }
+  ],
+  "functions": {
+    "api/**/*.ts": {
+      "includeFiles": "node_modules/pdfjs-dist/legacy/build/**"
+    }
+  }
 }
