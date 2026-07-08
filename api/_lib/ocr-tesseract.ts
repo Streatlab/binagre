@@ -18,6 +18,12 @@
 // pdfjs de una versión distinta a la API importada aquí. Fix: antes de abrir
 // el documento, forzamos que el worker sea EXACTAMENTE el del mismo paquete
 // que la API (resolución local por createRequire), garantizando versión idéntica.
+//
+// FIX 08/07/26: el .mjs del worker no lo traza el bundler de Vercel, así que
+// createRequire lanzaba "Cannot find module" y el workerSrc heredado (4.6.82)
+// seguía puesto -> mismatch y 0 facturas escaneadas leídas. Dos cambios:
+//   1) vercel.json incluye node_modules/pdfjs-dist/legacy/build/** en la función.
+//   2) si aun así no resuelve, limpiamos workerSrc en vez de dejar el heredado.
 
 const MAX_PAGINAS_OCR = 3      // facturas suelen ser 1-2 pág; tope anti-timeout
 const ESCALA_RASTER = 2.0      // 2x: legibilidad sin disparar memoria
@@ -45,8 +51,7 @@ export async function ocrImagen(buffer: Buffer): Promise<string> {
 
 // FIX 04/07/26: alinear API y worker de pdfjs al MISMO paquete instalado.
 // Sin esto, un workerSrc "heredado" de otro módulo (versión distinta) rompe
-// TODO el rasterizado con mismatch de versiones. Best-effort: si la resolución
-// falla, se deja lo que haya (y el catch general degrada a lectura manual).
+// TODO el rasterizado con mismatch de versiones.
 async function alinearWorkerPdfjs(pdfjs: any): Promise<void> {
   try {
     const { createRequire } = await import('node:module')
@@ -59,7 +64,17 @@ async function alinearWorkerPdfjs(pdfjs: any): Promise<void> {
       try { pdfjs.GlobalWorkerOptions.workerPort = null } catch { /* noop */ }
     }
   } catch (e) {
-    console.error('[alinearWorkerPdfjs] no se pudo fijar workerSrc:', e instanceof Error ? e.message : String(e))
+    // FIX 08/07/26: si el .mjs del worker no viaja en el bundle serverless,
+    // NO dejar el workerSrc heredado de otra version (causaba el mismatch
+    // 4.10.38 vs 4.6.82 y tumbaba TODO el OCR de PDF escaneado). Limpiarlo
+    // fuerza a pdfjs a usar su fake worker en Node: mas lento, pero funciona.
+    try {
+      if (pdfjs?.GlobalWorkerOptions) {
+        pdfjs.GlobalWorkerOptions.workerSrc = ''
+        pdfjs.GlobalWorkerOptions.workerPort = null
+      }
+    } catch { /* noop */ }
+    console.error('[alinearWorkerPdfjs] workerSrc no resuelto, fake worker:', e instanceof Error ? e.message : String(e))
   }
 }
 
