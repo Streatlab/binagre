@@ -32,6 +32,38 @@ export interface Reclamacion {
   factura_descuento_id: string | null;
   factura_cobro_id: string | null;
   resolucion_notas: string | null;
+  pedido_plataforma_id: string | null;
+  factura_origen_ref: string | null;
+  pedido_verificado: boolean | null;
+}
+
+// Resultado de verificar un pedido en pedidos_plataforma
+export interface PedidoVerificado {
+  encontrado: boolean;
+  plataforma: string | null;
+  marca: string | null;
+  fecha: string | null;
+  factura_origen: string | null;
+  importe_pedido: number | null;
+}
+
+// Busca el pedido por su código entre los pedidos reales de plataforma.
+export async function verificarPedido(ref: string): Promise<PedidoVerificado> {
+  const clean = ref.trim().replace(/^#/, '');
+  if (!clean) return { encontrado: false, plataforma: null, marca: null, fecha: null, factura_origen: null, importe_pedido: null };
+  const { data, error } = await supabase.rpc('fn_buscar_pedido_reembolso', { p_ref: clean });
+  if (error || !data || (Array.isArray(data) && data.length === 0)) {
+    return { encontrado: false, plataforma: null, marca: null, fecha: null, factura_origen: null, importe_pedido: null };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    encontrado: true,
+    plataforma: row.plataforma ?? null,
+    marca: row.marca ?? null,
+    fecha: row.fecha ?? null,
+    factura_origen: row.factura_origen ?? null,
+    importe_pedido: row.importe_pedido ?? null,
+  };
 }
 
 export type NuevaReclamacion = Omit<Reclamacion, 'id' | 'created_at' | 'updated_at'>;

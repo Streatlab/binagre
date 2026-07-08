@@ -376,6 +376,10 @@ export default function Dashboard() {
   const ventasMes    = useMemo(() => data.filter(r => r.fecha.startsWith(currentMonth)).reduce((a,r) => a + (r.total_bruto || 0), 0), [data, currentMonth])
   const ventasAno    = useMemo(() => data.filter(r => r.fecha.startsWith(currentYear)).reduce((a,r) => a + (r.total_bruto || 0), 0), [data, currentYear])
 
+  const rowsHoy = useMemo(() => data.filter(r => r.fecha === hoy), [data, hoy])
+  const ventasHoy = useMemo(() => rowsHoy.reduce((a, r) => a + (r.total_bruto || 0), 0), [rowsHoy])
+  const pedidosHoy = useMemo(() => rowsHoy.reduce((a, r) => a + (r.total_pedidos || 0), 0), [rowsHoy])
+
   const diasPico = useMemo(() => {
     const vals = [0,0,0,0,0,0,0]
     for (const r of rowsPeriodo) {
@@ -453,18 +457,18 @@ export default function Dashboard() {
 
       {!bannerDismissed && tareasAtrasadas.length > 0 && (
         <div style={{
-          background: '#fff3cd', border: '1px solid #ffc107', borderRadius: 8, padding: '8px 16px', marginBottom: 12,
-          display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111111', position: 'relative',
+          background: '#f5a62318', border: '1px solid #f5a62355', borderRadius: 8, padding: '8px 16px', marginBottom: 12,
+          display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-primary)', position: 'relative',
         }}>
           <span style={{ flexShrink: 0, fontSize: 14 }}>⚠️</span>
           <span style={{ flex: 1, fontSize: 13 }}>
             Tienes pendiente subir: <strong>{tareasAtrasadas.join(', ')}</strong>.
           </span>
           <button onClick={() => navigate('/importador')}
-            style={{ background: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}
+            style={{ background: '#B01D23', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}
           >Ir al Importador</button>
           <button onClick={dismissBanner}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: 16, padding: '0 4px', flexShrink: 0, lineHeight: 1 }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--sl-text-muted)', fontSize: 16, padding: '0 4px', flexShrink: 0, lineHeight: 1 }}
             title="Cerrar"
           >×</button>
         </div>
@@ -491,12 +495,12 @@ export default function Dashboard() {
 
           <div style={{ position:'relative', flexShrink:0 }} data-drop="marca">
             <button onClick={() => { setDropMarcaOpen(p => !p); setDropCanalOpen(false) }}
-              style={{ padding:'9px 14px', borderRadius:0, border:`3px solid ${INK}`, background:'#fff', color:INK, fontSize:14, fontFamily:LEX, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', boxShadow:SHADOW }}
+              style={{ padding:'9px 14px', borderRadius:0, border:`3px solid ${INK}`, background:'var(--sl-card)', color:INK, fontSize:14, fontFamily:LEX, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', boxShadow:SHADOW }}
             >
               <span>{marcasFiltro.length === 0 ? 'Todas las marcas' : marcasFiltro.length === 1 ? marcasFiltro[0] : `${marcasFiltro.length} marcas`}</span><ChevronDown size={14} strokeWidth={3} style={{ marginLeft: 2 }} />
             </button>
             {dropMarcaOpen && (
-              <div style={{ position:'absolute', right:0, top:50, background:'#fff', border:`3px solid ${INK}`, borderRadius:0, width:220, zIndex:10, boxShadow:SHADOW, overflow:'hidden', maxHeight:340, overflowY:'auto' }}>
+              <div style={{ position:'absolute', right:0, top:50, background:'var(--sl-card)', border:`3px solid ${INK}`, borderRadius:0, width:220, zIndex:10, boxShadow:SHADOW, overflow:'hidden', maxHeight:340, overflowY:'auto' }}>
                 {(marcasBD.length > 0 ? marcasBD : ['Streat Lab']).map(m => {
                   const sel = marcasFiltro.includes(m)
                   return (
@@ -514,12 +518,12 @@ export default function Dashboard() {
 
           <div style={{ position:'relative', flexShrink:0 }} data-drop="canal">
             <button onClick={() => { setDropCanalOpen(p => !p); setDropMarcaOpen(false) }}
-              style={{ padding:'9px 14px', borderRadius:0, border:`3px solid ${INK}`, background:'#fff', color:INK, fontSize:14, fontFamily:LEX, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', boxShadow:SHADOW }}
+              style={{ padding:'9px 14px', borderRadius:0, border:`3px solid ${INK}`, background:'var(--sl-card)', color:INK, fontSize:14, fontFamily:LEX, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap', boxShadow:SHADOW }}
             >
               <span>{canalesFiltro.length === 0 ? 'Canales' : canalesFiltro.length === 1 ? CANALES.find(c => c.id === canalesFiltro[0])?.label ?? 'Canales' : `${canalesFiltro.length} canales`}</span><ChevronDown size={14} strokeWidth={3} style={{ marginLeft: 2 }} />
             </button>
             {dropCanalOpen && (
-              <div style={{ position:'absolute', right:0, top:50, background:'#fff', border:`3px solid ${INK}`, borderRadius:0, width:220, zIndex:10, boxShadow:SHADOW, overflow:'hidden' }}>
+              <div style={{ position:'absolute', right:0, top:50, background:'var(--sl-card)', border:`3px solid ${INK}`, borderRadius:0, width:220, zIndex:10, boxShadow:SHADOW, overflow:'hidden' }}>
                 {CANALES.map(c => {
                   const sel = canalesFiltro.includes(c.id)
                   return (

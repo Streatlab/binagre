@@ -14,6 +14,12 @@ import {
   guardarSerieDiaria,
   guardarMetricasClientes,
 } from '../lib/parsers/guardarDatosFases';
+import { useIsMobile } from '@/hooks/useIsMobile';
+
+// ── Neobrutal ────────────────────────────────────────────────────
+const NEO_INK = 'var(--neo-ink)';
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)';
+const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW };
 
 // ── Tipos de archivo ────────────────────────────────────────────
 const TIPOS = [
@@ -41,10 +47,10 @@ type DatosParseados =
   | { kind: 'clientes';   data: MetricasClientes[] };
 
 const TAG_COLORS: Record<string, { bg: string; color: string }> = {
-  'Activo': { bg: '#E1F5EE', color: '#085041' },
-  'Fase 2': { bg: '#FAEEDA', color: '#633806' },
-  'Fase 3': { bg: '#FAECE7', color: '#712B13' },
-  'Fase 4': { bg: '#E6F1FB', color: '#0C447C' },
+  'Activo': { bg: '#1D9E7522', color: '#1D9E75' },
+  'Fase 2': { bg: '#f5a62322', color: '#f5a623' },
+  'Fase 3': { bg: '#F26B1F22', color: '#F26B1F' },
+  'Fase 4': { bg: '#1E5BCC22', color: '#66aaff' },
 };
 
 export default function ImportarVentas() {
@@ -54,6 +60,7 @@ export default function ImportarVentas() {
   const [guardando, setGuardando] = useState(false);
   const [resultado, setResultado] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const tipoInfo = TIPOS.find(t => t.value === tipo)!;
 
@@ -156,21 +163,21 @@ export default function ImportarVentas() {
   const fmtEur = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div style={{ padding: '28px', maxWidth: 960 }}>
-      <h2 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 22, fontWeight: 500, color: '#111', marginBottom: 6 }}>
+    <div style={{ padding: 'clamp(14px,3vw,28px)', maxWidth: 960, background: 'var(--neo-bg)', minHeight: '100vh' }}>
+      <h2 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 'clamp(22px,5vw,30px)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--sl-text-primary)', marginBottom: 6 }}>
         Importar datos de ventas
       </h2>
-      <p style={{ fontSize: 13, color: '#666', marginBottom: 24 }}>
+      <p style={{ fontSize: 13, color: 'var(--sl-text-muted)', marginBottom: 24 }}>
         Sube los CSVs de cada plataforma para mantener el ERP actualizado con datos reales.
       </p>
 
       {/* Selector tipo */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-        <label style={{ fontSize: 14, fontWeight: 500, color: '#444' }}>Tipo de archivo:</label>
+        <label style={{ fontSize: 14, fontWeight: 500, color: 'var(--sl-text-secondary)' }}>Tipo de archivo:</label>
         <select
           value={tipo}
           onChange={e => { setTipo(e.target.value as TipoCSV); setDatos(null); setError(null); setResultado(null); setFileName(null); }}
-          style={{ padding: '8px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', fontSize: 14, background: '#fff', minWidth: 300 }}
+          style={{ padding: '10px 12px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, fontSize: 14, fontWeight: 600, background: 'var(--sl-card)', color: 'var(--sl-text-primary)', minWidth: 0, width: '100%', maxWidth: 340, boxSizing: 'border-box' }}
         >
           {[1,2,3,4].map(fase => (
             <optgroup key={fase} label={`Fase ${fase}${fase === 1 ? ' — Activo' : ''}`}>
@@ -181,31 +188,31 @@ export default function ImportarVentas() {
           ))}
         </select>
         {tipoInfo && (
-          <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, ...TAG_COLORS[tipoInfo.tag] }}>
+          <span style={{ padding: '4px 10px', border: `2px solid ${NEO_INK}`, borderRadius: 0, fontSize: 11, fontWeight: 700, ...TAG_COLORS[tipoInfo.tag] }}>
             {tipoInfo.tag} · {tipoInfo.frec}
           </span>
         )}
       </div>
 
       {/* Upload */}
-      <div style={{ border: '2px dashed #d0c8bc', borderRadius: 16, padding: 32, textAlign: 'center', background: '#faf9f7', marginBottom: 20 }}>
+      <div style={{ ...NEO_CARD, padding: 'clamp(18px,4vw,32px)', textAlign: 'center', background: 'var(--sl-card)', marginBottom: 20 }}>
         <input type="file" accept=".csv" onChange={handleFile} style={{ display: 'none' }} id="csv-upload" key={tipo} />
-        <label htmlFor="csv-upload" style={{ cursor: 'pointer', padding: '10px 24px', background: '#B01D23', color: '#fff', borderRadius: 6, fontSize: 14, fontWeight: 500 }}>
+        <label htmlFor="csv-upload" style={{ cursor: 'pointer', display: 'inline-block', padding: '13px 24px', minHeight: 44, boxSizing: 'border-box', background: '#B01D23', color: '#fff', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW, fontSize: 14, fontWeight: 700, textTransform: 'uppercase' }}>
           Seleccionar CSV
         </label>
-        {fileName && <p style={{ marginTop: 12, fontSize: 13, color: '#666' }}>📄 {fileName}</p>}
+        {fileName && <p style={{ marginTop: 12, fontSize: 13, color: 'var(--sl-text-muted)' }}>📄 {fileName}</p>}
       </div>
 
       {/* Error */}
       {error && (
-        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: 16, marginBottom: 20, color: '#991B1B', fontSize: 13, whiteSpace: 'pre-wrap' }}>
+        <div style={{ background: '#E24B4A18', border: '3px solid #E24B4A', borderRadius: 0, boxShadow: NEO_SHADOW, padding: 16, marginBottom: 20, color: '#E24B4A', fontSize: 13, fontWeight: 600, whiteSpace: 'pre-wrap' }}>
           {error}
         </div>
       )}
 
       {/* Resultado */}
       {resultado && (
-        <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: 16, marginBottom: 20, color: '#166534', fontSize: 14, fontWeight: 500 }}>
+        <div style={{ background: '#1D9E7518', border: '3px solid #1D9E75', borderRadius: 0, boxShadow: NEO_SHADOW, padding: 16, marginBottom: 20, color: '#1D9E75', fontSize: 14, fontWeight: 700 }}>
           {resultado}
         </div>
       )}
@@ -213,10 +220,10 @@ export default function ImportarVentas() {
       {/* Preview tabla */}
       {datos && (
         <>
-          <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 10, overflow: 'auto', marginBottom: 20 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <div style={{ background: 'var(--sl-card)', ...NEO_CARD, overflowX: 'auto', marginBottom: 20 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
               <thead>
-                <tr style={{ background: '#f5f3ef' }}>
+                <tr style={{ background: 'var(--sl-app)' }}>
                   {datos.kind === 'prime' && <>
                     <th style={th}>Marca</th><th style={th}>Mes</th>
                     <th style={{ ...th, textAlign: 'right' }}>Pedidos</th>
@@ -257,16 +264,16 @@ export default function ImportarVentas() {
               </thead>
               <tbody>
                 {datos.kind === 'prime' && datos.data.slice(0, 50).map((d, i) => (
-                  <tr key={i} style={{ borderBottom: '0.5px solid #eee' }}>
+                  <tr key={i} style={{ borderBottom: '0.5px solid var(--sl-border)' }}>
                     <td style={td}>{d.marca}</td>
                     <td style={td}>{d.mes}/{d.año}</td>
                     <td style={{ ...td, textAlign: 'right', fontWeight: 500 }}>{d.pedidos_total}</td>
                     <td style={{ ...td, textAlign: 'right', color: '#1D9E75' }}>{fmtPct(d.pct_prime)}</td>
-                    <td style={{ ...td, textAlign: 'right', color: '#BA7517' }}>{d.pct_promo > 0 ? fmtPct(d.pct_promo) : '—'}</td>
+                    <td style={{ ...td, textAlign: 'right', color: '#f5a623' }}>{d.pct_promo > 0 ? fmtPct(d.pct_promo) : '—'}</td>
                   </tr>
                 ))}
                 {datos.kind === 'plato' && datos.data.slice(0, 50).map((d, i) => (
-                  <tr key={i} style={{ borderBottom: '0.5px solid #eee' }}>
+                  <tr key={i} style={{ borderBottom: '0.5px solid var(--sl-border)' }}>
                     <td style={td}>{d.canal}</td><td style={td}>{d.marca}</td><td style={td}>{d.plato}</td>
                     <td style={td}>{d.mes}/{d.año}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{d.unidades}</td>
@@ -276,7 +283,7 @@ export default function ImportarVentas() {
                   </tr>
                 ))}
                 {datos.kind === 'plataforma' && datos.data.slice(0, 50).map((d, i) => (
-                  <tr key={i} style={{ borderBottom: '0.5px solid #eee' }}>
+                  <tr key={i} style={{ borderBottom: '0.5px solid var(--sl-border)' }}>
                     <td style={td}>{d.canal}</td><td style={td}>{d.marca}</td>
                     <td style={td}>{d.mes}/{d.año}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{d.pedidos}</td>
@@ -285,37 +292,37 @@ export default function ImportarVentas() {
                   </tr>
                 ))}
                 {datos.kind === 'serie' && datos.data.slice(0, 50).map((d, i) => (
-                  <tr key={i} style={{ borderBottom: '0.5px solid #eee' }}>
+                  <tr key={i} style={{ borderBottom: '0.5px solid var(--sl-border)' }}>
                     <td style={td}>{d.fecha}</td><td style={td}>{d.marca}</td><td style={td}>{d.canal}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{d.pedidos || '—'}</td>
                     <td style={{ ...td, textAlign: 'right', color: '#1D9E75' }}>{d.ingresos > 0 ? `${fmtEur(d.ingresos)} €` : '—'}</td>
                   </tr>
                 ))}
                 {datos.kind === 'clientes' && datos.data.slice(0, 50).map((d, i) => (
-                  <tr key={i} style={{ borderBottom: '0.5px solid #eee' }}>
+                  <tr key={i} style={{ borderBottom: '0.5px solid var(--sl-border)' }}>
                     <td style={td}>{d.marca}</td><td style={td}>{d.mes}/{d.año}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{d.clientes_total}</td>
                     <td style={{ ...td, textAlign: 'right', color: '#1D9E75' }}>{d.clientes_nuevos}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{d.clientes_recurrentes}</td>
-                    <td style={{ ...td, textAlign: 'right', color: '#378ADD' }}>{fmtPct(d.pct_nuevos)}</td>
+                    <td style={{ ...td, textAlign: 'right', color: '#66aaff' }}>{fmtPct(d.pct_nuevos)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {datos.data.length > 50 && (
-              <div style={{ padding: '8px 14px', fontSize: 12, color: '#666', borderTop: '0.5px solid #eee' }}>
+              <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--sl-text-muted)', borderTop: '0.5px solid var(--sl-border)' }}>
                 Mostrando 50 de {datos.data.length} registros
               </div>
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button onClick={handleGuardar} disabled={guardando}
-              style={{ padding: '10px 24px', background: guardando ? '#999' : '#1D9E75', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 500, cursor: guardando ? 'default' : 'pointer' }}>
+              style={{ padding: '12px 24px', minHeight: 44, flex: isMobile ? '1 1 100%' : '0 0 auto', background: guardando ? 'var(--sl-text-muted)' : '#1D9E75', color: '#fff', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW, fontSize: 14, fontWeight: 700, textTransform: 'uppercase', cursor: guardando ? 'default' : 'pointer' }}>
               {guardando ? 'Guardando...' : `Confirmar (${datos.data.length} platos${datos.kind === 'plato' && datos.franjas?.length ? ` + ${datos.franjas.length} franjas` : ''})`}
             </button>
             <button onClick={handleCancelar}
-              style={{ padding: '10px 24px', background: '#f5f3ef', color: '#444', border: '0.5px solid #d0c8bc', borderRadius: 6, fontSize: 14, cursor: 'pointer' }}>
+              style={{ padding: '12px 24px', minHeight: 44, flex: isMobile ? '1 1 100%' : '0 0 auto', background: 'var(--sl-app)', color: 'var(--sl-text-secondary)', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW, fontSize: 14, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' }}>
               Cancelar
             </button>
           </div>
@@ -323,7 +330,7 @@ export default function ImportarVentas() {
       )}
 
       {/* Info archivos */}
-      <div style={{ marginTop: 28, padding: 16, background: '#f5f3ef', borderRadius: 10, fontSize: 12, color: '#666', lineHeight: 1.8 }}>
+      <div style={{ marginTop: 28, padding: 16, background: 'var(--sl-app)', ...NEO_CARD, fontSize: 12, color: 'var(--sl-text-muted)', lineHeight: 1.8 }}>
         <strong>¿De dónde se descarga cada archivo?</strong><br />
         <strong>Mensual (día ~5):</strong> U1: Uber Eats Manager → Informes → Detalle ganancias · G1: Glovo Manager → Historial pedidos<br />
         <strong>Semanal:</strong> U5: Uber Eats Manager → Facturación (subir en OCR)<br />
@@ -336,5 +343,5 @@ export default function ImportarVentas() {
   );
 }
 
-const th: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 500, color: '#666' };
+const th: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 500, color: 'var(--sl-text-muted)' };
 const td: React.CSSProperties = { padding: '10px 14px' };

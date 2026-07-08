@@ -8,7 +8,7 @@
 //   · CSV Uber "detalle nivel artículo" (cabecera española o inglesa)
 //       → ventas_plato (canal uber, marca = nombre de la tienda)
 //   · CSV Uber "order history" (Restaurante / Valor del recibo / Hora del pedido del cliente)
-//       → ventas_franja (canal uber, marca = restaurante, hora LOCAL directa)
+//       → ventas_franja + pedidos_operativa (tiempos, Prime, incidencias)
 //
 // VERIFICADO al céntimo contra la verdad de BD (05/07/2026):
 //   uber platos jun 336 filas = 12.571,49 · uber franjas 342 filas = 11.887,74
@@ -191,6 +191,68 @@ function parseUberOrderHistory(texto: string) {
   return Array.from(agg.values())
 }
 
+// ── Uber order history → pedidos_operativa (tiempos, Prime, incidencias) ─────
+// Una fila por pedido. Conserva TODO, incluidos cancelados (para incidencias).
+function parseUberOperativa(texto: string) {
+  const lineas = texto.split('\n').filter(l => l.trim())
+  if (lineas[0]?.charCodeAt(0) === 0xFEFF) lineas[0] = lineas[0].slice(1)
+  const hdr = partirCSV(lineas[0])
+  const idx = (re: RegExp) => hdr.findIndex(h => re.test(h))
+  const iRef = idx(/id.*pedido|order.*id|n[uú]mero de pedido/i)
+  const iR = idx(/^Restaurante$/i)
+  const iE = idx(/^Estado del pedido$/i)
+  const iComp = idx(/est[aá] completo/i)
+  const iV = idx(/^Valor del recibo$/i)
+  const iN = idx(/Cantidad de art[ií]culos/i)
+  const iH = idx(/^Hora del pedido del cliente$/i)
+  const iPrime = idx(/pase de suscripci[oó]n|uber.?one|suscripci[oó]n/i)
+  const iCanal = idx(/canal de pedidos|order channel/i)
+  const iPrep = idx(/tiempo de preparaci[oó]n|prep time/i)
+  const iEntrega = idx(/tiempo de entrega|delivery time/i)
+  if (iR < 0 || iH < 0) return null
+
+  const filas: any[] = []
+  let ln = 0
+  for (const linea of lineas.slice(1)) {
+    const c = partirCSV(linea)
+    const ts = (c[iH] || '').trim()
+    if (ts.length < 13) continue
+    const fecha = ts.slice(0, 10)
+    const hora = parseInt(ts.slice(11, 13), 10)
+    const estado = (c[iE] || '').trim().toLowerCase()
+    const cancelado = estado === 'canceled' || estado === 'cancelado'
+    const primeRaw = iPrime >= 0 ? (c[iPrime] || '').trim().toLowerCase() : ''
+    filas.push({
+      plataforma: 'uber',
+      marca: (c[iR] || '').trim() || 'Sin marca',
+      pedido_ref: iRef >= 0 ? (c[iRef] || '').trim() : `${fecha}_${hora}_${ln++}`,
+      fecha,
+      hora: isNaN(hora) ? null : hora,
+      estado: estado || null,
+      completado: iComp >= 0 ? /s[ií]|yes|true/i.test(c[iComp] || '') : !cancelado,
+      articulos: iN >= 0 ? Math.round(num(c[iN] || '0')) : null,
+      valor_recibo: iV >= 0 ? num(c[iV]) : null,
+      es_prime: primeRaw.includes('uber_one') || primeRaw.includes('uber one') || primeRaw === 'prime',
+      canal_origen: iCanal >= 0 ? (c[iCanal] || '').trim() || null : null,
+      min_preparacion: iPrep >= 0 ? num(c[iPrep]) || null : null,
+      min_entrega: iEntrega >= 0 ? num(c[iEntrega]) || null : null,
+      incidencia: cancelado ? 'cancelado' : null,
+    })
+  }
+  return filas
+}
+
+async function upsertOperativa(supabase: SupabaseClient, filas: any[]): Promise<number> {
+  if (!filas.length) return 0
+  let ok = 0
+  for (let i = 0; i < filas.length; i += 200) {
+    const lote = filas.slice(i, i + 200)
+    const { error } = await supabase.from('pedidos_operativa').upsert(lote, { onConflict: 'plataforma,pedido_ref' })
+    if (!error) ok += lote.length
+  }
+  return ok
+}
+
 // ── Punto de entrada ────────────────────────────────────────────────────────
 export async function intentarVentaProducto(
   supabase: SupabaseClient,
@@ -222,14 +284,17 @@ export async function intentarVentaProducto(
         motivo: `Uber detalle → ${p} platos a Ventas (${Math.round(tot * 100) / 100} € brutos)` }
     }
 
-    // ── Uber order history → ventas_franja ──
+    // ── Uber order history → ventas_franja + operativa ──
     if (esUberOrderHistoryCSV(texto)) {
       const franjas = parseUberOrderHistory(texto)
       if (!franjas || franjas.length === 0) return null
       const f = await upsertFranjas(supabase, franjas, 'uber_order_history')
+      // Del mismo archivo, extraer la operativa por pedido (tiempos, Prime, incidencias).
+      const oper = parseUberOperativa(texto)
+      const o = oper ? await upsertOperativa(supabase, oper) : 0
       const tot = franjas.reduce((s, x) => s + x.importe, 0)
       return { estado: f > 0 ? 'ok' : 'error', archivo: file.nombre, tipo_documento: 'resumen_ventas',
-        motivo: `Uber pedidos → ${f} franjas horarias a Ventas (${Math.round(tot * 100) / 100} €)` }
+        motivo: `Uber pedidos → ${f} franjas + ${o} pedidos con tiempos/Prime a Ventas (${Math.round(tot * 100) / 100} €)` }
     }
   } catch (e) {
     console.error('[intentarVentaProducto] fallo:', (e as Error)?.message)

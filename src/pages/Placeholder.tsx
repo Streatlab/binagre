@@ -1,3 +1,4 @@
+import { type CSSProperties } from 'react'
 import { useParams, useLocation } from 'react-router-dom'
 import { FONT } from '@/styles/tokens'
 
@@ -55,6 +56,10 @@ const SECTION_LABELS: Record<string, string> = {
   'finanzas': 'Finanzas',
 }
 
+const NEO_INK = 'var(--neo-ink)'
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
+const NEO_CARD: CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
+
 export default function Placeholder() {
   const params = useParams()
   const location = useLocation()
@@ -64,12 +69,12 @@ export default function Placeholder() {
   const sectionLabel = SECTION_LABELS[section] ?? section
 
   return (
-    <div>
+    <div style={{ background: 'var(--neo-bg)', minHeight: '100vh', padding: '24px 20px' }}>
       <h2
         className="mb-2"
         style={{
           fontFamily: FONT.title,
-          fontSize: 28,
+          fontSize: 'clamp(20px, 5vw, 28px)',
           color: 'var(--sl-text-primary)',
           letterSpacing: '0.04em',
           fontWeight: 'normal',
@@ -91,11 +96,11 @@ export default function Placeholder() {
       </p>
 
       <div
-        className="rounded-xl border p-12 text-center"
-        style={{ background: '#1a1a1a', borderColor: '#2a2a2a' }}
+        className="p-12 text-center"
+        style={{ ...NEO_CARD, background: 'var(--sl-card)', width: '90%', maxWidth: 640, marginLeft: 'auto', marginRight: 'auto' }}
       >
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-4"
-          style={{ background: '#1e1e1e', border: '1px solid var(--sl-border)' }}>
+          style={{ background: 'var(--sl-card)', border: '1px solid var(--sl-border)' }}>
           <span style={{ fontSize: 24 }}>🚧</span>
         </div>
         <p style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, color: 'var(--sl-text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
@@ -106,7 +111,7 @@ export default function Placeholder() {
         </p>
         <code
           className="inline-block mt-5 px-3 py-1 rounded"
-          style={{ fontFamily: 'monospace', fontSize: 11, background: '#111111', color: '#66aaff', border: '1px solid var(--sl-border)' }}
+          style={{ fontFamily: 'monospace', fontSize: 11, background: 'var(--sl-thead)', color: '#66aaff', border: '1px solid var(--sl-border)' }}
         >
           {location.pathname}
         </code>

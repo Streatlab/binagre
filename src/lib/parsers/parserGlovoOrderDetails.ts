@@ -7,7 +7,20 @@
 
 import type { EstadisticaPrimePromo } from './parserUberGanancias';
 
+// Detecta el separador real de la primera línea con datos (; , o tab)
+function detectSep(text: string): string {
+  const firstLine = text.split(/\r?\n/).find((l) => l.trim() !== '') || '';
+  const counts: Record<string, number> = {
+    ';': (firstLine.match(/;/g) || []).length,
+    ',': (firstLine.match(/,/g) || []).length,
+    '\t': (firstLine.match(/\t/g) || []).length,
+  };
+  const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return best[1] > 0 ? best[0] : ',';
+}
+
 function parseCSV(text: string): string[][] {
+  const sep = detectSep(text);
   const rows: string[][] = [];
   let current = '';
   let inQuotes = false;
@@ -27,7 +40,7 @@ function parseCSV(text: string): string[][] {
     } else {
       if (ch === '"') {
         inQuotes = true;
-      } else if (ch === ',') {
+      } else if (ch === sep) {
         row.push(current.trim());
         current = '';
       } else if (ch === '\n' || (ch === '\r' && text[i + 1] === '\n')) {
@@ -57,6 +70,14 @@ function findCol(headers: string[], ...candidates: string[]): number {
   return -1;
 }
 
+// Deja solo el nombre del local: corta en el primer "(" o salto de línea y limpia
+function limpiarMarca(raw: string): string {
+  let s = (raw || '').replace(/[\r\n]+/g, ' ');
+  const corte = s.indexOf('(');
+  if (corte > 0) s = s.slice(0, corte);
+  return s.trim() || 'Sin marca';
+}
+
 function parseFechaGlovo(fecha: string): { mes: number; año: number } | null {
   if (!fecha) return null;
   // Formatos comunes: DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY, DD/MM/YY
@@ -75,22 +96,44 @@ export function parseGlovoOrderDetails(csvText: string): EstadisticaPrimePromo[]
   const allRows = parseCSV(csvText);
   if (allRows.length < 2) return [];
 
-  // Row 0 = headers (inglés)
+  // Row 0 = headers
   const headers = allRows[0];
   const dataRows = allRows.slice(1);
 
-  // Buscar columnas por nombre
-  const colOrderId = findCol(headers, 'Order ID', 'order_id', 'OrderID');
-  const colMarca = findCol(headers, 'Restaurant name', 'Store name', 'restaurant_name');
-  const colPrime = findCol(headers, 'Is Pro Order', 'is_pro', 'Pro Order');
-  const colEstado = findCol(headers, 'Order status', 'order_status', 'Status');
+  // Buscar columnas por nombre (EN + ES)
+  const colOrderId = findCol(
+    headers,
+    'Order ID', 'order_id', 'OrderID', 'Order code', 'Order number',
+    'ID del pedido', 'Código de pedido', 'Codigo de pedido', 'Nº de pedido', 'Numero de pedido', 'Pedido',
+  );
+  const colMarca = findCol(
+    headers,
+    'Nombre del local', 'Nombre del establecimiento', 'Nombre de tienda',
+    'Restaurant name', 'Store name', 'restaurant_name',
+    'Local', 'Establecimiento', 'Restaurante', 'Marca',
+    // 'Store'/'Tienda' al final: evita capturar "ID de tienda" antes que el nombre real
+    'Store', 'Tienda',
+  );
+  const colPrime = findCol(
+    headers,
+    'Is Pro Order', 'is_pro', 'Pro Order', 'Glovo Prime', 'Prime',
+    'Es Prime', 'Pedido Prime', 'Prime order',
+  );
+  const colEstado = findCol(
+    headers,
+    'Order status', 'order_status', 'Status', 'Estado', 'Estado del pedido',
+  );
 
-  // Buscar columna de fecha — puede ser "Order date", "Date", "Delivery date", etc.
-  const colFecha = findCol(headers, 'Order date', 'Date', 'Delivery date', 'order_date', 'Created');
+  // Buscar columna de fecha
+  const colFecha = findCol(
+    headers,
+    'Order date', 'Date', 'Delivery date', 'order_date', 'Created',
+    'Fecha', 'Fecha del pedido', 'Fecha de entrega', 'Fecha de pedido',
+  );
 
   if (colOrderId === -1 || colMarca === -1) {
     throw new Error(
-      'CSV Glovo: no se encuentran columnas obligatorias (Order ID, Restaurant name). Revisa que el archivo sea "orderDetails".'
+      'CSV Glovo: no se encuentran columnas obligatorias (pedido y establecimiento). Revisa que el archivo sea el "Historial de pedidos" de Glovo.'
     );
   }
 
@@ -110,14 +153,14 @@ export function parseGlovoOrderDetails(csvText: string): EstadisticaPrimePromo[]
       if (estado && !estado.includes('delivered') && !estado.includes('entregado')) continue;
     }
 
-    const marca = row[colMarca] || 'Sin marca';
+    const marca = limpiarMarca(row[colMarca] || 'Sin marca');
 
     // Fecha
     let parsed: { mes: number; año: number } | null = null;
     if (colFecha !== -1) {
       parsed = parseFechaGlovo(row[colFecha] || '');
     }
-    // Si no hay columna fecha, intentar extraer de Order ID o usar fecha actual
+    // Si no hay columna fecha, usar fecha actual
     if (!parsed) {
       const now = new Date();
       parsed = { mes: now.getMonth() + 1, año: now.getFullYear() };
@@ -129,10 +172,10 @@ export function parseGlovoOrderDetails(csvText: string): EstadisticaPrimePromo[]
     }
     grupos[key].total++;
 
-    // Prime = Is Pro Order = Y
+    // Prime = Is Pro Order = Y / Sí
     if (colPrime !== -1) {
       const val = (row[colPrime] || '').toUpperCase().trim();
-      if (val === 'Y' || val === 'YES' || val === 'TRUE' || val === '1') {
+      if (val === 'Y' || val === 'YES' || val === 'TRUE' || val === '1' || val === 'SÍ' || val === 'SI') {
         grupos[key].prime++;
       }
     }

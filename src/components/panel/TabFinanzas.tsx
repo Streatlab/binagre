@@ -92,7 +92,7 @@ export default function TabFinanzas({ rows }: Props) {
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 24 }}>
         {kpiCard('Ingresos brutos', fmtEur(totalBruto))}
         {kpiCard('Comisiones est.', fmtEur(totalComision), `${(totalComision / totalBruto * 100).toFixed(1)}% del bruto`)}
-        {kpiCard('Ingresos netos', fmtEur(totalNeto))}
+        {kpiCard('Ingresos netos est.', fmtEur(totalNeto))}
         {kpiCard('Margen est.', `${margenPct.toFixed(1)}%`, 'neto / bruto')}
       </div>
 
@@ -104,8 +104,8 @@ export default function TabFinanzas({ rows }: Props) {
             <tr>
               <th style={thNeo}>Canal</th>
               <th style={thNeoR}>Bruto</th>
-              <th style={thNeoR}>Comisión</th>
-              <th style={thNeoR}>Neto</th>
+              <th style={thNeoR}>Comisión est.</th>
+              <th style={thNeoR}>Neto est.</th>
               <th style={thNeoR}>% total</th>
             </tr>
           </thead>
@@ -144,7 +144,7 @@ export default function TabFinanzas({ rows }: Props) {
                 <th style={thNeo}>Mes</th>
                 <th style={thNeoR}>Bruto</th>
                 <th style={thNeoR}>Neto est.</th>
-                <th style={thNeoR}>Margen</th>
+                <th style={thNeoR}>Margen est.</th>
               </tr>
             </thead>
             <tbody>

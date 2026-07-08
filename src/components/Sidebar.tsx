@@ -50,6 +50,15 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',       emoji: '💳', perfiles: ['admin'] },
       { path: '/finanzas/verifactu',            label: 'Verifactu',            emoji: '✅', perfiles: ['admin'] },
       { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería', emoji: '🔮', perfiles: ['admin'] },
+      { path: '/finanzas/tesoreria-13-semanas', label: 'Tesorería 13 Semanas', emoji: '📅', perfiles: ['admin'] },
+      { path: '/finanzas/fondo-maniobra', label: 'Fondo de Maniobra', emoji: '⚙️', perfiles: ['admin'] },
+      { path: '/finanzas/estados-financieros', label: 'Estados Financieros', emoji: '📑', perfiles: ['admin'] },
+      { path: '/finanzas/break-even', label: 'Break-even Marca/Canal', emoji: '📐', perfiles: ['admin'] },
+      { path: '/finanzas/analisis-horizontal-vertical', label: 'Análisis Horiz./Vert.', emoji: '📉', perfiles: ['admin'] },
+      { path: '/finanzas/panel-alertas', label: 'Panel de Alertas', emoji: '🚨', perfiles: ['admin'] },
+      { path: '/finanzas/repeticion-clientes', label: 'Repetición Clientes', emoji: '🔁', perfiles: ['admin'] },
+      { path: '/finanzas/roi-canal', label: 'ROI por Canal', emoji: '🏆', perfiles: ['admin'] },
+      { path: '/finanzas/ticket-medio', label: 'Ticket Medio', emoji: '🎫', perfiles: ['admin'] },
     ],
   },
   {
@@ -73,6 +82,7 @@ const SECTIONS: NavSection[] = [
       { path: '/ops/manuales',      label: 'Manuales',         emoji: '📚', perfiles: ['admin'] },
       { path: '/ops/reembolsos',    label: 'Reclamaciones',    emoji: '💸', perfiles: ['admin'] },
       { path: '/ops/pulso',         label: 'Pulso Cocina',     emoji: '📡', perfiles: ['admin'] },
+      { path: '/analytics/demanda', label: 'Pulso Operativa',  emoji: '⏱️', perfiles: ['admin'] },
       { path: '/ops/temperaturas',  label: 'Temperaturas',     emoji: '🌡️', perfiles: ['admin'] },
       { path: '/ops/bpm',           label: 'BPM / Calidad',    emoji: '✅', perfiles: ['admin'] },
       { path: '/ops/equipos',       label: 'Libro Equipos',    emoji: '🔧', perfiles: ['admin'] },
@@ -151,7 +161,6 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
 
 const PROXIMAMENTE: { label: string; emoji: string }[] = [
   { label: 'Revenue & Ticket',        emoji: '🎫' },
-  { label: 'Predicción Demanda',      emoji: '🔮' },
   { label: 'Tesorería',               emoji: '💳' },
   { label: 'BPM / Calidad',           emoji: '✅' },
   { label: 'Almacén',                 emoji: '🏭' },

@@ -185,10 +185,15 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
           <tbody>
             {tareasFiltradas.map((t, idx) => {
               const retraso = diasRetraso(t.fecha_esperada)
+              const bandaColor = ESTADO_COLORS[t.estado] ?? '#888'
               return (
                 <tr
                   key={t.id}
-                  style={{ background: idx % 2 === 0 ? '#111111' : '#141414', borderBottom: `1px solid #2a2a2a` }}
+                  style={{
+                    background: idx % 2 === 0 ? '#111111' : '#141414',
+                    borderBottom: `1px solid #2a2a2a`,
+                    borderLeft: `4px solid ${bandaColor}`,
+                  }}
                 >
                   <td style={{ padding: '10px 12px', color: '#ffffff' }}>{t.nombre}</td>
                   <td style={{ padding: '10px 12px' }}>

@@ -71,9 +71,10 @@ const PROMPT_EXTRACCION = `Eres un extractor de datos de facturas. Recibes el te
   "total": number|null,              // importe TOTAL a pagar, con IVA incluido, como número (punto decimal)
   "base_imponible": number|null,     // suma de bases sin IVA, si aparece
   "iva_total": number|null,          // suma de cuotas de IVA, si aparece
-  "moneda": string|null              // EUR, etc.
+  "moneda": string|null,             // EUR, etc.
+  "lineas": [{"descripcion": string, "cantidad": number, "unidad": string|null, "precio_unitario": number|null, "importe": number, "iva_pct": number|null}] | null  // una por cada línea real del cuerpo, solo si se leen con claridad; si no, null
 }
-Reglas: el EMISOR es quien emite/cobra la factura, normalmente arriba con su NIF; el CLIENTE (Rubén Rodriguez Vinagre / Emilio Dorca / Streat Lab) NO es el emisor. Si un dato no está, pon null. NO inventes. Responde SOLO el JSON.`
+Reglas: el EMISOR es quien emite/cobra la factura, normalmente arriba con su NIF; el CLIENTE (Rubén Rodriguez Vinagre / Emilio Dorca / Streat Lab) NO es el emisor. Si un dato no está, pon null. NO inventes ni datos de cabecera ni líneas. Responde SOLO el JSON.`
 
 // Extracción estructurada vía chat sobre el texto OCR. Devuelve un ExtractedFactura
 // parcial (con total y nif_emisor si los hay) o null. Válido para cualquier idioma.
@@ -138,6 +139,7 @@ export async function extraerFacturaMistral(textoOcr: string): Promise<Extracted
       base_21: base ?? 0, iva_21: iva ?? 0,
       total,
       confianza: 0.85,
+      lineas: parsearLineas(j.lineas),
     }
     return fac
   } catch (err) {
@@ -154,6 +156,27 @@ function numero(v: unknown): number | null {
   const s = String(v).replace(/[^\d.,-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.')
   const n = parseFloat(s)
   return isFinite(n) ? n : null
+}
+
+function parsearLineas(v: unknown): ExtractedFactura['lineas'] {
+  if (!Array.isArray(v) || v.length === 0) return undefined
+  const out: NonNullable<ExtractedFactura['lineas']> = []
+  for (const raw of v) {
+    if (!raw || typeof raw !== 'object') continue
+    const l = raw as Record<string, unknown>
+    const descripcion = String(l.descripcion || '').trim()
+    const importe = numero(l.importe)
+    if (!descripcion || importe === null) continue
+    out.push({
+      descripcion,
+      cantidad: numero(l.cantidad) ?? 1,
+      unidad: l.unidad ? String(l.unidad).trim() : null,
+      precio_unitario: numero(l.precio_unitario),
+      importe,
+      iva_pct: numero(l.iva_pct),
+    })
+  }
+  return out.length > 0 ? out : undefined
 }
 
 function limpiarNif(v: unknown): string | null {

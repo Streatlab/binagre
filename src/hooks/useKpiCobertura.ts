@@ -22,12 +22,12 @@ export function useKpiCobertura() {
       .single()
     if (data) {
       setKpi({
-        total_movimientos:    Number(data.total_movimientos ?? 0),
+        total_movimientos:    Number(data.movimientos_total ?? 0),
         movimientos_con_factura: Number(data.movimientos_con_factura ?? 0),
         pct_cobertura:        Number(data.pct_cobertura ?? 0),
         facturas_sin_categoria: Number(data.facturas_sin_categoria ?? 0),
-        posibles_duplicados:  Number(data.posibles_duplicados ?? 0),
-        avisos_aritmetica:    Number(data.avisos_aritmetica ?? 0),
+        posibles_duplicados:  Number(data.facturas_posible_duplicado ?? 0),
+        avisos_aritmetica:    Number(data.facturas_aviso_aritmetica ?? 0),
       })
     }
     setLoading(false)

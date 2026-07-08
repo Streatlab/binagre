@@ -4,6 +4,11 @@ import { useTheme, pageTitleStyle, FONT } from '@/styles/tokens'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { useEsMovil } from '@/hooks/useEsMovil'
 
+/* ─── Neobrutal ─────────────────────────────────────────── */
+const NEO_INK = 'var(--neo-ink)'
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
+const NEO_CARD: CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
+
 /* ─── Types ─────────────────────────────────────────────── */
 interface Proveedor {
   id: string
@@ -91,8 +96,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
     >
       <div style={{
         backgroundColor: 'var(--sl-card-alt)',
-        border: '1px solid var(--sl-btn-cancel-border)',
-        borderRadius: 12,
+        ...NEO_CARD,
         width: '90%',
         maxWidth: 680,
         maxHeight: '90vh',
@@ -110,7 +114,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
         </div>
 
         {/* Campos */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 20px', marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px 20px', marginBottom: 20 }}>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={lbl}>Nombre *</label>
             <input style={inp} value={form.nombre ?? ''} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
@@ -218,7 +222,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
             <button
               onClick={() => onSave(form)}
               disabled={saving || !form.nombre}
-              style={{ background: '#B01D23', border: 'none', color: '#ffffff', borderRadius: 6, padding: '7px 20px', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontFamily: FONT.body, opacity: saving ? 0.7 : 1 }}
+              style={{ background: '#B01D23', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW, color: '#fff', padding: '7px 20px', minHeight: 44, cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontFamily: FONT.body, opacity: saving ? 0.7 : 1 }}
             >
               {saving ? 'Guardando…' : 'Guardar'}
             </button>
@@ -410,10 +414,12 @@ export default function Proveedores() {
             onClick={() => openModal(null)}
             style={{
               background: '#e8f442',
-              border: 'none',
+              border: `3px solid ${NEO_INK}`,
+              boxShadow: NEO_SHADOW,
               color: '#111111',
-              borderRadius: 7,
+              borderRadius: 0,
               padding: '8px 18px',
+              minHeight: 44,
               cursor: 'pointer',
               fontSize: 13,
               fontFamily: 'Oswald,sans-serif',
@@ -427,7 +433,7 @@ export default function Proveedores() {
       </div>
 
       {error && (
-        <div style={{ color: '#ffaaaa', backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
+        <div style={{ color: '#B01D23', backgroundColor: '#B01D2318', border: '1px solid #B01D2355', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -448,8 +454,8 @@ export default function Proveedores() {
       )}
 
       {!loading && !movil && (
-        <div style={{ background: 'var(--sl-card-alt)', border: '1px solid var(--sl-border)', borderRadius: 10, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr>
                 <th style={th}>Nombre / ABV</th>
@@ -572,7 +578,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
 
   if (filtrados.length === 0) {
     return (
-      <div style={{ background: 'var(--sl-card-alt)', border: '1px solid var(--sl-border)', borderRadius: 10, padding: 40, textAlign: 'center', color: 'var(--sl-text-muted)', fontSize: 13 }}>
+      <div style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, padding: 40, textAlign: 'center', color: 'var(--sl-text-muted)', fontSize: 13 }}>
         {buscando ? 'Sin resultados para la búsqueda' : 'Sin proveedores registrados'}
       </div>
     )
@@ -580,7 +586,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
 
   if (buscando) {
     return (
-      <div style={{ background: 'var(--sl-card-alt)', border: '1px solid var(--sl-border)', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, overflow: 'hidden' }}>
         {filtrados.map((p, idx) => fila(p, idx < filtrados.length - 1))}
       </div>
     )
@@ -591,7 +597,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
       {grupos.map(([cat, items]) => {
         const open = abiertos.has(cat)
         return (
-          <div key={cat} style={{ background: 'var(--sl-card-alt)', border: `1px solid ${open ? '#e8f442' : 'var(--sl-border)'}`, borderRadius: 10, overflow: 'hidden' }}>
+          <div key={cat} style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, border: `3px solid ${open ? '#e8f442' : NEO_INK}`, overflow: 'hidden' }}>
             <button
               onClick={() => toggleGrupo(cat)}
               style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}

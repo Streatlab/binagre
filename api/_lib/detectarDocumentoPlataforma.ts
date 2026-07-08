@@ -4,7 +4,8 @@
 //
 // Reconoce, por su cabecera/contenido (no por confiar en el nombre):
 //   - Glovo: factura (PDF), CSV de la factura (bill_*.csv), export del portal (orderDetails).
-//   - Uber:  detalle nivel artículo (CSV), resumen de ganancias (CSV), factura (PDF).
+//   - Uber:  detalle nivel artículo (CSV), resumen de ganancias (CSV), historial de
+//            pedidos (operativa), factura (PDF).
 //   - Sincro: Sold Products (xlsx), selling_point (csv).
 //   - Just Eat: factura (PDF).
 
@@ -14,6 +15,7 @@ export type DocPlataforma =
   | 'glovo_orderdetails_csv'
   | 'uber_articulo_csv'
   | 'uber_resumen_csv'
+  | 'uber_historial_pedidos'
   | 'uber_factura'
   | 'sincro_sold_products'
   | 'sincro_selling_point'
@@ -57,6 +59,11 @@ export function detectarDocumentoPlataforma(
   const esUber = /uber eats|membres[ií]a de uber|administrador de uber/i.test(t)
   if (esUber && /nombre del art[ií]culo/i.test(t)) {
     return { tipo: 'uber_articulo_csv', plataforma: 'uber', destino: 'ventas_pedidos', esPedidos: true }
+  }
+  // Historial de pedidos (order_history): una fila por pedido, con tiempos,
+  // estado, Prime (pase de suscripción) y canal. Es operativa, no dinero.
+  if (esUber && /valor del recibo/i.test(t) && /estado del pedido/i.test(t)) {
+    return { tipo: 'uber_historial_pedidos', plataforma: 'uber', destino: 'ventas_pedidos', esPedidos: true }
   }
   if (esUber && /nombre del restaurante/i.test(t) && /cantidad de pedidos/i.test(t)) {
     return { tipo: 'uber_resumen_csv', plataforma: 'uber', destino: 'ventas_resumen', esPedidos: true }

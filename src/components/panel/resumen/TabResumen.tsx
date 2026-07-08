@@ -709,18 +709,44 @@ export default function TabResumen({
     return { totalAGuardar: iva + irpf, provIVA: iva, provIRPF: irpf, proximosPagos: items }
   }, [provisiones, peParams])
 
-  const topItems: TopVentaItem[] = useMemo(() => [], [])
+  // Top ventas · pestaña Productos: ranking real desde lineas_producto_operativa
+  // (detalle de pedidos de plataforma ya volcado por los parsers de Uber/Glovo/Just
+  // Eat). La pestaña Modificadores no tiene fuente real hoy (el POS no está
+  // conectado) y se deja vacía a propósito, sin inventar datos.
+  const [topItemsProductos, setTopItemsProductos] = useState<TopVentaItem[]>([])
+  useEffect(() => {
+    if (topTab !== 'productos') return
+    const desde = toLocalDateStr(fechaDesde)
+    const hasta = toLocalDateStr(fechaHasta)
+    const CANAL_MAP: Record<string, TopVentaItem['canal']> = { uber: 'uber', glovo: 'glovo', just_eat: 'je' }
+    supabase
+      .from('lineas_producto_operativa')
+      .select('plataforma, producto, cantidad, importe, tipo_linea')
+      .gte('fecha', desde).lte('fecha', hasta)
+      .then(({ data, error }) => {
+        if (error || !data) { setTopItemsProductos([]); return }
+        const agg = new Map<string, { producto: string; canal: TopVentaItem['canal']; pedidos: number; importe: number }>()
+        for (const r of data) {
+          if (r.tipo_linea && r.tipo_linea !== 'producto') continue // no mezclar ads/promo/prime en el ranking de productos
+          const canal = CANAL_MAP[r.plataforma as string]
+          if (!canal) continue
+          const key = `${canal}||${r.producto}`
+          const prev = agg.get(key)
+          if (prev) { prev.pedidos += Number(r.cantidad) || 0; prev.importe += Number(r.importe) || 0 }
+          else agg.set(key, { producto: r.producto as string, canal, pedidos: Number(r.cantidad) || 0, importe: Number(r.importe) || 0 })
+        }
+        const ranked: TopVentaItem[] = Array.from(agg.values())
+          .sort((a, b) => b.importe - a.importe)
+          .slice(0, 10)
+          .map((x, i) => ({ ranking: i + 1, ...x }))
+        setTopItemsProductos(ranked)
+      })
+  }, [fechaDesde, fechaHasta, topTab])
+
+  const topItems: TopVentaItem[] = topTab === 'productos' ? topItemsProductos : []
 
   useEffect(() => {
-    supabase
-      .from('pedidos')
-      .select('id')
-      .limit(1)
-      .then(({ data, error }) => {
-        if (error || !data || data.length === 0) {
-          setTopDatosDemo(true)
-        }
-      })
+    setTopDatosDemo(false)
   }, [])
 
   /* ── cache anti-parpadeo: recuerda que ya hubo datos ── */

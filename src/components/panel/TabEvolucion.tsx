@@ -346,7 +346,7 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
     { l: 'Peor mes (12m)', v: fmtMesKey(peorMes), c: ROJO },
     { l: 'TM medio 12m', v: EUR(tmMedio), c: NAR },
     { l: 'Pedidos 12m', v: N(pedidosTotales), c: INK },
-    { l: 'Neto último mes', v: EUR(mesActual.neto), c: VERDE },
+    { l: 'Neto est. último mes', v: EUR(mesActual.neto), c: VERDE },
   ]
 
   const sec = (bg: string, pad = `44px ${PAD}`): React.CSSProperties => ({ background: bg, padding: pad, borderBottom: `4px solid ${INK}` })
@@ -422,7 +422,7 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
           <Title tag="Mes a mes" tagBg={VERDE} tagColor="#fff" title="Detalle mensual" />
           <div style={{ border: `3px solid ${INK}`, boxShadow: SHADOW, overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1fr', gap: 8, padding: '11px 16px', background: INK, fontFamily: OSW, fontSize: 11.5, letterSpacing: '1px', textTransform: 'uppercase', color: CREMA }}>
-              <span>Mes</span><span style={{ textAlign: 'right' }}>Pedidos</span><span style={{ textAlign: 'right' }}>Bruto</span><span style={{ textAlign: 'right' }}>Neto</span><span style={{ textAlign: 'right' }}>vs año</span>
+              <span>Mes</span><span style={{ textAlign: 'right' }}>Pedidos</span><span style={{ textAlign: 'right' }}>Bruto</span><span style={{ textAlign: 'right' }}>Neto est.</span><span style={{ textAlign: 'right' }}>vs año</span>
             </div>
             {[...ultimos12].reverse().map((key, i) => {
               const { bruto, pedidos, neto } = mesMap[key]

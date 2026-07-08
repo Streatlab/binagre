@@ -2,14 +2,17 @@ import { useRef, useState, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { useAuth } from '@/context/AuthContext'
 
-const BG = '#f5f3ef'
-const CARD = '#ffffff'
-const BRD = '#d0c8bc'
-const PRI = '#111111'
-const MUT = '#7a8090'
+const CARD = 'var(--sl-card)'
+const BRD = 'var(--sl-border)'
+const PRI = 'var(--sl-text-primary)'
+const MUT = 'var(--sl-text-muted)'
 const RED = '#B01D23'
 const FONT_BODY = 'Lexend, sans-serif'
 const FONT_HEADING = 'Oswald, sans-serif'
+
+const NEO_INK = 'var(--neo-ink)'
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
+const NEO_CARD: CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
 
 export default function Login() {
   const { login, loginGoogle, loadingOAuth } = useAuth()
@@ -74,8 +77,8 @@ export default function Login() {
     fontFamily: FONT_BODY,
     fontSize: 13,
     backgroundColor: CARD,
-    border: `1px solid ${focused ? RED : BRD}`,
-    borderRadius: 8,
+    border: `2px solid ${focused ? RED : NEO_INK}`,
+    borderRadius: 0,
     padding: '10px 12px',
     color: PRI,
     outline: 'none',
@@ -88,8 +91,8 @@ export default function Login() {
     fontFamily: FONT_BODY,
     fontSize: 20,
     backgroundColor: CARD,
-    border: `1px solid ${focused ? RED : BRD}`,
-    borderRadius: 8,
+    border: `2px solid ${focused ? RED : NEO_INK}`,
+    borderRadius: 0,
     padding: '10px 0',
     color: PRI,
     outline: 'none',
@@ -100,8 +103,8 @@ export default function Login() {
   })
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ backgroundColor: CARD, border: `0.5px solid ${BRD}`, borderRadius: 16, padding: 32, width: '100%', maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ minHeight: '100vh', background: 'var(--neo-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, boxSizing: 'border-box' }}>
+      <div style={{ backgroundColor: CARD, ...NEO_CARD, padding: 'clamp(20px, 6vw, 32px)', width: '90%', maxWidth: 340, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={{ textAlign: 'center' }}>
           <img
             src="/data/STREAT LAB LOGO-04.jpg"
@@ -120,13 +123,13 @@ export default function Login() {
           disabled={loadingOAuth}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-            padding: '11px 14px', borderRadius: 8, border: `1px solid ${BRD}`,
+            padding: '11px 14px', minHeight: 44, ...NEO_CARD,
             background: CARD, cursor: loadingOAuth ? 'not-allowed' : 'pointer',
-            fontFamily: FONT_BODY, fontSize: 13, color: PRI,
+            fontFamily: FONT_BODY, fontSize: 13, color: PRI, boxSizing: 'border-box',
             opacity: loadingOAuth ? 0.6 : 1, transition: 'border-color 0.15s',
           }}
           onMouseEnter={e => { if (!loadingOAuth) (e.currentTarget as HTMLButtonElement).style.borderColor = '#4285F4' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = BRD }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = NEO_INK }}
         >
           {loadingOAuth ? (
             <span style={{ fontSize: 13, color: MUT }}>Verificando cuenta…</span>
@@ -200,11 +203,12 @@ export default function Login() {
               fontSize: 14,
               fontWeight: 700,
               backgroundColor: RED,
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: 8,
+              color: '#fff',
+              ...NEO_CARD,
               padding: '12px 0',
+              minHeight: 44,
               width: '100%',
+              boxSizing: 'border-box',
               cursor: loading ? 'not-allowed' : 'pointer',
               opacity: loading ? 0.5 : 1,
               letterSpacing: '2px',

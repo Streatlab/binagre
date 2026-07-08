@@ -12,6 +12,11 @@ import type { TipoDia } from '@/contexts/CalendarioContext'
 const fmt2 = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })
 const fmtInt = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping: true })
 
+// ── Lenguaje NEOBRUTAL (idéntico a Facturacion.tsx desktop) ──
+const NEO_INK = 'var(--neo-ink)'
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
+const NEO_CARD: CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
+
 export interface AggRow {
   uber_pedidos: number; uber_bruto: number
   glovo_pedidos: number; glovo_bruto: number
@@ -44,11 +49,11 @@ export function KpiHeroMobile({ totals, dias, tm, tmNeto, netoEstimado, mediadia
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
       {/* HERO: Bruto + Neto */}
-      <div style={{ ...CARDS.big, padding: '16px 16px 14px' }}>
+      <div style={{ ...CARDS.big, ...NEO_CARD, padding: '16px 16px 14px' }}>
         <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: COLORS.mut, marginBottom: 6 }}>
           FACTURACIÓN BRUTA · NETA
         </div>
-        <div style={{ fontFamily: FONT.heading, fontSize: 30, fontWeight: 700, color: COLORS.pri, lineHeight: 1, letterSpacing: '-0.5px' }}>
+        <div style={{ fontFamily: FONT.heading, fontSize: 'clamp(26px, 9vw, 34px)', fontWeight: 700, color: COLORS.pri, lineHeight: 1, letterSpacing: '-0.5px' }}>
           {fmt2(totals.total_bruto)}
         </div>
         <div style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, marginTop: 3 }}>
@@ -64,22 +69,22 @@ export function KpiHeroMobile({ totals, dias, tm, tmNeto, netoEstimado, mediadia
 
       {/* GRID 2x: Pedidos+TM | Media/día */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <div style={{ ...CARDS.big, padding: '12px 12px 10px' }}>
+        <div style={{ ...CARDS.big, ...NEO_CARD, padding: '12px 12px 10px' }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, marginBottom: 4 }}>
             PEDIDOS · TM
           </div>
-          <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 700, color: COLORS.lun, lineHeight: 1 }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 'clamp(20px, 6vw, 24px)', fontWeight: 700, color: COLORS.lun, lineHeight: 1 }}>
             {fmtInt(totals.total_pedidos)}
           </div>
           <div style={{ fontFamily: FONT.body, fontSize: 11, color: COLORS.mut, marginTop: 6 }}>
             TM <span style={{ color: COLORS.warn, fontWeight: 600 }}>{fmt2(tm)}</span> bru · <span style={{ color: COLORS.ok, fontWeight: 600 }}>{fmt2(tmNeto)}</span> net
           </div>
         </div>
-        <div style={{ ...CARDS.big, padding: '12px 12px 10px' }}>
+        <div style={{ ...CARDS.big, ...NEO_CARD, padding: '12px 12px 10px' }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, marginBottom: 4 }}>
             MEDIA/DÍA · {dias} D
           </div>
-          <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 700, color: COLORS.pri, lineHeight: 1 }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 'clamp(20px, 6vw, 24px)', fontWeight: 700, color: COLORS.pri, lineHeight: 1 }}>
             {fmt2(mediadiaria)}
           </div>
           <div style={{ fontFamily: FONT.body, fontSize: 11, color: COLORS.mut, marginTop: 6 }}>
@@ -91,16 +96,15 @@ export function KpiHeroMobile({ totals, dias, tm, tmNeto, netoEstimado, mediadia
       {/* Botones acción */}
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={onAdd}
-          style={{ flex: 2, padding: '12px 14px', borderRadius: 12, background: COLORS.redSL, color: '#fff', border: 'none',
-            fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase',
+          style={{ flex: 2, minHeight: 44, padding: '12px 14px', ...NEO_CARD, background: COLORS.redSL, color: '#fff',
+            fontFamily: FONT.heading, fontSize: 12, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <span style={{ fontSize: 16 }}>+</span> Añadir día
         </button>
         {onExport && (
           <button onClick={onExport}
-            style={{ flex: 1, padding: '12px 14px', borderRadius: 12, background: COLORS.card, color: COLORS.mut,
-              border: `0.5px solid ${COLORS.brd}`,
-              fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase',
+            style={{ flex: 1, minHeight: 44, padding: '12px 14px', ...NEO_CARD, background: COLORS.card, color: COLORS.mut,
+              fontFamily: FONT.heading, fontSize: 12, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
             <span>↓</span> CSV
           </button>
@@ -131,11 +135,12 @@ export function DayCardMobile({ row, cols, tipoDia, isSubtotal, subtotalAgg, onC
     <div onClick={onClick}
       style={{
         ...CARDS.std,
+        ...NEO_CARD,
         padding: 0,
         overflow: 'hidden',
         opacity: esCerrado ? 0.55 : 1,
         cursor: 'pointer',
-        border: today ? `1.5px solid ${COLORS.redSL}` : `0.5px solid ${COLORS.brd}`,
+        border: today ? `3px solid ${COLORS.redSL}` : `3px solid ${NEO_INK}`,
       }}>
       {/* Header */}
       <div style={{
@@ -208,7 +213,7 @@ interface SemanaCardProps {
 export function SemanaCardMobile({ row, cols, onClick }: SemanaCardProps) {
   const maxCanal = Math.max(...cols.map(c => (row[c.bru] as number) || 0), 1)
   return (
-    <div onClick={onClick} style={{ ...CARDS.std, padding: 0, overflow: 'hidden', cursor: 'pointer' }}>
+    <div onClick={onClick} style={{ ...CARDS.std, ...NEO_CARD, padding: 0, overflow: 'hidden', cursor: 'pointer' }}>
       <div style={{ padding: '11px 14px 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderBottom: `0.5px solid ${COLORS.brd}` }}>
         <div>
           <div style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 700, color: COLORS.redSL, letterSpacing: '1px' }}>
@@ -264,7 +269,7 @@ const MES_NOMBRE: Record<number, string> = { 1: 'Enero', 2: 'Febrero', 3: 'Marzo
 export function MesCardMobile({ row, cols }: MesCardProps) {
   const maxCanal = Math.max(...cols.map(c => (row[c.bru] as number) || 0), 1)
   return (
-    <div style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
+    <div style={{ ...CARDS.std, ...NEO_CARD, padding: 0, overflow: 'hidden' }}>
       <div style={{ padding: '11px 14px 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderBottom: `0.5px solid ${COLORS.brd}` }}>
         <div>
           <div style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 700, color: COLORS.pri, letterSpacing: '0.5px' }}>
@@ -323,7 +328,7 @@ interface AnioCardProps {
 export function AnioCardMobile({ row, delta, maxBruto }: AnioCardProps) {
   const widthPct = maxBruto > 0 ? Math.round((row.bruto / maxBruto) * 100) : 0
   return (
-    <div style={{ ...CARDS.std, padding: '14px 16px' }}>
+    <div style={{ ...CARDS.std, ...NEO_CARD, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
         <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, color: COLORS.redSL, letterSpacing: '1px' }}>
           {row.anio}
@@ -381,9 +386,9 @@ export function TotalsRowMobile({ label, totals, cols }: TotalsRowMobileProps) {
   return (
     <div style={{
       ...CARDS.std,
+      ...NEO_CARD,
       padding: '12px 14px',
       background: `${COLORS.bg}`,
-      border: `1px solid ${COLORS.brd}`,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: COLORS.mut, fontWeight: 600 }}>
@@ -462,7 +467,7 @@ function DesvBadgeMobile({ pct }: { pct: number }) {
 // ----- Empty state mobile -----
 export function EmptyStateMobile({ msg }: { msg: string }) {
   return (
-    <div style={{ ...CARDS.std, padding: 32, textAlign: 'center', fontFamily: FONT.body, fontSize: 13, color: COLORS.mut }}>
+    <div style={{ ...CARDS.std, ...NEO_CARD, padding: 32, textAlign: 'center', fontFamily: FONT.body, fontSize: 13, color: COLORS.mut }}>
       {msg}
     </div>
   )
@@ -482,14 +487,15 @@ export function SortSelectorMobile({ sortCol, sortDir, onChange }: SortSelectorP
     <div style={{ position: 'relative' }}>
       <button onClick={() => setOpen(o => !o)}
         style={{
-          padding: '5px 10px', borderRadius: 16, background: COLORS.card, border: `0.5px solid ${COLORS.brd}`,
-          fontFamily: FONT.heading, fontSize: 10, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase',
+          padding: '6px 12px', borderRadius: 0, background: COLORS.card,
+          border: `3px solid ${NEO_INK}`, boxShadow: open ? NEO_SHADOW : 'none',
+          fontFamily: FONT.heading, fontSize: 10, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
           color: COLORS.mut, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4,
         }}>
         {labels[sortCol]} {sortDir === 'asc' ? '↑' : '↓'}
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '110%', right: 0, background: COLORS.card, border: `0.5px solid ${COLORS.brd}`, borderRadius: 10, padding: 4, zIndex: 30, minWidth: 130, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+        <div style={{ position: 'absolute', top: '110%', right: 0, background: COLORS.card, ...NEO_CARD, padding: 4, zIndex: 30, minWidth: 130 }}>
           {(['fecha', 'total', 'pedidos'] as SortColMobile[]).map(col => (
             <Fragment key={col}>
               <button onClick={() => { onChange(col, 'desc'); setOpen(false) }}
@@ -533,11 +539,12 @@ export function YearSelectorMobile({ years, selected, onChange }: YearSelectorPr
       {years.map(y => (
         <button key={y} onClick={() => onChange(y)}
           style={{
-            flexShrink: 0, padding: '6px 14px', borderRadius: 16,
-            border: 'none',
-            background: selected === y ? COLORS.pri : COLORS.card,
+            flexShrink: 0, minHeight: 44, padding: '6px 16px', borderRadius: 0,
+            border: `3px solid ${NEO_INK}`,
+            boxShadow: selected === y ? NEO_SHADOW : 'none',
+            background: selected === y ? COLORS.redSL : COLORS.card,
             color: selected === y ? '#fff' : COLORS.mut,
-            fontFamily: FONT.heading, fontSize: 11, fontWeight: 600,
+            fontFamily: FONT.heading, fontSize: 11, fontWeight: 700,
             letterSpacing: '1px', cursor: 'pointer',
           }}>
           {y}
