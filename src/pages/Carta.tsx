@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 import { marginPorTodosCanales, type MargenPorCanal } from '@/lib/marcas/foodCostPorCanal'
 import { fmtEur } from '@/utils/format'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 /* ─── Types ─── */
 
@@ -42,6 +43,7 @@ function margenColor(estado: 'verde' | 'amarillo' | 'rojo'): string {
 
 export default function Carta() {
   const { T, isDark } = useTheme()
+  const isMobile = useIsMobile()
   const [tab, setTab] = useState<Tab>('platos')
   const [platos, setPlatos] = useState<Plato[]>([])
   const [recetas, setRecetas] = useState<Receta[]>([])
@@ -91,7 +93,7 @@ export default function Carta() {
   }
 
   return (
-    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%' }}>
+    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: isMobile ? '16px 12px' : '24px 28px', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={pageTitleStyle(T)}>Carta</h1>
         <button
@@ -99,7 +101,7 @@ export default function Carta() {
           style={{
             background: '#e8f442', color: 'var(--sl-text-primary)', border: 'none', borderRadius: 6,
             fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase',
-            padding: '8px 18px', cursor: 'pointer',
+            padding: '11px 18px', minHeight: 44, cursor: 'pointer',
           }}
         >
           + Nuevo plato
@@ -114,7 +116,7 @@ export default function Carta() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {([['platos', 'Platos'] as const, ['canal', 'Por canal'] as const]).map(([id, label]) => (
           <button
             key={id}
@@ -171,7 +173,7 @@ function TabPlatos({ platos, recetaMap, T, thStyle, tdStyle, onEdit, onToggle, o
 }) {
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
         <thead>
           <tr>
             <th style={thStyle}>Nombre</th>
@@ -230,13 +232,13 @@ function TabPlatos({ platos, recetaMap, T, thStyle, tdStyle, onEdit, onToggle, o
                 <td style={{ ...tdStyle, display: 'flex', gap: 6 }}>
                   <button
                     onClick={() => onEdit(p.id)}
-                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', fontFamily: FONT.body }}
+                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '8px 12px', minHeight: 36, borderRadius: 4, cursor: 'pointer', fontFamily: FONT.body }}
                   >
                     Editar
                   </button>
                   <button
                     onClick={() => onToggle(p.id, p.activo)}
-                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', fontFamily: FONT.body }}
+                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '8px 12px', minHeight: 36, borderRadius: 4, cursor: 'pointer', fontFamily: FONT.body }}
                   >
                     {p.activo ? 'Pausar' : 'Activar'}
                   </button>
@@ -298,7 +300,7 @@ function TabPorCanal({ platos, recetaMap, T, thStyle, tdStyle }: {
 
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
         <thead>
           <tr>
             <th style={thStyle}>Plato</th>
@@ -382,17 +384,17 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
 
   const overlayStyle: CSSProperties = {
     position: 'fixed', inset: 0, background: 'var(--sl-overlay)', zIndex: 1000,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12,
   }
   const modalStyle: CSSProperties = {
     backgroundColor: 'var(--sl-modal-bg)', border: `1px solid ${T.brd}`, borderRadius: 12,
-    padding: '24px 28px', width: '90%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 14,
+    padding: '20px 22px', width: '90%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14,
   }
   const labelStyle: CSSProperties = { fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 4, display: 'block' }
   const inputStyle: CSSProperties = {
     background: 'var(--sl-input-edit)', border: `1px solid ${T.brd}`, borderRadius: 6,
     color: T.pri, fontFamily: FONT.body, fontSize: 13,
-    padding: '8px 10px', width: '100%', boxSizing: 'border-box',
+    padding: '10px 10px', minHeight: 42, width: '100%', boxSizing: 'border-box',
   }
 
   return (
@@ -405,7 +407,7 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
           <label style={labelStyle}>Nombre</label>
           <input style={inputStyle} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Katsu curry" />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 12 }}>
           <div>
             <label style={labelStyle}>PVP (€)</label>
             <input style={inputStyle} value={pvp} onChange={e => setPvp(e.target.value)} placeholder="Ej: 12.50" />
@@ -423,11 +425,11 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
           </select>
         </div>
         {err && <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#ff6b70' }}>{err}</div>}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ background: 'var(--sl-btn-cancel-bg)', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.body, fontSize: 13, padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <button onClick={onClose} style={{ background: 'var(--sl-btn-cancel-bg)', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.body, fontSize: 13, padding: '11px 16px', minHeight: 44, borderRadius: 6, cursor: 'pointer' }}>
             Cancelar
           </button>
-          <button onClick={handleSave} disabled={saving} style={{ background: saving ? 'var(--sl-text-muted)' : '#B01D23', color: '#fff', border: 'none', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 20px', borderRadius: 6, cursor: saving ? 'default' : 'pointer' }}>
+          <button onClick={handleSave} disabled={saving} style={{ background: saving ? 'var(--sl-text-muted)' : '#B01D23', color: '#fff', border: 'none', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '11px 20px', minHeight: 44, borderRadius: 6, cursor: saving ? 'default' : 'pointer' }}>
             {saving ? 'Guardando...' : 'Guardar'}
           </button>
         </div>
@@ -441,7 +443,7 @@ function KpiMini({ label, value, T, accent }: { label: string; value: string; T:
   return (
     <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: '14px 16px' }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: accent ?? T.pri }}>{value}</div>
+      <div style={{ fontFamily: FONT.heading, fontSize: 'clamp(17px,5vw,22px)', fontWeight: 600, color: accent ?? T.pri }}>{value}</div>
     </div>
   )
 }
