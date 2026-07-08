@@ -1,8 +1,12 @@
 name: Robot ingesta diaria (Rushour + Sinqro)
 
-# El robot se dispara solo al actualizar su código (push a este path) para poder
-# probarlo sin tocar la pestaña Actions. También queda el botón manual.
-# Relanzado 2026-07-07 (tarde) tras cargar el secret de escritura a Supabase.
+# Dos tomas al día (comida ~16:30 Madrid, cena/cierre ~01:00 Madrid del día
+# siguiente). Los 4 crons cubren verano+invierno porque GitHub Actions programa
+# en UTC y no sabe de horario de verano; el propio robot.ts decide comida/cena
+# por la hora real de Madrid al arrancar, así que el disparo "de más" que cae
+# fuera de temporada no rompe el reparto (ver tomaPorHoraMadrid en robot.ts).
+# También se dispara al tocar su código (push a este path) para poder probarlo
+# sin usar la pestaña Actions, y por botón manual con toma/fecha explícitos.
 on:
   workflow_dispatch:
     inputs:
@@ -10,11 +14,25 @@ on:
         description: "Modo diagnóstico (guarda capturas/HTML)"
         type: boolean
         default: true
+      toma:
+        description: "Toma a ejecutar (vacío = deducir por la hora de Madrid)"
+        type: choice
+        options: ["", "comida", "cena"]
+        default: ""
+      fecha:
+        description: "Fecha a procesar YYYY-MM-DD (vacío = hoy/ayer según toma)"
+        type: string
+        default: ""
   push:
     branches: [master]
     paths:
-      - "scripts/robot-ingesta/**"
+      - "scripts/robot-ingesta/robot.ts"
       - ".github/workflows/robot-ingesta-diaria.yml"
+  schedule:
+    - cron: "30 14 * * *" # comida 16:30 Madrid (verano, UTC+2)
+    - cron: "30 15 * * *" # comida 16:30 Madrid (invierno, UTC+1)
+    - cron: "0 23 * * *"  # cena 01:00 Madrid del día siguiente (verano, UTC+2)
+    - cron: "0 0 * * *"   # cena 01:00 Madrid (invierno, UTC+1)
 
 jobs:
   ingesta:
@@ -35,6 +53,8 @@ jobs:
       - name: Ejecutar robot
         env:
           DIAG: ${{ github.event.inputs.diag == 'false' && '0' || '1' }}
+          TOMA: ${{ github.event.inputs.toma }}
+          FECHA: ${{ github.event.inputs.fecha }}
           RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
           RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
           SINQRO_USER: ${{ secrets.SINQRO_USER }}
