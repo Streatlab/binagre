@@ -40,6 +40,11 @@ const ALERGENOS_LIST = [
 
 const CATEGORIAS = ['Entrante','Principal','Postre','Bebida','Guarnición','Salsa','Base']
 
+// ─── NEOBRUTAL (theme-aware) ─────────────────────────────────
+const NEO_INK = 'var(--neo-ink)'
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
+const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
+
 // ─── COMPONENTE PRINCIPAL ────────────────────────────────────
 
 export default function CocinaRecetas() {
@@ -120,13 +125,14 @@ export default function CocinaRecetas() {
   }), [recetas, busqueda, filtroCat])
 
   const inputStyle: React.CSSProperties = {
-    background: isDark ? '#3a4058' : 'var(--sl-card)',
-    border: `1px solid ${isDark ? '#4a5270' : 'var(--sl-border)'}`,
+    background: 'var(--sl-card)',
+    border: `2px solid ${NEO_INK}`,
     color: T.pri,
     fontFamily: FONT.body,
-    fontSize: 12,
-    borderRadius: 8,
-    padding: '6px 10px',
+    fontSize: 13,
+    borderRadius: 0,
+    padding: '9px 11px',
+    minHeight: 44,
     width: '100%',
   }
 
@@ -134,7 +140,7 @@ export default function CocinaRecetas() {
   if (error) return <div style={{ padding: 32, color: '#E24B4A', fontFamily: FONT.body }}>{error}</div>
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '320px 1fr', gap: 16, height: '100%', minHeight: '80vh', padding: isMobile ? 12 : 0 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '320px 1fr', gap: 16, height: '100%', minHeight: '100vh', background: 'var(--neo-bg)', padding: isMobile ? 12 : 16 }}>
 
       {/* LISTA IZQUIERDA */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -173,10 +179,12 @@ export default function CocinaRecetas() {
                 onClick={() => selectReceta(r)}
                 style={{
                   ...cardStyle(T),
+                  ...NEO_CARD,
                   cursor: 'pointer',
                   padding: '10px 14px',
-                  border: isSelected ? `1px solid ${T.emphasis}` : `0.5px solid ${T.brd}`,
-                  background: isSelected ? (isDark ? 'var(--sl-card)' : 'var(--sl-card)') : T.card,
+                  border: isSelected ? `3px solid ${T.emphasis}` : `2px solid ${NEO_INK}`,
+                  boxShadow: isSelected ? NEO_SHADOW : 'none',
+                  background: isSelected ? 'var(--sl-card)' : T.card,
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
                 }}
               >
@@ -200,7 +208,7 @@ export default function CocinaRecetas() {
 
       {/* DETALLE DERECHA */}
       {selected ? (
-        <div style={{ ...cardStyle(T), overflowY: 'auto' }}>
+        <div style={{ ...cardStyle(T), ...NEO_CARD, overflowY: 'auto' }}>
 
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
@@ -213,17 +221,17 @@ export default function CocinaRecetas() {
                 {selected.pvp_real ? ` · PVP ${fmtEur(selected.pvp_real)}` : ''}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {!editMode ? (
-                <button onClick={() => setEditMode(true)} style={{ padding: '10px 16px', minHeight: 44, borderRadius: 8, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}>
+                <button onClick={() => setEditMode(true)} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, background: 'var(--sl-card)', color: T.pri, fontFamily: FONT.heading, fontSize: 12, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
                   Editar
                 </button>
               ) : (
                 <>
-                  <button onClick={saveReceta} disabled={saving} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: '#B01D23', color: '#fff', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}>
+                  <button onClick={saveReceta} disabled={saving} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, background: '#B01D23', color: '#fff', fontFamily: FONT.heading, fontSize: 12, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
                     {saving ? 'Guardando…' : 'Guardar'}
                   </button>
-                  <button onClick={() => setEditMode(false)} style={{ padding: '6px 14px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: 'none', color: T.sec, fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}>
+                  <button onClick={() => setEditMode(false)} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, background: 'var(--sl-card)', color: T.pri, fontFamily: FONT.heading, fontSize: 12, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
                     Cancelar
                   </button>
                 </>
@@ -251,7 +259,7 @@ export default function CocinaRecetas() {
             {loadingLineas ? (
               <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>Cargando…</div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
+              <div style={{ ...NEO_CARD, background: T.card, overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body, fontSize: 13, minWidth: 320 }}>
                 <thead>
                   <tr style={{ borderBottom: `0.5px solid ${T.brd}` }}>
@@ -327,7 +335,7 @@ export default function CocinaRecetas() {
 
         </div>
       ) : (
-        <div style={{ ...cardStyle(T), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ ...cardStyle(T), ...NEO_CARD, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 14 }}>
             Selecciona una receta para ver su ficha
           </div>

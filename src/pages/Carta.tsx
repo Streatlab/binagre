@@ -39,6 +39,11 @@ function margenColor(estado: 'verde' | 'amarillo' | 'rojo'): string {
   return estado === 'verde' ? COLOR_VERDE : estado === 'amarillo' ? COLOR_AMARILLO : COLOR_ROJO
 }
 
+/* ─── Neobrutal ─── */
+const NEO_INK = 'var(--neo-ink)'
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
+const NEO_CARD: CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
+
 /* ─── Main ─── */
 
 export default function Carta() {
@@ -93,13 +98,13 @@ export default function Carta() {
   }
 
   return (
-    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: isMobile ? '16px 12px' : '24px 28px', width: '100%' }}>
+    <div style={{ background: 'var(--neo-bg)', ...NEO_CARD, padding: isMobile ? '16px 12px' : '24px 28px', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={pageTitleStyle(T)}>Carta</h1>
         <button
           onClick={() => { setEditId(null); setShowForm(true) }}
           style={{
-            background: '#e8f442', color: 'var(--sl-text-primary)', border: 'none', borderRadius: 6,
+            background: '#e8f442', color: 'var(--sl-text-primary)', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW,
             fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase',
             padding: '11px 18px', minHeight: 44, cursor: 'pointer',
           }}
@@ -121,7 +126,11 @@ export default function Carta() {
           <button
             key={id}
             onClick={() => setTab(id)}
-            style={tab === id ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
+            style={{
+              ...(tab === id ? tabActiveStyle(isDark) : tabInactiveStyle(T)),
+              border: `3px solid ${NEO_INK}`, borderRadius: 0,
+              boxShadow: tab === id ? NEO_SHADOW : 'none', minHeight: 44,
+            }}
           >
             {label}
           </button>
@@ -172,7 +181,7 @@ function TabPlatos({ platos, recetaMap, T, thStyle, tdStyle, onEdit, onToggle, o
   onDelete: (id: string) => void
 }) {
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div style={{ ...NEO_CARD, overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
         <thead>
           <tr>
@@ -299,7 +308,7 @@ function TabPorCanal({ platos, recetaMap, T, thStyle, tdStyle }: {
   }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div style={{ ...NEO_CARD, overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
         <thead>
           <tr>
@@ -387,7 +396,7 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12,
   }
   const modalStyle: CSSProperties = {
-    backgroundColor: 'var(--sl-modal-bg)', border: `1px solid ${T.brd}`, borderRadius: 12,
+    backgroundColor: 'var(--sl-modal-bg)', ...NEO_CARD,
     padding: '20px 22px', width: '90%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14,
   }
   const labelStyle: CSSProperties = { fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 4, display: 'block' }
@@ -426,10 +435,10 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
         </div>
         {err && <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#ff6b70' }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          <button onClick={onClose} style={{ background: 'var(--sl-btn-cancel-bg)', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.body, fontSize: 13, padding: '11px 16px', minHeight: 44, borderRadius: 6, cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ background: 'var(--sl-btn-cancel-bg)', border: `3px solid ${NEO_INK}`, color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.body, fontSize: 13, padding: '11px 16px', minHeight: 44, borderRadius: 0, cursor: 'pointer' }}>
             Cancelar
           </button>
-          <button onClick={handleSave} disabled={saving} style={{ background: saving ? 'var(--sl-text-muted)' : '#B01D23', color: '#fff', border: 'none', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '11px 20px', minHeight: 44, borderRadius: 6, cursor: saving ? 'default' : 'pointer' }}>
+          <button onClick={handleSave} disabled={saving} style={{ background: saving ? 'var(--sl-text-muted)' : '#B01D23', color: '#fff', border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '11px 20px', minHeight: 44, borderRadius: 0, cursor: saving ? 'default' : 'pointer' }}>
             {saving ? 'Guardando...' : 'Guardar'}
           </button>
         </div>
@@ -441,7 +450,7 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
 /* ─── KPI Mini ─── */
 function KpiMini({ label, value, T, accent }: { label: string; value: string; T: ReturnType<typeof useTheme>['T']; accent?: string }) {
   return (
-    <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: '14px 16px' }}>
+    <div style={{ background: T.card, ...NEO_CARD, padding: '14px 16px' }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>{label}</div>
       <div style={{ fontFamily: FONT.heading, fontSize: 'clamp(17px,5vw,22px)', fontWeight: 600, color: accent ?? T.pri }}>{value}</div>
     </div>

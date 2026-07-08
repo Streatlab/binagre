@@ -3,9 +3,15 @@
  * Tabs: Calendario | Gastos Fijos | Historial
  */
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { useIsMobile } from '@/hooks/useIsMobile'
+
+// ─── Neobrutal ───────────────────────────────────────────────────────────────
+const NEO_INK = 'var(--neo-ink)'
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
+const NEO_CARD: CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
 
 // ─── Helpers de fecha ────────────────────────────────────────────────────────
 
@@ -218,7 +224,7 @@ export default function PagosCobros() {
   const isMobile = useIsMobile()
 
   return (
-    <div style={{ padding: isMobile ? '18px 12px' : '28px 28px', fontFamily: 'Lexend, sans-serif', color: 'var(--sl-text-primary)', minHeight: '100vh', backgroundColor: 'var(--sl-app)' }}>
+    <div style={{ padding: isMobile ? '18px 12px' : '28px 28px', fontFamily: 'Lexend, sans-serif', color: 'var(--sl-text-primary)', minHeight: '100vh', backgroundColor: 'var(--neo-bg)' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 'clamp(16px,5vw,22px)', fontWeight: 600, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--sl-text-primary)', margin: 0 }}>
           Pagos y Cobros
@@ -236,15 +242,17 @@ export default function PagosCobros() {
             style={{
               fontFamily: 'Oswald, sans-serif',
               fontSize: 13,
-              fontWeight: 500,
+              fontWeight: 600,
               letterSpacing: 1,
+              textTransform: 'uppercase',
               padding: '10px 18px',
               minHeight: 44,
-              borderRadius: 20,
-              border: 'none',
+              borderRadius: 0,
+              border: `3px solid ${NEO_INK}`,
               cursor: 'pointer',
               backgroundColor: tab === t.id ? '#e8f442' : 'var(--sl-card-alt)',
-              color: tab === t.id ? 'var(--sl-text-primary)' : 'var(--sl-text-secondary)',
+              color: tab === t.id ? '#111111' : 'var(--sl-text-secondary)',
+              boxShadow: tab === t.id ? NEO_SHADOW : 'none',
               transition: 'all 0.15s',
             }}
           >
@@ -321,7 +329,7 @@ function TabCalendario() {
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 28 }}>
         <KpiCard label="Cobros pendientes" value={fmtEur(totalCobros)} color="#1D9E75" />
         <KpiCard label="Pagos pendientes" value={fmtEur(totalPagos)} color="#B01D23" />
         <KpiCard label="Balance" value={fmtEur(balance)} color={balance >= 0 ? '#1D9E75' : '#B01D23'} />
@@ -332,7 +340,7 @@ function TabCalendario() {
           No hay cobros ni pagos proyectados en los próximos 90 días.
         </div>
       ) : (
-        <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--sl-card)', ...NEO_CARD, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
             <thead>
@@ -484,18 +492,18 @@ function TabGastos() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
         <button
           onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(v => !v) }}
-          style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: 1, padding: '12px 20px', minHeight: 44, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: '#e8f442', color: 'var(--sl-text-primary)' }}
+          style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, letterSpacing: 1, padding: '12px 20px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, cursor: 'pointer', backgroundColor: '#e8f442', color: '#111111' }}
         >
           + AÑADIR GASTO FIJO
         </button>
       </div>
 
       {showForm && (
-        <div style={{ backgroundColor: 'var(--sl-card-alt)', border: '0.5px solid var(--sl-border)', borderRadius: 12, padding: 'clamp(14px,3vw,24px)', marginBottom: 20 }}>
+        <div style={{ backgroundColor: 'var(--sl-card-alt)', ...NEO_CARD, padding: 'clamp(14px,3vw,24px)', marginBottom: 20 }}>
           <h3 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: 1.5, color: 'var(--sl-btn-cancel-text)', margin: '0 0 16px', textTransform: 'uppercase' }}>
             {editId !== null ? 'Editar gasto fijo' : 'Nuevo gasto fijo'}
           </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 12, alignItems: 'end' }}>
             <InputField label="Concepto" value={form.concepto} onChange={v => setForm(f => ({ ...f, concepto: v }))} />
             <InputField label="Importe (€)" value={form.importe} onChange={v => setForm(f => ({ ...f, importe: v }))} type="number" />
             <div>
@@ -513,14 +521,14 @@ function TabGastos() {
           <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <button
               onClick={() => { setShowForm(false); setForm(emptyForm); setEditId(null) }}
-              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, padding: '12px 16px', minHeight: 44, borderRadius: 6, border: '0.5px solid var(--sl-btn-cancel-border)', backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', cursor: 'pointer' }}
+              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, padding: '12px 16px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', cursor: 'pointer' }}
             >
               CANCELAR
             </button>
             <button
               onClick={guardar}
               disabled={saving}
-              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, padding: '12px 20px', minHeight: 44, borderRadius: 6, border: 'none', backgroundColor: '#B01D23', color: '#fff', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
+              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, padding: '12px 20px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: '#B01D23', color: '#fff', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? 'GUARDANDO...' : 'GUARDAR'}
             </button>
@@ -633,15 +641,17 @@ function TabHistorial() {
             style={{
               fontFamily: 'Oswald, sans-serif',
               fontSize: 12,
+              fontWeight: 600,
               letterSpacing: 1,
               padding: '10px 14px',
-              minHeight: 40,
-              borderRadius: 16,
-              border: 'none',
+              minHeight: 44,
+              borderRadius: 0,
+              border: `3px solid ${NEO_INK}`,
               cursor: 'pointer',
               textTransform: 'uppercase',
               backgroundColor: filtro === f ? '#e8f442' : 'var(--sl-card-alt)',
-              color: filtro === f ? 'var(--sl-text-primary)' : 'var(--sl-text-secondary)',
+              color: filtro === f ? '#111111' : 'var(--sl-text-secondary)',
+              boxShadow: filtro === f ? NEO_SHADOW : 'none',
             }}
           >
             {f === 'todos' ? 'Todos' : f === 'ingreso' ? 'Ingresos' : 'Pagos'}
@@ -702,7 +712,7 @@ function TabHistorial() {
 
 function KpiCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, padding: 'clamp(14px,3vw,24px)' }}>
+    <div style={{ background: 'var(--sl-card)', ...NEO_CARD, padding: 'clamp(14px,3vw,24px)' }}>
       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', marginBottom: 8 }}>
         {label}
       </div>
