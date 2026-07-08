@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/utils/format'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 // ─── Helpers de fecha ────────────────────────────────────────────────────────
 
@@ -214,11 +215,12 @@ const TABS: { id: TabId; label: string }[] = [
 
 export default function PagosCobros() {
   const [tab, setTab] = useState<TabId>('calendario')
+  const isMobile = useIsMobile()
 
   return (
-    <div style={{ padding: '28px 28px', fontFamily: 'Lexend, sans-serif', color: 'var(--sl-text-primary)', minHeight: '100vh', backgroundColor: 'var(--sl-app)' }}>
+    <div style={{ padding: isMobile ? '18px 12px' : '28px 28px', fontFamily: 'Lexend, sans-serif', color: 'var(--sl-text-primary)', minHeight: '100vh', backgroundColor: 'var(--sl-app)' }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--sl-text-primary)', margin: 0 }}>
+        <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 'clamp(16px,5vw,22px)', fontWeight: 600, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--sl-text-primary)', margin: 0 }}>
           Pagos y Cobros
         </h1>
         <p style={{ fontSize: 13, color: 'var(--sl-text-muted)', margin: '4px 0 0' }}>
@@ -226,7 +228,7 @@ export default function PagosCobros() {
         </p>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 24, flexWrap: 'wrap' }}>
         {TABS.map(t => (
           <button
             key={t.id}
@@ -236,7 +238,8 @@ export default function PagosCobros() {
               fontSize: 13,
               fontWeight: 500,
               letterSpacing: 1,
-              padding: '7px 18px',
+              padding: '10px 18px',
+              minHeight: 44,
               borderRadius: 20,
               border: 'none',
               cursor: 'pointer',
@@ -318,7 +321,7 @@ function TabCalendario() {
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16, marginBottom: 28 }}>
         <KpiCard label="Cobros pendientes" value={fmtEur(totalCobros)} color="#1D9E75" />
         <KpiCard label="Pagos pendientes" value={fmtEur(totalPagos)} color="#B01D23" />
         <KpiCard label="Balance" value={fmtEur(balance)} color={balance >= 0 ? '#1D9E75' : '#B01D23'} />
@@ -330,11 +333,12 @@ function TabCalendario() {
         </div>
       ) : (
         <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
             <thead>
               <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
                 {['Fecha', 'Tipo', 'Concepto', 'Importe estimado', 'Estado'].map(h => (
-                  <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500 }}>
+                  <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}>
                     {h}
                   </th>
                 ))}
@@ -348,7 +352,7 @@ function TabCalendario() {
                   onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--sl-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)' }}>
+                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)', whiteSpace: 'nowrap' }}>
                     {item.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                   </td>
                   <td style={{ padding: '12px 16px' }}>
@@ -357,7 +361,7 @@ function TabCalendario() {
                   <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)' }}>
                     {item.concepto}
                   </td>
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)', fontFamily: 'Oswald, sans-serif', textAlign: 'right' }}>
+                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)', fontFamily: 'Oswald, sans-serif', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {fmtEur(item.importe)}
                   </td>
                   <td style={{ padding: '12px 16px' }}>
@@ -369,6 +373,7 @@ function TabCalendario() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
@@ -479,18 +484,18 @@ function TabGastos() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
         <button
           onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(v => !v) }}
-          style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: 1, padding: '8px 20px', borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: '#e8f442', color: 'var(--sl-text-primary)' }}
+          style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: 1, padding: '12px 20px', minHeight: 44, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: '#e8f442', color: 'var(--sl-text-primary)' }}
         >
           + AÑADIR GASTO FIJO
         </button>
       </div>
 
       {showForm && (
-        <div style={{ backgroundColor: 'var(--sl-card-alt)', border: '0.5px solid var(--sl-border)', borderRadius: 12, padding: '20px 24px', marginBottom: 20 }}>
+        <div style={{ backgroundColor: 'var(--sl-card-alt)', border: '0.5px solid var(--sl-border)', borderRadius: 12, padding: 'clamp(14px,3vw,24px)', marginBottom: 20 }}>
           <h3 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: 1.5, color: 'var(--sl-btn-cancel-text)', margin: '0 0 16px', textTransform: 'uppercase' }}>
             {editId !== null ? 'Editar gasto fijo' : 'Nuevo gasto fijo'}
           </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 12, alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, alignItems: 'end' }}>
             <InputField label="Concepto" value={form.concepto} onChange={v => setForm(f => ({ ...f, concepto: v }))} />
             <InputField label="Importe (€)" value={form.importe} onChange={v => setForm(f => ({ ...f, importe: v }))} type="number" />
             <div>
@@ -498,24 +503,24 @@ function TabGastos() {
               <select
                 value={form.periodicidad}
                 onChange={e => setForm(f => ({ ...f, periodicidad: e.target.value }))}
-                style={{ width: '100%', padding: '8px 10px', backgroundColor: 'var(--sl-input-edit)', border: '0.5px solid var(--sl-border)', borderRadius: 6, color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: 'Lexend, sans-serif' }}
+                style={{ width: '100%', padding: '10px 10px', minHeight: 42, backgroundColor: 'var(--sl-input-edit)', border: '0.5px solid var(--sl-border)', borderRadius: 6, color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: 'Lexend, sans-serif', boxSizing: 'border-box' }}
               >
                 {PERIODICIDADES.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <InputField label="Próximo pago" value={form.proxima_fecha_pago} onChange={v => setForm(f => ({ ...f, proxima_fecha_pago: v }))} type="date" />
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <button
               onClick={() => { setShowForm(false); setForm(emptyForm); setEditId(null) }}
-              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, padding: '8px 16px', borderRadius: 6, border: '0.5px solid var(--sl-btn-cancel-border)', backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', cursor: 'pointer' }}
+              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, padding: '12px 16px', minHeight: 44, borderRadius: 6, border: '0.5px solid var(--sl-btn-cancel-border)', backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', cursor: 'pointer' }}
             >
               CANCELAR
             </button>
             <button
               onClick={guardar}
               disabled={saving}
-              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, padding: '8px 20px', borderRadius: 6, border: 'none', backgroundColor: '#B01D23', color: '#fff', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
+              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, padding: '12px 20px', minHeight: 44, borderRadius: 6, border: 'none', backgroundColor: '#B01D23', color: '#fff', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? 'GUARDANDO...' : 'GUARDAR'}
             </button>
@@ -524,11 +529,12 @@ function TabGastos() {
       )}
 
       <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
           <thead>
             <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
               {['Concepto', 'Importe', 'Periodicidad', 'Próximo pago', 'Estado', 'Acciones'].map(h => (
-                <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500 }}>
+                <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}>
                   {h}
                 </th>
               ))}
@@ -550,9 +556,9 @@ function TabGastos() {
                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)' }}>{g.concepto}</td>
-                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)', fontFamily: 'Oswald, sans-serif' }}>{fmtEur(g.importe)}</td>
+                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)', fontFamily: 'Oswald, sans-serif', whiteSpace: 'nowrap' }}>{fmtEur(g.importe)}</td>
                 <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--sl-btn-cancel-text)', textTransform: 'capitalize' }}>{g.periodicidad}</td>
-                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)' }}>{fmtDate(g.proxima_fecha_pago)}</td>
+                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)', whiteSpace: 'nowrap' }}>{fmtDate(g.proxima_fecha_pago)}</td>
                 <td style={{ padding: '12px 16px' }}>
                   <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, backgroundColor: g.activo ? '#1D9E7520' : '#77777720', color: g.activo ? '#1D9E75' : 'var(--sl-text-muted)', fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
                     {g.activo ? 'ACTIVO' : 'ARCHIVADO'}
@@ -562,14 +568,14 @@ function TabGastos() {
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       onClick={() => iniciarEdicion(g)}
-                      style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '5px 12px', borderRadius: 6, border: '0.5px solid var(--sl-btn-cancel-border)', backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', cursor: 'pointer' }}
+                      style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '9px 12px', minHeight: 38, borderRadius: 6, border: '0.5px solid var(--sl-btn-cancel-border)', backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', cursor: 'pointer' }}
                     >
                       EDITAR
                     </button>
                     {g.activo && (
                       <button
                         onClick={() => archivar(g.id)}
-                        style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '5px 12px', borderRadius: 6, border: 'none', backgroundColor: '#B01D2330', color: '#B01D23', cursor: 'pointer' }}
+                        style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '9px 12px', minHeight: 38, borderRadius: 6, border: 'none', backgroundColor: '#B01D2330', color: '#B01D23', cursor: 'pointer' }}
                       >
                         ARCHIVAR
                       </button>
@@ -580,6 +586,7 @@ function TabGastos() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
@@ -618,7 +625,7 @@ function TabHistorial() {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         {(['todos', 'ingreso', 'pago'] as FiltroHistorial[]).map(f => (
           <button
             key={f}
@@ -627,7 +634,8 @@ function TabHistorial() {
               fontFamily: 'Oswald, sans-serif',
               fontSize: 12,
               letterSpacing: 1,
-              padding: '6px 14px',
+              padding: '10px 14px',
+              minHeight: 40,
               borderRadius: 16,
               border: 'none',
               cursor: 'pointer',
@@ -645,11 +653,12 @@ function TabHistorial() {
       </div>
 
       <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
           <thead>
             <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
               {['Fecha', 'Concepto', 'Importe', 'Categoría', 'Tipo'].map(h => (
-                <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500 }}>
+                <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}>
                   {h}
                 </th>
               ))}
@@ -670,9 +679,9 @@ function TabHistorial() {
                 onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--sl-hover)')}
                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
-                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)' }}>{fmtDate(m.fecha)}</td>
+                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)', whiteSpace: 'nowrap' }}>{fmtDate(m.fecha)}</td>
                 <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)' }}>{m.concepto}</td>
-                <td style={{ padding: '12px 16px', fontSize: 13, fontFamily: 'Oswald, sans-serif', color: m.tipo === 'ingreso' ? '#1D9E75' : '#B01D23', textAlign: 'right' }}>
+                <td style={{ padding: '12px 16px', fontSize: 13, fontFamily: 'Oswald, sans-serif', color: m.tipo === 'ingreso' ? '#1D9E75' : '#B01D23', textAlign: 'right', whiteSpace: 'nowrap' }}>
                   {m.tipo === 'pago' ? '-' : '+'}{fmtEur(Math.abs(Number(m.importe)))}
                 </td>
                 <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--sl-text-muted)', textTransform: 'capitalize' }}>{m.categoria || '—'}</td>
@@ -683,6 +692,7 @@ function TabHistorial() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
@@ -692,11 +702,11 @@ function TabHistorial() {
 
 function KpiCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, padding: '20px 24px' }}>
+    <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, padding: 'clamp(14px,3vw,24px)' }}>
       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', marginBottom: 8 }}>
         {label}
       </div>
-      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 700, color }}>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 'clamp(19px,5.5vw,26px)', fontWeight: 700, color }}>
         {value}
       </div>
     </div>
@@ -735,7 +745,7 @@ function InputField({ label, value, onChange, type = 'text' }: {
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        style={{ width: '100%', padding: '8px 10px', backgroundColor: 'var(--sl-input-edit)', border: '0.5px solid var(--sl-border)', borderRadius: 6, color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: 'Lexend, sans-serif', boxSizing: 'border-box' }}
+        style={{ width: '100%', padding: '10px 10px', minHeight: 42, backgroundColor: 'var(--sl-input-edit)', border: '0.5px solid var(--sl-border)', borderRadius: 6, color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: 'Lexend, sans-serif', boxSizing: 'border-box' }}
       />
     </div>
   )
