@@ -1,8 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../../_lib/supabase-admin.js'
 import { aplicarMatching, matchFactura } from '../../_lib/matching.js'
-import { generarNombreArchivo, subirArchivoADrive } from '../../_lib/google-drive.js'
+import { generarNombreArchivo, subirArchivoADrive, descargarArchivoDeDrive } from '../../_lib/google-drive.js'
 import { extensionDeNombre } from '../../_lib/detectarTipo.js'
+import { extraerTextoPDF } from '../../_lib/extractores.js'
+import { extraerLineasAnthropicTexto } from '../../_lib/extraerLineasFactura.js'
 
 export const config = {
   api: { bodyParser: { sizeLimit: '20mb' } },
@@ -28,6 +30,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return rematch(res, id)
     case 'subir-drive':
       return subirDrive(req, res, id)
+    case 'extraer-lineas':
+      return extraerLineas(res, id)
     default:
       return res.status(404).json({ error: `Acción desconocida: ${action}` })
   }
@@ -98,6 +102,74 @@ async function rematch(res: VercelResponse, id: string) {
   })
   await aplicarMatching(supabaseAdmin, id, resultado)
   return res.status(200).json({ ok: true, estado: resultado.estado, mensaje: resultado.mensaje })
+}
+
+// Extrae las líneas de compra (detalle producto a producto) de una factura de
+// proveedor ya archivada en Drive. Reutilizable tanto desde la UI (botón
+// "Extraer líneas") como desde el script de reproceso histórico.
+async function extraerLineas(res: VercelResponse, id: string) {
+  const { data: factura, error } = await supabaseAdmin
+    .from('facturas')
+    .select('id,tipo,total,pdf_drive_id,proveedor_nombre,fecha_factura')
+    .eq('id', id)
+    .maybeSingle()
+  if (error || !factura) return res.status(404).json({ error: error?.message || 'Factura no encontrada' })
+
+  // Solo facturas de proveedor tienen líneas de compra: las de plataforma
+  // (Uber/Glovo/Just Eat) son comisiones, sin desglose de producto.
+  if (factura.tipo !== 'proveedor') {
+    await supabaseAdmin.from('facturas')
+      .update({ lineas_estado: 'no_aplica', estado_detalle_lineas: 'Factura de plataforma: no aplica', detalle_lineas_diff: 0 })
+      .eq('id', id)
+    return res.status(200).json({ ok: true, estado: 'no_aplica' })
+  }
+  if (!factura.pdf_drive_id) {
+    await supabaseAdmin.from('facturas')
+      .update({ lineas_estado: 'sin_detalle_lineas', estado_detalle_lineas: 'Sin PDF en Drive' })
+      .eq('id', id)
+    return res.status(200).json({ ok: true, estado: 'sin_detalle_lineas' })
+  }
+
+  let resultado
+  try {
+    const buffer = await descargarArchivoDeDrive(factura.pdf_drive_id)
+    const texto = await extraerTextoPDF(buffer)
+    resultado = await extraerLineasAnthropicTexto(texto, Number(factura.total) || 0)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    await supabaseAdmin.from('facturas')
+      .update({ lineas_estado: 'error', estado_detalle_lineas: `Descarga/lectura: ${msg}` })
+      .eq('id', id)
+    return res.status(500).json({ error: msg })
+  }
+
+  if (resultado.estado === 'con_lineas' && resultado.lineas.length > 0) {
+    // Reproceso limpio: fuera las líneas de origen 'ocr_auto' anteriores de esta factura.
+    await supabaseAdmin.from('facturas_lineas').delete().eq('factura_id', id).eq('origen', 'ocr_auto')
+    const filas = resultado.lineas.map((l) => ({
+      factura_id: id,
+      descripcion: l.descripcion,
+      cantidad: l.cantidad,
+      unidad: l.unidad,
+      precio_unitario: l.precio_unitario,
+      total_linea: l.total_linea,
+      iva_pct: l.iva_pct,
+      origen: 'ocr_auto',
+      proveedor_nombre: factura.proveedor_nombre,
+      fecha: factura.fecha_factura,
+    }))
+    await supabaseAdmin.from('facturas_lineas').insert(filas)
+  }
+
+  await supabaseAdmin.from('facturas')
+    .update({
+      lineas_estado: resultado.estado,
+      estado_detalle_lineas: resultado.motivo,
+      detalle_lineas_diff: resultado.diff,
+    })
+    .eq('id', id)
+
+  return res.status(200).json({ ok: true, estado: resultado.estado, motivo: resultado.motivo, n_lineas: resultado.lineas.length })
 }
 
 async function subirDrive(req: VercelRequest, res: VercelResponse, id: string) {
