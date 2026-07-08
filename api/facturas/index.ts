@@ -911,7 +911,7 @@ async function encolarReproc(res: VercelResponse) {
 // pide a Anthropic las líneas y solo las inserta si la suma (+IVA de línea)
 // cuadra con el total de cabecera en ±0.05€. Si no cuadra o no hay texto
 // suficiente, la factura queda marcada 'sin_detalle_lineas' — nunca a medias.
-const LOTE_LINEAS = 6
+const LOTE_LINEAS = 30
 const PRESUPUESTO_LINEAS_MS = 240_000
 
 async function extraerLineasBatch(req: VercelRequest, res: VercelResponse) {
