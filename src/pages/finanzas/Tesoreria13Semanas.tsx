@@ -23,6 +23,7 @@ export default function Tesoreria13Semanas() {
     loading, error, saldoInicial, saldoInicialFuente,
     semanas, semanaCritica, saldoMinimo,
     gastosFijosCount, gastoOperativoSemanal,
+    nominaSemanal, segSocialSemanal, nominasCount, segSocialCount,
   } = useTesoreria13Semanas()
 
   const card: React.CSSProperties = { background: '#fff', border: BORDER_CARD, boxShadow: SHADOW }
@@ -103,6 +104,13 @@ export default function Tesoreria13Semanas() {
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: VERDE, border: `2px solid ${INK}`, display: 'inline-block' }} />Verde · saldo ≥ {fmtEur(UMBRAL_VERDE, { decimals: 0 })}</span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: AMA, border: `2px solid ${INK}`, display: 'inline-block' }} />Ámbar · entre 0 € y {fmtEur(UMBRAL_VERDE, { decimals: 0 })}</span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: ROJO, border: `2px solid ${INK}`, display: 'inline-block' }} />Rojo · saldo negativo</span>
+      </div>
+
+      <div style={{ marginTop: 14, ...card, padding: '12px 16px', display: 'flex', gap: 22, flexWrap: 'wrap', fontFamily: LEX, fontSize: 12 }}>
+        <span style={{ color: GRIS }}>Desglose salidas/semana:</span>
+        <span>Nóminas <strong style={{ color: INK }}>{fmtEur(nominaSemanal, { decimals: 2 })}</strong> {nominasCount === 0 && <em style={{ color: GRIS }}>(sin nóminas cargadas)</em>}</span>
+        <span>Seguridad Social <strong style={{ color: INK }}>{fmtEur(segSocialSemanal, { decimals: 2 })}</strong> {segSocialCount === 0 && <em style={{ color: GRIS }}>(sin resúmenes cargados)</em>}</span>
+        <span>Gasto operativo <strong style={{ color: INK }}>{fmtEur(gastoOperativoSemanal, { decimals: 2 })}</strong></span>
       </div>
 
       {gastosFijosCount === 0 && (
