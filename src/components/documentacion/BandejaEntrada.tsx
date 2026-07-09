@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useOcrUpload } from '@/lib/ocrUploadStore'
+import { useOcrUpload, TAM_LOTE } from '@/lib/ocrUploadStore'
 import { toast } from '@/lib/toastStore'
 import AvisosBandeja from '@/components/documentacion/AvisosBandeja'
 import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER, BORDER_CARD, GRANATE, VERDE, NAR, AZUL, ROJO, GRIS } from '@/styles/neobrutal'
@@ -229,13 +229,21 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
   }
 
   const [modal, setModal] = useState<{ destino: Destino; archivos: File[]; rechazados: string[]; visible: boolean }>({ destino: 'facturas', archivos: [], rechazados: [], visible: false })
+  // Subida masiva (miles de archivos de golpe): por encima de este umbral hace falta
+  // confirmación explícita de que se subirán por tandas, no todo de una sentada.
+  const UMBRAL_CONFIRMACION_MASIVA = 2000
+  const [confirmoLotes, setConfirmoLotes] = useState(false)
 
   const abrirModal = (destino: Destino) => (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => {
     setVerRechazados(false)
+    setConfirmoLotes(false)
     const todos = [...r.aceptados, ...r.comprimidos]
     if (todos.length === 0 && r.rechazados.length === 0) return
     setModal({ destino, archivos: todos, rechazados: r.rechazados, visible: true })
   }
+  const numLotes = Math.max(1, Math.ceil(modal.archivos.length / TAM_LOTE))
+  const requiereConfirmacionMasiva = modal.archivos.length > UMBRAL_CONFIRMACION_MASIVA
+  const bloqueadoPorLotes = requiereConfirmacionMasiva && !confirmoLotes
 
   // Separa documentos de ventas (CSV) del resto por contenido
   const separarVentas = async (archivos: File[]): Promise<{ ventas: File[]; resto: File[] }> => {
@@ -393,12 +401,24 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
               </>
             )}
 
+            {modal.archivos.length > TAM_LOTE && (
+              <div style={{ fontFamily: LEX, fontSize: 12.5, color: INK, background: CLARO, border: `2px solid ${INK}`, padding: '8px 10px', marginBottom: 12 }}>
+                Se subirán en <strong>{numLotes}</strong> lotes de {TAM_LOTE} archivos, uno detrás de otro (para no saturar el servidor).
+                {requiereConfirmacionMasiva && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={confirmoLotes} onChange={e => setConfirmoLotes(e.target.checked)} />
+                    Entiendo, subir en {numLotes} lotes
+                  </label>
+                )}
+              </div>
+            )}
+
             {modal.destino === 'banco' ? (
               <>
                 <div style={{ fontFamily: LEX, fontSize: 13, color: INK, marginTop: 10, marginBottom: 14 }}>¿De quién es este extracto?</div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button disabled={modal.archivos.length === 0} onClick={() => enviar(RUBEN_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, boxShadow: SHADOW, background: NAR, color: '#fff', fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modal.archivos.length === 0 ? 0.4 : 1 }}>Rubén</button>
-                  <button disabled={modal.archivos.length === 0} onClick={() => enviar(EMILIO_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, boxShadow: SHADOW, background: AZUL, color: '#fff', fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', opacity: modal.archivos.length === 0 ? 0.4 : 1 }}>Emilio</button>
+                  <button disabled={modal.archivos.length === 0 || bloqueadoPorLotes} onClick={() => enviar(RUBEN_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, boxShadow: SHADOW, background: NAR, color: '#fff', fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modal.archivos.length === 0 || bloqueadoPorLotes ? 'not-allowed' : 'pointer', opacity: modal.archivos.length === 0 || bloqueadoPorLotes ? 0.4 : 1 }}>Rubén</button>
+                  <button disabled={modal.archivos.length === 0 || bloqueadoPorLotes} onClick={() => enviar(EMILIO_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, boxShadow: SHADOW, background: AZUL, color: '#fff', fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modal.archivos.length === 0 || bloqueadoPorLotes ? 'not-allowed' : 'pointer', opacity: modal.archivos.length === 0 || bloqueadoPorLotes ? 0.4 : 1 }}>Emilio</button>
                 </div>
                 <button onClick={() => setModal(m => ({ ...m, visible: false, archivos: [], rechazados: [] }))} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: GRIS, fontFamily: LEX, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
               </>
@@ -409,7 +429,7 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => { setModal(m => ({ ...m, visible: false, archivos: [], rechazados: [] })); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, background: '#fff', color: INK, fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
-                  <button disabled={modal.archivos.length === 0} onClick={() => enviar()} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, boxShadow: SHADOW, background: modal.archivos.length === 0 ? CLARO : colorTitulo, color: '#fff', fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modal.archivos.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modal.archivos.length}</button>
+                  <button disabled={modal.archivos.length === 0 || bloqueadoPorLotes} onClick={() => enviar()} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, boxShadow: SHADOW, background: modal.archivos.length === 0 || bloqueadoPorLotes ? CLARO : colorTitulo, color: '#fff', fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modal.archivos.length === 0 || bloqueadoPorLotes ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modal.archivos.length}</button>
                 </div>
               </>
             )}

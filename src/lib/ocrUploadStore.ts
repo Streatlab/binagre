@@ -13,6 +13,7 @@
 // ocrUploadStore v43 — PDF >20MB se parte por páginas en el navegador antes de subir.
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { toast } from '@/lib/toastStore'
 
 export interface ArchivoLog {
   filename: string
@@ -44,8 +45,12 @@ let pollTimer: number | null = null
 let cancelacionesLocales: Set<string> = new Set()
 let timersAutoCerrar: Map<string, number> = new Map()
 
-const SESION_MAX_ARCHIVOS = 500
-const PARALELO_SUBIDAS = 6
+// TAM_LOTE: tamaño de cada lote/sesión (subidas por tandas para no golpear Supabase
+// de una sentada con miles de archivos a la vez). Cada lote es 1 fila de ocr_sessions.
+export const TAM_LOTE = 150
+const SESION_MAX_ARCHIVOS = TAM_LOTE
+const CONCURRENCIA_SUBIDA = 3
+const PARALELO_SUBIDAS = CONCURRENCIA_SUBIDA
 const TOAST_COMPLETADO_MS = 60000
 const RETRY_BASE_MS = 2000
 const RETRY_CAP_MS = 30000
@@ -56,6 +61,23 @@ const MAX_BYTES = MAX_ARCHIVO_MB * 1024 * 1024
 // (el servidor la reencola y la retoma al relanzar el worker).
 const HEARTBEAT_COLGADA_MS = 90_000
 const ERRORES_PERMANENTES = ['Bucket not found']
+
+// ── Circuito de protección (lotes) ──────────────────────────────────────────
+// Los lotes se procesan en serie (uno termina antes de que empiece el siguiente).
+// Si un lote entero no puede subir por caída del backend (503/429/Failed to fetch,
+// no errores de archivo concretos), se reintenta el LOTE completo con backoff
+// exponencial; si 3 lotes seguidos fallan así, se pausa el resto de la tanda en vez
+// de seguir golpeando un servidor caído.
+const LOTE_BACKOFF_MS = [1000, 2000, 4000, 8000, 16000]
+const LOTE_MAX_REINTENTOS = LOTE_BACKOFF_MS.length
+const LOTES_FALLIDOS_PARA_PAUSAR = 3
+// Umbral mínimo de fallos "backend caído" en un lote para tratarlo como caída real
+// del servidor y no como un par de archivos sueltos con mala suerte.
+const MIN_FALLOS_BACKEND_PARA_LOTE_CAIDO = 3
+
+function esErrorBackendCaido(msg: string): boolean {
+  return /\b503\b/.test(msg) || /\b429\b/.test(msg) || /Failed to fetch/i.test(msg)
+}
 
 function emit() { emitter.dispatchEvent(new CustomEvent('change')) }
 function getExt(name: string) { return name.split('.').pop()?.toLowerCase() ?? '' }
@@ -628,52 +650,106 @@ export function useOcrUpload() {
     await cargarSesionesActivas()
 
     const archivosSubidos: { sesionId: string; name: string; type: string; storagePath: string; esComprimido: boolean }[] = []
-    let subidos = 0; let fallos = 0
-    async function subirUno(norm: ArchivoNormalizado, idxGlobal: number) {
-      if (cancelado()) return
-      const ses = sesionesCreadas.find(s => idxGlobal >= s.rangoIni && idxGlobal < s.rangoFin)!
+    let subidosGlobal = 0
+    let fallosGlobal = 0
+    const totalLotesReal = sesionesCreadas.length
+
+    async function subirUno(norm: ArchivoNormalizado, idxGlobal: number, sesId: string): Promise<'ok' | 'error' | 'error_backend' | 'cancelado'> {
+      if (cancelado()) return 'cancelado'
       try {
         const path = await subirAlStorage(grupoId, idxGlobal, norm.name, norm.type, norm.blob, cancelado)
-        archivosSubidos.push({ sesionId: ses.id, name: norm.name, type: norm.type, storagePath: path, esComprimido: norm.esComprimido })
-        subidos++
+        archivosSubidos.push({ sesionId: sesId, name: norm.name, type: norm.type, storagePath: path, esComprimido: norm.esComprimido })
         marcarManifiesto(path, 'en_storage') // fire-and-forget: subido al almacén
+        return 'ok'
       } catch (e: any) {
         const msg = e?.message || String(e)
-        if (msg !== 'cancelado') {
-          fallos++; console.error(`[OCR] Error subiendo ${norm.name}:`, msg)
-          // NUNCA descartar en silencio: la fila de manifiesto queda 'error_subida' (visible).
-          marcarManifiesto(`${grupoId}/${sanitizeForPath(norm.name, idxGlobal)}`, 'error_subida', String(`subida falló: ${msg}`).slice(0, 500))
-        }
-      }
-      const hechos = subidos + fallos; ponerPreparando(idLocal, totalReal, hechos, `Subiendo ${hechos} de ${totalReal}…`, grupoId)
-      // Guardar rutas incrementalmente cada 5 subidas para permitir reanudación si la pestaña se cierra
-      if (subidos % 5 === 0 || hechos === totalReal) {
-        for (const ses of sesionesCreadas) {
-          const archivosSes = archivosSubidos
-            .filter(a => a.sesionId === ses.id)
-            .map(a => ({ name: a.name, type: a.type, storagePath: a.storagePath, esComprimido: a.esComprimido }))
-          if (archivosSes.length > 0) actualizarArchivosPendientesIncrementales(ses.id, archivosSes)
-        }
+        if (msg === 'cancelado') return 'cancelado'
+        console.error(`[OCR] Error subiendo ${norm.name}:`, msg)
+        // NUNCA descartar en silencio: la fila de manifiesto queda 'error_subida' (visible).
+        marcarManifiesto(`${grupoId}/${sanitizeForPath(norm.name, idxGlobal)}`, 'error_subida', String(`subida falló: ${msg}`).slice(0, 500))
+        return esErrorBackendCaido(msg) ? 'error_backend' : 'error'
       }
     }
-    let nextIdx = 0
-    async function workerSubida() {
-      while (true) {
-        if (cancelado()) return
-        const idx = nextIdx++
-        if (idx >= totalReal) return
-        try { await subirUno(normalizados[idx], idx) } catch (e: any) {
-          if ((e?.message || String(e)) !== 'cancelado') { fallos++; console.error(`[OCR worker] Error fatal en archivo ${idx}:`, e?.message || e) }
+
+    // Sube TODOS los archivos de un lote (concurrencia CONCURRENCIA_SUBIDA). Devuelve
+    // cuántos fallaron por caída de backend, para que el llamador decida si reintentar
+    // el lote entero o darlo por bueno.
+    async function subirLote(loteIdx: number, ses: { id: string; rangoIni: number; rangoFin: number }): Promise<number> {
+      const indices: number[] = []
+      for (let i = ses.rangoIni; i < ses.rangoFin; i++) {
+        // Si ya se subió en un intento previo de este mismo lote, no repetir.
+        if (!archivosSubidos.some(a => a.sesionId === ses.id && a.name === normalizados[i].name)) indices.push(i)
+      }
+      let fallosBackendLote = 0
+      let cursor = 0
+      async function worker() {
+        while (true) {
+          if (cancelado()) return
+          const pos = cursor++
+          if (pos >= indices.length) return
+          const idx = indices[pos]
+          const r = await subirUno(normalizados[idx], idx, ses.id)
+          if (r === 'ok') subidosGlobal++
+          else if (r === 'error' || r === 'error_backend') { fallosGlobal++; if (r === 'error_backend') fallosBackendLote++ }
+          const hechos = subidosGlobal + fallosGlobal
+          ponerPreparando(idLocal, totalReal, hechos, `Lote ${loteIdx + 1} de ${totalLotesReal} · ${hechos} de ${totalReal} archivos · ${fallosGlobal} errores`, grupoId)
+          if (subidosGlobal % 5 === 0 || hechos === totalReal) {
+            const archivosSes = archivosSubidos.filter(a => a.sesionId === ses.id).map(a => ({ name: a.name, type: a.type, storagePath: a.storagePath, esComprimido: a.esComprimido }))
+            if (archivosSes.length > 0) actualizarArchivosPendientesIncrementales(ses.id, archivosSes)
+          }
         }
       }
+      await Promise.all(Array.from({ length: CONCURRENCIA_SUBIDA }, () => worker()))
+      return fallosBackendLote
     }
-    await Promise.all(Array.from({ length: PARALELO_SUBIDAS }, () => workerSubida()))
-    if (cancelado()) { quitarPreparando(idLocal); return }
-    for (const ses of sesionesCreadas) {
+
+    async function finalizarLote(ses: { id: string; rangoIni: number; rangoFin: number }, estadoCola: 'en_espera' | 'pausada') {
       const archivos = archivosSubidos.filter(a => a.sesionId === ses.id).map(a => ({ name: a.name, type: a.type, storagePath: a.storagePath, esComprimido: a.esComprimido }))
-      await supabase.from('ocr_sessions').update({ archivos_pendientes: archivos, total: archivos.length, total_storage: archivos.length, subidos_storage: archivos.length, estado: 'procesando', estado_cola: 'en_espera' }).eq('id', ses.id)
+      await supabase.from('ocr_sessions').update({
+        archivos_pendientes: archivos, total: archivos.length, total_storage: archivos.length, subidos_storage: archivos.length,
+        estado: estadoCola === 'pausada' ? 'staging' : 'procesando', estado_cola: estadoCola,
+      }).eq('id', ses.id)
     }
-    quitarPreparando(idLocal); await cargarSesionesActivas(); lanzarWorker()
+
+    // Lotes en serie: uno termina (con sus reintentos) antes de que empiece el siguiente.
+    let lotesFallidosSeguidos = 0
+    let circuitoAbierto = false
+    for (let loteIdx = 0; loteIdx < sesionesCreadas.length; loteIdx++) {
+      if (cancelado()) break
+      const ses = sesionesCreadas[loteIdx]
+      let intento = 0
+      let fallosBackend = 0
+      while (true) {
+        fallosBackend = await subirLote(loteIdx, ses)
+        if (cancelado()) break
+        if (fallosBackend < MIN_FALLOS_BACKEND_PARA_LOTE_CAIDO) break // lote bien (o solo fallos de archivo puntuales)
+        intento++
+        if (intento >= LOTE_MAX_REINTENTOS) break
+        await esperar(LOTE_BACKOFF_MS[Math.min(intento - 1, LOTE_BACKOFF_MS.length - 1)])
+      }
+      if (cancelado()) break
+
+      const loteCaido = fallosBackend >= MIN_FALLOS_BACKEND_PARA_LOTE_CAIDO
+      await finalizarLote(ses, 'en_espera') // lo que se haya subido (aunque sea parcial) queda listo para procesar
+
+      if (loteCaido) {
+        lotesFallidosSeguidos++
+        if (lotesFallidosSeguidos >= LOTES_FALLIDOS_PARA_PAUSAR) {
+          // El servidor no responde de forma sostenida: pausar el resto de la tanda
+          // en vez de seguir golpeándolo. Los lotes ya intentados quedan como estén.
+          const restantes = sesionesCreadas.slice(loteIdx + 1).map(s => s.id)
+          if (restantes.length > 0) await supabase.from('ocr_sessions').update({ estado_cola: 'pausada' }).in('id', restantes)
+          toast.error('Subida pausada: el servidor no responde. Reanuda cuando se recupere.')
+          circuitoAbierto = true
+          break
+        }
+      } else {
+        lotesFallidosSeguidos = 0
+      }
+    }
+    if (cancelado()) { quitarPreparando(idLocal); return }
+    quitarPreparando(idLocal); await cargarSesionesActivas()
+    if (!circuitoAbierto) lanzarWorker()
   }
 
   async function cancelar(id: string) {
