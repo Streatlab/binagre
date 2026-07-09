@@ -33,10 +33,12 @@ export function horaMadridActual(): number {
   return parseInt(s, 10);
 }
 // Deriva la toma cuando no viene explícita (crons de calendario, sin inputs).
-// Ventana comida: 12h-19h Madrid (cubre 16:30 verano e invierno). Todo lo demás
-// (22h-03h aprox, cubre 23:00/00:00/01:00/02:00 verano+invierno) → cena. Así el
-// disparo "de más" que provoca el cambio de hora (los 4 crons están siempre
-// activos) cae en la ventana correcta en vez de romper el reparto.
+// Ventana comida: 12h-19h Madrid (cubre 16:30 verano e invierno). Ventana cena:
+// resto del día, pero SIEMPRE antes de medianoche (~23:30 verano e invierno) —
+// el contador en vivo de Rushour se reinicia pasada la medianoche local, así
+// que leer después de las 00:00 da el total del día que EMPIEZA, no el que
+// cierra. Así el disparo "de más" que provoca el cambio de hora (los 4 crons
+// están siempre activos) cae en la ventana correcta sin romper el reparto.
 export function tomaPorHoraMadrid(): Toma {
   const h = horaMadridActual();
   return h >= 12 && h < 20 ? 'comida' : 'cena';
@@ -324,7 +326,10 @@ export async function guardar(filas: Fila[]) {
 
 async function main() {
   const toma: Toma = process.env.TOMA === 'comida' ? 'comida' : (process.env.TOMA === 'cena' ? 'cena' : tomaPorHoraMadrid());
-  const fecha = process.env.FECHA || (toma === 'cena' ? fechaMadrid(-1) : fechaMadrid(0));
+  // La toma de cena corre ~23:30 Madrid, MISMO día (ver por qué en el cron: el
+  // contador en vivo de Rushour se reinicia pasada la medianoche, así que leer
+  // después de las 00:00 devuelve el total del día NUEVO, no el que cierra).
+  const fecha = process.env.FECHA || fechaMadrid(0);
   await logRobot('main', 'inicio', `toma=${toma} fecha=${fecha}`);
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   try {
