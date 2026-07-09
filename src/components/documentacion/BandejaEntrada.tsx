@@ -303,7 +303,14 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
     if (archivos.length === 0) return
 
     if (destino === 'banco') {
-      procesar(archivos, 'ocr-procesar-extracto', titular ?? null)
+      // Candado duro: un extracto nunca se envía sin titular. Si por lo que sea
+      // se llega aquí sin uno (no debería, los dos únicos botones lo fijan),
+      // se bloquea y se avisa en vez de procesar a ciegas.
+      if (!titular) {
+        toast.error('Falta decir de quién es el extracto. Elige Rubén o Emilio.')
+        return
+      }
+      procesar(archivos, 'ocr-procesar-extracto', titular)
       onProcesado?.()
       return
     }

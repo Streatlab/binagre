@@ -26,6 +26,15 @@ export function fmtEur(n: number | null | undefined, opts?: { signed?: boolean; 
   return showEuro ? `${prefix}${formatted} €` : `${prefix}${formatted}`;
 }
 
+// Importe de una factura de proveedor: 0 en BD (columna NOT NULL) significa
+// "el OCR no pudo leer el total", nunca un importe real (ninguna vía de lectura
+// escribe 0 salvo la lectura manual sin resolver). Nunca mostrar "0,00 €" como
+// si fuera un dato real: se avisa y se marca para relectura en vez de fingir.
+export function fmtEurFactura(total: number | null | undefined): string {
+  if (total === null || total === undefined || total === 0) return 'sin importe leído';
+  return fmtEur(total, { decimals: 2 });
+}
+
 export function fmtPct(n: number | null | undefined, decimals = 2): string {
   if (n === null || n === undefined || isNaN(Number(n))) return '—';
   return `${fmtNum(Number(n), decimals)}%`;

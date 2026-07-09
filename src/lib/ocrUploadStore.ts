@@ -552,6 +552,13 @@ export function useOcrUpload() {
 
   async function procesar(files: File[], fnName: 'ocr-procesar-factura' | 'ocr-procesar-extracto', titular_id: string | null) {
     setErrorVisible(null)
+    // Candado duro: un extracto bancario JAMÁS se procesa sin titular. Si algún
+    // camino (actual o futuro) llama a procesar() para un extracto sin titular_id,
+    // se bloquea aquí en vez de subir un movimiento sin dueño en silencio.
+    if (fnName === 'ocr-procesar-extracto' && !titular_id) {
+      setErrorVisible('Extracto bancario sin titular: no se ha subido. Vuelve a intentarlo y elige Rubén o Emilio.')
+      return
+    }
     // v42: ya NO se descartan los PDF grandes; se parten en normalizar(). Solo se
     // descartan NO-PDF que superen el límite (imágenes enormes raras).
     const descartados: number[] = []
