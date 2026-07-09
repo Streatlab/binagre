@@ -845,6 +845,8 @@ async function procesarContenidoPrincipal(
       if (detalleRows.length > 0) await supabase.from('facturas_plataforma_detalle').insert(detalleRows)
     }
 
+    await guardarLineasFactura(supabase, nueva.id, extracted)
+
     try {
       const resultadoMatch = await matchFactura(supabase, {
         ...extracted, id: nueva.id, total: extracted.total, titular_id: titularId,
@@ -892,6 +894,43 @@ async function procesarContenidoPrincipal(
     await supabase.from('facturas').update({ estado: 'error', error_mensaje: msg }).eq('id', nueva.id)
     return { estado: 'error', archivo: file.nombre, factura_id: nueva.id, error: msg }
   }
+}
+
+// Guarda las líneas de detalle de una factura si el extractor las leyó, verificando
+// que la suma (importe + IVA de cada línea) cuadre con el total de cabecera dentro
+// de ±0.05€. Si no cuadra o falla la inserción, NO se dejan líneas a medias: se marca
+// la factura como 'sin_detalle_lineas' y se registra el descuadre para revisión.
+async function guardarLineasFactura(supabase: SupabaseClient, facturaId: string, extracted: ExtractedFactura): Promise<void> {
+  const lineas = extracted.lineas
+  if (!lineas || lineas.length === 0) return // no se leyeron líneas: no se intentó, no se marca nada
+
+  const filas = lineas.map(l => ({
+    factura_id: facturaId,
+    descripcion: l.descripcion,
+    cantidad: l.cantidad,
+    unidad: l.unidad,
+    precio_unitario: l.precio_unitario,
+    total_linea: l.importe,
+    iva_pct: l.iva_pct,
+    iva_importe: l.iva_pct != null ? Math.round(l.importe * l.iva_pct) / 100 : null,
+    proveedor_nombre: extracted.proveedor_nombre || null,
+    fecha: fechaValida(extracted.fecha_factura) ? extracted.fecha_factura : null,
+    origen: 'ocr',
+  }))
+
+  const sumaLineas = filas.reduce((acc, f) => acc + (f.total_linea || 0) + (f.iva_importe || 0), 0)
+  const diff = Math.round((sumaLineas - extracted.total) * 100) / 100
+
+  if (Math.abs(diff) > 0.05) {
+    await supabase.from('facturas').update({ lineas_estado: 'sin_detalle_lineas', detalle_lineas_diff: diff }).eq('id', facturaId)
+    return
+  }
+
+  const { error } = await supabase.from('facturas_lineas').insert(filas)
+  await supabase.from('facturas').update({
+    lineas_estado: error ? 'sin_detalle_lineas' : 'ok',
+    detalle_lineas_diff: diff,
+  }).eq('id', facturaId)
 }
 
 async function guardarFacturasMulti(
@@ -992,6 +1031,7 @@ async function guardarFacturasMulti(
         ...(tit.pendienteTitularManual ? { estado: 'pendiente_titular_manual' } : {}),
       }).eq('id', nueva.id)
       await aprenderProveedorNif(supabase, extracted, textoCombinado)
+      await guardarLineasFactura(supabase, nueva.id, extracted)
       try {
         const resultadoMatch = await matchFactura(supabase, { ...extracted, id: nueva.id, total: extracted.total, titular_id: tit.titularId })
         await aplicarMatching(supabase, nueva.id, resultadoMatch, { proveedor_nombre: extracted.proveedor_nombre, nif_emisor: nifEmisorNorm })

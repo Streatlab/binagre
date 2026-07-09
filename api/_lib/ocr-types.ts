@@ -31,4 +31,13 @@ export type ExtractedFactura = {
     periodo_inicio: string
     periodo_fin: string
   }>
+  /** Líneas de detalle (descripción/cantidad/precio/IVA), si el documento las trae legibles. */
+  lineas?: Array<{
+    descripcion: string
+    cantidad: number
+    unidad: string | null
+    precio_unitario: number | null
+    importe: number
+    iva_pct: number | null
+  }>
 }

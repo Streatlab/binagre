@@ -14,6 +14,12 @@ import {
   guardarSerieDiaria,
   guardarMetricasClientes,
 } from '../lib/parsers/guardarDatosFases';
+import { useIsMobile } from '@/hooks/useIsMobile';
+
+// ── Neobrutal ────────────────────────────────────────────────────
+const NEO_INK = 'var(--neo-ink)';
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)';
+const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW };
 
 // ── Tipos de archivo ────────────────────────────────────────────
 const TIPOS = [
@@ -54,6 +60,7 @@ export default function ImportarVentas() {
   const [guardando, setGuardando] = useState(false);
   const [resultado, setResultado] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const tipoInfo = TIPOS.find(t => t.value === tipo)!;
 
@@ -156,8 +163,8 @@ export default function ImportarVentas() {
   const fmtEur = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div style={{ padding: '28px', maxWidth: 960 }}>
-      <h2 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 22, fontWeight: 500, color: 'var(--sl-text-primary)', marginBottom: 6 }}>
+    <div style={{ padding: 'clamp(14px,3vw,28px)', maxWidth: 960, background: 'var(--neo-bg)', minHeight: '100vh' }}>
+      <h2 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 'clamp(22px,5vw,30px)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--sl-text-primary)', marginBottom: 6 }}>
         Importar datos de ventas
       </h2>
       <p style={{ fontSize: 13, color: 'var(--sl-text-muted)', marginBottom: 24 }}>
@@ -170,7 +177,7 @@ export default function ImportarVentas() {
         <select
           value={tipo}
           onChange={e => { setTipo(e.target.value as TipoCSV); setDatos(null); setError(null); setResultado(null); setFileName(null); }}
-          style={{ padding: '8px 12px', borderRadius: 6, border: '0.5px solid var(--sl-border)', fontSize: 14, background: 'var(--sl-card)', minWidth: 300 }}
+          style={{ padding: '10px 12px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, fontSize: 14, fontWeight: 600, background: 'var(--sl-card)', color: 'var(--sl-text-primary)', minWidth: 0, width: '100%', maxWidth: 340, boxSizing: 'border-box' }}
         >
           {[1,2,3,4].map(fase => (
             <optgroup key={fase} label={`Fase ${fase}${fase === 1 ? ' — Activo' : ''}`}>
@@ -181,16 +188,16 @@ export default function ImportarVentas() {
           ))}
         </select>
         {tipoInfo && (
-          <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, ...TAG_COLORS[tipoInfo.tag] }}>
+          <span style={{ padding: '4px 10px', border: `2px solid ${NEO_INK}`, borderRadius: 0, fontSize: 11, fontWeight: 700, ...TAG_COLORS[tipoInfo.tag] }}>
             {tipoInfo.tag} · {tipoInfo.frec}
           </span>
         )}
       </div>
 
       {/* Upload */}
-      <div style={{ border: '2px dashed var(--sl-border)', borderRadius: 16, padding: 32, textAlign: 'center', background: 'var(--sl-card)', marginBottom: 20 }}>
+      <div style={{ ...NEO_CARD, padding: 'clamp(18px,4vw,32px)', textAlign: 'center', background: 'var(--sl-card)', marginBottom: 20 }}>
         <input type="file" accept=".csv" onChange={handleFile} style={{ display: 'none' }} id="csv-upload" key={tipo} />
-        <label htmlFor="csv-upload" style={{ cursor: 'pointer', padding: '10px 24px', background: '#B01D23', color: '#fff', borderRadius: 6, fontSize: 14, fontWeight: 500 }}>
+        <label htmlFor="csv-upload" style={{ cursor: 'pointer', display: 'inline-block', padding: '13px 24px', minHeight: 44, boxSizing: 'border-box', background: '#B01D23', color: '#fff', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW, fontSize: 14, fontWeight: 700, textTransform: 'uppercase' }}>
           Seleccionar CSV
         </label>
         {fileName && <p style={{ marginTop: 12, fontSize: 13, color: 'var(--sl-text-muted)' }}>📄 {fileName}</p>}
@@ -198,14 +205,14 @@ export default function ImportarVentas() {
 
       {/* Error */}
       {error && (
-        <div style={{ background: '#E24B4A18', border: '1px solid #E24B4A55', borderRadius: 10, padding: 16, marginBottom: 20, color: '#E24B4A', fontSize: 13, whiteSpace: 'pre-wrap' }}>
+        <div style={{ background: '#E24B4A18', border: '3px solid #E24B4A', borderRadius: 0, boxShadow: NEO_SHADOW, padding: 16, marginBottom: 20, color: '#E24B4A', fontSize: 13, fontWeight: 600, whiteSpace: 'pre-wrap' }}>
           {error}
         </div>
       )}
 
       {/* Resultado */}
       {resultado && (
-        <div style={{ background: '#1D9E7518', border: '1px solid #1D9E7555', borderRadius: 10, padding: 16, marginBottom: 20, color: '#1D9E75', fontSize: 14, fontWeight: 500 }}>
+        <div style={{ background: '#1D9E7518', border: '3px solid #1D9E75', borderRadius: 0, boxShadow: NEO_SHADOW, padding: 16, marginBottom: 20, color: '#1D9E75', fontSize: 14, fontWeight: 700 }}>
           {resultado}
         </div>
       )}
@@ -213,8 +220,8 @@ export default function ImportarVentas() {
       {/* Preview tabla */}
       {datos && (
         <>
-          <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 10, overflow: 'auto', marginBottom: 20 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <div style={{ background: 'var(--sl-card)', ...NEO_CARD, overflowX: 'auto', marginBottom: 20 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
               <thead>
                 <tr style={{ background: 'var(--sl-app)' }}>
                   {datos.kind === 'prime' && <>
@@ -309,13 +316,13 @@ export default function ImportarVentas() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button onClick={handleGuardar} disabled={guardando}
-              style={{ padding: '10px 24px', background: guardando ? 'var(--sl-text-muted)' : '#1D9E75', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 500, cursor: guardando ? 'default' : 'pointer' }}>
+              style={{ padding: '12px 24px', minHeight: 44, flex: isMobile ? '1 1 100%' : '0 0 auto', background: guardando ? 'var(--sl-text-muted)' : '#1D9E75', color: '#fff', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW, fontSize: 14, fontWeight: 700, textTransform: 'uppercase', cursor: guardando ? 'default' : 'pointer' }}>
               {guardando ? 'Guardando...' : `Confirmar (${datos.data.length} platos${datos.kind === 'plato' && datos.franjas?.length ? ` + ${datos.franjas.length} franjas` : ''})`}
             </button>
             <button onClick={handleCancelar}
-              style={{ padding: '10px 24px', background: 'var(--sl-app)', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 6, fontSize: 14, cursor: 'pointer' }}>
+              style={{ padding: '12px 24px', minHeight: 44, flex: isMobile ? '1 1 100%' : '0 0 auto', background: 'var(--sl-app)', color: 'var(--sl-text-secondary)', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW, fontSize: 14, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' }}>
               Cancelar
             </button>
           </div>
@@ -323,7 +330,7 @@ export default function ImportarVentas() {
       )}
 
       {/* Info archivos */}
-      <div style={{ marginTop: 28, padding: 16, background: 'var(--sl-app)', borderRadius: 10, fontSize: 12, color: 'var(--sl-text-muted)', lineHeight: 1.8 }}>
+      <div style={{ marginTop: 28, padding: 16, background: 'var(--sl-app)', ...NEO_CARD, fontSize: 12, color: 'var(--sl-text-muted)', lineHeight: 1.8 }}>
         <strong>¿De dónde se descarga cada archivo?</strong><br />
         <strong>Mensual (día ~5):</strong> U1: Uber Eats Manager → Informes → Detalle ganancias · G1: Glovo Manager → Historial pedidos<br />
         <strong>Semanal:</strong> U5: Uber Eats Manager → Facturación (subir en OCR)<br />

@@ -20,6 +20,7 @@ export interface UberResumenItem {
   promociones: number
   comision_uber: number
   pago_neto: number
+  ads: number
 }
 
 // "DD/MM/YY" o "DD/MM/YYYY" o "YYYY-MM-DD" → "YYYY-MM-DD"
@@ -101,6 +102,9 @@ export function parseUberResumenLiquidaciones(texto: string): { items: UberResum
   const iPromo  = find('promociones en artículos', 'promociones en articulos', 'item promotions')
   const iComis  = find('tasa de servicio después del descuento', 'tasa de servicio despues del descuento', 'tasas de servicio', 'service fee')
   const iPed    = find('cantidad de pedidos', 'número de pedidos', 'numero de pedidos', 'order count')
+  // Gasto en anuncios: columna opcional, no confirmada en un CSV real de esta plantilla
+  // (detección tolerante, inerte si no aparece). Ads = marketing, no comisión.
+  const iAds    = find('gasto en anuncios', 'gasto publicidad', 'advertising spend', 'ads spend')
 
   if (iMarca === -1 || iPago === -1 || iFecha === -1) {
     return { items: [], errores: [`Formato CSV resumen Uber no reconocido. Columnas: ${cab.slice(0, 6).join(' | ')}`] }
@@ -127,6 +131,7 @@ export function parseUberResumenLiquidaciones(texto: string): { items: UberResum
     const comision = iComis !== -1 ? Math.abs(numEN(cols[iComis])) : 0
     const pedidos  = iPed   !== -1 ? Math.round(numEN(cols[iPed])) : 0
     const refUber  = iRef   !== -1 ? (cols[iRef] || '').trim() : ''
+    const ads      = iAds   !== -1 ? Math.abs(numEN(cols[iAds])) : 0
 
     items.push({
       referencia_pago: `uber_${normalizarMarca(marca)}_${iniStr}_${finStr}`,
@@ -140,6 +145,7 @@ export function parseUberResumenLiquidaciones(texto: string): { items: UberResum
       promociones: promo,
       comision_uber: comision,
       pago_neto: pagoNeto,
+      ads,
     })
   }
   return { items, errores: [] }

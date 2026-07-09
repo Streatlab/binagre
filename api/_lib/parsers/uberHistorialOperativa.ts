@@ -39,7 +39,7 @@ interface FilaOperativa {
   plataforma: string; marca: string; pedido_ref: string; fecha: string; hora: number | null
   estado: string | null; completado: boolean; articulos: number | null; valor_recibo: number | null
   es_prime: boolean; canal_origen: string | null; min_preparacion: number | null
-  min_entrega: number | null; incidencia: string | null
+  min_entrega: number | null; incidencia: string | null; retraso_min: number | null
 }
 interface FilaFranja {
   canal: string; marca: string; fecha: string; hora: number; dia_semana: number
@@ -62,6 +62,9 @@ function parsear(texto: string, marcasCanonicas: MarcaCanonica[]): { operativa: 
   const iCanal = idx(/canal de pedidos/i)
   const iPrep = idx(/tiempo original de preparaci[oó]n/i)
   const iEntrega = idx(/^Tiempo total de entrega$/i)
+  // Retraso: columna opcional, no confirmada en un CSV real de esta plantilla
+  // (detección tolerante por si el export de Uber la incluye; inerte si no aparece).
+  const iRetraso = idx(/retraso|^delay$|minutos de retraso/i)
 
   const operativa: FilaOperativa[] = []
   const agg = new Map<string, FilaFranja>()
@@ -90,6 +93,7 @@ function parsear(texto: string, marcasCanonicas: MarcaCanonica[]): { operativa: 
       min_preparacion: iPrep >= 0 ? (num(c[iPrep]) || null) : null,
       min_entrega: iEntrega >= 0 ? (num(c[iEntrega]) || null) : null,
       incidencia: cancelado ? 'cancelado' : null,
+      retraso_min: iRetraso >= 0 ? (num(c[iRetraso]) || null) : null,
     })
 
     if (!cancelado && hora != null) {

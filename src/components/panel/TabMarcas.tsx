@@ -156,7 +156,7 @@ export default function TabMarcas({ rows }: Props) {
             ? fmtEur(marcaMejorTicket.bruto / marcaMejorTicket.pedidos)
             : '—'
         )}
-        {kpiCard('Marcas activas', fmtNum(marcaList.length))}
+        {kpiCard('Marcas con ventas en el periodo', fmtNum(marcaList.length))}
       </div>
 
       {/* % ventas por marca — barra horizontal */}

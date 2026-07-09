@@ -151,7 +151,7 @@ return(<div style={{fontFamily:LEX,padding:28,background:CREMA,minHeight:'100vh'
 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:14,marginBottom:18}}>
 <div style={card}><div style={kpiLbl(MUT)}>Facturación bruta {año}</div><div style={kpiNum(AZUL)}>{fI(fB(ALL))} €{fBisEst(ALL)?<EstB/>:null}</div><div style={kpiSub(GRIS)}>{fI(pe(ALL))} pedidos · TM bruto {fD(tB(ALL))} €</div></div>
 <div style={{...card,background:VERDE}}><div style={kpiLbl('#fff')}>Ingresos netos {año}</div><div style={kpiNum('#fff')}>{fI(iM(ALL))} €{iMisEst(ALL)?<EstB/>:null}</div><div style={kpiSub('#fff')}>TM neto {fD(tN(ALL))} € · Gastos {fI(gT(ALL))} €</div></div>
-<div style={{...card,background:resAño>=0?INK:ROJO}}><div style={kpiLbl(resAño>=0?AMA:'#fff')}>Resultado {año}</div><div style={kpiNum(resAño>=0?AMA:'#fff')}>{fI(resAño)} €</div><div style={kpiSub('#fff')}>{fP(po(resAño,iM(ALL)))} sobre ingresos netos</div></div>
+<div style={{...card,background:resAño>=0?INK:ROJO}}><div style={kpiLbl(resAño>=0?AMA:'#fff')}>Resultado {año}</div><div style={kpiNum(resAño>=0?AMA:'#fff')}>{fI(resAño)} €{iMisEst(ALL)?<EstB/>:null}</div><div style={kpiSub('#fff')}>{fP(po(resAño,iM(ALL)))} sobre ingresos netos</div></div>
 </div>
 <div ref={topRef} style={{overflowX:'scroll',overflowY:'hidden',height:16,background:CLARO,border:`3px solid ${INK}`,marginBottom:8}}><div style={{width:tW,height:1}}/></div>
 <div style={{background:BLANCO,border:`4px solid ${INK}`,boxShadow:SHADOW,overflow:'hidden'}}>
@@ -170,13 +170,13 @@ return(<div style={{fontFamily:LEX,padding:28,background:CREMA,minHeight:'100vh'
 <tr {...hv}><td style={{...r1(ROJO),fontFamily:OSW,fontSize:14,letterSpacing:'1.5px',textTransform:'uppercase',color:INK,fontWeight:600}}>Gastos variables</td><Cells fn={gV} pctFn={ms=>po(gV(ms),fB(ms))} tip="% s/ Facturación bruta"/></tr>
 <tr><td style={{...tR,borderLeft:`12px solid ${ROJO}`}}>Total gastos</td><Cells fn={gT} pctFn={ms=>po(gT(ms),fB(ms))} tip="% s/ Facturación bruta"/></tr>
 {sp}
-<tr><td style={{...rR,borderLeft:`12px solid ${VERDE}`}}>Resultado <Sp fn={re}/></td><Cells fn={re} sign esRes/></tr>
+<tr><td style={{...rR,borderLeft:`12px solid ${VERDE}`}}>Resultado <Sp fn={re}/></td><Cells fn={re} sign esRes estFn={iMisEst}/></tr>
 {sp}
 </>}
 {sHBl('Distribución de gastos','dist',NAR)}
 {bloque.dist&&<>
 {grupos.map(g=>{const bn=gB(g.id);const nm=LBL[g.id]||g.nombre;return<tr key={g.id} {...hv}><td style={{...gR,borderLeft:`12px solid ${NAR}`}}>{nm}{bn?<span style={{color:MUT,fontSize:10,fontWeight:400}}> ({bn.pct_min}-{bn.pct_max}%)</span>:null}</td><CB fn={ms=>po(gP(g.id,ms),iM(ms))} max={bn?bn.pct_max:15} min={bn?bn.pct_min:0}/></tr>})}
-<tr><td style={{...rR,borderLeft:`12px solid ${NAR}`}}>Resultado <Sp fn={ms=>po(re(ms),iM(ms))}/></td><Cells fn={ms=>po(re(ms),iM(ms))} pct sign esRes/></tr>
+<tr><td style={{...rR,borderLeft:`12px solid ${NAR}`}}>Resultado <Sp fn={ms=>po(re(ms),iM(ms))}/></td><Cells fn={ms=>po(re(ms),iM(ms))} pct sign esRes estFn={iMisEst}/></tr>
 {sp}
 </>}
 {sHBl('Ratios','ratios',VERDE)}

@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router-dom'
-import { useTheme, FONT, tabActiveStyle, tabInactiveStyle, pageTitleStyle } from '@/styles/tokens'
+import { useTheme, FONT, pageTitleStyle } from '@/styles/tokens'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import TabEmpleados from './equipo/TabEmpleados'
 import TabNominas from './equipo/TabNominas'
 import TabSeguridadSocial from './equipo/TabSeguridadSocial'
@@ -7,6 +8,11 @@ import TabCalendarioLaboral from './equipo/TabCalendarioLaboral'
 import TabPermisos from './equipo/TabPermisos'
 import TabPortal from './equipo/TabPortal'
 import TabIncentivos from './equipo/TabIncentivos'
+
+// Neobrutal — theme-aware: superficies/bordes salen de variables
+const NEO_INK = 'var(--neo-ink)'
+const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
+const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
 
 type TabKey = 'empleados' | 'nominas' | 'segsocial' | 'incentivos' | 'calendario' | 'permisos' | 'portal'
 
@@ -20,8 +26,24 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'portal',     label: 'Portal' },
 ]
 
+const tabBase: React.CSSProperties = {
+  fontFamily: 'Oswald, sans-serif',
+  fontWeight: 600,
+  fontSize: 14,
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+  padding: '9px 18px',
+  minHeight: 44,
+  cursor: 'pointer',
+  border: `3px solid ${NEO_INK}`,
+  borderRadius: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+}
+
 export default function Equipo() {
-  const { T, isDark } = useTheme()
+  const { T } = useTheme()
+  const isMobile = useIsMobile()
   const [params, setParams] = useSearchParams()
   const raw = params.get('tab') as TabKey | null
   const activeTab: TabKey = TABS.some(t => t.key === raw) ? raw! : 'empleados'
@@ -31,24 +53,32 @@ export default function Equipo() {
   }
 
   return (
-    <div style={{ padding: '24px 28px', fontFamily: FONT.body }}>
-      <h1 style={pageTitleStyle(T)}>Personas</h1>
+    <div style={{ background: 'var(--neo-bg)', minHeight: '100vh', padding: isMobile ? '14px 12px' : '24px 28px', fontFamily: FONT.body }}>
+      <h1 style={{ ...pageTitleStyle(T), fontSize: 'clamp(22px, 5vw, 30px)' }}>Personas</h1>
 
-      {/* Tabs estilo Conciliación */}
+      {/* Tabs neobrutal — patrón Panel Global */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            style={activeTab === t.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
-          >
-            {t.label}
-          </button>
-        ))}
+        {TABS.map(t => {
+          const active = activeTab === t.key
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{
+                ...tabBase,
+                background: active ? '#B01D23' : 'var(--sl-card)',
+                color: active ? '#fff' : NEO_INK,
+                boxShadow: active ? NEO_SHADOW : 'none',
+              }}
+            >
+              {t.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* Tab content */}
-      <div>
+      <div style={{ ...NEO_CARD, background: 'var(--sl-card)', padding: isMobile ? '14px 12px' : '20px 22px', overflowX: 'auto' }}>
         {activeTab === 'empleados'  && <TabEmpleados />}
         {activeTab === 'nominas'    && <TabNominas />}
         {activeTab === 'segsocial'  && <TabSeguridadSocial />}

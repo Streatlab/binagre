@@ -27,7 +27,17 @@ export function esDetalleArticuloUber(texto: string): boolean {
   return /Id\. del pedido/i.test(p) && /Nombre del art[ií]culo/i.test(p) && /Precio unitario/i.test(p)
 }
 
-interface Ln { plataforma: string; marca: string; pedido_ref: string; fecha: string | null; hora: number | null; producto: string; cantidad: number; precio_unit: number | null; importe: number | null; es_prime: boolean; origen: string }
+interface Ln { plataforma: string; marca: string; pedido_ref: string; fecha: string | null; hora: number | null; producto: string; cantidad: number; precio_unit: number | null; importe: number | null; es_prime: boolean; origen: string; tipo_linea: string }
+
+// Clasifica la descripción libre de "otros pagos" en un tipo_linea consultable.
+// Ads = marketing, nunca se mezcla con el neto estructural del producto.
+function tipoDeOtrosPagos(desc: string): string {
+  const d = desc.toLowerCase()
+  if (/anuncio|ads/.test(d)) return 'ads'
+  if (/promoci[oó]n/.test(d)) return 'promocion'
+  if (/uber ?one|prime/.test(d)) return 'prime'
+  return 'otros'
+}
 
 export async function procesarDetalleArticuloUber(supabase: SupabaseClient, texto: string) {
   const { data: marcasCanonicasData } = await supabase.from('marcas').select('nombre')
@@ -37,6 +47,7 @@ export async function procesarDetalleArticuloUber(supabase: SupabaseClient, text
   if (lineas[0]?.charCodeAt(0) === 0xFEFF) lineas[0] = lineas[0].slice(1)
   const hdr = partirCSV(lineas[0])
   const ix = (re: RegExp) => hdr.findIndex(h => re.test(h))
+  const ixAny = (res: RegExp[]) => { for (const re of res) { const i = hdr.findIndex(h => re.test(h)); if (i !== -1) return i }; return -1 }
   const iId = ix(/^Id\. del pedido$/i), iUuid = ix(/^Id\. del flujo de trabajo$/i), iMarca = ix(/^Nombre de la tienda$/i)
   const iFecha = ix(/^Fecha del pedido$/i), iHora = ix(/^Hora a la que se acept/i)
   const iProd = ix(/^Nombre del art[ií]culo$/i), iCant = ix(/^Cantidad final$/i)
@@ -45,7 +56,7 @@ export async function procesarDetalleArticuloUber(supabase: SupabaseClient, text
   // Líneas sin artículo (tarifas / ads / promo) llevan su propia descripción.
   // Nombre de columna no confirmado con un export real: sondeo tolerante,
   // falla seguro (0 líneas de otros pagos) si ninguna cabecera coincide.
-  const iOtrosDesc = ix(/^descripci[oó]n de otros pagos$/i, /otros pagos/i)
+  const iOtrosDesc = ixAny([/^descripci[oó]n de otros pagos$/i, /otros pagos/i])
 
   const acc = new Map<string, Ln>()
   for (const linea of lineas.slice(1)) {
@@ -70,6 +81,7 @@ export async function procesarDetalleArticuloUber(supabase: SupabaseClient, text
       // separada del neto estructural, si trae descripción de "otros pagos".
       const otrosDesc = iOtrosDesc >= 0 ? (c[iOtrosDesc] || '').trim() : ''
       if (!otrosDesc || !ref) continue
+      const tipo = tipoDeOtrosPagos(otrosDesc)
       const keyOtros = `${ref}||__otros__${otrosDesc}`
       const yaOtros = acc.get(keyOtros)
       if (yaOtros) {
@@ -78,7 +90,8 @@ export async function procesarDetalleArticuloUber(supabase: SupabaseClient, text
         acc.set(keyOtros, {
           plataforma: 'uber', marca, pedido_ref: ref, fecha, hora,
           producto: `[Otros pagos] ${otrosDesc}`, cantidad: 1,
-          precio_unit: null, importe: imp, es_prime: prime, origen: 'uber_detalle_articulo_otros_pagos',
+          precio_unit: null, importe: imp, es_prime: tipo === 'prime' || prime,
+          origen: 'uber_detalle_articulo_otros_pagos', tipo_linea: tipo,
         })
       }
       continue
@@ -93,9 +106,9 @@ export async function procesarDetalleArticuloUber(supabase: SupabaseClient, text
       if (imp != null) ya.importe = (ya.importe || 0) + imp
     } else {
       acc.set(key, {
-        plataforma: 'uber', marca,
-        pedido_ref: ref || `${fecha}_${producto}`, fecha, hora,
-        producto, cantidad: cant, precio_unit: precio, importe: imp, es_prime: prime, origen: 'uber_detalle_articulo',
+        plataforma: 'uber', marca, pedido_ref: ref || `${fecha}_${producto}`, fecha, hora,
+        producto, cantidad: cant, precio_unit: precio, importe: imp, es_prime: prime,
+        origen: 'uber_detalle_articulo', tipo_linea: 'producto',
       })
     }
   }

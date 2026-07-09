@@ -178,6 +178,20 @@ const MOCK_TESORERIA = {
   proyeccion30d: 18200,
 }
 
+// Estos 3 cards (Ingresos/Gastos/Tesorería) siguen sobre datos de ejemplo (FIX 12,
+// nunca conectados a Supabase). Se rotula visiblemente para no disfrazarlos de real.
+function BadgeEjemplo({ texto = 'EJEMPLO' }: { texto?: string }) {
+  return (
+    <span style={{
+      fontFamily: FONT.heading, fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+      color: '#fff', background: '#B01D23', padding: '1px 5px', marginLeft: 6,
+      textTransform: 'uppercase', verticalAlign: 'middle', borderRadius: 3,
+    }}>
+      {texto}
+    </span>
+  )
+}
+
 /* ═══════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════ */
@@ -498,7 +512,7 @@ export function ResumenDashboard(_props: Props) {
       }}>
         {/* CARD INGRESOS */}
         <div style={cardBase}>
-          <div style={labelCard}>INGRESOS NETOS</div>
+          <div style={labelCard}>INGRESOS NETOS <BadgeEjemplo /></div>
           <div style={STYLE_NUM_GIGANTE_DASHBOARD}>{fmtEur(sumIng)}</div>
           <div style={{ fontFamily: FONT.body, fontSize: 12, color: ingDeltaColor, marginTop: 4, fontWeight: 500 }}>
             {ingDeltaTxt}
@@ -522,7 +536,7 @@ export function ResumenDashboard(_props: Props) {
 
         {/* CARD GASTOS */}
         <div style={cardBase}>
-          <div style={labelCard}>GASTOS</div>
+          <div style={labelCard}>GASTOS <BadgeEjemplo /></div>
           <div style={STYLE_NUM_GIGANTE_DASHBOARD}>{fmtEur(sumGst)}</div>
           <div style={{ fontFamily: FONT.body, fontSize: 12, color: gstDeltaColor, marginTop: 4, fontWeight: 500 }}>
             {gstDeltaTxt}
@@ -546,7 +560,7 @@ export function ResumenDashboard(_props: Props) {
 
         {/* CARD TESORERÍA (FIX 7) */}
         <div style={cardBase}>
-          <div style={labelCard}>TESORERÍA · HOY</div>
+          <div style={labelCard}>TESORERÍA · HOY <BadgeEjemplo texto="EJEMPLO salvo cobros pendientes" /></div>
           <div style={STYLE_NUM_GIGANTE_DASHBOARD}>{fmtEur(MOCK_TESORERIA.balanceActual)}</div>
           <div style={{ fontFamily: FONT.body, fontSize: 12, color: tesDeltaColor, marginTop: 4, fontWeight: 500 }}>
             {tesDeltaTxt} vs hace 30 días

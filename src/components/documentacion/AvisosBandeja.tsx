@@ -74,6 +74,10 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
   const [catSel, setCatSel] = useState<Record<string, string>>({})
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [verTodos, setVerTodos] = useState(false)
+  const [truncado, setTruncado] = useState(false)
+
+  const LIMITE_AVISOS = 300
+  const LIMITE_PENDIENTES = 100
 
   const cargar = async () => {
     const { data: avisosData } = await supabase
@@ -81,7 +85,7 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
       .select('id, tipo, titulo, detalle, solucion_sugerida, payload, factura_id, created_at')
       .eq('estado', 'abierto')
       .order('created_at', { ascending: false })
-      .limit(300)
+      .limit(LIMITE_AVISOS)
 
     const idsConAviso = new Set((avisosData ?? []).map(a => a.factura_id).filter(Boolean) as string[])
 
@@ -91,7 +95,11 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
       .select('id, fecha_factura, total, proveedor_nombre, nif_emisor, pdf_drive_url, estado')
       .eq('estado', 'pendiente_lectura_manual')
     if (idsConAviso.size > 0) queryPendientes = queryPendientes.not('id', 'in', `(${[...idsConAviso].join(',')})`)
-    const { data: pendientes } = await queryPendientes.order('fecha_factura', { ascending: false }).limit(100)
+    const { data: pendientes } = await queryPendientes.order('fecha_factura', { ascending: false }).limit(LIMITE_PENDIENTES)
+
+    // Aviso honesto: si cualquiera de las dos consultas topó con su límite, el
+    // recuento mostrado es un mínimo, no el total real (evita un "N" que parece cerrado).
+    setTruncado((avisosData?.length ?? 0) >= LIMITE_AVISOS || (pendientes?.length ?? 0) >= LIMITE_PENDIENTES)
 
     const sinteticos: Aviso[] = (pendientes ?? []).map(f => ({
       id: `f-${f.id}`,
@@ -214,7 +222,7 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={d('20px', GRANATE)}>Avisos</span>
-          <span style={eyebrow(ROJO, '#fff')}>{avisos.length} dudas por resolver</span>
+          <span style={eyebrow(ROJO, '#fff')}>{avisos.length}{truncado ? '+' : ''} dudas por resolver</span>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {TIPOS_FILTRO.map(tipo => {
