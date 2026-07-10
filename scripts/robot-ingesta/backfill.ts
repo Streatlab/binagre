@@ -119,17 +119,22 @@ async function fijarRangoAntPicker(page: Page, fecha: string): Promise<boolean> 
 async function irAHistoricalRushour(page: Page): Promise<void> {
   await page.goto('https://manager.rushour.io/historicals', { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1500);
   await cerrarModales(page);
   if (!/historicals/.test(page.url())) {
     const navHistorico = page.getByRole('link', { name: /historical/i }).or(page.getByRole('tab', { name: /historical/i })).first();
     if (await navHistorico.count().catch(() => 0)) {
       await navHistorico.click({ timeout: 5000 }).catch(() => {});
       await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(1500);
       await cerrarModales(page);
     }
   }
+  // SPA React: domcontentloaded/networkidle no garantizan que el bundle ya
+  // haya montado el contenido de la ruta (dump de diagnóstico previo: #root
+  // vacío, 5717 bytes, con la URL ya correcta). Espera explícita al picker
+  // real en vez de un timeout fijo insuficiente.
+  await page.waitForSelector('.ant-picker', { timeout: 15000 }).catch(() => {});
 }
 
 function leerCursor(): string | null {
@@ -292,12 +297,18 @@ async function main() {
   // termina. No toca el backfill normal ni recorre el histórico.
   const debugFecha = process.env.BACKFILL_DEBUG_FECHA;
   if (debugFecha) {
-    await logRobot('backfill', 'debug_inicio', `volcado html fecha=${debugFecha}`);
+    // Admite varias fechas separadas por coma para acotar en una sola pasada
+    // hasta qué antigüedad admite Sinqro búsquedas (el fix de ng-model ya
+    // probado funciona para fechas recientes; hay que ver dónde falla).
+    const fechas = debugFecha.split(',').map((s) => s.trim()).filter(Boolean);
+    await logRobot('backfill', 'debug_inicio', `volcado html fechas=${fechas.join(',')}`);
     const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
     try {
-      await debugRushourHistorico(browser, debugFecha);
-      await debugSinqroHistorico(browser, debugFecha);
-      await logRobot('backfill', 'debug', `volcado ${debugFecha} hecho`);
+      for (const f of fechas) {
+        await debugRushourHistorico(browser, f);
+        await debugSinqroHistorico(browser, f);
+      }
+      await logRobot('backfill', 'debug', `volcado ${fechas.join(',')} hecho`);
     } finally {
       await browser.close();
     }
