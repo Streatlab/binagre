@@ -34,8 +34,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: false, motivo: 'bootstrap desactivado (faltan OCR_BOOTSTRAP_API o ANTHROPIC_API_KEY)' })
   }
 
+  // Modo asíncrono: responde 200 inmediatamente y sigue procesando en background.
+  // Útil cuando el cliente (MCP proxy) tiene timeout corto.
+  const asyncMode = req.query?.async === '1'
+  if (asyncMode) {
+    res.status(200).json({ ok: true, iniciado: true, mensaje: 'procesando en background' })
+  }
+
   // GATILLO: solo tras subida reciente de facturas, o disparo manual explícito.
-  const manualTrigger = req.query?.manual === '1' || req.query?.manual === 'true'
+  const manualTrigger = asyncMode || req.query?.manual === '1' || req.query?.manual === 'true'
   if (!manualTrigger) {
     const desde = new Date(Date.now() - MINUTOS_VENTANA * 60 * 1000).toISOString()
     const { count: subidaReciente } = await supabaseAdmin
@@ -210,9 +217,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  return res.status(200).json({
-    ok: true, terminado: agotadas, autocontinua: !agotadas && okTanda > 0,
-    leidas_tanda: okTanda, manual_tanda: manualTanda,
-    leidas_total: leidas, manual_total: manual, conciliadas_total: conciliadas, procesadas,
-  })
+  if (!asyncMode) {
+    return res.status(200).json({
+      ok: true, terminado: agotadas, autocontinua: !agotadas && okTanda > 0,
+      leidas_tanda: okTanda, manual_tanda: manualTanda,
+      leidas_total: leidas, manual_total: manual, conciliadas_total: conciliadas, procesadas,
+    })
+  }
 }
