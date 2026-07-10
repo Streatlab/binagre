@@ -4,23 +4,25 @@
  * guardado). Recorre día a día HACIA ATRÁS desde BACKFILL_DESDE (por defecto
  * 2025-12-31), cargando lo que cada plataforma permita ver en su histórico.
  *
- * Sinqro: su filtro de fechas ya admite cualquier fecha pasada (los mismos
- * selectores #startDateFilter/#endDateFilter que usa el robot del día en
- * curso), así que se reutiliza ingestaSinqro tal cual → desglosa comida/cena
- * por la hora real de cada pedido.
+ * Sinqro: variante propia (ingestaSinqroHistorico, no la ingestaSinqro del
+ * robot diario) que fija fecha inicio/fin, CIERRA el calendario de verdad
+ * (clic fuera, no solo Escape) y espera a que loadingOrders termine antes de
+ * leer → desglosa comida/cena por la hora real de cada pedido.
  *
- * Rushour: el dashboard en vivo (Turnover/Volume of orders) no tiene selector
- * de fecha confirmado; este script intenta localizar una sección/pestaña
- * "Historical" con selector tolerante y, si no la encuentra o no da un total
- * fiable para ese día, guarda SOLO Sinqro y lo anota en robot_log (no inventa
- * el dato de Rushour). Cuando hay total histórico de Rushour, no hay desglose
- * por hora → se guarda como turno='dia'.
+ * Rushour: navega a la sección "Historical" del menú lateral (texto exacto,
+ * para no confundirla con "Real-time view") y espera a que el RangePicker de
+ * Ant Design esté VISIBLE antes de fijar la fecha. Si no la encuentra o no da
+ * un total fiable para ese día, guarda SOLO Sinqro y lo anota en robot_log
+ * (no inventa el dato de Rushour). Cuando hay total histórico de Rushour, no
+ * hay desglose por hora → se guarda como turno='dia'.
  *
- * Ejecutar en LOCAL (no en Actions) con Playwright y las credenciales reales:
- *   BACKFILL_DESDE=2025-12-31 npx tsx scripts/robot-ingesta/backfill.ts
+ * Se ejecuta vía GitHub Actions (workflow_dispatch de backfill.yml), que es
+ * donde viven las credenciales reales (RUSHOUR_USER/PASS, SINQRO_USER/PASS).
  *
  * Persiste la última fecha procesada en .backfill-cursor para poder reanudar
- * si se corta a medias (Ctrl+C, caída de red, etc.).
+ * si se corta a medias (Ctrl+C, caída de red, etc.) — solo sirve dentro de un
+ * mismo proceso largo; si se corta el propio job de Actions, se retoma desde
+ * el mínimo `fecha` ya guardado en ingesta_robot_diaria.
  */
 
 import { chromium, Browser, Page } from 'playwright';
@@ -29,7 +31,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  Fila, guardar, logRobot, ingestaSinqro,
+  Fila, Turno, guardar, logRobot, turnoDeTextoPedido,
 } from './robot.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -44,8 +46,9 @@ const RUSHOUR = {
   user: process.env.RUSHOUR_USER || '', pass: process.env.RUSHOUR_PASS || '',
   userInput: 'input[name="username"]', passInput: 'input[name="password"]', submitBtn: 'button[type="submit"]',
 };
-// Duplicado deliberado del SINQRO de robot.ts (no exportado): solo para el
-// volcado de diagnóstico de esta pasada, sin tocar el robot diario.
+// Duplicado deliberado del SINQRO de robot.ts (no exportado): la variante
+// histórica (ingestaSinqroHistorico) y el volcado de diagnóstico usan esta
+// copia propia, sin tocar el robot diario en vivo.
 const SINQRO_DEBUG = {
   loginUrl: 'https://app.sinqro.com/', ventasUrl: 'https://app.sinqro.com/#/sp/6416/online/orders',
   user: process.env.SINQRO_USER || '', pass: process.env.SINQRO_PASS || '',
@@ -111,34 +114,29 @@ async function fijarRangoAntPicker(page: Page, fecha: string): Promise<boolean> 
   return true;
 }
 
-// Navega a la sección histórica de Rushour. El HTML real volcado a
-// robot_debug (fecha 2025-06-13) mostró que el clic sobre el enlace del menú
-// NO llegaba a navegar (0 apariciones de "ant-picker" en el documento, seguía
-// en el dashboard en vivo) — pero el enlace trae href="/historicals" directo,
-// así que se navega por URL y el clic queda solo de fallback.
+// Navega a la sección histórica de Rushour. OJO: el menú lateral tiene
+// "Real-time view" (dashboard de HOY, es la vista por defecto) y "Historical"
+// como secciones DISTINTAS — un match de texto parcial (/historical/i) podía
+// coincidir con el elemento equivocado y el robot se quedaba leyendo el
+// dashboard en vivo creyendo que era el histórico. Se usa el texto EXACTO
+// "Historical" para no confundirlo con "Real-time view".
 async function irAHistoricalRushour(page: Page): Promise<void> {
-  // Preferido: clic en el enlace del menú (navegación cliente dentro de la
-  // SPA, sin recarga completa). El dump de diagnóstico con goto() directo dio
-  // #root vacío incluso con espera larga — la recarga completa puede perder
-  // el estado de sesión que la SPA guarda solo en memoria (Redux/Context).
-  const navHistorico = page.getByRole('link', { name: /historical/i }).or(page.getByRole('tab', { name: /historical/i })).first();
+  const navHistorico = page.getByText('Historical', { exact: true }).first();
   if (await navHistorico.count().catch(() => 0)) {
     await navHistorico.click({ timeout: 5000 }).catch(() => {});
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(1500);
     await cerrarModales(page);
   }
   if (!/historicals/.test(page.url())) {
     // Fallback: navegación directa por URL (el enlace trae href="/historicals").
     await page.goto('https://manager.rushour.io/historicals', { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(1500);
     await cerrarModales(page);
   }
   // SPA React: domcontentloaded/networkidle no garantizan que el bundle ya
-  // haya montado el contenido de la ruta. Espera explícita al picker real en
-  // vez de un timeout fijo insuficiente.
-  await page.waitForSelector('.ant-picker', { timeout: 15000 }).catch(() => {});
+  // haya pintado el contenido de la ruta. Espera real a que el RangePicker
+  // esté VISIBLE (no solo presente en el DOM) en vez de un timeout fijo.
+  await page.locator('.ant-picker').first().waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
 }
 
 function leerCursor(): string | null {
@@ -148,6 +146,61 @@ function leerCursor(): string | null {
 }
 function guardarCursor(fecha: string) {
   writeFileSync(CURSOR_PATH, fecha, 'utf-8');
+}
+
+// Fija una fecha en un input ng-model de Sinqro (AngularJS): escribe carácter
+// a carácter y dispara input+change+blur para que el modelo registre.
+async function fijarFechaSinqro(loc: ReturnType<Page['locator']>, fecha: string) {
+  if (!(await loc.count().catch(() => 0))) return;
+  await loc.fill('').catch(() => {});
+  await loc.type(fecha, { delay: 40 }).catch(() => {});
+  await loc.dispatchEvent('input').catch(() => {});
+  await loc.dispatchEvent('change').catch(() => {});
+  await loc.dispatchEvent('blur').catch(() => {});
+}
+
+// Aplica el filtro de fecha de Sinqro para un día histórico y espera a que
+// la búsqueda TERMINE de verdad antes de leer. Fallo detectado con datos
+// reales: se leía el HTML con el calendario aún abierto (nunca se cerraba,
+// solo con Escape) y sin esperar a que loadingOrders terminara → el clic en
+// "Buscar" podía caer sobre el propio calendario en vez del botón, o leerse
+// antes de que la lista se recargara.
+async function irAVentasSinqroHistorico(page: Page, fecha: string): Promise<void> {
+  await page.goto(SINQRO_DEBUG.ventasUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(3500);
+
+  for (const sel of SINQRO_DEBUG.tipoChecks) {
+    const chk = page.locator(sel).first();
+    if (!(await chk.count())) continue;
+    if (await chk.isChecked().catch(() => false)) continue;
+    await chk.dispatchEvent('click').catch(() => {});
+    await chk.dispatchEvent('change').catch(() => {});
+  }
+  await page.waitForTimeout(1000);
+
+  const f = ddmmyyyy(fecha);
+  const sd = page.locator(SINQRO_DEBUG.startDate).first();
+  const ed = page.locator(SINQRO_DEBUG.endDate).first();
+
+  await fijarFechaSinqro(sd, f);
+  // Cierra el calendario haciendo clic fuera (Escape solo no basta siempre
+  // para cerrar el datepicker jQuery UI) antes de tocar el segundo campo.
+  await page.locator('body').click({ position: { x: 5, y: 5 } }).catch(() => {});
+  await page.keyboard.press('Escape').catch(() => {});
+  await fijarFechaSinqro(ed, f);
+  await page.locator('body').click({ position: { x: 5, y: 5 } }).catch(() => {});
+  await page.keyboard.press('Escape').catch(() => {});
+
+  await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
+
+  // Espera real a que loadingOrders termine (los inputs de fecha llevan
+  // ng-disabled="loadingOrders"), no un timeout fijo a ciegas.
+  for (let i = 0; i < 20; i++) {
+    const cargando = await sd.isDisabled().catch(() => false);
+    if (!cargando) break;
+    await page.waitForTimeout(500);
+  }
+  await page.waitForTimeout(500);
 }
 
 // Intenta localizar la sección "Historical" de Rushour y leer el total de un
@@ -200,6 +253,61 @@ async function ingestaRushourHistorico(browser: Browser, fecha: string): Promise
   } catch (e: any) {
     await logRobot('rushour_backfill', 'error', `fecha=${fecha} ${String(e?.message || e)}`);
     return null;
+  } finally { await page.close(); }
+}
+
+// Sinqro histórico con el fix real (calendario cerrado + espera a
+// loadingOrders). No toca ingestaSinqro/irAVentasSinqro de robot.ts (robot
+// diario en vivo, ya verificado) — variante propia solo para el backfill.
+async function ingestaSinqroHistorico(browser: Browser, fecha: string): Promise<Fila[]> {
+  if (!SINQRO_DEBUG.user || !SINQRO_DEBUG.pass) { await logRobot('sinqro_backfill', 'error', 'sin credenciales'); return []; }
+  const page = await browser.newPage();
+  try {
+    await page.goto(SINQRO_DEBUG.loginUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    await page.waitForSelector(SINQRO_DEBUG.userInput, { timeout: 15000 });
+    await page.fill(SINQRO_DEBUG.userInput, SINQRO_DEBUG.user);
+    await page.fill(SINQRO_DEBUG.passInput, SINQRO_DEBUG.pass);
+    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(SINQRO_DEBUG.submitBtn)]);
+    await page.waitForTimeout(3000);
+
+    await irAVentasSinqroHistorico(page, fecha);
+
+    const bloques = page.locator('[ng-repeat*="order in orders"]');
+    const total = await bloques.count().catch(() => 0);
+    const pedidos: { cliente: string; importe: string; textoBloque: string }[] = [];
+    for (let i = 0; i < total; i++) {
+      const b = bloques.nth(i);
+      const cliente = ((await b.locator('.orderClientBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      const importe = ((await b.locator('.orderAmountBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      const textoBloque = ((await b.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      pedidos.push({ cliente, importe, textoBloque });
+    }
+
+    if (!pedidos.length) { await logRobot('sinqro_backfill', 'vacio', `fecha=${fecha} pedidos_leidos=0`); return []; }
+
+    // Mismo dedupe que en vivo: de Sinqro solo Just Eat (Glovo se cuenta desde Rushour).
+    const acc = new Map<Turno, { pedidos: number; bruto: number }>();
+    let sinHora = 0;
+    for (const p of pedidos) {
+      const t = `${p.cliente} ${p.importe}`.toLowerCase();
+      if (!/just\s?eat/.test(t)) continue;
+      const turno = turnoDeTextoPedido(p.textoBloque);
+      if (!turno) { sinHora++; continue; }
+      const cur = acc.get(turno) || { pedidos: 0, bruto: 0 };
+      cur.pedidos += 1; cur.bruto += (numES(p.importe) || 0);
+      acc.set(turno, cur);
+    }
+    const out: Fila[] = Array.from(acc.entries()).map(([turno, v]) => ({
+      fecha, agregador: 'sinqro', plataforma: 'just_eat', marca: 'Streat Lab', turno,
+      pedidos: v.pedidos, bruto: Math.round(v.bruto * 100) / 100, neto: null,
+      ticket_medio: v.pedidos ? Math.round((v.bruto / v.pedidos) * 100) / 100 : null,
+    }));
+    await logRobot('sinqro_backfill', 'ok', `fecha=${fecha} pedidos_leidos=${pedidos.length} filas=${out.length} sin_hora=${sinHora}`);
+    return out;
+  } catch (e: any) {
+    await logRobot('sinqro_backfill', 'error', `fecha=${fecha} ${String(e?.message || e)}`);
+    return [];
   } finally { await page.close(); }
 }
 
@@ -265,38 +373,10 @@ async function debugSinqroHistorico(browser: Browser, fecha: string): Promise<vo
     await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(SINQRO_DEBUG.submitBtn)]);
     await page.waitForTimeout(3000);
 
-    await page.goto(SINQRO_DEBUG.ventasUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3500);
-
-    for (const sel of SINQRO_DEBUG.tipoChecks) {
-      const chk = page.locator(sel).first();
-      if (!(await chk.count())) continue;
-      if (await chk.isChecked().catch(() => false)) continue;
-      await chk.dispatchEvent('click').catch(() => {});
-      await chk.dispatchEvent('change').catch(() => {});
-    }
-    await page.waitForTimeout(1000);
-
-    const f = ddmmyyyy(fecha);
-    const sd = page.locator(SINQRO_DEBUG.startDate).first();
-    const ed = page.locator(SINQRO_DEBUG.endDate).first();
-    if (await sd.count()) {
-      await sd.fill('').catch(() => {});
-      await sd.type(f, { delay: 40 }).catch(() => {});
-      await sd.dispatchEvent('input').catch(() => {});
-      await sd.dispatchEvent('change').catch(() => {});
-      await page.keyboard.press('Escape').catch(() => {});
-    }
-    if (await ed.count()) {
-      await ed.fill('').catch(() => {});
-      await ed.type(f, { delay: 40 }).catch(() => {});
-      await ed.dispatchEvent('input').catch(() => {});
-      await ed.dispatchEvent('change').catch(() => {});
-      await page.keyboard.press('Escape').catch(() => {});
-    }
-
-    await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
-    await page.waitForTimeout(4000);
+    // Misma navegación con el fix real (calendario cerrado + espera a
+    // loadingOrders) que usa el backfill de verdad — un solo sitio con la
+    // lógica de fecha, sin duplicados que puedan divergir.
+    await irAVentasSinqroHistorico(page, fecha);
 
     const html = await page.content();
     await volcarHtmlDebug('sinqro_hist', fecha, html);
@@ -341,10 +421,11 @@ async function main() {
   let fecha = inicio;
   let rachaVacia = 0;
   let diasConDatos = 0;
+  let motivoParada: 'racha_vacia' | 'hasta' = 'racha_vacia';
   try {
     while (rachaVacia < RACHA_VACIA_LIMITE) {
-      if (hastaParam && fecha < hastaParam) break;
-      const sinq = await ingestaSinqro(browser, fecha);
+      if (hastaParam && fecha < hastaParam) { motivoParada = 'hasta'; break; }
+      const sinq = await ingestaSinqroHistorico(browser, fecha);
       const rush = await ingestaRushourHistorico(browser, fecha);
       const filas: Fila[] = [...(rush ? [rush] : []), ...sinq];
 
@@ -360,7 +441,10 @@ async function main() {
 
       fecha = diaAnterior(fecha);
     }
-    await logRobot('backfill', 'fin', `parado por ${RACHA_VACIA_LIMITE} días vacíos seguidos, antes de ${fecha}. dias_con_datos=${diasConDatos}`);
+    const msg = motivoParada === 'hasta'
+      ? `parado por límite hasta=${hastaParam}, en ${fecha}. dias_con_datos=${diasConDatos}`
+      : `parado por ${RACHA_VACIA_LIMITE} días vacíos seguidos, antes de ${fecha}. dias_con_datos=${diasConDatos}`;
+    await logRobot('backfill', 'fin', msg);
   } finally {
     await browser.close();
   }
