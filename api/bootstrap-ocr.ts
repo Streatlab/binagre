@@ -1,12 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from './_lib/supabase-admin.js'
 import { descargarArchivoDeDrive } from './_lib/google-drive.js'
-import { ocrMistralTexto, extraerFacturaMistral, bootstrapApiActivo } from './_lib/ocr-mistral.js'
+import { anthropicBootstrapActivo, extraerFacturaAnthropicTexto, extraerFacturaAnthropicVisionUltimoRecurso } from './_lib/ocr-anthropic.js'
+import { extraerTextoOCRGratis } from './_lib/ocr-tesseract.js'
 import { matchFactura, aplicarMatching } from './_lib/matching.js'
 
 export const config = { maxDuration: 300 }
 
-// BOOTSTRAP OCR (de pago acotado) — lee al 100% por Mistral toda factura incompleta
+// BOOTSTRAP OCR (Claude) — lee al 100% por Anthropic toda factura incompleta
 // que el lector gratis (reglas + Tesseract) no resolvió:
 //   (a) sin importe (total null/0), o
 //   (b) marcada pendiente_releer_ocr=true (p.ej. nombre = NIF / sin categoría).
@@ -29,8 +30,8 @@ const LOTE_DB = 8
 const MINUTOS_VENTANA = 30
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!bootstrapApiActivo()) {
-    return res.status(200).json({ ok: false, motivo: 'bootstrap desactivado (faltan OCR_BOOTSTRAP_API o MISTRAL_API_KEY)' })
+  if (!anthropicBootstrapActivo()) {
+    return res.status(200).json({ ok: false, motivo: 'bootstrap desactivado (faltan OCR_BOOTSTRAP_API o ANTHROPIC_API_KEY)' })
   }
 
   // GATILLO: solo tras subida reciente de facturas, o disparo manual explícito.
@@ -93,13 +94,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const f of lote) {
       try {
         const buffer = await descargarArchivoDeDrive(f.pdf_drive_id as string)
-        const texto = await ocrMistralTexto(buffer, 'pdf')
-        const ext = texto ? await extraerFacturaMistral(texto) : null
+        const texto = await extraerTextoOCRGratis(buffer, 'pdf')
+        let ext = texto.length >= 20 ? await extraerFacturaAnthropicTexto(texto) : null
+        // Vision de último recurso: si texto vacío o extracción fallida, y NIF no tiene vision_usada
+        if (!ext || !ext.total || ext.total <= 0) {
+          const nifCand = f.nif_emisor as string | null
+          let visionUsada = false
+          if (nifCand) {
+            const { data: rc } = await supabaseAdmin.from('reglas_conciliacion')
+              .select('vision_usada').eq('patron_nif', nifCand).maybeSingle()
+            visionUsada = rc?.vision_usada === true
+          }
+          if (!visionUsada) {
+            ext = await extraerFacturaAnthropicVisionUltimoRecurso(buffer, 'pdf', 'application/pdf')
+            if (ext?.nif_emisor) {
+              await supabaseAdmin.from('reglas_conciliacion')
+                .update({ vision_usada: true }).eq('patron_nif', ext.nif_emisor)
+            }
+          }
+        }
 
         if (!ext || !ext.total || ext.total <= 0) {
-          // No legible ni por Mistral: dejar en manual y desmarcar la cola.
+          // No legible ni por Tesseract ni Claude: dejar en manual y desmarcar la cola.
           await supabaseAdmin.from('facturas')
-            .update({ estado: 'pendiente_lectura_manual', pendiente_releer_ocr: false, error_mensaje: 'Ni Tesseract ni Mistral pudieron leer. Lectura manual.' })
+            .update({ estado: 'pendiente_lectura_manual', pendiente_releer_ocr: false, error_mensaje: 'Ni Tesseract ni Claude pudieron leer. Lectura manual.' })
             .eq('id', f.id as string)
           manual++; manualTanda++; procesadas++
           continue
@@ -123,14 +141,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (preservarFiscal) {
           // Mantener total, fecha y desglose existentes (no pisar IVA correcto).
-          update.ocr_raw = { ...ext, origen_lectura: 'mistral_bootstrap_solo_identidad', fiscal_preservado: true }
+          update.ocr_raw = { ...ext, origen_lectura: 'anthropic_bootstrap_solo_identidad', fiscal_preservado: true }
           update.estado = 'procesando'
         } else {
           update.fecha_factura = ext.fecha_factura
-          update.base_21 = ext.base_21
-          update.iva_21 = ext.iva_21
+          update.base_4 = ext.base_4; update.iva_4 = ext.iva_4
+          update.base_10 = ext.base_10; update.iva_10 = ext.iva_10
+          update.base_21 = ext.base_21; update.iva_21 = ext.iva_21
           update.total = ext.total
-          update.ocr_raw = { ...ext, origen_lectura: 'mistral_bootstrap' }
+          update.ocr_raw = { ...ext, origen_lectura: 'anthropic_bootstrap' }
           update.estado = 'procesando'
         }
 
