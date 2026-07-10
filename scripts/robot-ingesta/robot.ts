@@ -241,11 +241,12 @@ async function irAVentasSinqro(page: Page, fecha: string) {
     const chk = page.locator(sel).first();
     if (!(await chk.count())) continue;
     if (await chk.isChecked().catch(() => false)) continue;
-    const label = page.locator(`label:has(${sel})`).first();
-    if (await label.count()) { await label.click({ force: true }).catch(() => {}); }
-    else { await chk.click({ force: true }).catch(() => {}); }
+    // AngularJS necesita click+change en el input (aunque esté oculto) para activar
+    // el filtro; dispatchEvent del locator lanza el evento nativo sin page.evaluate.
+    await chk.dispatchEvent('click').catch(() => {});
+    await chk.dispatchEvent('change').catch(() => {});
   }
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(1000);
 
   const f = ddmmyyyy(fecha);
   const sd = page.locator(SINQRO.startDate).first();
