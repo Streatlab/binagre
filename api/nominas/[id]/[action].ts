@@ -31,6 +31,7 @@ interface NominaConEmpleadoRow {
   mes: number
   anio: number
   importe_neto: number | null
+  empleado_id: string
   empleados: { nombre: string } | { nombre: string }[] | null
 }
 
@@ -43,15 +44,20 @@ function nombreDeEmpleadoJoin(v: NominaConEmpleadoRow['empleados']): string {
 async function sugerirMatches(res: VercelResponse, id: string) {
   const { data, error } = await supabaseAdmin
     .from('nominas')
-    .select('id, mes, anio, importe_neto, empleados(nombre)')
+    .select('id, mes, anio, importe_neto, empleado_id, empleados(nombre)')
     .eq('id', id)
     .maybeSingle()
   if (error || !data) return res.status(404).json({ error: error?.message || 'Nómina no encontrada' })
 
   const nomina = data as unknown as NominaConEmpleadoRow
+  const { data: aliasRows } = await supabaseAdmin
+    .from('empleado_alias')
+    .select('alias')
+    .eq('empleado_id', nomina.empleado_id)
   const nominaInput: NominaParaMatch = {
     id: nomina.id,
     empleado_nombre: nombreDeEmpleadoJoin(nomina.empleados),
+    aliases: (aliasRows ?? []).map(r => r.alias as string),
     mes: nomina.mes,
     anio: nomina.anio,
     importe_neto: nomina.importe_neto != null ? Number(nomina.importe_neto) : null,

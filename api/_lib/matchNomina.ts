@@ -42,6 +42,9 @@ export interface CandidatoMatch {
 export interface NominaParaMatch {
   id: string
   empleado_nombre: string
+  /** Alias del empleado (cuadrante, nómina oficial, banco…) además de `empleado_nombre`.
+   *  El cruce comprueba TODOS: el nombre del banco puede venir por cualquiera. */
+  aliases?: string[]
   mes: number
   anio: number
   importe_neto: number | null
@@ -100,14 +103,22 @@ function normalizarTexto(s: string | null | undefined): string {
     .trim()
 }
 
-// Devuelve la primera palabra del nombre del empleado (>=3 letras) que aparece en el
-// texto normalizado de concepto+proveedor, o null si ninguna aparece.
-function nombreEnTexto(nombreEmpleado: string, textoNormalizado: string): string | null {
-  const palabras = normalizarTexto(nombreEmpleado).split(/\s+/).filter(p => p.length >= 3)
-  for (const p of palabras) {
-    if (textoNormalizado.includes(p)) return p
+// Devuelve la primera palabra (>=3 letras) del nombre o de CUALQUIER alias del
+// empleado que aparece en el texto normalizado de concepto+proveedor, o null si
+// ninguna aparece. Revisar por alias es lo que permite que "Ray" en el cuadrante
+// y "Juan Ramón Méndez Melo" en la nómina/banco casen con el mismo empleado.
+function nombreEnTexto(nombresEmpleado: string[], textoNormalizado: string): string | null {
+  for (const nombre of nombresEmpleado) {
+    const palabras = normalizarTexto(nombre).split(/\s+/).filter(p => p.length >= 3)
+    for (const p of palabras) {
+      if (textoNormalizado.includes(p)) return p
+    }
   }
   return null
+}
+
+function nombresYAlias(nomina: NominaParaMatch): string[] {
+  return [nomina.empleado_nombre, ...(nomina.aliases ?? [])].filter(Boolean)
 }
 
 // IDs de movimientos de conciliación ya asociados (confirmados) a OTRA nómina distinta
@@ -161,7 +172,7 @@ function scoreCandidato(row: FilaConciliacion, nomina: NominaParaMatch): Candida
   const proveedorNorm = normalizarTexto(row.proveedor)
   const textoCompleto = `${conceptoNorm} ${proveedorNorm}`
 
-  const nombreCoincide = nombreEnTexto(nomina.empleado_nombre, textoCompleto)
+  const nombreCoincide = nombreEnTexto(nombresYAlias(nomina), textoCompleto)
   if (nombreCoincide) {
     confianza += 25
     motivos.push(`nombre "${nombreCoincide}" en concepto/proveedor`)
@@ -218,7 +229,7 @@ export async function sugerirCombinacion(supabase: SupabaseClient, nomina: Nomin
     .map(row => scoreCandidato(row, nomina))
     .filter(c => {
       const texto = `${normalizarTexto(c.concepto)} ${normalizarTexto(c.proveedor)}`
-      return Boolean(nombreEnTexto(nomina.empleado_nombre, texto))
+      return Boolean(nombreEnTexto(nombresYAlias(nomina), texto))
     })
 
   const combinaciones: CandidatoMatch[][] = []

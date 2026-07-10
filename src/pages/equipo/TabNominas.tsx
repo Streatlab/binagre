@@ -39,6 +39,15 @@ interface NominaDetalle {
   clase: string
 }
 
+interface FilaResumen {
+  trabajador: string
+  bruto: number | null
+  neto: number | null
+  irpf: number | null
+  ss_total: number | null
+  coste_empresa: number | null
+}
+
 type CandidatoMatch = {
   conciliacion_id: string
   fecha: string
@@ -99,6 +108,11 @@ export default function TabNominas() {
   const [selectedAnio, setSelectedAnio] = useState<number>(new Date().getFullYear())
   const [loadingBase, setLoadingBase] = useState(true)
   const [uploading, setUploading] = useState<string | null>(null)
+  const [uploadingResumen, setUploadingResumen] = useState(false)
+  const [resumenResultado, setResumenResultado] = useState<{
+    mes: number; anio: number
+    insertadas: FilaResumen[]; ya_existia: FilaResumen[]; revisar_identidad: FilaResumen[]
+  } | null>(null)
 
   const { loading: loadingNominas, error: errorNominas, nominas, reload } = useNominasCompletas(selectedAnio)
 
@@ -142,6 +156,33 @@ export default function TabNominas() {
       alert('Error al subir: ' + (e instanceof Error ? e.message : String(e)))
     } finally {
       setUploading(null)
+    }
+  }
+
+  async function handleUploadResumen(file: File) {
+    setUploadingResumen(true)
+    setResumenResultado(null)
+    try {
+      const base64 = await fileToBase64(file)
+      const res = await fetch('/api/nominas/resumen/subir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64, nombre_archivo: file.name }),
+      })
+      const data = await res.json()
+      if (!data.ok) {
+        alert('No se pudo procesar el resumen: ' + (data.error || data.motivo_extraccion || 'motivo desconocido'))
+        return
+      }
+      setResumenResultado({
+        mes: data.mes, anio: data.anio,
+        insertadas: data.insertadas ?? [], ya_existia: data.ya_existia ?? [], revisar_identidad: data.revisar_identidad ?? [],
+      })
+      await reload()
+    } catch (e) {
+      alert('Error al subir el resumen: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setUploadingResumen(false)
     }
   }
 
@@ -208,7 +249,51 @@ export default function TabNominas() {
         <select value={selectedAnio} onChange={e => setSelectedAnio(parseInt(e.target.value))} style={selectNeo}>
           {anios.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
+        <input
+          type="file" accept="application/pdf" id="upl-resumen" style={{ display: 'none' }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadResumen(f); e.target.value = '' }}
+        />
+        <label
+          htmlFor="upl-resumen"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            border: `3px solid ${INK}`, boxShadow: SHADOW, background: GRANATE, color: '#fff',
+            fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase',
+            padding: '8px 14px', cursor: uploadingResumen ? 'wait' : 'pointer',
+          }}
+        >
+          <Upload size={13} /> {uploadingResumen ? 'Procesando…' : 'Subir resumen de nóminas'}
+        </label>
       </div>
+
+      {resumenResultado && (
+        <div style={{ ...card, padding: '14px 18px', marginBottom: 16 }}>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', marginBottom: 8 }}>
+            Resumen {MESES_LARGO[resumenResultado.mes - 1]} {resumenResultado.anio}
+          </div>
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontFamily: LEX, fontSize: 12 }}>
+            <span>Guardadas: <strong style={{ color: VERDE }}>{resumenResultado.insertadas.length}</strong></span>
+            <span>Ya existían: <strong style={{ color: GRIS }}>{resumenResultado.ya_existia.length}</strong></span>
+            <span>Revisar identidad: <strong style={{ color: resumenResultado.revisar_identidad.length > 0 ? ROJO : GRIS }}>{resumenResultado.revisar_identidad.length}</strong></span>
+          </div>
+          {resumenResultado.revisar_identidad.length > 0 && (
+            <div style={{ marginTop: 10, borderTop: `2px solid ${INK}`, paddingTop: 10 }}>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: ROJO, marginBottom: 6 }}>
+                No se pudo identificar con seguridad — no guardado, complétalo a mano
+              </div>
+              {resumenResultado.revisar_identidad.map((f, i) => (
+                <div key={i} style={{ display: 'flex', gap: 12, fontFamily: LEX, fontSize: 12, padding: '3px 0', flexWrap: 'wrap' }}>
+                  <strong>{f.trabajador}</strong>
+                  <span>bruto {fmtEur(f.bruto, { decimals: 2 })}</span>
+                  <span>neto {fmtEur(f.neto, { decimals: 2 })}</span>
+                  <span>IRPF {fmtEur(f.irpf, { decimals: 2 })}</span>
+                  <span>SS {fmtEur(f.ss_total, { decimals: 2 })}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
