@@ -1,0 +1,17 @@
+name: Bootstrap OCR (Claude)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger bootstrap (espera hasta 300s)
+        run: |
+          curl -sf --max-time 300 \
+            "https://binagre.vercel.app/api/bootstrap-ocr?manual=1" \
+            | tee /tmp/result.json
+          echo ""
+          cat /tmp/result.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Leídas: {d.get(\"leidas_total\",0)}, Manuales: {d.get(\"manual_total\",0)}, Conciliadas: {d.get(\"conciliadas_total\",0)}, Autocontinúa: {d.get(\"autocontinua\",False)}')" || true
