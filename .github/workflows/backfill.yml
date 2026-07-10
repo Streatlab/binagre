@@ -9,6 +9,10 @@ on:
         description: "Fecha de inicio (más reciente); recorre hacia atrás. Formato AAAA-MM-DD"
         type: string
         default: "2025-12-31"
+      debug_fecha:
+        description: "Modo diagnóstico: vuelca el HTML real de esta fecha a robot_debug y termina (deja vacío para el backfill normal)"
+        type: string
+        default: ""
 
 jobs:
   backfill:
@@ -26,6 +30,7 @@ jobs:
       - name: Ejecutar backfill
         env:
           BACKFILL_DESDE: ${{ github.event.inputs.desde }}
+          BACKFILL_DEBUG_FECHA: ${{ github.event.inputs.debug_fecha }}
           DIAG: "0"
           RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
           RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
