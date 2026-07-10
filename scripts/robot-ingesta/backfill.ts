@@ -24,6 +24,7 @@
  */
 
 import { chromium, Browser, Page } from 'playwright';
+import { createClient } from '@supabase/supabase-js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -35,10 +36,22 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CURSOR_PATH = join(__dirname, '.backfill-cursor');
 const RACHA_VACIA_LIMITE = 10;
 
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
 const RUSHOUR = {
   loginUrl: 'https://manager.rushour.io/login',
   user: process.env.RUSHOUR_USER || '', pass: process.env.RUSHOUR_PASS || '',
   userInput: 'input[name="username"]', passInput: 'input[name="password"]', submitBtn: 'button[type="submit"]',
+};
+// Duplicado deliberado del SINQRO de robot.ts (no exportado): solo para el
+// volcado de diagnóstico de esta pasada, sin tocar el robot diario.
+const SINQRO_DEBUG = {
+  loginUrl: 'https://app.sinqro.com/', ventasUrl: 'https://app.sinqro.com/#/sp/6416/online/orders',
+  user: process.env.SINQRO_USER || '', pass: process.env.SINQRO_PASS || '',
+  userInput: '#login-email', passInput: '#login-password', submitBtn: '#loginButton',
+  tipoChecks: ['#deliveryFilter', '#collectionFilter', '#insideFilter', '#insituFilter', '#reservationFilter'],
+  startDate: '#startDateFilter', endDate: '#endDateFilter',
 };
 
 function numES(s: string | null | undefined): number | null {
@@ -155,7 +168,115 @@ async function ingestaRushourHistorico(browser: Browser, fecha: string): Promise
   } finally { await page.close(); }
 }
 
+async function volcarHtmlDebug(fuente: string, fecha: string, html: string) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+  await sb.from('robot_debug').insert([{ fuente, fecha, html }]);
+}
+
+// Volcado de diagnóstico: navega Rushour hasta la sección "Historical" (mismo
+// sondeo tolerante que ingestaRushourHistorico) y guarda el HTML completo en
+// `robot_debug`, se haya encontrado o no la fecha exacta — así se puede
+// inspeccionar el selector real sin adivinar a ciegas.
+async function debugRushourHistorico(browser: Browser, fecha: string): Promise<void> {
+  if (!RUSHOUR.user || !RUSHOUR.pass) { await logRobot('backfill_debug', 'error', 'rushour_hist sin credenciales'); return; }
+  const page = await browser.newPage();
+  try {
+    await page.goto(RUSHOUR.loginUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    await page.waitForSelector(RUSHOUR.userInput, { timeout: 15000 });
+    await page.fill(RUSHOUR.userInput, RUSHOUR.user);
+    await page.fill(RUSHOUR.passInput, RUSHOUR.pass);
+    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(RUSHOUR.submitBtn)]);
+    await page.waitForTimeout(4000);
+    await cerrarModales(page);
+    await page.waitForTimeout(1000);
+    await cerrarModales(page);
+
+    const navHistorico = page.getByRole('link', { name: /historical/i }).or(page.getByRole('tab', { name: /historical/i })).or(page.getByText(/historical/i)).first();
+    if (await navHistorico.count().catch(() => 0)) {
+      await navHistorico.click({ timeout: 5000 }).catch(() => {});
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForTimeout(2000);
+      await cerrarModales(page);
+
+      const f = ddmmyyyy(fecha);
+      const inputFecha = page.locator('input[type="date"], input[placeholder*="date" i], input[placeholder*="fecha" i]').first();
+      if (await inputFecha.count().catch(() => 0)) {
+        await inputFecha.fill(fecha).catch(async () => { await inputFecha.fill(f).catch(() => {}); });
+        await page.keyboard.press('Enter').catch(() => {});
+        await page.waitForTimeout(2500);
+      }
+    }
+    const html = await page.content();
+    await volcarHtmlDebug('rushour_hist', fecha, html);
+    await logRobot('backfill_debug', 'ok', `rushour_hist volcado fecha=${fecha} bytes=${html.length}`);
+  } catch (e: any) {
+    await logRobot('backfill_debug', 'error', `rushour_hist fecha=${fecha} ${String(e?.message || e)}`);
+  } finally { await page.close(); }
+}
+
+// Volcado de diagnóstico: aplica el filtro de fecha de Sinqro (mismo fix de
+// checkboxes con dispatchEvent que el robot diario) y guarda el HTML completo
+// del resultado en `robot_debug`.
+async function debugSinqroHistorico(browser: Browser, fecha: string): Promise<void> {
+  if (!SINQRO_DEBUG.user || !SINQRO_DEBUG.pass) { await logRobot('backfill_debug', 'error', 'sinqro_hist sin credenciales'); return; }
+  const page = await browser.newPage();
+  try {
+    await page.goto(SINQRO_DEBUG.loginUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    await page.waitForSelector(SINQRO_DEBUG.userInput, { timeout: 15000 });
+    await page.fill(SINQRO_DEBUG.userInput, SINQRO_DEBUG.user);
+    await page.fill(SINQRO_DEBUG.passInput, SINQRO_DEBUG.pass);
+    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(SINQRO_DEBUG.submitBtn)]);
+    await page.waitForTimeout(3000);
+
+    await page.goto(SINQRO_DEBUG.ventasUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3500);
+
+    for (const sel of SINQRO_DEBUG.tipoChecks) {
+      const chk = page.locator(sel).first();
+      if (!(await chk.count())) continue;
+      if (await chk.isChecked().catch(() => false)) continue;
+      await chk.dispatchEvent('click').catch(() => {});
+      await chk.dispatchEvent('change').catch(() => {});
+    }
+    await page.waitForTimeout(1000);
+
+    const f = ddmmyyyy(fecha);
+    const sd = page.locator(SINQRO_DEBUG.startDate).first();
+    const ed = page.locator(SINQRO_DEBUG.endDate).first();
+    if (await sd.count()) { await sd.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
+    if (await ed.count()) { await ed.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
+
+    await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
+    await page.waitForTimeout(4000);
+
+    const html = await page.content();
+    await volcarHtmlDebug('sinqro_hist', fecha, html);
+    await logRobot('backfill_debug', 'ok', `sinqro_hist volcado fecha=${fecha} bytes=${html.length}`);
+  } catch (e: any) {
+    await logRobot('backfill_debug', 'error', `sinqro_hist fecha=${fecha} ${String(e?.message || e)}`);
+  } finally { await page.close(); }
+}
+
 async function main() {
+  // Modo debug: vuelca el HTML real de una sola fecha a `robot_debug` y
+  // termina. No toca el backfill normal ni recorre el histórico.
+  const debugFecha = process.env.BACKFILL_DEBUG_FECHA;
+  if (debugFecha) {
+    await logRobot('backfill', 'debug_inicio', `volcado html fecha=${debugFecha}`);
+    const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    try {
+      await debugRushourHistorico(browser, debugFecha);
+      await debugSinqroHistorico(browser, debugFecha);
+      await logRobot('backfill', 'debug', `volcado ${debugFecha} hecho`);
+    } finally {
+      await browser.close();
+    }
+    return;
+  }
+
   const desdeParam = process.env.BACKFILL_DESDE;
   const inicio = desdeParam || leerCursor() || new Date().toISOString().slice(0, 10);
   await logRobot('backfill', 'inicio', `desde=${inicio}`);
