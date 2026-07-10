@@ -248,11 +248,25 @@ async function irAVentasSinqro(page: Page, fecha: string) {
   }
   await page.waitForTimeout(1000);
 
+  // AngularJS (ng-model) no registra .fill(): hay que escribir carácter a
+  // carácter y disparar input+change para que el filtro de fecha se aplique.
   const f = ddmmyyyy(fecha);
   const sd = page.locator(SINQRO.startDate).first();
   const ed = page.locator(SINQRO.endDate).first();
-  if (await sd.count()) { await sd.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
-  if (await ed.count()) { await ed.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
+  if (await sd.count()) {
+    await sd.fill('').catch(() => {});
+    await sd.type(f, { delay: 40 }).catch(() => {});
+    await sd.dispatchEvent('input').catch(() => {});
+    await sd.dispatchEvent('change').catch(() => {});
+    await page.keyboard.press('Escape').catch(() => {});
+  }
+  if (await ed.count()) {
+    await ed.fill('').catch(() => {});
+    await ed.type(f, { delay: 40 }).catch(() => {});
+    await ed.dispatchEvent('input').catch(() => {});
+    await ed.dispatchEvent('change').catch(() => {});
+    await page.keyboard.press('Escape').catch(() => {});
+  }
 
   await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
   await page.waitForTimeout(4000);

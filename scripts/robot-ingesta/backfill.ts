@@ -92,6 +92,46 @@ async function leerKpiRushour(page: Page, etiqueta: RegExp, conEuro: boolean): P
   return null;
 }
 
+// Rushour /historicals usa un RangePicker de Ant Design (.ant-picker con dos
+// .ant-picker-input input: [0]=inicio, [1]=fin). Fija el mismo día en ambos
+// extremos para quedarse con un solo día. Devuelve true si encontró el picker.
+async function fijarRangoAntPicker(page: Page, fecha: string): Promise<boolean> {
+  const picker = page.locator('.ant-picker').first();
+  if (!(await picker.count().catch(() => 0))) return false;
+  await picker.click().catch(() => {});
+  const inputs = page.locator('.ant-picker-input input');
+  if (!(await inputs.count().catch(() => 0))) return false;
+  await inputs.nth(0).fill('').catch(() => {});
+  await inputs.nth(0).type(fecha, { delay: 40 }).catch(() => {});
+  await page.keyboard.press('Enter').catch(() => {});
+  await inputs.nth(1).fill('').catch(() => {});
+  await inputs.nth(1).type(fecha, { delay: 40 }).catch(() => {});
+  await page.keyboard.press('Enter').catch(() => {});
+  await page.waitForTimeout(2500);
+  return true;
+}
+
+// Navega a la sección histórica de Rushour. El HTML real volcado a
+// robot_debug (fecha 2025-06-13) mostró que el clic sobre el enlace del menú
+// NO llegaba a navegar (0 apariciones de "ant-picker" en el documento, seguía
+// en el dashboard en vivo) — pero el enlace trae href="/historicals" directo,
+// así que se navega por URL y el clic queda solo de fallback.
+async function irAHistoricalRushour(page: Page): Promise<void> {
+  await page.goto('https://manager.rushour.io/historicals', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(2000);
+  await cerrarModales(page);
+  if (!/historicals/.test(page.url())) {
+    const navHistorico = page.getByRole('link', { name: /historical/i }).or(page.getByRole('tab', { name: /historical/i })).first();
+    if (await navHistorico.count().catch(() => 0)) {
+      await navHistorico.click({ timeout: 5000 }).catch(() => {});
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForTimeout(2000);
+      await cerrarModales(page);
+    }
+  }
+}
+
 function leerCursor(): string | null {
   if (!existsSync(CURSOR_PATH)) return null;
   const s = readFileSync(CURSOR_PATH, 'utf-8').trim();
@@ -119,31 +159,17 @@ async function ingestaRushourHistorico(browser: Browser, fecha: string): Promise
     await page.waitForTimeout(1000);
     await cerrarModales(page);
 
-    // Sondeo tolerante de un enlace/pestaña a la sección histórica.
-    const navHistorico = page.getByRole('link', { name: /historical/i }).or(page.getByRole('tab', { name: /historical/i })).or(page.getByText(/historical/i)).first();
-    if (!(await navHistorico.count().catch(() => 0))) {
-      await logRobot('rushour_backfill', 'sin_seccion', `fecha=${fecha} no se encontró navegación "Historical"`);
+    await irAHistoricalRushour(page);
+    if (!/historicals/.test(page.url())) {
+      await logRobot('rushour_backfill', 'sin_seccion', `fecha=${fecha} no se pudo navegar a /historicals (url=${page.url()})`);
       return null;
     }
-    await navHistorico.click({ timeout: 5000 }).catch(() => {});
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2000);
-    await cerrarModales(page);
 
-    // Sondeo tolerante de un selector de fecha dentro de la sección histórica.
-    const f = ddmmyyyy(fecha);
-    const inputFecha = page.locator('input[type="date"], input[placeholder*="date" i], input[placeholder*="fecha" i]').first();
-    let fechaFijada = false;
-    if (await inputFecha.count().catch(() => 0)) {
-      await inputFecha.fill(fecha).catch(async () => { await inputFecha.fill(f).catch(() => {}); });
-      await page.keyboard.press('Enter').catch(() => {});
-      fechaFijada = true;
-    }
+    const fechaFijada = await fijarRangoAntPicker(page, fecha);
     if (!fechaFijada) {
-      await logRobot('rushour_backfill', 'sin_selector_fecha', `fecha=${fecha} sección histórica encontrada pero sin selector de fecha reconocible`);
+      await logRobot('rushour_backfill', 'sin_selector_fecha', `fecha=${fecha} en /historicals pero sin .ant-picker reconocible`);
       return null;
     }
-    await page.waitForTimeout(2500);
 
     let turnover: number | null = null, volumen: number | null = null;
     for (let intento = 1; intento <= 3; intento++) {
@@ -193,20 +219,9 @@ async function debugRushourHistorico(browser: Browser, fecha: string): Promise<v
     await page.waitForTimeout(1000);
     await cerrarModales(page);
 
-    const navHistorico = page.getByRole('link', { name: /historical/i }).or(page.getByRole('tab', { name: /historical/i })).or(page.getByText(/historical/i)).first();
-    if (await navHistorico.count().catch(() => 0)) {
-      await navHistorico.click({ timeout: 5000 }).catch(() => {});
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(2000);
-      await cerrarModales(page);
-
-      const f = ddmmyyyy(fecha);
-      const inputFecha = page.locator('input[type="date"], input[placeholder*="date" i], input[placeholder*="fecha" i]').first();
-      if (await inputFecha.count().catch(() => 0)) {
-        await inputFecha.fill(fecha).catch(async () => { await inputFecha.fill(f).catch(() => {}); });
-        await page.keyboard.press('Enter').catch(() => {});
-        await page.waitForTimeout(2500);
-      }
+    await irAHistoricalRushour(page);
+    if (/historicals/.test(page.url())) {
+      await fijarRangoAntPicker(page, fecha);
     }
     const html = await page.content();
     await volcarHtmlDebug('rushour_hist', fecha, html);
@@ -246,8 +261,20 @@ async function debugSinqroHistorico(browser: Browser, fecha: string): Promise<vo
     const f = ddmmyyyy(fecha);
     const sd = page.locator(SINQRO_DEBUG.startDate).first();
     const ed = page.locator(SINQRO_DEBUG.endDate).first();
-    if (await sd.count()) { await sd.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
-    if (await ed.count()) { await ed.fill(f).catch(() => {}); await page.keyboard.press('Escape').catch(() => {}); }
+    if (await sd.count()) {
+      await sd.fill('').catch(() => {});
+      await sd.type(f, { delay: 40 }).catch(() => {});
+      await sd.dispatchEvent('input').catch(() => {});
+      await sd.dispatchEvent('change').catch(() => {});
+      await page.keyboard.press('Escape').catch(() => {});
+    }
+    if (await ed.count()) {
+      await ed.fill('').catch(() => {});
+      await ed.type(f, { delay: 40 }).catch(() => {});
+      await ed.dispatchEvent('input').catch(() => {});
+      await ed.dispatchEvent('change').catch(() => {});
+      await page.keyboard.press('Escape').catch(() => {});
+    }
 
     await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
     await page.waitForTimeout(4000);
@@ -278,8 +305,11 @@ async function main() {
   }
 
   const desdeParam = process.env.BACKFILL_DESDE;
+  // Límite opcional hacia atrás (inclusive) — para acotar una pasada de
+  // verificación a un solo día sin recorrer todo el histórico. Vacío = sin límite.
+  const hastaParam = process.env.BACKFILL_HASTA;
   const inicio = desdeParam || leerCursor() || new Date().toISOString().slice(0, 10);
-  await logRobot('backfill', 'inicio', `desde=${inicio}`);
+  await logRobot('backfill', 'inicio', `desde=${inicio}${hastaParam ? ` hasta=${hastaParam}` : ''}`);
 
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   let fecha = inicio;
@@ -287,6 +317,7 @@ async function main() {
   let diasConDatos = 0;
   try {
     while (rachaVacia < RACHA_VACIA_LIMITE) {
+      if (hastaParam && fecha < hastaParam) break;
       const sinq = await ingestaSinqro(browser, fecha);
       const rush = await ingestaRushourHistorico(browser, fecha);
       const filas: Fila[] = [...(rush ? [rush] : []), ...sinq];

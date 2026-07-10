@@ -13,6 +13,10 @@ on:
         description: "Modo diagnóstico: vuelca el HTML real de esta fecha a robot_debug y termina (deja vacío para el backfill normal)"
         type: string
         default: ""
+      hasta:
+        description: "Límite hacia atrás (inclusive), AAAA-MM-DD. Para probar un solo día pon aquí la misma fecha que 'desde' (deja vacío para recorrer todo el histórico)"
+        type: string
+        default: ""
 
 jobs:
   backfill:
@@ -30,6 +34,7 @@ jobs:
       - name: Ejecutar backfill
         env:
           BACKFILL_DESDE: ${{ github.event.inputs.desde }}
+          BACKFILL_HASTA: ${{ github.event.inputs.hasta }}
           BACKFILL_DEBUG_FECHA: ${{ github.event.inputs.debug_fecha }}
           DIAG: "0"
           RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
