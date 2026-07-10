@@ -957,11 +957,20 @@ async function extraerLineasBatch(req: VercelRequest, res: VercelResponse) {
       try {
         if (!hash) { await marcarSinDetalle('sin pdf_hash (sin respaldo localizable)'); continue }
 
-        const { data: respaldo } = await supabaseAdmin
+        // BUG encontrado en producción (10-jul): archivo_respaldo tiene hashes duplicados
+        // en ~3.052 casos (reintentos de subida del mismo archivo). `.maybeSingle()` lanza
+        // error silencioso cuando hay >1 fila para ese hash — el código solo desestructuraba
+        // `data` (ignoraba `error`), así que `respaldo` quedaba `null` y la factura se
+        // marcaba "sin fila en archivo_respaldo" AUNQUE SÍ existiera respaldo. Esto hacía
+        // fallar ~70% de las facturas de golpe. Fix: pedir varias filas ordenadas por
+        // `actualizado` desc y quedarse con la más reciente, sin usar maybeSingle().
+        const { data: respaldos } = await supabaseAdmin
           .from('archivo_respaldo')
           .select('storage_path')
           .eq('hash', hash)
-          .maybeSingle()
+          .order('actualizado', { ascending: false })
+          .limit(1)
+        const respaldo = respaldos?.[0]
         if (!respaldo?.storage_path) { await marcarSinDetalle('sin fila en archivo_respaldo'); continue }
 
         const buffer = await descargarRespaldoStorage(respaldo.storage_path as string)
