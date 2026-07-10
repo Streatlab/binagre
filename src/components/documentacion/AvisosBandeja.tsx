@@ -1,7 +1,7 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
-import { fmtEur, fmtDate } from '@/lib/format'
+import { fmtEur, fmtDate, fmtEurFactura } from '@/lib/format'
 import { OSW, LEX, INK, GRIS, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, d, eyebrow } from '@/styles/neobrutal'
 
 // ── Avisos autoaprendibles de Papeleo ────────────────────────────────────────
@@ -63,6 +63,67 @@ const estiloTipo = (tipo: string) => TIPO_ESTILO[tipo] ?? { bg: GRIS, fg: '#fff'
 
 // Los 4 botones que filtran la bandeja (orden fijo, siempre visibles)
 const TIPOS_FILTRO = ['sin_categoria', 'nif_nuevo', 'posible_duplicado', 'titular_desconocido']
+
+const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+
+// Combobox buscable: escribir filtra por nombre o código ("ALC" encuentra "Alquiler",
+// "2.11" filtra por código), flechas navegan, Enter elige, Esc cierra sin tocar el valor.
+function SelectorCategoria({ cats, value, onChange, disabled }: { cats: Categoria[]; value: string; onChange: (id: string) => void; disabled?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [highlight, setHighlight] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const seleccionada = cats.find(c => c.id === value)
+  const filtradas = useMemo(() => {
+    const q = normalizar(query)
+    if (!q) return cats
+    return cats.filter(c => normalizar(c.id).includes(q) || normalizar(c.nombre).includes(q))
+  }, [query, cats])
+
+  useEffect(() => {
+    if (!open) return
+    const onClickFuera = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQuery('') } }
+    document.addEventListener('mousedown', onClickFuera)
+    return () => document.removeEventListener('mousedown', onClickFuera)
+  }, [open])
+
+  const elegir = (id: string) => { onChange(id); setOpen(false); setQuery('') }
+
+  return (
+    <div ref={ref} style={{ position: 'relative', minWidth: 210 }}>
+      <input
+        value={open ? query : (seleccionada ? `${seleccionada.id} · ${seleccionada.nombre}` : '')}
+        onChange={e => { setQuery(e.target.value); setHighlight(0); if (!open) setOpen(true) }}
+        onFocus={() => { setOpen(true); setQuery('') }}
+        onKeyDown={e => {
+          if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(h + 1, filtradas.length - 1)) }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)) }
+          else if (e.key === 'Enter') { e.preventDefault(); if (filtradas[highlight]) elegir(filtradas[highlight].id) }
+          else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); setQuery('') }
+        }}
+        disabled={disabled}
+        placeholder="Buscar categoría (nombre o código)…"
+        style={{ fontFamily: LEX, fontSize: 12, padding: '7px 9px', border: `2px solid ${INK}`, background: disabled ? '#eee' : '#fff', color: INK, minWidth: 210, width: '100%' }}
+      />
+      {open && (
+        <ul style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, background: '#fff', border: `2px solid ${INK}`, maxHeight: 220, overflowY: 'auto', margin: '2px 0 0', padding: 0, listStyle: 'none', boxShadow: SHADOW }}>
+          {filtradas.length === 0 && (
+            <li style={{ padding: '6px 9px', fontFamily: LEX, fontSize: 12, color: GRIS }}>Sin resultados</li>
+          )}
+          {filtradas.map((c, i) => (
+            <li key={c.id}
+              onMouseDown={e => { e.preventDefault(); elegir(c.id) }}
+              onMouseEnter={() => setHighlight(i)}
+              style={{ padding: '6px 9px', fontFamily: LEX, fontSize: 12, cursor: 'pointer', background: i === highlight ? AMA : '#fff', color: INK }}>
+              {c.id} · {c.nombre}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void }) {
   const [avisos, setAvisos] = useState<Aviso[]>([])
@@ -268,7 +329,7 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
                 {factura && (
                   <span style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
                     {factura.fecha_factura ? fmtDate(factura.fecha_factura) : '—'}
-                    {' · '}<strong style={{ color: INK }}>{fmtEur(factura.total, { decimals: 2 })}</strong>
+                    {' · '}<strong style={{ color: !factura.total ? NAR : INK }}>{fmtEurFactura(factura.total)}</strong>
                     {' · '}{factura.proveedor_nombre || '—'}
                     {factura.nif_emisor ? ` · NIF ${factura.nif_emisor}` : ''}
                   </span>
@@ -289,11 +350,7 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderLeft: `2px solid ${INK}`, flexShrink: 0, flexWrap: 'wrap', maxWidth: 360 }}>
               {muestraCategoria && (
                 <>
-                  <select value={cat} onChange={e => setCatSel(m => ({ ...m, [a.id]: e.target.value }))}
-                    style={{ fontFamily: LEX, fontSize: 12, padding: '7px 9px', border: `2px solid ${INK}`, background: '#fff', color: INK, minWidth: 210 }}>
-                    <option value="">Elige categoría…</option>
-                    {cats.map(c => <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>)}
-                  </select>
+                  <SelectorCategoria cats={cats} value={cat} onChange={v => setCatSel(m => ({ ...m, [a.id]: v }))} disabled={bloqueado} />
                   <button disabled={!cat || bloqueado} onClick={() => resolver(a, { categoria: cat })}
                     style={{ ...btnMini, background: cat ? VERDE : GRIS, cursor: cat ? 'pointer' : 'not-allowed' }}>
                     Aprender

@@ -200,6 +200,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
         nif_emisor: nifEmisor.trim() ? nifEmisor.trim().toUpperCase() : null,
         titular_id: titularId || null,
         categoria_factura: categoriaFinal,
+        ...(categoriaFinal ? { categoria_factura_origen: 'manual' } : {}),
       }
       if (movSeleccionado) updateFactura.estado = 'asociada'
       else if (movActual) updateFactura.estado = 'sin_match'
@@ -233,9 +234,9 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
         await supabase.from('conciliacion').update({ categoria: categoriaFinal }).eq('id', movimientoId)
       }
 
-      // Aprender la categoría + propagar a TODAS las facturas del mismo NIF (0 €, sin API):
-      // si hay NIF emisor + categoría, se guarda/actualiza su regla de conciliación y se
-      // corrigen todas las facturas existentes de ese NIF en una sola pasada.
+      // Aprender la categoría (regla por NIF, futuras facturas). La propagación a facturas
+      // pasadas del mismo NIF ya la hace el trigger de BBDD fn_backfill_categoria_manual_nif
+      // (solo a las que siguen sin categoría, nunca sobrescribe una puesta a mano).
       if (categoriaFinal && nifEmisor.trim()) {
         try {
           const nifN = nifEmisor.trim().toUpperCase()
@@ -247,9 +248,6 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
             // patron y tipo_categoria son NOT NULL: sin ellos el insert falla.
             await supabase.from('reglas_conciliacion').insert({ patron: proveedor.trim() || nifN, tipo_categoria: 'gasto', patron_nif: nifN, razon_social: proveedor.trim() || null, categoria_codigo: categoriaFinal, activa: true, prioridad: 50 })
           }
-          // Propagar la categoría a todas las facturas del mismo NIF (corrige existentes y futuras).
-          // La factura actual ya se actualizó arriba; las demás se sincronizan aquí.
-          await supabase.from('facturas').update({ categoria_factura: categoriaFinal }).eq('nif_emisor', nifN).neq('id', factura.id)
         } catch { /* best-effort: no romper el guardado por la regla */ }
       }
 
@@ -297,7 +295,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 4 }}>Completar factura</div>
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 500, color: '#111' }}>{proveedor || '—'}</div>
             <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 2 }}>
-              {totalNum ? fmtEur(totalNum) : 'sin importe'} {factura.numero_factura ? `· Nº ${factura.numero_factura}` : ''}
+              {totalNum ? fmtEur(totalNum) : 'sin importe leído'} {factura.numero_factura ? `· Nº ${factura.numero_factura}` : ''}
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: '#7a8090', cursor: 'pointer', padding: 0, width: 28, height: 28 }}>×</button>
