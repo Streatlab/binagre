@@ -117,23 +117,27 @@ async function fijarRangoAntPicker(page: Page, fecha: string): Promise<boolean> 
 // en el dashboard en vivo) — pero el enlace trae href="/historicals" directo,
 // así que se navega por URL y el clic queda solo de fallback.
 async function irAHistoricalRushour(page: Page): Promise<void> {
-  await page.goto('https://manager.rushour.io/historicals', { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(1500);
-  await cerrarModales(page);
+  // Preferido: clic en el enlace del menú (navegación cliente dentro de la
+  // SPA, sin recarga completa). El dump de diagnóstico con goto() directo dio
+  // #root vacío incluso con espera larga — la recarga completa puede perder
+  // el estado de sesión que la SPA guarda solo en memoria (Redux/Context).
+  const navHistorico = page.getByRole('link', { name: /historical/i }).or(page.getByRole('tab', { name: /historical/i })).first();
+  if (await navHistorico.count().catch(() => 0)) {
+    await navHistorico.click({ timeout: 5000 }).catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(1500);
+    await cerrarModales(page);
+  }
   if (!/historicals/.test(page.url())) {
-    const navHistorico = page.getByRole('link', { name: /historical/i }).or(page.getByRole('tab', { name: /historical/i })).first();
-    if (await navHistorico.count().catch(() => 0)) {
-      await navHistorico.click({ timeout: 5000 }).catch(() => {});
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(1500);
-      await cerrarModales(page);
-    }
+    // Fallback: navegación directa por URL (el enlace trae href="/historicals").
+    await page.goto('https://manager.rushour.io/historicals', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(1500);
+    await cerrarModales(page);
   }
   // SPA React: domcontentloaded/networkidle no garantizan que el bundle ya
-  // haya montado el contenido de la ruta (dump de diagnóstico previo: #root
-  // vacío, 5717 bytes, con la URL ya correcta). Espera explícita al picker
-  // real en vez de un timeout fijo insuficiente.
+  // haya montado el contenido de la ruta. Espera explícita al picker real en
+  // vez de un timeout fijo insuficiente.
   await page.waitForSelector('.ant-picker', { timeout: 15000 }).catch(() => {});
 }
 
@@ -212,6 +216,12 @@ async function volcarHtmlDebug(fuente: string, fecha: string, html: string) {
 async function debugRushourHistorico(browser: Browser, fecha: string): Promise<void> {
   if (!RUSHOUR.user || !RUSHOUR.pass) { await logRobot('backfill_debug', 'error', 'rushour_hist sin credenciales'); return; }
   const page = await browser.newPage();
+  // #root sigue vacío incluso esperando el picker: puede ser un error JS real
+  // al aterrizar por goto() en /historicals (no page.evaluate, solo listeners
+  // de eventos del navegador).
+  const erroresJs: string[] = [];
+  page.on('pageerror', (e) => erroresJs.push(`pageerror:${e.message}`));
+  page.on('console', (msg) => { if (msg.type() === 'error') erroresJs.push(`console:${msg.text()}`); });
   try {
     await page.goto(RUSHOUR.loginUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
@@ -230,7 +240,8 @@ async function debugRushourHistorico(browser: Browser, fecha: string): Promise<v
     }
     const html = await page.content();
     await volcarHtmlDebug('rushour_hist', fecha, html);
-    await logRobot('backfill_debug', 'ok', `rushour_hist volcado fecha=${fecha} bytes=${html.length}`);
+    const err = erroresJs.length ? ` js_errores=${erroresJs.length} :: ${erroresJs.slice(0, 3).join(' | ').slice(0, 400)}` : ' js_errores=0';
+    await logRobot('backfill_debug', 'ok', `rushour_hist volcado fecha=${fecha} bytes=${html.length}${err}`);
   } catch (e: any) {
     await logRobot('backfill_debug', 'error', `rushour_hist fecha=${fecha} ${String(e?.message || e)}`);
   } finally { await page.close(); }
@@ -242,6 +253,9 @@ async function debugRushourHistorico(browser: Browser, fecha: string): Promise<v
 async function debugSinqroHistorico(browser: Browser, fecha: string): Promise<void> {
   if (!SINQRO_DEBUG.user || !SINQRO_DEBUG.pass) { await logRobot('backfill_debug', 'error', 'sinqro_hist sin credenciales'); return; }
   const page = await browser.newPage();
+  const erroresJs: string[] = [];
+  page.on('pageerror', (e) => erroresJs.push(`pageerror:${e.message}`));
+  page.on('console', (msg) => { if (msg.type() === 'error') erroresJs.push(`console:${msg.text()}`); });
   try {
     await page.goto(SINQRO_DEBUG.loginUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
@@ -286,7 +300,8 @@ async function debugSinqroHistorico(browser: Browser, fecha: string): Promise<vo
 
     const html = await page.content();
     await volcarHtmlDebug('sinqro_hist', fecha, html);
-    await logRobot('backfill_debug', 'ok', `sinqro_hist volcado fecha=${fecha} bytes=${html.length}`);
+    const err = erroresJs.length ? ` js_errores=${erroresJs.length} :: ${erroresJs.slice(0, 3).join(' | ').slice(0, 400)}` : ' js_errores=0';
+    await logRobot('backfill_debug', 'ok', `sinqro_hist volcado fecha=${fecha} bytes=${html.length}${err}`);
   } catch (e: any) {
     await logRobot('backfill_debug', 'error', `sinqro_hist fecha=${fecha} ${String(e?.message || e)}`);
   } finally { await page.close(); }
