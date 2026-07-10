@@ -1,0 +1,36 @@
+name: Backfill histórico ventas (Rushour + Sinqro)
+
+# Carga histórica hacia atrás. Se lanza A MANO desde la pestaña Actions.
+# Usa los mismos secrets que el robot diario.
+on:
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: "Fecha de inicio (más reciente); recorre hacia atrás. Formato AAAA-MM-DD"
+        type: string
+        default: "2025-12-31"
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Instalar navegador Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Ejecutar backfill
+        env:
+          BACKFILL_DESDE: ${{ github.event.inputs.desde }}
+          DIAG: "0"
+          RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
+          RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
+          SINQRO_USER: ${{ secrets.SINQRO_USER }}
+          SINQRO_PASS: ${{ secrets.SINQRO_PASS }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/backfill.ts
