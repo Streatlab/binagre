@@ -25,9 +25,10 @@ const SINQRO = {
   ventasUrl: 'https://app.sinqro.com/#/sp/6416/online/orders',
   user: process.env.SINQRO_USER || '',
   pass: process.env.SINQRO_PASS || '',
-  userInput: 'input[name="email"]',
-  passInput: 'input[name="password"]',
-  submitBtn: 'button[type="submit"]',
+  userInput: '#login-email',
+  passInput: '#login-password',
+  submitBtn: '#loginButton',
+  tipoChecks: ['#deliveryFilter', '#collectionFilter', '#insideFilter', '#insituFilter', '#reservationFilter'],
   startDate: '#startDateFilter',
   endDate: '#endDateFilter',
 };
@@ -92,6 +93,15 @@ async function elegirFechaCalendario(page: Page, inputSel: string, fechaISO: str
 async function leerDia(page: Page, fecha: string): Promise<{ pedidos: number; bruto: number; turno: 'comida' | 'cena' }[]> {
   await page.goto(SINQRO.ventasUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(4000);
+
+  for (const sel of SINQRO.tipoChecks) {
+    const chk = page.locator(sel).first();
+    if (!(await chk.count().catch(() => 0))) continue;
+    if (await chk.isChecked().catch(() => false)) continue;
+    await chk.dispatchEvent('click').catch(() => {});
+    await chk.dispatchEvent('change').catch(() => {});
+  }
+  await page.waitForTimeout(1000);
 
   const okIni = await elegirFechaCalendario(page, SINQRO.startDate, fecha);
   const okFin = await elegirFechaCalendario(page, SINQRO.endDate, fecha);
