@@ -28,6 +28,18 @@ interface BodySubirEquipo {
   nombre_archivo?: string
 }
 
+// Supabase Storage rechaza claves con tildes, comas o paréntesis: "Nómina de
+// MENDEZ MELO, JUAN RAMON (1).pdf" fallaba al respaldar y el documento se quedaba
+// SIN copia — y por tanto sin poder reprocesarse nunca. El nombre bonito se guarda
+// igual en la ficha; solo la ruta del archivo se sanea.
+function nombreSeguroArchivo(nombre: string): string {
+  return (nombre || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '') || 'documento.pdf'
+}
+
 async function archivarParaRevision(
   buffer: Buffer,
   nombreOriginal: string,
@@ -38,7 +50,7 @@ async function archivarParaRevision(
   let driveUrl: string | null = null
   let storagePath: string | null = null
   try {
-    const drive = await subirArchivoACarpetaExacta(buffer, nombreOriginal, ['EQUIPO', 'SIN_CLASIFICAR'], ext)
+    const drive = await subirArchivoACarpetaExacta(buffer, nombreSeguroArchivo(nombreOriginal), ['EQUIPO', 'SIN_CLASIFICAR'], ext)
     driveUrl = drive.webViewLink || null
     storagePath = drive.storagePath || null
   } catch { /* archivarParaRevision nunca pierde el documento: sigue registrando la fila aunque Drive/Storage fallen del todo */ }
