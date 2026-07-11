@@ -6,12 +6,12 @@
  * totales vendidos" y lee producto + unidades (+ importe si la vista lo da).
  * Guarda en ventas_plato con origen='rushour_robot'.
  *
- * Reutiliza lo YA PROBADO en producción: cierre de modales promocionales,
- * apertura de selects por teclado, Custom range clicando celdas del calendario.
- * Sin page.evaluate en Rushour (error __name).
+ * OJO: los bloques inferiores del informe (incluido el de productos) solo se
+ * montan al hacer scroll — hay que bajar hasta el título antes de buscar su
+ * botón de detalle, que en el DOM es el primer <button> que sigue al título.
  *
- * Si no encuentra el detalle de productos, vuelca el HTML real a robot_debug
- * y para: nunca adivina selectores.
+ * Reutiliza lo YA PROBADO: cierre de modales promocionales, apertura de selects
+ * por teclado, Custom range clicando celdas. Sin page.evaluate (error __name).
  */
 import { chromium, Page } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
@@ -130,10 +130,10 @@ async function soloPlataforma(page: Page, objetivo: 'glovo' | 'ubereats') {
   for (let i = 0; i < n; i++) {
     const t = ((await ops.nth(i).textContent().catch(() => '')) || '').trim().toLowerCase();
     const cls = (await ops.nth(i).getAttribute('class').catch(() => '')) || '';
-    const sel_ = cls.includes('ant-select-item-option-selected');
+    const marcada = cls.includes('ant-select-item-option-selected');
     const obj = t.includes(objetivo);
-    if (obj && !sel_) await ops.nth(i).click().catch(() => {});
-    if (!obj && sel_) await ops.nth(i).click().catch(() => {});
+    if (obj && !marcada) await ops.nth(i).click().catch(() => {});
+    if (!obj && marcada) await ops.nth(i).click().catch(() => {});
     await page.waitForTimeout(400);
   }
   await page.keyboard.press('Escape').catch(() => {});
@@ -142,19 +142,34 @@ async function soloPlataforma(page: Page, objetivo: 'glovo' | 'ubereats') {
 
 /** Abre el detalle de "Productos totales vendidos" y lee producto + unidades. */
 async function leerProductos(page: Page, etiqueta: string): Promise<{ plato: string; unidades: number; importe: number }[]> {
-  // El botón "Ver detalles" del bloque de productos vendidos
-  const bloque = page.locator('div').filter({ hasText: /Productos totales vendidos|Total products sold/i }).last();
-  const btn = bloque.getByRole('button', { name: /ver detalles|see details|details/i }).first();
+  // Los bloques inferiores del informe solo se montan al hacer scroll.
+  const TITULO = /Total products sold|Productos totales vendidos|Produits totaux vendus/i;
+  for (let i = 0; i < 6; i++) {
+    if (await page.getByText(TITULO).first().count().catch(() => 0)) break;
+    await page.mouse.wheel(0, 1200);
+    await page.waitForTimeout(800);
+  }
+  const titulo = page.getByText(TITULO).first();
+  if (!(await titulo.count().catch(() => 0))) {
+    await log('sin_bloque', `${etiqueta}: no aparece el bloque de productos vendidos`);
+    await volcar('ventas_plato_sin_bloque', etiqueta.slice(0, 10), await page.content());
+    return [];
+  }
+  await titulo.scrollIntoViewIfNeeded().catch(() => {});
+  await page.waitForTimeout(2000);
+
+  // El botón de detalle es el primer <button> que sigue al título en el DOM.
+  const btn = titulo.locator('xpath=following::button[1]');
   if (!(await btn.count().catch(() => 0))) {
-    await log('sin_boton', `${etiqueta}: no encuentro "Ver detalles" de productos`);
+    await log('sin_boton', `${etiqueta}: no encuentro el botón de detalle`);
     await volcar('ventas_plato_sin_boton', etiqueta.slice(0, 10), await page.content());
     return [];
   }
-  await btn.click({ timeout: 8000 }).catch(() => {});
-  await page.waitForTimeout(4000);
+  await btn.click({ timeout: 8000, force: true }).catch(() => {});
+  await page.waitForTimeout(4500);
 
   const filas: { plato: string; unidades: number; importe: number }[] = [];
-  const trs = page.locator('.ant-modal-wrap:visible tbody tr, .ant-drawer-open tbody tr, tbody tr');
+  const trs = page.locator('tbody tr');
   const n = await trs.count().catch(() => 0);
   for (let i = 0; i < n; i++) {
     const celdas = trs.nth(i).locator('td');
@@ -174,6 +189,8 @@ async function leerProductos(page: Page, etiqueta: string): Promise<{ plato: str
   if (!filas.length) {
     await log('sin_filas', `${etiqueta}: detalle abierto pero sin filas legibles`);
     await volcar('ventas_plato_sin_filas', etiqueta.slice(0, 10), await page.content());
+  } else {
+    await log('leido', `${etiqueta}: ${filas.length} platos`);
   }
   await page.keyboard.press('Escape').catch(() => {});
   await page.waitForTimeout(1000);
@@ -188,7 +205,6 @@ async function guardar(anio: number, mes: number, canal: string, filas: { plato:
     precio_medio: f.unidades && f.importe ? Math.round((f.importe / f.unidades) * 100) / 100 : null,
     estimado: false, origen: 'rushour_robot',
   }));
-  // Limpia lo que este mismo robot guardó antes para ese mes/canal (idempotente)
   await sb.from('ventas_plato').delete().eq('año', anio).eq('mes', mes).eq('canal', canal).eq('origen', 'rushour_robot');
   const { error } = await sb.from('ventas_plato').insert(rows);
   if (error) { await log('error', `guardar ${anio}-${mes} ${canal}: ${error.message}`); return; }
