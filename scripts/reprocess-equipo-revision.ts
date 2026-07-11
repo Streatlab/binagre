@@ -3,18 +3,13 @@
 import { createClient } from '@supabase/supabase-js'
 import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen, procesarRnt } from '../api/_lib/subidaDocEquipo.js'
 import { cargarCandidatosEmpleados, resolverEmpleado, aprenderAlias } from '../api/_lib/matchEmpleado.js'
+import { descargarRespaldoStorage } from '../api/_lib/google-drive.js'
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://eryauogxcpbgdryeimdq.supabase.co'
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 if (!SUPABASE_SERVICE_ROLE_KEY) throw new Error('Falta SUPABASE_SERVICE_ROLE_KEY')
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
-async function descargarDeStorage(storagePath: string): Promise<Buffer | null> {
-  const { data, error } = await supabase.storage.from('documentos').download(storagePath)
-  if (error || !data) return null
-  return Buffer.from(await data.arrayBuffer())
-}
 
 const { data: filas, error } = await supabase
   .from('equipo_docs_revision')
@@ -29,7 +24,7 @@ console.log(`Procesando ${filas.length} filas…`)
 const candidatos = await cargarCandidatosEmpleados(supabase)
 
 for (const fila of filas) {
-  const buffer = await descargarDeStorage(fila.storage_path as string)
+  const buffer = await descargarRespaldoStorage(fila.storage_path as string)
   if (!buffer) {
     console.log(`[${fila.id}] ERROR: no se pudo descargar de Storage`)
     continue
