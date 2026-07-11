@@ -79,5 +79,6 @@
     "api/**/*.ts": {
       "includeFiles": "node_modules/pdfjs-dist/legacy/build/**"
     }
-  }
+  },
+  "ignoreCommand": "sh -c 'case \"$VERCEL_GIT_COMMIT_MESSAGE\" in *\"[deploy]\"*) exit 1;; *) exit 0;; esac'"
 }
