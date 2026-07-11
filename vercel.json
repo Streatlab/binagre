@@ -79,5 +79,6 @@
     "api/**/*.ts": {
       "includeFiles": "node_modules/pdfjs-dist/legacy/build/**"
     }
-  }
+  },
+  "ignoreCommand": "sh -c 'if [ \"$VERCEL_GIT_COMMIT_REF\" != \"trabajo\" ]; then exit 1; fi; case \"$VERCEL_GIT_COMMIT_MESSAGE\" in *\"[deploy]\"*) exit 1;; *) exit 0;; esac'"
 }
