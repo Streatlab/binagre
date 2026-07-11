@@ -9,6 +9,10 @@ on:
         description: "Fecha de inicio (más reciente); recorre hacia atrás. Formato AAAA-MM-DD"
         type: string
         default: "2025-12-31"
+      sin_sinqro:
+        description: "Saltar Sinqro (su servidor da error interno en fechas históricas). Recomendado: true"
+        type: boolean
+        default: true
       debug_fecha:
         description: "Modo diagnóstico: vuelca el HTML real de esta fecha a robot_debug y termina (deja vacío para el backfill normal)"
         type: string
@@ -50,8 +54,11 @@ jobs:
           DIAG: "0"
           RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
           RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
-          SINQRO_USER: ${{ secrets.SINQRO_USER }}
-          SINQRO_PASS: ${{ secrets.SINQRO_PASS }}
+          # Si sin_sinqro=true, las credenciales van vacías: ingestaSinqroHistorico
+          # sale de inmediato (return [] sin abrir navegador) y el backfill corre
+          # solo con Rushour, mucho más rápido. Su código queda intacto.
+          SINQRO_USER: ${{ github.event.inputs.sin_sinqro == 'true' && '' || secrets.SINQRO_USER }}
+          SINQRO_PASS: ${{ github.event.inputs.sin_sinqro == 'true' && '' || secrets.SINQRO_PASS }}
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/robot-ingesta/backfill.ts
