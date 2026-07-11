@@ -1,16 +1,15 @@
 /**
  * BACKFILL SINQRO (Just Eat) · histórico, independiente de backfill.ts.
  *
- * Causa raíz encontrada en el HTML real volcado a robot_debug:
- * escribir la fecha a mano en #startDateFilter/#endDateFilter hace que Sinqro
- * responda "Oops! Algo ha fallado" (formErrors) y no devuelva pedidos. El
- * datepicker es jQuery UI (#ui-datepicker-div): la única forma fiable es
- * SELECCIONAR EL DÍA CLICANDO en el calendario, como un humano.
- *
- * Aquí se hace así: abrir el input → navegar meses con Prev/Next hasta el
- * mes/año objetivo (leyendo .ui-datepicker-month/.ui-datepicker-year) → clic
- * en el día. Igual para fecha fin. Después Buscar y esperar a que
- * loadingOrders termine.
+ * Reglas de la pantalla "Historial de ventas" (confirmadas por Rubén y por el
+ * HTML real volcado a robot_debug):
+ *  1) La fecha NO se puede teclear: hay que ELEGIRLA CLICANDO en el datepicker
+ *     jQuery UI (#ui-datepicker-div). Tecleándola, Sinqro responde
+ *     "Oops! Algo ha fallado" y no devuelve nada.
+ *  2) Hay que MARCAR TODOS los tipos de servicio (a domicilio, para recoger,
+ *     en el local, reserva simple, pedido desde la mesa). Si no se marcan,
+ *     la búsqueda sale vacía SIEMPRE.
+ *  3) Orden: fechas → tipos → Buscar → esperar a que loadingOrders termine.
  *
  * No toca robot.ts ni backfill.ts. Escribe en ingesta_robot_diaria
  * (agregador='sinqro', plataforma='just_eat', turno comida/cena).
@@ -90,19 +89,48 @@ async function elegirFechaCalendario(page: Page, inputSel: string, fechaISO: str
   return true;
 }
 
+/**
+ * Marca TODOS los tipos de servicio. Sin esto la búsqueda sale siempre vacía.
+ * Intenta por id (checkbox), por su label asociado y, si nada funciona, por
+ * el texto visible de la opción. Devuelve cuántos quedaron marcados.
+ */
+async function marcarTodosLosTipos(page: Page): Promise<number> {
+  let marcados = 0;
+  for (const sel of SINQRO.tipoChecks) {
+    const chk = page.locator(sel).first();
+    if (!(await chk.count().catch(() => 0))) continue;
+    if (!(await chk.isChecked().catch(() => false))) {
+      await chk.click({ force: true, timeout: 3000 }).catch(() => {});
+      if (!(await chk.isChecked().catch(() => false))) {
+        const id = sel.replace('#', '');
+        await page.locator(`label[for="${id}"]`).first().click({ force: true, timeout: 3000 }).catch(() => {});
+      }
+      if (!(await chk.isChecked().catch(() => false))) {
+        await chk.dispatchEvent('click').catch(() => {});
+        await chk.dispatchEvent('change').catch(() => {});
+      }
+    }
+    if (await chk.isChecked().catch(() => false)) marcados++;
+    await page.waitForTimeout(200);
+  }
+  if (!marcados) {
+    // Último recurso: clicar por el texto visible de cada tipo.
+    for (const t of [/a domicilio/i, /para recoger/i, /en el local/i, /reserva simple/i, /pedido desde la mesa/i]) {
+      await page.getByText(t).first().click({ force: true, timeout: 2500 }).catch(() => {});
+      await page.waitForTimeout(200);
+    }
+    for (const sel of SINQRO.tipoChecks) {
+      if (await page.locator(sel).first().isChecked().catch(() => false)) marcados++;
+    }
+  }
+  return marcados;
+}
+
 async function leerDia(page: Page, fecha: string): Promise<{ pedidos: number; bruto: number; turno: 'comida' | 'cena' }[]> {
   await page.goto(SINQRO.ventasUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(4000);
 
-  for (const sel of SINQRO.tipoChecks) {
-    const chk = page.locator(sel).first();
-    if (!(await chk.count().catch(() => 0))) continue;
-    if (await chk.isChecked().catch(() => false)) continue;
-    await chk.dispatchEvent('click').catch(() => {});
-    await chk.dispatchEvent('change').catch(() => {});
-  }
-  await page.waitForTimeout(1000);
-
+  // 1) Fechas (clicando el calendario)
   const okIni = await elegirFechaCalendario(page, SINQRO.startDate, fecha);
   const okFin = await elegirFechaCalendario(page, SINQRO.endDate, fecha);
   if (!okIni || !okFin) {
@@ -111,14 +139,24 @@ async function leerDia(page: Page, fecha: string): Promise<{ pedidos: number; br
     return [];
   }
 
+  // 2) Tipos de servicio (obligatorio: sin esto no sale nada)
+  const marcados = await marcarTodosLosTipos(page);
+  if (!marcados) {
+    await log('error', `no pude marcar ningún tipo de servicio en ${fecha}`);
+    await volcar('sinqro2_sin_tipos', fecha, await page.content());
+    return [];
+  }
+  await log('info', `fecha=${fecha} tipos_marcados=${marcados}`);
+
+  // 3) Buscar y esperar a que termine la carga
   await page.getByRole('button', { name: /buscar/i }).first().click({ timeout: 5000 }).catch(() => {});
   const sd = page.locator(SINQRO.startDate).first();
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 40; i++) {
     const cargando = await sd.isDisabled().catch(() => false);
     if (!cargando) break;
     await page.waitForTimeout(500);
   }
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(2000);
 
   const html = await page.content();
   if (/Oops!\s*Algo ha fallado/i.test(html)) {
@@ -130,7 +168,7 @@ async function leerDia(page: Page, fecha: string): Promise<{ pedidos: number; br
   const bloques = page.locator('[ng-repeat*="order in orders"]');
   const total = await bloques.count().catch(() => 0);
   if (!total) {
-    await log('vacio', `fecha=${fecha} sin pedidos en pantalla`);
+    await log('vacio', `fecha=${fecha} sin pedidos en pantalla (tipos=${marcados})`);
     await volcar('sinqro2_vacio', fecha, html);
     return [];
   }
