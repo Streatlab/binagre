@@ -1,0 +1,47 @@
+name: Backfill Sinqro (Just Eat)
+
+on:
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: "Fecha de inicio (más reciente); recorre hacia atrás. AAAA-MM-DD"
+        type: string
+        default: "2026-07-10"
+      hasta:
+        description: "Límite hacia atrás (inclusive). Para probar un solo día, pon la misma fecha que 'desde'. Vacío = todo el histórico"
+        type: string
+        default: ""
+
+jobs:
+  sinqro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Cache navegador Playwright
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Instalar navegador Playwright
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Instalar deps de sistema de Playwright (con caché de navegador)
+        if: steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Ejecutar backfill Sinqro
+        env:
+          SINQRO_DESDE: ${{ github.event.inputs.desde }}
+          SINQRO_HASTA: ${{ github.event.inputs.hasta }}
+          SINQRO_USER: ${{ secrets.SINQRO_USER }}
+          SINQRO_PASS: ${{ secrets.SINQRO_PASS }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/backfill-sinqro.ts
