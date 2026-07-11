@@ -4,12 +4,12 @@
  * Estética Neobrutal Food-Pop. Lee/escribe la tabla `seguridad_social_resumen`.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { Upload, ExternalLink } from 'lucide-react'
+import { Upload, ExternalLink, ChevronDown, ChevronRight, TriangleAlert } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/lib/format'
 import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD,
-  AMA, VERDE, AZUL, GRIS, d,
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD,
+  AMA, VERDE, ROJO, AZUL, GRIS, d,
 } from '@/styles/neobrutal'
 
 interface SSResumen {
@@ -21,6 +21,22 @@ interface SSResumen {
   pdf_url: string | null
   estado: 'ok' | 'revisar' | string
 }
+
+interface RntFila {
+  id: string
+  mes: number
+  anio: number
+  empleado_id: string | null
+  nombre_en_documento: string
+  naf: string | null
+  base_cotizacion: number | null
+  importe_empresa: number | null
+  importe_trabajador: number | null
+  drive_url: string | null
+  empleado_nombre?: string
+}
+
+const TOLERANCIA_CUADRE = 0.5 // € — diferencias de céntimos por redondeo no son un descuadre real
 
 const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
@@ -61,21 +77,34 @@ function computePrevision(rows: SSResumen[]): { importeEstimado: number; fecha: 
 
 export default function TabSeguridadSocial() {
   const [rows, setRows] = useState<SSResumen[]>([])
+  const [rnt, setRnt] = useState<RntFila[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedAnio, setSelectedAnio] = useState<number>(new Date().getFullYear())
   const [uploading, setUploading] = useState(false)
+  const [expandedMes, setExpandedMes] = useState<number | null>(null)
 
   async function fetchAll() {
-    const { data, error } = await supabase
-      .from('seguridad_social_resumen')
-      .select('*')
-      .order('anio', { ascending: false })
-      .order('mes', { ascending: false })
+    const [{ data, error }, { data: dataRnt }] = await Promise.all([
+      supabase.from('seguridad_social_resumen').select('*').order('anio', { ascending: false }).order('mes', { ascending: false }),
+      supabase.from('seguridad_social_rnt').select('*, empleados(nombre)').order('anio', { ascending: false }).order('mes', { ascending: false }),
+    ])
     if (!error) setRows((data ?? []) as SSResumen[])
+    setRnt(((dataRnt ?? []) as any[]).map(r => ({ ...r, empleado_nombre: r.empleados?.nombre })) as RntFila[])
     setLoading(false)
   }
 
   useEffect(() => { fetchAll() }, [])
+
+  function rntDelMes(mes: number, anio: number): RntFila[] {
+    return rnt.filter(r => r.mes === mes && r.anio === anio)
+  }
+  function cuadreDelMes(mes: number, anio: number, importeRlc: number | null): { sumaRnt: number; diff: number; cuadra: boolean } | null {
+    const filas = rntDelMes(mes, anio)
+    if (filas.length === 0 || importeRlc == null) return null
+    const sumaRnt = filas.reduce((s, r) => s + (r.importe_empresa ?? 0) + (r.importe_trabajador ?? 0), 0)
+    const diff = Math.round((sumaRnt - importeRlc) * 100) / 100
+    return { sumaRnt, diff, cuadra: Math.abs(diff) <= TOLERANCIA_CUADRE }
+  }
 
   async function handleUpload(file: File) {
     setUploading(true)
@@ -174,39 +203,87 @@ export default function TabSeguridadSocial() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
             <thead>
               <tr style={{ background: INK }}>
-                {['Mes', 'Año', 'Importe', 'Fecha de cargo', 'Estado', 'PDF'].map(h => (
-                  <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                {['', 'Mes', 'Año', 'Importe RLC', 'Fecha de cargo', 'Estado', 'Cuadre RNT', 'PDF'].map((h, i) => (
+                  <th key={i} style={{ padding: '10px 12px', textAlign: 'left', fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rowsAnio.length === 0 && (
-                <tr><td colSpan={6} style={{ padding: 30, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Sin resúmenes de {selectedAnio}.</td></tr>
+                <tr><td colSpan={8} style={{ padding: 30, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Sin resúmenes de {selectedAnio}.</td></tr>
               )}
-              {rowsAnio.map(r => (
-                <tr key={r.id} style={{ borderBottom: `2px solid ${INK}` }}>
-                  <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600 }}>{MESES_LARGO[r.mes - 1]}</td>
-                  <td style={{ padding: '10px 12px', color: GRIS }}>{r.anio}</td>
-                  <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 700 }}>{fmtEur(r.importe, { decimals: 2 })}</td>
-                  <td style={{ padding: '10px 12px', color: GRIS }}>{r.fecha_cargo ? fmtDate(r.fecha_cargo) : '—'}</td>
-                  <td style={{ padding: '10px 12px' }}>
-                    <span style={{
-                      fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase',
-                      border: `2px solid ${INK}`, padding: '3px 9px',
-                      background: r.estado === 'ok' ? VERDE : AMA, color: r.estado === 'ok' ? '#fff' : INK,
-                    }}>
-                      {r.estado === 'ok' ? 'OK' : 'Revisar'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '10px 12px' }}>
-                    {r.pdf_url ? (
-                      <a href={r.pdf_url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: AZUL, fontFamily: OSW, fontWeight: 600, fontSize: 12 }}>
-                        <ExternalLink size={11} /> Ver
-                      </a>
-                    ) : <span style={{ color: GRIS }}>—</span>}
-                  </td>
-                </tr>
-              ))}
+              {rowsAnio.map(r => {
+                const filasRnt = rntDelMes(r.mes, r.anio)
+                const cuadre = cuadreDelMes(r.mes, r.anio, r.importe)
+                const open = expandedMes === r.mes
+                return (
+                  <>
+                  <tr key={r.id} style={{ borderBottom: filasRnt.length > 0 ? 'none' : `2px solid ${INK}`, cursor: filasRnt.length > 0 ? 'pointer' : 'default' }}
+                    onClick={() => filasRnt.length > 0 && setExpandedMes(m => m === r.mes ? null : r.mes)}>
+                    <td style={{ padding: '10px 6px', color: GRIS, width: 20 }}>
+                      {filasRnt.length > 0 && (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+                    </td>
+                    <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600 }}>{MESES_LARGO[r.mes - 1]}</td>
+                    <td style={{ padding: '10px 12px', color: GRIS }}>{r.anio}</td>
+                    <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 700 }}>{fmtEur(r.importe, { decimals: 2 })}</td>
+                    <td style={{ padding: '10px 12px', color: GRIS }}>{r.fecha_cargo ? fmtDate(r.fecha_cargo) : '—'}</td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <span style={{
+                        fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase',
+                        border: `2px solid ${INK}`, padding: '3px 9px',
+                        background: r.estado === 'ok' ? VERDE : AMA, color: r.estado === 'ok' ? '#fff' : INK,
+                      }}>
+                        {r.estado === 'ok' ? 'OK' : 'Revisar'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>
+                      {cuadre ? (
+                        cuadre.cuadra ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: VERDE, fontFamily: OSW, fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Cuadra</span>
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: ROJO, fontFamily: OSW, fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>
+                            <TriangleAlert size={12} /> Descuadre {fmtEur(cuadre.diff, { decimals: 2, signed: true })}
+                          </span>
+                        )
+                      ) : <span style={{ color: GRIS }}>—</span>}
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>
+                      {r.pdf_url ? (
+                        <a href={r.pdf_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: AZUL, fontFamily: OSW, fontWeight: 600, fontSize: 12 }}>
+                          <ExternalLink size={11} /> Ver
+                        </a>
+                      ) : <span style={{ color: GRIS }}>—</span>}
+                    </td>
+                  </tr>
+                  {open && filasRnt.length > 0 && (
+                    <tr key={`${r.id}-rnt`} style={{ borderBottom: `2px solid ${INK}` }}>
+                      <td colSpan={8} style={{ padding: 0, background: CLARO }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: LEX }}>
+                          <thead>
+                            <tr>
+                              {['Trabajador', 'NAF', 'Base cotización', 'Aportación empresa', 'Aportación trabajador'].map(h => (
+                                <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS, borderBottom: `2px solid ${INK}` }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filasRnt.map(f => (
+                              <tr key={f.id}>
+                                <td style={{ padding: '6px 12px', fontWeight: 600 }}>{f.empleado_nombre || f.nombre_en_documento}</td>
+                                <td style={{ padding: '6px 12px', color: GRIS }}>{f.naf || '—'}</td>
+                                <td style={{ padding: '6px 12px' }}>{fmtEur(f.base_cotizacion, { decimals: 2 })}</td>
+                                <td style={{ padding: '6px 12px' }}>{fmtEur(f.importe_empresa, { decimals: 2 })}</td>
+                                <td style={{ padding: '6px 12px' }}>{fmtEur(f.importe_trabajador, { decimals: 2 })}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                  </>
+                )
+              })}
             </tbody>
           </table>
         </div>

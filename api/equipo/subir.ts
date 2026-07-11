@@ -1,22 +1,22 @@
 // api/equipo/subir.ts — buzón único EQUIPO de Papeleo: recibe un documento suelto
 // (nómina, resumen de nóminas, RLC/RNT de Seguridad Social, o cualquier otra cosa),
-// lo clasifica por contenido y lo encamina a la misma lógica que ya usan los
-// endpoints antiguos (api/nominas/subir.ts, api/nominas/resumen/subir.ts,
-// api/nominas/segsocial/subir.ts), vía api/_lib/subidaDocEquipo.ts — sin duplicar
-// esa lógica.
+// lo clasifica por MARCADORES DETERMINISTAS en el texto (api/_lib/clasificarDocEquipo.ts
+// — no un score de IA) y lo encamina a la misma lógica que ya usan los endpoints
+// antiguos, vía api/_lib/subidaDocEquipo.ts — sin duplicar esa lógica.
 //
-// Cero pérdida: si el tipo no se identifica con seguridad, si el empleado de una
+// Cero pérdida: si el tipo no trae marcador (`cierto=false`), si el empleado de una
 // nómina individual no se resuelve, o si el procesado normal falla (p.ej. no se
-// pudo determinar mes/año), el documento SIEMPRE queda archivado en Drive y
-// registrado en `equipo_docs_revision` — nunca se descarta en silencio.
+// pudo determinar mes/año), el documento SIEMPRE queda archivado y registrado en
+// `equipo_docs_revision` — nunca se descarta en silencio. Un fallo de Drive NUNCA
+// manda un documento a revisión: eso lo gestiona subidaDocEquipo.ts (drive_pendiente).
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
-import { subirArchivoADrive } from '../_lib/google-drive.js'
+import { subirArchivoACarpetaExacta } from '../_lib/google-drive.js'
 import { extraerTextoPDF, pdfTieneTexto } from '../_lib/extractores.js'
 import { extraerTextoOCRGratis } from '../_lib/ocr-tesseract.js'
 import { clasificarDocEquipoTexto, type ClasificacionDocEquipo } from '../_lib/clasificarDocEquipo.js'
-import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen } from '../_lib/subidaDocEquipo.js'
-import { cargarNombresEmpleados, resolverNombre } from '../_lib/resolverEmpleado.js'
+import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen, procesarRnt } from '../_lib/subidaDocEquipo.js'
+import { cargarCandidatosEmpleados, resolverEmpleado } from '../_lib/matchEmpleado.js'
 
 export const config = {
   api: { bodyParser: { sizeLimit: '20mb' } },
@@ -28,8 +28,6 @@ interface BodySubirEquipo {
   nombre_archivo?: string
 }
 
-const CONFIANZA_MINIMA = 0.6
-
 async function archivarParaRevision(
   buffer: Buffer,
   nombreOriginal: string,
@@ -40,17 +38,7 @@ async function archivarParaRevision(
   let driveUrl: string | null = null
   let storagePath: string | null = null
   try {
-    const fecha = clasif.anio && clasif.mes
-      ? `${clasif.anio}-${String(clasif.mes).padStart(2, '0')}-01`
-      : new Date().toISOString().slice(0, 10)
-    const drive = await subirArchivoADrive(buffer, nombreOriginal, {
-      proveedor_nombre: clasif.empleado_nombre || 'EQUIPO',
-      numero_factura: `revision-${Date.now()}`,
-      fecha_factura: fecha,
-      tipo: 'proveedor',
-      plataforma: null,
-      carpeta_titular: 'EQUIPO_SIN_CLASIFICAR',
-    }, ext)
+    const drive = await subirArchivoACarpetaExacta(buffer, nombreOriginal, ['EQUIPO', 'SIN_CLASIFICAR'], ext)
     driveUrl = drive.webViewLink || null
     storagePath = drive.storagePath || null
   } catch { /* archivarParaRevision nunca pierde el documento: sigue registrando la fila aunque Drive/Storage fallen del todo */ }
@@ -60,10 +48,8 @@ async function archivarParaRevision(
     .insert({
       nombre_archivo: nombreOriginal,
       tipo_detectado: clasif.tipo,
-      confianza: clasif.confianza,
+      confianza: clasif.cierto ? 1 : 0,
       motivo,
-      mes: clasif.mes,
-      anio: clasif.anio,
       empleado_nombre: clasif.empleado_nombre,
       drive_url: driveUrl,
       storage_path: storagePath,
@@ -99,34 +85,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const clasif = await clasificarDocEquipoTexto(texto)
 
-  if (clasif.confianza >= CONFIANZA_MINIMA && clasif.tipo === 'nomina' && clasif.empleado_nombre) {
-    const mapaNombres = await cargarNombresEmpleados(supabaseAdmin)
-    const resolucion = resolverNombre(clasif.empleado_nombre, mapaNombres)
-    if (resolucion) {
-      const { status, body: out } = await procesarNominaIndividual(
-        buffer, nombreOriginal, resolucion.empleado_id, resolucion.nombre, clasif.mes, clasif.anio,
-      )
-      if (status === 200) return res.status(200).json({ ok: true, destino: 'nominas', clasificacion: clasif, resultado: out })
-      return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar la nómina')))
-    }
-    return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, `empleado no identificado con seguridad: "${clasif.empleado_nombre}"`))
+  // Sin marcador determinista → SIEMPRE a revisión, sin importar qué tipo haya
+  // adivinado la IA de respaldo. "Certeza, no probabilidad": nada intermedio.
+  if (!clasif.cierto) {
+    return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, clasif.motivo))
   }
 
-  if (clasif.confianza >= CONFIANZA_MINIMA && clasif.tipo === 'resumen_nominas') {
-    const { status, body: out } = await procesarResumenNominas(buffer, nombreOriginal, clasif.mes, clasif.anio)
+  if (clasif.tipo === 'nomina') {
+    if (clasif.empleado_nombre || clasif.nif_trabajador) {
+      const candidatos = await cargarCandidatosEmpleados(supabaseAdmin)
+      const resolucion = resolverEmpleado(clasif.empleado_nombre, clasif.nif_trabajador, candidatos)
+      if (resolucion) {
+        const { status, body: out } = await procesarNominaIndividual(
+          buffer, nombreOriginal, resolucion.empleado_id, resolucion.nombre, null, null,
+        )
+        if (status === 200) return res.status(200).json({ ok: true, destino: 'nominas', clasificacion: clasif, resultado: out })
+        return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar la nómina')))
+      }
+    }
+    return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, `empleado no identificado con seguridad: "${clasif.empleado_nombre || 'sin nombre detectado'}"`))
+  }
+
+  if (clasif.tipo === 'resumen_nominas') {
+    const { status, body: out } = await procesarResumenNominas(buffer, nombreOriginal, null, null)
     if (status === 200) return res.status(200).json({ ok: true, destino: 'resumen_nominas', clasificacion: clasif, resultado: out })
     return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar el resumen de nóminas')))
   }
 
-  if (clasif.confianza >= CONFIANZA_MINIMA && clasif.tipo === 'rlc') {
-    const { status, body: out } = await procesarSegSocialResumen(buffer, nombreOriginal, clasif.mes, clasif.anio)
+  if (clasif.tipo === 'rlc') {
+    const { status, body: out } = await procesarSegSocialResumen(buffer, nombreOriginal, null, null)
     if (status === 200) return res.status(200).json({ ok: true, destino: 'seguridad_social', clasificacion: clasif, resultado: out })
     return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar el RLC')))
   }
 
-  // 'rnt' (sin tabla de destino todavía), 'desconocido', o confianza insuficiente en cualquier tipo.
-  const motivoRevision = clasif.tipo === 'rnt'
-    ? 'RNT de Seguridad Social: todavía sin tabla de destino, queda para revisión manual'
-    : clasif.motivo
-  return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, motivoRevision))
+  if (clasif.tipo === 'rnt') {
+    const { status, body: out } = await procesarRnt(buffer, nombreOriginal, null, null)
+    if (status === 200) return res.status(200).json({ ok: true, destino: 'seguridad_social_rnt', clasificacion: clasif, resultado: out })
+    return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar la RNT')))
+  }
+
+  // 'desconocido' con marcador "cierto" no debería darse (detectarPorMarcadores nunca
+  // devuelve 'desconocido'), pero por si acaso: a revisión.
+  return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, clasif.motivo))
 }

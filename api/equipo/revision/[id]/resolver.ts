@@ -2,13 +2,19 @@
 // pendiente de equipo_docs_revision y la reprocesa contra el mismo núcleo que
 // usa el buzón EQUIPO (api/_lib/subidaDocEquipo.ts). Descarga el documento de la
 // copia de respaldo en Storage (nunca hace falta que Rubén vuelva a subirlo).
+//
+// Autoaprendizaje: si Rubén asigna manualmente una nómina a un empleado, el
+// nombre tal cual venía en el documento se guarda como alias de ese empleado
+// (api/_lib/matchEmpleado.ts) — la próxima vez que aparezca ese mismo nombre se
+// resuelve solo, sin volver a preguntar.
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../../../_lib/supabase-admin.js'
 import { descargarRespaldoStorage } from '../../../_lib/google-drive.js'
-import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen } from '../../../_lib/subidaDocEquipo.js'
+import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen, procesarRnt } from '../../../_lib/subidaDocEquipo.js'
+import { aprenderAlias } from '../../../_lib/matchEmpleado.js'
 
 interface BodyResolver {
-  tipo_correcto?: 'nomina' | 'resumen_nominas' | 'rlc' | 'descartar'
+  tipo_correcto?: 'nomina' | 'resumen_nominas' | 'rlc' | 'rnt' | 'descartar'
   empleado_id?: string
   mes?: number
   anio?: number
@@ -25,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { data: fila, error: errFila } = await supabaseAdmin
     .from('equipo_docs_revision')
-    .select('id, nombre_archivo, mes, anio, storage_path, estado')
+    .select('id, nombre_archivo, mes, anio, empleado_nombre, storage_path, estado')
     .eq('id', id)
     .maybeSingle()
   if (errFila || !fila) return res.status(404).json({ error: errFila?.message || 'No encontrado' })
@@ -52,10 +58,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('empleados').select('id, nombre').eq('id', body.empleado_id).maybeSingle()
     if (errEmpleado || !empleado) return res.status(404).json({ error: errEmpleado?.message || 'Empleado no encontrado' })
     resultado = await procesarNominaIndividual(buffer, nombreArchivo, empleado.id as string, empleado.nombre as string, mesFinal, anioFinal)
+    if (resultado.status === 200) {
+      await aprenderAlias(supabaseAdmin, empleado.id as string, fila.empleado_nombre as string | null)
+    }
   } else if (body.tipo_correcto === 'resumen_nominas') {
     resultado = await procesarResumenNominas(buffer, nombreArchivo, mesFinal, anioFinal)
   } else if (body.tipo_correcto === 'rlc') {
     resultado = await procesarSegSocialResumen(buffer, nombreArchivo, mesFinal, anioFinal)
+  } else if (body.tipo_correcto === 'rnt') {
+    resultado = await procesarRnt(buffer, nombreArchivo, mesFinal, anioFinal)
   } else {
     return res.status(400).json({ error: 'tipo_correcto no reconocido' })
   }

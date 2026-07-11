@@ -58,7 +58,7 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
       for (const f of data) {
         if (!next[f.id]) {
           next[f.id] = {
-            tipo: f.tipo_detectado === 'rnt' || f.tipo_detectado === 'desconocido' ? 'nomina' : f.tipo_detectado,
+            tipo: f.tipo_detectado === 'desconocido' ? 'nomina' : f.tipo_detectado,
             empleadoId: '',
             mes: f.mes ?? '',
             anio: f.anio ?? '',
@@ -156,6 +156,7 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
                       <option value="nomina">Nómina individual</option>
                       <option value="resumen_nominas">Resumen de nóminas</option>
                       <option value="rlc">RLC Seguridad Social</option>
+                      <option value="rnt">RNT Seguridad Social</option>
                     </select>
 
                     {fm.tipo === 'nomina' && (

@@ -337,7 +337,7 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
     if (partes.length === 0 && errs.length > 0) {
       toast.error(`No se pudo procesar: ${errs[0]}`, { id: tid })
     } else {
-      toast.success(`Equipo · ${partes.join(' · ') || 'procesado'}`, { id: tid })
+      toast.success(`EQUIPO · ${partes.join(' · ') || 'procesado'}`, { id: tid })
     }
   }
 
