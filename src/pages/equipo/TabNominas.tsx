@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { useNominasCompletas } from '@/lib/equipo/useNominasCompletas'
 import type { NominaCompleta } from '@/lib/equipo/useNominasCompletas'
 import { useFichaEmpleado } from '@/lib/equipo/useFichaEmpleado'
+import ModalRevisionEquipo from '@/components/equipo/ModalRevisionEquipo'
 import { fmtEur, fmtDate } from '@/lib/format'
 import {
   OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD,
@@ -113,8 +114,16 @@ export default function TabNominas() {
     mes: number; anio: number
     insertadas: FilaResumen[]; ya_existia: FilaResumen[]; revisar_identidad: FilaResumen[]
   } | null>(null)
+  const [pendientesRevision, setPendientesRevision] = useState(0)
+  const [verRevision, setVerRevision] = useState(false)
 
   const { loading: loadingNominas, error: errorNominas, nominas, reload } = useNominasCompletas(selectedAnio)
+
+  async function cargarPendientesRevision() {
+    const { count } = await supabase.from('equipo_docs_revision').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente')
+    setPendientesRevision(count ?? 0)
+  }
+  useEffect(() => { cargarPendientesRevision() }, [])
 
   async function fetchBase() {
     const [e, c, dt] = await Promise.all([
@@ -264,7 +273,27 @@ export default function TabNominas() {
         >
           <Upload size={13} /> {uploadingResumen ? 'Procesando…' : 'Subir resumen de nóminas'}
         </label>
+        {pendientesRevision > 0 && (
+          <button
+            onClick={() => setVerRevision(true)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              border: `3px solid ${INK}`, boxShadow: SHADOW, background: AMA, color: INK,
+              fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase',
+              padding: '8px 14px', cursor: 'pointer',
+            }}
+          >
+            {pendientesRevision} documento{pendientesRevision !== 1 ? 's' : ''} por revisar
+          </button>
+        )}
       </div>
+
+      {verRevision && (
+        <ModalRevisionEquipo
+          onClose={() => setVerRevision(false)}
+          onResuelto={() => { cargarPendientesRevision(); reload() }}
+        />
+      )}
 
       {resumenResultado && (
         <div style={{ ...card, padding: '14px 18px', marginBottom: 16 }}>

@@ -124,7 +124,7 @@ function BtnCorreo({ label, sub, color, colorHover, onClick, ocupado }: {
   )
 }
 
-type Destino = 'banco' | 'ventas' | 'facturas'
+type Destino = 'banco' | 'ventas' | 'facturas' | 'equipo'
 
 // ── Botón: al pulsar abre modal (archivos sueltos o carpeta); también admite
 //    arrastrar y soltar archivos o carpetas directamente ──
@@ -304,6 +304,43 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
     }
   }
 
+  // Envía archivos al buzón único de EQUIPO (nóminas, resumen y Seguridad Social),
+  // archivo a archivo (mismo patrón que enviarAVentas): el backend clasifica cada
+  // uno por contenido y lo encamina solo. Resumen final veraz por destino real.
+  const enviarAEquipo = async (archivos: File[]) => {
+    if (archivos.length === 0) return
+    const tid = toast.loading(`Leyendo documentos de equipo (${archivos.length})…`)
+    let nominas = 0, resumenes = 0, segSocial = 0, revisar = 0
+    const errs: string[] = []
+    for (const f of archivos) {
+      try {
+        const base64 = await fileABase64(f)
+        const res = await fetch('/api/equipo/subir', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64, nombre_archivo: f.name }),
+        })
+        const j = await res.json()
+        if (!j.ok) { errs.push(j.error || 'no reconocido'); continue }
+        if (j.destino === 'nominas') nominas++
+        else if (j.destino === 'resumen_nominas') resumenes++
+        else if (j.destino === 'seguridad_social') segSocial++
+        else revisar++
+      } catch (e: any) {
+        errs.push(e?.message || 'error de red')
+      }
+    }
+    const partes: string[] = []
+    if (nominas) partes.push(`${nominas} nómina${nominas !== 1 ? 's' : ''}`)
+    if (resumenes) partes.push(`${resumenes} resumen${resumenes !== 1 ? 'es' : ''}`)
+    if (segSocial) partes.push(`${segSocial} Seguridad Social`)
+    if (revisar) partes.push(`${revisar} por revisar`)
+    if (partes.length === 0 && errs.length > 0) {
+      toast.error(`No se pudo procesar: ${errs[0]}`, { id: tid })
+    } else {
+      toast.success(`Equipo · ${partes.join(' · ') || 'procesado'}`, { id: tid })
+    }
+  }
+
   // ── Envío según destino, con redirección automática de documentos mal ubicados ──
   const enviar = async (titular?: string) => {
     const { destino, archivos } = modal
@@ -319,6 +356,12 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
         return
       }
       procesar(archivos, 'ocr-procesar-extracto', titular)
+      onProcesado?.()
+      return
+    }
+
+    if (destino === 'equipo') {
+      await enviarAEquipo(archivos)
       onProcesado?.()
       return
     }
@@ -344,8 +387,8 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
     onProcesado?.()
   }
 
-  const tituloModal = modal.destino === 'banco' ? 'Extracto bancario' : modal.destino === 'ventas' ? 'Documentos de ventas' : 'Facturas'
-  const colorTitulo = modal.destino === 'banco' ? '#1E5BCC' : modal.destino === 'ventas' ? '#1D9E75' : GRANATE
+  const tituloModal = modal.destino === 'banco' ? 'Extracto bancario' : modal.destino === 'ventas' ? 'Documentos de ventas' : modal.destino === 'equipo' ? 'Documentos de equipo' : 'Facturas'
+  const colorTitulo = modal.destino === 'banco' ? '#1E5BCC' : modal.destino === 'ventas' ? '#1D9E75' : modal.destino === 'equipo' ? '#3D8B8B' : GRANATE
 
   return (
     <div style={{ marginTop: 16 }}>
@@ -365,6 +408,11 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
           label="Facturas" color={GRANATE} colorHover="#8f1519"
           sub="Facturas de proveedores y plataformas. OCR, Drive y cruce con Conciliación."
           onArchivos={abrirModal('facturas')} preparando={preparando}
+        />
+        <BtnSubir
+          label="Equipo" color="#3D8B8B" colorHover="#2c6666"
+          sub="Nóminas, resumen y Seguridad Social — suelta todo junto."
+          onArchivos={abrirModal('equipo')} preparando={preparando}
         />
         <BtnCorreo
           label="Correo" color="#6C4BD8" colorHover="#5636ab"
