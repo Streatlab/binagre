@@ -3,7 +3,7 @@
  * subida de PDF con extracción IA y previsión simple del próximo pago.
  * Estética Neobrutal Food-Pop. Lee/escribe la tabla `seguridad_social_resumen`.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Upload, ExternalLink, ChevronDown, ChevronRight, TriangleAlert } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/lib/format'
@@ -217,8 +217,8 @@ export default function TabSeguridadSocial() {
                 const cuadre = cuadreDelMes(r.mes, r.anio, r.importe)
                 const open = expandedMes === r.mes
                 return (
-                  <>
-                  <tr key={r.id} style={{ borderBottom: filasRnt.length > 0 ? 'none' : `2px solid ${INK}`, cursor: filasRnt.length > 0 ? 'pointer' : 'default' }}
+                  <Fragment key={r.id}>
+                  <tr style={{ borderBottom: filasRnt.length > 0 ? 'none' : `2px solid ${INK}`, cursor: filasRnt.length > 0 ? 'pointer' : 'default' }}
                     onClick={() => filasRnt.length > 0 && setExpandedMes(m => m === r.mes ? null : r.mes)}>
                     <td style={{ padding: '10px 6px', color: GRIS, width: 20 }}>
                       {filasRnt.length > 0 && (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
@@ -281,7 +281,7 @@ export default function TabSeguridadSocial() {
                       </td>
                     </tr>
                   )}
-                  </>
+                  </Fragment>
                 )
               })}
             </tbody>

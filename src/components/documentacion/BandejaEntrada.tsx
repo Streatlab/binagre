@@ -323,7 +323,7 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
         if (!j.ok) { errs.push(j.error || 'no reconocido'); continue }
         if (j.destino === 'nominas') nominas++
         else if (j.destino === 'resumen_nominas') resumenes++
-        else if (j.destino === 'seguridad_social') segSocial++
+        else if (j.destino === 'seguridad_social' || j.destino === 'seguridad_social_rnt') segSocial++
         else revisar++
       } catch (e: any) {
         errs.push(e?.message || 'error de red')
