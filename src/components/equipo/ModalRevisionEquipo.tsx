@@ -1,11 +1,10 @@
 /**
  * ModalRevisionEquipo — cola de revisión de documentos de personal que el buzón
- * único EQUIPO (Papeleo) no pudo encaminar solo con seguridad: tipo dudoso,
- * confianza baja, empleado no identificado, RNT sin tabla de destino, o el
- * procesado normal falló (p.ej. no se pudo determinar mes/año). Rubén ve el
- * documento archivado, reasigna el tipo correcto (y el empleado si aplica) y el
- * backend lo reprocesa contra la misma copia de respaldo — nunca hace falta
- * volver a subir el archivo.
+ * único EQUIPO (Papeleo) no pudo encaminar solo con seguridad. Rubén reasigna el
+ * tipo correcto (y el empleado si aplica) y el backend lo reprocesa contra la
+ * copia de respaldo en Storage. Si esa copia no existe (documentos anteriores al
+ * arreglo), se avisa de que hay que volver a subirlo por Papeleo → EQUIPO en vez
+ * de fallar sin explicación.
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -21,6 +20,7 @@ interface FilaRevision {
   anio: number | null
   empleado_nombre: string | null
   drive_url: string | null
+  storage_path: string | null
   created_at: string
 }
 
@@ -48,7 +48,7 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
     setLoading(true)
     const [r, e] = await Promise.all([
       supabase.from('equipo_docs_revision').select('*').eq('estado', 'pendiente').order('created_at', { ascending: false }),
-      supabase.from('empleados').select('id, nombre').eq('estado', 'activo').order('nombre'),
+      supabase.from('empleados').select('id, nombre').order('nombre'),
     ])
     const data = (r.data ?? []) as FilaRevision[]
     setFilas(data)
@@ -93,9 +93,22 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
       const res = await fetch(`/api/equipo/revision/${id}/resolver`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })
-      const j = await res.json()
+      // La función puede cortarse (timeout) y devolver cuerpo vacío: leemos texto
+      // y parseamos a mano para dar un aviso entendible en vez de reventar con
+      // "Unexpected end of JSON input".
+      const crudo = await res.text()
+      let j: Record<string, unknown>
+      try {
+        j = JSON.parse(crudo) as Record<string, unknown>
+      } catch {
+        const pista = crudo.trim() === '' || res.status === 504
+          ? 'El documento tardó demasiado en procesarse. Vuelve a intentarlo.'
+          : `Respuesta inesperada del servidor (${res.status}).`
+        setErrores(prev => ({ ...prev, [id]: pista }))
+        return
+      }
       if (!j.ok) {
-        setErrores(prev => ({ ...prev, [id]: j.error || j.motivo_extraccion || 'No se pudo reprocesar' }))
+        setErrores(prev => ({ ...prev, [id]: String(j.error || j.motivo_extraccion || 'No se pudo reprocesar') }))
         return
       }
       setFilas(prev => prev.filter(x => x.id !== id))
@@ -135,6 +148,7 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {filas.map(f => {
               const fm = form[f.id] || { tipo: 'nomina', empleadoId: '', mes: '' as const, anio: '' as const }
+              const sinArchivo = !f.storage_path
               return (
                 <div key={f.id} style={{ background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: 14 }}>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
@@ -142,55 +156,67 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
                     <span style={{ fontFamily: OSW, fontSize: 9, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', border: `2px solid ${INK}`, padding: '2px 7px', background: AMA, color: INK }}>
                       {LABEL_TIPO[f.tipo_detectado] || f.tipo_detectado}
                     </span>
-                    {f.confianza != null && (
-                      <span style={{ fontFamily: LEX, fontSize: 11, color: GRIS }}>{Math.round(f.confianza * 100)}% confianza</span>
-                    )}
                     {f.drive_url && (
                       <a href={f.drive_url} target="_blank" rel="noreferrer" style={{ color: AZUL, fontFamily: LEX, fontSize: 11 }}>Ver documento</a>
                     )}
                   </div>
                   {f.motivo && <div style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS, marginBottom: 10 }}>{f.motivo}</div>}
 
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <select value={fm.tipo} onChange={e => setCampo(f.id, 'tipo', e.target.value)} style={selectMini}>
-                      <option value="nomina">Nómina individual</option>
-                      <option value="resumen_nominas">Resumen de nóminas</option>
-                      <option value="rlc">RLC Seguridad Social</option>
-                      <option value="rnt">RNT Seguridad Social</option>
-                    </select>
-
-                    {fm.tipo === 'nomina' && (
-                      <select value={fm.empleadoId} onChange={e => setCampo(f.id, 'empleadoId', e.target.value)} style={selectMini}>
-                        <option value="">{f.empleado_nombre ? `Detectado: ${f.empleado_nombre}` : 'Elige empleado…'}</option>
-                        {empleados.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                  {sinArchivo ? (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <div style={{ fontFamily: LEX, fontSize: 11.5, color: ROJO, flex: 1, minWidth: 200 }}>
+                        El archivo original ya no está guardado. Vuelve a subirlo por Papeleo → EQUIPO.
+                      </div>
+                      <button
+                        disabled={procesando === f.id}
+                        onClick={() => descartar(f.id)}
+                        style={{ ...btnMini, background: '#fff', color: ROJO, borderColor: ROJO }}
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <select value={fm.tipo} onChange={e => setCampo(f.id, 'tipo', e.target.value)} style={selectMini}>
+                        <option value="nomina">Nómina individual</option>
+                        <option value="resumen_nominas">Resumen de nóminas</option>
+                        <option value="rlc">RLC Seguridad Social</option>
+                        <option value="rnt">RNT Seguridad Social</option>
                       </select>
-                    )}
 
-                    <select value={fm.mes} onChange={e => setCampo(f.id, 'mes', e.target.value ? Number(e.target.value) : '')} style={selectMini}>
-                      <option value="">Mes…</option>
-                      {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                    </select>
-                    <input
-                      type="number" placeholder="Año" value={fm.anio}
-                      onChange={e => setCampo(f.id, 'anio', e.target.value ? Number(e.target.value) : '')}
-                      style={{ ...selectMini, width: 78 }}
-                    />
+                      {fm.tipo === 'nomina' && (
+                        <select value={fm.empleadoId} onChange={e => setCampo(f.id, 'empleadoId', e.target.value)} style={selectMini}>
+                          <option value="">{f.empleado_nombre ? `Detectado: ${f.empleado_nombre}` : 'Elige empleado…'}</option>
+                          {empleados.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                        </select>
+                      )}
 
-                    <button
-                      disabled={procesando === f.id}
-                      onClick={() => reprocesar(f.id)}
-                      style={{ ...btnMini, background: VERDE, color: '#fff', cursor: procesando === f.id ? 'wait' : 'pointer' }}
-                    >
-                      {procesando === f.id ? 'Procesando…' : 'Reprocesar'}
-                    </button>
-                    <button
-                      disabled={procesando === f.id}
-                      onClick={() => descartar(f.id)}
-                      style={{ ...btnMini, background: '#fff', color: ROJO, borderColor: ROJO }}
-                    >
-                      Descartar
-                    </button>
-                  </div>
+                      <select value={fm.mes} onChange={e => setCampo(f.id, 'mes', e.target.value ? Number(e.target.value) : '')} style={selectMini}>
+                        <option value="">Mes…</option>
+                        {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                      </select>
+                      <input
+                        type="number" placeholder="Año" value={fm.anio}
+                        onChange={e => setCampo(f.id, 'anio', e.target.value ? Number(e.target.value) : '')}
+                        style={{ ...selectMini, width: 78 }}
+                      />
+
+                      <button
+                        disabled={procesando === f.id}
+                        onClick={() => reprocesar(f.id)}
+                        style={{ ...btnMini, background: VERDE, color: '#fff', cursor: procesando === f.id ? 'wait' : 'pointer' }}
+                      >
+                        {procesando === f.id ? 'Procesando…' : 'Reprocesar'}
+                      </button>
+                      <button
+                        disabled={procesando === f.id}
+                        onClick={() => descartar(f.id)}
+                        style={{ ...btnMini, background: '#fff', color: ROJO, borderColor: ROJO }}
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  )}
                   {errores[f.id] && <div style={{ color: ROJO, fontFamily: LEX, fontSize: 11.5, marginTop: 6 }}>{errores[f.id]}</div>}
                 </div>
               )
