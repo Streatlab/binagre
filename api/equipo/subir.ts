@@ -16,7 +16,7 @@ import { extraerTextoPDF, pdfTieneTexto } from '../_lib/extractores.js'
 import { extraerTextoOCRGratis } from '../_lib/ocr-tesseract.js'
 import { clasificarDocEquipoTexto, type ClasificacionDocEquipo } from '../_lib/clasificarDocEquipo.js'
 import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen, procesarRnt } from '../_lib/subidaDocEquipo.js'
-import { cargarCandidatosEmpleados, resolverEmpleado } from '../_lib/matchEmpleado.js'
+import { cargarCandidatosEmpleados, resolverEmpleado, resolverEmpleadoEnTexto } from '../_lib/matchEmpleado.js'
 
 export const config = {
   api: { bodyParser: { sizeLimit: '20mb' } },
@@ -92,16 +92,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (clasif.tipo === 'nomina') {
-    if (clasif.empleado_nombre || clasif.nif_trabajador) {
-      const candidatos = await cargarCandidatosEmpleados(supabaseAdmin)
-      const resolucion = resolverEmpleado(clasif.empleado_nombre, clasif.nif_trabajador, candidatos)
-      if (resolucion) {
-        const { status, body: out } = await procesarNominaIndividual(
-          buffer, nombreOriginal, resolucion.empleado_id, resolucion.nombre, null, null,
-        )
-        if (status === 200) return res.status(200).json({ ok: true, destino: 'nominas', clasificacion: clasif, resultado: out })
-        return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar la nómina')))
-      }
+    const candidatos = await cargarCandidatosEmpleados(supabaseAdmin)
+    // 1) por el nombre/NIF aislado de la cabecera; 2) si no, buscando al empleado
+    // dentro del texto completo del recibo (solo vale si aparece uno y solo uno).
+    const resolucion = resolverEmpleado(clasif.empleado_nombre, clasif.nif_trabajador, candidatos)
+      || resolverEmpleadoEnTexto(texto, candidatos)
+    if (resolucion) {
+      const { status, body: out } = await procesarNominaIndividual(
+        buffer, nombreOriginal, resolucion.empleado_id, resolucion.nombre, null, null,
+      )
+      if (status === 200) return res.status(200).json({ ok: true, destino: 'nominas', clasificacion: clasif, resultado: out })
+      return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar la nómina')))
     }
     return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, `empleado no identificado con seguridad: "${clasif.empleado_nombre || 'sin nombre detectado'}"`))
   }
@@ -124,7 +125,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar la RNT')))
   }
 
-  // 'desconocido' con marcador "cierto" no debería darse (detectarPorMarcadores nunca
-  // devuelve 'desconocido'), pero por si acaso: a revisión.
+  // 'desconocido': a revisión con el motivo.
   return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, clasif.motivo))
 }
