@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { supabaseAdmin } from './_lib/supabase-admin.js'
-import { descargarArchivoDeDrive } from './_lib/google-drive.js'
-import { ocrMistralTexto, extraerFacturaMistral, bootstrapApiActivo } from './_lib/ocr-mistral.js'
-import { matchFactura, aplicarMatching } from './_lib/matching.js'
+import { supabaseAdmin } from '../_lib/supabase-admin.js'
+import { descargarArchivoDeDrive } from '../_lib/google-drive.js'
+import { ocrMistralTexto, extraerFacturaMistral, bootstrapApiActivo } from '../_lib/ocr-mistral.js'
+import { matchFactura, aplicarMatching } from '../_lib/matching.js'
 
 export const config = { maxDuration: 300 }
 
