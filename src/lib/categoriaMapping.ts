@@ -51,7 +51,9 @@ export function grupoFromCategoria(
   if (codigo.startsWith('2.31')) return 'ALQUILER'
   if (codigo.startsWith('2.41')) return 'MARKETING'
   if (codigo.startsWith('2.42')) return 'INTERNET_VENTAS'
-  if (codigo.startsWith('2.44')) return 'SUMINISTROS'
+  // 2.43 y 2.44 (Administracion y Suministros) cuelgan del bloque 2.4 Controlables en
+  // categorias_pyg, no de Local. Por eso caen en ADMIN_GENERALES: asi el gasto y el
+  // presupuesto de Controlables cuadran con PREFIJOS_GRUPO.controlables.
   if (codigo.startsWith('3.')) return 'MOVIMIENTOS_INTERNOS'
   if (codigo.startsWith('4.')) return 'FINANCIACION'
   return 'ADMIN_GENERALES'
@@ -84,15 +86,16 @@ const OLD_TO_NEW: Record<string, string> = {
   'PRD-PKG': '2.12.1',
   'PRD-ENT': '2.13.2',
   // Equipo
-  'EQP-NOM': '2.21.4',   // sueldos empleados -> Sueldo equipo
-  'EQP-RUB': '2.21.2',   // -> Sueldo direccion
-  'EQP-EMI': '2.21.2',   // -> Sueldo direccion
-  'EQP-SS': '2.21.1',    // -> Seguridad Social e IRPF
+  'EQP-NOM': '2.21.4',
+  'EQP-RUB': '2.21.2',
+  'EQP-EMI': '2.21.2',
+  'EQP-SS': '2.21.1',
   'RRH-CAU': '2.21.1',
   'RRH-SS': '2.21.1',
   'RRH-IRP': '2.21.1',
   'RRH-SUE': '2.21.2',
-  'RRH-GES': '2.22.4',   // gestoria laboral -> Gastos de equipo
+  'RRH-NOM-EMI': '2.21.2',
+  'RRH-GES': '2.22.4',
   'EQP-GES': '2.22.4',
   'RRH-SEL': '2.22.4',
   'RRH-INC': '2.22.4',
@@ -100,11 +103,11 @@ const OLD_TO_NEW: Record<string, string> = {
   'RRH-FOR': '2.22.4',
   'EQP-FOR': '2.22.4',
   'RRH-COM': '2.22.4',
-  'CTR-WOR': '2.22.4',   // Workana
+  'CTR-WOR': '2.22.4',
   // Local
   'LOC-ALQ': '2.31.1',
   'ALQ-LOC': '2.31.1',
-  'LOC-IRP': '2.31.1',   // retencion IRPF alquiler -> misma factura
+  'LOC-IRP': '2.31.1',
   'ALQ-SEG': '2.31.3',
   'CTR-SEG': '2.31.3',
   'ALQ-RSU': '2.31.3',
@@ -118,7 +121,7 @@ const OLD_TO_NEW: Record<string, string> = {
   'CTR-DIS': '2.41.1',
   'CTR-IGF': '2.41.1',
   'CTR-GGL': '2.41.1',
-  'CTR-ADS': '2.41.5',   // ads de plataforma
+  'CTR-ADS': '2.41.5',
   // Web y tienda online
   'CTR-DOM': '2.42.1',
   'CTR-HOS': '2.42.1',
