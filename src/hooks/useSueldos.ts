@@ -41,7 +41,6 @@ export function useSueldos(desde: Date, hasta: Date): SueldosData {
     const desdeFecha = fechaISO(desde)
     const hastaFecha = fechaISO(hasta)
 
-    // Rango últimos 90 días desde la fecha hasta
     const hasta90 = new Date(hasta)
     const desde90 = new Date(hasta)
     desde90.setDate(desde90.getDate() - 89)
@@ -51,61 +50,59 @@ export function useSueldos(desde: Date, hasta: Date): SueldosData {
     setData(d => ({ ...d, loading: true, error: null }))
 
     Promise.all([
-      // emilio.plataformas: SUM(importe>0) WHERE titular_id=EMILIO AND categoria LIKE 'ING-%'
+      // emilio.plataformas: ingresos de plataforma en cuenta de Emilio
       supabase
         .from('conciliacion')
         .select('importe')
         .eq('titular_id', EMILIO_ID)
         .gt('importe', 0)
-        .like('categoria', 'ING-%')
+        .like('categoria', '1.%')
         .gte('fecha', desdeFecha)
         .lte('fecha', hastaFecha),
 
-      // emilio.complementoSL: SUM(ABS(importe)) WHERE titular_id=RUBEN AND categoria='RRH-NOM-EMI'
+      // emilio.complementoSL: lo que paga la empresa a Emilio (2.21.3)
       supabase
         .from('conciliacion')
         .select('importe')
-        .eq('titular_id', RUBEN_ID)
-        .eq('categoria', 'RRH-NOM-EMI')
+        .eq('categoria', '2.21.3')
         .gte('fecha', desdeFecha)
         .lte('fecha', hastaFecha),
 
-      // ruben.ingresos: SUM(importe>0) WHERE titular_id=RUBEN AND categoria NOT LIKE 'INT-TRF%'
+      // ruben.ingresos: ingresos en cuenta de Rubén excl. traspasos internos
       supabase
         .from('conciliacion')
         .select('importe')
         .eq('titular_id', RUBEN_ID)
         .gt('importe', 0)
-        .not('categoria', 'like', 'INT-TRF%')
+        .not('categoria', 'like', '3.%')
         .gte('fecha', desdeFecha)
         .lte('fecha', hastaFecha),
 
-      // ruben.gastos: SUM(ABS(importe)) WHERE importe<0 AND titular_id=RUBEN AND categoria NOT LIKE 'INT-TRF%'
+      // ruben.gastos: gastos en cuenta de Rubén excl. traspasos internos
       supabase
         .from('conciliacion')
         .select('importe')
         .eq('titular_id', RUBEN_ID)
         .lt('importe', 0)
-        .not('categoria', 'like', 'INT-TRF%')
+        .not('categoria', 'like', '3.%')
         .gte('fecha', desdeFecha)
         .lte('fecha', hastaFecha),
 
-      // ultimos90d emilio.plataformas (ING-%)
+      // ultimos90d: emilio plataformas
       supabase
         .from('conciliacion')
         .select('importe')
         .eq('titular_id', EMILIO_ID)
         .gt('importe', 0)
-        .like('categoria', 'ING-%')
+        .like('categoria', '1.%')
         .gte('fecha', desde90Fecha)
         .lte('fecha', hasta90Fecha),
 
-      // ultimos90d complementoSL (RRH-NOM-EMI from Ruben)
+      // ultimos90d: emilio complementoSL
       supabase
         .from('conciliacion')
         .select('importe')
-        .eq('titular_id', RUBEN_ID)
-        .eq('categoria', 'RRH-NOM-EMI')
+        .eq('categoria', '2.21.3')
         .gte('fecha', desde90Fecha)
         .lte('fecha', hasta90Fecha),
     ])
@@ -131,9 +128,9 @@ export function useSueldos(desde: Date, hasta: Date): SueldosData {
         const gastosNetos   = sumAbs(resRubGas.data ?? [])
         const resultado     = ingresosNetos - gastosNetos
 
-        const plat90   = sum(res90Plat.data ?? [])
-        const comp90   = sumAbs(res90Comp.data ?? [])
-        const total90  = plat90 + comp90
+        const plat90  = sum(res90Plat.data ?? [])
+        const comp90  = sumAbs(res90Comp.data ?? [])
+        const total90 = plat90 + comp90
         const emilio_mensual_real = total90 / 3
 
         setData({
@@ -144,9 +141,9 @@ export function useSueldos(desde: Date, hasta: Date): SueldosData {
           ultimos90d: { emilio_mensual_real },
         })
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         if (cancel) return
-        setData(d => ({ ...d, loading: false, error: err?.message ?? 'Error cargando sueldos' }))
+        setData(d => ({ ...d, loading: false, error: (err as Error)?.message ?? 'Error cargando sueldos' }))
       })
 
     return () => { cancel = true }

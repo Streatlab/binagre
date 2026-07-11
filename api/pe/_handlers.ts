@@ -158,11 +158,11 @@ export async function dashboardHandler(req: VercelRequest, res: VercelResponse) 
   const presupuestos = {
     comida: {
       target_semana: Math.round(brutoSemana * toNum(p.food_cost_pct) / 100),
-      gastado: Math.round(gastosPorCat['PRD-ALI'] || 0),
+      gastado: Math.round(gastosPorCat['2.11.1'] || 0),
     },
     packaging: {
       target_semana: Math.round(brutoSemana * toNum(p.packaging_pct) / 100),
-      gastado: Math.round(gastosPorCat['PRD-PKG'] || 0),
+      gastado: Math.round(gastosPorCat['2.12.1'] || 0),
     },
   }
 

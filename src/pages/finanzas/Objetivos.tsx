@@ -49,47 +49,15 @@ function toDateStr(d: Date): string {
 
 const NOMBRES_DIA = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
 
-const PRESUPUESTO_GRUPOS: { grupo: string; label: string; codigos: { codigo: string; nombre: string }[] }[] = [
-  { grupo: 'PRODUCTO', label: 'Producto (COGS)', codigos: [
-      { codigo: 'PRD-MP',  nombre: 'Materia prima' },
-      { codigo: 'PRD-BEB', nombre: 'Bebidas' },
-      { codigo: 'PRD-PCK', nombre: 'Packaging' },
-      { codigo: 'PRD-MER', nombre: 'Mermas y roturas' },
-    ],
-  },
-  { grupo: 'EQUIPO', label: 'Equipo (Labor)', codigos: [
-      { codigo: 'EQP-NOM', nombre: 'Sueldos empleados nómina' },
-      { codigo: 'EQP-SS',  nombre: 'Seguridad Social' },
-      { codigo: 'EQP-RUB', nombre: 'Sueldo socio Rubén' },
-      { codigo: 'EQP-EMI', nombre: 'Sueldo socio Emilio' },
-      { codigo: 'EQP-GES', nombre: 'Gestoría laboral' },
-      { codigo: 'EQP-FOR', nombre: 'Formación e incentivos' },
-    ],
-  },
-  { grupo: 'LOCAL', label: 'Local (Occupancy)', codigos: [
-      { codigo: 'LOC-ALQ', nombre: 'Alquiler local' },
-      { codigo: 'LOC-SUM', nombre: 'Suministros' },
-      { codigo: 'LOC-LIM', nombre: 'Limpieza' },
-      { codigo: 'LOC-MTO', nombre: 'Mantenimiento y reparaciones' },
-      { codigo: 'LOC-NET', nombre: 'Internet y telefonía' },
-      { codigo: 'LOC-COM', nombre: 'Comunidad' },
-      { codigo: 'LOC-IRP', nombre: 'IRPF retención alquiler' },
-    ],
-  },
-  { grupo: 'CONTROLABLES', label: 'Controlables (OPEX)', codigos: [
-      { codigo: 'CTR-MKT', nombre: 'Marketing y publicidad' },
-      { codigo: 'CTR-SW',  nombre: 'Software y suscripciones' },
-      { codigo: 'CTR-SEG', nombre: 'Seguros' },
-      { codigo: 'CTR-GEF', nombre: 'Gestoría fiscal/contable' },
-      { codigo: 'CTR-LIC', nombre: 'Licencias y tasas' },
-      { codigo: 'CTR-TRP', nombre: 'Transporte y logística' },
-      { codigo: 'CTR-BNK', nombre: 'Banco (comisiones, embargos)' },
-      { codigo: 'CTR-OTR', nombre: 'Otros gastos' },
-    ],
-  },
-]
+interface PresupuestoGrupo { grupo: string; label: string; codigos: { codigo: string; nombre: string }[] }
 
-const ALL_CODIGOS = PRESUPUESTO_GRUPOS.flatMap(g => g.codigos.map(c => c.codigo))
+const BLOQUE_LABEL: Record<string, string> = {
+  PRODUCTO: 'Producto (COGS)',
+  EQUIPO: 'Equipo (Labor)',
+  ALQUILER: 'Local (Occupancy)',
+  CONTROLABLES: 'Controlables (OPEX)',
+}
+const BLOQUES_PRESUPUESTO = Object.keys(BLOQUE_LABEL)
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 // Festivo Madrid — amarillo SL sólido + texto oscuro legible
@@ -142,6 +110,22 @@ export default function Objetivos() {
     }
     return { neto: netoTotal, bruto: brutoTotal }
   }, [cfgCanalesReal, marcasPorCanal])
+
+  const [presupuestoGrupos, setPresupuestoGrupos] = useState<PresupuestoGrupo[]>([])
+  useEffect(() => {
+    supabase.from('categorias_pyg').select('id,nombre,bloque').eq('nivel', 3).eq('activa', true)
+      .then(({ data }) => {
+        if (!data) return
+        const mapa: Record<string, PresupuestoGrupo> = {}
+        for (const row of data) {
+          if (!BLOQUES_PRESUPUESTO.includes(row.bloque)) continue
+          if (!mapa[row.bloque]) mapa[row.bloque] = { grupo: row.bloque, label: BLOQUE_LABEL[row.bloque], codigos: [] }
+          mapa[row.bloque].codigos.push({ codigo: row.id, nombre: row.nombre })
+        }
+        setPresupuestoGrupos(BLOQUES_PRESUPUESTO.filter(b => mapa[b]).map(b => mapa[b]))
+      })
+  }, [])
+  const allCodigos = useMemo(() => presupuestoGrupos.flatMap(g => g.codigos.map(c => c.codigo)), [presupuestoGrupos])
 
   const [activeTab, setActiveTab] = useState<'objetivos' | 'presupuestos'>('objetivos')
   const hoy = useMemo(() => new Date(), [])
@@ -222,10 +206,10 @@ export default function Objetivos() {
   const loadPresupuestos = useCallback(async (anio: number) => {
     setPresLoading(true)
     const { data } = await supabase.from('objetivos').select('id,categoria_codigo,anio,mes,importe')
-      .eq('tipo', 'presupuesto').eq('anio', anio).in('categoria_codigo', ALL_CODIGOS)
+      .eq('tipo', 'presupuesto').eq('anio', anio).in('categoria_codigo', allCodigos)
     setPresData((data ?? []).map((r: any) => ({ id: r.id, categoria_codigo: r.categoria_codigo, anio: r.anio, mes: r.mes, importe: Number(r.importe) })))
     setPresLoading(false)
-  }, [])
+  }, [allCodigos])
 
   useEffect(() => { if (activeTab === 'presupuestos') loadPresupuestos(presAnio) }, [activeTab, presAnio, loadPresupuestos])
 
@@ -300,7 +284,7 @@ export default function Objetivos() {
 
   const copiarAnioAnterior = async () => {
     const anioAnt = presAnio - 1
-    const { data } = await supabase.from('objetivos').select('*').eq('tipo', 'presupuesto').eq('anio', anioAnt).in('categoria_codigo', ALL_CODIGOS)
+    const { data } = await supabase.from('objetivos').select('*').eq('tipo', 'presupuesto').eq('anio', anioAnt).in('categoria_codigo', allCodigos)
     if (!data?.length) { alert(`No hay datos de presupuesto para ${anioAnt}`); return }
     setPresSaving(true)
     for (const row of data) {
@@ -487,9 +471,9 @@ export default function Objetivos() {
   }
 
   const getPresVal = (codigo: string, mes: number) => presData.find(p => p.categoria_codigo === codigo && p.mes === mes)?.importe ?? 0
-  const totalMesPres = (mes: number) => ALL_CODIGOS.reduce((a, c) => a + getPresVal(c, mes), 0)
+  const totalMesPres = (mes: number) => allCodigos.reduce((a, c) => a + getPresVal(c, mes), 0)
   const totalCodigo = (codigo: string) => Array.from({ length: 12 }, (_, i) => i + 1).reduce((a, m) => a + getPresVal(codigo, m), 0)
-  const totalAnual = () => ALL_CODIGOS.reduce((a, c) => a + totalCodigo(c), 0)
+  const totalAnual = () => allCodigos.reduce((a, c) => a + totalCodigo(c), 0)
   const commitPresEdit = (codigo: string, mes: number) => {
     const v = parseFloat(presEditVal.replace(',', '.'))
     if (!isNaN(v) && v >= 0) savePresupuesto(codigo, mes, v)
@@ -732,7 +716,7 @@ export default function Objetivos() {
           {presLoading ? (
             <div style={{ color: T.mut, fontFamily: FONT.body, padding: '24px 0' }}>Cargando presupuesto…</div>
           ) : (
-            PRESUPUESTO_GRUPOS.map(grupo => {
+            presupuestoGrupos.map(grupo => {
               const totalGrupoMes = (mes: number) => grupo.codigos.reduce((a, c) => a + getPresVal(c.codigo, mes), 0)
               const totalGrupoAnual = () => grupo.codigos.reduce((a, c) => a + totalCodigo(c.codigo), 0)
               return (
