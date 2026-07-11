@@ -1,0 +1,35 @@
+name: Sync Facturación (ALM 17:00 / CENAS 01:00 Madrid)
+
+on:
+  schedule:
+    - cron: "0 15 * * *"   # 17:00 Madrid (verano) → ALM de hoy
+    - cron: "0 23 * * *"   # 01:00 Madrid (verano) → CENAS del día anterior
+  workflow_dispatch:
+    inputs:
+      servicio:
+        description: "Forzar servicio (ALM o CENAS). Vacío = automático por hora"
+        type: choice
+        options: ["", "ALM", "CENAS"]
+        default: ""
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Instalar navegador Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Sync robot → facturacion_diario
+        env:
+          SYNC_SERVICIO: ${{ github.event.inputs.servicio }}
+          RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
+          RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/sync-facturacion.ts
