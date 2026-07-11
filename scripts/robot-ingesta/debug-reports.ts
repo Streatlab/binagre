@@ -1,9 +1,8 @@
 /**
  * DEBUG puntual · Rushour Reports → volcado de HTML a robot_debug.
- * Script independiente: NO toca robot.ts ni backfill.ts.
- * Objetivo: ver el HTML real de la pantalla Reports (rango personalizado +
- * desplegable de plataforma) para escribir selectores exactos antes de
- * programar el parser del backfill.
+ * v2: la sección Reports vive en la ruta /rapports (hrefs reales del menú:
+ * /business /historicals /rapports /vat ...). El click por texto no navegaba,
+ * así que se va DIRECTO por URL.
  */
 import { chromium, Page } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
@@ -12,8 +11,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// OJO: el query builder de supabase-js es "thenable" pero NO una Promise:
-// no tiene .catch() hasta que se hace await. Siempre try/catch, nunca .catch().
+// supabase-js query builder: thenable pero sin .catch() → siempre try/catch.
 async function log(estado: string, detalle: string) {
   try { await sb.from('robot_log').insert([{ fuente: 'debug_reports', estado, detalle }]); } catch { /* noop */ }
 }
@@ -36,7 +34,7 @@ async function cerrarModales(page: Page) {
 
 async function main() {
   const fecha = process.env.DEBUG_FECHA || '2026-06-01';
-  await log('inicio', `fecha=${fecha}`);
+  await log('inicio', `v2 fecha=${fecha}`);
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const page = await browser.newPage();
   const erroresJs: string[] = [];
@@ -50,41 +48,39 @@ async function main() {
     await page.waitForTimeout(5000);
     await cerrarModales(page); await page.waitForTimeout(1000); await cerrarModales(page);
 
-    // A) Menú tras login (para ver el link exacto de Reports)
-    await dump('reports_a_menu', fecha, page);
-
-    // B) Click en "Reports" del menú lateral (varios intentos de texto)
-    for (const re of [/^Reports$/, /^Informes$/, /Reports/i]) {
-      const el = page.getByText(re).first();
-      if (await el.count().catch(() => 0)) { await el.click({ timeout: 5000 }).catch(() => {}); break; }
-    }
+    // A) Directo a /rapports (SPA React: espera generosa a que pinte)
+    await page.goto('https://manager.rushour.io/rapports', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(6000);
+    await page.waitForTimeout(8000);
     await cerrarModales(page);
-    await dump('reports_b_pagina', fecha, page);
+    await dump('rapports_a_pagina', fecha, page);
 
-    // C) Best-effort: abrir el selector de fechas/rango y volcar con el picker abierto
-    for (const sel of ['.ant-picker', 'input[type="date"]', '[class*="date"]', '[class*="range"]']) {
+    // B) Abrir el selector de fechas/rango y volcar con el picker abierto
+    for (const sel of ['.ant-picker', 'input[type="date"]', '[class*="rangepicker"]', '[class*="date"]']) {
       const el = page.locator(sel).first();
       if (await el.count().catch(() => 0)) { await el.click({ timeout: 3000 }).catch(() => {}); break; }
     }
     await page.waitForTimeout(2000);
-    await dump('reports_c_picker', fecha, page);
+    await dump('rapports_b_picker', fecha, page);
 
-    // D) Best-effort: abrir el desplegable (selects / ant-select) y volcar con opciones visibles
+    // C) Abrir TODOS los desplegables uno a uno y volcar con opciones visibles
     await page.keyboard.press('Escape').catch(() => {});
-    for (const sel of ['.ant-select', 'select', '[role="combobox"]']) {
-      const els = page.locator(sel);
-      const n = await els.count().catch(() => 0);
-      if (n) { await els.nth(n - 1).click({ timeout: 3000 }).catch(() => {}); break; }
+    await page.waitForTimeout(500);
+    const combos = page.locator('.ant-select, select, [role="combobox"]');
+    const n = await combos.count().catch(() => 0);
+    await log('info', `combos_encontrados=${n}`);
+    for (let i = 0; i < Math.min(n, 4); i++) {
+      await combos.nth(i).click({ timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(1500);
+      await dump(`rapports_c_dropdown_${i}`, fecha, page);
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(500);
     }
-    await page.waitForTimeout(2000);
-    await dump('reports_d_dropdown', fecha, page);
 
     await log('fin', `ok js_errores=${erroresJs.length} :: ${erroresJs.slice(0, 3).join(' | ').slice(0, 300)}`);
   } catch (e: any) {
     await log('error', String(e?.message || e));
-    await dump('reports_error', fecha, page);
+    await dump('rapports_error', fecha, page);
   } finally {
     await browser.close();
   }
