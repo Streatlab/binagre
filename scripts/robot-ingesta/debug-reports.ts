@@ -12,19 +12,19 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const RUSHOUR = {
-  loginUrl: 'https://manager.rushour.io/login',
-  user: process.env.RUSHOUR_USER || '', pass: process.env.RUSHOUR_PASS || '',
-  userInput: 'input[name="username"]', passInput: 'input[name="password"]', submitBtn: 'button[type="submit"]',
-};
-
+// OJO: el query builder de supabase-js es "thenable" pero NO una Promise:
+// no tiene .catch() hasta que se hace await. Siempre try/catch, nunca .catch().
 async function log(estado: string, detalle: string) {
-  await sb.from('robot_log').insert([{ fuente: 'debug_reports', estado, detalle }]).catch(() => {});
+  try { await sb.from('robot_log').insert([{ fuente: 'debug_reports', estado, detalle }]); } catch { /* noop */ }
 }
 async function dump(fuente: string, fecha: string, page: Page) {
-  const html = await page.content().catch(() => '');
-  await sb.from('robot_debug').insert([{ fuente, fecha, html }]);
-  await log('dump', `${fuente} bytes=${html.length} url=${page.url()}`);
+  try {
+    const html = await page.content();
+    await sb.from('robot_debug').insert([{ fuente, fecha, html }]);
+    await log('dump', `${fuente} bytes=${html.length} url=${page.url()}`);
+  } catch (e: any) {
+    await log('dump_error', `${fuente} ${String(e?.message || e)}`);
+  }
 }
 async function cerrarModales(page: Page) {
   const nombres = [/close/i, /cerrar/i, /no,? gracias/i, /aceptar/i, /got it/i, /entendido/i, /×/];
@@ -42,11 +42,11 @@ async function main() {
   const erroresJs: string[] = [];
   page.on('pageerror', (e) => erroresJs.push(e.message));
   try {
-    await page.goto(RUSHOUR.loginUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector(RUSHOUR.userInput, { timeout: 20000 });
-    await page.fill(RUSHOUR.userInput, RUSHOUR.user);
-    await page.fill(RUSHOUR.passInput, RUSHOUR.pass);
-    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click(RUSHOUR.submitBtn)]);
+    await page.goto('https://manager.rushour.io/login', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('input[name="username"]', { timeout: 20000 });
+    await page.fill('input[name="username"]', process.env.RUSHOUR_USER || '');
+    await page.fill('input[name="password"]', process.env.RUSHOUR_PASS || '');
+    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click('button[type="submit"]')]);
     await page.waitForTimeout(5000);
     await cerrarModales(page); await page.waitForTimeout(1000); await cerrarModales(page);
 
@@ -84,7 +84,7 @@ async function main() {
     await log('fin', `ok js_errores=${erroresJs.length} :: ${erroresJs.slice(0, 3).join(' | ').slice(0, 300)}`);
   } catch (e: any) {
     await log('error', String(e?.message || e));
-    await dump('reports_error', fecha, page).catch(() => {});
+    await dump('reports_error', fecha, page);
   } finally {
     await browser.close();
   }
