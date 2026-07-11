@@ -105,7 +105,8 @@ async function soloPlataforma(page: Page, objetivo: 'glovo' | 'ubereats'): Promi
   const n = await ops.count().catch(() => 0);
   for (let i = 0; i < n; i++) {
     const t = ((await ops.nth(i).textContent().catch(() => '')) || '').trim().toLowerCase();
-    const seleccionada = await ops.nth(i).evaluate === undefined ? false : await ops.nth(i).getAttribute('class').then(c => (c || '').includes('ant-select-item-option-selected')).catch(() => false);
+    const clase = (await ops.nth(i).getAttribute('class').catch(() => '')) || '';
+    const seleccionada = clase.includes('ant-select-item-option-selected');
     const esObjetivo = t.includes(objetivo);
     if (esObjetivo && !seleccionada) await ops.nth(i).click().catch(() => {});
     if (!esObjetivo && seleccionada) await ops.nth(i).click().catch(() => {});
