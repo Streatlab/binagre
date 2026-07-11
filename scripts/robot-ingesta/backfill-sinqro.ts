@@ -11,6 +11,9 @@
  *     la búsqueda sale vacía SIEMPRE.
  *  3) Orden: fechas → tipos → Buscar → esperar a que loadingOrders termine.
  *
+ * Los pedidos de Just Eat aparecen como "JustEat Client"; los de Glovo/Uber
+ * traen nombre de persona. Cada tarjeta lleva "Entregar el DD/MM a las HH:MMh".
+ *
  * No toca robot.ts ni backfill.ts. Escribe en ingesta_robot_diaria
  * (agregador='sinqro', plataforma='just_eat', turno comida/cena).
  */
@@ -37,7 +40,10 @@ async function log(estado: string, detalle: string) {
   try { await sb.from('robot_log').insert([{ fuente: 'sinqro_backfill2', estado, detalle }]); } catch { /* noop */ }
 }
 async function volcar(fuente: string, fecha: string, html: string) {
-  try { await sb.from('robot_debug').insert([{ fuente, fecha, html }]); } catch { /* noop */ }
+  try {
+    const { error } = await sb.from('robot_debug').insert([{ fuente, fecha, html }]);
+    if (error) await log('dump_error', `${fuente} ${fecha}: ${error.message}`);
+  } catch (e: any) { await log('dump_error', `${fuente} ${fecha}: ${String(e?.message || e)}`); }
 }
 function numES(s: string): number {
   const m = (s || '').match(/-?\d[\d.,]*/);
@@ -76,7 +82,7 @@ async function elegirFechaCalendario(page: Page, inputSel: string, fechaISO: str
     const btn = atras ? '.ui-datepicker-prev' : '.ui-datepicker-next';
     const b = dp.locator(btn).first();
     const clase = (await b.getAttribute('class').catch(() => '')) || '';
-    if (clase.includes('ui-state-disabled')) return false; // no hay más histórico
+    if (clase.includes('ui-state-disabled')) return false;
     await b.click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(250);
     if (i === 59) return false;
@@ -89,11 +95,7 @@ async function elegirFechaCalendario(page: Page, inputSel: string, fechaISO: str
   return true;
 }
 
-/**
- * Marca TODOS los tipos de servicio. Sin esto la búsqueda sale siempre vacía.
- * Intenta por id (checkbox), por su label asociado y, si nada funciona, por
- * el texto visible de la opción. Devuelve cuántos quedaron marcados.
- */
+/** Marca TODOS los tipos de servicio. Sin esto la búsqueda sale siempre vacía. */
 async function marcarTodosLosTipos(page: Page): Promise<number> {
   let marcados = 0;
   for (const sel of SINQRO.tipoChecks) {
@@ -113,16 +115,6 @@ async function marcarTodosLosTipos(page: Page): Promise<number> {
     if (await chk.isChecked().catch(() => false)) marcados++;
     await page.waitForTimeout(200);
   }
-  if (!marcados) {
-    // Último recurso: clicar por el texto visible de cada tipo.
-    for (const t of [/a domicilio/i, /para recoger/i, /en el local/i, /reserva simple/i, /pedido desde la mesa/i]) {
-      await page.getByText(t).first().click({ force: true, timeout: 2500 }).catch(() => {});
-      await page.waitForTimeout(200);
-    }
-    for (const sel of SINQRO.tipoChecks) {
-      if (await page.locator(sel).first().isChecked().catch(() => false)) marcados++;
-    }
-  }
   return marcados;
 }
 
@@ -130,7 +122,6 @@ async function leerDia(page: Page, fecha: string): Promise<{ pedidos: number; br
   await page.goto(SINQRO.ventasUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(4000);
 
-  // 1) Fechas (clicando el calendario)
   const okIni = await elegirFechaCalendario(page, SINQRO.startDate, fecha);
   const okFin = await elegirFechaCalendario(page, SINQRO.endDate, fecha);
   if (!okIni || !okFin) {
@@ -139,16 +130,9 @@ async function leerDia(page: Page, fecha: string): Promise<{ pedidos: number; br
     return [];
   }
 
-  // 2) Tipos de servicio (obligatorio: sin esto no sale nada)
   const marcados = await marcarTodosLosTipos(page);
-  if (!marcados) {
-    await log('error', `no pude marcar ningún tipo de servicio en ${fecha}`);
-    await volcar('sinqro2_sin_tipos', fecha, await page.content());
-    return [];
-  }
   await log('info', `fecha=${fecha} tipos_marcados=${marcados}`);
 
-  // 3) Buscar y esperar a que termine la carga
   await page.getByRole('button', { name: /buscar/i }).first().click({ timeout: 5000 }).catch(() => {});
   const sd = page.locator(SINQRO.startDate).first();
   for (let i = 0; i < 40; i++) {
@@ -156,7 +140,7 @@ async function leerDia(page: Page, fecha: string): Promise<{ pedidos: number; br
     if (!cargando) break;
     await page.waitForTimeout(500);
   }
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(2500);
 
   const html = await page.content();
   if (/Oops!\s*Algo ha fallado/i.test(html)) {
@@ -165,28 +149,40 @@ async function leerDia(page: Page, fecha: string): Promise<{ pedidos: number; br
     return [];
   }
 
-  const bloques = page.locator('[ng-repeat*="order in orders"]');
-  const total = await bloques.count().catch(() => 0);
-  if (!total) {
-    await log('vacio', `fecha=${fecha} sin pedidos en pantalla (tipos=${marcados})`);
+  // Las tarjetas de pedido llevan siempre el texto "Pedido #<n>". Ese es el
+  // ancla fiable, independientemente del ng-repeat que use la vista.
+  // Se registran también otros candidatos para diagnóstico.
+  const CANDIDATOS = ['[ng-repeat*="order in orders"]', '[ng-repeat*="order in"]', '.orderClientBox', '.orderAmountBox'];
+  const conteos: string[] = [];
+  for (const c of CANDIDATOS) conteos.push(`${c}=${await page.locator(c).count().catch(() => 0)}`);
+
+  const texto = ((await page.locator('body').innerText().catch(() => '')) || '').replace(/\u00a0/g, ' ');
+  const tarjetas = texto.split(/Pedido\s*#/).slice(1);
+  await log('diag', `fecha=${fecha} tarjetas=${tarjetas.length} ${conteos.join(' ')}`);
+
+  if (!tarjetas.length) {
+    await log('vacio', `fecha=${fecha} tipos=${marcados} pantalla="${texto.replace(/\s+/g, ' ').slice(0, 300)}"`);
     await volcar('sinqro2_vacio', fecha, html);
     return [];
   }
 
+  const dd = fecha.slice(8, 10), mm = fecha.slice(5, 7);
   const acc = new Map<'comida' | 'cena', { pedidos: number; bruto: number }>();
-  for (let i = 0; i < total; i++) {
-    const b = bloques.nth(i);
-    const txt = ((await b.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-    if (!/just\s?eat/i.test(txt)) continue; // dedupe: Glovo/Uber vienen de Rushour
-    const mh = txt.match(/\b(\d{1,2}):(\d{2})\b/);
-    if (!mh) continue;
+  let ignoradas = 0;
+  for (const t of tarjetas) {
+    if (!/just\s?eat/i.test(t)) continue; // Glovo/Uber vienen de Rushour (dedupe)
+    // Hora de entrega del día objetivo: "Entregar el 09/07 a las 21:39h"
+    const mh = t.match(new RegExp(`Entregar el ${dd}/${mm} a las (\\d{1,2}):(\\d{2})`, 'i'))
+      || t.match(/a las (\d{1,2}):(\d{2})h/i);
+    const mEur = t.match(/(\d[\d.,]*)\s*€/);
+    if (!mh || !mEur) { ignoradas++; continue; }
     const hora = parseInt(mh[1], 10);
     const turno: 'comida' | 'cena' = hora < 18 ? 'comida' : 'cena';
-    const importe = numES(((await b.locator('.orderAmountBox').first().textContent().catch(() => '')) || ''));
     const cur = acc.get(turno) || { pedidos: 0, bruto: 0 };
-    cur.pedidos += 1; cur.bruto += importe;
+    cur.pedidos += 1; cur.bruto += numES(mEur[1]);
     acc.set(turno, cur);
   }
+  if (ignoradas) await log('aviso', `fecha=${fecha} tarjetas_JE_sin_hora_o_importe=${ignoradas}`);
   return Array.from(acc.entries()).map(([turno, v]) => ({ turno, pedidos: v.pedidos, bruto: Math.round(v.bruto * 100) / 100 }));
 }
 
