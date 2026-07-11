@@ -14,7 +14,6 @@ interface FilaRevision {
   nombre_archivo: string
   tipo_detectado: string
   empleado_nombre: string | null
-  nif_trabajador: string | null
   storage_path: string | null
   mes: number | null
   anio: number | null
@@ -23,7 +22,7 @@ interface FilaRevision {
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   const { data: filas, error } = await supabaseAdmin
     .from('equipo_docs_revision')
-    .select('id, nombre_archivo, tipo_detectado, empleado_nombre, nif_trabajador, storage_path, mes, anio')
+    .select('id, nombre_archivo, tipo_detectado, empleado_nombre, storage_path, mes, anio')
     .eq('estado', 'pendiente')
     .not('storage_path', 'is', null)
 
@@ -44,7 +43,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     let resultado: { status: number; body: Record<string, unknown> }
 
     if (fila.tipo_detectado === 'nomina') {
-      const resolucion = resolverEmpleado(fila.empleado_nombre, fila.nif_trabajador, candidatos)
+      const resolucion = resolverEmpleado(fila.empleado_nombre, null, candidatos)
       if (!resolucion) {
         resultados.push({ id: fila.id, ok: false, error: `Empleado no resuelto: "${fila.empleado_nombre}"` })
         continue

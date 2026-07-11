@@ -18,7 +18,7 @@ async function descargarDeStorage(storagePath: string): Promise<Buffer | null> {
 
 const { data: filas, error } = await supabase
   .from('equipo_docs_revision')
-  .select('id, nombre_archivo, tipo_detectado, empleado_nombre, nif_trabajador, storage_path, mes, anio')
+  .select('id, nombre_archivo, tipo_detectado, empleado_nombre, storage_path, mes, anio')
   .eq('estado', 'pendiente')
   .not('storage_path', 'is', null)
 
@@ -39,7 +39,7 @@ for (const fila of filas) {
   let resultado: { status: number; body: Record<string, unknown> }
 
   if (fila.tipo_detectado === 'nomina') {
-    const resolucion = resolverEmpleado(fila.empleado_nombre, fila.nif_trabajador, candidatos)
+    const resolucion = resolverEmpleado(fila.empleado_nombre, null, candidatos)
     if (!resolucion) {
       console.log(`[${fila.id}] ERROR: empleado no resuelto: "${fila.empleado_nombre}"`)
       continue
