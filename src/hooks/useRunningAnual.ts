@@ -1,1 +1,277 @@
-aW1wb3J0IHsgdXNlU3RhdGUsIHVzZUVmZmVjdCB9IGZyb20gJ3JlYWN0JwppbXBvcnQgeyBzdXBhYmFzZSB9IGZyb20gJ0AvbGliL3N1cGFiYXNlJwppbXBvcnQgeyBsb2FkQ29uZmlnQ2FuYWxlcywgbG9hZE1hcmNhc1BvckNhbmFsLCB0eXBlIENhbmFsQ29uZmlnLCB0eXBlIE1hcmNhc1BvckNhbmFsIH0gZnJvbSAnQC9saWIvcGFuZWwvY2FsY05ldG9QbGF0YWZvcm1hJwppbXBvcnQgeyByZXNvbHZlck5ldG8sIGxvYWRWZW50YXNSZWFsZXMsIGxvYWRSYXRpb3NDYWxpYnJhZG9zIH0gZnJvbSAnQC9saWIvcGFuZWwvbmV0b1Jlc29sdmVyJwoKZXhwb3J0IGludGVyZmFjZSBSdW5uaW5nQW51YWxEYXRhIHsKICBpbmdyZXNvczogUmVjb3JkPHN0cmluZywgUmVjb3JkPG51bWJlciwgbnVtYmVyPj4KICBnYXN0b3M6IFJlY29yZDxzdHJpbmcsIFJlY29yZDxudW1iZXIsIG51bWJlcj4+CiAgZ2FzdG9zRXN0aW1hZG9zOiBSZWNvcmQ8c3RyaW5nLCBSZWNvcmQ8bnVtYmVyLCBib29sZWFuPj4KICBmYWN0dXJhY2lvbkZ1dHVyYTogUmVjb3JkPG51bWJlciwgeyBpbXBvcnRlOiBudW1iZXI7IG9yaWdlbjogJ29iamV0aXZvJ3wnYW55b19hbnRlcmlvcid8J21lc19hbnRlcmlvcicgfT4KICBicnV0b3M6IFJlY29yZDxudW1iZXIsIHsgdWJlcjpudW1iZXI7IGdsb3ZvOm51bWJlcjsgamU6bnVtYmVyOyB3ZWI6bnVtYmVyOyBkaXJlY3RhOm51bWJlcjsgdG90YWw6bnVtYmVyOyBwZWRpZG9zOm51bWJlciB9PgogIHBlZGlkb3NDYW5hbDogUmVjb3JkPG51bWJlciwgeyB1YmVyOm51bWJlcjsgZ2xvdm86bnVtYmVyOyBqZTpudW1iZXI7IHdlYjpudW1iZXI7IGRpcmVjdGE6bnVtYmVyIH0+CiAgYWRzUGxhdGFmb3JtYTogUmVjb3JkPG51bWJlciwgeyB1YmVyOm51bWJlcjsgZ2xvdm86bnVtYmVyOyBqZTpudW1iZXIgfT4KICBkaWFzT3A6IFJlY29yZDxudW1iZXIsIG51bWJlcj4KICBjYXRlZ29yaWFzOiB7IGlkOnN0cmluZzsgbm9tYnJlOnN0cmluZzsgcGFyZW50X2lkOnN0cmluZ3xudWxsOyBuaXZlbDpudW1iZXI7IGJsb3F1ZTpzdHJpbmc7IG9yZGVuOm51bWJlciB9W10KICBiZW5jaG1hcmtzOiB7IGNhdGVnb3JpYTpzdHJpbmc7IHBjdF9taW46bnVtYmVyOyBwY3RfbWF4Om51bWJlciB9W10KICBjb21pc2lvbmVzOiBSZWNvcmQ8c3RyaW5nLCBudW1iZXI+CiAgZmVlc0Zpam9zOiBSZWNvcmQ8c3RyaW5nLCB7IGZpam9FdXI6bnVtYmVyOyBmZWVQZXJpb2RvRXVyOm51bWJlcjsgZmVlUGVyaW9kaWNpZGFkOnN0cmluZyB9PgogIGNvbmZpZ0NhbmFsZXM6IFJlY29yZDxzdHJpbmcsIENhbmFsQ29uZmlnPgogIG1hcmNhc0FjdGl2YXM6IE1hcmNhc1BvckNhbmFsCiAgb2JqZXRpdm9zTWVuc3VhbGVzOiBSZWNvcmQ8bnVtYmVyLCBudW1iZXI+CiAgbG9hZGluZzogYm9vbGVhbgp9CgovLyBMYXMgY2F0ZWdvcsOtYXMgZXN0aW1hYmxlcyAoZ2FzdG9zIGZpam9zIHF1ZSBzZSByZXBpdGVuIG1lcyBhIG1lcykgWUEgTk8gc2UgZXNjcmliZW4gYXF1w60uCi8vIFNlIGxlZW4gZGUgY2F0ZWdvcmlhc19weWcuZXN0aW1hYmxlLCBxdWUgZXMgbGEgw7puaWNhIGZ1ZW50ZSBkZSB2ZXJkYWQgeSBzZSBlZGl0YQovLyBkZXNkZSBDb25maWd1cmFjacOzbi4gQW50ZXMgaGFiw61hIHVuYSBsaXN0YSBhIGZ1ZWdvIHF1ZSBzZSBkZXNpbmNyb25pemFiYSBjb24gbGEgQkQuCgpleHBvcnQgZnVuY3Rpb24gdXNlUnVubmluZ0FudWFsKGHDsW86IG51bWJlciwgdGl0dWxhcklkOiBzdHJpbmd8bnVsbCk6IFJ1bm5pbmdBbnVhbERhdGEgewogIGNvbnN0IFtpbmdyZXNvcywgc2V0SW5ncmVzb3NdID0gdXNlU3RhdGU8UmVjb3JkPHN0cmluZywgUmVjb3JkPG51bWJlciwgbnVtYmVyPj4+KHt9KQogIGNvbnN0IFtnYXN0b3MsIHNldEdhc3Rvc10gPSB1c2VTdGF0ZTxSZWNvcmQ8c3RyaW5nLCBSZWNvcmQ8bnVtYmVyLCBudW1iZXI+Pj4oe30pCiAgY29uc3QgW2dhc3Rvc0VzdGltYWRvcywgc2V0R2FzdG9zRXN0aW1hZG9zXSA9IHVzZVN0YXRlPFJlY29yZDxzdHJpbmcsIFJlY29yZDxudW1iZXIsIGJvb2xlYW4+Pj4oe30pCiAgY29uc3QgW2ZhY3R1cmFjaW9uRnV0dXJhLCBzZXRGYWN0dXJhY2lvbkZ1dHVyYV0gPSB1c2VTdGF0ZTxSdW5uaW5nQW51YWxEYXRhWydmYWN0dXJhY2lvbkZ1dHVyYSddPih7fSkKICBjb25zdCBbYnJ1dG9zLCBzZXRCcnV0b3NdID0gdXNlU3RhdGU8UnVubmluZ0FudWFsRGF0YVsnYnJ1dG9zJ10+KHt9KQogIGNvbnN0IFtwZWRpZG9zQ2FuYWwsIHNldFBlZGlkb3NDYW5hbF0gPSB1c2VTdGF0ZTxSdW5uaW5nQW51YWxEYXRhWydwZWRpZG9zQ2FuYWwnXT4oe30pCiAgY29uc3QgW2Fkc1BsYXRhZm9ybWEsIHNldEFkc1BsYXRhZm9ybWFdID0gdXNlU3RhdGU8UnVubmluZ0FudWFsRGF0YVsnYWRzUGxhdGFmb3JtYSddPih7fSkKICBjb25zdCBbZGlhc09wLCBzZXREaWFzT3BdID0gdXNlU3RhdGU8UmVjb3JkPG51bWJlciwgbnVtYmVyPj4oe30pCiAgY29uc3QgW2NhdGVnb3JpYXMsIHNldENhdGVnb3JpYXNdID0gdXNlU3RhdGU8UnVubmluZ0FudWFsRGF0YVsnY2F0ZWdvcmlhcyddPihbXSkKICBjb25zdCBbYmVuY2htYXJrcywgc2V0QmVuY2htYXJrc10gPSB1c2VTdGF0ZTxSdW5uaW5nQW51YWxEYXRhWydiZW5jaG1hcmtzJ10+KFtdKQogIGNvbnN0IFtjb21pc2lvbmVzLCBzZXRDb21pc2lvbmVzXSA9IHVzZVN0YXRlPFJlY29yZDxzdHJpbmcsIG51bWJlcj4+KHt9KQogIGNvbnN0IFtmZWVzRmlqb3MsIHNldEZlZXNGaWpvc10gPSB1c2VTdGF0ZTxSdW5uaW5nQW51YWxEYXRhWydmZWVzRmlqb3MnXT4oe30pCiAgY29uc3QgW2NvbmZpZ0NhbmFsZXMsIHNldENvbmZpZ0NhbmFsZXNdID0gdXNlU3RhdGU8UmVjb3JkPHN0cmluZywgQ2FuYWxDb25maWc+Pih7fSkKICBjb25zdCBbbWFyY2FzQWN0aXZhcywgc2V0TWFyY2FzQWN0aXZhc10gPSB1c2VTdGF0ZTxNYXJjYXNQb3JDYW5hbD4oeyB1YmVyOiAxLCBnbG92bzogMSwgamU6IDEsIHdlYjogMSwgZGlyOiAxIH0pCiAgY29uc3QgW29iamV0aXZvc01lbnN1YWxlcywgc2V0T2JqZXRpdm9zTWVuc3VhbGVzXSA9IHVzZVN0YXRlPFJlY29yZDxudW1iZXIsIG51bWJlcj4+KHt9KQogIGNvbnN0IFtsb2FkaW5nLCBzZXRMb2FkaW5nXSA9IHVzZVN0YXRlKHRydWUpCiAgY29uc3QgW3RpY2ssIHNldFRpY2tdID0gdXNlU3RhdGUoMCkKCiAgdXNlRWZmZWN0KCgpID0+IHsKICAgIGxldCBjYW5jZWxsZWQgPSBmYWxzZQogICAgYXN5bmMgZnVuY3Rpb24gbG9hZCgpIHsKICAgICAgc2V0TG9hZGluZyh0cnVlKQoKICAgICAgY29uc3QgaW5nTWFwOiBSZWNvcmQ8c3RyaW5nLCBSZWNvcmQ8bnVtYmVyLCBudW1iZXI+PiA9IHt9CiAgICAgIGNvbnN0IGdhc01hcDogUmVjb3JkPHN0cmluZywgUmVjb3JkPG51bWJlciwgbnVtYmVyPj4gPSB7fQoKICAgICAgaWYgKCF0aXR1bGFySWQpIHsKICAgICAgICBjb25zdCB7IGRhdGE6IGRWaWV3IH0gPSBhd2FpdCBzdXBhYmFzZS5mcm9tKCd2X3J1bm5pbmdfbWVuc3VhbCcpLnNlbGVjdCgnbWVzLGNvZGlnbyx0aXBvLHRvdGFsJykuZXEoJ2HDsW8nLCBhw7FvKQogICAgICAgIDsoZFZpZXcgfHwgW10pLmZvckVhY2goKHI6IGFueSkgPT4gewogICAgICAgICAgY29uc3QgbWFwID0gci50aXBvID09PSAnaW5ncmVzbycgPyBpbmdNYXAgOiBnYXNNYXAKICAgICAgICAgIGlmICghbWFwW3IuY29kaWdvXSkgbWFwW3IuY29kaWdvXSA9IHt9CiAgICAgICAgICBtYXBbci5jb2RpZ29dW3IubWVzXSA9IChtYXBbci5jb2RpZ29dW3IubWVzXSB8fCAwKSArIE51bWJlcihyLnRvdGFsIHx8IDApCiAgICAgICAgfSkKICAgICAgfSBlbHNlIHsKICAgICAgICBsZXQgcUluZyA9IHN1cGFiYXNlLmZyb20oJ2NvbmNpbGlhY2lvbicpLnNlbGVjdCgnZmVjaGEsY2F0ZWdvcmlhLGltcG9ydGUnKS5lcSgndGlwbycsJ2luZ3Jlc28nKS5saWtlKCdjYXRlZ29yaWEnLCcxLiUnKS5ndGUoJ2ZlY2hhJyxgJHthw7FvfS0wMS0wMWApLmx0ZSgnZmVjaGEnLGAke2HDsW99LTEyLTMxYCkKICAgICAgICBxSW5nID0gcUluZy5lcSgndGl0dWxhcl9pZCcsIHRpdHVsYXJJZCkKICAgICAgICBjb25zdCB7IGRhdGE6IGRJbmcgfSA9IGF3YWl0IHFJbmcKICAgICAgICA7KGRJbmcgfHwgW10pLmZvckVhY2goKHI6IGFueSkgPT4geyBjb25zdCBtZXMgPSBuZXcgRGF0ZShyLmZlY2hhKS5nZXRNb250aCgpKzE7IGNvbnN0IGNhdCA9IHIuY2F0ZWdvcmlhOyBpZiAoIWluZ01hcFtjYXRdKSBpbmdNYXBbY2F0XSA9IHt9OyBpbmdNYXBbY2F0XVttZXNdID0gKGluZ01hcFtjYXRdW21lc118fDApICsgTnVtYmVyKHIuaW1wb3J0ZXx8MCkgfSkKCiAgICAgICAgbGV0IHFHYXMgPSBzdXBhYmFzZS5mcm9tKCdnYXN0b3MnKS5zZWxlY3QoJ2ZlY2hhLGNhdGVnb3JpYV9jb2RpZ28sYmFzZV9pbXBvbmlibGUnKS5ndGUoJ2ZlY2hhJyxgJHthw7FvfS0wMS0wMWApLmx0ZSgnZmVjaGEnLGAke2HDsW99LTEyLTMxYCkKICAgICAgICBxR2FzID0gcUdhcy5lcSgndGl0dWxhcl9pZCcsIHRpdHVsYXJJZCkKICAgICAgICBjb25zdCB7IGRhdGE6IGRHYXMgfSA9IGF3YWl0IHFHYXMKICAgICAgICA7KGRHYXMgfHwgW10pLmZvckVhY2goKHI6IGFueSkgPT4geyBjb25zdCBtZXMgPSBuZXcgRGF0ZShyLmZlY2hhKS5nZXRNb250aCgpKzE7IGNvbnN0IGNhdCA9IHIuY2F0ZWdvcmlhX2NvZGlnbzsgaWYgKCFnYXNNYXBbY2F0XSkgZ2FzTWFwW2NhdF0gPSB7fTsgZ2FzTWFwW2NhdF1bbWVzXSA9IChnYXNNYXBbY2F0XVttZXNdfHwwKSArIE1hdGguYWJzKE51bWJlcihyLmJhc2VfaW1wb25pYmxlfHwwKSkgfSkKICAgICAgfQoKICAgICAgY29uc3QgeyBkYXRhOiBkQ2F0IH0gPSBhd2FpdCBzdXBhYmFzZS5mcm9tKCdjYXRlZ29yaWFzX3B5ZycpLnNlbGVjdCgnaWQsbm9tYnJlLHBhcmVudF9pZCxuaXZlbCxibG9xdWUsb3JkZW4sZXN0aW1hYmxlJykuZXEoJ2FjdGl2YScsdHJ1ZSkub3JkZXIoJ29yZGVuJykKICAgICAgY29uc3QgY2F0cyA9IGRDYXQgfHwgW10KCiAgICAgIC8vID09PSBHQVNUT1MgRklKT1MgRVNUSU1BQkxFUyAobGXDrWRvcyBkZSBsYSBjb25maWd1cmFjacOzbiwgbm8gZXNjcml0b3MgYSBtYW5vKSA9PT0KICAgICAgY29uc3QgY2F0ZWdvcmlhc0VzdGltYWJsZXM6IHN0cmluZ1tdID0gY2F0cy5maWx0ZXIoKGM6IGFueSkgPT4gYy5lc3RpbWFibGUpLm1hcCgoYzogYW55KSA9PiBjLmlkIGFzIHN0cmluZykKICAgICAgY29uc3QgZ2FzRXN0TWFwOiBSZWNvcmQ8c3RyaW5nLCBSZWNvcmQ8bnVtYmVyLCBib29sZWFuPj4gPSB7fQogICAgICBmb3IgKGNvbnN0IGNhdCBvZiBjYXRlZ29yaWFzRXN0aW1hYmxlcykgewogICAgICAgIGlmICghZ2FzTWFwW2NhdF0pIGdhc01hcFtjYXRdID0ge30KICAgICAgICBpZiAoIWdhc0VzdE1hcFtjYXRdKSBnYXNFc3RNYXBbY2F0XSA9IHt9CiAgICAgICAgLy8gRm9yd2FyZCBmaWxsOiByZXBsaWNhciDDumx0aW1vIGltcG9ydGUgcmVhbCBoYWNpYSBkZWxhbnRlCiAgICAgICAgbGV0IHVsdGltb0ltcG9ydGUgPSAwCiAgICAgICAgZm9yIChsZXQgbWVzID0gMTsgbWVzIDw9IDEyOyBtZXMrKykgewogICAgICAgICAgY29uc3QgdmFsb3JSZWFsID0gZ2FzTWFwW2NhdF1bbWVzXSB8fCAwCiAgICAgICAgICBpZiAodmFsb3JSZWFsID4gMCkgewogICAgICAgICAgICB1bHRpbW9JbXBvcnRlID0gdmFsb3JSZWFsCiAgICAgICAgICB9IGVsc2UgaWYgKHVsdGltb0ltcG9ydGUgPiAwKSB7CiAgICAgICAgICAgIGdhc01hcFtjYXRdW21lc10gPSB1bHRpbW9JbXBvcnRlCiAgICAgICAgICAgIGdhc0VzdE1hcFtjYXRdW21lc10gPSB0cnVlCiAgICAgICAgICB9CiAgICAgICAgfQogICAgICAgIC8vIEJhY2t3YXJkIGZpbGw6IHNpIGxvcyBwcmltZXJvcyBtZXNlcyBlc3TDoW4gdmFjw61vcywgcmVwbGljYXIgZWwgcHJpbWVyIGltcG9ydGUgcmVhbAogICAgICAgIGxldCBwcmltZXJJbXBvcnRlID0gMAogICAgICAgIGZvciAobGV0IG1lcyA9IDE7IG1lcyA8PSAxMjsgbWVzKyspIHsKICAgICAgICAgIGlmIChnYXNNYXBbY2F0XVttZXNdICYmIGdhc01hcFtjYXRdW21lc10gPiAwICYmICFnYXNFc3RNYXBbY2F0XVttZXNdKSB7CiAgICAgICAgICAgIHByaW1lckltcG9ydGUgPSBnYXNNYXBbY2F0XVttZXNdCiAgICAgICAgICAgIGJyZWFrCiAgICAgICAgICB9CiAgICAgICAgfQogICAgICAgIGlmIChwcmltZXJJbXBvcnRlID4gMCkgewogICAgICAgICAgZm9yIChsZXQgbWVzID0gMTsgbWVzIDw9IDEyOyBtZXMrKykgewogICAgICAgICAgICBpZiAoIWdhc01hcFtjYXRdW21lc10gfHwgZ2FzTWFwW2NhdF1bbWVzXSA9PT0gMCkgewogICAgICAgICAgICAgIGdhc01hcFtjYXRdW21lc10gPSBwcmltZXJJbXBvcnRlCiAgICAgICAgICAgICAgZ2FzRXN0TWFwW2NhdF1bbWVzXSA9IHRydWUKICAgICAgICAgICAgfQogICAgICAgICAgfQogICAgICAgIH0KICAgICAgfQoKICAgICAgbGV0IHFCcnV0ID0gc3VwYWJhc2UuZnJvbSgnZmFjdHVyYWNpb25fZGlhcmlvJykuc2VsZWN0KCdmZWNoYSx1YmVyX2JydXRvLGdsb3ZvX2JydXRvLGplX2JydXRvLHdlYl9icnV0byxkaXJlY3RhX2JydXRvLHRvdGFsX2JydXRvLHRvdGFsX3BlZGlkb3MsdWJlcl9wZWRpZG9zLGdsb3ZvX3BlZGlkb3MsamVfcGVkaWRvcyx3ZWJfcGVkaWRvcyxkaXJlY3RhX3BlZGlkb3MnKS5ndGUoJ2ZlY2hhJyxgJHthw7FvfS0wMS0wMWApLmx0ZSgnZmVjaGEnLGAke2HDsW99LTEyLTMxYCkKICAgICAgaWYgKHRpdHVsYXJJZCkgcUJydXQgPSBxQnJ1dC5lcSgndGl0dWxhcl9pZCcsIHRpdHVsYXJJZCkKICAgICAgY29uc3QgeyBkYXRhOiBkQnJ1dCB9ID0gYXdhaXQgcUJydXQKICAgICAgY29uc3QgYnJ1dE1hcDogUnVubmluZ0FudWFsRGF0YVsnYnJ1dG9zJ10gPSB7fQogICAgICBjb25zdCBwZWRNYXA6IFJ1bm5pbmdBbnVhbERhdGFbJ3BlZGlkb3NDYW5hbCddID0ge30KICAgICAgY29uc3QgZGlhc01hcDogUmVjb3JkPG51bWJlciwgU2V0PHN0cmluZz4+ID0ge30KICAgICAgOyhkQnJ1dCB8fCBbXSkuZm9yRWFjaCgocjogYW55KSA9PiB7CiAgICAgICAgY29uc3QgbWVzID0gbmV3IERhdGUoci5mZWNoYSkuZ2V0TW9udGgoKSsxCiAgICAgICAgaWYgKCFicnV0TWFwW21lc10pIGJydXRNYXBbbWVzXT17dWJlcjowLGdsb3ZvOjAsamU6MCx3ZWI6MCxkaXJlY3RhOjAsdG90YWw6MCxwZWRpZG9zOjB9CiAgICAgICAgaWYgKCFwZWRNYXBbbWVzXSkgcGVkTWFwW21lc109e3ViZXI6MCxnbG92bzowLGplOjAsd2ViOjAsZGlyZWN0YTowfQogICAgICAgIGJydXRNYXBbbWVzXS51YmVyKz1OdW1iZXIoci51YmVyX2JydXRvfHwwKTsgYnJ1dE1hcFttZXNdLmdsb3ZvKz1OdW1iZXIoci5nbG92b19icnV0b3x8MCk7IGJydXRNYXBbbWVzXS5qZSs9TnVtYmVyKHIuamVfYnJ1dG98fDApOyBicnV0TWFwW21lc10ud2ViKz1OdW1iZXIoci53ZWJfYnJ1dG98fDApOyBicnV0TWFwW21lc10uZGlyZWN0YSs9TnVtYmVyKHIuZGlyZWN0YV9icnV0b3x8MCk7IGJydXRNYXBbbWVzXS50b3RhbCs9TnVtYmVyKHIudG90YWxfYnJ1dG98fDApOyBicnV0TWFwW21lc10ucGVkaWRvcys9TnVtYmVyKHIudG90YWxfcGVkaWRvc3x8MCkKICAgICAgICBwZWRNYXBbbWVzXS51YmVyKz1OdW1iZXIoci51YmVyX3BlZGlkb3N8fDApOyBwZWRNYXBbbWVzXS5nbG92bys9TnVtYmVyKHIuZ2xvdm9fcGVkaWRvc3x8MCk7IHBlZE1hcFttZXNdLmplKz1OdW1iZXIoci5qZV9wZWRpZG9zfHwwKTsgcGVkTWFwW21lc10ud2ViKz1OdW1iZXIoci53ZWJfcGVkaWRvc3x8MCk7IHBlZE1hcFttZXNdLmRpcmVjdGErPU51bWJlcihyLmRpcmVjdGFfcGVkaWRvc3x8MCkKICAgICAgICBpZiAoIWRpYXNNYXBbbWVzXSkgZGlhc01hcFttZXNdID0gbmV3IFNldCgpCiAgICAgICAgZGlhc01hcFttZXNdLmFkZChyLmZlY2hhKQogICAgICB9KQogICAgICBjb25zdCBkT3A6IFJlY29yZDxudW1iZXIsIG51bWJlcj4gPSB7fQogICAgICBmb3IgKGNvbnN0IFttLCBzXSBvZiBPYmplY3QuZW50cmllcyhkaWFzTWFwKSkgZE9wW051bWJlcihtKV0gPSBzLnNpemUKCiAgICAgIC8vIEFkcyBkZSBwbGF0YWZvcm1hIChpbmZvcm1hdGl2bywgTk8gY29tcHV0YSBlbiBQJkwpIGRlc2RlIHZlbnRhc19wbGF0YWZvcm1hCiAgICAgIGNvbnN0IHsgZGF0YTogZEFkcyB9ID0gYXdhaXQgc3VwYWJhc2UKICAgICAgICAuZnJvbSgndmVudGFzX3BsYXRhZm9ybWEnKQogICAgICAgIC5zZWxlY3QoJ3BsYXRhZm9ybWEsYWRzX2V1cixmZWNoYV9pbmljaW9fcGVyaW9kbycpCiAgICAgICAgLmd0ZSgnZmVjaGFfaW5pY2lvX3BlcmlvZG8nLCBgJHthw7FvfS0wMS0wMWApLmx0ZSgnZmVjaGFfaW5pY2lvX3BlcmlvZG8nLCBgJHthw7FvfS0xMi0zMWApCiAgICAgIGNvbnN0IGFkc01hcDogUnVubmluZ0FudWFsRGF0YVsnYWRzUGxhdGFmb3JtYSddID0ge30KICAgICAgOyhkQWRzIHx8IFtdKS5mb3JFYWNoKChyOiBhbnkpID0+IHsKICAgICAgICBpZiAoIXIuZmVjaGFfaW5pY2lvX3BlcmlvZG8pIHJldHVybgogICAgICAgIGNvbnN0IG1lcyA9IG5ldyBEYXRlKHIuZmVjaGFfaW5pY2lvX3BlcmlvZG8pLmdldE1vbnRoKCkgKyAxCiAgICAgICAgaWYgKCFhZHNNYXBbbWVzXSkgYWRzTWFwW21lc10gPSB7IHViZXI6IDAsIGdsb3ZvOiAwLCBqZTogMCB9CiAgICAgICAgY29uc3QgdiA9IE1hdGguYWJzKE51bWJlcihyLmFkc19ldXIgfHwgMCkpCiAgICAgICAgY29uc3QgcCA9IChyLnBsYXRhZm9ybWEgfHwgJycpLnRvTG93ZXJDYXNlKCkKICAgICAgICBpZiAocCA9PT0gJ3ViZXInKSBhZHNNYXBbbWVzXS51YmVyICs9IHYKICAgICAgICBlbHNlIGlmIChwID09PSAnZ2xvdm8nKSBhZHNNYXBbbWVzXS5nbG92byArPSB2CiAgICAgICAgZWxzZSBpZiAocCA9PT0gJ2plJyB8fCBwID09PSAnanVzdF9lYXQnKSBhZHNNYXBbbWVzXS5qZSArPSB2CiAgICAgIH0pCgogICAgICBjb25zdCBtZXNBY3R1YWwgPSBuZXcgRGF0ZSgpLmdldE1vbnRoKCkgKyAxCiAgICAgIGNvbnN0IGFuaW9BY3R1YWwgPSBuZXcgRGF0ZSgpLmdldEZ1bGxZZWFyKCkKICAgICAgY29uc3QgeyBkYXRhOiBkRGlhcyB9ID0gYXdhaXQgc3VwYWJhc2UuZnJvbSgnb2JqZXRpdm9zX2RpYV9zZW1hbmEnKS5zZWxlY3QoJ2RpYSxpbXBvcnRlJykub3JkZXIoJ2RpYScpCiAgICAgIGNvbnN0IHsgZGF0YTogZE9iakdlbiB9ID0gYXdhaXQgc3VwYWJhc2UuZnJvbSgnb2JqZXRpdm9zJykuc2VsZWN0KCd0aXBvLGltcG9ydGUnKS5pbigndGlwbycsIFsnc2VtYW5hbCcsJ21lbnN1YWwnLCdhbnVhbCddKQogICAgICBjb25zdCBzdW1hU2VtYW5hbCA9IChkRGlhcyB8fCBbXSkucmVkdWNlKChhOm51bWJlciwgcjphbnkpID0+IGEgKyBOdW1iZXIoci5pbXBvcnRlIHx8IDApLCAwKQogICAgICBjb25zdCBvYmpTZW1hbmFsTWFudWFsID0gTnVtYmVyKChkT2JqR2VuIHx8IFtdKS5maW5kKChyOmFueSkgPT4gci50aXBvID09PSAnc2VtYW5hbCcpPy5pbXBvcnRlIHx8IDApCiAgICAgIGNvbnN0IG9iak1lbnN1YWxNYW51YWwgPSBOdW1iZXIoKGRPYmpHZW4gfHwgW10pLmZpbmQoKHI6YW55KSA9PiByLnRpcG8gPT09ICdtZW5zdWFsJyk/LmltcG9ydGUgfHwgMCkKICAgICAgY29uc3Qgc2VtYW5hbEVmZWN0aXZvID0gb2JqU2VtYW5hbE1hbnVhbCA+IDAgPyBvYmpTZW1hbmFsTWFudWFsIDogc3VtYVNlbWFuYWwKICAgICAgY29uc3Qgb2JqTWVzTWFwOiBSZWNvcmQ8bnVtYmVyLCBudW1iZXI+ID0ge30KICAgICAgZm9yIChsZXQgbSA9IDE7IG0gPD0gMTI7IG0rKykgewogICAgICAgIGNvbnN0IGRpYXNNZXMgPSBuZXcgRGF0ZShhw7FvLCBtLCAwKS5nZXREYXRlKCkKICAgICAgICBjb25zdCBjYWxjID0gc2VtYW5hbEVmZWN0aXZvID4gMCA/IE1hdGgucm91bmQoKHNlbWFuYWxFZmVjdGl2byAvIDcpICogZGlhc01lcykgOiAwCiAgICAgICAgb2JqTWVzTWFwW21dID0gKG9iak1lbnN1YWxNYW51YWwgPiAwICYmIG0gPT09IG1lc0FjdHVhbCAmJiBhw7FvID09PSBhbmlvQWN0dWFsKSA/IG9iak1lbnN1YWxNYW51YWwgOiBjYWxjCiAgICAgIH0KCiAgICAgIGNvbnN0IGZhY0Z1dE1hcDogUnVubmluZ0FudWFsRGF0YVsnZmFjdHVyYWNpb25GdXR1cmEnXSA9IHt9CiAgICAgIGxldCBxQnJ1dFByZXYgPSBzdXBhYmFzZS5mcm9tKCdmYWN0dXJhY2lvbl9kaWFyaW8nKS5zZWxlY3QoJ2ZlY2hhLHRvdGFsX2JydXRvJykuZ3RlKCdmZWNoYScsYCR7YcOxby0xfS0wMS0wMWApLmx0ZSgnZmVjaGEnLGAke2HDsW8tMX0tMTItMzFgKQogICAgICBpZiAodGl0dWxhcklkKSBxQnJ1dFByZXYgPSBxQnJ1dFByZXYuZXEoJ3RpdHVsYXJfaWQnLCB0aXR1bGFySWQpCiAgICAgIGNvbnN0IHsgZGF0YTogZEJydXRQcmV2IH0gPSBhd2FpdCBxQnJ1dFByZXYKICAgICAgY29uc3QgYnJ1dFByZXZNYXA6IFJlY29yZDxudW1iZXIsIG51bWJlcj4gPSB7fQogICAgICA7KGRCcnV0UHJldiB8fCBbXSkuZm9yRWFjaCgocjogYW55KSA9PiB7IGNvbnN0IG1lcyA9IG5ldyBEYXRlKHIuZmVjaGEpLmdldE1vbnRoKCkrMTsgYnJ1dFByZXZNYXBbbWVzXSA9IChicnV0UHJldk1hcFttZXNdfHwwKSArIE51bWJlcihyLnRvdGFsX2JydXRvfHwwKSB9KQogICAgICBmb3IgKGxldCBtZXMgPSAxOyBtZXMgPD0gMTI7IG1lcysrKSB7CiAgICAgICAgY29uc3QgYnJ1dG9SZWFsID0gYnJ1dE1hcFttZXNdPy50b3RhbCB8fCAwCiAgICAgICAgY29uc3QgZXNGdXR1cm8gPSBhw7FvID4gYW5pb0FjdHVhbCB8fCAoYcOxbyA9PT0gYW5pb0FjdHVhbCAmJiBtZXMgPiBtZXNBY3R1YWwpCiAgICAgICAgaWYgKGJydXRvUmVhbCA9PT0gMCAmJiBlc0Z1dHVybykgewogICAgICAgICAgaWYgKG9iak1lc01hcFttZXNdICYmIG9iak1lc01hcFttZXNdID4gMCkgewogICAgICAgICAgICBmYWNGdXRNYXBbbWVzXSA9IHsgaW1wb3J0ZTogb2JqTWVzTWFwW21lc10sIG9yaWdlbjogJ29iamV0aXZvJyB9CiAgICAgICAgICB9IGVsc2UgaWYgKGJydXRQcmV2TWFwW21lc10gJiYgYnJ1dFByZXZNYXBbbWVzXSA+IDApIHsKICAgICAgICAgICAgZmFjRnV0TWFwW21lc10gPSB7IGltcG9ydGU6IGJydXRQcmV2TWFwW21lc10sIG9yaWdlbjogJ2FueW9fYW50ZXJpb3InIH0KICAgICAgICAgIH0gZWxzZSB7CiAgICAgICAgICAgIGZvciAobGV0IG1QcmV2ID0gbWVzIC0gMTsgbVByZXYgPj0gMTsgbVByZXYtLSkgewogICAgICAgICAgICAgIGNvbnN0IHByZXZSZWFsID0gYnJ1dE1hcFttUHJldl0/LnRvdGFsIHx8IDAKICAgICAgICAgICAgICBjb25zdCBwcmV2RXN0ID0gZmFjRnV0TWFwW21QcmV2XT8uaW1wb3J0ZSB8fCAwCiAgICAgICAgICAgICAgY29uc3QgcHJldlZhbG9yID0gcHJldlJlYWwgfHwgcHJldkVzdAogICAgICAgICAgICAgIGlmIChwcmV2VmFsb3IgPiAwKSB7CiAgICAgICAgICAgICAgICBmYWNGdXRNYXBbbWVzXSA9IHsgaW1wb3J0ZTogcHJldlZhbG9yLCBvcmlnZW46ICdtZXNfYW50ZXJpb3InIH0KICAgICAgICAgICAgICAgIGJyZWFrCiAgICAgICAgICAgICAgfQogICAgICAgICAgICB9CiAgICAgICAgICB9CiAgICAgICAgfQogICAgICB9CgogICAgICBjb25zdCB7IGRhdGE6IGRCZW5jaCB9ID0gYXdhaXQgc3VwYWJhc2UuZnJvbSgnY2F0ZWdvcmlhc19yYW5nbycpLnNlbGVjdCgnY2F0ZWdvcmlhLHBjdF9taW4scGN0X21heCcpCiAgICAgIGNvbnN0IGNmZyA9IGF3YWl0IGxvYWRDb25maWdDYW5hbGVzKCkKICAgICAgYXdhaXQgbG9hZFZlbnRhc1JlYWxlcygpOyBhd2FpdCBsb2FkUmF0aW9zQ2FsaWJyYWRvcygpCiAgICAgIGNvbnN0IG1hcmNhc01hcCA9IGF3YWl0IGxvYWRNYXJjYXNQb3JDYW5hbCgpCgogICAgICBjb25zdCBDQU5BTF9CQkREX1RPX0tFWTogUmVjb3JkPHN0cmluZywgc3RyaW5nPiA9IHsKICAgICAgICAnVWJlciBFYXRzJzogJ3ViZXInLCAnR2xvdm8nOiAnZ2xvdm8nLCAnSnVzdCBFYXQnOiAnamUnLCAnV2ViIFByb3BpYSc6ICd3ZWInLCAnVmVudGEgRGlyZWN0YSc6ICdkaXJlY3RhJywKICAgICAgfQogICAgICBjb25zdCBjb21NYXA6IFJlY29yZDxzdHJpbmcsIG51bWJlcj4gPSB7fQogICAgICBjb25zdCBmZWVzTWFwOiBSdW5uaW5nQW51YWxEYXRhWydmZWVzRmlqb3MnXSA9IHt9CiAgICAgIGZvciAoY29uc3QgW2NhbmFsLCBjXSBvZiBPYmplY3QuZW50cmllcyhjZmcpKSB7CiAgICAgICAgY29uc3Qga2V5ID0gQ0FOQUxfQkJERF9UT19LRVlbY2FuYWxdCiAgICAgICAgaWYgKCFrZXkpIGNvbnRpbnVlCiAgICAgICAgY29tTWFwW2tleV0gPSBjLmNvbWlzaW9uX3BjdAogICAgICAgIGZlZXNNYXBba2V5XSA9IHsKICAgICAgICAgIGZpam9FdXI6IGMuZmlqb19ldXIsCiAgICAgICAgICBmZWVQZXJpb2RvRXVyOiBjLmZlZV9wZXJpb2RvX2V1ciwKICAgICAgICAgIGZlZVBlcmlvZGljaWRhZDogYy5mZWVfcGVyaW9kaWNpZGFkLAogICAgICAgIH0KICAgICAgfQoKICAgICAgaWYgKCFjYW5jZWxsZWQpIHsKICAgICAgICBzZXRJbmdyZXNvcyhpbmdNYXApOyBzZXRHYXN0b3MoZ2FzTWFwKTsgc2V0R2FzdG9zRXN0aW1hZG9zKGdhc0VzdE1hcCk7IHNldEZhY3R1cmFjaW9uRnV0dXJhKGZhY0Z1dE1hcCk7IHNldEJydXRvcyhicnV0TWFwKTsgc2V0UGVkaWRvc0NhbmFsKHBlZE1hcCk7IHNldEFkc1BsYXRhZm9ybWEoYWRzTWFwKTsgc2V0RGlhc09wKGRPcCk7IHNldENhdGVnb3JpYXMoY2F0cyk7IHNldEJlbmNobWFya3MoKGRCZW5jaHx8W10pLm1hcCgoYjphbnkpPT4oey4uLmIscGN0X21pbjpOdW1iZXIoYi5wY3RfbWluKSxwY3RfbWF4Ok51bWJlcihiLnBjdF9tYXgpfSkpKTsgc2V0Q29taXNpb25lcyhjb21NYXApOyBzZXRGZWVzRmlqb3MoZmVlc01hcCk7IHNldENvbmZpZ0NhbmFsZXMoY2ZnKTsgc2V0TWFyY2FzQWN0aXZhcyhtYXJjYXNNYXApOyBzZXRPYmpldGl2b3NNZW5zdWFsZXMob2JqTWVzTWFwKTsgc2V0TG9hZGluZyhmYWxzZSkKICAgICAgfQogICAgfQogICAgbG9hZCgpCiAgICByZXR1cm4gKCkgPT4geyBjYW5jZWxsZWQgPSB0cnVlIH0KICB9LCBbYcOxbywgdGl0dWxhcklkLCB0aWNrXSkKCiAgdXNlRWZmZWN0KCgpID0+IHsKICAgIGlmICh0eXBlb2Ygd2luZG93ID09PSAndW5kZWZpbmVkJykgcmV0dXJuCiAgICBjb25zdCBvbkNoYW5nZSA9ICgpID0+IHNldFRpY2sodCA9PiB0ICsgMSkKICAgIHdpbmRvdy5hZGRFdmVudExpc3RlbmVyKCdjb25maWdfY2FuYWxlczpjaGFuZ2VkJywgb25DaGFuZ2UpCiAgICB3aW5kb3cuYWRkRXZlbnRMaXN0ZW5lcignb2JqZXRpdm9zOmNoYW5nZWQnLCBvbkNoYW5nZSkKICAgIHJldHVybiAoKSA9PiB7CiAgICAgIHdpbmRvdy5yZW1vdmVFdmVudExpc3RlbmVyKCdjb25maWdfY2FuYWxlczpjaGFuZ2VkJywgb25DaGFuZ2UpCiAgICAgIHdpbmRvdy5yZW1vdmVFdmVudExpc3RlbmVyKCdvYmpldGl2b3M6Y2hhbmdlZCcsIG9uQ2hhbmdlKQogICAgfQogIH0sIFtdKQoKICByZXR1cm4geyBpbmdyZXNvcywgZ2FzdG9zLCBnYXN0b3NFc3RpbWFkb3MsIGZhY3R1cmFjaW9uRnV0dXJhLCBicnV0b3MsIHBlZGlkb3NDYW5hbCwgYWRzUGxhdGFmb3JtYSwgZGlhc09wLCBjYXRlZ29yaWFzLCBiZW5jaG1hcmtzLCBjb21pc2lvbmVzLCBmZWVzRmlqb3MsIGNvbmZpZ0NhbmFsZXMsIG1hcmNhc0FjdGl2YXMsIG9iamV0aXZvc01lbnN1YWxlcywgbG9hZGluZyB9Cn0KCmV4cG9ydCBmdW5jdGlvbiBjYWxjTmV0b0NhbmFsKAogIGNhbmFsS2V5OiAndWJlcid8J2dsb3ZvJ3wnamUnfCd3ZWInfCdkaXJlY3RhJywKICBicnV0bzogbnVtYmVyLAogIHBlZGlkb3M6IG51bWJlciwKICBfY29taXNpb25EZWM6IG51bWJlciwKICBfZmVlOiB7IGZpam9FdXI6bnVtYmVyOyBmZWVQZXJpb2RvRXVyOm51bWJlcjsgZmVlUGVyaW9kaWNpZGFkOnN0cmluZyB9IHwgdW5kZWZpbmVkLAogIGRpYXNQZXJpb2RvOiBudW1iZXIsCiAgbWFyY2FzQWN0aXZhczogbnVtYmVyIHwgTWFyY2FzUG9yQ2FuYWwsCiAgZmVjaGFEZXNkZT86IERhdGUsCiAgZmVjaGFIYXN0YT86IERhdGUsCiAgY29uZmlnQ2FuYWxlcz86IFJlY29yZDxzdHJpbmcsIENhbmFsQ29uZmlnPiwKKTogbnVtYmVyIHsKICBpZiAoYnJ1dG8gPD0gMCkgcmV0dXJuIDAKICBsZXQgZkluaSA9IGZlY2hhRGVzZGUsIGZGaW4gPSBmZWNoYUhhc3RhCiAgaWYgKCFmSW5pIHx8ICFmRmluKSB7CiAgICBmRmluID0gbmV3IERhdGUoKQogICAgZkluaSA9IG5ldyBEYXRlKCkKICAgIGZJbmkuc2V0RGF0ZShmRmluLmdldERhdGUoKSAtIE1hdGgubWF4KDEsIGRpYXNQZXJpb2RvIC0gMSkpCiAgfQogIGNvbnN0IGlkID0gY2FuYWxLZXkgPT09ICdkaXJlY3RhJyA/ICdkaXInIDogY2FuYWxLZXkKICBjb25zdCB7IG5ldG8gfSA9IHJlc29sdmVyTmV0byhpZCwgYnJ1dG8sIHBlZGlkb3MsIG1hcmNhc0FjdGl2YXMsIGZJbmksIGZGaW4sIGNvbmZpZ0NhbmFsZXMpCiAgcmV0dXJuIG5ldG8KfQoKZXhwb3J0IGZ1bmN0aW9uIGRpYXNEZU1lc2VzKG1lc2VzOiBudW1iZXJbXSwgYcOxbzogbnVtYmVyKTogbnVtYmVyIHsKICBsZXQgdG90YWwgPSAwCiAgZm9yIChjb25zdCBtIG9mIG1lc2VzKSB7IGNvbnN0IGQgPSBuZXcgRGF0ZShhw7FvLCBtLCAwKS5nZXREYXRlKCk7IHRvdGFsICs9IGQgfQogIHJldHVybiB0b3RhbAp9CgpleHBvcnQgZnVuY3Rpb24gc3VtTWVzZXMobWFwOiBSZWNvcmQ8bnVtYmVyLCBudW1iZXI+LCBtZXNlczogbnVtYmVyW10pOiBudW1iZXIgewogIHJldHVybiBtZXNlcy5yZWR1Y2UoKHMsIG0pID0+IHMgKyAobWFwW21dIHx8IDApLCAwKQp9CgpleHBvcnQgZnVuY3Rpb24gc3VtQ2F0TWVzZXMoZ2FzdG9zOiBSZWNvcmQ8c3RyaW5nLCBSZWNvcmQ8bnVtYmVyLCBudW1iZXI+PiwgcHJlZml4OiBzdHJpbmcsIG1lc2VzOiBudW1iZXJbXSk6IG51bWJlciB7CiAgbGV0IHRvdGFsID0gMAogIGZvciAoY29uc3QgW2NhdCwgbWVzTWFwXSBvZiBPYmplY3QuZW50cmllcyhnYXN0b3MpKSB7IGlmIChjYXQuc3RhcnRzV2l0aChwcmVmaXgpKSB0b3RhbCArPSBzdW1NZXNlcyhtZXNNYXAsIG1lc2VzKSB9CiAgcmV0dXJuIHRvdGFsCn0KCmV4cG9ydCBmdW5jdGlvbiBmbXROKG46IG51bWJlciB8IHVuZGVmaW5lZCk6IHN0cmluZyB7CiAgaWYgKG4gPT09IHVuZGVmaW5lZCB8fCBuID09PSAwKSByZXR1cm4gJ+KAlCcKICByZXR1cm4gKG4gPCAwID8gJ+KIkicgOiAnJykgKyBNYXRoLnJvdW5kKE1hdGguYWJzKG4pKS50b0xvY2FsZVN0cmluZygnZXMtRVMnKQp9Cg==
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import { loadConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
+
+export interface RunningAnualData {
+  ingresos: Record<string, Record<number, number>>
+  gastos: Record<string, Record<number, number>>
+  gastosEstimados: Record<string, Record<number, boolean>>
+  facturacionFutura: Record<number, { importe: number; origen: 'objetivo'|'anyo_anterior'|'mes_anterior' }>
+  brutos: Record<number, { uber:number; glovo:number; je:number; web:number; directa:number; total:number; pedidos:number }>
+  pedidosCanal: Record<number, { uber:number; glovo:number; je:number; web:number; directa:number }>
+  adsPlataforma: Record<number, { uber:number; glovo:number; je:number }>
+  diasOp: Record<number, number>
+  categorias: { id:string; nombre:string; parent_id:string|null; nivel:number; bloque:string; orden:number }[]
+  benchmarks: { categoria:string; pct_min:number; pct_max:number }[]
+  comisiones: Record<string, number>
+  feesFijos: Record<string, { fijoEur:number; feePeriodoEur:number; feePeriodicidad:string }>
+  configCanales: Record<string, CanalConfig>
+  marcasActivas: MarcasPorCanal
+  objetivosMensuales: Record<number, number>
+  loading: boolean
+}
+
+// Las categorias estimables (gastos fijos que se repiten mes a mes) YA NO se escriben aqui.
+// Se leen de categorias_pyg.estimable, que es la unica fuente de verdad y se edita desde
+// Configuracion. Antes habia una lista a fuego que se desincronizaba con la base de datos.
+
+export function useRunningAnual(año: number, titularId: string|null): RunningAnualData {
+  const [ingresos, setIngresos] = useState<Record<string, Record<number, number>>>({})
+  const [gastos, setGastos] = useState<Record<string, Record<number, number>>>({})
+  const [gastosEstimados, setGastosEstimados] = useState<Record<string, Record<number, boolean>>>({})
+  const [facturacionFutura, setFacturacionFutura] = useState<RunningAnualData['facturacionFutura']>({})
+  const [brutos, setBrutos] = useState<RunningAnualData['brutos']>({})
+  const [pedidosCanal, setPedidosCanal] = useState<RunningAnualData['pedidosCanal']>({})
+  const [adsPlataforma, setAdsPlataforma] = useState<RunningAnualData['adsPlataforma']>({})
+  const [diasOp, setDiasOp] = useState<Record<number, number>>({})
+  const [categorias, setCategorias] = useState<RunningAnualData['categorias']>([])
+  const [benchmarks, setBenchmarks] = useState<RunningAnualData['benchmarks']>([])
+  const [comisiones, setComisiones] = useState<Record<string, number>>({})
+  const [feesFijos, setFeesFijos] = useState<RunningAnualData['feesFijos']>({})
+  const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
+  const [marcasActivas, setMarcasActivas] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+  const [objetivosMensuales, setObjetivosMensuales] = useState<Record<number, number>>({})
+  const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+
+      const ingMap: Record<string, Record<number, number>> = {}
+      const gasMap: Record<string, Record<number, number>> = {}
+
+      if (!titularId) {
+        const { data: dView } = await supabase.from('v_running_mensual').select('mes,codigo,tipo,total').eq('año', año)
+        ;(dView || []).forEach((r: any) => {
+          const map = r.tipo === 'ingreso' ? ingMap : gasMap
+          if (!map[r.codigo]) map[r.codigo] = {}
+          map[r.codigo][r.mes] = (map[r.codigo][r.mes] || 0) + Number(r.total || 0)
+        })
+      } else {
+        let qIng = supabase.from('conciliacion').select('fecha,categoria,importe').eq('tipo','ingreso').like('categoria','1.%').gte('fecha',`${año}-01-01`).lte('fecha',`${año}-12-31`)
+        qIng = qIng.eq('titular_id', titularId)
+        const { data: dIng } = await qIng
+        ;(dIng || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria; if (!ingMap[cat]) ingMap[cat] = {}; ingMap[cat][mes] = (ingMap[cat][mes]||0) + Number(r.importe||0) })
+
+        let qGas = supabase.from('gastos').select('fecha,categoria_codigo,base_imponible').gte('fecha',`${año}-01-01`).lte('fecha',`${año}-12-31`)
+        qGas = qGas.eq('titular_id', titularId)
+        const { data: dGas } = await qGas
+        ;(dGas || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria_codigo; if (!gasMap[cat]) gasMap[cat] = {}; gasMap[cat][mes] = (gasMap[cat][mes]||0) + Math.abs(Number(r.base_imponible||0)) })
+      }
+
+      const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden,estimable').eq('activa',true).order('orden')
+      const cats = (dCat || []) as any[]
+
+      // === GASTOS FIJOS ESTIMABLES (leidos de la configuracion, no escritos a mano) ===
+      const categoriasEstimables: string[] = cats.filter((c: any) => c.estimable).map((c: any) => String(c.id))
+      const gasEstMap: Record<string, Record<number, boolean>> = {}
+      for (const cat of categoriasEstimables) {
+        if (!gasMap[cat]) gasMap[cat] = {}
+        if (!gasEstMap[cat]) gasEstMap[cat] = {}
+        // Forward fill: replicar ultimo importe real hacia delante
+        let ultimoImporte = 0
+        for (let mes = 1; mes <= 12; mes++) {
+          const valorReal = gasMap[cat][mes] || 0
+          if (valorReal > 0) {
+            ultimoImporte = valorReal
+          } else if (ultimoImporte > 0) {
+            gasMap[cat][mes] = ultimoImporte
+            gasEstMap[cat][mes] = true
+          }
+        }
+        // Backward fill: si los primeros meses estan vacios, replicar el primer importe real
+        let primerImporte = 0
+        for (let mes = 1; mes <= 12; mes++) {
+          if (gasMap[cat][mes] && gasMap[cat][mes] > 0 && !gasEstMap[cat][mes]) {
+            primerImporte = gasMap[cat][mes]
+            break
+          }
+        }
+        if (primerImporte > 0) {
+          for (let mes = 1; mes <= 12; mes++) {
+            if (!gasMap[cat][mes] || gasMap[cat][mes] === 0) {
+              gasMap[cat][mes] = primerImporte
+              gasEstMap[cat][mes] = true
+            }
+          }
+        }
+      }
+
+      let qBrut = supabase.from('facturacion_diario').select('fecha,uber_bruto,glovo_bruto,je_bruto,web_bruto,directa_bruto,total_bruto,total_pedidos,uber_pedidos,glovo_pedidos,je_pedidos,web_pedidos,directa_pedidos').gte('fecha',`${año}-01-01`).lte('fecha',`${año}-12-31`)
+      if (titularId) qBrut = qBrut.eq('titular_id', titularId)
+      const { data: dBrut } = await qBrut
+      const brutMap: RunningAnualData['brutos'] = {}
+      const pedMap: RunningAnualData['pedidosCanal'] = {}
+      const diasMap: Record<number, Set<string>> = {}
+      ;(dBrut || []).forEach((r: any) => {
+        const mes = new Date(r.fecha).getMonth()+1
+        if (!brutMap[mes]) brutMap[mes]={uber:0,glovo:0,je:0,web:0,directa:0,total:0,pedidos:0}
+        if (!pedMap[mes]) pedMap[mes]={uber:0,glovo:0,je:0,web:0,directa:0}
+        brutMap[mes].uber+=Number(r.uber_bruto||0); brutMap[mes].glovo+=Number(r.glovo_bruto||0); brutMap[mes].je+=Number(r.je_bruto||0); brutMap[mes].web+=Number(r.web_bruto||0); brutMap[mes].directa+=Number(r.directa_bruto||0); brutMap[mes].total+=Number(r.total_bruto||0); brutMap[mes].pedidos+=Number(r.total_pedidos||0)
+        pedMap[mes].uber+=Number(r.uber_pedidos||0); pedMap[mes].glovo+=Number(r.glovo_pedidos||0); pedMap[mes].je+=Number(r.je_pedidos||0); pedMap[mes].web+=Number(r.web_pedidos||0); pedMap[mes].directa+=Number(r.directa_pedidos||0)
+        if (!diasMap[mes]) diasMap[mes] = new Set()
+        diasMap[mes].add(r.fecha)
+      })
+      const dOp: Record<number, number> = {}
+      for (const [m, s] of Object.entries(diasMap)) dOp[Number(m)] = s.size
+
+      // Ads de plataforma (informativo, NO computa en P&L) desde ventas_plataforma
+      const { data: dAds } = await supabase
+        .from('ventas_plataforma')
+        .select('plataforma,ads_eur,fecha_inicio_periodo')
+        .gte('fecha_inicio_periodo', `${año}-01-01`).lte('fecha_inicio_periodo', `${año}-12-31`)
+      const adsMap: RunningAnualData['adsPlataforma'] = {}
+      ;(dAds || []).forEach((r: any) => {
+        if (!r.fecha_inicio_periodo) return
+        const mes = new Date(r.fecha_inicio_periodo).getMonth() + 1
+        if (!adsMap[mes]) adsMap[mes] = { uber: 0, glovo: 0, je: 0 }
+        const v = Math.abs(Number(r.ads_eur || 0))
+        const p = (r.plataforma || '').toLowerCase()
+        if (p === 'uber') adsMap[mes].uber += v
+        else if (p === 'glovo') adsMap[mes].glovo += v
+        else if (p === 'je' || p === 'just_eat') adsMap[mes].je += v
+      })
+
+      const mesActual = new Date().getMonth() + 1
+      const anioActual = new Date().getFullYear()
+      const { data: dDias } = await supabase.from('objetivos_dia_semana').select('dia,importe').order('dia')
+      const { data: dObjGen } = await supabase.from('objetivos').select('tipo,importe').in('tipo', ['semanal','mensual','anual'])
+      const sumaSemanal = (dDias || []).reduce((a:number, r:any) => a + Number(r.importe || 0), 0)
+      const objSemanalManual = Number((dObjGen || []).find((r:any) => r.tipo === 'semanal')?.importe || 0)
+      const objMensualManual = Number((dObjGen || []).find((r:any) => r.tipo === 'mensual')?.importe || 0)
+      const semanalEfectivo = objSemanalManual > 0 ? objSemanalManual : sumaSemanal
+      const objMesMap: Record<number, number> = {}
+      for (let m = 1; m <= 12; m++) {
+        const diasMes = new Date(año, m, 0).getDate()
+        const calc = semanalEfectivo > 0 ? Math.round((semanalEfectivo / 7) * diasMes) : 0
+        objMesMap[m] = (objMensualManual > 0 && m === mesActual && año === anioActual) ? objMensualManual : calc
+      }
+
+      const facFutMap: RunningAnualData['facturacionFutura'] = {}
+      let qBrutPrev = supabase.from('facturacion_diario').select('fecha,total_bruto').gte('fecha',`${año-1}-01-01`).lte('fecha',`${año-1}-12-31`)
+      if (titularId) qBrutPrev = qBrutPrev.eq('titular_id', titularId)
+      const { data: dBrutPrev } = await qBrutPrev
+      const brutPrevMap: Record<number, number> = {}
+      ;(dBrutPrev || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; brutPrevMap[mes] = (brutPrevMap[mes]||0) + Number(r.total_bruto||0) })
+      for (let mes = 1; mes <= 12; mes++) {
+        const brutoReal = brutMap[mes]?.total || 0
+        const esFuturo = año > anioActual || (año === anioActual && mes > mesActual)
+        if (brutoReal === 0 && esFuturo) {
+          if (objMesMap[mes] && objMesMap[mes] > 0) {
+            facFutMap[mes] = { importe: objMesMap[mes], origen: 'objetivo' }
+          } else if (brutPrevMap[mes] && brutPrevMap[mes] > 0) {
+            facFutMap[mes] = { importe: brutPrevMap[mes], origen: 'anyo_anterior' }
+          } else {
+            for (let mPrev = mes - 1; mPrev >= 1; mPrev--) {
+              const prevReal = brutMap[mPrev]?.total || 0
+              const prevEst = facFutMap[mPrev]?.importe || 0
+              const prevValor = prevReal || prevEst
+              if (prevValor > 0) {
+                facFutMap[mes] = { importe: prevValor, origen: 'mes_anterior' }
+                break
+              }
+            }
+          }
+        }
+      }
+
+      const { data: dBench } = await supabase.from('categorias_rango').select('categoria,pct_min,pct_max')
+      const cfg = await loadConfigCanales()
+      await loadVentasReales(); await loadRatiosCalibrados()
+      const marcasMap = await loadMarcasPorCanal()
+
+      const CANAL_BBDD_TO_KEY: Record<string, string> = {
+        'Uber Eats': 'uber', 'Glovo': 'glovo', 'Just Eat': 'je', 'Web Propia': 'web', 'Venta Directa': 'directa',
+      }
+      const comMap: Record<string, number> = {}
+      const feesMap: RunningAnualData['feesFijos'] = {}
+      for (const [canal, c] of Object.entries(cfg)) {
+        const key = CANAL_BBDD_TO_KEY[canal]
+        if (!key) continue
+        comMap[key] = c.comision_pct
+        feesMap[key] = {
+          fijoEur: c.fijo_eur,
+          feePeriodoEur: c.fee_periodo_eur,
+          feePeriodicidad: c.fee_periodicidad,
+        }
+      }
+
+      if (!cancelled) {
+        setIngresos(ingMap); setGastos(gasMap); setGastosEstimados(gasEstMap); setFacturacionFutura(facFutMap); setBrutos(brutMap); setPedidosCanal(pedMap); setAdsPlataforma(adsMap); setDiasOp(dOp); setCategorias(cats); setBenchmarks((dBench||[]).map((b:any)=>({...b,pct_min:Number(b.pct_min),pct_max:Number(b.pct_max)}))); setComisiones(comMap); setFeesFijos(feesMap); setConfigCanales(cfg); setMarcasActivas(marcasMap); setObjetivosMensuales(objMesMap); setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [año, titularId, tick])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onChange = () => setTick(t => t + 1)
+    window.addEventListener('config_canales:changed', onChange)
+    window.addEventListener('objetivos:changed', onChange)
+    return () => {
+      window.removeEventListener('config_canales:changed', onChange)
+      window.removeEventListener('objetivos:changed', onChange)
+    }
+  }, [])
+
+  return { ingresos, gastos, gastosEstimados, facturacionFutura, brutos, pedidosCanal, adsPlataforma, diasOp, categorias, benchmarks, comisiones, feesFijos, configCanales, marcasActivas, objetivosMensuales, loading }
+}
+
+export function calcNetoCanal(
+  canalKey: 'uber'|'glovo'|'je'|'web'|'directa',
+  bruto: number,
+  pedidos: number,
+  _comisionDec: number,
+  _fee: { fijoEur:number; feePeriodoEur:number; feePeriodicidad:string } | undefined,
+  diasPeriodo: number,
+  marcasActivas: number | MarcasPorCanal,
+  fechaDesde?: Date,
+  fechaHasta?: Date,
+  configCanales?: Record<string, CanalConfig>,
+): number {
+  if (bruto <= 0) return 0
+  let fIni = fechaDesde, fFin = fechaHasta
+  if (!fIni || !fFin) {
+    fFin = new Date()
+    fIni = new Date()
+    fIni.setDate(fFin.getDate() - Math.max(1, diasPeriodo - 1))
+  }
+  const id = canalKey === 'directa' ? 'dir' : canalKey
+  const { neto } = resolverNeto(id, bruto, pedidos, marcasActivas, fIni, fFin, configCanales)
+  return neto
+}
+
+export function diasDeMeses(meses: number[], año: number): number {
+  let total = 0
+  for (const m of meses) { const d = new Date(año, m, 0).getDate(); total += d }
+  return total
+}
+
+export function sumMeses(map: Record<number, number>, meses: number[]): number {
+  return meses.reduce((s, m) => s + (map[m] || 0), 0)
+}
+
+export function sumCatMeses(gastos: Record<string, Record<number, number>>, prefix: string, meses: number[]): number {
+  let total = 0
+  for (const [cat, mesMap] of Object.entries(gastos)) { if (cat.startsWith(prefix)) total += sumMeses(mesMap, meses) }
+  return total
+}
+
+export function fmtN(n: number | undefined): string {
+  if (n === undefined || n === 0) return '—'
+  return (n < 0 ? '−' : '') + Math.round(Math.abs(n)).toLocaleString('es-ES')
+}
