@@ -1,10 +1,14 @@
 // clasificarDocEquipo.ts — clasificador del buzón único EQUIPO en Papeleo.
-// Son documentos oficiales con marcadores literales: la clasificación es
-// DETERMINISTA por texto, no un score de IA. Solo cuando el texto no trae
-// ninguno de esos marcadores se pide una pista a Claude como último recurso —
-// y esa pista NUNCA se usa para archivar directo: `cierto` queda en false y el
-// documento va siempre a la cola de revisión (equipo/subir.ts decide el
-// encaminamiento leyendo `cierto`, no un umbral de confianza).
+// Son documentos oficiales: la clasificación es DETERMINISTA por marcadores en el
+// texto, no un score de IA. Los marcadores son los que traen DE VERDAD los
+// documentos de la gestoría (Gestorum) y de la Seguridad Social:
+//   · RLC → "Recibo de Liquidación de Cotizaciones" / RLC / TC1
+//   · RNT → "Relación Nominal de Trabajadores" / RNT / TC2
+//   · Resumen de nóminas → título "Resumen de nómina", o tabla con varios
+//     trabajadores e importes
+//   · Nómina individual → un único "Líquido a percibir" (o "recibo de salarios")
+// Solo cuando no hay ningún marcador se pide una pista a Claude, y esa pista NUNCA
+// archiva sola: `cierto` queda en false y el documento va a la cola de revisión.
 export interface ClasificacionDocEquipo {
   tipo: 'nomina' | 'resumen_nominas' | 'rlc' | 'rnt' | 'desconocido'
   empleado_nombre: string | null
@@ -52,28 +56,37 @@ function extraerNombreTrabajador(textoOriginal: string): string | null {
 interface Marcador { tipo: ClasificacionDocEquipo['tipo']; motivo: string }
 
 function detectarPorMarcadores(textoNorm: string): Marcador | null {
-  // Seguridad Social: se comprueban ANTES que nómina, sus cabeceras no
-  // contienen "recibo individual"/"liquido a percibir" de un trabajador.
-  if (/RECIBO DE LIQUIDACION DE COTIZACIONES/.test(textoNorm) || /\bRLC\b/.test(textoNorm)) {
-    return { tipo: 'rlc', motivo: 'Marcador "Recibo de Liquidación de Cotizaciones" / RLC encontrado' }
+  // Seguridad Social primero: sus cabeceras no llevan "liquido a percibir".
+  if (/RECIBO DE LIQUIDACION DE COTIZACIONES/.test(textoNorm) || /\bRLC\b/.test(textoNorm) || /\bTC\s?1\b/.test(textoNorm)) {
+    return { tipo: 'rlc', motivo: 'Recibo de Liquidación de Cotizaciones (RLC)' }
   }
-  if (/RELACION NOMINAL DE TRABAJADORES/.test(textoNorm) || /\bRNT\b/.test(textoNorm)) {
-    return { tipo: 'rnt', motivo: 'Marcador "Relación Nominal de Trabajadores" / RNT encontrado' }
+  if (/RELACION NOMINAL DE TRABAJADORES/.test(textoNorm) || /\bRNT\b/.test(textoNorm) || /\bTC\s?2\b/.test(textoNorm)) {
+    return { tipo: 'rnt', motivo: 'Relación Nominal de Trabajadores (RNT)' }
   }
 
-  // Resumen multi-trabajador (Gestorum): varios NIF de persona distintos +
-  // cabeceras de columna típicas de una tabla de nóminas.
   const nifs = nifsPersona(textoNorm)
-  const pareceTablaImportes = /BRUTO/.test(textoNorm) && /NETO/.test(textoNorm)
-  if (nifs.length >= 2 && pareceTablaImportes) {
-    return { tipo: 'resumen_nominas', motivo: `Tabla con ${nifs.length} NIF de trabajador distintos + columnas bruto/neto` }
+  const recibosIndividuales = (textoNorm.match(/LIQUIDO A PERCIBIR/g) || []).length
+
+  // Resumen de nóminas de la gestoría: título literal, o tabla con varios
+  // trabajadores y columnas de importes.
+  if (/RESUMEN DE NOMINAS?/.test(textoNorm) || /RESUMEN DE LA NOMINA/.test(textoNorm)) {
+    return { tipo: 'resumen_nominas', motivo: 'Título "Resumen de nómina"' }
+  }
+  if (nifs.length >= 2 && recibosIndividuales === 0 && /(BRUTO|DEVENGADO|TOTAL DEVENGOS)/.test(textoNorm) && /(NETO|LIQUIDO|A PERCIBIR)/.test(textoNorm)) {
+    return { tipo: 'resumen_nominas', motivo: `Tabla con ${nifs.length} trabajadores e importes` }
   }
 
-  // Nómina individual: recibo de salarios de UNA persona.
-  if (/RECIBO INDIVIDUAL (JUSTIFICATIVO DEL PAGO DE SALARIOS|DE SALARIOS)/.test(textoNorm)
-    || /RECIBO DE SALARIOS/.test(textoNorm)
-    || (/LIQUIDO A PERCIBIR/.test(textoNorm) && nifs.length <= 1)) {
-    return { tipo: 'nomina', motivo: 'Marcador de recibo individual de salarios ("Recibo individual"/"Líquido a percibir" con un solo NIF)' }
+  // Varias nóminas completas dentro del mismo PDF: no es un resumen, son recibos
+  // sueltos pegados. No se archiva a ciegas: va a revisión con el motivo claro.
+  if (recibosIndividuales >= 2) {
+    return { tipo: 'desconocido', motivo: `El PDF contiene ${recibosIndividuales} nóminas completas juntas: súbelas por separado o reasigna el tipo a mano` }
+  }
+
+  // Nómina individual: un único recibo de salarios.
+  if (recibosIndividuales === 1
+    || /RECIBO INDIVIDUAL (JUSTIFICATIVO DEL PAGO DE SALARIOS|DE SALARIOS)/.test(textoNorm)
+    || /RECIBO DE SALARIOS/.test(textoNorm)) {
+    return { tipo: 'nomina', motivo: 'Recibo individual de salarios (un solo "líquido a percibir")' }
   }
 
   return null
@@ -88,6 +101,9 @@ export async function clasificarDocEquipoTexto(textoOcr: string): Promise<Clasif
   const marcador = detectarPorMarcadores(textoNorm)
 
   if (marcador) {
+    if (marcador.tipo === 'desconocido') {
+      return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, cierto: false, motivo: marcador.motivo }
+    }
     const esNomina = marcador.tipo === 'nomina'
     const nifs = esNomina ? nifsPersona(textoNorm) : []
     return {
