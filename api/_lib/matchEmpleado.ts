@@ -48,10 +48,13 @@ function palabrasSignificativas(s: string): Set<string> {
   return new Set(normalizarNombrePersona(s).split(' ').filter(p => p.length >= 3))
 }
 
-/** Carga todos los empleados activos con su nombre oficial, NIF y alias. */
+/** Carga TODOS los empleados con su nombre oficial, NIF y alias — incluidos los que
+ *  ya no trabajan aquí: sus nóminas y sus documentos históricos siguen llegando y
+ *  deben archivarse igual (antes se filtraba por estado='activo' y las nóminas de
+ *  un ex-empleado acababan siempre en la cola de revisión). */
 export async function cargarCandidatosEmpleados(supabase: SupabaseClient): Promise<CandidatoEmpleado[]> {
   const [{ data: empleados }, { data: alias }] = await Promise.all([
-    supabase.from('empleados').select('id, nombre, nombre_oficial, nif').eq('estado', 'activo'),
+    supabase.from('empleados').select('id, nombre, nombre_oficial, nif'),
     supabase.from('empleado_alias').select('empleado_id, alias'),
   ])
   const aliasPorEmpleado = new Map<string, string[]>()
@@ -127,6 +130,41 @@ export function resolverEmpleado(
   }
 
   return null
+}
+
+/**
+ * Último recurso cuando no se ha podido aislar el nombre del trabajador de la
+ * cabecera: busca a cada empleado conocido dentro del texto completo del documento.
+ * Solo devuelve resultado si aparece UNO y solo uno — si hay varios (un resumen,
+ * por ejemplo) no se adivina: el documento va a revisión.
+ */
+export function resolverEmpleadoEnTexto(
+  texto: string,
+  candidatos: CandidatoEmpleado[],
+): ResolucionEmpleado | null {
+  const textoNorm = normalizarNombrePersona(texto)
+  if (!textoNorm) return null
+  const encontrados: ResolucionEmpleado[] = []
+
+  for (const c of candidatos) {
+    const nombres = [c.nombre, c.nombre_oficial, ...c.aliases].filter(Boolean) as string[]
+    let acierto: string | null = null
+    for (const candidato of nombres) {
+      const palabras = [...palabrasSignificativas(candidato)]
+      if (palabras.length < 2) continue
+      if (palabras.every(p => textoNorm.includes(p))) { acierto = candidato; break }
+    }
+    if (acierto) {
+      encontrados.push({
+        empleado_id: c.id,
+        nombre: c.nombre,
+        metodo: 'palabras',
+        motivo: `El documento nombra a "${acierto}"`,
+      })
+    }
+  }
+
+  return encontrados.length === 1 ? encontrados[0] : null
 }
 
 /**
