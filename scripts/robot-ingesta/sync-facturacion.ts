@@ -4,7 +4,7 @@
  *   y crea la fila ALM de HOY. Just Eat sale de ingesta_robot_diaria (sinqro comida) si existe.
  * - Modo CENAS (01:00 Madrid): lee Reports "Yesterday" por plataforma (total día de AYER)
  *   y crea la fila CENAS de AYER = total día − fila ALM ya guardada. JE = sinqro cena si existe.
- * Nunca pisa filas existentes (manuales de Rubén): si ya hay fila (fecha, servicio), se salta y lo anota.
+ * Filas MANUALES (canal null) jamás se tocan. Filas del ROBOT (canal='plataformas') se actualizan.
  * Interacciones Rushour verificadas en debug-reports v4 (modales, selects por teclado).
  * PROHIBIDO page.evaluate en Rushour (error __name): solo locators.
  */
@@ -25,9 +25,15 @@ function horaMadrid(): number {
   return parseInt(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', hour12: false }).format(new Date()), 10);
 }
 function numES(s: string): number {
-  const m = s.match(/-?[\d.]{1,3}(?:\.\d{3})*(?:,\d+)?|-?\d+(?:,\d+)?/);
+  // Soporta "520.64" (punto decimal, formato Rushour Reports), "1.234,56" y "1,234.56"
+  const m = s.match(/-?\d[\d.,]*/);
   if (!m) return 0;
-  return parseFloat(m[0].replace(/\./g, '').replace(',', '.')) || 0;
+  let x = m[0];
+  const ultimoPunto = x.lastIndexOf('.');
+  const ultimaComa = x.lastIndexOf(',');
+  if (ultimaComa > ultimoPunto) x = x.replace(/\./g, '').replace(',', '.');
+  else x = x.replace(/,/g, '');
+  return parseFloat(x) || 0;
 }
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -145,7 +151,7 @@ async function jeDesdeSinqro(fecha: string, turno: 'comida' | 'cena'): Promise<{
 }
 
 async function filaExistente(fecha: string, servicio: string) {
-  const { data } = await sb.from('facturacion_diario').select('id,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto')
+  const { data } = await sb.from('facturacion_diario').select('id,canal,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto')
     .eq('fecha', fecha).eq('servicio', servicio).is('marca_id', null);
   return data && data.length ? data[0] : null;
 }
@@ -162,6 +168,14 @@ async function guardarFila(fecha: string, servicio: 'ALM' | 'CENAS', uber: any, 
     pedidos: total_pedidos, bruto: total_bruto,
     total_pedidos, total_bruto,
   };
+  const previa = await filaExistente(fecha, servicio);
+  if (previa && previa.canal !== 'plataformas') { await log('skip', `fila MANUAL ${fecha} ${servicio}: no la piso`); return false; }
+  if (previa) {
+    const { error } = await sb.from('facturacion_diario').update(fila).eq('id', previa.id);
+    if (error) { await log('error', `update ${fecha} ${servicio}: ${error.message}`); return false; }
+    await log('ok', `actualizada ${fecha} ${servicio} total=${total_bruto}€ / ${total_pedidos} ped`);
+    return true;
+  }
   const { error } = await sb.from('facturacion_diario').insert([fila]);
   if (error) { await log('error', `insert ${fecha} ${servicio}: ${error.message}`); return false; }
   await log('ok', `guardada ${fecha} ${servicio} total=${total_bruto}€ / ${total_pedidos} ped`);
@@ -185,7 +199,6 @@ async function main() {
 
     if (servicio === 'ALM') {
       const fecha = fechaMadrid(0);
-      if (await filaExistente(fecha, 'ALM')) { await log('skip', `ya existe fila ALM ${fecha}, no piso datos`); return; }
       const r = await leerRushourPorPlataforma(page, /^Today$/i);
       if (!r) return;
       const je = await jeDesdeSinqro(fecha, 'comida');
@@ -193,7 +206,6 @@ async function main() {
     } else {
       // CENAS del DÍA ANTERIOR (corre a la 01:00 de Madrid)
       const fecha = horaMadrid() < 12 ? fechaMadrid(-1) : fechaMadrid(0);
-      if (await filaExistente(fecha, 'CENAS')) { await log('skip', `ya existe fila CENAS ${fecha}, no piso datos`); return; }
       const r = await leerRushourPorPlataforma(page, /^Yesterday$/i);
       if (!r) return;
       const alm = await filaExistente(fecha, 'ALM');
