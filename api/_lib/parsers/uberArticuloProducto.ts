@@ -3,7 +3,7 @@
 // por pedido. Se reconoce por: "Id. del pedido" + "Nombre del artículo" + "Precio unitario".
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { normalizarMarca, type MarcaCanonica } from './normalizarMarca'
+import { normalizarMarca, type MarcaCanonica } from './normalizarMarca.js'
 
 function partirCSV(linea: string): string[] {
   const out: string[] = []

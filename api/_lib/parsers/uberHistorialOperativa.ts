@@ -7,7 +7,7 @@
 // Es un documento de OPERATIVA de ventas, no una factura ni una liquidación.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { normalizarMarca, type MarcaCanonica } from './normalizarMarca'
+import { normalizarMarca, type MarcaCanonica } from './normalizarMarca.js'
 
 function partirCSV(linea: string): string[] {
   const out: string[] = []
