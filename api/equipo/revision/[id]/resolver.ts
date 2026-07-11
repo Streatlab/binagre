@@ -13,6 +13,14 @@ import { descargarRespaldoStorage } from '../../../_lib/google-drive.js'
 import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen, procesarRnt } from '../../../_lib/subidaDocEquipo.js'
 import { aprenderAlias } from '../../../_lib/matchEmpleado.js'
 
+// Sin esto la función se cortaba a los 10s (límite por defecto) y devolvía un
+// cuerpo vacío: la UI reventaba con "Unexpected end of JSON input". La lectura
+// del documento con IA puede tardar hasta ~60s.
+export const config = {
+  maxDuration: 60,
+  api: { bodyParser: { sizeLimit: '20mb' } },
+}
+
 interface BodyResolver {
   tipo_correcto?: 'nomina' | 'resumen_nominas' | 'rlc' | 'rnt' | 'descartar'
   empleado_id?: string
@@ -20,7 +28,7 @@ interface BodyResolver {
   anio?: number
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handlerInterno(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const id = req.query.id as string
@@ -42,10 +50,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (!fila.storage_path) {
-    return res.status(400).json({ error: 'Este documento no tiene copia de respaldo localizable; no se puede reprocesar.' })
+    return res.status(400).json({ ok: false, error: 'El archivo original ya no está guardado. Vuelve a subirlo por Papeleo → EQUIPO.' })
   }
   const buffer = await descargarRespaldoStorage(fila.storage_path as string)
-  if (!buffer) return res.status(500).json({ error: 'No se pudo descargar la copia de respaldo del documento.' })
+  if (!buffer) return res.status(500).json({ ok: false, error: 'No se pudo descargar la copia de respaldo del documento. Vuelve a subirlo por Papeleo → EQUIPO.' })
 
   const nombreArchivo = (fila.nombre_archivo as string) || 'documento.pdf'
   const mesFinal = body.mes ?? (fila.mes as number | null)
@@ -53,10 +61,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let resultado: { status: number; body: Record<string, unknown> }
   if (body.tipo_correcto === 'nomina') {
-    if (!body.empleado_id) return res.status(400).json({ error: 'Falta empleado_id' })
+    if (!body.empleado_id) return res.status(400).json({ ok: false, error: 'Elige el empleado antes de reprocesar.' })
     const { data: empleado, error: errEmpleado } = await supabaseAdmin
       .from('empleados').select('id, nombre').eq('id', body.empleado_id).maybeSingle()
-    if (errEmpleado || !empleado) return res.status(404).json({ error: errEmpleado?.message || 'Empleado no encontrado' })
+    if (errEmpleado || !empleado) return res.status(404).json({ ok: false, error: errEmpleado?.message || 'Empleado no encontrado' })
     resultado = await procesarNominaIndividual(buffer, nombreArchivo, empleado.id as string, empleado.nombre as string, mesFinal, anioFinal)
     if (resultado.status === 200) {
       await aprenderAlias(supabaseAdmin, empleado.id as string, fila.empleado_nombre as string | null)
@@ -68,11 +76,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } else if (body.tipo_correcto === 'rnt') {
     resultado = await procesarRnt(buffer, nombreArchivo, mesFinal, anioFinal)
   } else {
-    return res.status(400).json({ error: 'tipo_correcto no reconocido' })
+    return res.status(400).json({ ok: false, error: 'tipo_correcto no reconocido' })
   }
 
-  if (resultado.status !== 200) return res.status(resultado.status).json(resultado.body)
+  if (resultado.status !== 200) return res.status(resultado.status).json({ ok: false, ...resultado.body })
 
   await supabaseAdmin.from('equipo_docs_revision').update({ estado: 'resuelto' }).eq('id', id)
   return res.status(200).json({ ok: true, resultado: resultado.body })
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    return await handlerInterno(req, res)
+  } catch (err) {
+    const detalle = err instanceof Error ? err.message : String(err)
+    console.error('[equipo/revision/resolver] fallo', req.query?.id, detalle)
+    if (res.headersSent) return
+    return res.status(500).json({
+      ok: false,
+      error: `No se pudo reprocesar el documento: ${detalle}`,
+    })
+  }
 }
