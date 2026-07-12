@@ -3,58 +3,60 @@
  *
  *  · Credenciales: tabla `robot_credenciales` en Supabase (NO en el repo, NO en
  *    los secretos de GitHub). Se cambian sin tocar código ni workflows.
+ *    Una plataforma puede tener VARIAS cuentas (p.ej. Glovo: posmodernos y
+ *    streatlab): el robot las recorre todas, una detrás de otra.
  *  · Sesión: se guarda el estado del navegador en el bucket 'informes-plataforma'
- *    (sesiones/<plataforma>.json) para no tener que pedir código cada día.
- *  · Código de un solo uso: se lee del buzón facturasstreat@gmail.com por IMAP,
- *    con la misma contraseña de aplicación que ya usa el cartero
- *    (tabla `cartero_credenciales`). No marca leídos ni mueve nada: el cartero
- *    sigue funcionando igual.
+ *    (sesiones/<plataforma>__<cuenta>.json) para no pedir código cada día.
+ *  · Código de un solo uso: se lee del buzón del cartero por IMAP
+ *    (tabla `cartero_credenciales`). No marca leídos ni mueve nada.
  */
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import type { BrowserContext } from 'playwright';
 import { sb, BUCKET, log } from './bandeja.js';
 
-export interface Credenciales {
+export interface Cuenta {
+  plataforma: string;
+  cuenta: string;
   usuario: string;
   password: string;
+  url_base: string | null;
   otp_remitente: string | null;
 }
 
-/** Devuelve las credenciales de la plataforma, o null si aún no están puestas. */
-export async function credenciales(plataforma: string): Promise<Credenciales | null> {
+/** Todas las cuentas activas de una plataforma. Vacío = no hay claves puestas. */
+export async function cuentasDe(plataforma: string): Promise<Cuenta[]> {
   const { data } = await sb
     .from('robot_credenciales')
-    .select('usuario, password, otp_remitente, activo')
+    .select('plataforma, cuenta, usuario, password, url_base, otp_remitente, activo')
     .eq('plataforma', plataforma)
-    .maybeSingle();
-  if (!data || !data.activo || !data.usuario || !data.password) return null;
-  return { usuario: data.usuario, password: data.password, otp_remitente: data.otp_remitente };
+    .eq('activo', true)
+    .order('cuenta');
+  return (data || []).filter((c: any) => c.usuario && c.password) as Cuenta[];
 }
 
 // ── Sesión persistida ───────────────────────────────────────────────────────
-const rutaSesion = (p: string) => `sesiones/${p}.json`;
+const rutaSesion = (p: string, c: string) => `sesiones/${p}__${c}.json`;
 
-export async function cargarSesion(plataforma: string): Promise<Record<string, unknown> | undefined> {
+export async function cargarSesion(plataforma: string, cuenta: string): Promise<Record<string, unknown> | undefined> {
   try {
-    const { data, error } = await sb.storage.from(BUCKET).download(rutaSesion(plataforma));
+    const { data, error } = await sb.storage.from(BUCKET).download(rutaSesion(plataforma, cuenta));
     if (error || !data) return undefined;
-    const texto = await data.text();
-    return JSON.parse(texto);
+    return JSON.parse(await data.text());
   } catch { return undefined; }
 }
 
-export async function guardarSesion(plataforma: string, ctx: BrowserContext) {
+export async function guardarSesion(plataforma: string, cuenta: string, ctx: BrowserContext) {
   try {
     const estado = await ctx.storageState();
     await sb.storage.from(BUCKET).upload(
-      rutaSesion(plataforma),
+      rutaSesion(plataforma, cuenta),
       Buffer.from(JSON.stringify(estado), 'utf-8'),
       { contentType: 'application/json', upsert: true },
     );
-    await log(plataforma, 'sesion', 'sesión guardada para la próxima vez');
+    await log(plataforma, 'sesion', `${cuenta}: sesión guardada`);
   } catch (e: any) {
-    await log(plataforma, 'aviso', `no he podido guardar la sesión: ${e?.message || e}`);
+    await log(plataforma, 'aviso', `${cuenta}: no he podido guardar la sesión: ${e?.message || e}`);
   }
 }
 
@@ -78,16 +80,15 @@ async function buzon(): Promise<ImapFlow | null> {
 }
 
 /**
- * Espera a que llegue un correo del remitente indicado con un código de 4-8
- * dígitos. Sondea cada 5 s hasta `segundos`. Devuelve el código o null.
- * No modifica los correos (ni leídos, ni movidos).
+ * Espera un correo del remitente indicado con un código de 4-8 dígitos.
+ * Sondea cada 5 s hasta `segundos`. Devuelve el código o null.
  */
 export async function esperarCodigo(
   plataforma: string,
   remitente: string,
   segundos = 120,
 ): Promise<string | null> {
-  const desde = new Date(Date.now() - 10 * 60 * 1000); // 10 min de margen
+  const desde = new Date(Date.now() - 10 * 60 * 1000);
   const limite = Date.now() + segundos * 1000;
 
   while (Date.now() < limite) {
@@ -105,10 +106,7 @@ export async function esperarCodigo(
           const parsed = await simpleParser(msg.source as Buffer);
           const texto = `${parsed.subject || ''}\n${parsed.text || ''}`;
           const m = texto.match(/\b(\d{4,8})\b/);
-          if (m) {
-            await log(plataforma, 'otp_ok', `código recibido de ${remitente}`);
-            return m[1];
-          }
+          if (m) { await log(plataforma, 'otp_ok', `código recibido de ${remitente}`); return m[1]; }
         }
       } finally { lock.release(); }
     } catch (e: any) {
