@@ -57,6 +57,8 @@ import { detectarDocumentoPlataforma } from './detectarDocumentoPlataforma.js'
 import { ingestarPedidosPlataforma } from './ingestaPlatos.js'
 import { intentarVentaPlataforma } from './volcarVentasPlataforma.js'
 import { intentarVentaProducto } from './volcarVentasProducto.js'
+import { repartirDatosDocumento } from './repartirDatos.js'
+import { resolverContraparte } from './resolverContraparte.js'
 
 export type ProcesarEstado =
   | 'duplicada'
@@ -762,6 +764,13 @@ async function procesarContenidoPrincipal(
         if (!diccionario) diccionario = await cargarDiccionarioNif(supabase)
         const extractedOCR = extraerPorReglas(textoOCR, (nif) => diccionario?.get(nif)?.plantilla || null, false)
         if (extractedOCR) { extractedReglas = extractedOCR; origenLectura = 'ocr_tesseract' }
+        else {
+          // DIAGNÓSTICO task 2: Tesseract devolvió texto pero extraerPorReglas no
+          // sacó NIF+total (típicamente NIF ruidoso). Se hace visible en logs por
+          // qué Tesseract "no lee", en vez de un 0 silencioso.
+          const nifOCR = extraerNifEmisorLibre(textoOCR)
+          console.warn(`[Tesseract diag] texto=${textoOCR.replace(/\s/g, '').length} chars, nif_detectado=${nifOCR || 'NINGUNO'}, archivo=${file.nombre}`)
+        }
       }
     } catch (ocrErr) { console.error('[procesarArchivo] OCR Tesseract no resolvió:', errMsg(ocrErr)) }
   }
@@ -816,11 +825,16 @@ async function procesarContenidoPrincipal(
     })
   }
 
-  if (!extracted.proveedor_nombre) {
-    const nifLook = normalizarNif(extracted.nif_emisor)
-    if (!diccionario) diccionario = await cargarDiccionarioNif(supabase)
-    const nombreCanon = nifLook ? (diccionario.get(nifLook)?.nombre || null) : null
-    extracted.proveedor_nombre = nombreCanon || nifLook || ''
+  if (!extracted.proveedor_nombre || !normalizarNif(extracted.nif_emisor)) {
+    // Búsqueda cruzada de contraparte (task 5): completa nombre↔NIF desde el
+    // diccionario y, si falta, desde las reglas de conciliación por alias.
+    const cp = await resolverContraparte(supabase, { nif: extracted.nif_emisor, nombre: extracted.proveedor_nombre })
+    if (!extracted.proveedor_nombre && cp.nombre) extracted.proveedor_nombre = cp.nombre
+    if (!normalizarNif(extracted.nif_emisor) && cp.nif) extracted.nif_emisor = cp.nif
+    if (!extracted.proveedor_nombre) {
+      const nifLook = normalizarNif(extracted.nif_emisor)
+      extracted.proveedor_nombre = nifLook || ''
+    }
   }
 
   if (!extracted.proveedor_nombre || extracted.total === undefined || extracted.total === null) {
@@ -988,6 +1002,9 @@ async function procesarContenidoPrincipal(
 
     const mensajeFinal = driveErrorMsg ? `Drive: ${driveErrorMsg}` : tipo === 'texto' ? 'origen: texto pegado' : null
     await supabase.from('facturas').update({ error_mensaje: mensajeFinal }).eq('id', nueva.id)
+
+    // Reparto de datos por destino declarado en el diccionario (task 3).
+    await repartirDatosDocumento(supabase, nueva.id)
 
     const { data: finalFac } = await supabase.from('facturas').select('*').eq('id', nueva.id).single()
     return { estado: 'ok', archivo: file.nombre, factura_id: nueva.id, factura: finalFac as Record<string, unknown> }
