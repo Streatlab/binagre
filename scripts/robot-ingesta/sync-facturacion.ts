@@ -26,6 +26,8 @@
  *  - JE    (manual): recalcula SOLO Just Eat de un día ya guardado.
  * El turno automático se decide por hora de Madrid: 00:00–05:59 → cierre de ayer.
  *
+ * CANDADO: en ejecución automática, el ALM solo se lee entre las 16:00 y las 23:59
+ * de Madrid. Un disparo a deshora (p.ej. las 15:00) leería un almuerzo a medias.
  * Filas MANUALES (canal null) jamás se tocan. Filas del ROBOT (canal='plataformas') se actualizan.
  * Blindaje: una lectura incompleta nunca puede rebajar una fila que ya tenía ventas.
  * Sin page.evaluate en Rushour (error __name).
@@ -350,13 +352,21 @@ async function rehacerDia(page: Page, fecha: string) {
 
 async function main() {
   const h = horaMadrid();
+  const manual = process.env.SYNC_MANUAL === '1' || !!(process.env.SYNC_SERVICIO || '').trim();
   let servicio = (process.env.SYNC_SERVICIO || '').toUpperCase();
   if (!['ALM', 'CENAS', 'JE', 'DIA'].includes(servicio)) servicio = h < 6 ? 'CENAS' : 'ALM';
   const fechaObj = process.env.SYNC_FECHA
     || (servicio === 'JE' || servicio === 'DIA' ? fechaMadrid(-1)
       : servicio === 'CENAS' ? fechaMadrid(h < 6 ? -1 : 0)
       : fechaMadrid(0));
-  await log('inicio', `servicio=${servicio} fecha=${fechaObj} horaMadrid=${h}`);
+  await log('inicio', `servicio=${servicio} fecha=${fechaObj} horaMadrid=${h} manual=${manual}`);
+
+  // CANDADO: el almuerzo automático solo se lee cuando ya ha terminado (>=16:00 Madrid).
+  // Un disparo a deshora guardaría un ALM a medias y falsearía la cena de la noche.
+  if (!manual && servicio === 'ALM' && h < 16) {
+    await log('skip', `ALM automático a las ${h}h Madrid: aún no ha cerrado el almuerzo, no escribo`);
+    return;
+  }
 
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const ctx = await browser.newContext({ timezoneId: 'Europe/Madrid' });
