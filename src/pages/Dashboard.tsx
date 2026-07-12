@@ -23,6 +23,10 @@ import TabResumen from '@/components/panel/resumen/TabResumen'
 import TabEvolucion from '@/components/panel/evolucion/TabEvolucion'
 import Cashflow from '@/pages/finanzas/Cashflow'
 import { toLocalDateStr } from '@/lib/dateRange'
+import { useSkin, SkinToggle } from '@/context/skin'
+import TabResumenSL from '@/components/panel/sl/TabResumenSL'
+import TabEvolucionSL from '@/components/panel/sl/TabEvolucionSL'
+import CashflowSL from '@/components/panel/sl/CashflowSL'
 
 interface Row {
   fecha: string
@@ -78,6 +82,9 @@ const MAIN_TABS = [
   { id: 'marcas',      label: 'Marcas' },
 ] as const
 
+/** Pestañas ya migradas al estilo SL. El resto sigue en Neobrutal aunque el skin sea SL. */
+const TABS_SL: MainTab[] = ['resumen', 'cashflow', 'evolucion']
+
 const DIAS_NOMBRES = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
 const DIAS_COLORES = ['#1E5BCC','#06C167','#f5a623','#B01D23','#66aaff','#F26B1F','#1D9E75']
 
@@ -125,6 +132,7 @@ export default function Dashboard() {
   const { T, isDark } = useTheme()
   const { diasOperativosEnRango, esDiaOperativo } = useCalendario()
   const navigate = useNavigate()
+  const { skin } = useSkin()
 
   const [data, setData] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
@@ -166,6 +174,9 @@ export default function Dashboard() {
   useEffect(() => {
     if (typeof window !== 'undefined') localStorage.setItem('panel_main_tab', mainTab)
   }, [mainTab])
+
+  const esSL = skin === 'sl'
+  const usaSL = esSL && TABS_SL.includes(mainTab)
   const [diaSemanaFiltro, setDiaSemanaFiltro] = useState<number | null>(null)
   const [dropMarcaOpen, setDropMarcaOpen] = useState(false)
   const [dropCanalOpen, setDropCanalOpen] = useState(false)
@@ -427,6 +438,7 @@ export default function Dashboard() {
   void nSemana; void ticketMedioBruto; void variacionPct; void ticketMedioNeto; void ventasSemana
   void diasPico; void diasRestantesMesOp; void tabBtnStyle; void editandoObjetivo; void valorEditObjetivo
   void setTopTab; void setEditandoObjetivo; void setValorEditObjetivo; void guardarObjetivo
+  void ventasHoy; void pedidosHoy
 
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:80 }}>
@@ -442,8 +454,12 @@ export default function Dashboard() {
 
   void topTab
 
+  const rowsResumen = diaSemanaFiltro != null
+    ? rowsPeriodo.filter(r => ((parseLocalDate(r.fecha).getDay() + 6) % 7) === diaSemanaFiltro)
+    : rowsPeriodo
+
   return (
-    <div style={{ fontFamily: 'Lexend, sans-serif', position: 'relative' }}>
+    <div className={esSL ? 'sl-skin' : undefined} style={{ fontFamily: esSL ? undefined : 'Lexend, sans-serif', position: 'relative' }}>
 
       <div style={{ position:'fixed', top:16, right:16, zIndex:9999, display:'flex', flexDirection:'column', gap:8, pointerEvents:'none' }}>
         {toasts.map(t => (
@@ -474,20 +490,35 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={{ ...groupStyle(T), background: CREMA, borderRadius: 0, border: `4px solid ${INK}` }}>
+      <div style={esSL
+        ? { padding: 0, background: 'transparent', border: 'none' }
+        : { ...groupStyle(T), background: CREMA, borderRadius: 0, border: `4px solid ${INK}` }}>
 
         <div style={{
           display:'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row',
           gap: isMobile ? 10 : 16, marginBottom:20, flexWrap:'wrap',
         }}>
-          <div style={{ display:'inline-block', background:'#B01D23', border:`3px solid ${INK}`, boxShadow:SHADOW, padding:'8px 16px', flexShrink:0 }}>
-            <div style={{ fontFamily:OSW, fontSize:22, fontWeight:700, color:'#fff', letterSpacing:'3px', textTransform:'uppercase', lineHeight:1 }}>PANEL GLOBAL</div>
-            <div style={{ fontFamily:LEX, fontSize:12, color:'#ffffffcc', marginTop:4 }}>
-              {fechaLabel} · {formatearFechaCorta(fechaDesde)} — {formatearFechaCorta(fechaHasta)}
+          {esSL ? (
+            <div style={{ flexShrink:0 }}>
+              <div style={{ fontSize:22, fontWeight:900, letterSpacing:'-0.4px' }}>Panel global</div>
+              <div style={{ fontSize:12, color:'var(--slx-gris-cl)', fontWeight:700, marginTop:2 }}>
+                {fechaLabel} · {formatearFechaCorta(fechaDesde)} — {formatearFechaCorta(fechaHasta)}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ display:'inline-block', background:'#B01D23', border:`3px solid ${INK}`, boxShadow:SHADOW, padding:'8px 16px', flexShrink:0 }}>
+              <div style={{ fontFamily:OSW, fontSize:22, fontWeight:700, color:'#fff', letterSpacing:'3px', textTransform:'uppercase', lineHeight:1 }}>PANEL GLOBAL</div>
+              <div style={{ fontFamily:LEX, fontSize:12, color:'#ffffffcc', marginTop:4 }}>
+                {fechaLabel} · {formatearFechaCorta(fechaDesde)} — {formatearFechaCorta(fechaHasta)}
+              </div>
+            </div>
+          )}
 
           <div style={{ flex:1 }} />
+
+          <div style={{ flexShrink:0 }}>
+            <SkinToggle />
+          </div>
 
           <div style={{ flexShrink:0 }}>
             <SelectorFechaUniversal nombreModulo="panel-global" defaultOpcion="mes_en_curso" onChange={handleFechaChange} />
@@ -541,47 +572,90 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:18 }}>
-          {MAIN_TABS.map(tab => {
-            const active = mainTab === tab.id
-            return (
-              <button key={tab.id} onClick={() => setMainTab(tab.id as MainTab)}
-                style={{
-                  fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: '0.5px', textTransform: 'uppercase',
-                  padding: '9px 18px', cursor: 'pointer', border: `3px solid ${INK}`, borderRadius: 0,
-                  background: active ? ROSA : CREMA, color: active ? '#fff' : INK,
-                  boxShadow: active ? SHADOW : 'none',
-                }}
-              >{tab.label}</button>
-            )
-          })}
-        </div>
+        {esSL ? (
+          <div style={{ display:'flex', gap:4, marginBottom:18, borderBottom:'1px solid var(--slx-line)', flexWrap:'wrap' }}>
+            {MAIN_TABS.map(tab => {
+              const active = mainTab === tab.id
+              return (
+                <button key={tab.id} onClick={() => setMainTab(tab.id as MainTab)}
+                  style={{
+                    padding:'10px 14px', background:'transparent', border:'none',
+                    borderBottom:`3px solid ${active ? 'var(--slx-rojo)' : 'transparent'}`, marginBottom:-1,
+                    fontFamily:"'Nunito', sans-serif", fontSize:12.5, fontWeight:800,
+                    color: active ? 'var(--slx-rojo)' : 'var(--slx-gris-cl)', cursor:'pointer',
+                  }}
+                >{tab.label}</button>
+              )
+            })}
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:18 }}>
+            {MAIN_TABS.map(tab => {
+              const active = mainTab === tab.id
+              return (
+                <button key={tab.id} onClick={() => setMainTab(tab.id as MainTab)}
+                  style={{
+                    fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: '0.5px', textTransform: 'uppercase',
+                    padding: '9px 18px', cursor: 'pointer', border: `3px solid ${INK}`, borderRadius: 0,
+                    background: active ? ROSA : CREMA, color: active ? '#fff' : INK,
+                    boxShadow: active ? SHADOW : 'none',
+                  }}
+                >{tab.label}</button>
+              )
+            })}
+          </div>
+        )}
+
+        {esSL && !usaSL && (
+          <div style={{
+            marginBottom: 14, padding: '10px 14px', borderRadius: 12, fontSize: 12, fontWeight: 800,
+            background: 'var(--slx-ambar-soft)', color: 'var(--slx-ambar)',
+          }}>
+            Esta pestaña todavía no está migrada al estilo SL. Se muestra en Neobrutal.
+          </div>
+        )}
 
         {mainTab === 'resumen' && (
-          <TabResumen
-            rowsPeriodo={diaSemanaFiltro != null
-              ? rowsPeriodo.filter(r => ((parseLocalDate(r.fecha).getDay() + 6) % 7) === diaSemanaFiltro)
-              : rowsPeriodo}
-            rowsAll={data}
-            fechaDesde={fechaDesde}
-            fechaHasta={fechaHasta}
-            canalesFiltro={canalesFiltro}
-            onFiltrarDiaSemana={(idx) => setDiaSemanaFiltro(prev => prev === idx ? null : idx)}
-          />
+          usaSL ? (
+            <TabResumenSL
+              rowsPeriodo={rowsResumen}
+              rowsAll={data}
+              fechaDesde={fechaDesde}
+              fechaHasta={fechaHasta}
+              canalesFiltro={canalesFiltro}
+              periodoLabel={fechaLabel}
+              onNavTab={(t) => setMainTab(t as MainTab)}
+            />
+          ) : (
+            <TabResumen
+              rowsPeriodo={rowsResumen}
+              rowsAll={data}
+              fechaDesde={fechaDesde}
+              fechaHasta={fechaHasta}
+              canalesFiltro={canalesFiltro}
+              onFiltrarDiaSemana={(idx) => setDiaSemanaFiltro(prev => prev === idx ? null : idx)}
+            />
+          )
         )}
 
         {mainTab === 'evolucion' && (
-          <TabEvolucion
-            rowsPeriodo={diaSemanaFiltro != null
-              ? rowsPeriodo.filter(r => ((parseLocalDate(r.fecha).getDay() + 6) % 7) === diaSemanaFiltro)
-              : rowsPeriodo}
-            rowsAll={data}
-            fechaDesde={fechaDesde}
-            fechaHasta={fechaHasta}
-            fechaOpcion={fechaOpcion}
-            canalesFiltro={canalesFiltro}
-            onFiltrarDiaSemana={(idx) => setDiaSemanaFiltro(prev => prev === idx ? null : idx)}
-          />
+          usaSL ? (
+            <TabEvolucionSL
+              rowsAll={data}
+              periodoDesde={fechaDesde}
+              periodoHasta={fechaHasta}
+            />
+          ) : (
+            <TabEvolucion
+              rowsPeriodo={rowsResumen}
+              rowsAll={data}
+              fechaDesde={fechaDesde}
+              fechaHasta={fechaHasta}
+              fechaOpcion={fechaOpcion}
+              canalesFiltro={canalesFiltro}
+              onFiltrarDiaSemana={(idx) => setDiaSemanaFiltro(prev => prev === idx ? null : idx)}
+            />
+          )
         )}
 
         {mainTab === 'operaciones' && (
@@ -779,7 +853,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {mainTab === 'cashflow' && <Cashflow />}
+        {mainTab === 'cashflow' && (usaSL ? <CashflowSL /> : <Cashflow />)}
 
         {mainTab === 'marcas' && (() => {
           const agrupado: Record<string, Record<string, { bruto: number; neto: number; pedidos: number }>> = {}
