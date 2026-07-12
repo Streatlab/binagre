@@ -5,7 +5,7 @@ import { TitularProvider } from '@/contexts/TitularContext'
 import Layout from '@/components/Layout'
 import Login from '@/pages/Login'
 
-const Dashboard = React.lazy(() => import('@/pages/Dashboard'))
+const Inicio = React.lazy(() => import('@/pages/InicioSkin'))
 const Escandallo = React.lazy(() => import('@/pages/Escandallo'))
 const Facturacion = React.lazy(() => import('@/pages/Facturacion'))
 const Conciliacion = React.lazy(() => import('@/pages/Conciliacion'))
@@ -158,7 +158,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={usuario ? <Navigate to="/" replace /> : <Login />} />
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<Inicio />} />
           <Route path="escandallo" element={<Escandallo />} />
           <Route path="carta" element={<Carta />} />
           <Route path="facturacion" element={<ProtectedRoute solo={['admin']}><Facturacion /></ProtectedRoute>} />
