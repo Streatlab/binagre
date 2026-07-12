@@ -357,6 +357,28 @@ async function resolverNifPista(
   } catch (e) { console.error('[resolverNifPista]', errMsg(e)); return null }
 }
 
+// Descarte automático por regla aprendida (Prompt 2 task 4, propagación forward):
+// una factura nueva cuyo nombre de archivo o NIF emisor case una regla activa de
+// reglas_no_conciliable entra directamente como no_conciliable. Devuelve el texto
+// de la regla que casó, o null. Coincidencia exacta por campo (igual que el
+// retroactivo de la UI).
+async function esNoConciliablePorRegla(
+  supabase: SupabaseClient, datos: { pdf_original_name?: string | null; nif_emisor?: string | null },
+): Promise<string | null> {
+  try {
+    const { data } = await supabase.from('reglas_no_conciliable')
+      .select('regla, campo, patron').eq('activo', true)
+    for (const r of data || []) {
+      const campo = (r.campo as string) || ''
+      const patron = (r.patron as string) || ''
+      if (!patron) continue
+      if (campo === 'nif_emisor' && datos.nif_emisor && datos.nif_emisor === patron) return (r.regla as string) || `NIF ${patron}`
+      if (campo === 'pdf_original_name' && datos.pdf_original_name && datos.pdf_original_name === patron) return (r.regla as string) || patron
+    }
+  } catch (e) { console.error('[esNoConciliablePorRegla]', errMsg(e)) }
+  return null
+}
+
 async function nifTienePlantilla(supabase: SupabaseClient, nif: string | null): Promise<boolean> {
   if (!nif) return false
   const { data } = await supabase.from('reglas_conciliacion').select('id').eq('patron_nif', nif).maybeSingle()
@@ -1005,6 +1027,14 @@ async function procesarContenidoPrincipal(
 
     // Reparto de datos por destino declarado en el diccionario (task 3).
     await repartirDatosDocumento(supabase, nueva.id)
+
+    // Descarte automático por regla aprendida (P2 task 4, forward).
+    const reglaNC = await esNoConciliablePorRegla(supabase, { pdf_original_name: file.nombre, nif_emisor: nifEmisorNorm })
+    if (reglaNC) {
+      await supabase.from('facturas').update({
+        no_conciliable: true, estado: 'no_conciliable', motivo_no_conciliable: `Regla: ${reglaNC}`,
+      }).eq('id', nueva.id)
+    }
 
     const { data: finalFac } = await supabase.from('facturas').select('*').eq('id', nueva.id).single()
     return { estado: 'ok', archivo: file.nombre, factura_id: nueva.id, factura: finalFac as Record<string, unknown> }
