@@ -11,25 +11,43 @@ on:
         type: choice
         options: ["", "ALM", "CENAS"]
         default: ""
+      fecha:
+        description: "Forzar fecha AAAA-MM-DD (vacío = automático)"
+        type: string
+        default: ""
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
       - name: Instalar dependencias
         run: npm install --no-audit --no-fund
+      - name: Cache navegador Playwright
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Instalar navegador Playwright
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+      - name: Instalar deps de sistema de Playwright (con caché)
+        if: steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - name: Sync robot → facturacion_diario
         env:
           SYNC_SERVICIO: ${{ github.event.inputs.servicio }}
+          SYNC_FECHA: ${{ github.event.inputs.fecha }}
           RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
           RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
+          SINQRO_USER: ${{ secrets.SINQRO_USER }}
+          SINQRO_PASS: ${{ secrets.SINQRO_PASS }}
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/robot-ingesta/sync-facturacion.ts
