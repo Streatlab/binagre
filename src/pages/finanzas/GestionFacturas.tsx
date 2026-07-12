@@ -20,6 +20,8 @@ import {
 import { useTheme, groupStyle } from '@/styles/tokens'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import { supabase } from '@/lib/supabase'
+import { toast } from '@/lib/toastStore'
+import ModalDescartarFactura, { type FacturaDescartable } from '@/components/documentacion/ModalDescartarFactura'
 
 type TabId = 'facturas' | 'ventas' | 'exportar'
 type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'doc' | 'estado'
@@ -94,6 +96,7 @@ function colorEstado(estado: string|null): {bg:string;col:string;lbl:string} {
     case 'sin_match':                return {bg:'#fce8e8',col:COLORS.redSL,lbl:'SIN MATCH'}
     case 'historica':                return {bg:'#eef0f4',col:COLORS.mut,  lbl:'HISTÓRICA'}
     case 'duplicada':                return {bg:'#fce8e8',col:COLORS.redSL,lbl:'DUPLICADA'}
+    case 'no_conciliable':           return {bg:'#eef0f4',col:COLORS.mut,  lbl:'DESCARTADA'}
     case 'error':                    return {bg:'#fce8e8',col:COLORS.redSL,lbl:'ERROR'}
     case 'procesando':               return {bg:'#eef0f4',col:COLORS.mut,  lbl:'PROCESANDO'}
     default:                         return {bg:'#eef0f4',col:COLORS.mut,  lbl:(estado||'—').toUpperCase()}
@@ -187,6 +190,14 @@ export default function GestionFacturas() {
   const [categorias, setCategorias] = useState<CategoriaPyg[]>([])
   const [facturas, setFacturas] = useState<FacturaRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [descartar, setDescartar] = useState<FacturaDescartable | null>(null)
+
+  const FACTURAS_SELECT = 'id,fecha_factura,proveedor_nombre,total,estado,titular_id,pdf_drive_url,pdf_filename,pdf_original_name,categoria_factura,nif_emisor,tipo'
+
+  const recargarFacturas = useCallback(async () => {
+    const { data } = await supabase.from('facturas').select(FACTURAS_SELECT).order('fecha_factura',{ascending:false,nullsFirst:false})
+    setFacturas(((data??[]) as unknown as FacturaRow[]).map(f=>({...f,total:f.total===null?null:Number(f.total)})))
+  }, [])
 
   useEffect(() => {
     let cancel = false
@@ -195,7 +206,7 @@ export default function GestionFacturas() {
         supabase.from('titulares').select('id,nombre,color,carpeta_drive').order('orden'),
         supabase.from('categorias_pyg').select('id,nivel,parent_id,nombre,bloque,orden').eq('activa',true).order('orden'),
         supabase.from('facturas')
-          .select('id,fecha_factura,proveedor_nombre,total,estado,titular_id,pdf_drive_url,pdf_filename,pdf_original_name,categoria_factura,nif_emisor,tipo')
+          .select(FACTURAS_SELECT)
           .order('fecha_factura',{ascending:false,nullsFirst:false}),
         supabase.from('facturas').select('fecha_factura').order('fecha_factura',{ascending:true}).limit(1),
       ])
@@ -405,10 +416,11 @@ export default function GestionFacturas() {
                             sortIndex={ms.sortIndex(h.col)} sortDir={ms.sortDir(h.col)}
                             onToggle={ms.toggleSort} align={h.align} />
                         ))}
+                        <th style={{padding:'11px 12px',fontSize:11,fontFamily:FONT.heading,letterSpacing:1,textTransform:'uppercase',color:COLORS.mut,textAlign:'center'}}>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {loading&&<tr><td colSpan={7} style={{...tdStyle,textAlign:'center',color:COLORS.mut,padding:'40px 12px'}}>Cargando…</td></tr>}
+                      {loading&&<tr><td colSpan={8} style={{...tdStyle,textAlign:'center',color:COLORS.mut,padding:'40px 12px'}}>Cargando…</td></tr>}
                       {!loading&&facturasOrdenadas.map((f,idx)=>{
                         const est=colorEstado(f.estado)
                         const catLbl=f.categoria_factura?`${f.categoria_factura} ${catNombre.get(f.categoria_factura)||''}`.trim():'—'
@@ -434,11 +446,27 @@ export default function GestionFacturas() {
                               </td>
                             )}
                             <td style={tdStyle}><span style={{background:est.bg,color:est.col,fontFamily:FONT.heading,fontSize:9,letterSpacing:'0.5px',padding:'2px 8px',borderRadius:9,fontWeight:500}}>{est.lbl}</span></td>
+                            <td style={{...tdDoc,padding:'6px 8px'}} onClick={e=>e.stopPropagation()}>
+                              {f.estado==='no_conciliable'?(
+                                <span style={{fontSize:11,color:COLORS.mut,fontFamily:FONT.body}}>descartada</span>
+                              ):(
+                                <button
+                                  onClick={()=>setDescartar({
+                                    id:f.id, pdf_original_name:f.pdf_original_name, nif_emisor:f.nif_emisor,
+                                    proveedor_nombre:f.proveedor_nombre, fecha_factura:f.fecha_factura,
+                                    total:f.total, titular_id:f.titular_id,
+                                  })}
+                                  title="Descartar"
+                                  style={{background:'transparent',border:`0.5px solid ${COLORS.brd}`,borderRadius:6,color:'#F26B1F',cursor:'pointer',padding:'5px 9px',fontSize:11,fontFamily:FONT.body}}>
+                                  Descartar
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         )
                       })}
                       {!loading&&facturasOrdenadas.length===0&&(
-                        <tr><td colSpan={7} style={{...tdStyle,textAlign:'center',color:COLORS.mut,padding:'40px 12px'}}>Sin facturas para los filtros seleccionados</td></tr>
+                        <tr><td colSpan={8} style={{...tdStyle,textAlign:'center',color:COLORS.mut,padding:'40px 12px'}}>Sin facturas para los filtros seleccionados</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -471,6 +499,18 @@ export default function GestionFacturas() {
           />
         )}
       </div>
+
+      {descartar && (
+        <ModalDescartarFactura
+          factura={descartar}
+          onClose={()=>setDescartar(null)}
+          onDescartada={({soloEste,afectadas})=>{
+            setDescartar(null)
+            toast.success(soloEste?'Factura descartada.':`Regla creada: ${afectadas} factura${afectadas!==1?'s':''} descartada${afectadas!==1?'s':''}.`)
+            recargarFacturas()
+          }}
+        />
+      )}
     </div>
   )
 }
