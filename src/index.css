@@ -1,221 +1,164 @@
 @import "tailwindcss";
 @import "./styles/design-system.css";
 
-/* ═══════════════════════════════════════════════════════════
-   LEY VISUAL SL v1 — repintado global del ERP Binagre
-   Manual: Notion > CEREBRO-SL > "LEY VISUAL SL — Sistema de diseño Binagre ERP v1"
-   Tokens TS: src/styles/streatlab.ts
-   Reglas: rojo SL único color de acción · semánticos solo para significado
-   de dato · fondo cálido (nunca azulado) · sin bordes duros ni sombras
-   desplazadas · zebra naranja suave en tablas.
-   ═══════════════════════════════════════════════════════════ */
-
 :root,
 [data-theme="dark"] {
-  /* ── App (modo OSCURO cálido) ── */
-  --sl-app:          #171412;
-  --sl-sidebar:      #211D1A;
-  --sl-card:         #211D1A;
-  --sl-card-alt:     #282320;
-  --sl-thead:        #211D1A;
-  --sl-modal-bg:     #211D1A;
-  --sl-overlay:      rgba(0,0,0,0.6);
-  --sl-hover:        #2F2925;
-  --sl-input-edit:   #282320;
-  --sl-input-ro:     #211D1A;
-  --sl-input-calc:   #282320;
-  --sl-select-bg:    #282320;
-  --sl-border:         #332D28;
-  --sl-border-strong:  #443B34;
-  --sl-border-calc:    #E04A50;
-  --sl-border-focus:   #E04A50;
-  --sl-border-error:   #FF7B6E;
-  --sl-border-success: #3DD68C;
-  --sl-text-primary:   #F2EFEC;
-  --sl-text-secondary: #ABA7A2;
-  --sl-text-muted:     #847F7A;
-  --sl-text-disabled:  #847F7A;
-  --sl-text-calc:      #E04A50;
-  --sl-text-nav:       #F2EFEC;
-
-  /* Acción: ROJO SL (el token histórico --sl-yellow pasa a ser el color de acción) */
-  --sl-yellow:         #E04A50;
-  --sl-red:            #E04A50;
-  --sl-teja:           #EE8A4E;
-  --sl-naranja:        #EE8A4E;
-  --sl-amarillo:       #F7B54B;
-
-  /* Semánticos de dato */
-  --sl-verde:       #3DD68C;
-  --sl-verde-soft:  #1E3A2C;
-  --sl-rojo-sem:    #FF7B6E;
-  --sl-rojo-soft:   #3A2422;
-  --sl-ambar:       #FFC24D;
-  --sl-ambar-soft:  #3A2F1C;
-  --sl-blu:         #7B90E8;
-  --sl-blu-soft:    #232A44;
-
-  /* Canales (marca, fijos) */
-  --sl-uber:           #06C167;
-  --sl-uber-text:      #3DD68C;
-  --sl-glovo-dot:      #F7B54B;
-  --sl-glovo-text:     #F7B54B;
-  --sl-je:             #EE8A4E;
-  --sl-je-text:        #EE8A4E;
-  --sl-web:            #E04A50;
-  --sl-web-dot:        #E04A50;
-  --sl-direct:         #7B90E8;
-  --sl-direct-text:    #7B90E8;
-  --sl-eps:            #7B90E8;
-  --sl-rec:            #F7B54B;
-
-  /* Botones */
-  --sl-btn-save-bg:      #E04A50;
-  --sl-btn-save-text:    #ffffff;
-  --sl-btn-add-bg:       #E04A50;
-  --sl-btn-add-text:     #ffffff;
-  --sl-btn-add-alt-bg:   #E04A50;
-  --sl-btn-add-alt-text: #ffffff;
-  --sl-btn-cancel-bg:    #282320;
-  --sl-btn-cancel-text:  #ABA7A2;
-  --sl-btn-cancel-border:#332D28;
-  --sl-btn-danger-bg:    #FF7B6E;
-  --sl-btn-danger-text:  #1a1512;
-
-  /* Estructura */
-  --sl-radius-sm:  10px;
-  --sl-radius-md:  14px;
-  --sl-radius-lg:  18px;
-  --sl-radius-pill:999px;
-  --sl-sidebar-width: 200px;
-  --sl-topbar-height: 57px;
-  --sl-shadow-sm: 0 2px 8px rgba(0,0,0,0.30);
-  --sl-shadow-md: 0 8px 24px rgba(0,0,0,0.35);
-
-  /* ── Puente de compatibilidad: tokens --neo-* remapeados a la Ley Visual SL ──
-     (neobrutal.ts queda deprecado pero sigue importado por muchos módulos:
-      al repintar estas variables, TODO el ERP adopta el estilo nuevo de golpe) */
-  --neo-ink:           #F2EFEC;
-  --neo-line:          #332D28;
-  --neo-osc:           #171412;
-  --neo-bg:            #171412;
-  --neo-bg-2:          #211D1A;
-  --neo-card-ratio:    #282320;
-  --neo-card-pe:       #282320;
-  --neo-card-result:   #1E3A2C;
-  --neo-track:         #332D28;
-  --neo-track-canal:   #332D28;
-  --neo-on-dark:       #F2EFEC;
-  --neo-shadow-color:  rgba(0,0,0,0.35);
-  --neo-shadow:        0 2px 12px rgba(0,0,0,0.35);
-  --neo-zebra:         #282320;
-  --neo-hover:         #2F2925;
-}
-
-[data-theme="light"] {
-  /* ── App (modo CLARO · crema cálido) ── */
-  --sl-app:          #FAF6F1;
-  --sl-sidebar:      #FFFFFF;
-  --sl-card:         #FFFFFF;
-  --sl-card-alt:     #FCF3EB;
-  --sl-thead:        #FFFFFF;
-  --sl-modal-bg:     #FFFFFF;
-  --sl-overlay:      rgba(41,40,40,0.35);
-  --sl-hover:        #F9EADD;
-  --sl-input-edit:   #FFFFFF;
-  --sl-input-ro:     #FAF6F1;
-  --sl-input-calc:   #FFFFFF;
-  --sl-select-bg:    #FFFFFF;
-  --sl-border:         #F0E7DC;
-  --sl-border-strong:  #E3D6C6;
+  --sl-app:          #0d1120;
+  --sl-sidebar:      #131928;
+  --sl-card:         #1a1f32;
+  --sl-card-alt:     #1a1f32;
+  --sl-thead:        #131928;
+  --sl-modal-bg:     #1a1f32;
+  --sl-overlay:      rgba(0,0,0,0.7);
+  --sl-hover:        #2a3050;
+  --sl-input-edit:   #1a1f32;
+  --sl-input-ro:     #1a1f32;
+  --sl-input-calc:   #1a1f32;
+  --sl-select-bg:    #1a1f32;
+  --sl-border:         #2a3050;
+  --sl-border-strong:  #2a3050;
   --sl-border-calc:    #B01D23;
   --sl-border-focus:   #B01D23;
-  --sl-border-error:   #D3261B;
-  --sl-border-success: #0B8A4B;
-  --sl-text-primary:   #292828;
-  --sl-text-secondary: #6E6B68;
-  --sl-text-muted:     #9C9894;
-  --sl-text-disabled:  #9C9894;
+  --sl-border-error:   #E24B4A;
+  --sl-border-success: #1D9E75;
+  --sl-text-primary:   #f0f0ff;
+  --sl-text-secondary: #9ba8c0;
+  --sl-text-muted:     #5a6880;
+  --sl-text-disabled:  #5a6880;
   --sl-text-calc:      #B01D23;
-  --sl-text-nav:       #292828;
-
-  --sl-yellow:         #B01D23;
+  --sl-text-nav:       #f0f0ff;
+  --sl-yellow:         #e8f442;
+  --sl-teja:           #7a2e10;
   --sl-red:            #B01D23;
-  --sl-teja:           #EE8A4E;
-  --sl-naranja:        #EE8A4E;
-  --sl-amarillo:       #F7B54B;
-
-  --sl-verde:       #0B8A4B;
-  --sl-verde-soft:  #E3F5EC;
-  --sl-rojo-sem:    #D3261B;
-  --sl-rojo-soft:   #FCE9E7;
-  --sl-ambar:       #B36A00;
-  --sl-ambar-soft:  #FCF2DE;
-  --sl-blu:         #4A63C8;
-  --sl-blu-soft:    #E9EDFB;
-
   --sl-uber:           #06C167;
-  --sl-uber-text:      #0B8A4B;
-  --sl-glovo-dot:      #F7B54B;
-  --sl-glovo-text:     #B36A00;
-  --sl-je:             #EE8A4E;
-  --sl-je-text:        #B36A00;
+  --sl-uber-text:      #06C167;
+  --sl-glovo-dot:      #e8f442;
+  --sl-glovo-text:     #aabc00;
+  --sl-je:             #f5a623;
+  --sl-je-text:        #f5a623;
   --sl-web:            #B01D23;
   --sl-web-dot:        #B01D23;
-  --sl-direct:         #4A63C8;
-  --sl-direct-text:    #4A63C8;
-  --sl-eps:            #4A63C8;
-  --sl-rec:            #B36A00;
-
+  --sl-direct:         #66aaff;
+  --sl-direct-text:    #66aaff;
+  --sl-eps:            #66aaff;
+  --sl-rec:            #f5a623;
   --sl-btn-save-bg:      #B01D23;
   --sl-btn-save-text:    #ffffff;
-  --sl-btn-add-bg:       #B01D23;
+  --sl-btn-add-bg:       #7a2e10;
   --sl-btn-add-text:     #ffffff;
   --sl-btn-add-alt-bg:   #B01D23;
   --sl-btn-add-alt-text: #ffffff;
-  --sl-btn-cancel-bg:    #FFFFFF;
-  --sl-btn-cancel-text:  #6E6B68;
-  --sl-btn-cancel-border:#F0E7DC;
-  --sl-btn-danger-bg:    #D3261B;
+  --sl-btn-cancel-bg:    #2a3050;
+  --sl-btn-cancel-text:  #9ba8c0;
+  --sl-btn-cancel-border:#2a3050;
+  --sl-btn-danger-bg:    #E24B4A;
   --sl-btn-danger-text:  #ffffff;
+  --sl-radius-sm:  5px;
+  --sl-radius-md:  7px;
+  --sl-radius-lg:  10px;
+  --sl-radius-pill:20px;
+  --sl-sidebar-width: 200px;
+  --sl-topbar-height: 57px;
+  --sl-shadow-sm: 0 1px 4px rgba(0,0,0,0.4);
+  --sl-shadow-md: 0 4px 16px rgba(0,0,0,0.5);
 
-  --sl-shadow-sm: 0 2px 4px rgba(41,40,40,0.04);
-  --sl-shadow-md: 0 8px 24px rgba(176,29,35,0.06);
+  /* ── NEOBRUTAL Food-Pop · estructurales (modo OSCURO) ── */
+  --neo-ink:           #e8ecff;
+  --neo-osc:           #0a0e1a;
+  --neo-bg:            #0d1120;
+  --neo-bg-2:          #1a1f32;
+  --neo-card-ratio:    #2a1d28;
+  --neo-card-pe:       #182035;
+  --neo-card-result:   #0f3d35;
+  --neo-track:         #2a3050;
+  --neo-track-canal:   #2a3050;
+  --neo-on-dark:       #FCEFD6;
+  --neo-shadow-color:  rgba(0,0,0,0.55);
+}
 
-  /* ── Puente --neo-* (modo CLARO) ── */
-  --neo-ink:           #292828;
-  --neo-line:          #F0E7DC;
-  --neo-osc:           #292828;
-  --neo-bg:            #FFFFFF;
-  --neo-bg-2:          #FCF3EB;
-  --neo-card-ratio:    #FCF3EB;
-  --neo-card-pe:       #F9EADD;
-  --neo-card-result:   #E3F5EC;
-  --neo-track:         #F1EFEA;
-  --neo-track-canal:   #F1EFEA;
-  --neo-on-dark:       #FAF6F1;
-  --neo-shadow-color:  rgba(120,60,20,0.10);
-  --neo-shadow:        0 2px 4px rgba(41,40,40,0.04), 0 8px 24px rgba(176,29,35,0.06);
-  --neo-zebra:         #FCF3EB;
-  --neo-hover:         #F9EADD;
+[data-theme="light"] {
+  --sl-app:          #f5f3ef;
+  --sl-sidebar:      #ebe8e2;
+  --sl-card:         #ffffff;
+  --sl-card-alt:     #ffffff;
+  --sl-thead:        #ebe8e2;
+  --sl-modal-bg:     #ffffff;
+  --sl-overlay:      rgba(0,0,0,0.4);
+  --sl-hover:        #ebe8e2;
+  --sl-input-edit:   #ffffff;
+  --sl-input-ro:     #ffffff;
+  --sl-input-calc:   #ffffff;
+  --sl-select-bg:    #ffffff;
+  --sl-border:         #d0c8bc;
+  --sl-border-strong:  #d0c8bc;
+  --sl-border-calc:    #B01D23;
+  --sl-border-focus:   #B01D23;
+  --sl-border-error:   #E24B4A;
+  --sl-border-success: #1D9E75;
+  --sl-text-primary:   #111111;
+  --sl-text-secondary: #3a4050;
+  --sl-text-muted:     #7a8090;
+  --sl-text-disabled:  #7a8090;
+  --sl-text-calc:      #B01D23;
+  --sl-text-nav:       #111111;
+  --sl-yellow:         #e8f442;
+  --sl-teja:           #7a2e10;
+  --sl-red:            #B01D23;
+  --sl-uber:           #06C167;
+  --sl-uber-text:      #1a6a30;
+  --sl-glovo-dot:      #c8900a;
+  --sl-glovo-text:     #7a5800;
+  --sl-je:             #d46010;
+  --sl-je-text:        #7a3800;
+  --sl-web:            #B01D23;
+  --sl-web-dot:        #B01D23;
+  --sl-direct:         #3a5aee;
+  --sl-direct-text:    #2a4aaa;
+  --sl-eps:            #2a4aaa;
+  --sl-rec:            #c8900a;
+  --sl-btn-save-bg:      #B01D23;
+  --sl-btn-save-text:    #ffffff;
+  --sl-btn-add-bg:       #7a2e10;
+  --sl-btn-add-text:     #ffffff;
+  --sl-btn-add-alt-bg:   #B01D23;
+  --sl-btn-add-alt-text: #ffffff;
+  --sl-btn-cancel-bg:    #d0c8bc;
+  --sl-btn-cancel-text:  #3a4050;
+  --sl-btn-cancel-border:#d0c8bc;
+  --sl-btn-danger-bg:    #E24B4A;
+  --sl-btn-danger-text:  #ffffff;
+  --sl-shadow-sm: 0 1px 4px rgba(100,60,20,0.12);
+  --sl-shadow-md: 0 4px 16px rgba(100,60,20,0.12);
+
+  /* ── NEOBRUTAL Food-Pop · estructurales (modo CLARO) ── */
+  --neo-ink:           #140f08;
+  --neo-osc:           #2b2117;
+  --neo-bg:            #FCEFD6;
+  --neo-bg-2:          #F3D9A8;
+  --neo-card-ratio:    #ffe0ea;
+  --neo-card-pe:       #d8e3ff;
+  --neo-card-result:   #0F3D35;
+  --neo-track:         #ecdcb8;
+  --neo-track-canal:   #e2dac9;
+  --neo-on-dark:       #FCEFD6;
+  --neo-shadow-color:  #140f08;
 }
 
 @theme {
-  /* Puentes Tailwind → Ley Visual SL */
-  --color-base:        #292828;
-  --color-card:        #FFFFFF;
-  --color-sidebar:     #FFFFFF;
-  --color-border:      #F0E7DC;
+  /* Puentes Tailwind → design system tokens */
+  --color-base:        #111111;
+  --color-card:        #1a1a1a;
+  --color-sidebar:     #000000;
+  --color-border:      #2a2a2a;
   --color-accent:      #B01D23;
   --color-accent-red:  #B01D23;
-  --color-eps:         #4A63C8;
-  --color-rec:         #F7B54B;
-  --color-text:        #292828;
-  --color-muted:       #9C9894;
-  --font-sans:         "Nunito", system-ui, sans-serif;
-  --font-ui:           "Nunito", system-ui, sans-serif;
-  --font-title:        "Nunito", system-ui, sans-serif;
-  --font-mono:         "JetBrains Mono", ui-monospace, monospace;
+  --color-eps:         #66aaff;
+  --color-rec:         #f5a623;
+  --color-text:        #ffffff;
+  --color-muted:       #999999;
+  --font-sans:         "Lexend", system-ui, sans-serif;
+  --font-ui:           "Oswald", system-ui, sans-serif;
+  --font-title:        "Impact", "Oswald", sans-serif;
 }
 
 [data-theme="light"] { color-scheme: light; }
@@ -225,20 +168,12 @@ html { background: var(--sl-app) !important; }
 body {
   background: var(--sl-app) !important;
   color: var(--sl-text-primary) !important;
-  font-family: 'Nunito', system-ui, sans-serif;
-  font-weight: 600;
 }
 
-/* Cifras SIEMPRE tabulares (Regla de oro 2) */
-* { font-variant-numeric: tabular-nums; }
-
-/* Filas de tabla: zebra naranja suave (Regla de oro 3) */
+/* Filas tabla por defecto (puente Tailwind cuando no usan clase .ds-table) */
 tbody tr:nth-child(odd)  { background: var(--sl-card); }
 tbody tr:nth-child(even) { background: var(--sl-card-alt); }
 tbody tr:hover { background: var(--sl-hover) !important; }
-
-/* Radio suave en contenedores que usan el borde canónico de la Ley Visual */
-main [style*="1px solid var(--neo-line)"] { border-radius: var(--sl-radius-lg); }
 
 .modal-merma { background-color: var(--sl-modal-bg) !important; }
 
@@ -254,9 +189,13 @@ button, input, select, textarea {
 
 /* ============================================================
    RESPONSIVE TABLET — 641px a 1024px
+   Complementa responsive-movil.css (que cubre <=640 táctil).
+   Rejillas muy anchas bajan a 2 columnas; modales se estrechan
+   al viewport; padding lateral intermedio. No toca escritorio.
    ============================================================ */
 @media (min-width: 641px) and (max-width: 1024px) {
   main { padding-left: 20px !important; padding-right: 20px !important; }
+  /* Rejillas de 3+ columnas (inline o Tailwind) → 2 columnas en tablet */
   main [style*="grid-template-columns"],
   main [class*="grid-cols-3"],
   main [class*="grid-cols-4"],
@@ -264,13 +203,16 @@ button, input, select, textarea {
   main [class*="grid-cols-6"] {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
+  /* Modales: nunca más anchos que el viewport, con respiración lateral */
   .ds-modal, .modal-merma, [role="dialog"] > div {
     max-width: calc(100vw - 40px) !important;
   }
 }
 
 /* ============================================================
-   MODAL FULL-SCREEN EN MÓVIL
+   MODAL FULL-SCREEN EN MÓVIL (neobrutal: ficha a pantalla completa)
+   En dispositivo táctil, cualquier modal ocupa toda la pantalla en
+   vez de ventana flotante minúscula. Botones táctiles >= 44px.
    ============================================================ */
 html.sl-movil .ds-modal,
 html.sl-movil .modal-merma,
@@ -295,6 +237,7 @@ html.sl-movil [role="tab"] {
   min-height: 44px !important;
 }
 
+/* Tabs en móvil: scroll horizontal con snap, sin romper la fila */
 html.sl-movil [role="tablist"],
 html.sl-movil .sl-tabs {
   display: flex !important;
@@ -304,105 +247,106 @@ html.sl-movil .sl-tabs {
   flex-wrap: nowrap !important;
 }
 
-/* ============ RUNNING FINANCIERO V2 (repintado Ley Visual SL) ============ */
+/* ============ RUNNING FINANCIERO V2 ============ */
 :root {
-  --rf-bg-page: #FAF6F1;
+  --rf-bg-page: #f4e9e5;
   --rf-bg-card: #ffffff;
-  --rf-bg-panel: #FCF3EB;
-  --rf-border: #F0E7DC;
-  --rf-border-input: #E3D6C6;
-  --rf-text: #292828;
-  --rf-text-2: #6E6B68;
-  --rf-text-muted: #9C9894;
-  --rf-text-label: #9C9894;
+  --rf-bg-panel: #f8f3f0;
+  --rf-border: #e5d9d3;
+  --rf-border-input: #d5c9c3;
+  --rf-text: #1a1a1a;
+  --rf-text-2: #6b6560;
+  --rf-text-muted: #a8a09a;
+  --rf-text-label: #9a928a;
 
   --rf-red: #B01D23;
-  --rf-red-soft: #FCE9E7;
-  --rf-green: #0B8A4B;
-  --rf-yellow: #F7B54B;
-  --rf-orange: #EE8A4E;
+  --rf-red-soft: #fde8e7;
+  --rf-green: #1a8754;
+  --rf-yellow: #e8c547;
+  --rf-orange: #e89a3c;
 
   --rf-ch-uber: #06C167;
-  --rf-ch-uber-bg: #E3F5EC;
-  --rf-ch-glovo: #F7B54B;
-  --rf-ch-glovo-bg: #FCF2DE;
-  --rf-ch-justeat: #EE8A4E;
-  --rf-ch-justeat-bg: #FCF3EB;
+  --rf-ch-uber-bg: #e8f5ec;
+  --rf-ch-glovo: #e8f442;
+  --rf-ch-glovo-bg: #fafce8;
+  --rf-ch-justeat: #f5a623;
+  --rf-ch-justeat-bg: #fdf3e4;
   --rf-ch-web: #B01D23;
-  --rf-ch-web-bg: #FCE9E7;
-  --rf-ch-directa: #4A63C8;
-  --rf-ch-directa-bg: #E9EDFB;
+  --rf-ch-web-bg: #f9e8e8;
+  --rf-ch-directa: #66aaff;
+  --rf-ch-directa-bg: #e8f1fc;
 
-  /* Trimestres: neutros cálidos, sin decoración cromática */
-  --rf-q1-bg: #FCF9F5;
-  --rf-q1-tot: #F6EFE7;
-  --rf-q1-head: #F0E7DC;
-  --rf-q2-bg: #FCF9F5;
-  --rf-q2-tot: #F6EFE7;
-  --rf-q2-head: #F0E7DC;
-  --rf-q3-bg: #FCF9F5;
-  --rf-q3-tot: #F6EFE7;
-  --rf-q3-head: #F0E7DC;
-  --rf-q4-bg: #FCF9F5;
-  --rf-q4-tot: #F6EFE7;
-  --rf-q4-head: #F0E7DC;
-  --rf-year-bg: #FCE9E7;
-  --rf-year-head: #F9DAD7;
-  --rf-mes-actual: #FCF3EB;
-  --rf-mes-actual-head: #F9EADD;
+  /* Trimestres pastel coherentes con #f5f3ef (mockup validado) */
+  --rf-q1-bg: #eef3f8;
+  --rf-q1-tot: #dbe6f0;
+  --rf-q1-head: #cfdce8;
+  --rf-q2-bg: #eef3e8;
+  --rf-q2-tot: #dbe6cf;
+  --rf-q2-head: #cfdcc0;
+  --rf-q3-bg: #f6efe2;
+  --rf-q3-tot: #ecdfc4;
+  --rf-q3-head: #e2cfa6;
+  --rf-q4-bg: #f0eef6;
+  --rf-q4-tot: #e0dcec;
+  --rf-q4-head: #d2cce0;
+  --rf-year-bg: #f9e9eb;
+  --rf-year-head: #f5dde0;
+  --rf-mes-actual: #dfead4;
+  --rf-mes-actual-head: #a8c890;
 
-  --rf-banda-ok: #0B8A4B;
-  --rf-banda-warn: #B36A00;
-  --rf-banda-err: #D3261B;
+  /* Semáforo banda objetivo */
+  --rf-banda-ok: #0F6E56;
+  --rf-banda-warn: #854F0B;
+  --rf-banda-err: #B01D23;
 }
 
 [data-theme="dark"] {
-  --rf-bg-page: #171412;
-  --rf-bg-card: #211D1A;
-  --rf-bg-panel: #282320;
-  --rf-border: #332D28;
-  --rf-border-input: #443B34;
-  --rf-text: #F2EFEC;
-  --rf-text-2: #ABA7A2;
-  --rf-text-muted: #847F7A;
-  --rf-text-label: #847F7A;
+  --rf-bg-page: #2e3347;
+  --rf-bg-card: #484f66;
+  --rf-bg-panel: #3a4058;
+  --rf-border: #4a5270;
+  --rf-border-input: #4a5270;
+  --rf-text: #f0f0ff;
+  --rf-text-2: #c8d0e8;
+  --rf-text-muted: #7080a8;
+  --rf-text-label: #7080a8;
 
-  --rf-red: #E04A50;
-  --rf-red-soft: rgba(224,74,80,0.15);
-  --rf-green: #3DD68C;
-  --rf-yellow: #F7B54B;
-  --rf-orange: #EE8A4E;
+  --rf-red: #e8524c;
+  --rf-red-soft: rgba(232,82,76,0.15);
+  --rf-green: #4ade80;
+  --rf-yellow: #fbbf24;
+  --rf-orange: #fb923c;
 
-  --rf-ch-uber-bg: rgba(61,214,140,0.12);
-  --rf-ch-glovo-bg: rgba(247,181,75,0.10);
-  --rf-ch-justeat-bg: rgba(238,138,78,0.12);
-  --rf-ch-web-bg: rgba(224,74,80,0.16);
-  --rf-ch-directa-bg: rgba(123,144,232,0.12);
+  --rf-ch-uber-bg: rgba(6,193,103,0.12);
+  --rf-ch-glovo-bg: rgba(232,244,66,0.10);
+  --rf-ch-justeat-bg: rgba(245,166,35,0.12);
+  --rf-ch-web-bg: rgba(176,29,35,0.18);
+  --rf-ch-directa-bg: rgba(102,170,255,0.12);
 
-  --rf-q1-bg: rgba(255,255,255,0.02);
-  --rf-q1-tot: rgba(255,255,255,0.05);
-  --rf-q1-head: rgba(255,255,255,0.08);
-  --rf-q2-bg: rgba(255,255,255,0.02);
-  --rf-q2-tot: rgba(255,255,255,0.05);
-  --rf-q2-head: rgba(255,255,255,0.08);
-  --rf-q3-bg: rgba(255,255,255,0.02);
-  --rf-q3-tot: rgba(255,255,255,0.05);
-  --rf-q3-head: rgba(255,255,255,0.08);
-  --rf-q4-bg: rgba(255,255,255,0.02);
-  --rf-q4-tot: rgba(255,255,255,0.05);
-  --rf-q4-head: rgba(255,255,255,0.08);
-  --rf-year-bg: rgba(224,74,80,0.10);
-  --rf-year-head: rgba(224,74,80,0.18);
-  --rf-mes-actual: rgba(238,138,78,0.12);
-  --rf-mes-actual-head: rgba(238,138,78,0.24);
+  --rf-q1-bg: rgba(102,170,255,0.08);
+  --rf-q1-tot: rgba(102,170,255,0.16);
+  --rf-q1-head: rgba(102,170,255,0.24);
+  --rf-q2-bg: rgba(74,222,128,0.08);
+  --rf-q2-tot: rgba(74,222,128,0.16);
+  --rf-q2-head: rgba(74,222,128,0.24);
+  --rf-q3-bg: rgba(232,197,71,0.08);
+  --rf-q3-tot: rgba(232,197,71,0.16);
+  --rf-q3-head: rgba(232,197,71,0.24);
+  --rf-q4-bg: rgba(206,203,246,0.08);
+  --rf-q4-tot: rgba(206,203,246,0.16);
+  --rf-q4-head: rgba(206,203,246,0.24);
+  --rf-year-bg: rgba(232,82,76,0.10);
+  --rf-year-head: rgba(232,82,76,0.18);
+  --rf-mes-actual: rgba(74,222,128,0.20);
+  --rf-mes-actual-head: rgba(74,222,128,0.40);
 
-  --rf-banda-ok: #3DD68C;
-  --rf-banda-warn: #FFC24D;
-  --rf-banda-err: #FF7B6E;
+  --rf-banda-ok: #4ade80;
+  --rf-banda-warn: #fbbf24;
+  --rf-banda-err: #e8524c;
 }
 
-.rf-font-header { font-family: 'Nunito', sans-serif; font-weight: 800; }
-.rf-font-body { font-family: 'Nunito', sans-serif; }
+.rf-font-header { font-family: 'Oswald', sans-serif; }
+.rf-font-body { font-family: 'Lexend', sans-serif; }
 
 /* Carrusel horizontal de marcas */
 .rf-marcas-scroll {
