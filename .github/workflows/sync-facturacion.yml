@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       servicio:
-        description: "Forzar servicio (ALM o CENAS). Vacío = automático por hora"
+        description: "Vacío = automático por hora. ALM / CENAS = turno concreto. JE = recalcular solo Just Eat de un día ya guardado"
         type: choice
-        options: ["", "ALM", "CENAS"]
+        options: ["", "ALM", "CENAS", "JE"]
         default: ""
       fecha:
         description: "Forzar fecha AAAA-MM-DD (vacío = automático)"
