@@ -1,34 +1,62 @@
-name: SOLD_PRODUCTS Sinqro (platos Just Eat)
+name: SOLD_PRODUCTS Sinqro (02:00 Madrid → bandeja Papeleo)
 
+# Corre después de la facturación (CENAS va a la 01:00 Madrid).
+# GitHub programa en UTC y no sabe de horario de verano, así que hay dos disparos
+# y un candado: solo se ejecuta si en Madrid son de verdad las 02:00.
 on:
+  schedule:
+    - cron: "0 0 * * *"   # 02:00 Madrid (verano)
+    - cron: "0 1 * * *"   # 02:00 Madrid (invierno)
   workflow_dispatch:
+    inputs:
+      simulacro:
+        description: "1 = solo mira, no deja nada en la bandeja"
+        type: choice
+        options: ["0", "1"]
+        default: "0"
 
 jobs:
   sold:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
+      - name: Candado horario (solo a las 02:00 Madrid)
+        id: candado
+        run: |
+          H=$(TZ=Europe/Madrid date +%H)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$H" = "02" ]; then
+            echo "seguir=1" >> $GITHUB_OUTPUT
+          else
+            echo "seguir=0" >> $GITHUB_OUTPUT
+            echo "En Madrid son las $H:00, no las 02:00. No toca."
+          fi
       - uses: actions/checkout@v4
+        if: steps.candado.outputs.seguir == '1'
       - uses: actions/setup-node@v4
+        if: steps.candado.outputs.seguir == '1'
         with:
           node-version: "20"
           cache: "npm"
       - name: Instalar dependencias
+        if: steps.candado.outputs.seguir == '1'
         run: npm install --no-audit --no-fund
       - name: Cache navegador Playwright
         id: cache-playwright
+        if: steps.candado.outputs.seguir == '1'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Instalar navegador Playwright
-        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
       - name: Instalar deps de sistema de Playwright (con caché)
-        if: steps.cache-playwright.outputs.cache-hit == 'true'
+        if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
-      - name: Leer SOLD_PRODUCTS
+      - name: Descargar informe y dejarlo en la bandeja
+        if: steps.candado.outputs.seguir == '1'
         env:
+          SOLD_DRY: ${{ github.event.inputs.simulacro }}
           SINQRO_USER: ${{ secrets.SINQRO_USER }}
           SINQRO_PASS: ${{ secrets.SINQRO_PASS }}
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
