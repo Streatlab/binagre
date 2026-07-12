@@ -330,25 +330,94 @@ async function cargarDiccionarioNif(
   return dic
 }
 
+// Resuelve una PISTA de NIF del proveedor antes de decidir si se paga: (1) NIF del
+// texto libre; (2) si no hay texto/NIF, nombre del proveedor contenido en el nombre
+// del archivo, cotejado contra proveedor_canonico del diccionario. Permite activar
+// el candado en PDFs escaneados sin texto (que antes pagaban siempre).
+async function resolverNifPista(
+  supabase: SupabaseClient, texto: string | null | undefined, filename: string | null | undefined,
+): Promise<string | null> {
+  const porTexto = texto ? normalizarNif(extraerNifEmisorLibre(texto)) : null
+  if (porTexto) return porTexto
+  const base = (filename || '').toLowerCase().replace(/\.[a-z0-9]+$/i, '').replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (base.replace(/\s/g, '').length < 4) return null
+  try {
+    const { data } = await supabase.from('diccionario_nif_proveedor')
+      .select('nif, proveedor_canonico').not('proveedor_canonico', 'is', null).limit(2000)
+    let mejor: { nif: string; len: number } | null = null
+    for (const row of data || []) {
+      const nombre = ((row.proveedor_canonico as string) || '').toLowerCase().trim()
+      if (nombre.length >= 4 && base.includes(nombre)) {
+        if (!mejor || nombre.length > mejor.len) mejor = { nif: (row.nif as string), len: nombre.length }
+      }
+    }
+    return mejor ? normalizarNif(mejor.nif) : null
+  } catch (e) { console.error('[resolverNifPista]', errMsg(e)); return null }
+}
+
 async function nifTienePlantilla(supabase: SupabaseClient, nif: string | null): Promise<boolean> {
   if (!nif) return false
   const { data } = await supabase.from('reglas_conciliacion').select('id').eq('patron_nif', nif).maybeSingle()
   return !!data?.id
 }
 
-async function nifVisionUsada(supabase: SupabaseClient, nif: string | null): Promise<boolean> {
-  if (!nif) return false
-  const { data } = await supabase.from('reglas_conciliacion').select('vision_usada')
-    .eq('patron_nif', nif).eq('vision_usada', true).maybeSingle()
-  return !!data
+// Inserta un aviso en avisos_papeleo (best-effort: si falla, no rompe el flujo).
+async function avisoPapeleo(
+  supabase: SupabaseClient,
+  tipo: string, titulo: string, detalle: string,
+  extra?: { factura_id?: string | null; payload?: Record<string, unknown> },
+): Promise<void> {
+  try {
+    await supabase.from('avisos_papeleo').insert({
+      tipo, titulo, detalle, estado: 'abierto',
+      factura_id: extra?.factura_id ?? null,
+      payload: extra?.payload ?? null,
+    })
+  } catch (e) { console.error('[avisoPapeleo]', errMsg(e)) }
 }
 
+// Candado de pago: el NIF está bloqueado si CUALQUIERA de las dos fuentes de verdad
+// (reglas_conciliacion legacy o diccionario_nif_proveedor) tiene vision_usada=true.
+async function nifVisionUsada(supabase: SupabaseClient, nif: string | null): Promise<boolean> {
+  if (!nif) return false
+  const { data: r } = await supabase.from('reglas_conciliacion').select('vision_usada')
+    .eq('patron_nif', nif).eq('vision_usada', true).maybeSingle()
+  if (r) return true
+  const { data: d } = await supabase.from('diccionario_nif_proveedor').select('vision_usada')
+    .eq('nif', nif).eq('vision_usada', true).maybeSingle()
+  return !!d
+}
+
+// Marca el candado de pago del NIF en AMBAS tablas. En reglas_conciliacion hace
+// upsert (crea la fila si no existía). En diccionario_nif_proveedor marca la ficha
+// (que aprenderProveedorNif ya ha creado). Si el NIF YA estaba marcado, significa
+// que se ha pagado pese al candado → aviso 'candado_saltado' para auditar.
 async function marcarVisionUsada(supabase: SupabaseClient, nif: string | null): Promise<void> {
   if (!nif) return
+  const yaEstaba = await nifVisionUsada(supabase, nif)
+  const now = new Date().toISOString()
   try {
-    await supabase.from('reglas_conciliacion')
-      .update({ vision_usada: true, vision_fecha: new Date().toISOString() }).eq('patron_nif', nif)
-  } catch (e) { console.error('[marcarVisionUsada]', errMsg(e)) }
+    const { data: existe } = await supabase.from('reglas_conciliacion').select('id')
+      .eq('patron_nif', nif).maybeSingle()
+    if (existe?.id) {
+      await supabase.from('reglas_conciliacion').update({ vision_usada: true, vision_fecha: now }).eq('id', existe.id as string)
+    } else {
+      await supabase.from('reglas_conciliacion').insert({
+        patron: `NIF ${nif}`, tipo_categoria: 'gasto', patron_nif: nif,
+        vision_usada: true, vision_fecha: now, activa: true, prioridad: 50,
+      })
+    }
+  } catch (e) { console.error('[marcarVisionUsada] reglas', errMsg(e)) }
+  try {
+    const { data: ficha } = await supabase.from('diccionario_nif_proveedor').select('nif').eq('nif', nif).maybeSingle()
+    if (ficha) await supabase.from('diccionario_nif_proveedor').update({ vision_usada: true, vision_fecha: now }).eq('nif', nif)
+  } catch (e) { console.error('[marcarVisionUsada] diccionario', errMsg(e)) }
+  if (yaEstaba) {
+    await avisoPapeleo(supabase, 'candado_saltado',
+      `Candado saltado · NIF ${nif}`,
+      `Se ha usado la API de pago para el NIF ${nif} pese a tener el candado activado (vision_usada=true). Revisar por qué la plantilla no leyó gratis.`,
+      { payload: { nif } })
+  }
 }
 
 // Super diccionario NIF → instrucciones OCR (fuente de verdad única, jun-2026).
@@ -449,6 +518,24 @@ async function aprenderProveedorNif(
   if (!nif || !extracted.proveedor_nombre) return
   const plantilla = derivarPlantilla(texto, extracted)
 
+  // Plantilla VERIFICADA (task 3): re-ejecutar extraerPorReglas sobre el MISMO texto
+  // con la plantilla recién derivada y comprobar que reproduce total/fecha/número.
+  // Objetivo: que la 2ª factura del proveedor NUNCA vuelva a la API de pago.
+  let plantillaVerificada = false
+  let plantillaFalla = false
+  if (texto && plantilla.totalLabel) {
+    try {
+      const reintento = extraerPorReglas(texto, () => plantilla, false)
+      if (reintento) {
+        const totalOk = extracted.total != null && reintento.total != null && Math.abs(reintento.total - extracted.total) < 0.05
+        const numOk = !extracted.numero_factura || reintento.numero_factura === extracted.numero_factura
+        const fechaOk = !fechaValida(extracted.fecha_factura) || reintento.fecha_factura === extracted.fecha_factura
+        plantillaVerificada = !!(totalOk && numOk && fechaOk)
+        plantillaFalla = !plantillaVerificada // hubo texto reparseanle pero no cuadró
+      }
+    } catch { /* no reparseable: ni verificada ni fallo declarado */ }
+  }
+
   // 1) SUPER DICCIONARIO NIF — crear ficha nueva o completar/refrescar la existente.
   try {
     const { data: ficha } = await supabase.from('diccionario_nif_proveedor')
@@ -459,6 +546,7 @@ async function aprenderProveedorNif(
         plantilla_total_label: plantilla.totalLabel,
         plantilla_fecha_formato: plantilla.fechaFormato,
         plantilla_num_label: plantilla.numLabel,
+        plantilla_verificada: plantillaVerificada,
         veces_visto: 1,
         ultima_fecha: fechaValida(extracted.fecha_factura) ? extracted.fecha_factura : null,
         ultimo_importe: extracted.total ?? null,
@@ -476,10 +564,18 @@ async function aprenderProveedorNif(
         upd.plantilla_total_label = plantilla.totalLabel
         upd.plantilla_fecha_formato = plantilla.fechaFormato
         upd.plantilla_num_label = plantilla.numLabel
+        upd.plantilla_verificada = plantillaVerificada
       }
       await supabase.from('diccionario_nif_proveedor').update(upd).eq('nif', nif)
     }
   } catch (e) { console.error('[aprenderProveedorNif] diccionario:', errMsg(e)) }
+
+  if (plantillaFalla) {
+    await avisoPapeleo(supabase, 'plantilla_no_autovalida',
+      `Plantilla de ${extracted.proveedor_nombre} no se autovalida`,
+      `La plantilla derivada para el NIF ${nif} no reprodujo el total/fecha/número al re-leer el mismo documento. La 2ª factura podría no leerse gratis. Revisar plantilla.`,
+      { payload: { nif, proveedor: extracted.proveedor_nombre } })
+  }
 
   // 2) Respaldo legacy: reglas_conciliacion (crear si falta; completar plantilla si existía vacía).
   try {
@@ -670,7 +766,10 @@ async function procesarContenidoPrincipal(
     } catch (ocrErr) { console.error('[procesarArchivo] OCR Tesseract no resolvió:', errMsg(ocrErr)) }
   }
 
-  const nifCandPago = textoPdfCache ? normalizarNif(extraerNifEmisorLibre(textoPdfCache)) : null
+  // Candado ANTES de pagar: se resuelve el NIF con CUALQUIER pista disponible
+  // (NIF del texto libre o nombre del proveedor en el nombre del archivo contra el
+  // diccionario). Si ese NIF ya gastó su lectura de pago, no se vuelve a pagar.
+  const nifCandPago = await resolverNifPista(supabase, textoPdfCache, file.nombre)
   const pagoYaUsado = nifCandPago ? await nifVisionUsada(supabase, nifCandPago) : false
 
   if (!extractedReglas && !pagoYaUsado && bootstrapApiActivo() && (tipo === 'pdf' || tipo === 'imagen')) {
@@ -711,7 +810,10 @@ async function procesarContenidoPrincipal(
   if (extractedReglas) {
     extracted = extractedReglas
   } else {
-    return await guardarLecturaManual(supabase, file, hash, textoPdfCache)
+    return await guardarLecturaManual(supabase, file, hash, textoPdfCache, {
+      candadoNif: pagoYaUsado ? nifCandPago : null,
+      teniaTextoDigital: pdfTieneTexto(textoPdfCache),
+    })
   }
 
   if (!extracted.proveedor_nombre) {
@@ -1054,13 +1156,14 @@ async function guardarFacturasMulti(
 
 async function guardarLecturaManual(
   supabase: SupabaseClient, file: ArchivoEntrada, hash: string, textoPdf?: string,
+  opts?: { candadoNif?: string | null; teniaTextoDigital?: boolean },
 ): Promise<ProcesarResultado> {
   const { data: yaExiste } = await supabase.from('facturas').select('id, proveedor_nombre, estado, pdf_drive_id')
     .eq('pdf_hash', hash).maybeSingle()
   if (yaExiste) return { estado: 'duplicada', archivo: file.nombre, factura_existente: yaExiste as Record<string, unknown>, motivo: 'ya existe (lectura manual)' }
   const hoy = new Date().toISOString().slice(0, 10)
   const numFactura = `LM-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`
-  const nifEmisor = textoPdf ? extraerNifEmisorLibre(textoPdf) : null
+  const nifEmisor = (textoPdf ? extraerNifEmisorLibre(textoPdf) : null) || opts?.candadoNif || null
   let proveedorNombre = 'PENDIENTE LECTURA MANUAL'
   if (nifEmisor) {
     // Fuente única: primero el diccionario NIF, luego la regla legacy.
@@ -1068,6 +1171,11 @@ async function guardarLecturaManual(
     const { data: regla } = await supabase.from('reglas_conciliacion').select('razon_social').eq('patron_nif', nifEmisor).maybeSingle()
     proveedorNombre = (dicc?.proveedor_canonico as string) || (regla?.razon_social as string) || `NIF ${nifEmisor} (sin plantilla)`
   }
+  // Motivo claro: si el candado bloqueó el pago y las reglas no leyeron, es que la
+  // plantilla del proveedor no funciona (no se reintenta pago).
+  const mensajeMotivo = opts?.candadoNif
+    ? `Plantilla de ${proveedorNombre} no funciona, revisar plantilla (candado de pago activo, no se reintenta API de pago).`
+    : 'No se pudo leer con plantilla, Tesseract, Mistral ni Anthropic. Revisa la plantilla del NIF o lectura manual.'
   const titTexto = titularPorNifEnTexto(textoPdf)
   const carpetaTitular = titTexto?.carpeta ?? 'SIN_TITULAR'
   const drive = await guardarEnDriveBestEffort(file, {
@@ -1080,18 +1188,27 @@ async function guardarLecturaManual(
     estado: 'pendiente_lectura_manual', tipo: 'proveedor',
     titular_id: titTexto?.titularId ?? null, nif_cliente: titTexto?.nif ?? null, nif_emisor: nifEmisor,
     pdf_drive_id: drive?.id ?? null, pdf_drive_url: drive?.webViewLink ?? null, pdf_filename: drive?.nombre ?? null,
-    error_mensaje: drive
-      ? 'No se pudo leer con plantilla, Tesseract, Mistral ni Anthropic. Revisa la plantilla del NIF o lectura manual.'
-      : 'No se pudo leer y Drive no disponible. Reintenta.',
+    error_mensaje: drive ? mensajeMotivo : 'No se pudo leer y Drive no disponible. Reintenta.',
   }).select('*').maybeSingle()
   if (errLM) {
     if (/pdf_hash/.test(errLM.message || '')) return { estado: 'duplicada', archivo: file.nombre, motivo: 'hash duplicado (mismo PDF en el lote)' }
     return { estado: 'error', archivo: file.nombre, error: errLM.message }
   }
+  // Regla "nada es no identificable" (task 6): un documento con texto DIGITAL (no
+  // escaneado) que acaba en lectura manual es un bug visible → aviso con muestra del
+  // texto para diagnóstico. Nunca silencio ante un documento legible ilegible.
+  if (opts?.teniaTextoDigital && textoPdf) {
+    await avisoPapeleo(supabase, 'lectura_fallida',
+      `Lectura fallida (texto digital) · ${proveedorNombre}`,
+      `Documento con texto digital que no se pudo leer por reglas. Primeros 500 caracteres:\n${textoPdf.slice(0, 500)}`,
+      { factura_id: (nueva?.id as string) || null, payload: { nif: nifEmisor, archivo: file.nombre } })
+  }
   return {
     estado: 'lectura_manual', archivo: file.nombre,
     factura_id: (nueva?.id as string) || undefined, factura: (nueva as Record<string, unknown>) || undefined,
-    motivo: nifEmisor ? `lectura manual: sin plantilla NIF ${nifEmisor}` : 'lectura manual: ninguna vía leyó',
+    motivo: opts?.candadoNif
+      ? `lectura manual: plantilla de ${proveedorNombre} no funciona (candado activo)`
+      : nifEmisor ? `lectura manual: sin plantilla NIF ${nifEmisor}` : 'lectura manual: ninguna vía leyó',
   }
 }
 
