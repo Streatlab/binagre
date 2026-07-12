@@ -10,9 +10,13 @@
  *  - ALM   (cron 17:00 Madrid): fila ALM de HOY = lo acumulado hasta esa hora.
  *  - CENAS (cron 01:00 Madrid): fila CENAS de AYER = día completo de ayer − fila ALM de ayer.
  *
- * IMPORTANTE (bug corregido): el navegador debe ir en hora de Madrid; si va en
- * UTC, "Today" a la 01:00 devuelve el día anterior y los datos se etiquetan mal.
- * Y el turno se decide por la hora de Madrid: 00:00–05:59 → CENAS, resto → ALM.
+ * Bugs corregidos (no reintroducir):
+ *  - El navegador debe ir en hora de Madrid; en UTC, "Today" a la 01:00 devuelve
+ *    el día anterior y los datos se etiquetan mal.
+ *  - NO forzar locale: si se fuerza es-ES, Rushour traduce el desplegable
+ *    (Today → Hoy) y el preset deja de encontrarse. Los presets se buscan con
+ *    expresión tolerante al idioma por si la interfaz cambia sola.
+ *  - El turno se decide por la hora de Madrid: 00:00–05:59 → CENAS, resto → ALM.
  *
  * Filas MANUALES (canal null) jamás se tocan. Filas del ROBOT (canal='plataformas') se actualizan.
  * Sin page.evaluate en Rushour (error __name).
@@ -36,6 +40,8 @@ const SINQRO = {
   startDate: '#startDateFilter', endDate: '#endDateFilter',
 };
 const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const HOY = /^(today|hoy|aujourd'hui)$/i;
+const AYER = /^(yesterday|ayer|hier)$/i;
 
 async function log(estado: string, detalle: string) {
   try { await sb.from('robot_log').insert([{ fuente: 'sync_facturacion', estado, detalle }]); } catch { /* noop */ }
@@ -83,10 +89,13 @@ async function abrirSelectFecha(page: Page) {
 async function elegirOpcion(page: Page, re: RegExp): Promise<boolean> {
   const ops = page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option');
   const n = await ops.count().catch(() => 0);
+  const vistas: string[] = [];
   for (let i = 0; i < n; i++) {
     const t = ((await ops.nth(i).textContent().catch(() => '')) || '').trim();
+    vistas.push(t);
     if (re.test(t)) { await ops.nth(i).click().catch(() => {}); await page.waitForTimeout(800); return true; }
   }
+  await log('diag', `opciones de fecha vistas: [${vistas.join(' | ')}]`);
   return false;
 }
 async function leerKPIs(page: Page): Promise<{ bruto: number; pedidos: number }> {
@@ -196,7 +205,7 @@ async function marcarTodosLosTipos(page: Page): Promise<number> {
 /** Devuelve Just Eat del día separado por turno. */
 async function leerSinqro(page: Page, fecha: string): Promise<{ comida: { pedidos: number; bruto: number }; cena: { pedidos: number; bruto: number } }> {
   const vacio = { comida: { pedidos: 0, bruto: 0 }, cena: { pedidos: 0, bruto: 0 } };
-  if (!SINQRO.user || !SINQRO.pass) return vacio;
+  if (!SINQRO.user || !SINQRO.pass) { await log('aviso', 'sin credenciales de Sinqro'); return vacio; }
   await page.goto(SINQRO.loginUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
   if (await page.locator('#login-email').first().count().catch(() => 0)) {
@@ -278,8 +287,8 @@ async function main() {
   await log('inicio', `servicio=${servicio} fecha=${fechaObj} horaMadrid=${h}`);
 
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-  // Navegador en hora de Madrid: si no, "Today"/"Yesterday" de Rushour se desfasan.
-  const ctx = await browser.newContext({ timezoneId: 'Europe/Madrid', locale: 'es-ES' });
+  // Solo zona horaria: forzar el idioma traduciría el desplegable de Rushour.
+  const ctx = await browser.newContext({ timezoneId: 'Europe/Madrid' });
   const page = await ctx.newPage();
   try {
     await page.goto(RUSHOUR.loginUrl, { waitUntil: 'domcontentloaded' });
@@ -290,7 +299,7 @@ async function main() {
     await page.waitForTimeout(5000);
 
     const esHoy = fechaObj === fechaMadrid(0);
-    const rush = await leerRushour(page, esHoy ? /^Today$/i : /^Yesterday$/i);
+    const rush = await leerRushour(page, esHoy ? HOY : AYER);
     if (!rush) return;
 
     const je = await leerSinqro(page, fechaObj);
