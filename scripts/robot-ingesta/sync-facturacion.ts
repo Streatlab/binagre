@@ -9,7 +9,15 @@
  *    se encontrarían.
  *  - Sinqro historial → Just Eat. Sinqro NO usa hoy/ayer: se le clava la fecha
  *    exacta en el calendario y se marcan TODOS los tipos de servicio (sin eso la
- *    búsqueda sale vacía).
+ *    búsqueda sale vacía). Se guarda el importe de CADA pedido (je_items), igual
+ *    que el modal "Editar día" del ERP.
+ *
+ * Servicios del ERP (misma semántica que el modal Editar día):
+ *  - ALM   = fila del almuerzo.
+ *  - CENAS = fila de la cena, SOLO cena. Regla de la casa: cena = día completo − almuerzo.
+ *  - TODO  = fila única de día completo (histórico enero–abril, manual).
+ *  - CENAS/ALM = modo de captura del modal, no un servicio: se teclea el total del
+ *    día y el ERP resta el ALM para guardar la fila CENAS. El robot hace lo mismo.
  *
  * Modos:
  *  - ALM   (cron 17:00 Madrid): fila ALM de HOY.
@@ -19,6 +27,7 @@
  * El turno automático se decide por hora de Madrid: 00:00–05:59 → cierre de ayer.
  *
  * Filas MANUALES (canal null) jamás se tocan. Filas del ROBOT (canal='plataformas') se actualizan.
+ * Blindaje: una lectura incompleta nunca puede rebajar una fila que ya tenía ventas.
  * Sin page.evaluate en Rushour (error __name).
  */
 import { chromium, Page } from 'playwright';
@@ -60,6 +69,7 @@ function numES(s: string): number {
   return parseFloat(x) || 0;
 }
 const r2 = (n: number) => Math.round(n * 100) / 100;
+type Turno = { pedidos: number; bruto: number; items: number[] };
 
 /* ---------- RUSHOUR ---------- */
 async function cerrarModales(page: Page) {
@@ -197,9 +207,9 @@ async function marcarTodosLosTipos(page: Page): Promise<number> {
   }
   return m;
 }
-/** Just Eat del día, separado por turno. */
-async function leerSinqro(page: Page, fecha: string): Promise<{ comida: { pedidos: number; bruto: number }; cena: { pedidos: number; bruto: number } }> {
-  const vacio = { comida: { pedidos: 0, bruto: 0 }, cena: { pedidos: 0, bruto: 0 } };
+/** Just Eat del día, separado por turno y con el importe de cada pedido. */
+async function leerSinqro(page: Page, fecha: string): Promise<{ comida: Turno; cena: Turno }> {
+  const vacio: { comida: Turno; cena: Turno } = { comida: { pedidos: 0, bruto: 0, items: [] }, cena: { pedidos: 0, bruto: 0, items: [] } };
   if (!SINQRO.user || !SINQRO.pass) return vacio;
   await page.goto(SINQRO.loginUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
@@ -227,15 +237,17 @@ async function leerSinqro(page: Page, fecha: string): Promise<{ comida: { pedido
   const texto = ((await page.locator('body').innerText().catch(() => '')) || '').replace(/\u00a0/g, ' ');
   const tarjetas = texto.split(/Pedido\s*#/).slice(1);
   const dd = fecha.slice(8, 10), mm = fecha.slice(5, 7);
-  const res = { comida: { pedidos: 0, bruto: 0 }, cena: { pedidos: 0, bruto: 0 } };
+  const res: { comida: Turno; cena: Turno } = { comida: { pedidos: 0, bruto: 0, items: [] }, cena: { pedidos: 0, bruto: 0, items: [] } };
   for (const t of tarjetas) {
     if (!/just\s?eat/i.test(t)) continue;
     const mh = t.match(new RegExp(`Entregar el ${dd}/${mm} a las (\\d{1,2}):(\\d{2})`, 'i')) || t.match(/a las (\d{1,2}):(\d{2})h/i);
     const mE = t.match(/(\d[\d.,]*)\s*€/);
     if (!mh || !mE) continue;
     const turno = parseInt(mh[1], 10) < 18 ? 'comida' : 'cena';
+    const imp = r2(numES(mE[1]));
     res[turno].pedidos += 1;
-    res[turno].bruto += numES(mE[1]);
+    res[turno].bruto += imp;
+    res[turno].items.push(imp);
   }
   res.comida.bruto = r2(res.comida.bruto);
   res.cena.bruto = r2(res.cena.bruto);
@@ -246,24 +258,30 @@ async function leerSinqro(page: Page, fecha: string): Promise<{ comida: { pedido
 /* ---------- GUARDADO ---------- */
 async function filaExistente(fecha: string, servicio: string) {
   const { data } = await sb.from('facturacion_diario')
-    .select('id,canal,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto')
+    .select('id,canal,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,je_items,total_bruto')
     .eq('fecha', fecha).eq('servicio', servicio).is('marca_id', null);
   return data && data.length ? data[0] : null;
 }
-async function guardarFila(fecha: string, servicio: 'ALM' | 'CENAS', uber: any, glovo: any, je: any) {
+async function guardarFila(fecha: string, servicio: 'ALM' | 'CENAS', uber: any, glovo: any, je: any, forzar = false) {
   const total_pedidos = (uber.pedidos || 0) + (glovo.pedidos || 0) + (je.pedidos || 0);
   const total_bruto = r2((uber.bruto || 0) + (glovo.bruto || 0) + (je.bruto || 0));
   const fila = {
     fecha, servicio, canal: 'plataformas',
     uber_pedidos: uber.pedidos, uber_bruto: uber.bruto,
     glovo_pedidos: glovo.pedidos, glovo_bruto: glovo.bruto,
-    je_pedidos: je.pedidos, je_bruto: je.bruto,
+    je_pedidos: je.pedidos, je_bruto: je.bruto, je_items: je.items || [],
     web_pedidos: 0, web_bruto: 0, directa_pedidos: 0, directa_bruto: 0,
     pedidos: total_pedidos, bruto: total_bruto, total_pedidos, total_bruto,
   };
   const previa = await filaExistente(fecha, servicio);
   if (previa && previa.canal !== 'plataformas') { await log('skip', `fila MANUAL ${fecha} ${servicio}: no la piso`); return; }
   if (!total_pedidos && !total_bruto && !previa) { await log('skip', `${fecha} ${servicio}: aún sin ventas, no creo fila vacía`); return; }
+  // BLINDAJE: una lectura incompleta (web caída, sesión perdida, ejecución fuera de hora)
+  // jamás puede rebajar una fila que ya tenía ventas. Solo el modo DIA (forzar) corrige a la baja.
+  if (previa && !forzar && total_bruto + 0.005 < (Number(previa.total_bruto) || 0)) {
+    await log('skip', `${fecha} ${servicio}: lectura ${total_bruto}€ < guardado ${previa.total_bruto}€ → no la piso`);
+    return;
+  }
   if (previa) {
     const { error } = await sb.from('facturacion_diario').update(fila).eq('id', previa.id);
     if (error) { await log('error', `update ${fecha} ${servicio}: ${error.message}`); return; }
@@ -287,7 +305,7 @@ async function repararJustEat(page: Page, fecha: string) {
     const total_pedidos = uber_p + glovo_p + dato.pedidos;
     const total_bruto = r2(uber_b + glovo_b + dato.bruto);
     const { error } = await sb.from('facturacion_diario').update({
-      je_pedidos: dato.pedidos, je_bruto: dato.bruto,
+      je_pedidos: dato.pedidos, je_bruto: dato.bruto, je_items: dato.items || [],
       pedidos: total_pedidos, bruto: total_bruto, total_pedidos, total_bruto,
     }).eq('id', fila.id);
     if (error) { await log('error', `JE ${fecha} ${servicio}: ${error.message}`); continue; }
@@ -297,7 +315,8 @@ async function repararJustEat(page: Page, fecha: string) {
 
 /**
  * Rehace AYER completo: Rushour "Yesterday" da el total del día; el ALM ya
- * guardado (leído en vivo a las 17:00) se conserva y CENAS = total − ALM.
+ * guardado (leído en vivo a las 17:00) se conserva y CENAS = total − ALM,
+ * exactamente igual que el modo CENAS/ALM del modal Editar día.
  * Just Eat se lee de Sinqro por su fecha exacta y se reparte por turno.
  */
 async function rehacerDia(page: Page, fecha: string) {
@@ -311,13 +330,14 @@ async function rehacerDia(page: Page, fecha: string) {
     await guardarFila(fecha, 'ALM', rush.ubereats, rush.glovo, {
       pedidos: je.comida.pedidos + je.cena.pedidos,
       bruto: r2(je.comida.bruto + je.cena.bruto),
-    });
+      items: [...je.comida.items, ...je.cena.items],
+    }, true);
     return;
   }
   await guardarFila(fecha, 'ALM',
     { pedidos: Number(alm.uber_pedidos) || 0, bruto: Number(alm.uber_bruto) || 0 },
     { pedidos: Number(alm.glovo_pedidos) || 0, bruto: Number(alm.glovo_bruto) || 0 },
-    je.comida);
+    je.comida, true);
   const resta = (dia: any, p: any, b: any) => ({
     pedidos: Math.max((dia.pedidos || 0) - (Number(p) || 0), 0),
     bruto: r2(Math.max((dia.bruto || 0) - (Number(b) || 0), 0)),
@@ -325,7 +345,7 @@ async function rehacerDia(page: Page, fecha: string) {
   await guardarFila(fecha, 'CENAS',
     resta(rush.ubereats, alm.uber_pedidos, alm.uber_bruto),
     resta(rush.glovo, alm.glovo_pedidos, alm.glovo_bruto),
-    je.cena);
+    je.cena, true);
 }
 
 async function main() {
@@ -352,7 +372,14 @@ async function main() {
     }
 
     if (servicio === 'JE') { await repararJustEat(page, fechaObj); return; }
-    if (servicio === 'DIA') { await rehacerDia(page, fechaObj); return; }
+    if (servicio === 'DIA') {
+      if (fechaObj !== fechaMadrid(-1)) {
+        await log('error', `DIA solo rehace AYER (${fechaMadrid(-1)}); pediste ${fechaObj}. Rushour solo expone el preset Yesterday.`);
+        return;
+      }
+      await rehacerDia(page, fechaObj);
+      return;
+    }
 
     const esHoy = fechaObj === fechaMadrid(0);
     const HOY = /^(today|hoy|aujourd'hui)$/i;
@@ -380,6 +407,7 @@ async function main() {
         await guardarFila(fechaObj, 'ALM', rush.ubereats, rush.glovo, {
           pedidos: je.comida.pedidos + je.cena.pedidos,
           bruto: r2(je.comida.bruto + je.cena.bruto),
+          items: [...je.comida.items, ...je.cena.items],
         });
       }
     }
