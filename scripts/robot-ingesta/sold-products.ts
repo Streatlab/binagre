@@ -12,13 +12,17 @@
  * interpretan las ventas, vengan del robot o de una subida a mano.
  *
  * Cómo obtiene el fichero:
- *   1. Si el informe tiene botón de exportar/descargar → usa ese fichero tal cual.
- *   2. Si no lo hay → serializa la tabla completa a CSV de una sola pasada
- *      (page.evaluate en memoria, NO celda a celda: eso es lo que agotaba el
- *      tiempo del workflow con 2.714 filas).
+ *   1. El informe TIENE botón de exportar (comprobado 12-jul-2026): descarga un
+ *      .xls de ~880 KB, 'AAAAMMDDhhmmss_sold_products_3976805.xls'. Ese fichero
+ *      va tal cual a la bandeja.
+ *   2. Si algún día desapareciera el botón → serializa la tabla completa a CSV de
+ *      una sola pasada (page.evaluate en memoria, NO celda a celda: eso es lo que
+ *      agotaba el tiempo del workflow con 2.714 filas).
  *
  * Cobertura: Glovo y Just Eat. Uber NO pasa por Sinqro.
  * Alcance del informe: mes en curso + mes anterior.
+ *
+ * OJO imports_log.detalle es JSONB, no texto: hay que insertar un objeto.
  *
  * El panel es AngularJS: los inputs usan ng-model y un fill() directo deja el
  * formulario "pristine" → hay que escribir tecla a tecla. El botón de acceso es
@@ -73,8 +77,8 @@ async function login(page: Page): Promise<boolean> {
   return dentro;
 }
 
-/** Intento 1: botón de exportar/descargar del propio informe. */
-async function intentarDescarga(ctx: BrowserContext, p: Page): Promise<{ nombre: string; datos: Buffer } | null> {
+/** Vía buena: botón de exportar/descargar del propio informe. */
+async function intentarDescarga(p: Page): Promise<{ nombre: string; datos: Buffer } | null> {
   const candidatos = [
     p.getByRole('button', { name: /export|exportar|descargar|download|csv|excel|xls/i }).first(),
     p.getByRole('link', { name: /export|exportar|descargar|download|csv|excel|xls/i }).first(),
@@ -90,7 +94,7 @@ async function intentarDescarga(ctx: BrowserContext, p: Page): Promise<{ nombre:
       if (!ruta) continue;
       const fs = await import('fs/promises');
       const datos = await fs.readFile(ruta);
-      const nombre = dl.suggestedFilename() || 'sold_products.csv';
+      const nombre = dl.suggestedFilename() || 'sold_products.xls';
       await log('descarga', `${nombre} bytes=${datos.length}`);
       return { nombre, datos };
     } catch { /* siguiente candidato */ }
@@ -98,7 +102,7 @@ async function intentarDescarga(ctx: BrowserContext, p: Page): Promise<{ nombre:
   return null;
 }
 
-/** Intento 2: serializar la tabla entera a CSV de una sola pasada, en memoria. */
+/** Plan B: serializar la tabla entera a CSV de una sola pasada, en memoria. */
 async function tablaACsv(p: Page): Promise<{ nombre: string; datos: Buffer; filas: number } | null> {
   const csv = await p.evaluate(() => {
     const tabla = document.querySelector('table');
@@ -120,25 +124,39 @@ async function tablaACsv(p: Page): Promise<{ nombre: string; datos: Buffer; fila
   return { nombre: 'sold_products.csv', datos: Buffer.from(csv.texto, 'utf-8'), filas: csv.filas };
 }
 
+function mimeDe(ext: string): string {
+  const e = ext.toLowerCase();
+  if (e === '.csv') return 'text/csv';
+  if (e === '.xls') return 'application/vnd.ms-excel';
+  if (e === '.xlsx') return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  return 'application/octet-stream';
+}
+
 /** Deja el fichero en la bandeja de Papeleo y lo registra como pendiente. */
 async function aBandeja(nombre: string, datos: Buffer) {
   const sello = new Date().toISOString().replace(/[:.]/g, '-');
   const ext = (nombre.match(/\.[a-z0-9]+$/i) || ['.csv'])[0];
   const ruta = `sinqro/sold_products_${HOY}_${sello}${ext}`;
-  const tipoMime = /\.csv$/i.test(ext) ? 'text/csv' : 'application/octet-stream';
 
-  const { error: eUp } = await sb.storage.from(BUCKET).upload(ruta, datos, { contentType: tipoMime, upsert: true });
-  if (eUp) { await log('error', `subiendo a la bandeja: ${eUp.message}`); return; }
+  const { error: eUp } = await sb.storage.from(BUCKET).upload(ruta, datos, { contentType: mimeDe(ext), upsert: true });
+  if (eUp) { await log('error', `subiendo a la bandeja: ${eUp.message}`); process.exitCode = 1; return; }
 
+  // detalle es JSONB: objeto, no cadena.
   const { error: eLog } = await sb.from('imports_log').insert([{
     archivo_nombre: `sold_products_${HOY}${ext}`,
     archivo_url: `${BUCKET}/${ruta}`,
     tipo_detectado: 'sinqro_sold_products',
     estado: 'pendiente',
     destino_modulo: 'ventas',
-    detalle: `Informe SOLD_PRODUCTS de Sinqro (Glovo + Just Eat). Depositado por el robot el ${HOY}. Pendiente de parsear.`,
+    detalle: {
+      fuente: 'robot sold-products',
+      cobertura: 'glovo+justeat',
+      fecha_deposito: HOY,
+      bytes: datos.length,
+      nota: 'Informe SOLD_PRODUCTS de Sinqro. Pendiente de parsear.',
+    },
   }]);
-  if (eLog) { await log('aviso', `fichero subido pero no registrado en imports_log: ${eLog.message}`); return; }
+  if (eLog) { await log('error', `fichero subido pero NO registrado en imports_log: ${eLog.message}`); process.exitCode = 1; return; }
 
   await log('ok', `informe en bandeja: ${BUCKET}/${ruta} (${datos.length} bytes) · imports_log=pendiente`);
 }
@@ -169,7 +187,7 @@ async function main() {
     await p.waitForLoadState('networkidle').catch(() => {});
     await p.waitForTimeout(8000);
 
-    let fichero = await intentarDescarga(ctx, p);
+    let fichero = await intentarDescarga(p);
     if (!fichero) {
       const csv = await tablaACsv(p);
       if (!csv) { await volcar('sold_sin_lineas', p); await log('error', 'informe abierto pero sin tabla legible'); process.exitCode = 1; return; }
