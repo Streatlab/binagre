@@ -30,6 +30,9 @@ import { matchFactura, aplicarMatching, normalizar } from '../_lib/matching.js'
 import { recogerFacturasDelCorreo } from '../_lib/gmail-cartero.js'
 import { extraerTextoPDF, pdfTieneTexto } from '../_lib/extractores.js'
 import { extraerTextoOCRGratis } from '../_lib/ocr-tesseract.js'
+import { clasificarPorContenido, reglaCasa } from '../_lib/clasificadorCorreo.js'
+import type { DestinoCorreo } from '../_lib/clasificadorCorreo.js'
+import { parsearBBVA } from '../_lib/parserBBVA.js'
 import type { ExtractedFactura } from '../_lib/ocr-types.js'
 import { descargarRespaldoStorage } from '../_lib/google-drive.js'
 import { extraerLineasFacturaTexto, sumaConIva } from '../_lib/extraerLineasFactura.js'
@@ -260,6 +263,55 @@ async function reasignarTitulares(req: VercelRequest, res: VercelResponse) {
   })
 }
 
+// Clasifica un adjunto del cartero ANTES del motor de facturas (task 7).
+// Orden: (1) regla aprendida por remitente/asunto; (2) extracto bancario si
+// parsearBBVA lo parsea; (3) documento de equipo por contenido; (4) factura.
+async function clasificarAdjuntoCartero(adj: {
+  nombre: string; buffer: Buffer; mimeType?: string | null; remitente?: string | null; asunto?: string | null
+}): Promise<{ destino: DestinoCorreo; subtipo: string | null; motivo: string; porRegla: boolean }> {
+  try {
+    const { data: reglas } = await supabaseAdmin.from('reglas_correo_ocr')
+      .select('remitente, asunto_contiene, destino').eq('activa', true)
+    for (const r of reglas || []) {
+      if (reglaCasa(r as { remitente?: string | null; asunto_contiene?: string | null }, adj.remitente, adj.asunto) && r.destino) {
+        const dest: DestinoCorreo = (r.destino === 'doc_equipo' || r.destino === 'extracto') ? r.destino : 'factura'
+        return { destino: dest, subtipo: null, motivo: `regla de correo aprendida (${r.destino})`, porRegla: true }
+      }
+    }
+  } catch (e) { console.error('[clasificarAdjuntoCartero] reglas', e instanceof Error ? e.message : String(e)) }
+
+  let texto = ''
+  const esPdf = /\.pdf$/i.test(adj.nombre) || (adj.mimeType || '').includes('pdf')
+  if (esPdf) { try { texto = await extraerTextoPDF(adj.buffer) } catch { texto = '' } }
+
+  const pareceBanco = /extracto|bbva|movimient/i.test(adj.nombre) || /excel|spreadsheet|csv/i.test(adj.mimeType || '')
+  if (pareceBanco) {
+    try {
+      const movs = parsearBBVA(adj.buffer)
+      if (movs && movs.length >= 1) return { destino: 'extracto', subtipo: 'bbva', motivo: `extracto bancario (${movs.length} movimientos)`, porRegla: false }
+    } catch { /* no es un extracto parseable */ }
+  }
+
+  const c = clasificarPorContenido(adj.nombre, texto)
+  return { ...c, porRegla: false }
+}
+
+// Aprendizaje por remitente (reglas_correo_ocr): crea o incrementa la regla para
+// que la próxima vez ese remitente se clasifique a la primera.
+async function aprenderReglaCorreo(remitente: string, destino: DestinoCorreo): Promise<void> {
+  try {
+    const rem = remitente.toLowerCase().trim()
+    if (!rem) return
+    const { data: ya } = await supabaseAdmin.from('reglas_correo_ocr')
+      .select('id, veces_confirmada').eq('remitente', rem).eq('destino', destino).maybeSingle()
+    if (ya?.id) {
+      await supabaseAdmin.from('reglas_correo_ocr').update({ veces_confirmada: (Number(ya.veces_confirmada) || 0) + 1 }).eq('id', ya.id as string)
+    } else {
+      await supabaseAdmin.from('reglas_correo_ocr').insert({ remitente: rem, destino, veces_confirmada: 1, activa: true })
+    }
+  } catch (e) { console.error('[aprenderReglaCorreo]', e instanceof Error ? e.message : String(e)) }
+}
+
 // ── Handler: cartero IMAP ──────────────────────────────────────────────────
 async function cartero(req: VercelRequest, res: VercelResponse) {
   const sesionId = `cartero-${Date.now().toString(36)}`
@@ -278,7 +330,7 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
 
   const { adjuntos, mensajesRevisados, _mover } = recogida
 
-  let ok = 0, manual = 0, duplicadas = 0, errores = 0
+  let ok = 0, manual = 0, duplicadas = 0, errores = 0, clasificados = 0
   const resultados: Record<string, unknown>[] = []
   const mensajesConExito = new Set<string>()
   const mensajesConFallo = new Set<string>()
@@ -286,6 +338,24 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
 
   for (const adj of adjuntos) {
     try {
+      // Clasificador universal: desviar nóminas / Seg. Social / extractos del motor
+      // de facturas (task 7). No se ingesta a ciegas: se deja aviso + aprendizaje.
+      const cls = await clasificarAdjuntoCartero(adj)
+      if (cls.destino !== 'factura') {
+        clasificados++
+        await supabaseAdmin.from('avisos_papeleo').insert({
+          tipo: cls.destino === 'extracto' ? 'extracto_recibido' : 'doc_equipo_recibido',
+          titulo: `${cls.destino === 'extracto' ? 'Extracto bancario' : 'Documento de equipo'} recibido · ${adj.nombre}`,
+          detalle: `Clasificado como ${cls.motivo}. Remitente: ${adj.remitente || '—'}. No se procesa como factura; requiere ingesta específica.`,
+          estado: 'abierto',
+          payload: { archivo: adj.nombre, remitente: adj.remitente, asunto: adj.asunto, subtipo: cls.subtipo, destino: cls.destino },
+        })
+        if (!cls.porRegla && adj.remitente) await aprenderReglaCorreo(adj.remitente, cls.destino)
+        mensajesConExito.add(adj.messageId)
+        resultados.push({ archivo: adj.nombre, remitente: adj.remitente, asunto: adj.asunto, estado: 'clasificado', motivo: cls.motivo })
+        continue
+      }
+
       const procesados = await procesarArchivo(
         supabaseAdmin,
         { nombre: adj.nombre, buffer: adj.buffer, mimeType: adj.mimeType },
@@ -347,6 +417,7 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
     lectura_manual: manual,
     duplicadas,
     errores,
+    clasificados,
     movidos_a_procesadas: moverIds.length,
     origen_correo_marcadas: facturasOrigenCorreo.size,
     resultados,
