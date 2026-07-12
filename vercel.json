@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/ocr-queue",
-      "destination": "/api/ocr-cleanup?fn=queue"
+      "destination": "/api/papeleo/ocr-cleanup?fn=queue"
     },
     {
       "source": "/api/oauth/google/start",
@@ -23,6 +23,54 @@
     {
       "source": "/api/oauth/google/callback",
       "destination": "/api/oauth/google?action=callback"
+    },
+    {
+      "source": "/api/facturas/:ruta*",
+      "destination": "/api/papeleo/facturas/:ruta*"
+    },
+    {
+      "source": "/api/bootstrap-ocr",
+      "destination": "/api/papeleo/bootstrap-ocr"
+    },
+    {
+      "source": "/api/checklists/:ruta*",
+      "destination": "/api/papeleo/checklists/:ruta*"
+    },
+    {
+      "source": "/api/debug-texto",
+      "destination": "/api/papeleo/debug-texto"
+    },
+    {
+      "source": "/api/ocr-cleanup",
+      "destination": "/api/papeleo/ocr-cleanup"
+    },
+    {
+      "source": "/api/titulares",
+      "destination": "/api/papeleo/titulares"
+    },
+    {
+      "source": "/api/conciliacion/:ruta*",
+      "destination": "/api/papeleo/conciliacion/:ruta*"
+    },
+    {
+      "source": "/api/importar/:ruta*",
+      "destination": "/api/papeleo/importar/:ruta*"
+    },
+    {
+      "source": "/api/pe/:ruta*",
+      "destination": "/api/operaciones/pe/:ruta*"
+    },
+    {
+      "source": "/api/pos/:ruta*",
+      "destination": "/api/operaciones/pos/:ruta*"
+    },
+    {
+      "source": "/api/equipo/:ruta*",
+      "destination": "/api/operaciones/equipo/:ruta*"
+    },
+    {
+      "source": "/api/nominas/:ruta*",
+      "destination": "/api/operaciones/nominas/:ruta*"
     },
     {
       "source": "/api/(.*)",
