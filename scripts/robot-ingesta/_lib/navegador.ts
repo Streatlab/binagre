@@ -1,10 +1,10 @@
 /**
  * NAVEGADOR · Utilidades comunes de descarga.
  *
- * Los portales de Uber, Glovo y Just Eat cambian de aspecto a menudo, así que
- * NO se atan selectores frágiles: se busca cualquier botón/enlace de exportar o
- * descargar y se captura el fichero que suelte el navegador. Si no aparece
- * ninguno, se vuelca el HTML a `robot_debug` para poder mirar qué cambió.
+ * Los portales cambian de aspecto a menudo, así que NO se atan selectores
+ * frágiles: se busca cualquier botón/enlace de exportar o descargar y se captura
+ * el fichero que suelte el navegador. Si no aparece ninguno, se vuelca el HTML a
+ * `robot_debug` para poder ver qué cambió.
  */
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { log, volcar } from './bandeja.js';
@@ -12,12 +12,12 @@ import { cargarSesion } from './portal.js';
 
 export interface Fichero { nombre: string; datos: Buffer }
 
-export async function abrir(plataforma: string): Promise<{ browser: Browser; ctx: BrowserContext; page: Page }> {
+export async function abrir(plataforma: string, cuenta: string): Promise<{ browser: Browser; ctx: BrowserContext; page: Page }> {
   const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
-  const sesion = await cargarSesion(plataforma);
+  const sesion = await cargarSesion(plataforma, cuenta);
   const ctx = await browser.newContext({
     acceptDownloads: true,
     timezoneId: 'Europe/Madrid',
