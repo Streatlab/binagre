@@ -1,20 +1,22 @@
 /**
  * SYNC FACTURACIÓN · robot → tabla facturacion_diario (módulo Facturación del ERP).
  *
- * Lee las tres fuentes él mismo (no depende de otros robots):
- *  - Rushour /rapports: Uber Eats y Glovo por separado (preset Today / Yesterday).
- *  - Sinqro historial: Just Eat, eligiendo el día en el CALENDARIO y marcando
- *    TODOS los tipos de servicio (si no, la búsqueda sale vacía).
+ * Fuentes (las lee él mismo, no depende de otros robots):
+ *  - Rushour /rapports → Uber Eats y Glovo por separado. Usa los presets
+ *    Today / Yesterday, así que el navegador DEBE ir en hora de Madrid (con UTC,
+ *    "Today" a la 01:00 devuelve el día anterior y los datos se etiquetan mal).
+ *    No se fuerza el idioma: Rushour traduciría el desplegable y los presets no
+ *    se encontrarían.
+ *  - Sinqro historial → Just Eat. Sinqro NO usa hoy/ayer: se le clava la fecha
+ *    exacta en el calendario y se marcan TODOS los tipos de servicio (sin eso la
+ *    búsqueda sale vacía).
  *
- * Turnos:
- *  - ALM   (cron 17:00 Madrid): fila ALM de HOY = lo acumulado hasta esa hora.
- *  - CENAS (cron 01:00 Madrid): fila CENAS de AYER = día completo de ayer − fila ALM de ayer.
- *  - JE    (manual): recalcula SOLO Just Eat de un día ya guardado, sin tocar Uber/Glovo.
- *
- * Bugs corregidos: navegador en hora de Madrid (si va en UTC, "Today" a la 01:00
- * devuelve el día anterior y los datos se etiquetan mal) y turno por hora de
- * Madrid (00:00–05:59 → cierre de ayer). No se fuerza el idioma: Rushour
- * traduciría el desplegable y los presets dejarían de encontrarse.
+ * Modos:
+ *  - ALM   (cron 17:00 Madrid): fila ALM de HOY.
+ *  - CENAS (cron 01:00 Madrid): fila CENAS de AYER = día completo − ALM.
+ *  - DIA   (manual): rehace AYER entero (ALM + CENAS, con Uber/Glovo/Just Eat).
+ *  - JE    (manual): recalcula SOLO Just Eat de un día ya guardado.
+ * El turno automático se decide por hora de Madrid: 00:00–05:59 → cierre de ayer.
  *
  * Filas MANUALES (canal null) jamás se tocan. Filas del ROBOT (canal='plataformas') se actualizan.
  * Sin page.evaluate en Rushour (error __name).
@@ -195,7 +197,7 @@ async function marcarTodosLosTipos(page: Page): Promise<number> {
   }
   return m;
 }
-/** Devuelve Just Eat del día separado por turno. */
+/** Just Eat del día, separado por turno. */
 async function leerSinqro(page: Page, fecha: string): Promise<{ comida: { pedidos: number; bruto: number }; cena: { pedidos: number; bruto: number } }> {
   const vacio = { comida: { pedidos: 0, bruto: 0 }, cena: { pedidos: 0, bruto: 0 } };
   if (!SINQRO.user || !SINQRO.pass) return vacio;
@@ -273,7 +275,7 @@ async function guardarFila(fecha: string, servicio: 'ALM' | 'CENAS', uber: any, 
   await log('ok', `guardada ${fecha} ${servicio} total=${total_bruto}€ / ${total_pedidos} ped`);
 }
 
-/** Actualiza SOLO Just Eat (comida→ALM, cena→CENAS) de un día ya guardado. */
+/** Recalcula SOLO Just Eat (comida→ALM, cena→CENAS) de un día ya guardado. */
 async function repararJustEat(page: Page, fecha: string) {
   const je = await leerSinqro(page, fecha);
   for (const [servicio, dato] of [['ALM', je.comida], ['CENAS', je.cena]] as const) {
@@ -293,19 +295,50 @@ async function repararJustEat(page: Page, fecha: string) {
   }
 }
 
+/**
+ * Rehace AYER completo: Rushour "Yesterday" da el total del día; el ALM ya
+ * guardado (leído en vivo a las 17:00) se conserva y CENAS = total − ALM.
+ * Just Eat se lee de Sinqro por su fecha exacta y se reparte por turno.
+ */
+async function rehacerDia(page: Page, fecha: string) {
+  const rush = await leerRushour(page, /^(yesterday|ayer|hier)$/i);
+  if (!rush) { await log('error', `no pude leer Rushour para ${fecha}`); return; }
+  const je = await leerSinqro(page, fecha);
+
+  const alm = await filaExistente(fecha, 'ALM');
+  if (!alm) {
+    await log('aviso', `sin fila ALM de ${fecha}: guardo el día completo como ALM`);
+    await guardarFila(fecha, 'ALM', rush.ubereats, rush.glovo, {
+      pedidos: je.comida.pedidos + je.cena.pedidos,
+      bruto: r2(je.comida.bruto + je.cena.bruto),
+    });
+    return;
+  }
+  await guardarFila(fecha, 'ALM',
+    { pedidos: Number(alm.uber_pedidos) || 0, bruto: Number(alm.uber_bruto) || 0 },
+    { pedidos: Number(alm.glovo_pedidos) || 0, bruto: Number(alm.glovo_bruto) || 0 },
+    je.comida);
+  const resta = (dia: any, p: any, b: any) => ({
+    pedidos: Math.max((dia.pedidos || 0) - (Number(p) || 0), 0),
+    bruto: r2(Math.max((dia.bruto || 0) - (Number(b) || 0), 0)),
+  });
+  await guardarFila(fecha, 'CENAS',
+    resta(rush.ubereats, alm.uber_pedidos, alm.uber_bruto),
+    resta(rush.glovo, alm.glovo_pedidos, alm.glovo_bruto),
+    je.cena);
+}
+
 async function main() {
   const h = horaMadrid();
   let servicio = (process.env.SYNC_SERVICIO || '').toUpperCase();
-  if (servicio !== 'ALM' && servicio !== 'CENAS' && servicio !== 'JE') servicio = h < 6 ? 'CENAS' : 'ALM';
+  if (!['ALM', 'CENAS', 'JE', 'DIA'].includes(servicio)) servicio = h < 6 ? 'CENAS' : 'ALM';
   const fechaObj = process.env.SYNC_FECHA
-    || (servicio === 'JE' ? fechaMadrid(-1)
+    || (servicio === 'JE' || servicio === 'DIA' ? fechaMadrid(-1)
       : servicio === 'CENAS' ? fechaMadrid(h < 6 ? -1 : 0)
       : fechaMadrid(0));
   await log('inicio', `servicio=${servicio} fecha=${fechaObj} horaMadrid=${h}`);
 
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-  // Solo zona horaria: si se fuerza el idioma, Rushour traduce el desplegable
-  // (Today → Hoy) y los presets dejan de encontrarse.
   const ctx = await browser.newContext({ timezoneId: 'Europe/Madrid' });
   const page = await ctx.newPage();
   try {
@@ -319,6 +352,7 @@ async function main() {
     }
 
     if (servicio === 'JE') { await repararJustEat(page, fechaObj); return; }
+    if (servicio === 'DIA') { await rehacerDia(page, fechaObj); return; }
 
     const esHoy = fechaObj === fechaMadrid(0);
     const HOY = /^(today|hoy|aujourd'hui)$/i;
