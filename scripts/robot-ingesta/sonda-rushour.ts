@@ -1,25 +1,23 @@
 /**
- * SONDA RUSHOUR · Investigación (no toca datos).
+ * SONDA RUSHOUR v3 · Investigación (no toca datos).
  *
- * Objetivo: averiguar si los datos en vivo de Rushour (facturación y nº de
- * pedidos del día) se pueden leer con una simple llamada HTTP, sin abrir un
- * navegador. Si es que sí, el panel en vivo se puede refrescar cada pocos
- * minutos a coste CERO (desde Supabase) en vez de gastar minutos de GitHub.
+ * Ya sabemos (v2) que Rushour funciona así por debajo:
+ *   · Acceso: AWS Cognito (cognito-idp.eu-west-2) → devuelve un token
+ *   · Datos en vivo: GET .../production/statsv3/restaurants/<id>/stats?from&to
+ *     con ese token → facturación y pedidos del día, incluso por horas
+ * Eso significa que se puede leer SIN navegador → panel en vivo a coste 0.
  *
- * v2: captura TODAS las respuestas JSON (menos ruido de terceros) y comprueba
- * de verdad si el login ha entrado.
+ * Esta sonda captura lo que falta para montarlo: el identificador de cliente de
+ * Cognito y un ejemplo de respuesta de stats.
  */
 import { chromium } from 'playwright';
 import { log, volcar } from './_lib/bandeja.js';
 
 const P = 'sonda_rushour';
 const LOGIN = 'https://manager.rushour.io/login';
-const RUIDO = /locize|stripe|google|sentry|segment|hotjar|intercom|amplitude|datadog|cloudflare|gstatic/i;
-
-interface Llamada { metodo: string; url: string; estado: number; auth: string; muestra: string }
 
 async function main() {
-  await log(P, 'inicio', 'v2 · buscando si Rushour se puede leer sin navegador');
+  await log(P, 'inicio', 'v3 · sacando ClientId de Cognito y ejemplo de stats');
   const user = process.env.RUSHOUR_USER || '';
   const pass = process.env.RUSHOUR_PASS || '';
   if (!user || !pass) { await log(P, 'sin_credenciales', 'faltan RUSHOUR_USER/RUSHOUR_PASS'); return; }
@@ -27,52 +25,44 @@ async function main() {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const ctx = await browser.newContext({ timezoneId: 'Europe/Madrid', locale: 'es-ES' });
   const page = await ctx.newPage();
-  const llamadas: Llamada[] = [];
+  const hallazgos: Record<string, unknown> = {};
+
+  page.on('request', (req) => {
+    const url = req.url();
+    if (/cognito-idp/i.test(url)) {
+      const cuerpo = req.postData() || '';
+      // El cuerpo lleva ClientId y AuthFlow. Quitamos la contraseña antes de guardar.
+      const limpio = cuerpo.replace(new RegExp(pass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '***');
+      const cab = req.headers();
+      hallazgos[`cognito_${Object.keys(hallazgos).length}`] = {
+        target: cab['x-amz-target'] || null,
+        cuerpo: limpio.slice(0, 800),
+      };
+    }
+  });
 
   page.on('response', async (res) => {
-    try {
-      const url = res.url();
-      if (RUIDO.test(url)) return;
-      if (/\.(js|css|png|jpg|jpeg|svg|woff2?|ico|map)(\?|$)/i.test(url)) return;
-      const ct = (res.headers()['content-type'] || '');
-      if (!/json|graphql/i.test(ct)) return;
-      const req = res.request();
-      const cab = await req.allHeaders();
-      const auth = cab['authorization'] ? 'Bearer' : (cab['cookie'] ? 'cookie' : 'ninguno');
-      let muestra = '';
-      try { muestra = (await res.text()).slice(0, 300); } catch { /* noop */ }
-      llamadas.push({ metodo: req.method(), url, estado: res.status(), auth, muestra });
-    } catch { /* noop */ }
+    const url = res.url();
+    if (/statsv3\/restaurants\/.+\/stats/i.test(url) && !hallazgos.stats_ejemplo) {
+      try {
+        hallazgos.stats_url = url;
+        hallazgos.stats_ejemplo = (await res.text()).slice(0, 1500);
+      } catch { /* noop */ }
+    }
   });
 
   try {
     await page.goto(LOGIN, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(4000);
-
-    const campos = await page.locator('input').count().catch(() => 0);
     await page.locator('input[type="email"], input[name="email"], input[type="text"]').first().fill(user).catch(() => {});
     await page.locator('input[type="password"]').first().fill(pass).catch(() => {});
-    await page.getByRole('button', { name: /login|entrar|sign in|connexion|iniciar|acceder/i }).first().click({ timeout: 10000 }).catch(async () => {
-      await page.locator('button[type="submit"]').first().click({ timeout: 5000 }).catch(() => {});
-    });
-    await page.waitForTimeout(15000);
+    await page.getByRole('button', { name: /login|entrar|sign in|connexion|iniciar|acceder/i }).first().click({ timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(20000);
+    await page.goto('https://manager.rushour.io/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForTimeout(12000);
 
-    const urlTrasLogin = page.url();
-    const entrado = !/login/i.test(urlTrasLogin);
-    await log(P, entrado ? 'login_ok' : 'login_ko', `inputs=${campos} url=${urlTrasLogin}`);
-    if (!entrado) await volcar('sonda_rushour_login', await page.content());
-
-    for (const ruta of ['https://manager.rushour.io/', 'https://manager.rushour.io/rapports']) {
-      await page.goto(ruta, { waitUntil: 'domcontentloaded' }).catch(() => {});
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(10000);
-    }
-
-    const utiles = llamadas.filter((l) => !/manager\.rushour\.io\/(login|static)/i.test(l.url));
-    await volcar('sonda_rushour_llamadas', JSON.stringify(utiles, null, 2));
-    await log(P, 'resultado', `${utiles.length} llamadas JSON`);
-    const resumen = utiles.map((l) => `${l.metodo} ${l.estado} auth=${l.auth} ${l.url}`).join('\n');
-    if (resumen) await log(P, 'llamadas', resumen.slice(0, 6000));
+    await volcar('sonda_rushour_v3', JSON.stringify(hallazgos, null, 2));
+    await log(P, 'v3_ok', `claves halladas: ${Object.keys(hallazgos).join(', ')}`);
   } catch (e: any) {
     await log(P, 'error', String(e?.message || e));
     process.exitCode = 1;
