@@ -1,7 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   DESIGN SYSTEM — STREAT LAB ERP · LEY VISUAL SL v1
+   DESIGN SYSTEM — STREAT LAB ERP
    Fuente única de verdad para colores y tipografías.
-   Manual: Notion > CEREBRO-SL > "LEY VISUAL SL — Sistema de diseño Binagre ERP v1"
    No inventar colores ni fuentes fuera de este archivo.
    ═══════════════════════════════════════════════════════════ */
 
@@ -15,14 +14,14 @@
   --bg-input-calc: var(--sl-input-calc);
   --bg-row-odd:    var(--sl-card);
   --bg-row-even:   var(--sl-card-alt);
-  --bg-table-head: var(--sl-card);
-  --bg-counter:    var(--sl-card);
+  --bg-table-head: var(--sl-thead);
+  --bg-counter:    var(--sl-input-edit);
   --bg-cancel:     var(--sl-btn-cancel-bg);
 
   /* ── Bordes ── */
   --border:        var(--sl-border);
   --border-calc:   var(--sl-border-calc);
-  --border-focus:  var(--sl-border-focus);
+  --border-focus:  var(--sl-yellow);
   --border-sep:    var(--sl-border);
 
   /* ── Texto ── */
@@ -36,18 +35,17 @@
   --text-nav:        var(--sl-text-nav);
   --text-label-sec:  var(--sl-text-secondary);
 
-  /* ── Acentos (ROJO SL = único color de acción) ── */
-  --accent-yellow: var(--sl-red);
+  /* ── Acentos ── */
+  --accent-yellow: var(--sl-yellow);
   --accent-red:    var(--sl-red);
   --accent-eps:    var(--sl-eps);
   --accent-rec:    var(--sl-rec);
-  --accent-val:    var(--sl-red);
+  --accent-val:    var(--sl-yellow);
 
   /* ── Fuentes ── */
-  --font-body:  'Nunito', system-ui, sans-serif;
-  --font-ui:    'Nunito', system-ui, sans-serif;
-  --font-title: 'Nunito', system-ui, sans-serif;
-  --font-num:   'JetBrains Mono', ui-monospace, monospace;
+  --font-body:  'Lexend', system-ui, sans-serif;
+  --font-ui:    'Oswald', system-ui, sans-serif;
+  --font-title: 'Impact', 'Oswald', sans-serif;
 }
 
 /* ── BODY BASE ── */
@@ -55,206 +53,185 @@ html, body {
   background: var(--bg-app);
   color: var(--text-primary);
   font-family: var(--font-body);
-  font-weight: 600;
 }
 
 /* ── Títulos de página ── */
 .page-title {
   font-family: var(--font-title);
-  font-size: 24px;
-  font-weight: 900;
+  font-size: 28px;
   color: var(--text-primary);
-  letter-spacing: -0.4px;
+  letter-spacing: 0.04em;
   margin-bottom: 20px;
+  font-weight: normal;
 }
 
 /* ── Sidebar ── */
 .ds-sidebar {
   width: 200px;
   background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--bg-input);
 }
 .ds-sidebar .nav-item {
   font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  padding: 9px 14px;
-  margin: 2px 8px;
-  border-radius: 11px;
-  letter-spacing: 0;
-  border-left: none;
-}
-.ds-sidebar .nav-item:hover {
-  background: var(--sl-hover);
-  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-nav);
+  padding: 11px 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-left: 3px solid transparent;
 }
 .ds-sidebar .nav-item.active {
-  color: #ffffff;
-  background: var(--accent-red);
+  color: var(--text-primary);
+  border-left-color: var(--accent-yellow);
+  background: #1a1a1a;
 }
 .ds-sidebar .nav-user {
   font-family: var(--font-body);
   font-size: 12px;
-  color: var(--text-muted);
+  color: #777777;
   margin-top: auto;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--bg-input);
 }
 
-/* ── Tabs (subrayado rojo SL, sin cajas) ── */
+/* ── Tabs ── */
 .ds-tab {
   font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 800;
-  padding: 9px 14px;
-  border-radius: 0;
-  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 18px;
+  border-radius: 6px;
+  color: #999999;
   background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  letter-spacing: 0;
+  border: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   cursor: pointer;
   transition: all 0.15s;
 }
-.ds-tab:hover { color: var(--text-primary); }
+.ds-tab:hover { color: var(--text-primary); border-color: #383838; }
 .ds-tab.active {
-  background: transparent;
-  color: var(--accent-red);
-  border-bottom-color: var(--accent-red);
+  background: var(--accent-yellow);
+  color: var(--sl-btn-add-alt-text);
+  border-color: var(--accent-yellow);
 }
 
 /* ── Counters / KPI ── */
 .ds-counter {
-  background: var(--bg-card);
+  background: var(--bg-counter);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 16px 18px;
+  border-radius: 8px;
+  padding: 10px 18px;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s;
   text-align: left;
   user-select: none;
-  box-shadow: var(--sl-shadow-sm);
 }
-.ds-counter:hover { border-color: var(--sl-border-strong); }
-.ds-counter.active { border-color: var(--accent-red); }
+.ds-counter:hover { border-color: #383838; }
+.ds-counter.active { border-color: var(--accent-yellow); }
 .ds-counter .label {
   font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 10px;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
 .ds-counter .value {
-  font-family: var(--font-num);
-  font-size: 28px;
+  font-family: var(--font-body);
+  font-size: 24px;
   font-weight: 700;
   color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
 }
 .ds-counter .value.eps { color: var(--accent-eps); }
 .ds-counter .value.rec { color: var(--accent-rec); }
 .ds-counter .sub {
   font-family: var(--font-body);
   font-size: 12px;
-  color: var(--text-muted);
+  color: #383838;
 }
 
 /* ── Tablas ── */
 .ds-table-wrap {
-  background: var(--bg-card);
-  border-radius: 18px;
+  background: var(--bg-row-even);
+  border-radius: 8px;
   border: 1px solid var(--border);
   overflow: hidden;
-  box-shadow: var(--sl-shadow-sm);
 }
 .ds-table thead th {
   font-family: var(--font-ui);
   font-size: 11px;
-  font-weight: 800;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  background: var(--bg-card);
-  padding: 12px 14px 10px;
+  letter-spacing: 0.1em;
+  background: var(--bg-table-head);
+  padding: 9px 14px;
   text-align: left;
   white-space: nowrap;
-  border-bottom: 2px solid var(--border);
 }
 .ds-table tbody td {
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 700;
-  color: var(--text-primary);
-  padding: 12px 14px;
+  color: #cccccc;
+  padding: 9px 14px;
   border-bottom: 1px solid var(--border-sep);
   white-space: nowrap;
-}
-.ds-table tbody td.num,
-.ds-table tbody td[align="right"] {
-  font-family: var(--font-num);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 .ds-table tbody tr:nth-child(odd)  { background: var(--bg-row-odd); }
 .ds-table tbody tr:nth-child(even) { background: var(--bg-row-even); }
 .ds-table tbody tr:hover { background: var(--sl-hover) !important; }
 
-.ds-eps-name { color: var(--accent-eps); font-weight: 800; }
-.ds-rec-name { color: var(--accent-rec); font-weight: 800; }
-.ds-val-accent { color: var(--accent-val); font-weight: 800; }
+.ds-eps-name { color: var(--accent-eps); font-weight: 700; font-style: italic; }
+.ds-rec-name { color: var(--accent-rec); font-weight: 700; font-style: italic; }
+.ds-val-accent { color: var(--accent-val); font-weight: 500; }
 .ds-muted { color: var(--text-muted); }
 
 .ds-badge-usos-zero {
-  background: var(--sl-card-alt);
+  background: var(--bg-app);
   color: var(--text-muted);
   font-size: 11px;
-  font-weight: 800;
-  padding: 3px 10px;
-  border-radius: 999px;
+  padding: 2px 9px;
+  border-radius: 20px;
 }
 .ds-badge-usos {
   background: var(--accent-red);
   color: #fff;
   font-size: 11px;
-  font-weight: 800;
-  padding: 3px 10px;
-  border-radius: 999px;
+  padding: 2px 9px;
+  border-radius: 20px;
 }
 
 /* ── Modales ── */
 .ds-modal {
   background: var(--bg-card);
-  border-radius: 18px;
-  padding: 1.4rem;
+  border-radius: 10px;
+  padding: 1.25rem;
   border: 1px solid var(--border);
-  box-shadow: var(--sl-shadow-md);
 }
 .ds-modal-title {
   font-family: var(--font-ui);
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 500;
   color: var(--text-primary);
-  letter-spacing: -0.3px;
+  letter-spacing: 0.04em;
 }
 .ds-modal-id {
-  background: var(--accent-red);
-  color: #ffffff;
-  font-family: var(--font-num);
+  background: var(--accent-yellow);
+  color: var(--sl-btn-add-alt-text);
+  font-family: var(--font-body);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 3px 12px;
-  border-radius: 999px;
+  border-radius: 20px;
 }
 .ds-section-label {
   font-family: var(--font-ui);
   font-size: 11px;
-  font-weight: 800;
-  color: var(--text-muted);
+  font-weight: 600;
+  color: var(--text-label-sec);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.14em;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--sl-border-strong);
   margin-top: 16px;
   margin-bottom: 10px;
 }
@@ -263,18 +240,17 @@ html, body {
 .ds-input {
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 700;
   background: var(--bg-input);
-  border: 1px solid var(--border);
+  border: 1px solid var(--sl-border-strong);
   color: var(--text-primary);
-  padding: 8px 10px;
-  border-radius: 10px;
+  padding: 7px 9px;
+  border-radius: 6px;
   width: 100%;
   outline: none;
   transition: border-color 0.15s;
 }
 .ds-input:focus { border-color: var(--border-focus); }
-.ds-input::placeholder { color: var(--sl-text-muted); font-weight: 600; }
+.ds-input::placeholder { color: var(--sl-text-muted); }
 
 .ds-input-ro {
   font-family: var(--font-body);
@@ -282,32 +258,28 @@ html, body {
   background: var(--bg-input-ro);
   border: 1px solid var(--border-sep);
   color: var(--text-input-ro);
-  padding: 8px 10px;
-  border-radius: 10px;
+  padding: 7px 9px;
+  border-radius: 6px;
   width: 100%;
 }
 
 .ds-input-calc {
-  font-family: var(--font-num);
+  font-family: var(--font-body);
   font-size: 13px;
   background: var(--bg-input-calc);
   border: 1px solid var(--border-calc);
   color: var(--text-input-calc);
-  font-weight: 700;
-  padding: 8px 10px;
-  border-radius: 10px;
+  font-weight: 500;
+  padding: 7px 9px;
+  border-radius: 6px;
   width: 100%;
-  font-variant-numeric: tabular-nums;
 }
 
 /* ── Labels ── */
 .ds-label {
   font-family: var(--font-body);
   font-size: 11px;
-  font-weight: 800;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  color: var(--text-secondary);
   margin-bottom: 5px;
   display: block;
 }
@@ -315,59 +287,61 @@ html, body {
   font-family: var(--font-body);
   font-size: 11px;
   color: var(--text-calc);
-  font-weight: 800;
+  font-weight: 500;
   margin-bottom: 5px;
   display: block;
 }
 .ds-label-calc::after {
   content: ' ·';
-  color: var(--accent-red);
-  font-weight: 800;
+  color: #cc4444;
+  font-weight: 700;
 }
 
 /* ── Botones ── */
 .ds-btn-save {
   font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 500;
   background: var(--accent-red);
   color: #fff;
-  padding: 9px 20px;
-  border-radius: 999px;
+  padding: 8px 22px;
+  border-radius: 6px;
   border: none;
   cursor: pointer;
   transition: filter 0.15s;
 }
-.ds-btn-save:hover { filter: brightness(1.08); }
+.ds-btn-save:hover { filter: brightness(1.1); }
 .ds-btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .ds-btn-add {
   font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 500;
   background: var(--sl-btn-add-alt-bg);
   color: var(--sl-btn-add-alt-text);
-  padding: 9px 20px;
-  border-radius: 999px;
+  padding: 8px 22px;
+  border-radius: 6px;
   border: none;
   cursor: pointer;
   transition: filter 0.15s;
 }
-.ds-btn-add:hover { filter: brightness(1.08); }
+.ds-btn-add:hover { filter: brightness(1.1); }
 
 .ds-btn-cancel {
   font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 800;
   background: var(--bg-cancel);
   border: 1px solid var(--sl-btn-cancel-border);
   color: var(--text-cancel);
-  padding: 9px 20px;
-  border-radius: 999px;
+  padding: 8px 22px;
+  border-radius: 6px;
   cursor: pointer;
   transition: filter 0.15s;
 }
-.ds-btn-cancel:hover { background: var(--sl-hover); }
+.ds-btn-cancel:hover { filter: brightness(1.15); }
+
+/* ── Fix: ds-table tbody color adaptativo (antes era #cccccc fijo) ── */
+.ds-table tbody td { color: var(--text-primary); }
 
 /* ── Nav item hover (no destruir activo) ── */
 .sl-nav-item:not(.sl-nav-active):hover { background: var(--sl-hover) !important; }
@@ -376,69 +350,67 @@ html, body {
 * { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg-app); }
 ::-webkit-scrollbar { height: 10px; width: 10px; }
 ::-webkit-scrollbar-track { background: var(--bg-app); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--sl-border-strong); }
 
 /* ═══════════════════════════════════════════════════════════
    CONFIGURACIÓN — Clases específicas para módulo /configuracion
    ═══════════════════════════════════════════════════════════ */
+
+/* Tabla estilo Facturación/Objetivos replicado para módulo Config.
+   Uso: <table className="sl-cfg-table"> en todos los paneles Config.
+   Replica: fontFamily Oswald heading, fontSize 10-11, letterSpacing 2px,
+   padding 10x10, background thead = group, borders via --sl-border. */
 .sl-cfg-table {
   width: 100%;
-  font-size: 13px;
+  font-size: 13.5px;
   border-collapse: collapse;
 }
 .sl-cfg-table thead th {
-  padding: 12px 10px 10px;
+  padding: 10px 10px;
   text-align: left;
   color: var(--sl-text-muted);
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  background: var(--sl-card);
-  border-bottom: 2px solid var(--sl-border);
-  font-weight: 800;
-  font-family: var(--font-ui);
+  letter-spacing: 2px;
+  background: var(--sl-thead);
+  border-bottom: 0.5px solid var(--sl-border);
+  font-weight: 400;
+  font-family: "Oswald", sans-serif;
   vertical-align: middle;
   white-space: nowrap;
 }
 .sl-cfg-table thead th.num { text-align: right; }
 .sl-cfg-table tbody td {
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--sl-border);
-  font-family: var(--font-body);
+  padding: 10px 10px;
+  border-bottom: 0.5px solid var(--sl-border);
+  font-family: "Lexend", sans-serif;
   font-size: 13px;
-  font-weight: 700;
   color: var(--sl-text-primary);
   white-space: nowrap;
 }
-.sl-cfg-table tbody td.num {
-  text-align: right;
-  font-family: var(--font-num);
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-.sl-cfg-table tbody tr:nth-child(even) { background: var(--sl-card-alt); }
+.sl-cfg-table tbody td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 .sl-cfg-table tbody tr:hover { background: var(--sl-hover); }
 .sl-cfg-table tbody tr.row-click { cursor: pointer; }
 .sl-cfg-table tfoot td, .sl-cfg-table tr.total td {
-  padding: 12px 10px;
-  border-top: 2px solid var(--sl-border);
-  background: var(--sl-ambar-soft);
-  font-family: var(--font-ui);
+  padding: 10px 10px;
+  border-top: 1px solid var(--sl-border);
+  background: var(--sl-thead);
+  font-family: "Oswald", sans-serif;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   color: var(--sl-text-primary);
 }
 
 /* Agrupamiento visual en tabla (p.ej. Categorías conciliación: Ingresos / Gastos) */
 .sl-cfg-group-header td {
-  padding: 14px 10px 6px 10px !important;
-  background: var(--sl-card) !important;
-  font-family: var(--font-ui) !important;
-  font-size: 11px !important;
-  font-weight: 800 !important;
+  padding: 12px 10px 6px 10px !important;
+  background: var(--sl-card-alt) !important;
+  font-family: "Oswald", sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.12em !important;
+  letter-spacing: 2px !important;
   color: var(--sl-text-muted) !important;
   border-bottom: 1px solid var(--sl-border) !important;
 }
