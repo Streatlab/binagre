@@ -1,7 +1,7 @@
 /**
  * SYNC FACTURACIÓN · robot → tabla facturacion_diario (módulo Facturación del ERP).
  *
- * Lee las TRES fuentes él mismo (no depende de otros robots):
+ * Lee las tres fuentes él mismo (no depende de otros robots):
  *  - Rushour /rapports: Uber Eats y Glovo por separado (preset Today / Yesterday).
  *  - Sinqro historial: Just Eat, eligiendo el día en el CALENDARIO y marcando
  *    TODOS los tipos de servicio (si no, la búsqueda sale vacía).
@@ -9,14 +9,12 @@
  * Turnos:
  *  - ALM   (cron 17:00 Madrid): fila ALM de HOY = lo acumulado hasta esa hora.
  *  - CENAS (cron 01:00 Madrid): fila CENAS de AYER = día completo de ayer − fila ALM de ayer.
+ *  - JE    (manual): recalcula SOLO Just Eat de un día ya guardado, sin tocar Uber/Glovo.
  *
- * Bugs corregidos (no reintroducir):
- *  - El navegador debe ir en hora de Madrid; en UTC, "Today" a la 01:00 devuelve
- *    el día anterior y los datos se etiquetan mal.
- *  - NO forzar locale: si se fuerza es-ES, Rushour traduce el desplegable
- *    (Today → Hoy) y el preset deja de encontrarse. Los presets se buscan con
- *    expresión tolerante al idioma por si la interfaz cambia sola.
- *  - El turno se decide por la hora de Madrid: 00:00–05:59 → CENAS, resto → ALM.
+ * Bugs corregidos: navegador en hora de Madrid (si va en UTC, "Today" a la 01:00
+ * devuelve el día anterior y los datos se etiquetan mal) y turno por hora de
+ * Madrid (00:00–05:59 → cierre de ayer). No se fuerza el idioma: Rushour
+ * traduciría el desplegable y los presets dejarían de encontrarse.
  *
  * Filas MANUALES (canal null) jamás se tocan. Filas del ROBOT (canal='plataformas') se actualizan.
  * Sin page.evaluate en Rushour (error __name).
@@ -40,8 +38,6 @@ const SINQRO = {
   startDate: '#startDateFilter', endDate: '#endDateFilter',
 };
 const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-const HOY = /^(today|hoy|aujourd'hui)$/i;
-const AYER = /^(yesterday|ayer|hier)$/i;
 
 async function log(estado: string, detalle: string) {
   try { await sb.from('robot_log').insert([{ fuente: 'sync_facturacion', estado, detalle }]); } catch { /* noop */ }
@@ -89,13 +85,10 @@ async function abrirSelectFecha(page: Page) {
 async function elegirOpcion(page: Page, re: RegExp): Promise<boolean> {
   const ops = page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option');
   const n = await ops.count().catch(() => 0);
-  const vistas: string[] = [];
   for (let i = 0; i < n; i++) {
     const t = ((await ops.nth(i).textContent().catch(() => '')) || '').trim();
-    vistas.push(t);
     if (re.test(t)) { await ops.nth(i).click().catch(() => {}); await page.waitForTimeout(800); return true; }
   }
-  await log('diag', `opciones de fecha vistas: [${vistas.join(' | ')}]`);
   return false;
 }
 async function leerKPIs(page: Page): Promise<{ bruto: number; pedidos: number }> {
@@ -205,7 +198,7 @@ async function marcarTodosLosTipos(page: Page): Promise<number> {
 /** Devuelve Just Eat del día separado por turno. */
 async function leerSinqro(page: Page, fecha: string): Promise<{ comida: { pedidos: number; bruto: number }; cena: { pedidos: number; bruto: number } }> {
   const vacio = { comida: { pedidos: 0, bruto: 0 }, cena: { pedidos: 0, bruto: 0 } };
-  if (!SINQRO.user || !SINQRO.pass) { await log('aviso', 'sin credenciales de Sinqro'); return vacio; }
+  if (!SINQRO.user || !SINQRO.pass) return vacio;
   await page.goto(SINQRO.loginUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
   if (await page.locator('#login-email').first().count().catch(() => 0)) {
@@ -268,6 +261,7 @@ async function guardarFila(fecha: string, servicio: 'ALM' | 'CENAS', uber: any, 
   };
   const previa = await filaExistente(fecha, servicio);
   if (previa && previa.canal !== 'plataformas') { await log('skip', `fila MANUAL ${fecha} ${servicio}: no la piso`); return; }
+  if (!total_pedidos && !total_bruto && !previa) { await log('skip', `${fecha} ${servicio}: aún sin ventas, no creo fila vacía`); return; }
   if (previa) {
     const { error } = await sb.from('facturacion_diario').update(fila).eq('id', previa.id);
     if (error) { await log('error', `update ${fecha} ${servicio}: ${error.message}`); return; }
@@ -279,26 +273,56 @@ async function guardarFila(fecha: string, servicio: 'ALM' | 'CENAS', uber: any, 
   await log('ok', `guardada ${fecha} ${servicio} total=${total_bruto}€ / ${total_pedidos} ped`);
 }
 
+/** Actualiza SOLO Just Eat (comida→ALM, cena→CENAS) de un día ya guardado. */
+async function repararJustEat(page: Page, fecha: string) {
+  const je = await leerSinqro(page, fecha);
+  for (const [servicio, dato] of [['ALM', je.comida], ['CENAS', je.cena]] as const) {
+    const fila = await filaExistente(fecha, servicio);
+    if (!fila) { await log('aviso', `no hay fila ${servicio} de ${fecha}`); continue; }
+    if (fila.canal !== 'plataformas') { await log('skip', `fila MANUAL ${fecha} ${servicio}: no la piso`); continue; }
+    const uber_b = Number(fila.uber_bruto) || 0, glovo_b = Number(fila.glovo_bruto) || 0;
+    const uber_p = Number(fila.uber_pedidos) || 0, glovo_p = Number(fila.glovo_pedidos) || 0;
+    const total_pedidos = uber_p + glovo_p + dato.pedidos;
+    const total_bruto = r2(uber_b + glovo_b + dato.bruto);
+    const { error } = await sb.from('facturacion_diario').update({
+      je_pedidos: dato.pedidos, je_bruto: dato.bruto,
+      pedidos: total_pedidos, bruto: total_bruto, total_pedidos, total_bruto,
+    }).eq('id', fila.id);
+    if (error) { await log('error', `JE ${fecha} ${servicio}: ${error.message}`); continue; }
+    await log('ok', `JE ${fecha} ${servicio}: ${dato.pedidos} ped / ${dato.bruto}€ (total ${total_bruto}€)`);
+  }
+}
+
 async function main() {
   const h = horaMadrid();
   let servicio = (process.env.SYNC_SERVICIO || '').toUpperCase();
-  if (servicio !== 'ALM' && servicio !== 'CENAS') servicio = h < 6 ? 'CENAS' : 'ALM'; // 00:00–05:59 → cierre de ayer
-  const fechaObj = process.env.SYNC_FECHA || (servicio === 'CENAS' ? fechaMadrid(h < 6 ? -1 : 0) : fechaMadrid(0));
+  if (servicio !== 'ALM' && servicio !== 'CENAS' && servicio !== 'JE') servicio = h < 6 ? 'CENAS' : 'ALM';
+  const fechaObj = process.env.SYNC_FECHA
+    || (servicio === 'JE' ? fechaMadrid(-1)
+      : servicio === 'CENAS' ? fechaMadrid(h < 6 ? -1 : 0)
+      : fechaMadrid(0));
   await log('inicio', `servicio=${servicio} fecha=${fechaObj} horaMadrid=${h}`);
 
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-  // Solo zona horaria: forzar el idioma traduciría el desplegable de Rushour.
+  // Solo zona horaria: si se fuerza el idioma, Rushour traduce el desplegable
+  // (Today → Hoy) y los presets dejan de encontrarse.
   const ctx = await browser.newContext({ timezoneId: 'Europe/Madrid' });
   const page = await ctx.newPage();
   try {
-    await page.goto(RUSHOUR.loginUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('input[name="username"]', { timeout: 20000 });
-    await page.fill('input[name="username"]', RUSHOUR.user);
-    await page.fill('input[name="password"]', RUSHOUR.pass);
-    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click('button[type="submit"]')]);
-    await page.waitForTimeout(5000);
+    if (servicio !== 'JE') {
+      await page.goto(RUSHOUR.loginUrl, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('input[name="username"]', { timeout: 20000 });
+      await page.fill('input[name="username"]', RUSHOUR.user);
+      await page.fill('input[name="password"]', RUSHOUR.pass);
+      await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click('button[type="submit"]')]);
+      await page.waitForTimeout(5000);
+    }
+
+    if (servicio === 'JE') { await repararJustEat(page, fechaObj); return; }
 
     const esHoy = fechaObj === fechaMadrid(0);
+    const HOY = /^(today|hoy|aujourd'hui)$/i;
+    const AYER = /^(yesterday|ayer|hier)$/i;
     const rush = await leerRushour(page, esHoy ? HOY : AYER);
     if (!rush) return;
 
