@@ -2,23 +2,49 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useIsDark } from '@/hooks/useIsDark'
 import { BigCard } from '@/components/configuracion/BigCard'
-import { StatusTag } from '@/components/configuracion/StatusTag'
 import { AbvBadge } from '@/components/configuracion/AbvBadge'
 import { Table, THead, TBody, TH, TR, TD } from '@/components/configuracion/ConfigTable'
 import { ConfigModal, ConfigField, useInputStyle, ModalActions } from '@/components/configuracion/ConfigModal'
-import type {
-  CategoriaContableIngreso,
-  CategoriaContableGasto,
-  ReglaConciliacion,
-} from '@/types/configuracion'
+
+// REESCRITO 12-jul-2026 — esta pantalla estaba rota tras la unificacion de categorias:
+//   1. Leia una columna `codigo` que NO EXISTE en categorias_pyg. El codigo ES el `id`
+//      ('2.11.1'), asi que salia null en todas partes.
+//   2. Separaba ingresos filtrando por codigos que empiezan en '7' (Plan General Contable).
+//      Ninguna categoria de Streat Lab empieza por 7 (son 1.x, 2.x, 3.x, 4.x), asi que la
+//      lista de INGRESOS salia SIEMPRE VACIA.
+//   3. Las reglas leian y guardaban `categoria_id`, cuando la tabla usa `categoria_codigo`.
+//      Resultado: la columna "Asignar categoria" salia en blanco.
+//
+// Ahora lee la jerarquia real: 1.x ingresos · 2.x gastos · 3.x internos · 4.x financiacion.
 
 type SubPill = 'categorias' | 'reglas'
 
-const CANAL_BG: Record<string, string> = {
-  UE: '#06C167', GL: '#a89a20', JE: '#f5a623', WEB: '#B01D23', DIR: '#66aaff',
+interface Cat {
+  id: string
+  nombre: string
+  nivel: number
+  bloque: string | null
+  conciliable: boolean
+  requiere_factura: boolean
+  estimable: boolean
 }
-const TIPO_LABEL: Record<'fijo' | 'var' | 'pers' | 'mkt', string> = {
-  fijo: 'Fijo', var: 'Var', pers: 'Pers', mkt: 'Mkt',
+
+interface Regla {
+  id: string
+  patron: string
+  tipo_categoria: string | null
+  categoria_codigo: string | null
+  set_proveedor: string | null
+  prioridad: number
+  activa: boolean
+  notas_regla: string | null
+}
+
+const BLOQUE_DE = (id: string): 'ingreso' | 'gasto' | 'interno' | 'financiacion' => {
+  if (id.startsWith('1.')) return 'ingreso'
+  if (id.startsWith('3.')) return 'interno'
+  if (id.startsWith('4.')) return 'financiacion'
+  return 'gasto'
 }
 
 export default function TabConciliacion() {
@@ -59,27 +85,20 @@ export default function TabConciliacion() {
 
 function PanelCategorias() {
   const isDark = useIsDark()
-  const [catsIng, setCatsIng] = useState<CategoriaContableIngreso[]>([])
-  const [catsGas, setCatsGas] = useState<CategoriaContableGasto[]>([])
+  const [cats, setCats] = useState<Cat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [modal, setModal] = useState<{ tipo: 'ingreso' | 'gasto'; editing: any } | null>(null)
+  const [modal, setModal] = useState<{ editing: Cat | null } | null>(null)
 
   const refetch = async () => {
     const { data, error } = await supabase
       .from('categorias_pyg')
-      .select('id, codigo, nombre, nivel')
+      .select('id, nombre, nivel, bloque, conciliable, requiere_factura, estimable')
+      .eq('activa', true)
       .eq('nivel', 3)
-      .order('codigo')
+      .order('id')
     if (error) throw error
-    const all = (data ?? []) as any[]
-    // Separar ingresos (código empieza por '7' (PGC grupo ingresos)) y gastos (resto) para mantener UI existente
-    setCatsIng(all
-      .filter((c: any) => String(c.codigo ?? '').startsWith('7'))
-      .map((c: any) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, canal_abv: null, orden: 0 })) as unknown as CategoriaContableIngreso[])
-    setCatsGas(all
-      .filter((c: any) => !String(c.codigo ?? '').startsWith('7'))
-      .map((c: any) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, tipo: 'var' as const, orden: 0 })) as unknown as CategoriaContableGasto[])
+    setCats((data ?? []) as unknown as Cat[])
   }
 
   useEffect(() => {
@@ -92,14 +111,8 @@ function PanelCategorias() {
     return () => { cancelled = true }
   }, [])
 
-  const handleDeleteIngreso = async (c: CategoriaContableIngreso) => {
-    if (!confirm(`¿Eliminar categoría "${c.nombre}"?`)) return
-    const { error } = await supabase.from('categorias_pyg').delete().eq('id', c.id)
-    if (error) { setError(error.message); return }
-    await refetch()
-  }
-  const handleDeleteGasto = async (c: CategoriaContableGasto) => {
-    if (!confirm(`¿Eliminar categoría "${c.nombre}"?`)) return
+  const handleDelete = async (c: Cat) => {
+    if (!confirm(`¿Eliminar la categoría "${c.id} · ${c.nombre}"?\n\nSi tiene facturas o movimientos asociados, la base de datos lo impedirá.`)) return
     const { error } = await supabase.from('categorias_pyg').delete().eq('id', c.id)
     if (error) { setError(error.message); return }
     await refetch()
@@ -117,78 +130,62 @@ function PanelCategorias() {
     )
   }
 
+  const ingresos = cats.filter(c => BLOQUE_DE(c.id) === 'ingreso')
+  const gastos = cats.filter(c => BLOQUE_DE(c.id) === 'gasto')
+  const otros = cats.filter(c => BLOQUE_DE(c.id) === 'interno' || BLOQUE_DE(c.id) === 'financiacion')
+
+  const Tabla = ({ lista }: { lista: Cat[] }) => (
+    <Table>
+      <THead>
+        <tr>
+          <TH>Código</TH>
+          <TH>Categoría</TH>
+          <TH num>Concilia</TH>
+          <TH num>Factura</TH>
+          <TH num>Fijo</TH>
+          <TH num>Acciones</TH>
+        </tr>
+      </THead>
+      <TBody>
+        {lista.map(c => (
+          <TR key={c.id}>
+            <TD><AbvBadge abv={c.id} /></TD>
+            <TD bold>{c.nombre}</TD>
+            <TD num muted>{c.conciliable ? 'Sí' : '—'}</TD>
+            <TD num muted>{c.requiere_factura ? 'Sí' : '—'}</TD>
+            <TD num muted>{c.estimable ? 'Sí' : '—'}</TD>
+            <TD num>
+              <button onClick={() => setModal({ editing: c })} style={actionBtn(actionColor)}>Editar</button>
+              <button onClick={() => handleDelete(c)} style={actionBtn(mut, true)}>Eliminar</button>
+            </TD>
+          </TR>
+        ))}
+      </TBody>
+    </Table>
+  )
+
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
-        <BigCard title="Ingresos" count={`${catsIng.length} categorías`}>
-          <Table>
-            <THead>
-              <tr>
-                <TH>Código</TH>
-                <TH>Categoría</TH>
-                <TH>Canal</TH>
-                <TH num>Acciones</TH>
-              </tr>
-            </THead>
-            <TBody>
-              {catsIng.map(c => (
-                <TR key={c.id}>
-                  <TD>
-                    <AbvBadge abv={c.codigo} bg={c.canal_abv ? (CANAL_BG[c.canal_abv] ?? '#1A1A1A') : '#1A1A1A'} />
-                  </TD>
-                  <TD bold>{c.nombre}</TD>
-                  <TD muted>{c.canal_abv ?? '—'}</TD>
-                  <TD num>
-                    <button onClick={() => setModal({ tipo: 'ingreso', editing: c })} style={actionBtn(actionColor)}>Editar</button>
-                    <button onClick={() => handleDeleteIngreso(c)} style={actionBtn(mut, true)}>Eliminar</button>
-                  </TD>
-                </TR>
-              ))}
-            </TBody>
-          </Table>
-          <button
-            onClick={() => setModal({ tipo: 'ingreso', editing: null })}
-            style={addBtn(isDark)}
-          >
-            + Nueva categoría ingreso
-          </button>
+      <div style={{ display: 'grid', gap: 14 }}>
+        <BigCard title="Ingresos" count={`${ingresos.length} categorías`}>
+          <Tabla lista={ingresos} />
         </BigCard>
 
-        <BigCard title="Gastos" count={`${catsGas.length} categorías`}>
-          <Table>
-            <THead>
-              <tr>
-                <TH>Código</TH>
-                <TH>Categoría</TH>
-                <TH>Tipo</TH>
-                <TH num>Acciones</TH>
-              </tr>
-            </THead>
-            <TBody>
-              {catsGas.map(c => (
-                <TR key={c.id}>
-                  <TD><AbvBadge abv={c.codigo} /></TD>
-                  <TD bold>{c.nombre}</TD>
-                  <TD><StatusTag variant={c.tipo}>{TIPO_LABEL[c.tipo]}</StatusTag></TD>
-                  <TD num>
-                    <button onClick={() => setModal({ tipo: 'gasto', editing: c })} style={actionBtn(actionColor)}>Editar</button>
-                    <button onClick={() => handleDeleteGasto(c)} style={actionBtn(mut, true)}>Eliminar</button>
-                  </TD>
-                </TR>
-              ))}
-            </TBody>
-          </Table>
-          <button
-            onClick={() => setModal({ tipo: 'gasto', editing: null })}
-            style={addBtn(isDark)}
-          >
-            + Nueva categoría gasto
-          </button>
+        <BigCard title="Gastos" count={`${gastos.length} categorías`}>
+          <Tabla lista={gastos} />
         </BigCard>
+
+        <BigCard title="Movimientos internos y financiación" count={`${otros.length} categorías`}>
+          <Tabla lista={otros} />
+        </BigCard>
+
+        <button onClick={() => setModal({ editing: null })} style={addBtn(isDark)}>
+          + Nueva categoría
+        </button>
       </div>
+
       {modal && (
         <CategoriaModal
-          tipo={modal.tipo}
           editing={modal.editing}
           onClose={() => setModal(null)}
           onSaved={refetch}
@@ -229,34 +226,41 @@ function addBtn(isDark: boolean): React.CSSProperties {
     border: `1px solid ${isDark ? '#4a4000' : '#E8D066'}`,
     cursor: 'pointer',
     fontFamily: 'Oswald, sans-serif',
+    width: 'fit-content',
   }
 }
 
 /* ═══════ MODAL CATEGORÍA ═══════ */
 
 function CategoriaModal({
-  tipo, editing, onClose, onSaved,
+  editing, onClose, onSaved,
 }: {
-  tipo: 'ingreso' | 'gasto'
-  editing: any | null
+  editing: Cat | null
   onClose: () => void
   onSaved: () => Promise<void>
 }) {
   const inputStyle = useInputStyle()
-  const [codigo, setCodigo] = useState(editing?.codigo ?? '')
+  const [id, setId] = useState(editing?.id ?? '')
   const [nombre, setNombre] = useState(editing?.nombre ?? '')
-  const [canalAbv, setCanalAbv] = useState(editing?.canal_abv ?? '')
-  const [tipoGasto, setTipoGasto] = useState(editing?.tipo ?? 'var')
+  const [conciliable, setConciliable] = useState(editing?.conciliable ?? true)
+  const [requiereFactura, setRequiereFactura] = useState(editing?.requiere_factura ?? true)
+  const [estimable, setEstimable] = useState(editing?.estimable ?? false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handleSave = async () => {
-    if (!codigo.trim() || !nombre.trim()) return
+    if (!id.trim() || !nombre.trim()) return
     setSaving(true); setError(null)
-    const payload: any = { codigo: codigo.trim(), nombre: nombre.trim(), nivel: 3 }
+    const codigo = id.trim()
+    const partes = codigo.split('.')
+    const parent = partes.length > 1 ? partes.slice(0, -1).join('.') : null
+
     const q = editing
-      ? supabase.from('categorias_pyg').update({ codigo: payload.codigo, nombre: payload.nombre }).eq('id', editing.id)
-      : supabase.from('categorias_pyg').insert(payload)
+      ? supabase.from('categorias_pyg')
+          .update({ nombre: nombre.trim(), conciliable, requiere_factura: requiereFactura, estimable })
+          .eq('id', editing.id)
+      : supabase.from('categorias_pyg')
+          .insert({ id: codigo, nombre: nombre.trim(), nivel: partes.length, parent_id: parent, activa: true, conciliable, requiere_factura: requiereFactura, estimable })
     const { error } = await q
     setSaving(false)
     if (error) { setError(error.message); return }
@@ -264,40 +268,34 @@ function CategoriaModal({
     onClose()
   }
 
+  const check = (label: string, ayuda: string, valor: boolean, set: (v: boolean) => void) => (
+    <ConfigField label={label}>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+        <input type="checkbox" checked={valor} onChange={e => set(e.target.checked)} style={{ accentColor: '#B01D23' }} />
+        <span>{ayuda}</span>
+      </label>
+    </ConfigField>
+  )
+
   return (
-    <ConfigModal
-      title={`${editing ? 'Editar' : 'Nueva'} categoría ${tipo}`}
-      onClose={onClose}
-    >
+    <ConfigModal title={`${editing ? 'Editar' : 'Nueva'} categoría`} onClose={onClose}>
       <ConfigField label="Código">
         <input
-          value={codigo}
-          onChange={e => setCodigo(e.target.value)}
+          value={id}
+          onChange={e => setId(e.target.value)}
+          disabled={!!editing}
           style={{ ...inputStyle, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
-          placeholder={tipo === 'ingreso' ? 'ING-XXX' : 'GAS-XXX'}
+          placeholder="2.11.1"
         />
       </ConfigField>
       <ConfigField label="Nombre">
-        <input value={nombre} onChange={e => setNombre(e.target.value)} style={inputStyle} />
+        <input value={nombre} onChange={e => setNombre(e.target.value)} style={inputStyle} placeholder="Alimentos y bebidas" />
       </ConfigField>
-      {tipo === 'ingreso' ? (
-        <ConfigField label="Canal (opcional)">
-          <select value={canalAbv} onChange={e => setCanalAbv(e.target.value)} style={inputStyle}>
-            <option value="">—</option>
-            <option value="UE">UE</option><option value="GL">GL</option><option value="JE">JE</option>
-            <option value="WEB">WEB</option><option value="DIR">DIR</option>
-          </select>
-        </ConfigField>
-      ) : (
-        <ConfigField label="Tipo">
-          <select value={tipoGasto} onChange={e => setTipoGasto(e.target.value as any)} style={inputStyle}>
-            <option value="fijo">Fijo</option>
-            <option value="var">Variable</option>
-            <option value="pers">Personal</option>
-            <option value="mkt">Marketing</option>
-          </select>
-        </ConfigField>
-      )}
+
+      {check('Se concilia', 'Se casa 1 a 1 con una factura de gasto', conciliable, setConciliable)}
+      {check('Necesita documento', 'Debe existir factura o justificante', requiereFactura, setRequiereFactura)}
+      {check('Gasto fijo', 'Se repite cada mes: Running lo estima si falta', estimable, setEstimable)}
+
       {error && (
         <div style={{ marginTop: 12, padding: 8, background: '#FCE0E2', color: '#B01D23', fontSize: 12, borderRadius: 6 }}>
           {error}
@@ -307,7 +305,7 @@ function CategoriaModal({
         onCancel={onClose}
         onSave={handleSave}
         saving={saving}
-        disabled={!codigo.trim() || !nombre.trim()}
+        disabled={!id.trim() || !nombre.trim()}
       />
     </ConfigModal>
   )
@@ -317,29 +315,26 @@ function CategoriaModal({
 
 function PanelReglas() {
   const isDark = useIsDark()
-  const [reglas, setReglas] = useState<ReglaConciliacion[]>([])
-  const [catsIng, setCatsIng] = useState<CategoriaContableIngreso[]>([])
-  const [catsGas, setCatsGas] = useState<CategoriaContableGasto[]>([])
+  const [reglas, setReglas] = useState<Regla[]>([])
+  const [cats, setCats] = useState<Cat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<ReglaConciliacion | null>(null)
+  const [editing, setEditing] = useState<Regla | null>(null)
 
   const refetch = async () => {
     const [r, pyg] = await Promise.all([
-      supabase.from('reglas_conciliacion').select('*').order('prioridad', { ascending: false }),
-      supabase.from('categorias_pyg').select('id, codigo, nombre, nivel').eq('nivel', 3).order('codigo'),
+      supabase.from('reglas_conciliacion')
+        .select('id, patron, tipo_categoria, categoria_codigo, set_proveedor, prioridad, activa, notas_regla')
+        .order('prioridad', { ascending: true }),
+      supabase.from('categorias_pyg')
+        .select('id, nombre, nivel, bloque, conciliable, requiere_factura, estimable')
+        .eq('activa', true).eq('nivel', 3).order('id'),
     ])
     if (r.error) throw r.error
     if (pyg.error) throw pyg.error
-    setReglas((r.data ?? []) as unknown as ReglaConciliacion[])
-    const all = (pyg.data ?? []) as any[]
-    setCatsIng(all
-      .filter((c: any) => String(c.codigo ?? '').startsWith('7'))
-      .map((c: any) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, canal_abv: null, orden: 0 })) as unknown as CategoriaContableIngreso[])
-    setCatsGas(all
-      .filter((c: any) => !String(c.codigo ?? '').startsWith('7'))
-      .map((c: any) => ({ id: c.id, codigo: c.codigo, nombre: c.nombre, tipo: 'var' as const, orden: 0 })) as unknown as CategoriaContableGasto[])
+    setReglas((r.data ?? []) as unknown as Regla[])
+    setCats((pyg.data ?? []) as unknown as Cat[])
   }
 
   useEffect(() => {
@@ -352,14 +347,14 @@ function PanelReglas() {
     return () => { cancelled = true }
   }, [])
 
-  const handleDelete = async (r: ReglaConciliacion) => {
-    if (!confirm(`¿Eliminar regla "${r.patron}"?`)) return
+  const handleDelete = async (r: Regla) => {
+    if (!confirm(`¿Eliminar la regla "${r.patron}"?`)) return
     const { error } = await supabase.from('reglas_conciliacion').delete().eq('id', r.id)
     if (error) { setError(error.message); return }
     await refetch()
   }
 
-  const handleToggle = async (r: ReglaConciliacion) => {
+  const handleToggle = async (r: Regla) => {
     const { error } = await supabase.from('reglas_conciliacion').update({ activa: !r.activa }).eq('id', r.id)
     if (error) { setError(error.message); return }
     await refetch()
@@ -377,20 +372,18 @@ function PanelReglas() {
     )
   }
 
-  const categoriaNombre = (r: ReglaConciliacion): string => {
-    if (r.tipo_categoria === 'ingreso') {
-      const c = catsIng.find(x => x.id === r.categoria_id)
-      return c ? `${c.codigo} · ${c.nombre}` : r.categoria_id
-    }
-    const c = catsGas.find(x => x.id === r.categoria_id)
-    return c ? `${c.codigo} · ${c.nombre}` : r.categoria_id
+  const nombreCat = (codigo: string | null): string => {
+    if (!codigo) return '—'
+    const c = cats.find(x => x.id === codigo)
+    return c ? `${c.id} · ${c.nombre}` : codigo
   }
 
   return (
     <>
       <BigCard title="Reglas de asignación automática" count={`${reglas.length} reglas`}>
         <p style={{ fontSize: 12.5, color: subtle, marginBottom: 16, fontFamily: 'Lexend, sans-serif' }}>
-          Cuando llega un movimiento del banco, el sistema busca si su concepto contiene el patrón de alguna regla activa y asigna la categoría correspondiente. Mayor prioridad = se evalúa primero.
+          Cuando llega un movimiento del banco, el sistema busca la primera regla activa cuyo patrón encaje con el concepto y le asigna esa categoría.
+          <strong> Prioridad más baja = se evalúa antes.</strong> El patrón admite alternativas con la barra vertical: <code>emilio bbva|sueldo emilio</code>.
         </p>
         {reglas.length === 0 ? (
           <div style={{ padding: 24, textAlign: 'center', color: mut }}>Sin reglas definidas</div>
@@ -398,9 +391,9 @@ function PanelReglas() {
           <Table>
             <THead>
               <tr>
-                <TH>Si concepto contiene</TH>
-                <TH>Tipo</TH>
+                <TH>Si el concepto contiene</TH>
                 <TH>Asignar categoría</TH>
+                <TH>Proveedor</TH>
                 <TH num>Prioridad</TH>
                 <TH num>Activa</TH>
                 <TH num>Acciones</TH>
@@ -412,8 +405,8 @@ function PanelReglas() {
                   <TD style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12.5 }}>
                     {r.patron}
                   </TD>
-                  <TD muted>{r.tipo_categoria === 'ingreso' ? 'Ingreso' : 'Gasto'}</TD>
-                  <TD>{categoriaNombre(r)}</TD>
+                  <TD bold>{nombreCat(r.categoria_codigo)}</TD>
+                  <TD muted>{r.set_proveedor ?? '—'}</TD>
                   <TD num bold>{r.prioridad}</TD>
                   <TD num>
                     <input type="checkbox" checked={r.activa} onChange={() => handleToggle(r)} style={{ accentColor: '#B01D23', cursor: 'pointer' }} />
@@ -434,8 +427,7 @@ function PanelReglas() {
       {modalOpen && (
         <ReglaModal
           editing={editing}
-          catsIng={catsIng}
-          catsGas={catsGas}
+          cats={cats}
           onClose={() => setModalOpen(false)}
           onSaved={refetch}
         />
@@ -447,34 +439,35 @@ function PanelReglas() {
 /* ═══════ MODAL REGLA ═══════ */
 
 function ReglaModal({
-  editing, catsIng, catsGas, onClose, onSaved,
+  editing, cats, onClose, onSaved,
 }: {
-  editing: ReglaConciliacion | null
-  catsIng: CategoriaContableIngreso[]
-  catsGas: CategoriaContableGasto[]
+  editing: Regla | null
+  cats: Cat[]
   onClose: () => void
   onSaved: () => Promise<void>
 }) {
   const inputStyle = useInputStyle()
   const [patron, setPatron] = useState(editing?.patron ?? '')
-  const [tipo, setTipo] = useState<'ingreso' | 'gasto'>(editing?.tipo_categoria ?? 'ingreso')
-  const [categoriaId, setCategoriaId] = useState(editing?.categoria_id ?? '')
-  const [prioridad, setPrioridad] = useState(editing?.prioridad ?? 0)
+  const [categoria, setCategoria] = useState(editing?.categoria_codigo ?? '')
+  const [proveedor, setProveedor] = useState(editing?.set_proveedor ?? '')
+  const [prioridad, setPrioridad] = useState(editing?.prioridad ?? 50)
   const [activa, setActiva] = useState(editing?.activa ?? true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const categorias = tipo === 'ingreso' ? catsIng : catsGas
-
   const handleSave = async () => {
-    if (!patron.trim() || !categoriaId) return
+    if (!patron.trim() || !categoria) return
     setSaving(true); setError(null)
+    const esIngreso = categoria.startsWith('1.')
     const payload = {
       patron: patron.trim(),
-      tipo_categoria: tipo,
-      categoria_id: categoriaId,
-      prioridad: Number(prioridad) || 0,
+      categoria_codigo: categoria,
+      set_proveedor: proveedor.trim() || null,
+      tipo_categoria: esIngreso ? 'ingreso' : 'gasto',
+      asigna_como: esIngreso ? 'ingreso' : 'gasto',
+      prioridad: Number(prioridad) || 50,
       activa,
+      creada_por_usuario: true,
     }
     const q = editing
       ? supabase.from('reglas_conciliacion').update(payload).eq('id', editing.id)
@@ -487,31 +480,33 @@ function ReglaModal({
   }
 
   return (
-    <ConfigModal title={`${editing ? 'Editar' : 'Nueva'} regla de conciliación`} onClose={onClose}>
-      <ConfigField label="Si concepto bancario contiene">
-        <input value={patron} onChange={e => setPatron(e.target.value)} style={inputStyle} placeholder='p.ej. "Uber Eats", "Mercadona", "Nómina"' />
-      </ConfigField>
-      <ConfigField label="Tipo">
-        <select value={tipo} onChange={e => { setTipo(e.target.value as 'ingreso' | 'gasto'); setCategoriaId('') }} style={inputStyle}>
-          <option value="ingreso">Ingreso</option>
-          <option value="gasto">Gasto</option>
-        </select>
+    <ConfigModal title={`${editing ? 'Editar' : 'Nueva'} regla`} onClose={onClose}>
+      <ConfigField label="Si el concepto del banco contiene">
+        <input
+          value={patron}
+          onChange={e => setPatron(e.target.value)}
+          style={{ ...inputStyle, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+          placeholder="alcampo|carrefour"
+        />
       </ConfigField>
       <ConfigField label="Asignar categoría">
-        <select value={categoriaId} onChange={e => setCategoriaId(e.target.value)} style={inputStyle}>
+        <select value={categoria} onChange={e => setCategoria(e.target.value)} style={inputStyle}>
           <option value="">— selecciona —</option>
-          {categorias.map(c => (
-            <option key={c.id} value={c.id}>{c.codigo} - {c.nombre}</option>
+          {cats.map(c => (
+            <option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>
           ))}
         </select>
       </ConfigField>
-      <ConfigField label="Prioridad (mayor = se evalúa primero)">
+      <ConfigField label="Nombre del proveedor (opcional)">
+        <input value={proveedor} onChange={e => setProveedor(e.target.value)} style={inputStyle} placeholder="ALCAMPO" />
+      </ConfigField>
+      <ConfigField label="Prioridad (más baja = se evalúa antes)">
         <input type="number" value={prioridad} onChange={e => setPrioridad(Number(e.target.value))} style={inputStyle} />
       </ConfigField>
       <ConfigField label="Activa">
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
           <input type="checkbox" checked={activa} onChange={e => setActiva(e.target.checked)} style={{ accentColor: '#B01D23' }} />
-          <span>Evaluar esta regla en nuevos movimientos</span>
+          <span>Aplicar esta regla a los movimientos nuevos</span>
         </label>
       </ConfigField>
       {error && (
@@ -523,7 +518,7 @@ function ReglaModal({
         onCancel={onClose}
         onSave={handleSave}
         saving={saving}
-        disabled={!patron.trim() || !categoriaId}
+        disabled={!patron.trim() || !categoria}
       />
     </ConfigModal>
   )
