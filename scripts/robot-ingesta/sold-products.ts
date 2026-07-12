@@ -1,22 +1,24 @@
 /**
- * SOLD_PRODUCTS (panel.sinqro.com) · UNA LÍNEA POR PRODUCTO DE CADA PEDIDO.
+ * SOLD_PRODUCTS (panel.sinqro.com) · DESCARGA EL INFORME Y LO DEJA EN LA BANDEJA.
  *   panel.sinqro.com/selling_point_accounts/3976805/reports → SOLD_PRODUCTS → Ver
  *
- * Qué devuelve el informe (comprobado el 12-jul-2026, 2.714 filas):
- *   ID | CODE | TYPE | MARKET | ADDRESS | ADDRESS DETAILS | PHONE | QUANTITY |
- *   DESCRIPTION | PAYMENT METHOD | CASH PAYMENTS | CREATION TIME |
- *   TOTAL LINE PRICE | TOTAL PRODUCTS | TOTAL ORDER
+ * v2 (12-jul-2026). Cambio de enfoque: este robot YA NO interpreta ventas ni
+ * escribe en pedidos_lineas / ventas_plato. Su único trabajo es dejar el fichero
+ * del informe en la misma bandeja donde caen las subidas manuales de Papeleo:
  *
- * Cobertura: Glovo y JustEat. Uber Eats NO pasa por Sinqro (0 apariciones) →
- * los platos de Uber vienen de su propio informe, no de aquí.
+ *   bucket 'informes-plataforma'  +  fila en imports_log (estado='pendiente')
+ *
+ * El parser único de ventas (Papeleo) lo recoge de ahí. Un solo sitio donde se
+ * interpretan las ventas, vengan del robot o de una subida a mano.
+ *
+ * Cómo obtiene el fichero:
+ *   1. Si el informe tiene botón de exportar/descargar → usa ese fichero tal cual.
+ *   2. Si no lo hay → serializa la tabla completa a CSV de una sola pasada
+ *      (page.evaluate en memoria, NO celda a celda: eso es lo que agotaba el
+ *      tiempo del workflow con 2.714 filas).
+ *
+ * Cobertura: Glovo y Just Eat. Uber NO pasa por Sinqro.
  * Alcance del informe: mes en curso + mes anterior.
- *
- * Clasificación de cada línea (TOTAL LINE PRICE):
- *   < 0  → 'promo'        (línea "Promos", el descuento aplicado)
- *   = 0  → 'modificador'  (guarnición/opción incluida, p.ej. "PURÉ PARMENTIER..")
- *   > 0  → 'producto'     (plato de carta o extra de pago)
- * Solo 'producto' cuenta como venta de plato. Contar los modificadores como
- * platos es lo que inflaba las unidades al doble en la carga anterior.
  *
  * El panel es AngularJS: los inputs usan ng-model y un fill() directo deja el
  * formulario "pristine" → hay que escribir tecla a tecla. El botón de acceso es
@@ -28,14 +30,9 @@ import { createClient } from '@supabase/supabase-js';
 const sb = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '');
 const PANEL = 'https://panel.sinqro.com/';
 const REPORTS_URL = 'https://panel.sinqro.com/selling_point_accounts/3976805/reports';
+const BUCKET = 'informes-plataforma';
 const HOY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
 const SOLO_LEER = process.env.SOLD_DRY === '1';
-
-type Linea = {
-  pedido_id: string; codigo: string | null; canal: string; fecha: string; hora: number;
-  creado_en: string; producto: string; cantidad: number; precio_linea: number;
-  total_productos: number | null; total_pedido: number | null; tipo: string; origen: string;
-};
 
 async function log(estado: string, detalle: string) {
   try { await sb.from('robot_log').insert([{ fuente: 'sold_products', estado, detalle }]); } catch { /* noop */ }
@@ -46,21 +43,6 @@ async function volcar(fuente: string, page: Page) {
     await sb.from('robot_debug').insert([{ fuente, fecha: HOY, html }]);
     await log('dump', `${fuente} bytes=${html.length} url=${page.url()}`);
   } catch (e: any) { await log('dump_error', String(e?.message || e)); }
-}
-function num(s: string): number {
-  const t = (s || '').replace(/[^\d,.\-]/g, '');
-  if (!t) return 0;
-  let x = t;
-  const up = x.lastIndexOf('.'), uc = x.lastIndexOf(',');
-  if (uc > up) x = x.replace(/\./g, '').replace(',', '.'); else x = x.replace(/,/g, '');
-  return parseFloat(x) || 0;
-}
-function canalDe(market: string): string {
-  const m = (market || '').toLowerCase();
-  if (m.includes('glovo')) return 'glovo';
-  if (m.includes('just')) return 'justeat';
-  if (m.includes('uber')) return 'uber';
-  return m.trim() || 'otro';
 }
 
 async function escribirNg(page: Page, sel: string, valor: string) {
@@ -91,92 +73,83 @@ async function login(page: Page): Promise<boolean> {
   return dentro;
 }
 
-/** Índice de cada columna a partir de las cabeceras (no fío del orden). */
-async function mapaColumnas(p: Page): Promise<Record<string, number>> {
-  const ths = p.locator('table th');
-  const n = await ths.count().catch(() => 0);
-  const idx: Record<string, number> = {};
-  for (let i = 0; i < n; i++) {
-    const t = ((await ths.nth(i).textContent().catch(() => '')) || '').trim().toUpperCase();
-    if (t) idx[t] = i;
+/** Intento 1: botón de exportar/descargar del propio informe. */
+async function intentarDescarga(ctx: BrowserContext, p: Page): Promise<{ nombre: string; datos: Buffer } | null> {
+  const candidatos = [
+    p.getByRole('button', { name: /export|exportar|descargar|download|csv|excel|xls/i }).first(),
+    p.getByRole('link', { name: /export|exportar|descargar|download|csv|excel|xls/i }).first(),
+    p.locator('a[download], [class*="export"], [class*="download"], [ng-click*="export"], [ng-click*="download"]').first(),
+  ];
+  for (const c of candidatos) {
+    if (!(await c.count().catch(() => 0))) continue;
+    try {
+      const espera = p.waitForEvent('download', { timeout: 30000 });
+      await c.click({ timeout: 8000 });
+      const dl = await espera;
+      const ruta = await dl.path();
+      if (!ruta) continue;
+      const fs = await import('fs/promises');
+      const datos = await fs.readFile(ruta);
+      const nombre = dl.suggestedFilename() || 'sold_products.csv';
+      await log('descarga', `${nombre} bytes=${datos.length}`);
+      return { nombre, datos };
+    } catch { /* siguiente candidato */ }
   }
-  return idx;
+  return null;
 }
 
-async function leerLineas(p: Page): Promise<Linea[]> {
-  const col = await mapaColumnas(p);
-  const nec = ['ID', 'MARKET', 'QUANTITY', 'DESCRIPTION', 'CREATION TIME', 'TOTAL LINE PRICE'];
-  const faltan = nec.filter((c) => col[c] === undefined);
-  if (faltan.length) { await log('error', `faltan columnas: ${faltan.join(', ')} · hay: ${Object.keys(col).join(' | ')}`); return []; }
-
-  const trs = p.locator('table tbody tr');
-  const n = await trs.count().catch(() => 0);
-  await log('filas', `${n} filas en el informe`);
-  const out: Linea[] = [];
-  for (let i = 0; i < n; i++) {
-    const tds = trs.nth(i).locator('td');
-    if ((await tds.count().catch(() => 0)) < 6) continue;
-    const val = async (c: string) => ((await tds.nth(col[c]).textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-
-    const pedido_id = await val('ID');
-    const producto = await val('DESCRIPTION');
-    const creado = await val('CREATION TIME');
-    if (!pedido_id || !producto || !creado) continue;
-
-    const m = creado.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-    if (!m) continue;
-    const fecha = `${m[1]}-${m[2]}-${m[3]}`;
-    const hora = parseInt(m[4], 10);
-
-    const precio = num(await val('TOTAL LINE PRICE'));
-    const cantidad = Math.max(num(await val('QUANTITY')) || 1, 1);
-    const tipo = precio < 0 ? 'promo' : (precio === 0 ? 'modificador' : 'producto');
-
-    out.push({
-      pedido_id, codigo: col['CODE'] !== undefined ? await val('CODE') : null,
-      canal: canalDe(await val('MARKET')), fecha, hora,
-      creado_en: creado.replace(' ', 'T') + '+02:00',
-      producto, cantidad, precio_linea: precio,
-      total_productos: col['TOTAL PRODUCTS'] !== undefined ? num(await val('TOTAL PRODUCTS')) : null,
-      total_pedido: col['TOTAL ORDER'] !== undefined ? num(await val('TOTAL ORDER')) : null,
-      tipo, origen: 'sinqro_sold_products',
-    });
-  }
-  return out;
+/** Intento 2: serializar la tabla entera a CSV de una sola pasada, en memoria. */
+async function tablaACsv(p: Page): Promise<{ nombre: string; datos: Buffer; filas: number } | null> {
+  const csv = await p.evaluate(() => {
+    const tabla = document.querySelector('table');
+    if (!tabla) return null;
+    const esc = (s: string) => '"' + (s || '').replace(/\s+/g, ' ').trim().replace(/"/g, '""') + '"';
+    const filas: string[] = [];
+    const ths = Array.from(tabla.querySelectorAll('th')).map((e) => esc(e.textContent || ''));
+    if (ths.length) filas.push(ths.join(','));
+    const trs = Array.from(tabla.querySelectorAll('tbody tr'));
+    for (const tr of trs) {
+      const tds = Array.from(tr.querySelectorAll('td'));
+      if (tds.length < 6) continue;
+      filas.push(tds.map((e) => esc(e.textContent || '')).join(','));
+    }
+    return { texto: filas.join('\n'), filas: Math.max(filas.length - 1, 0) };
+  });
+  if (!csv || !csv.filas) return null;
+  await log('tabla', `${csv.filas} filas serializadas a CSV`);
+  return { nombre: 'sold_products.csv', datos: Buffer.from(csv.texto, 'utf-8'), filas: csv.filas };
 }
 
-async function guardar(lineas: Linea[]) {
-  if (!lineas.length) { await log('aviso', 'sin líneas que guardar'); return; }
-  const fechas = lineas.map((l) => l.fecha).sort();
-  const desde = fechas[0], hasta = fechas[fechas.length - 1];
-  const canales = Array.from(new Set(lineas.map((l) => l.canal)));
+/** Deja el fichero en la bandeja de Papeleo y lo registra como pendiente. */
+async function aBandeja(nombre: string, datos: Buffer) {
+  const sello = new Date().toISOString().replace(/[:.]/g, '-');
+  const ext = (nombre.match(/\.[a-z0-9]+$/i) || ['.csv'])[0];
+  const ruta = `sinqro/sold_products_${HOY}_${sello}${ext}`;
+  const tipoMime = /\.csv$/i.test(ext) ? 'text/csv' : 'application/octet-stream';
 
-  // Reemplazo limpio del tramo que cubre el informe: nunca se acumula ni se duplica.
-  const { error: eDel } = await sb.from('pedidos_lineas').delete()
-    .gte('fecha', desde).lte('fecha', hasta).in('canal', canales).eq('origen', 'sinqro_sold_products');
-  if (eDel) { await log('error', `limpiando ${desde}→${hasta}: ${eDel.message}`); return; }
+  const { error: eUp } = await sb.storage.from(BUCKET).upload(ruta, datos, { contentType: tipoMime, upsert: true });
+  if (eUp) { await log('error', `subiendo a la bandeja: ${eUp.message}`); return; }
 
-  for (let i = 0; i < lineas.length; i += 500) {
-    const { error } = await sb.from('pedidos_lineas').insert(lineas.slice(i, i + 500));
-    if (error) { await log('error', `insert lote ${i}: ${error.message}`); return; }
-  }
-  const res: Record<string, number> = {};
-  for (const l of lineas) res[l.tipo] = (res[l.tipo] || 0) + 1;
-  await log('ok', `guardadas ${lineas.length} líneas ${desde}→${hasta} [${canales.join(',')}] · ${Object.entries(res).map(([k, v]) => `${k}=${v}`).join(' ')}`);
+  const { error: eLog } = await sb.from('imports_log').insert([{
+    archivo_nombre: `sold_products_${HOY}${ext}`,
+    archivo_url: `${BUCKET}/${ruta}`,
+    tipo_detectado: 'sinqro_sold_products',
+    estado: 'pendiente',
+    destino_modulo: 'ventas',
+    detalle: `Informe SOLD_PRODUCTS de Sinqro (Glovo + Just Eat). Depositado por el robot el ${HOY}. Pendiente de parsear.`,
+  }]);
+  if (eLog) { await log('aviso', `fichero subido pero no registrado en imports_log: ${eLog.message}`); return; }
 
-  // Ventas por plato: SOLO los productos. Los modificadores y las promos no son platos.
-  const { error: eRpc } = await sb.rpc('fn_rehacer_ventas_plato', { p_desde: desde, p_hasta: hasta });
-  if (eRpc) await log('aviso', `no pude rehacer ventas_plato: ${eRpc.message}`);
-  else await log('ok', `ventas_plato reconstruido ${desde}→${hasta}`);
+  await log('ok', `informe en bandeja: ${BUCKET}/${ruta} (${datos.length} bytes) · imports_log=pendiente`);
 }
 
 async function main() {
-  await log('inicio', `SOLD_PRODUCTS carga${SOLO_LEER ? ' (solo lectura)' : ''}`);
+  await log('inicio', `SOLD_PRODUCTS → bandeja Papeleo${SOLO_LEER ? ' (simulacro)' : ''}`);
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const ctx: BrowserContext = await browser.newContext({ acceptDownloads: true, timezoneId: 'Europe/Madrid' });
   const page = await ctx.newPage();
   try {
-    if (!(await login(page))) { await log('error', 'no he podido entrar en panel.sinqro.com'); return; }
+    if (!(await login(page))) { await log('error', 'no he podido entrar en panel.sinqro.com'); process.exitCode = 1; return; }
 
     await page.goto(REPORTS_URL, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
@@ -184,7 +157,7 @@ async function main() {
 
     let fila = page.locator('tr').filter({ hasText: /SOLD[_ ]?PRODUCTS/i }).first();
     if (!(await fila.count().catch(() => 0))) fila = page.locator('tr').filter({ hasText: /producto.*vendid/i }).first();
-    if (!(await fila.count().catch(() => 0))) { await log('error', 'no encuentro el informe SOLD_PRODUCTS'); await volcar('sold_sin_fila', page); return; }
+    if (!(await fila.count().catch(() => 0))) { await log('error', 'no encuentro el informe SOLD_PRODUCTS'); await volcar('sold_sin_fila', page); process.exitCode = 1; return; }
 
     const ver = fila.getByRole('button', { name: /ver|view/i }).first();
     const verLink = fila.getByRole('link', { name: /ver|view/i }).first();
@@ -196,15 +169,15 @@ async function main() {
     await p.waitForLoadState('networkidle').catch(() => {});
     await p.waitForTimeout(8000);
 
-    const lineas = await leerLineas(p);
-    if (!lineas.length) { await volcar('sold_sin_lineas', p); await log('error', 'informe abierto pero sin líneas legibles'); return; }
-    if (SOLO_LEER) {
-      const res: Record<string, number> = {};
-      for (const l of lineas) res[l.tipo] = (res[l.tipo] || 0) + 1;
-      await log('simulacro', `${lineas.length} líneas · ${Object.entries(res).map(([k, v]) => `${k}=${v}`).join(' ')} · no guardo nada`);
-      return;
+    let fichero = await intentarDescarga(ctx, p);
+    if (!fichero) {
+      const csv = await tablaACsv(p);
+      if (!csv) { await volcar('sold_sin_lineas', p); await log('error', 'informe abierto pero sin tabla legible'); process.exitCode = 1; return; }
+      fichero = { nombre: csv.nombre, datos: csv.datos };
     }
-    await guardar(lineas);
+
+    if (SOLO_LEER) { await log('simulacro', `${fichero.nombre} (${fichero.datos.length} bytes) · no dejo nada en la bandeja`); return; }
+    await aBandeja(fichero.nombre, fichero.datos);
     await log('fin', 'ok');
   } catch (e: any) {
     await log('error', String(e?.message || e));
