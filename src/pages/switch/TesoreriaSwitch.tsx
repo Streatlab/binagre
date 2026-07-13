@@ -8,6 +8,7 @@ import { ConNeo } from './SkinFrame'
 
 export default function TesoreriaSwitch() {
   const { skin } = useSkin()
-  if (skin === 'sl') return <TesoreriaSL />
-  return <ConNeo><TesoreriaNeo /></ConNeo>
+  return (
+    <ConNeo>{skin === 'sl' ? <TesoreriaSL /> : <TesoreriaNeo />}</ConNeo>
+  )
 }
