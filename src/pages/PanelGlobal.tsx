@@ -292,8 +292,8 @@ export default function PanelGlobal() {
     <>
       {activeTab === 'resumen' && (
         <>
-          {/* Ventas del día en tiempo real (robot cada 5 min). Siempre arriba del todo. */}
-          <CardHoyEnVivo sl={esSL} />
+          {/* Banda de ventas del día en tiempo real (robot cada 5 min). Solo en horario de servicio. */}
+          {!esSL && <CardHoyEnVivo />}
           {usaSL
             ? <TabResumenSL rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />
             : <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />}
