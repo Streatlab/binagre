@@ -6,9 +6,7 @@ import Layout from '@/components/Layout'
 import Login from '@/pages/Login'
 
 const Inicio = React.lazy(() => import('@/pages/InicioSkin'))
-const Escandallo = React.lazy(() => import('@/pages/Escandallo'))
 const Facturacion = React.lazy(() => import('@/pages/Facturacion'))
-const Conciliacion = React.lazy(() => import('@/pages/Conciliacion'))
 const POS = React.lazy(() => import('@/pages/POS'))
 const Placeholder = React.lazy(() => import('@/pages/Placeholder'))
 const MarcasPage = React.lazy(() => import('@/pages/configuracion/marcas/MarcasPage'))
@@ -21,8 +19,13 @@ const MapeoMarcas = React.lazy(() => import('@/pages/configuracion/MapeoMarcas')
 // A2 · Coste por plato (enlaza venta con receta costeada)
 const CostePlato = React.lazy(() => import('@/pages/cocina/CostePlato'))
 
-// LAB · Laboratorio visual (Ley Visual SL v2). Pantallas espejo, no sustituyen a nada.
+// LAB · Laboratorio visual (Ley Visual SL v2). Muestrario de piezas.
 const LabKit = React.lazy(() => import('@/pages/lab/LabKit'))
+
+// Pantallas con interruptor NEO / SL: el boton decide cual se ve
+const EscandalloSwitch = React.lazy(() => import('@/pages/switch/EscandalloSwitch'))
+const ConciliacionSwitch = React.lazy(() => import('@/pages/switch/ConciliacionSwitch'))
+const TesoreriaSwitch = React.lazy(() => import('@/pages/switch/TesoreriaSwitch'))
 const LabPanel = React.lazy(() => import('@/pages/lab/LabPanel'))
 const LabConciliacion = React.lazy(() => import('@/pages/lab/LabConciliacion'))
 const LabTesoreria = React.lazy(() => import('@/pages/lab/LabTesoreria'))
@@ -62,7 +65,6 @@ const Documentacion = React.lazy(() => import('@/pages/finanzas/Documentacion'))
 const BandejaPendientes = React.lazy(() => import('@/pages/BandejaPendientes'))
 const Ventas = React.lazy(() => import('@/pages/finanzas/Ventas'))
 
-const Tesoreria13Semanas = React.lazy(() => import('@/pages/finanzas/Tesoreria13Semanas'))
 const FondoManiobra = React.lazy(() => import('@/pages/finanzas/FondoManiobra'))
 const EstadosFinancieros = React.lazy(() => import('@/pages/finanzas/EstadosFinancieros'))
 const BreakEvenCanal = React.lazy(() => import('@/pages/finanzas/BreakEvenCanal'))
@@ -171,13 +173,13 @@ function AppRoutes() {
         <Route path="/login" element={usuario ? <Navigate to="/" replace /> : <Login />} />
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Inicio />} />
-          <Route path="escandallo" element={<Escandallo />} />
+          <Route path="escandallo" element={<EscandalloSwitch />} />
           <Route path="carta" element={<Carta />} />
           <Route path="facturacion" element={<ProtectedRoute solo={['admin']}><Facturacion /></ProtectedRoute>} />
-          <Route path="facturacion/conciliacion" element={<ProtectedRoute solo={['admin']}><Conciliacion /></ProtectedRoute>} />
+          <Route path="facturacion/conciliacion" element={<ProtectedRoute solo={['admin']}><ConciliacionSwitch /></ProtectedRoute>} />
           <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
 
-          {/* LAB · Laboratorio visual. Pantallas espejo: no sustituyen a las reales. */}
+          {/* LAB · Laboratorio visual. Muestrario y pantallas espejo. */}
           <Route path="lab" element={<ProtectedRoute solo={['admin']}><LabKit /></ProtectedRoute>} />
           <Route path="lab/panel" element={<ProtectedRoute solo={['admin']}><LabPanel /></ProtectedRoute>} />
           <Route path="lab/conciliacion" element={<ProtectedRoute solo={['admin']}><LabConciliacion /></ProtectedRoute>} />
@@ -239,7 +241,7 @@ function AppRoutes() {
           <Route path="finanzas/gestoria" element={<ProtectedRoute solo={['admin']}><Gestoria /></ProtectedRoute>} />
           <Route path="finanzas/escenarios-tesoreria" element={<ProtectedRoute solo={['admin']}><EscenariosTesoreria /></ProtectedRoute>} />
 
-          <Route path="finanzas/tesoreria-13-semanas" element={<ProtectedRoute solo={['admin']}><Tesoreria13Semanas /></ProtectedRoute>} />
+          <Route path="finanzas/tesoreria-13-semanas" element={<ProtectedRoute solo={['admin']}><TesoreriaSwitch /></ProtectedRoute>} />
           <Route path="finanzas/fondo-maniobra" element={<ProtectedRoute solo={['admin']}><FondoManiobra /></ProtectedRoute>} />
           <Route path="finanzas/estados-financieros" element={<ProtectedRoute solo={['admin']}><EstadosFinancieros /></ProtectedRoute>} />
           <Route path="finanzas/break-even" element={<ProtectedRoute solo={['admin']}><BreakEvenCanal /></ProtectedRoute>} />
