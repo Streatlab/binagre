@@ -4,15 +4,15 @@
  * Modos (env MODO):
  *   diario    → historial de pedidos de ayer + detalle de ganancias por artículo
  *   semanal   → resumen de ganancias (CSV) de la última semana cerrada
- *   mensual   → resumen mensual (PDF) del mes anterior. Uber lo publica unos días
- *               DESPUÉS de cerrar el mes: si no está, no es error.
+ *   mensual   → resumen mensual (PDF) del mes anterior
  *   backfill  → un mes completo (env MES = AAAA-MM). UN SOLO MES POR EJECUCIÓN.
  *
  * Login (13-jul-2026):
- *   1) correo → botón "Continuar" (Enter no basta).
+ *   1) correo escrito a mano (tecla a tecla) → botón "Continuar".
  *   2) Uber propone código por SMS: NO se espera. Se abre "Más opciones" y se elige
  *      entrar con contraseña.
- *   Cada pantalla se vuelca a robot_debug con su paso para poder ver dónde se atasca.
+ *   3) Uber tarda en pasar de pantalla: se espera a que el título cambie, hasta 40 s.
+ *   Cada pantalla se vuelca a robot_debug (uber_paso_N) para ver dónde se atasca.
  *
  * Credenciales y cuentas: tabla robot_credenciales (plataforma='uber').
  */
@@ -34,22 +34,32 @@ async function dentro(page: Page): Promise<boolean> {
   return /merchants\.ubereats\.com/i.test(page.url()) && !/login|auth|signin/i.test(page.url());
 }
 
-/** Pulsa el botón de avanzar (Continuar/Siguiente), sin tocar los de Google/Apple. */
+/** Texto del encabezado de la pantalla de login (sirve para saber si hemos avanzado). */
+async function pantalla(page: Page): Promise<string> {
+  return (await page.locator('h1, h2, [role="heading"]').first().innerText().catch(() => '')).trim();
+}
+
+/** Pulsa Continuar y espera de verdad a que cambie la pantalla (hasta 40 s). */
 async function seguir(page: Page) {
+  const antes = await pantalla(page);
   const b = page.getByRole('button', { name: RE_SEGUIR }).first();
-  if (await b.count().catch(() => 0)) {
-    await b.click({ timeout: 8000 }).catch(() => {});
-  } else {
-    await page.keyboard.press('Enter').catch(() => {});
+  if (await b.count().catch(() => 0)) await b.click({ timeout: 8000 }).catch(() => {});
+  else await page.keyboard.press('Enter').catch(() => {});
+
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(2000);
+    if (await page.locator('input[type="password"]').count().catch(() => 0)) return;
+    const ahora = await pantalla(page);
+    if (ahora && ahora !== antes) return;
+    if (await dentro(page)) return;
   }
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(4000);
 }
 
 /** Si Uber ofrece SMS, abre "más opciones" y elige contraseña. */
 async function abrirCampoContrasena(page: Page): Promise<boolean> {
   for (let i = 0; i < 4; i++) {
     if (await page.locator('input[type="password"]').count().catch(() => 0)) return true;
+    await volcar(`${P}_paso_${i}`, await page.content().catch(() => ''));
 
     const mas = page.locator('button, a, [role="button"], [role="link"], span[tabindex]').filter({ hasText: RE_MAS }).first();
     if (await mas.count().catch(() => 0)) {
@@ -62,33 +72,36 @@ async function abrirCampoContrasena(page: Page): Promise<boolean> {
       await opcion.click({ timeout: 6000 }).catch(() => {});
       await page.waitForTimeout(2500);
       if (!(await page.locator('input[type="password"]').count().catch(() => 0))) await seguir(page);
+    } else {
+      await page.waitForTimeout(4000);
     }
-
-    await volcar(`${P}_paso_${i}`, await page.content().catch(() => ''));
-    await page.waitForTimeout(2000);
   }
   return (await page.locator('input[type="password"]').count().catch(() => 0)) > 0;
 }
 
 async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boolean> {
   await page.goto(c.url_base || `${RAIZ}/manager`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForTimeout(4000);
+  await page.waitForTimeout(5000);
   await quitarEstorbos(page);
   if (await dentro(page)) { await log(P, 'sesion_ok', `${c.cuenta}: sesión guardada todavía válida`); return true; }
 
-  const email = page.locator('input[type="email"], input[name="email"], #PHONE_NUMBER_or_EMAIL_ADDRESS, input[id*="email" i], input[type="text"]').first();
+  const email = page.locator('#PHONE_NUMBER_or_EMAIL_ADDRESS, input[type="email"], input[name="email"]').first();
   await email.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
-  await email.fill(c.usuario).catch(() => {});
+  await email.click({ timeout: 8000 }).catch(() => {});
+  await email.type(c.usuario, { delay: 90 }).catch(async () => { await email.fill(c.usuario).catch(() => {}); });
+  await page.waitForTimeout(1200);
   await seguir(page);
   await quitarEstorbos(page);
 
   if (!(await abrirCampoContrasena(page))) {
-    await log(P, 'login_ko', `${c.cuenta}: no aparece la opción de contraseña · url=${page.url()}`);
+    await log(P, 'login_ko', `${c.cuenta}: atascado en "${await pantalla(page)}" · url=${page.url()}`);
     await volcar(`${P}_sin_opcion_pass`, await page.content());
     return false;
   }
 
-  await page.locator('input[type="password"]').first().fill(c.password).catch(() => {});
+  const pass = page.locator('input[type="password"]').first();
+  await pass.click({ timeout: 8000 }).catch(() => {});
+  await pass.type(c.password, { delay: 70 }).catch(async () => { await pass.fill(c.password).catch(() => {}); });
   await seguir(page);
   await page.waitForTimeout(6000);
   await quitarEstorbos(page);
