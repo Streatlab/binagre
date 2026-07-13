@@ -1,0 +1,30 @@
+name: Sembrar credenciales (un solo uso)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - "scripts/robot-ingesta/sembrar-credenciales.ts"
+      - ".github/workflows/sembrar-credenciales.yml"
+
+jobs:
+  sembrar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm install --no-audit --no-fund
+      - name: Copiar claves de GitHub a Supabase
+        env:
+          RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
+          RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
+          SINQRO_USER: ${{ secrets.SINQRO_USER }}
+          SINQRO_PASS: ${{ secrets.SINQRO_PASS }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/sembrar-credenciales.ts
