@@ -8,6 +8,7 @@ import { ConNeo } from './SkinFrame'
 
 export default function EscandalloSwitch() {
   const { skin } = useSkin()
-  if (skin === 'sl') return <EscandalloSL />
-  return <ConNeo><EscandalloNeo /></ConNeo>
+  return (
+    <ConNeo>{skin === 'sl' ? <EscandalloSL /> : <EscandalloNeo />}</ConNeo>
+  )
 }
