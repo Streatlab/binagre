@@ -1,34 +1,54 @@
 /**
- * CardHoyEnVivo — bloque "HOY EN VIVO" que vive DENTRO del Resumen del Panel Global,
- * en la misma fila que "Ojo, un par de cosas" (70% este bloque / 30% el estado de salud).
+ * CardHoyEnVivo — sección "HOY EN VIVO" del Resumen (Panel Global), a ancho completo,
+ * justo encima del estado de salud del periodo.
  *
- * Datos 100% reales, del robot rushour_vivo (Rushour, cada 5 min):
- *  · pedidos, facturación bruta y ticket medio del día
+ * Mismo lenguaje visual que el resto del Resumen (neobrutal Food Pop): tarjetas blancas con
+ * borde 3px, sombra única 4px, números en Oswald, color por métrica (Pedidos naranja ·
+ * Bruto tinta · Neto verde · TM azul), barras con borde y eyebrows.
+ *
+ * Datos 100% reales del robot rushour_vivo (Rushour, cada 5 min):
+ *  · pedidos, facturación bruta, ticket medio
  *  · neto estimado = bruto × ratio neto/bruto REAL de cada canal (últimas liquidaciones)
- *  · reparto por plataforma (Uber Eats / Glovo / Just Eat) y por marca — traducidos con el
- *    diccionario real de Rushour (tabla rushour_mapa)
- *  · productos más vendidos, clientes nuevos vs repiten y curva por horas
+ *  · plataformas y marcas con su nombre real (diccionario rushour_mapa)
+ *  · productos más vendidos, clientes nuevos vs repiten, curva por horas
  *
- * Solo se pinta en horario de servicio (11:00–23:59 Madrid), igual que el robot.
- * Estilo: tokens neobrutal de src/styles/neobrutal.ts. Sin marco propio: el marco lo pone
- * la fila del Resumen.
+ * Solo se pinta en horario de servicio (11:00–24:00 Madrid), igual que el robot.
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import {
-  INK, CREMA, CLARO, AMA, VERDE, NAR, AZUL, GRANATE, ROJO, GRIS,
-  OSW, LEX, CORP, d, eyebrow,
-} from '@/styles/neobrutal'
 import { fmtEur, fmtNum } from '@/lib/format'
+
+/* ── tokens idénticos a ResumenLanding ── */
+const INK = '#140f08'
+const CREMA = '#FCEFD6'
+const CLARO = '#F3D9A8'
+const TRACK = '#ecdcb8'
+const ROSA = '#FF2E63'
+const ROJO = '#FF1E27'
+const AMA = '#FFC400'
+const VERDE = '#0FB86B'
+const NAR = '#FF6A1A'
+const AZUL = '#2D5BFF'
+const GRIS = '#9a8f78'
+const SHADOW = `4px 4px 0 ${INK}`
+const OSW = "'Oswald', sans-serif"
+const LEX = "'Lexend', sans-serif"
+const PAD = '40px'
+const CORP: Record<string, string> = { uber: '#06C167', glovo: '#FFC244', je: '#FF8000', web: '#B01D23', dir: '#1e2233' }
+
+const d = (size: string, color = INK): React.CSSProperties => ({ fontFamily: OSW, fontWeight: 700, fontSize: size, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color })
+const eyebrow = (bg: string, color = INK): React.CSSProperties => ({ display: 'inline-block', background: bg, color, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', padding: '4px 12px' })
+const micro: React.CSSProperties = { fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b5d45' }
+
+const E2 = (n: number) => fmtEur(n, { showEuro: false, decimals: 2 })
+const N = (n: number) => fmtNum(n, 0)
 
 const HORA_ABRE = 11
 const HORA_CIERRA = 24
 
-/** Hora actual en Madrid (la del restaurante, no la del navegador). */
 export function horaMadrid(): number {
   return Number(new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', hour12: false }).format(new Date()))
 }
-/** ¿Estamos en horario de servicio? */
 export function enHorarioServicio(): boolean {
   const h = horaMadrid()
   return h >= HORA_ABRE && h < HORA_CIERRA
@@ -50,28 +70,33 @@ interface Marca { marca: string; pedidos: number; euros: number }
 interface Plato { plato: string; unidades: number; euros: number }
 interface Hora { hora: string; euros: number; pedidos: number }
 
-const E2 = (n: number) => fmtEur(n, { showEuro: false, decimals: 2 })
-const N = (n: number) => fmtNum(n, 0)
-
 const CANAL_NOMBRE: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', je: 'Just Eat', web: 'Web', dir: 'Directa', otro: 'Otro',
 }
 
-/** Anillo neobrutal: aro con borde de tinta, relleno plano. */
+/** Anillo neobrutal: aro con borde de tinta, relleno plano, sin degradados. */
 function Anillo({ pct, color }: { pct: number; color: string }) {
-  const r = 46
+  const r = 44
   const c = 2 * Math.PI * r
   const v = Math.max(0, Math.min(pct, 100))
   return (
-    <svg width="118" height="118" viewBox="0 0 118 118" style={{ flexShrink: 0 }}>
-      <circle cx="59" cy="59" r={r} fill="none" stroke={INK} strokeWidth="20" />
-      <circle cx="59" cy="59" r={r} fill="none" stroke={CLARO} strokeWidth="14" />
-      <circle
-        cx="59" cy="59" r={r} fill="none" stroke={color} strokeWidth="14"
-        strokeDasharray={`${(c * v) / 100} ${c}`} transform="rotate(-90 59 59)"
-      />
-      <text x="59" y="66" textAnchor="middle" style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, fill: INK }}>{Math.round(v)}%</text>
+    <svg width="116" height="116" viewBox="0 0 116 116" style={{ flexShrink: 0 }}>
+      <circle cx="58" cy="58" r={r} fill="none" stroke={INK} strokeWidth="22" />
+      <circle cx="58" cy="58" r={r} fill="none" stroke={TRACK} strokeWidth="16" />
+      <circle cx="58" cy="58" r={r} fill="none" stroke={color} strokeWidth="16" strokeDasharray={`${(c * v) / 100} ${c}`} transform="rotate(-90 58 58)" />
+      <text x="58" y="66" textAnchor="middle" style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, fill: INK }}>{Math.round(v)}%</text>
     </svg>
+  )
+}
+
+/** Tarjeta blanca de métrica, igual que las del hero / resultado del periodo. */
+function Kpi({ label, valor, color, pie }: { label: string; valor: string; color: string; pie?: React.ReactNode }) {
+  return (
+    <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
+      <div style={micro}>{label}</div>
+      <div style={{ ...d('clamp(26px,3.6vw,44px)', color), margin: '8px 0 8px' }}>{valor}</div>
+      {pie}
+    </div>
   )
 }
 
@@ -88,7 +113,7 @@ export default function CardHoyEnVivo() {
       supabase.from('v_vivo_hoy').select('*').maybeSingle(),
       supabase.from('v_vivo_plataformas').select('*'),
       supabase.from('v_vivo_marcas').select('*').limit(4),
-      supabase.from('v_vivo_top_platos').select('*').limit(4),
+      supabase.from('v_vivo_top_platos').select('*').limit(5),
       supabase.from('v_vivo_horas').select('*'),
     ])
     if (a.data) {
@@ -125,69 +150,81 @@ export default function CardHoyEnVivo() {
   const pctVs7d = k && k.bruto_hace_7d > 0 ? (bruto / k.bruto_hace_7d) * 100 : 0
   const colorRitmo = pctVs7d >= 90 ? VERDE : pctVs7d >= 50 ? AMA : ROJO
   const pctNeto = bruto > 0 ? ((k?.neto_estimado ?? 0) / bruto) * 100 : 0
-
-  const micro: React.CSSProperties = { fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK, opacity: 0.7 }
+  const maxMarca = Math.max(1, ...marcas.map(m => m.euros))
+  const maxPlato = Math.max(1, ...platos.map(pl => pl.unidades))
 
   return (
-    <div style={{ background: CREMA, color: INK, fontFamily: LEX, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Cabecera */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: AMA, borderBottom: `4px solid ${INK}`, padding: '10px 24px' }}>
+    <section style={{ background: CLARO, borderBottom: `4px solid ${INK}`, padding: `32px ${PAD} 36px`, fontFamily: LEX, color: INK }}>
+      {/* cabecera */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
         <span style={eyebrow(vivo ? VERDE : GRIS, '#fff')}>{vivo ? '● Hoy en vivo' : '● Robot parado'}</span>
-        <span style={micro}>
-          {minutos === null ? 'sin datos del robot' : minutos === 0 ? 'actualizado ahora mismo' : `actualizado hace ${minutos} min`}
+        <span style={{ ...eyebrow(INK, AMA), fontSize: 12 }}>
+          {minutos === null ? 'Sin datos del robot' : minutos === 0 ? 'Actualizado ahora mismo' : `Actualizado hace ${minutos} min`}
         </span>
+        <div style={{ flex: 1 }} />
+        <span style={micro}>Rushour · en directo cada 5 min</span>
       </div>
 
-      {/* Cifras del día + anillo de ritmo */}
-      <div style={{ padding: '18px 24px', display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 30, flexWrap: 'wrap', flex: 1 }}>
-          <div>
-            <div style={d('clamp(26px,3vw,40px)', NAR)}>{N(k?.pedidos ?? 0)}</div>
-            <div style={{ ...micro, marginTop: 6 }}>Pedidos</div>
-          </div>
-          <div>
-            <div style={d('clamp(26px,3vw,40px)', GRANATE)}>{E2(bruto)} €</div>
-            <div style={{ ...micro, marginTop: 6 }}>Facturación bruta</div>
-          </div>
-          <div>
-            <div style={d('clamp(26px,3vw,40px)', VERDE)}>{E2(k?.neto_estimado ?? 0)} €</div>
-            <div style={{ ...micro, marginTop: 6 }}>Neto estimado · {Math.round(pctNeto)}% s/ bruto</div>
-          </div>
-          <div>
-            <div style={d('clamp(26px,3vw,40px)', AZUL)}>{E2(k?.ticket_medio ?? 0)} €</div>
-            <div style={{ ...micro, marginTop: 6 }}>Ticket medio</div>
-          </div>
-        </div>
+      {/* métricas del día */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) 280px', gap: 16, alignItems: 'stretch' }}>
+        <Kpi
+          label="Pedidos"
+          valor={N(k?.pedidos ?? 0)}
+          color={NAR}
+          pie={<span style={{ ...eyebrow(NAR, '#fff'), fontSize: 11 }}>{N(k?.clientes_nuevos ?? 0)} nuevos · {N(k?.clientes_recurrentes ?? 0)} repiten</span>}
+        />
+        <Kpi
+          label="Facturación bruta"
+          valor={E2(bruto)}
+          color={INK}
+          pie={<span style={{ ...eyebrow(AMA), fontSize: 11 }}>hace 7 días · {E2(k?.bruto_hace_7d ?? 0)}</span>}
+        />
+        <Kpi
+          label="Neto estimado"
+          valor={E2(k?.neto_estimado ?? 0)}
+          color={VERDE}
+          pie={<span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 11 }}>{Math.round(pctNeto)}% s/ bruto</span>}
+        />
+        <Kpi
+          label="Ticket medio"
+          valor={E2(k?.ticket_medio ?? 0)}
+          color={AZUL}
+          pie={<span style={{ ...eyebrow(AZUL, '#fff'), fontSize: 11 }}>{N(k?.pedidos_hace_7d ?? 0)} ped hace 7 días</span>}
+        />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
           <Anillo pct={pctVs7d} color={colorRitmo} />
-          <div style={{ fontSize: 12, lineHeight: 1.5, maxWidth: 150 }}>
-            <b style={{ fontFamily: OSW, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Del mismo día hace 7 días</b><br />
-            {N(k?.pedidos_hace_7d ?? 0)} ped · {E2(k?.bruto_hace_7d ?? 0)} €<br />
-            Nuevos <b style={{ color: VERDE }}>{N(k?.clientes_nuevos ?? 0)}</b> · Repiten <b style={{ color: AZUL }}>{N(k?.clientes_recurrentes ?? 0)}</b>
+          <div>
+            <div style={micro}>Ritmo del día</div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, lineHeight: 1.45 }}>
+              de lo que hiciste<br />el mismo día<br />hace 7 días
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Plataformas · marcas · productos */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: `4px solid ${INK}`, flex: 1 }}>
-        <div style={{ padding: '14px 22px', borderRight: `4px solid ${INK}`, background: CLARO }}>
-          <span style={eyebrow(CREMA)}>Plataformas</span>
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
-            {canales.length === 0 && <span style={{ fontSize: 12.5 }}>Sin pedidos todavía.</span>}
+      {/* plataformas · marcas · productos */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.1fr 1fr', gap: 16, marginTop: 16 }}>
+        {/* plataformas + curva */}
+        <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
+          <span style={{ ...eyebrow(AMA), fontSize: 12 }}>Por dónde entran</span>
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {canales.length === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: GRIS }}>Sin pedidos todavía.</span>}
             {canales.map(c => {
               const pct = bruto > 0 ? (c.euros / bruto) * 100 : 0
               return (
                 <div key={c.canal}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 3 }}>
-                    <span>{CANAL_NOMBRE[c.canal] ?? c.canal}</span>
-                    <span style={{ fontFamily: OSW, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                      <span style={{ color: NAR }}>{N(c.pedidos)}</span>{' · '}
-                      <span style={{ color: GRANATE }}>{E2(c.euros)} €</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+                    <span style={d('16px')}>{CANAL_NOMBRE[c.canal] ?? c.canal}</span>
+                    <span style={d('16px')}>
+                      <span style={{ color: NAR }}>{N(c.pedidos)}</span>
+                      <span style={{ color: GRIS }}> · </span>
+                      <span>{E2(c.euros)}</span>
                     </span>
                   </div>
-                  <div style={{ height: 10, border: `2px solid ${INK}`, background: CREMA }}>
-                    <div style={{ width: `${Math.max(pct, 3)}%`, height: '100%', background: CORP[c.canal] ?? GRIS }} />
+                  <div style={{ position: 'relative', height: 20, background: TRACK, border: `3px solid ${INK}`, overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.max(3, Math.min(100, pct))}%`, height: '100%', background: CORP[c.canal] ?? GRIS }} />
+                    <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontFamily: OSW, fontSize: 12, fontWeight: 700 }}>{Math.round(pct)}%</span>
                   </div>
                 </div>
               )
@@ -195,50 +232,67 @@ export default function CardHoyEnVivo() {
           </div>
 
           {horas.length > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <div style={{ ...micro, marginBottom: 6 }}>Por horas</div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 40 }}>
+            <div style={{ marginTop: 18 }}>
+              <div style={micro}>Curva del día</div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 58, marginTop: 10 }}>
                 {horas.map(h => (
-                  <div
-                    key={h.hora}
-                    title={`${new Date(h.hora).getHours()}h · ${N(h.pedidos)} ped · ${E2(h.euros)} €`}
-                    style={{ flex: 1, height: Math.max(5, (h.euros / maxEuros) * 38), background: AMA, border: `2px solid ${INK}` }}
-                  />
+                  <div key={h.hora} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <div
+                      title={`${N(h.pedidos)} pedidos · ${E2(h.euros)}`}
+                      style={{ width: '100%', height: Math.max(6, (h.euros / maxEuros) * 38), background: AMA, border: `3px solid ${INK}` }}
+                    />
+                    <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 600 }}>{new Date(h.hora).getHours()}h</span>
+                  </div>
                 ))}
               </div>
             </div>
           )}
         </div>
 
-        <div style={{ padding: '14px 22px', borderRight: `4px solid ${INK}`, background: '#fff' }}>
-          <span style={eyebrow(AMA)}>Marcas que tiran</span>
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {marcas.length === 0 && <span style={{ fontSize: 12.5 }}>Sin pedidos todavía.</span>}
-            {marcas.map(m => (
-              <div key={m.marca} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5 }}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.marca}</span>
-                <span style={{ fontFamily: OSW, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                  <span style={{ color: NAR }}>{N(m.pedidos)}</span>{' · '}
-                  <span style={{ color: GRANATE }}>{E2(m.euros)} €</span>
-                </span>
-              </div>
-            ))}
+        {/* marcas */}
+        <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
+          <span style={{ ...eyebrow(ROSA, '#fff'), fontSize: 12 }}>Marcas que tiran hoy</span>
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {marcas.length === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: GRIS }}>Sin pedidos todavía.</span>}
+            {marcas.map(mk => {
+              const pct = (mk.euros / maxMarca) * 100
+              return (
+                <div key={mk.marca}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5, gap: 10 }}>
+                    <span style={{ ...d('15px'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mk.marca}</span>
+                    <span style={{ ...d('16px'), whiteSpace: 'nowrap' }}>
+                      <span style={{ color: NAR }}>{N(mk.pedidos)}</span>
+                      <span style={{ color: GRIS }}> · </span>
+                      <span>{E2(mk.euros)}</span>
+                    </span>
+                  </div>
+                  <div style={{ height: 18, background: TRACK, border: `3px solid ${INK}`, overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.max(3, pct)}%`, height: '100%', background: ROSA }} />
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
 
-        <div style={{ padding: '14px 22px', background: '#fff' }}>
-          <span style={eyebrow(AMA)}>Lo más vendido</span>
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {platos.length === 0 && <span style={{ fontSize: 12.5 }}>Sin ventas todavía.</span>}
-            {platos.map(p => (
-              <div key={p.plato} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5 }}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.plato}</span>
-                <span style={{ fontFamily: OSW, fontWeight: 700, whiteSpace: 'nowrap', color: AZUL }}>{N(p.unidades)}</span>
+        {/* productos */}
+        <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
+          <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 12 }}>Lo más vendido hoy</span>
+          <div style={{ marginTop: 12 }}>
+            {platos.length === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: GRIS }}>Sin ventas todavía.</span>}
+            {platos.map((pl, i) => (
+              <div key={pl.plato} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: i === 0 ? `2px solid ${INK}` : `1px solid ${INK}22` }}>
+                <span style={{ ...d('18px', i === 0 ? ROSA : INK), width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
+                <span style={{ fontSize: 13.5, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.plato}</span>
+                <span style={{ width: 46, height: 10, background: TRACK, border: `2px solid ${INK}`, flexShrink: 0 }}>
+                  <span style={{ display: 'block', width: `${Math.max(6, (pl.unidades / maxPlato) * 100)}%`, height: '100%', background: AZUL }} />
+                </span>
+                <span style={d('16px', AZUL)}>{N(pl.unidades)}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
-    </div>
+    </section>
   )
 }
