@@ -1,8 +1,14 @@
 /**
- * TabResumenSL — Resumen del Panel Global con el estilo SL (Ley Visual SL v1).
+ * TabResumenSL — Resumen del Panel Global con el estilo SL (Ley Visual SL v2).
  *
  * Reutiliza EXCLUSIVAMENTE los datos (mismas props y mismas librerías de cálculo
  * que el resumen neobrutal). Toda la capa visual está escrita desde cero.
+ *
+ * v2 · las cifras no cambian; cambia lo que se ve de ellas:
+ *   · Hero con micrográfico de la serie diaria.
+ *   · Cada KPI lleva su tendencia (sparkline) y su variación (pastilla).
+ *   · La tabla de canales lleva barra inline: se comparan sin leer números.
+ *   · Los insights llevan a una pestaña, no se quedan en el aire.
  */
 import { useEffect, useMemo, useState } from 'react'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
@@ -13,7 +19,7 @@ import {
 import { resolverNeto } from '@/lib/panel/netoResolver'
 import {
   C, Card, CardHead, Hero, HeroPill, Kpi, KpiGrid, Bar, Nota, Pill, Vacio,
-  LineaArea, CANAL_COLOR, CANAL_LABEL, eur0, num0, pct1, eur2,
+  LineaArea, InBar, CANAL_COLOR, CANAL_LABEL, eur0, num0, pct1, eur2,
 } from './uiSL'
 
 interface Props {
@@ -36,6 +42,9 @@ const CANALES = [
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 
+/** Nº de barras del sparkline de un KPI. Si hay más días, se agrupan. */
+const SPARK_N = 7
+
 function toStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -44,6 +53,17 @@ function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(d.getDat
 function fmtDia(s: string) {
   const d = parse(s)
   return `${d.getDate()} ${d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}`
+}
+
+/** Comprime una serie a N tramos sumando. Si ya es corta, la devuelve tal cual. */
+function comprimir(serie: number[], n = SPARK_N): number[] {
+  if (serie.length <= n) return serie
+  const tam = Math.ceil(serie.length / n)
+  const out: number[] = []
+  for (let i = 0; i < serie.length; i += tam) {
+    out.push(serie.slice(i, i + tam).reduce((s, v) => s + v, 0))
+  }
+  return out
 }
 
 /** Una fila por día: si el día trae servicio TODO, manda TODO; si no, suma ALM + CENAS. */
@@ -68,7 +88,7 @@ function porDia(rows: RowFacturacion[]) {
 }
 
 export default function TabResumenSL({
-  rowsPeriodo, rowsAll, fechaDesde, fechaHasta, canalesFiltro, periodoLabel,
+  rowsPeriodo, rowsAll, fechaDesde, fechaHasta, canalesFiltro, periodoLabel, onNavTab,
 }: Props) {
   const [config, setConfig] = useState<Record<string, CanalConfig>>({})
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
@@ -109,6 +129,7 @@ export default function TabResumenSL({
   const pedidos = canales.reduce((s, c) => s + c.pedidos, 0)
   const ticket = pedidos > 0 ? bruto / pedidos : 0
   const comision = bruto - neto
+  const brutoMax = canales.reduce((m, c) => Math.max(m, c.bruto), 0) || 1
 
   /* ── Periodo anterior de la misma duración (para comparar) ── */
   const brutoPrevio = useMemo(() => {
@@ -125,16 +146,32 @@ export default function TabResumenSL({
 
   const variacion = brutoPrevio > 0 ? ((bruto - brutoPrevio) / brutoPrevio) * 100 : null
 
-  /* ── Serie diaria ── */
+  /* ── Serie diaria: bruto, pedidos y canal propio ── */
   const serie = useMemo(() => {
     const keys = [...dias.keys()].sort()
     return keys.map(k => {
       const a = dias.get(k)!
-      let v = 0
-      for (const c of activos) v += a[c.bk] ?? 0
-      return { fecha: k, valor: v }
+      let v = 0, p = 0, propio = 0
+      for (const c of activos) {
+        const b = a[c.bk] ?? 0
+        v += b
+        p += a[c.pk] ?? 0
+        if (c.id === 'web' || c.id === 'dir') propio += b
+      }
+      return { fecha: k, valor: v, pedidos: p, propio }
     })
   }, [dias, activos])
+
+  /* ── Sparklines de los KPIs (v2) ──
+     El margen del periodo se aplica a la serie de bruto: no es un neto diario
+     exacto (los costes fijos no se reparten día a día), pero la FORMA de la
+     tendencia sí es la real, que es para lo que sirve un sparkline. */
+  const margenPeriodo = bruto > 0 ? neto / bruto : 0
+  const sparkBruto   = useMemo(() => comprimir(serie.map(s => s.valor)), [serie])
+  const sparkNeto    = useMemo(() => sparkBruto.map(v => v * margenPeriodo), [sparkBruto, margenPeriodo])
+  const sparkComis   = useMemo(() => sparkBruto.map(v => v * (1 - margenPeriodo)), [sparkBruto, margenPeriodo])
+  const sparkPedidos = useMemo(() => comprimir(serie.map(s => s.pedidos)), [serie])
+  const sparkPropio  = useMemo(() => comprimir(serie.map(s => s.propio)), [serie])
 
   const mejorDia = useMemo(
     () => serie.reduce<{ fecha: string; valor: number } | null>((b, x) => (!b || x.valor > b.valor ? x : b), null),
@@ -151,6 +188,7 @@ export default function TabResumenSL({
 
   const propio = canales.filter(c => c.id === 'web' || c.id === 'dir').reduce((s, c) => s + c.bruto, 0)
   const pesoPropio = bruto > 0 ? (propio / bruto) * 100 : 0
+  const pedidosDia = serie.length > 0 ? pedidos / serie.length : 0
 
   if (bruto === 0) {
     return (
@@ -174,29 +212,46 @@ export default function TabResumenSL({
         eyebrow={`VENTAS · ${periodoLabel.toUpperCase()}`}
         titular={titular}
         valor={eur0(bruto)}
-        sub={`${num0(pedidos)} pedidos · neto estimado ${eur0(neto)}`}
+        sub={`${num0(pedidos)} pedidos · neto estimado ${eur0(neto)} · ticket medio ${eur2(ticket)}`}
+        spark={sparkBruto.length > 1 ? serie.map(s => s.valor) : undefined}
         right={
           <>
             {variacion != null && (
-              <HeroPill>{variacion >= 0 ? '▲' : '▼'} {Math.abs(variacion).toFixed(1)}% vs periodo anterior</HeroPill>
+              <HeroPill solid>{variacion >= 0 ? '▲' : '▼'} {Math.abs(variacion).toFixed(1)}% vs periodo anterior</HeroPill>
             )}
             <HeroPill>Ticket medio {eur2(ticket)}</HeroPill>
+            <HeroPill>La plataforma se lleva {eur0(comision)}</HeroPill>
           </>
         }
       />
 
       <KpiGrid>
-        <Kpi icono="€" tono="verde" label="Neto estimado" valor={eur0(neto)}
-          pie={<Pill tone={bruto > 0 && neto / bruto >= 0.6 ? 'verde' : 'ambar'}>{pct1(bruto > 0 ? (neto / bruto) * 100 : 0)} del bruto</Pill>} />
-        <Kpi icono="#" tono="blu" label="Pedidos" valor={num0(pedidos)}
-          pie={<Pill tone="blu">{serie.length} días con ventas</Pill>} />
-        <Kpi icono="↧" tono="rojo" label="Se queda la plataforma" valor={eur0(comision)}
-          pie={<Pill tone="rojo">{pct1(bruto > 0 ? (comision / bruto) * 100 : 0)} sobre ventas</Pill>} />
-        <Kpi icono="◈" tono={pesoPropio >= 20 ? 'verde' : 'ambar'} label="Canal propio" valor={pct1(pesoPropio)}
-          pie={<Pill tone={pesoPropio >= 20 ? 'verde' : 'ambar'}>{eur0(propio)} sin comisión alta</Pill>} />
+        <Kpi
+          icono="€" tono="verde" label="Neto estimado" valor={eur0(neto)}
+          delta={variacion != null ? <Pill tone={variacion >= 0 ? 'verde' : 'rojo'}>{variacion >= 0 ? '▲' : '▼'} {Math.abs(variacion).toFixed(1)}%</Pill> : undefined}
+          pie={<Pill tone={margenPeriodo >= 0.6 ? 'verde' : 'ambar'} dot>{pct1(margenPeriodo * 100)} del bruto</Pill>}
+          spark={sparkNeto}
+        />
+        <Kpi
+          icono="#" tono="blu" label="Pedidos" valor={num0(pedidos)}
+          delta={<Pill tone="blu">{serie.length} días</Pill>}
+          pie={<Pill tone="blu" dot>{num0(pedidosDia)} al día de media</Pill>}
+          spark={sparkPedidos}
+        />
+        <Kpi
+          icono="↧" tono="rojo" label="Se queda la plataforma" valor={eur0(comision)}
+          pie={<Pill tone="rojo" dot>{pct1(bruto > 0 ? (comision / bruto) * 100 : 0)} sobre ventas</Pill>}
+          spark={sparkComis}
+        />
+        <Kpi
+          icono="◈" tono={pesoPropio >= 20 ? 'verde' : 'ambar'} label="Canal propio" valor={pct1(pesoPropio)}
+          delta={<Pill tone={pesoPropio >= 20 ? 'verde' : 'ambar'}>Objetivo 20%</Pill>}
+          pie={<Pill tone={pesoPropio >= 20 ? 'verde' : 'ambar'} dot>{eur0(propio)} sin comisión alta</Pill>}
+          spark={sparkPropio}
+        />
       </KpiGrid>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 14, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 12, marginBottom: 12 }}>
         <Card style={{ marginBottom: 0 }}>
           <CardHead
             title="Evolución de ventas"
@@ -205,7 +260,11 @@ export default function TabResumenSL({
           />
           <LineaArea puntos={serie.map(s => s.valor)} etiquetas={etiquetas} fmt={eur0} />
           {mejorDia && (
-            <Nota tono="verde">
+            <Nota
+              tono="verde"
+              accion={porSemana && porSemana.media > 0 ? `Reforzar ${porSemana.dia}` : undefined}
+              onAccion={() => onNavTab?.('evolucion')}
+            >
               Tu mejor día fue el {fmtDia(mejorDia.fecha)} con {eur0(mejorDia.valor)}
               {porSemana && porSemana.media > 0 ? `. De media, el ${porSemana.dia} es el día que más vende.` : '.'}
             </Nota>
@@ -220,7 +279,11 @@ export default function TabResumenSL({
               pct={bruto > 0 ? (c.bruto / bruto) * 100 : 0}
               color={c.color} />
           ))}
-          <Nota tono={pesoPropio >= 20 ? 'verde' : 'ambar'}>
+          <Nota
+            tono={pesoPropio >= 20 ? 'verde' : 'ambar'}
+            accion={pesoPropio >= 20 ? undefined : 'Ver canales'}
+            onAccion={() => onNavTab?.('operaciones')}
+          >
             {pesoPropio >= 20
               ? `Web y directa ya son el ${pct1(pesoPropio)} de tus ventas. Ese euro es el que más margen deja.`
               : `Web y directa solo son el ${pct1(pesoPropio)}. Cada punto que muevas aquí vale más que vender más en plataforma.`}
@@ -229,7 +292,11 @@ export default function TabResumenSL({
       </div>
 
       <Card>
-        <CardHead title="Detalle por canal" sub="Bruto, neto estimado y ticket medio" />
+        <CardHead
+          title="Detalle por canal"
+          sub="Bruto, neto estimado y lo que te queda"
+          right={propio === 0 ? <Pill tone="rojo">Canal propio a 0 €</Pill> : undefined}
+        />
         <div style={{ overflowX: 'auto' }}>
           <table>
             <thead>
@@ -237,7 +304,7 @@ export default function TabResumenSL({
                 <th>Canal</th>
                 <th className="r">Pedidos</th>
                 <th className="r">Ticket medio</th>
-                <th className="r">Bruto</th>
+                <th>Bruto</th>
                 <th className="r">Neto est.</th>
                 <th className="r">% que te queda</th>
               </tr>
@@ -247,14 +314,18 @@ export default function TabResumenSL({
                 <tr key={c.id}>
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 999, background: c.color, display: 'inline-block' }} />
+                      <span style={{ width: 9, height: 9, borderRadius: 3, background: c.color, display: 'inline-block', flexShrink: 0 }} />
                       {c.label}
                     </span>
                     <small className="slsub">{pct1(bruto > 0 ? (c.bruto / bruto) * 100 : 0)} del total</small>
                   </td>
                   <td className="r slnum">{num0(c.pedidos)}</td>
                   <td className="r slnum">{c.ticket > 0 ? eur2(c.ticket) : '—'}</td>
-                  <td className="r slnum">{eur0(c.bruto)}</td>
+                  {/* v2 · barra inline: los canales se comparan sin leer el número */}
+                  <td>
+                    <span className="slnum">{eur0(c.bruto)}</span>
+                    <InBar pct={(c.bruto / brutoMax) * 100} color={c.color} />
+                  </td>
                   <td className="r slnum" style={{ color: C.verde }}>{eur0(c.neto)}</td>
                   <td className="r">
                     <Pill tone={c.margen >= 58 ? 'verde' : c.margen >= 40 ? 'ambar' : 'rojo'}>{pct1(c.margen)}</Pill>
@@ -267,7 +338,7 @@ export default function TabResumenSL({
                 <td>Total</td>
                 <td className="r slnum">{num0(pedidos)}</td>
                 <td className="r slnum">{eur2(ticket)}</td>
-                <td className="r slnum">{eur0(bruto)}</td>
+                <td className="slnum">{eur0(bruto)}</td>
                 <td className="r slnum">{eur0(neto)}</td>
                 <td className="r slnum">{pct1(bruto > 0 ? (neto / bruto) * 100 : 0)}</td>
               </tr>
