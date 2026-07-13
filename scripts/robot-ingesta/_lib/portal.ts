@@ -2,13 +2,12 @@
  * PORTAL · Lo común a todos los robots de portal (Uber, Glovo, Just Eat).
  *
  *  · Credenciales: tabla `robot_credenciales` en Supabase (NO en el repo, NO en
- *    los secretos de GitHub). Se cambian sin tocar código ni workflows.
- *    Una plataforma puede tener VARIAS cuentas (p.ej. Glovo: posmodernos y
- *    streatlab): el robot las recorre todas, una detrás de otra.
- *  · Sesión: se guarda el estado del navegador en el bucket 'informes-plataforma'
- *    (sesiones/<plataforma>__<cuenta>.json) para no pedir código cada día.
+ *    los secretos de GitHub).
+ *  · Sesión: se guarda el estado del navegador en el bucket 'informes-plataforma'.
  *  · Código de un solo uso: se lee del buzón del cartero por IMAP
- *    (tabla `cartero_credenciales`). No marca leídos ni mueve nada.
+ *    (tabla `cartero_credenciales`). Mira BANDEJA y SPAM. No marca leídos.
+ *    Si no aparece, deja en el log los últimos correos recibidos para saber si
+ *    el reenvío está llegando o no.
  */
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
@@ -61,6 +60,8 @@ export async function guardarSesion(plataforma: string, cuenta: string, ctx: Bro
 }
 
 // ── Código de un solo uso por correo ────────────────────────────────────────
+const CARPETAS = ['INBOX', '[Gmail]/Spam', '[Gmail]/Todos', '[Gmail]/All Mail'];
+
 async function buzon(): Promise<ImapFlow | null> {
   const { data } = await sb
     .from('cartero_credenciales')
@@ -79,6 +80,48 @@ async function buzon(): Promise<ImapFlow | null> {
   return cli;
 }
 
+/** Busca el código en una carpeta concreta. */
+async function buscarEn(cli: ImapFlow, carpeta: string, remitente: string, desde: Date): Promise<string | null> {
+  let lock;
+  try { lock = await cli.getMailboxLock(carpeta); } catch { return null; }
+  try {
+    const uids = await cli.search({ since: desde });
+    const lista = Array.isArray(uids) ? uids.slice(-25).reverse() : [];
+    for (const uid of lista) {
+      const msg = await cli.fetchOne(String(uid), { source: true }, { uid: true });
+      if (!msg || !msg.source) continue;
+      const parsed = await simpleParser(msg.source as Buffer);
+      const de = `${(parsed.from as any)?.text || ''}`.toLowerCase();
+      const asunto = `${parsed.subject || ''}`;
+      const cuerpo = `${parsed.text || ''}`;
+      const esSuyo = de.includes(remitente.toLowerCase()) || asunto.toLowerCase().includes(remitente.toLowerCase());
+      if (!esSuyo) continue;
+      const m = `${asunto}\n${cuerpo}`.match(/\b(\d{4,8})\b/);
+      if (m) return m[1];
+    }
+  } finally { try { lock?.release(); } catch { /* noop */ } }
+  return null;
+}
+
+/** Deja en el log qué ha llegado últimamente, para saber si el reenvío funciona. */
+async function radiografia(cli: ImapFlow, plataforma: string, desde: Date) {
+  try {
+    const lock = await cli.getMailboxLock('INBOX');
+    try {
+      const uids = await cli.search({ since: desde });
+      const lista = Array.isArray(uids) ? uids.slice(-8).reverse() : [];
+      const filas: string[] = [];
+      for (const uid of lista) {
+        const msg = await cli.fetchOne(String(uid), { envelope: true }, { uid: true });
+        const de = (msg as any)?.envelope?.from?.[0]?.address || '?';
+        const asunto = (msg as any)?.envelope?.subject || '?';
+        filas.push(`${de} · ${asunto}`.slice(0, 90));
+      }
+      await log(plataforma, 'buzon', filas.length ? filas.join(' || ') : 'no ha llegado NADA al buzón del cartero');
+    } finally { lock.release(); }
+  } catch { /* noop */ }
+}
+
 /**
  * Espera un correo del remitente indicado con un código de 4-8 dígitos.
  * Sondea cada 5 s hasta `segundos`. Devuelve el código o null.
@@ -86,9 +129,9 @@ async function buzon(): Promise<ImapFlow | null> {
 export async function esperarCodigo(
   plataforma: string,
   remitente: string,
-  segundos = 120,
+  segundos = 180,
 ): Promise<string | null> {
-  const desde = new Date(Date.now() - 10 * 60 * 1000);
+  const desde = new Date(Date.now() - 15 * 60 * 1000);
   const limite = Date.now() + segundos * 1000;
 
   while (Date.now() < limite) {
@@ -96,19 +139,10 @@ export async function esperarCodigo(
     try {
       cli = await buzon();
       if (!cli) { await log(plataforma, 'otp_sin_buzon', 'no hay credenciales de correo del cartero'); return null; }
-      const lock = await cli.getMailboxLock('INBOX');
-      try {
-        const uids = await cli.search({ since: desde, from: remitente });
-        const lista = Array.isArray(uids) ? uids.slice(-10).reverse() : [];
-        for (const uid of lista) {
-          const msg = await cli.fetchOne(String(uid), { source: true }, { uid: true });
-          if (!msg || !msg.source) continue;
-          const parsed = await simpleParser(msg.source as Buffer);
-          const texto = `${parsed.subject || ''}\n${parsed.text || ''}`;
-          const m = texto.match(/\b(\d{4,8})\b/);
-          if (m) { await log(plataforma, 'otp_ok', `código recibido de ${remitente}`); return m[1]; }
-        }
-      } finally { lock.release(); }
+      for (const carpeta of CARPETAS) {
+        const codigo = await buscarEn(cli, carpeta, remitente, desde);
+        if (codigo) { await log(plataforma, 'otp_ok', `código de ${remitente} encontrado en ${carpeta}`); return codigo; }
+      }
     } catch (e: any) {
       await log(plataforma, 'otp_aviso', String(e?.message || e));
     } finally {
@@ -116,6 +150,12 @@ export async function esperarCodigo(
     }
     await new Promise((r) => setTimeout(r, 5000));
   }
+
+  let cli: ImapFlow | null = null;
+  try {
+    cli = await buzon();
+    if (cli) await radiografia(cli, plataforma, desde);
+  } catch { /* noop */ } finally { try { await cli?.logout(); } catch { /* noop */ } }
 
   await log(plataforma, 'otp_no_recibido', `no llegó código de ${remitente} en ${segundos}s`);
   return null;
