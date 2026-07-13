@@ -10,6 +10,7 @@ import { ConNeo } from './SkinFrame'
 
 export default function ConciliacionSwitch() {
   const { skin } = useSkin()
-  if (skin === 'sl') return <ConciliacionSL />
-  return <ConNeo><ConciliacionNeo /></ConNeo>
+  return (
+    <ConNeo>{skin === 'sl' ? <ConciliacionSL /> : <ConciliacionNeo />}</ConNeo>
+  )
 }
