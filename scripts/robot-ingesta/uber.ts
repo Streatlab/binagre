@@ -8,11 +8,13 @@
  *               DESPUÉS de cerrar el mes: si no está, no es error.
  *   backfill  → un mes completo (env MES = AAAA-MM). UN SOLO MES POR EJECUCIÓN.
  *
- * Login (13-jul-2026): Uber propone primero código por SMS. NO se espera ese código:
- * se pulsa "Más opciones" / "Otra forma" y se elige entrar con contraseña.
+ * Login (13-jul-2026):
+ *   1) correo → botón "Continuar" (Enter no basta).
+ *   2) Uber propone código por SMS: NO se espera. Se abre "Más opciones" y se elige
+ *      entrar con contraseña.
+ *   Cada pantalla se vuelca a robot_debug con su paso para poder ver dónde se atasca.
  *
  * Credenciales y cuentas: tabla robot_credenciales (plataforma='uber').
- * Sin claves → sale en verde con 'sin_credenciales'.
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
@@ -24,42 +26,45 @@ const RAIZ = 'https://merchants.ubereats.com';
 const MODO = (process.env.MODO || 'diario').toLowerCase();
 const MES = process.env.MES || '';
 
-const RE_MAS_OPCIONES = /m[aá]s opciones|otras opciones|otra forma|otro m[eé]todo|more options|try another way|another way/i;
-const RE_CONTRASENA = /contrase[nñ]a|password/i;
+const RE_MAS = /m[aá]s opciones|otras opciones|otra forma|otro m[eé]todo|more options|try another way|another way|use another/i;
+const RE_PASS = /contrase[nñ]a|password/i;
+const RE_SEGUIR = /^(continuar|siguiente|continue|next|acceder|iniciar sesi[oó]n)$/i;
 
 async function dentro(page: Page): Promise<boolean> {
-  return !/login|auth|signin/i.test(page.url());
+  return /merchants\.ubereats\.com/i.test(page.url()) && !/login|auth|signin/i.test(page.url());
 }
 
-/** Si Uber ofrece SMS, abre "más opciones" y elige contraseña. Devuelve true si logró abrir el campo de contraseña. */
-async function elegirContrasena(page: Page): Promise<boolean> {
-  for (let intento = 0; intento < 3; intento++) {
+/** Pulsa el botón de avanzar (Continuar/Siguiente), sin tocar los de Google/Apple. */
+async function seguir(page: Page) {
+  const b = page.getByRole('button', { name: RE_SEGUIR }).first();
+  if (await b.count().catch(() => 0)) {
+    await b.click({ timeout: 8000 }).catch(() => {});
+  } else {
+    await page.keyboard.press('Enter').catch(() => {});
+  }
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(4000);
+}
+
+/** Si Uber ofrece SMS, abre "más opciones" y elige contraseña. */
+async function abrirCampoContrasena(page: Page): Promise<boolean> {
+  for (let i = 0; i < 4; i++) {
     if (await page.locator('input[type="password"]').count().catch(() => 0)) return true;
 
-    const mas = page.getByRole('button', { name: RE_MAS_OPCIONES })
-      .or(page.getByRole('link', { name: RE_MAS_OPCIONES }))
-      .or(page.locator('button, a, [role="button"]').filter({ hasText: RE_MAS_OPCIONES }))
-      .first();
+    const mas = page.locator('button, a, [role="button"], [role="link"], span[tabindex]').filter({ hasText: RE_MAS }).first();
     if (await mas.count().catch(() => 0)) {
-      await mas.click({ timeout: 5000 }).catch(() => {});
-      await page.waitForTimeout(3000);
+      await mas.click({ timeout: 6000 }).catch(() => {});
+      await page.waitForTimeout(3500);
     }
 
-    const opcionPass = page.getByRole('button', { name: RE_CONTRASENA })
-      .or(page.getByRole('link', { name: RE_CONTRASENA }))
-      .or(page.getByRole('radio', { name: RE_CONTRASENA }))
-      .or(page.locator('button, a, li, label, [role="button"], [role="radio"]').filter({ hasText: RE_CONTRASENA }))
-      .first();
-    if (await opcionPass.count().catch(() => 0)) {
-      await opcionPass.click({ timeout: 5000 }).catch(() => {});
-      await page.waitForTimeout(2000);
-      const seguir = page.getByRole('button', { name: /continuar|siguiente|continue|next/i }).first();
-      if (await seguir.count().catch(() => 0)) {
-        await seguir.click({ timeout: 5000 }).catch(() => {});
-        await page.waitForTimeout(3000);
-      }
+    const opcion = page.locator('button, a, li, label, div[role="button"], [role="radio"], [role="option"]').filter({ hasText: RE_PASS }).first();
+    if (await opcion.count().catch(() => 0)) {
+      await opcion.click({ timeout: 6000 }).catch(() => {});
+      await page.waitForTimeout(2500);
+      if (!(await page.locator('input[type="password"]').count().catch(() => 0))) await seguir(page);
     }
 
+    await volcar(`${P}_paso_${i}`, await page.content().catch(() => ''));
     await page.waitForTimeout(2000);
   }
   return (await page.locator('input[type="password"]').count().catch(() => 0)) > 0;
@@ -71,24 +76,21 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   await quitarEstorbos(page);
   if (await dentro(page)) { await log(P, 'sesion_ok', `${c.cuenta}: sesión guardada todavía válida`); return true; }
 
-  const email = page.locator('input[type="email"], input[name="email"], #PHONE_NUMBER_or_EMAIL_ADDRESS, input[id*="email" i]').first();
+  const email = page.locator('input[type="email"], input[name="email"], #PHONE_NUMBER_or_EMAIL_ADDRESS, input[id*="email" i], input[type="text"]').first();
   await email.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
   await email.fill(c.usuario).catch(() => {});
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(6000);
+  await seguir(page);
   await quitarEstorbos(page);
 
-  const hayPass = await elegirContrasena(page);
-  if (!hayPass) {
+  if (!(await abrirCampoContrasena(page))) {
     await log(P, 'login_ko', `${c.cuenta}: no aparece la opción de contraseña · url=${page.url()}`);
     await volcar(`${P}_sin_opcion_pass`, await page.content());
     return false;
   }
 
-  const pass = page.locator('input[type="password"]').first();
-  await pass.fill(c.password).catch(() => {});
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(9000);
+  await page.locator('input[type="password"]').first().fill(c.password).catch(() => {});
+  await seguir(page);
+  await page.waitForTimeout(6000);
   await quitarEstorbos(page);
 
   const ok = await dentro(page);
