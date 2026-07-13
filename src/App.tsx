@@ -19,17 +19,10 @@ const MapeoMarcas = React.lazy(() => import('@/pages/configuracion/MapeoMarcas')
 // A2 · Coste por plato (enlaza venta con receta costeada)
 const CostePlato = React.lazy(() => import('@/pages/cocina/CostePlato'))
 
-// LAB · Laboratorio visual (Ley Visual SL v2). Muestrario de piezas.
-const LabKit = React.lazy(() => import('@/pages/lab/LabKit'))
-
 // Pantallas con interruptor NEO / SL: el boton decide cual se ve
 const EscandalloSwitch = React.lazy(() => import('@/pages/switch/EscandalloSwitch'))
 const ConciliacionSwitch = React.lazy(() => import('@/pages/switch/ConciliacionSwitch'))
 const TesoreriaSwitch = React.lazy(() => import('@/pages/switch/TesoreriaSwitch'))
-const LabPanel = React.lazy(() => import('@/pages/lab/LabPanel'))
-const LabConciliacion = React.lazy(() => import('@/pages/lab/LabConciliacion'))
-const LabTesoreria = React.lazy(() => import('@/pages/lab/LabTesoreria'))
-const LabEscandallo = React.lazy(() => import('@/pages/lab/LabEscandallo'))
 
 const ReglasPage = React.lazy(() => import('@/pages/configuracion/reglas/ReglasPage'))
 const TabReglasIngredientes = React.lazy(() => import('@/pages/configuracion/reglas/TabReglasIngredientes'))
@@ -178,13 +171,6 @@ function AppRoutes() {
           <Route path="facturacion" element={<ProtectedRoute solo={['admin']}><Facturacion /></ProtectedRoute>} />
           <Route path="facturacion/conciliacion" element={<ProtectedRoute solo={['admin']}><ConciliacionSwitch /></ProtectedRoute>} />
           <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
-
-          {/* LAB · Laboratorio visual. Muestrario y pantallas espejo. */}
-          <Route path="lab" element={<ProtectedRoute solo={['admin']}><LabKit /></ProtectedRoute>} />
-          <Route path="lab/panel" element={<ProtectedRoute solo={['admin']}><LabPanel /></ProtectedRoute>} />
-          <Route path="lab/conciliacion" element={<ProtectedRoute solo={['admin']}><LabConciliacion /></ProtectedRoute>} />
-          <Route path="lab/tesoreria" element={<ProtectedRoute solo={['admin']}><LabTesoreria /></ProtectedRoute>} />
-          <Route path="lab/escandallo" element={<ProtectedRoute solo={['admin']}><LabEscandallo /></ProtectedRoute>} />
 
           <Route path="configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
           {/* Pantalla Configuracion antigua eliminada · redirige a integraciones */}
