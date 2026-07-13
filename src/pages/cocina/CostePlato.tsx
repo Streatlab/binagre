@@ -1,13 +1,15 @@
 /**
- * CostePlato — A2 · Enlaza cada plato que vendes con su receta costeada.
+ * CostePlato — A2 + A4 · Enlaza cada plato que vendes con su receta costeada,
+ * y limpia los platos duplicados.
  *
- * Sin esto el ERP no sabe cuánto cuesta nada: hoy solo el 2,2% de la
- * facturación tiene coste conocido. Y el problema de fondo no es enlazar:
- * es que hay 33 recetas para 512 platos. Faltan recetas.
+ * A2 · Sin receta enlazada no hay coste, y sin coste no hay margen. El problema
+ * de fondo no es enlazar: es que faltan recetas. Por eso la lista va ordenada
+ * por EUROS con el % acumulado, para convertir "escandalla 435 platos" en
+ * "escandalla estos 28 y ya cubres la mitad".
  *
- * Por eso esta pantalla ordena los platos por EUROS, no por nombre, y enseña
- * el % acumulado: para que se vea que con las 25 primeras recetas se cubre el
- * 45% de la facturación, y no haya que hacer 500.
+ * A4 · El mismo plato escrito distinto contaba como dos, se comía dos veces la
+ * misma receta y partía las ventas. Los idénticos ya se han fusionado solos; los
+ * dudosos se deciden aquí abajo.
  *
  * Estilo: Ley Visual SL v2.
  */
@@ -29,6 +31,15 @@ interface Fila {
   unidades: number
 }
 interface Receta { id: string; nombre: string; coste_rac: number | null }
+interface Dup {
+  id: number
+  plato_a: string
+  plato_b: string
+  euros_a: number
+  euros_b: number
+  parecido: number
+  decision: string
+}
 
 type Filtro = 'sin_receta' | 'sugerido' | 'listo'
 
@@ -41,6 +52,7 @@ const FILTROS: Array<{ id: Filtro; label: string }> = [
 export default function CostePlato() {
   const [filas, setFilas] = useState<Fila[]>([])
   const [recetas, setRecetas] = useState<Receta[]>([])
+  const [dups, setDups] = useState<Dup[]>([])
   const [filtro, setFiltro] = useState<Filtro>('sin_receta')
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState<string | null>(null)
@@ -48,12 +60,14 @@ export default function CostePlato() {
 
   const cargar = useCallback(async () => {
     setCargando(true)
-    const [{ data: dic }, { data: rec }] = await Promise.all([
+    const [{ data: dic }, { data: rec }, { data: dup }] = await Promise.all([
       supabase.from('mapeo_plato_receta').select('*').order('euros', { ascending: false }),
       supabase.from('recetas').select('id, nombre, coste_rac').order('nombre'),
+      supabase.from('platos_duplicados').select('*').eq('decision', 'pendiente').order('euros_a', { ascending: false }),
     ])
     setFilas((dic ?? []) as Fila[])
     setRecetas((rec ?? []) as Receta[])
+    setDups((dup ?? []) as Dup[])
     setCargando(false)
   }, [])
 
@@ -81,6 +95,27 @@ export default function CostePlato() {
     await cargar()
   }, [cargar])
 
+  /* ── A4 · fusionar o separar duplicados ── */
+  const fusionar = useCallback(async (d: Dup, canonico: string, duplicado: string) => {
+    setGuardando(`dup-${d.id}`)
+    await supabase.rpc('unificar_plato', { canonico, duplicado })
+    await supabase.from('platos_duplicados')
+      .update({ decision: 'mismo', canonico, updated_at: new Date().toISOString() })
+      .eq('id', d.id)
+    setGuardando(null)
+    setAviso(`Unificados. Todo el histórico pasa a llamarse "${canonico}".`)
+    await cargar()
+  }, [cargar])
+
+  const separar = useCallback(async (d: Dup) => {
+    setGuardando(`dup-${d.id}`)
+    await supabase.from('platos_duplicados')
+      .update({ decision: 'distinto', updated_at: new Date().toISOString() })
+      .eq('id', d.id)
+    setGuardando(null)
+    await cargar()
+  }, [cargar])
+
   /* ── Métricas ── */
   const stats = useMemo(() => {
     const s = { conReceta: 0, sugeridas: 0, sinReceta: 0, eCon: 0, eSug: 0, eSin: 0, total: 0 }
@@ -96,7 +131,6 @@ export default function CostePlato() {
 
   const pctCubierto = stats.total > 0 ? (stats.eCon / stats.total) * 100 : 0
 
-  /* ── Lista filtrada, con % acumulado sobre lo que falta ── */
   const lista = useMemo(() => {
     const base = filas.filter(f => {
       if (filtro === 'sin_receta') return !f.receta_id
@@ -113,7 +147,6 @@ export default function CostePlato() {
 
   const maxEuros = lista.length > 0 ? Number(lista[0].euros) || 1 : 1
 
-  /* ── Cuántas recetas hacen falta para cubrir el 50 / 80% ── */
   const cuantasPara = useCallback((objetivo: number) => {
     const sin = filas.filter(f => !f.receta_id).sort((a, b) => Number(b.euros) - Number(a.euros))
     const totalSin = sin.reduce((s, f) => s + Number(f.euros), 0) || 1
@@ -128,6 +161,10 @@ export default function CostePlato() {
   const para50 = useMemo(() => cuantasPara(50), [cuantasPara])
   const para80 = useMemo(() => cuantasPara(80), [cuantasPara])
 
+  const eurosDuplicados = useMemo(
+    () => dups.reduce((s, d) => s + Math.min(Number(d.euros_a), Number(d.euros_b)), 0),
+    [dups])
+
   if (cargando) {
     return <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}><Card><Vacio>Cargando platos y recetas…</Vacio></Card></div>
   }
@@ -137,7 +174,7 @@ export default function CostePlato() {
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.4px' }}>Coste por plato</div>
         <div style={{ fontSize: 12, color: C.grisCl, fontWeight: 700, marginTop: 2 }}>
-          A2 · Enlaza lo que vendes con lo que cuesta. Sin esto no hay margen real.
+          Enlaza lo que vendes con lo que cuesta. Sin esto no hay margen real.
         </div>
       </div>
 
@@ -184,6 +221,82 @@ export default function CostePlato() {
         <Kpi icono="◈" tono="ambar" label="Recetas para el 80%" valor={num0(para80)}
           pie={<Pill tone="ambar" dot>de {num0(stats.sinReceta)} platos</Pill>} />
       </KpiGrid>
+
+      {/* ── A4 · Platos duplicados ── */}
+      {dups.length > 0 && (
+        <Card>
+          <CardHead
+            title="Platos que parecen el mismo"
+            sub="Si son el mismo, se juntan las ventas y una sola receta cubre los dos"
+            right={<Pill tone="ambar">{dups.length} por decidir · {eur0(eurosDuplicados)}</Pill>}
+          />
+          <div style={{ overflowX: 'auto' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Se parecen</th>
+                  <th className="r">Factura</th>
+                  <th className="r">Parecido</th>
+                  <th>¿Son el mismo plato?</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dups.slice(0, 50).map(d => {
+                  const busy = guardando === `dup-${d.id}`
+                  const ea = Number(d.euros_a), eb = Number(d.euros_b)
+                  const canon = ea >= eb ? d.plato_a : d.plato_b
+                  const otro = ea >= eb ? d.plato_b : d.plato_a
+                  return (
+                    <tr key={d.id}>
+                      <td style={{ maxWidth: 380 }}>
+                        <div>{d.plato_a}</div>
+                        <div style={{ color: C.grisCl, fontWeight: 700, fontSize: 12, marginTop: 2 }}>{d.plato_b}</div>
+                      </td>
+                      <td className="r">
+                        <div className="slnum">{eur0(ea)}</div>
+                        <div className="slnum" style={{ color: C.grisCl, fontSize: 12 }}>{eur0(eb)}</div>
+                      </td>
+                      <td className="r">
+                        <Pill tone={Number(d.parecido) >= 0.85 ? 'ambar' : 'neutro'}>
+                          {Math.round(Number(d.parecido) * 100)}%
+                        </Pill>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button
+                            disabled={busy}
+                            onClick={() => fusionar(d, canon, otro)}
+                            style={{
+                              padding: '7px 13px', borderRadius: 999, cursor: 'pointer',
+                              border: 'none', background: C.verde, color: '#fff',
+                              fontFamily: "'Nunito', sans-serif", fontSize: 11.5, fontWeight: 900,
+                            }}
+                          >{busy ? 'Uniendo…' : 'Sí, es el mismo'}</button>
+                          <button
+                            disabled={busy}
+                            onClick={() => separar(d)}
+                            style={{
+                              padding: '7px 13px', borderRadius: 999, cursor: 'pointer',
+                              border: `1px solid ${C.line}`, background: C.card, color: C.gris,
+                              fontFamily: "'Nunito', sans-serif", fontSize: 11.5, fontWeight: 900,
+                            }}
+                          >Son distintos</button>
+                        </div>
+                        <div style={{ fontSize: 11, color: C.grisCl, fontWeight: 700, marginTop: 4 }}>
+                          Se quedaría con el nombre: {canon}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Nota tono="ambar">
+            Ojo con los que solo cambian una talla o un ingrediente (por ejemplo Talla XL y Talla XXL): esos <b>no</b> son el mismo plato.
+          </Nota>
+        </Card>
+      )}
 
       <Card>
         <CardHead
