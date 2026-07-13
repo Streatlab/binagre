@@ -5,6 +5,9 @@
  * frágiles: se busca cualquier botón/enlace de exportar o descargar y se captura
  * el fichero que suelte el navegador. Si no aparece ninguno, se vuelca el HTML a
  * `robot_debug` para poder ver qué cambió.
+ *
+ * 13-jul-2026: Uber corta el login si huele robot. El navegador se abre con
+ * apariencia de Chrome normal (user-agent real, sin la marca de automatización).
  */
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { log, volcar } from './bandeja.js';
@@ -12,18 +15,31 @@ import { cargarSesion } from './portal.js';
 
 export interface Fichero { nombre: string; datos: Buffer }
 
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
 export async function abrir(plataforma: string, cuenta: string): Promise<{ browser: Browser; ctx: BrowserContext; page: Page }> {
   const browser = await chromium.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    args: [
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled',
+      '--lang=es-ES',
+    ],
   });
   const sesion = await cargarSesion(plataforma, cuenta);
   const ctx = await browser.newContext({
     acceptDownloads: true,
     timezoneId: 'Europe/Madrid',
     locale: 'es-ES',
+    userAgent: UA,
     viewport: { width: 1440, height: 900 },
     storageState: sesion as any,
+  });
+  await ctx.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    Object.defineProperty(navigator, 'languages', { get: () => ['es-ES', 'es'] });
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
   });
   ctx.setDefaultTimeout(30000);
   const page = await ctx.newPage();
