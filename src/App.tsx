@@ -18,6 +18,8 @@ const TabDrive = React.lazy(() => import('@/pages/configuracion/marcas/TabDrive'
 
 // A1 · Mapeo de marcas (venta ciega de Glovo / Just Eat)
 const MapeoMarcas = React.lazy(() => import('@/pages/configuracion/MapeoMarcas'))
+// A2 · Coste por plato (enlaza venta con receta costeada)
+const CostePlato = React.lazy(() => import('@/pages/cocina/CostePlato'))
 
 const ReglasPage = React.lazy(() => import('@/pages/configuracion/reglas/ReglasPage'))
 const TabReglasIngredientes = React.lazy(() => import('@/pages/configuracion/reglas/TabReglasIngredientes'))
@@ -300,6 +302,8 @@ function AppRoutes() {
 
           <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><CocinaInventario /></ProtectedRoute>} />
           <Route path="cocina/recetas" element={<CocinaRecetas />} />
+          {/* A2 · Coste por plato: enlaza lo que vendes con la receta que lo cuesta */}
+          <Route path="cocina/coste-plato" element={<ProtectedRoute solo={['admin']}><CostePlato /></ProtectedRoute>} />
           <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
           <Route path="cocina/recetario" element={<Recetario />} />
           <Route path="cocina/esquemas" element={<Esquemas />} />
