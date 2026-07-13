@@ -1,6 +1,15 @@
 /**
- * uiSL — primitivas visuales del skin SL (Ley Visual SL v1).
+ * uiSL — primitivas visuales del skin SL (Ley Visual SL v2).
  * Escritas desde cero: no heredan nada de neobrutal.ts ni de tablaNeo.ts.
+ *
+ * v2 (jul-26) — todo lo nuevo es ADITIVO: las props añadidas son opcionales,
+ * así que ningún componente que ya use la v1 se rompe.
+ *   1. Hero  → anillo de progreso a objetivo + micrográfico de la serie.
+ *   2. Atencion → banda de alerta con acción (nuevo).
+ *   3. Kpi   → sparkline de tendencia + pastilla de delta.
+ *   4. Euro  → waterfall "qué pasa con cada euro" (nuevo).
+ *   5. InBar → barra inline dentro de una celda de tabla (nuevo).
+ *   6. Nota  → botón de acción opcional.
  */
 import type { CSSProperties, ReactNode } from 'react'
 
@@ -48,8 +57,8 @@ export function Num({ children, style }: { children: ReactNode; style?: CSSPrope
 export function Card({ children, style }: { children: ReactNode; style?: CSSProperties }) {
   return (
     <div style={{
-      background: C.card, border: `1px solid ${C.line}`, borderRadius: 18,
-      padding: 18, boxShadow: C.shadow, marginBottom: 16, ...style,
+      background: C.card, border: `1px solid ${C.line}`, borderRadius: 16,
+      padding: 15, boxShadow: C.shadow, marginBottom: 14, ...style,
     }}>{children}</div>
   )
 }
@@ -57,10 +66,10 @@ export function Card({ children, style }: { children: ReactNode; style?: CSSProp
 /* ── Cabecera de card ── */
 export function CardHead({ title, sub, right }: { title: string; sub?: string; right?: ReactNode }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 13 }}>
       <div>
-        <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.2px' }}>{title}</div>
-        {sub && <div style={{ fontSize: 11, color: C.grisCl, fontWeight: 700, marginTop: 2 }}>{sub}</div>}
+        <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: '-0.25px' }}>{title}</div>
+        {sub && <div style={{ fontSize: 11, color: C.grisCl, fontWeight: 800, marginTop: 1 }}>{sub}</div>}
       </div>
       {right}
     </div>
@@ -90,55 +99,195 @@ export function Pill({ tone = 'neutro', dot, children }: { tone?: Tone; dot?: bo
   )
 }
 
+/* ══════════════════════════════════════════════════════════
+   MEJORA 1 · Micrográfico y anillo de objetivo (piezas del Hero)
+   ══════════════════════════════════════════════════════════ */
+
+/** Barras finas sobre el degradado del hero. La última se resalta en blanco. */
+function HeroSpark({ puntos }: { puntos: number[] }) {
+  if (puntos.length < 2) return null
+  const max = Math.max(...puntos, 1)
+  return (
+    <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 34, marginTop: 12, maxWidth: 300 }}>
+      {puntos.map((v, i) => (
+        <div key={i} style={{
+          flex: 1,
+          height: `${Math.max(6, (v / max) * 100)}%`,
+          background: i === puntos.length - 1 ? '#fff' : 'rgba(255,255,255,0.28)',
+          borderRadius: '3px 3px 0 0',
+        }} />
+      ))}
+    </div>
+  )
+}
+
+/** Anillo de progreso: cuánto llevas del objetivo. */
+function Anillo({ pct, label }: { pct: number; label: string }) {
+  const p = Math.max(0, Math.min(100, pct))
+  const R = 44, CIRC = 2 * Math.PI * R
+  return (
+    <div style={{ position: 'relative', width: 104, height: 104, flexShrink: 0 }}>
+      <svg width="104" height="104" viewBox="0 0 104 104" style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx="52" cy="52" r={R} fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="11" />
+        <circle
+          cx="52" cy="52" r={R} fill="none" stroke="#fff" strokeWidth="11" strokeLinecap="round"
+          strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - p / 100)}
+        />
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+      }}>
+        <span className="slnum" style={{ fontSize: 21, fontWeight: 800, lineHeight: 1 }}>{Math.round(p)}%</span>
+        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.8px', opacity: 0.85, marginTop: 2 }}>{label}</span>
+      </div>
+    </div>
+  )
+}
+
 /* ── Hero (degradado llama) ── */
-export function Hero({ eyebrow, titular, valor, sub, right }: {
-  eyebrow: string; titular: string; valor: string; sub?: string; right?: ReactNode
+export function Hero({ eyebrow, titular, valor, sub, right, spark, objetivo }: {
+  eyebrow: string
+  titular: string
+  valor: string
+  sub?: string
+  right?: ReactNode
+  /** v2 · serie para el micrográfico (p. ej. bruto por día del periodo) */
+  spark?: number[]
+  /** v2 · anillo de progreso a objetivo */
+  objetivo?: { pct: number; label: string }
 }) {
   return (
     <section style={{
       background: `linear-gradient(115deg, ${C.rojoDeep}, ${C.rojo} 45%, ${C.naranja})`,
-      borderRadius: 22, padding: '26px 28px', color: '#fff', marginBottom: 16,
-      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
-      gap: 24, flexWrap: 'wrap', boxShadow: C.shadow,
+      borderRadius: 20, padding: '20px 24px', color: '#fff', marginBottom: 12,
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      gap: 22, flexWrap: 'wrap', boxShadow: C.shadow, position: 'relative', overflow: 'hidden',
     }}>
-      <div style={{ minWidth: 260 }}>
-        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '1.4px', opacity: 0.85 }}>{eyebrow}</div>
-        <div style={{ fontSize: 19, fontWeight: 900, margin: '6px 0 12px' }}>{titular}</div>
-        <div className="slnum" style={{ fontSize: 'clamp(30px,4.4vw,42px)', lineHeight: 1 }}>{valor}</div>
-        {sub && <div style={{ fontSize: 12, opacity: 0.9, fontWeight: 700, marginTop: 8 }}>{sub}</div>}
+      {/* halo decorativo */}
+      <div style={{
+        position: 'absolute', right: -40, top: -60, width: 220, height: 220,
+        borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none',
+      }} />
+      <div style={{ minWidth: 250, position: 'relative', zIndex: 1 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: '1.5px', opacity: 0.8 }}>{eyebrow}</div>
+        <div style={{ fontSize: 16, fontWeight: 900, margin: '5px 0 9px' }}>{titular}</div>
+        <div className="slnum" style={{ fontSize: 'clamp(30px,4.2vw,40px)', lineHeight: 1, letterSpacing: '-2px' }}>{valor}</div>
+        {sub && <div style={{ fontSize: 12, opacity: 0.92, fontWeight: 800, marginTop: 8 }}>{sub}</div>}
+        {spark && spark.length > 1 && <HeroSpark puntos={spark} />}
       </div>
-      {right && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>{right}</div>
+      {(right || objetivo) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, position: 'relative', zIndex: 1 }}>
+          {right && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>{right}</div>
+          )}
+          {objetivo && <Anillo pct={objetivo.pct} label={objetivo.label} />}
+        </div>
       )}
     </section>
   )
 }
 
-/** Píldora blanca sobre el hero. */
-export function HeroPill({ children }: { children: ReactNode }) {
+/** Píldora sobre el hero. `solid` la pone en blanco macizo (para el dato principal). */
+export function HeroPill({ children, solid }: { children: ReactNode; solid?: boolean }) {
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fff',
-      color: '#951218', padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 800,
-      whiteSpace: 'nowrap',
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      background: solid ? '#fff' : 'rgba(255,255,255,0.16)',
+      border: `1px solid ${solid ? '#fff' : 'rgba(255,255,255,0.3)'}`,
+      color: solid ? '#951218' : '#fff',
+      padding: '6px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: 800,
+      whiteSpace: 'nowrap', backdropFilter: solid ? undefined : 'blur(4px)',
     }}>{children}</span>
   )
 }
 
-/* ── KPI ── */
-export function Kpi({ icono, tono = 'neutro', label, valor, pie }: {
-  icono: string; tono?: Tone; label: string; valor: string; pie?: ReactNode
+/* ══════════════════════════════════════════════════════════
+   MEJORA 2 · Banda de atención — lo que está roto, arriba y con salida
+   ══════════════════════════════════════════════════════════ */
+export function Atencion({ tono = 'rojo', cifra, children, accion, onAccion }: {
+  tono?: Tone
+  /** Número grande a la izquierda. Opcional. */
+  cifra?: string
+  children: ReactNode
+  /** Texto del botón. Si no se pasa, no se pinta botón. */
+  accion?: string
+  onAccion?: () => void
 }) {
   const t = TONES[tono]
   return (
-    <Card style={{ marginBottom: 0 }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: 11, display: 'grid', placeItems: 'center',
-        fontSize: 15, fontWeight: 900, marginBottom: 12, background: t.bg, color: t.c,
-      }}>{icono}</div>
-      <div style={{ fontSize: 11, color: C.grisCl, fontWeight: 800, letterSpacing: '0.8px', textTransform: 'uppercase' }}>{label}</div>
-      <div className="slnum" style={{ fontSize: 28, margin: '4px 0 10px' }}>{valor}</div>
+    <div style={{
+      background: t.bg, border: `1px solid ${t.c}22`, borderRadius: 14,
+      padding: '11px 14px', marginBottom: 12,
+      display: 'flex', alignItems: 'center', gap: 13, flexWrap: 'wrap',
+    }}>
+      {cifra && (
+        <span className="slnum" style={{ fontSize: 19, fontWeight: 800, color: t.c, whiteSpace: 'nowrap' }}>{cifra}</span>
+      )}
+      <span style={{ flex: 1, fontSize: 12.5, fontWeight: 800, color: t.c, lineHeight: 1.4, minWidth: 220 }}>
+        {children}
+      </span>
+      {accion && (
+        <button
+          onClick={onAccion}
+          style={{
+            background: t.c, color: '#fff', border: 'none', borderRadius: 999,
+            padding: '8px 15px', fontFamily: "'Nunito', sans-serif",
+            fontWeight: 900, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+          }}
+        >{accion}</button>
+      )}
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════
+   MEJORA 3 · KPI con tendencia
+   ══════════════════════════════════════════════════════════ */
+
+/** Sparkline de barras dentro de un KPI. */
+function Spark({ puntos, color }: { puntos: number[]; color: string }) {
+  if (puntos.length < 2) return null
+  const max = Math.max(...puntos, 1)
+  return (
+    <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 20, marginTop: 9 }}>
+      {puntos.map((v, i) => (
+        <div key={i} style={{
+          flex: 1,
+          height: `${Math.max(8, (v / max) * 100)}%`,
+          background: i === puntos.length - 1 ? color : C.track,
+          borderRadius: '2px 2px 0 0',
+        }} />
+      ))}
+    </div>
+  )
+}
+
+export function Kpi({ icono, tono = 'neutro', label, valor, pie, spark, delta: deltaPill }: {
+  icono: string
+  tono?: Tone
+  label: string
+  valor: string
+  pie?: ReactNode
+  /** v2 · tendencia del KPI (una barra por periodo) */
+  spark?: number[]
+  /** v2 · pastilla arriba a la derecha (variación, objetivo, etc.) */
+  delta?: ReactNode
+}) {
+  const t = TONES[tono]
+  return (
+    <Card style={{ marginBottom: 0, padding: 13 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: 9, display: 'grid', placeItems: 'center',
+          fontSize: 13, fontWeight: 900, background: t.bg, color: t.c, flexShrink: 0,
+        }}>{icono}</div>
+        {deltaPill}
+      </div>
+      <div style={{ fontSize: 10.5, color: C.grisCl, fontWeight: 900, letterSpacing: '0.7px', textTransform: 'uppercase', marginTop: 10 }}>{label}</div>
+      <div className="slnum" style={{ fontSize: 25, margin: '3px 0 8px', letterSpacing: '-1.4px' }}>{valor}</div>
       {pie}
+      {spark && <Spark puntos={spark} color={t.c} />}
     </Card>
   )
 }
@@ -148,34 +297,125 @@ export function KpiGrid({ children, cols = 4 }: { children: ReactNode; cols?: nu
   return (
     <div style={{
       display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`,
-      gap: 14, marginBottom: 16,
+      gap: 11, marginBottom: 12,
     }}>{children}</div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════
+   MEJORA 4 · Waterfall "qué pasa con cada euro"
+   ══════════════════════════════════════════════════════════
+   Ojo: necesita coste real. Mientras el escandallo no cubra la carta
+   (mapeo plato→receta), pásale solo los tramos de los que haya dato
+   y deja `frase` explicando qué falta. */
+export interface TramoEuro {
+  label: string
+  importe: number
+  color: string
+  /** Texto claro del tramo en la barra si cabe. Por defecto blanco. */
+  textoOscuro?: boolean
+}
+export function Euro({ base, tramos, frase }: {
+  base: number
+  tramos: TramoEuro[]
+  frase?: ReactNode
+}) {
+  const total = tramos.reduce((s, t) => s + t.importe, 0) || 1
+  return (
+    <Card>
+      <CardHead
+        title="Qué pasa con cada euro que entra"
+        sub={`Sobre los ${eur0(base)} facturados`}
+        right={<Pill tone="neutro">Base {eur0(base)}</Pill>}
+      />
+      <div style={{ display: 'flex', height: 38, borderRadius: 11, overflow: 'hidden', gap: 2 }}>
+        {tramos.map((t, i) => {
+          const pct = (t.importe / total) * 100
+          return (
+            <div key={i} style={{
+              flex: pct, background: t.color, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', minWidth: 0, overflow: 'hidden',
+              fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 12,
+              color: t.textoOscuro ? '#4a3a00' : '#fff',
+            }}>
+              {pct >= 4 ? `${pct.toFixed(1)}%` : ''}
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10 }}>
+        {tramos.map((t, i) => (
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 800, color: C.gris }}>
+            <span style={{ width: 9, height: 9, borderRadius: 3, background: t.color, display: 'block' }} />
+            {t.label} {eur0(t.importe)}
+          </span>
+        ))}
+      </div>
+      {frase && (
+        <div style={{
+          marginTop: 12, background: C.ambarSoft, color: C.ambar, borderRadius: 12,
+          padding: '11px 13px', fontSize: 12.5, fontWeight: 800, lineHeight: 1.5,
+        }}>{frase}</div>
+      )}
+    </Card>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════
+   MEJORA 5 · Barra inline dentro de una celda de tabla
+   ══════════════════════════════════════════════════════════ */
+export function InBar({ pct, color }: { pct: number; color: string }) {
+  return (
+    <div style={{ height: 5, background: C.track, borderRadius: 99, marginTop: 5, overflow: 'hidden', width: '100%' }}>
+      <div style={{ height: '100%', width: `${Math.max(1, Math.min(100, pct))}%`, background: color, borderRadius: 99 }} />
+    </div>
   )
 }
 
 /* ── Barra de progreso / peso ── */
 export function Bar({ label, valor, pct, color }: { label: string; valor: string; pct: number; color: string }) {
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, marginBottom: 6, gap: 8 }}>
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 900, marginBottom: 5, gap: 8 }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-        <span className="slnum" style={{ color: C.gris, flexShrink: 0 }}>{valor}</span>
+        <span className="slnum" style={{ color: C.gris, flexShrink: 0, fontSize: 12 }}>{valor}</span>
       </div>
-      <div style={{ height: 10, background: C.track, borderRadius: 6, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${Math.max(0, Math.min(100, pct))}%`, background: color, borderRadius: 6 }} />
+      <div style={{ height: 9, background: C.track, borderRadius: 99, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${Math.max(0, Math.min(100, pct))}%`, background: color, borderRadius: 99 }} />
       </div>
     </div>
   )
 }
 
-/* ── Nota / insight ── */
-export function Nota({ tono = 'verde', children }: { tono?: Tone; children: ReactNode }) {
+/* ══════════════════════════════════════════════════════════
+   MEJORA 6 · Nota / insight, ahora con salida a la acción
+   ══════════════════════════════════════════════════════════ */
+export function Nota({ tono = 'verde', children, accion, onAccion }: {
+  tono?: Tone
+  children: ReactNode
+  /** Texto del botón. Si no se pasa, la nota se comporta como en v1. */
+  accion?: string
+  onAccion?: () => void
+}) {
   const t = TONES[tono]
   return (
     <div style={{
-      marginTop: 16, padding: 12, borderRadius: 12, fontSize: 12, fontWeight: 800,
-      background: t.bg, color: t.c, lineHeight: 1.45,
-    }}>{children}</div>
+      marginTop: 13, padding: '11px 13px', borderRadius: 12, fontSize: 12.5, fontWeight: 800,
+      background: t.bg, color: t.c, lineHeight: 1.5,
+    }}>
+      {children}
+      {accion && (
+        <button
+          onClick={onAccion}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8,
+            background: C.card, border: `1px solid ${t.c}`, color: t.c, borderRadius: 999,
+            padding: '5px 11px', fontFamily: "'Nunito', sans-serif",
+            fontSize: 11.5, fontWeight: 900, cursor: 'pointer',
+          }}
+        >{accion} →</button>
+      )}
+    </div>
   )
 }
 
