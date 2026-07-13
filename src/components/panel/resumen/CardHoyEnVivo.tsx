@@ -2,25 +2,26 @@
  * CardHoyEnVivo — sección "HOY EN VIVO" del Resumen (Panel Global), a ancho completo,
  * justo encima del estado de salud del periodo.
  *
- * Mismo lenguaje visual que el resto del Resumen (neobrutal Food Pop): tarjetas blancas con
- * borde 3px, sombra única 4px, números en Oswald, color por métrica (Pedidos naranja ·
- * Bruto tinta · Neto verde · TM azul), barras con borde y eyebrows.
+ * NETO: usa la calculadora central del ERP (netoResolver sobre calcNetoPlataforma).
+ * Regla "real manda": si hay liquidación real la usa; si no, aplica el ratio calibrado del
+ * canal (autoaprendido de las liquidaciones que van entrando); y si el canal aún no tiene
+ * muestra suficiente, cae a la fórmula de comisiones de config_canales. Aquí nunca hay
+ * liquidación real (es el día de hoy), así que la etiqueta dirá "calibrado" o "fórmula".
  *
- * Datos 100% reales del robot rushour_vivo (Rushour, cada 5 min):
- *  · pedidos, facturación bruta, ticket medio
- *  · neto estimado = bruto × ratio neto/bruto REAL de cada canal (últimas liquidaciones)
- *  · plataformas y marcas con su nombre real (diccionario rushour_mapa)
- *  · productos más vendidos, clientes nuevos vs repiten, curva por horas
+ * Resto de datos: robot rushour_vivo (Rushour, cada 5 min) — pedidos, bruto, ticket medio,
+ * plataformas y marcas con su nombre real (rushour_mapa), productos más vendidos,
+ * clientes nuevos vs repiten y curva por horas.
  *
  * Solo se pinta en horario de servicio (11:00–24:00 Madrid), igual que el robot.
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNum } from '@/lib/format'
+import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNetoCanal, loadVentasReales, loadRatiosCalibrados, type FuenteNeto } from '@/lib/panel/netoResolver'
 
 /* ── tokens idénticos a ResumenLanding ── */
 const INK = '#140f08'
-const CREMA = '#FCEFD6'
 const CLARO = '#F3D9A8'
 const TRACK = '#ecdcb8'
 const ROSA = '#FF2E63'
@@ -59,7 +60,6 @@ interface Kpis {
   pedidos: number
   facturacion: number
   ticket_medio: number
-  neto_estimado: number
   clientes_nuevos: number
   clientes_recurrentes: number
   pedidos_hace_7d: number
@@ -72,6 +72,12 @@ interface Hora { hora: string; euros: number; pedidos: number }
 
 const CANAL_NOMBRE: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', je: 'Just Eat', web: 'Web', dir: 'Directa', otro: 'Otro',
+}
+const FUENTE_TXT: Record<FuenteNeto, string> = {
+  real: 'liquidación real',
+  mixto: 'real + estimado',
+  estimado_calibrado: 'calibrado con tu histórico',
+  estimado: 'fórmula de comisiones',
 }
 
 /** Anillo neobrutal: aro con borde de tinta, relleno plano, sin degradados. */
@@ -89,7 +95,6 @@ function Anillo({ pct, color }: { pct: number; color: string }) {
   )
 }
 
-/** Tarjeta blanca de métrica, igual que las del hero / resultado del periodo. */
 function Kpi({ label, valor, color, pie }: { label: string; valor: string; color: string; pie?: React.ReactNode }) {
   return (
     <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
@@ -108,6 +113,23 @@ export default function CardHoyEnVivo() {
   const [horas, setHoras] = useState<Hora[]>([])
   const [ahora, setAhora] = useState(Date.now())
 
+  // calculadora de neto del ERP (config + autoaprendizaje de liquidaciones)
+  const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
+  const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+  const [calcLista, setCalcLista] = useState(false)
+
+  useEffect(() => {
+    loadConfigCanales().then(cfg => setConfigCanales(cfg))
+    loadMarcasPorCanal().then(m => setMarcasPorCanal(m))
+    loadVentasReales().then(() => loadRatiosCalibrados()).then(() => setCalcLista(true))
+    const onChange = () => {
+      recargarConfigCanales().then(cfg => setConfigCanales(cfg))
+      loadMarcasPorCanal().then(m => setMarcasPorCanal(m))
+    }
+    window.addEventListener('config_canales:changed', onChange)
+    return () => window.removeEventListener('config_canales:changed', onChange)
+  }, [])
+
   async function cargar() {
     const [a, b, c, e, f] = await Promise.all([
       supabase.from('v_vivo_hoy').select('*').maybeSingle(),
@@ -123,7 +145,6 @@ export default function CardHoyEnVivo() {
         pedidos: Number(x.pedidos) || 0,
         facturacion: Number(x.facturacion) || 0,
         ticket_medio: Number(x.ticket_medio) || 0,
-        neto_estimado: Number(x.neto_estimado) || 0,
         clientes_nuevos: Number(x.clientes_nuevos) || 0,
         clientes_recurrentes: Number(x.clientes_recurrentes) || 0,
         pedidos_hace_7d: Number(x.pedidos_hace_7d) || 0,
@@ -149,9 +170,32 @@ export default function CardHoyEnVivo() {
   const maxEuros = Math.max(1, ...horas.map(h => h.euros))
   const pctVs7d = k && k.bruto_hace_7d > 0 ? (bruto / k.bruto_hace_7d) * 100 : 0
   const colorRitmo = pctVs7d >= 90 ? VERDE : pctVs7d >= 50 ? AMA : ROJO
-  const pctNeto = bruto > 0 ? ((k?.neto_estimado ?? 0) / bruto) * 100 : 0
   const maxMarca = Math.max(1, ...marcas.map(m => m.euros))
   const maxPlato = Math.max(1, ...platos.map(pl => pl.unidades))
+
+  /* ── NETO con la calculadora central (real manda → calibrado → fórmula) ── */
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  const netoPorCanal = canales.map(c => {
+    const id = ['uber', 'glovo', 'je', 'web', 'dir'].includes(c.canal) ? c.canal : 'dir'
+    const r = resolverNetoCanal(id, c.euros, c.pedidos, {
+      modo: 'agregado_canal',
+      marcasPorCanal,
+      configCanales,
+      fechaDesde: hoy,
+      fechaHasta: hoy,
+      diasConDatos: 1,
+    })
+    return { canal: c.canal, neto: r.neto, fuente: r.fuente }
+  })
+  const netoTotal = netoPorCanal.reduce((s, x) => s + x.neto, 0)
+  const pctNeto = bruto > 0 ? (netoTotal / bruto) * 100 : 0
+  const fuentes = new Set(netoPorCanal.map(x => x.fuente))
+  const fuenteTxt = fuentes.size === 0
+    ? '—'
+    : fuentes.size === 1
+      ? FUENTE_TXT[[...fuentes][0] as FuenteNeto]
+      : 'mezcla calibrado + fórmula'
 
   return (
     <section style={{ background: CLARO, borderBottom: `4px solid ${INK}`, padding: `32px ${PAD} 36px`, fontFamily: LEX, color: INK }}>
@@ -181,9 +225,9 @@ export default function CardHoyEnVivo() {
         />
         <Kpi
           label="Neto estimado"
-          valor={E2(k?.neto_estimado ?? 0)}
+          valor={calcLista ? E2(netoTotal) : '—'}
           color={VERDE}
-          pie={<span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 11 }}>{Math.round(pctNeto)}% s/ bruto</span>}
+          pie={<span title={`Neto calculado con la calculadora del ERP: ${fuenteTxt}`} style={{ ...eyebrow(VERDE, '#fff'), fontSize: 11, cursor: 'help' }}>{Math.round(pctNeto)}% s/ bruto · {fuenteTxt}</span>}
         />
         <Kpi
           label="Ticket medio"
@@ -212,6 +256,7 @@ export default function CardHoyEnVivo() {
             {canales.length === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: GRIS }}>Sin pedidos todavía.</span>}
             {canales.map(c => {
               const pct = bruto > 0 ? (c.euros / bruto) * 100 : 0
+              const neto = netoPorCanal.find(x => x.canal === c.canal)?.neto ?? 0
               return (
                 <div key={c.canal}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
@@ -220,6 +265,8 @@ export default function CardHoyEnVivo() {
                       <span style={{ color: NAR }}>{N(c.pedidos)}</span>
                       <span style={{ color: GRIS }}> · </span>
                       <span>{E2(c.euros)}</span>
+                      <span style={{ color: GRIS }}> · </span>
+                      <span style={{ color: VERDE }}>{calcLista ? E2(neto) : '—'}</span>
                     </span>
                   </div>
                   <div style={{ position: 'relative', height: 20, background: TRACK, border: `3px solid ${INK}`, overflow: 'hidden' }}>
