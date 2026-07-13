@@ -1,13 +1,8 @@
 name: Robots de plataforma (Uber / Glovo / Just Eat → bandeja)
 
 # Los robots solo DESCARGAN informes y los dejan en la bandeja de Papeleo.
-# No interpretan nada: de eso se encarga el parser único.
-#
-# Credenciales: NO están aquí. Viven en la tabla robot_credenciales de Supabase.
-# Si una plataforma no tiene claves puestas, su robot sale en verde sin hacer nada.
-#
-# GitHub programa en UTC y no sabe de horario de verano: por eso hay dos disparos
-# por franja y un candado que comprueba la hora real de Madrid.
+# Credenciales: tabla robot_credenciales de Supabase (nunca aqui).
+# El disparo por 'push' sirve para lanzar una prueba tocando este fichero.
 
 on:
   workflow_dispatch:
@@ -15,8 +10,8 @@ on:
       plataforma:
         description: "Plataforma"
         type: choice
-        options: ["uber", "glovo", "justeat"]
-        default: "uber"
+        options: ["uber", "glovo", "justeat", "todas"]
+        default: "todas"
       modo:
         description: "diario | semanal | mensual | backfill"
         type: choice
@@ -31,13 +26,20 @@ on:
         type: choice
         options: ["0", "1"]
         default: "0"
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/robots-plataformas.yml"
+      - "scripts/robot-ingesta/uber.ts"
+      - "scripts/robot-ingesta/glovo.ts"
+      - "scripts/robot-ingesta/justeat.ts"
   schedule:
     - cron: "0 2 * * *"   # 04:00 Madrid (verano) · diario
     - cron: "0 3 * * *"   # 04:00 Madrid (invierno) · diario
     - cron: "0 3 * * 1"   # 05:00 Madrid (verano) · semanal (lunes)
     - cron: "0 4 * * 1"   # 05:00 Madrid (invierno) · semanal (lunes)
-    - cron: "0 3 5 * *"   # 05:00 Madrid (verano) · mensual (día 5)
-    - cron: "0 4 5 * *"   # 05:00 Madrid (invierno) · mensual (día 5)
+    - cron: "0 3 5 * *"   # 05:00 Madrid (verano) · mensual (dia 5)
+    - cron: "0 4 5 * *"   # 05:00 Madrid (invierno) · mensual (dia 5)
 
 jobs:
   plan:
@@ -46,15 +48,20 @@ jobs:
       seguir: ${{ steps.candado.outputs.seguir }}
       modo: ${{ steps.candado.outputs.modo }}
     steps:
-      - name: Candado horario y modo del día
+      - name: Candado horario y modo
         id: candado
         run: |
           H=$(TZ=Europe/Madrid date +%H)
-          D=$(TZ=Europe/Madrid date +%u)   # 1 = lunes
+          D=$(TZ=Europe/Madrid date +%u)
           DIA=$(TZ=Europe/Madrid date +%d)
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "seguir=1" >> $GITHUB_OUTPUT
             echo "modo=${{ github.event.inputs.modo }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "seguir=1" >> $GITHUB_OUTPUT
+            echo "modo=diario" >> $GITHUB_OUTPUT
             exit 0
           fi
           if [ "$H" = "04" ]; then
@@ -68,7 +75,6 @@ jobs:
           fi
           echo "seguir=0" >> $GITHUB_OUTPUT
           echo "modo=" >> $GITHUB_OUTPUT
-          echo "En Madrid son las $H:00. No toca."
 
   robot:
     needs: plan
@@ -84,19 +90,13 @@ jobs:
         id: toca
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "${{ matrix.plataforma }}" = "${{ github.event.inputs.plataforma }}" ]; then
+            P="${{ github.event.inputs.plataforma }}"
+            if [ "$P" = "todas" ] || [ "$P" = "${{ matrix.plataforma }}" ]; then
               echo "si=1" >> $GITHUB_OUTPUT
             else
               echo "si=0" >> $GITHUB_OUTPUT
             fi
             exit 0
-          fi
-          MODO="${{ needs.plan.outputs.modo }}"
-          if [ "$MODO" = "mensual" ] && [ "${{ matrix.plataforma }}" != "uber" ]; then
-            echo "si=0" >> $GITHUB_OUTPUT; exit 0
-          fi
-          if [ "$MODO" = "diario" ] && [ "${{ matrix.plataforma }}" = "justeat" ]; then
-            echo "si=0" >> $GITHUB_OUTPUT; exit 0
           fi
           echo "si=1" >> $GITHUB_OUTPUT
 
@@ -120,7 +120,7 @@ jobs:
       - name: Instalar navegador Playwright
         if: steps.toca.outputs.si == '1' && steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
-      - name: Dependencias de sistema (con caché)
+      - name: Dependencias de sistema (con cache)
         if: steps.toca.outputs.si == '1' && steps.cache-playwright.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
