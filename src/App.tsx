@@ -18,8 +18,10 @@ const TabDrive = React.lazy(() => import('@/pages/configuracion/marcas/TabDrive'
 
 // A1 · Mapeo de marcas (venta ciega de Glovo / Just Eat)
 const MapeoMarcas = React.lazy(() => import('@/pages/configuracion/MapeoMarcas'))
-// A2 · Coste por plato (enlaza venta con receta costeada)
+// A2 + A4 · Coste por plato (enlaza venta con receta) y limpieza de duplicados
 const CostePlato = React.lazy(() => import('@/pages/cocina/CostePlato'))
+// B3 · Rentabilidad por franja horaria
+const RentabilidadFranja = React.lazy(() => import('@/pages/analytics/RentabilidadFranja'))
 
 const ReglasPage = React.lazy(() => import('@/pages/configuracion/reglas/ReglasPage'))
 const TabReglasIngredientes = React.lazy(() => import('@/pages/configuracion/reglas/TabReglasIngredientes'))
@@ -255,6 +257,8 @@ function AppRoutes() {
           <Route path="analytics/ranking" element={<ProtectedRoute solo={['admin']}><RankingProductos /></ProtectedRoute>} />
           <Route path="analytics/demanda" element={<ProtectedRoute solo={['admin']}><PrediccionDemanda /></ProtectedRoute>} />
           <Route path="analytics/pareto-ventas" element={<ProtectedRoute solo={['admin']}><ParetoVentas /></ProtectedRoute>} />
+          {/* B3 · Rentabilidad por franja horaria */}
+          <Route path="analytics/rentabilidad-franja" element={<ProtectedRoute solo={['admin']}><RentabilidadFranja /></ProtectedRoute>} />
 
           <Route path="ops/reembolsos" element={<ReclamacionReembolsos />} />
           <Route path="ops/temperaturas" element={<ControlTemperaturas />} />
@@ -302,7 +306,7 @@ function AppRoutes() {
 
           <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><CocinaInventario /></ProtectedRoute>} />
           <Route path="cocina/recetas" element={<CocinaRecetas />} />
-          {/* A2 · Coste por plato: enlaza lo que vendes con la receta que lo cuesta */}
+          {/* A2 + A4 · Coste por plato: enlaza lo que vendes con la receta que lo cuesta */}
           <Route path="cocina/coste-plato" element={<ProtectedRoute solo={['admin']}><CostePlato /></ProtectedRoute>} />
           <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
           <Route path="cocina/recetario" element={<Recetario />} />
