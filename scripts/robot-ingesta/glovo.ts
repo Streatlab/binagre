@@ -5,6 +5,7 @@
  * Login (13-jul-2026): tras usuario+contraseña Glovo salta a /2fa y pide un código
  * de 6 dígitos que manda por correo (no-reply@portal.glovoapp.com → reenviado al
  * buzón del cartero). La pantalla de 2fa NO es estar dentro.
+ * Prueba 13-jul 22:00 con radiografía del buzón.
  *
  * Modos (env MODO):
  *   diario   → historial de pedidos de ayer
