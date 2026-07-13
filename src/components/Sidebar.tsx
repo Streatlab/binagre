@@ -33,7 +33,7 @@ const GRANATE = '#B01D23'
 const AMA    = '#FFC400'
 const LOGO_SRC = '/loco-icon.svg.svg'
 
-interface NavItem   { path: string; label: string; emoji: string; perfiles: string[] }
+interface NavItem   { path: string; label: string; emoji: string; perfiles: string[]; pendiente?: boolean }
 interface NavSection { key: string; label: string; perfiles: string[]; items: NavItem[] }
 interface SectionIconConfig { icon: LucideIcon; headBg: string; headColor: string }
 
@@ -59,6 +59,10 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/repeticion-clientes', label: 'Repetición Clientes', emoji: '🔁', perfiles: ['admin'] },
       { path: '/finanzas/roi-canal', label: 'ROI por Canal', emoji: '🏆', perfiles: ['admin'] },
       { path: '/finanzas/ticket-medio', label: 'Ticket Medio', emoji: '🎫', perfiles: ['admin'] },
+      // ── Auditoría jul-26 ──
+      { path: '/finanzas/lineas-factura',      label: 'Líneas de Factura',    emoji: '🧩', perfiles: ['admin'], pendiente: true },
+      { path: '/finanzas/rentabilidad-franja', label: 'Rentab. por Franja',   emoji: '🕐', perfiles: ['admin'], pendiente: true },
+      { path: '/finanzas/ventas-perdidas',     label: 'Ventas Perdidas',      emoji: '🕳️', perfiles: ['admin'], pendiente: true },
     ],
   },
   {
@@ -72,6 +76,12 @@ const SECTIONS: NavSection[] = [
       { path: '/cocina/recetario',           label: 'Recetario',           emoji: '📋', perfiles: ['admin', 'cocina'] },
       { path: '/cocina/produccion',          label: 'Producción',          emoji: '📋', perfiles: ['admin', 'cocina'] },
       { path: '/cocina/menu-familia',        label: 'Menú Familia',        emoji: '🥘', perfiles: ['admin', 'cocina'] },
+      // ── Auditoría jul-26 ──
+      { path: '/cocina/mapeo-platos',        label: 'Mapeo Plato → Receta', emoji: '🔗', perfiles: ['admin'], pendiente: true },
+      { path: '/cocina/duplicados-platos',   label: 'Platos Duplicados',    emoji: '👯', perfiles: ['admin'], pendiente: true },
+      { path: '/cocina/teorico-vs-real',     label: 'Teórico vs Real',      emoji: '🚦', perfiles: ['admin'], pendiente: true },
+      { path: '/cocina/alertas-precio',      label: 'Alertas de Precio',    emoji: '📈', perfiles: ['admin'], pendiente: true },
+      { path: '/cocina/produccion-prevista', label: 'Producción Prevista',  emoji: '🔮', perfiles: ['admin', 'cocina'], pendiente: true },
     ],
   },
   {
@@ -143,6 +153,9 @@ const SECTIONS: NavSection[] = [
       { path: '/configuracion/calendario',           label: 'Calendario operativo', emoji: '📅', perfiles: ['admin'] },
       { path: '/configuracion/aprendizajes',         label: 'Aprendizajes ERP',     emoji: '🧠', perfiles: ['admin'] },
       { path: '/configuracion/calcneto-aprendizaje', label: 'Ajuste calcNeto',      emoji: '⚖️', perfiles: ['admin'] },
+      // ── Auditoría jul-26 ──
+      { path: '/configuracion/mapeo-marcas',         label: 'Mapeo de Marcas',      emoji: '🏷️', perfiles: ['admin'], pendiente: true },
+      { path: '/integraciones/sync-carta',           label: 'Sync de Carta',        emoji: '🔄', perfiles: ['admin'], pendiente: true },
     ],
   },
 ]
@@ -424,7 +437,18 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                           <>
                             <span style={{ width: 7, height: 7, flexShrink: 0, background: isActive ? AMA : INK, display: 'inline-block' }} />
                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                            
+                            {item.pendiente && (
+                              <span
+                                title="Pendiente de construir"
+                                style={{
+                                  flexShrink: 0, background: isActive ? AMA : GRANATE, color: isActive ? INK : '#fff',
+                                  fontFamily: 'Oswald, sans-serif', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
+                                  padding: '2px 5px', border: `1.5px solid ${isActive ? AMA : INK}`,
+                                }}
+                              >
+                                PEND
+                              </span>
+                            )}
                           </>
                         )}
                       </NavLink>
