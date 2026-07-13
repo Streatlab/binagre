@@ -1,7 +1,8 @@
-// OcrConToast v6 — toast único + bump refresh sin desmontar; acepta periodo externo (supermódulo Documentación)
+// OcrConToast v7 — toast único: OcrUploadToast vive UNA sola vez, montado
+// globalmente en Layout. Antes se montaba también aquí y se duplicaba la
+// tarjeta de progreso/resumen del lote mientras se estaba en esta pestaña.
 import { useEffect, useState } from 'react'
 import Ocr from '@/pages/Ocr'
-import OcrUploadToast from '@/components/ocr/OcrUploadToast'
 import { useOcrUpload } from '@/lib/ocrUploadStore'
 import { toast } from '@/lib/toastStore'
 import { supabase } from '@/lib/supabase'
@@ -24,10 +25,5 @@ export default function OcrConToast({ periodoExterno }: { periodoExterno?: { des
     return () => { try { supabase.removeChannel(ch) } catch {} ; delete (window as any).__ocrRefresh }
   }, [])
 
-  return (
-    <>
-      <Ocr periodoExterno={periodoExterno} />
-      <OcrUploadToast />
-    </>
-  )
+  return <Ocr periodoExterno={periodoExterno} />
 }

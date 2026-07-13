@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
 import { fmtEur, fmtDate, fmtEurFactura } from '@/lib/format'
 import { OSW, LEX, INK, GRIS, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, d, eyebrow } from '@/styles/neobrutal'
+import ModalDescartarFactura, { type FacturaDescartable } from '@/components/documentacion/ModalDescartarFactura'
 
 // ── Avisos autoaprendibles de Papeleo ────────────────────────────────────────
 // Lista las dudas abiertas (proveedor nuevo, sin categoría, titular, duplicado,
@@ -35,6 +36,8 @@ interface FacturaInfo {
   proveedor_nombre: string | null
   nif_emisor: string | null
   pdf_drive_url: string | null
+  pdf_original_name: string | null
+  titular_id: string | null
   estado: string | null
 }
 
@@ -136,6 +139,7 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [verTodos, setVerTodos] = useState(false)
   const [truncado, setTruncado] = useState(false)
+  const [descartar, setDescartar] = useState<FacturaDescartable | null>(null)
 
   const LIMITE_AVISOS = 300
   const LIMITE_PENDIENTES = 100
@@ -153,7 +157,7 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
     // Facturas atascadas en lectura manual que aún no generaron un aviso propio
     let queryPendientes = supabase
       .from('facturas')
-      .select('id, fecha_factura, total, proveedor_nombre, nif_emisor, pdf_drive_url, estado')
+      .select('id, fecha_factura, total, proveedor_nombre, nif_emisor, pdf_drive_url, pdf_original_name, titular_id, estado')
       .eq('estado', 'pendiente_lectura_manual')
     if (idsConAviso.size > 0) queryPendientes = queryPendientes.not('id', 'in', `(${[...idsConAviso].join(',')})`)
     const { data: pendientes } = await queryPendientes.order('fecha_factura', { ascending: false }).limit(LIMITE_PENDIENTES)
@@ -186,7 +190,7 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
     if (idsFaltantes.length > 0) {
       const { data: fds } = await supabase
         .from('facturas')
-        .select('id, fecha_factura, total, proveedor_nombre, nif_emisor, pdf_drive_url, estado')
+        .select('id, fecha_factura, total, proveedor_nombre, nif_emisor, pdf_drive_url, pdf_original_name, titular_id, estado')
         .in('id', idsFaltantes)
       for (const f of fds ?? []) mapaFacturas[f.id] = f as FacturaInfo
     }
@@ -375,6 +379,16 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
               {a.tipo === 'aviso_iva' && (
                 <button disabled={bloqueado} onClick={() => resolver(a, { nota: 'revisado por Rubén, total correcto' })} style={{ ...btnMini, background: VERDE }}>Revisado, está bien</button>
               )}
+
+              {factura && (
+                <button disabled={bloqueado} onClick={() => setDescartar({
+                  id: factura.id, pdf_original_name: factura.pdf_original_name, nif_emisor: factura.nif_emisor,
+                  proveedor_nombre: factura.proveedor_nombre, fecha_factura: factura.fecha_factura,
+                  total: factura.total, titular_id: factura.titular_id,
+                })} style={{ ...btnMini, background: GRIS }}>
+                  Descartar
+                </button>
+              )}
             </div>
           </div>
         )
@@ -385,6 +399,18 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
           style={{ marginTop: 4, background: 'none', border: 'none', color: GRANATE, fontFamily: LEX, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
           {verTodos ? 'Ver menos' : `Ver los ${base.length}`}
         </button>
+      )}
+
+      {descartar && (
+        <ModalDescartarFactura
+          factura={descartar}
+          onClose={() => setDescartar(null)}
+          onDescartada={({ soloEste, afectadas }) => {
+            setDescartar(null)
+            toast.success(soloEste ? 'Factura descartada.' : `Regla creada: ${afectadas} factura${afectadas !== 1 ? 's' : ''} descartada${afectadas !== 1 ? 's' : ''}.`)
+            cargar(); onResuelto?.()
+          }}
+        />
       )}
     </div>
   )

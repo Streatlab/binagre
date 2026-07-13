@@ -1,0 +1,64 @@
+name: Backfill histórico ventas (Rushour + Sinqro)
+
+# Carga histórica hacia atrás. Se lanza A MANO desde la pestaña Actions.
+# Usa los mismos secrets que el robot diario.
+on:
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: "Fecha de inicio (más reciente); recorre hacia atrás. Formato AAAA-MM-DD"
+        type: string
+        default: "2025-12-31"
+      sin_sinqro:
+        description: "Saltar Sinqro (su servidor da error interno en fechas históricas). Recomendado: true"
+        type: boolean
+        default: true
+      debug_fecha:
+        description: "Modo diagnóstico: vuelca el HTML real de esta fecha a robot_debug y termina (deja vacío para el backfill normal)"
+        type: string
+        default: ""
+      hasta:
+        description: "Límite hacia atrás (inclusive), AAAA-MM-DD. Para probar un solo día pon aquí la misma fecha que 'desde' (deja vacío para recorrer todo el histórico)"
+        type: string
+        default: ""
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Cache navegador Playwright
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Instalar navegador Playwright
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Instalar deps de sistema de Playwright (con caché de navegador)
+        if: steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Ejecutar backfill
+        env:
+          BACKFILL_DESDE: ${{ github.event.inputs.desde }}
+          BACKFILL_HASTA: ${{ github.event.inputs.hasta }}
+          BACKFILL_DEBUG_FECHA: ${{ github.event.inputs.debug_fecha }}
+          DIAG: "0"
+          RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
+          RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
+          # Si sin_sinqro=true, las credenciales van vacías: ingestaSinqroHistorico
+          # sale de inmediato (return [] sin abrir navegador) y el backfill corre
+          # solo con Rushour, mucho más rápido. Su código queda intacto.
+          SINQRO_USER: ${{ github.event.inputs.sin_sinqro == 'true' && '' || secrets.SINQRO_USER }}
+          SINQRO_PASS: ${{ github.event.inputs.sin_sinqro == 'true' && '' || secrets.SINQRO_PASS }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/backfill.ts

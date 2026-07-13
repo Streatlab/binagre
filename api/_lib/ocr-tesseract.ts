@@ -24,6 +24,18 @@
 // seguía puesto -> mismatch y 0 facturas escaneadas leídas. Dos cambios:
 //   1) vercel.json incluye node_modules/pdfjs-dist/legacy/build/** en la función.
 //   2) si aun así no resuelve, limpiamos workerSrc en vez de dejar el heredado.
+//
+// DIAGNÓSTICO 12/07/26 (task 2): auditoría = "Tesseract 0 lecturas históricas".
+// Las libs están instaladas (tesseract.js 5, pdfjs-dist, @napi-rs/canvas) y el flag
+// OCR_TESSERACT_ACTIVO está ENCENDIDO por defecto, así que no es config ni falta de
+// dependencia. La causa dominante es la SEGUNDA fase: Tesseract SÍ devuelve texto,
+// pero es ruidoso y extraerPorReglas no encuentra un NIF limpio (O↔0, I↔1, espacios
+// dentro del NIF) → devuelve null → la factura cae al escalón de pago o a manual y
+// Tesseract "no cuenta" como lectura. Como no es reparable con certeza en serverless
+// sin telemetría, se COMPENSA reforzando las plantillas (task 3: plantilla_verificada,
+// la 2ª factura del proveedor se lee gratis) y se hace VISIBLE el caso en
+// procesarArchivo (console diagnóstico cuando Tesseract dio texto pero no se extrajo
+// NIF/total), en vez de un 0 silencioso.
 
 const MAX_PAGINAS_OCR = 3      // facturas suelen ser 1-2 pág; tope anti-timeout
 const ESCALA_RASTER = 2.0      // 2x: legibilidad sin disparar memoria

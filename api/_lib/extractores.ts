@@ -296,15 +296,114 @@ export function extraerNifEmisorLibre(texto: string): string | null {
   return nifs.find((n) => !NIF_CLIENTES.has(n)) || null
 }
 
-function parseImporte(s: string): number | null {
-  let v = s.trim()
-  if (v.includes(',') && v.includes('.')) {
-    v = v.replace(/\./g, '').replace(',', '.')
-  } else if (v.includes(',')) {
-    v = v.replace(',', '.')
+// ──────────────────────────────────────────────────────────────────────────
+// NORMALIZADOR UNIVERSAL DE IMPORTES (task 5): una sola función por la que pasan
+// todos los extractores y parsers. Acepta coma o punto decimal, separador de
+// miles, 2-4 decimales, símbolo € delante/detrás/ausente, palabras "EUR/euros",
+// y espacios raros (NBSP  , espacio fino  ,  ). Devuelve el número
+// o null si no hay dígitos.
+// ──────────────────────────────────────────────────────────────────────────
+export function normalizarImporte(raw: string | number | null | undefined): number | null {
+  if (raw == null) return null
+  if (typeof raw === 'number') return isFinite(raw) ? raw : null
+  let s = String(raw)
+    .replace(/[     \s]/g, '') // NBSP + espacios finos + normales
+    .replace(/(?:eur|euros?|usd|gbp)\b/gi, '')
+    .replace(/[€$£]/g, '')
+  const negativo = /^-/.test(s) || /-$/.test(s) || /\(.*\)/.test(s)
+  s = s.replace(/[^0-9.,]/g, '')
+  if (!s || !/\d/.test(s)) return null
+
+  const hayComa = s.includes(',')
+  const hayPunto = s.includes('.')
+  if (hayComa && hayPunto) {
+    // El separador decimal es el que aparece más a la derecha; el otro es de miles.
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.')
+    else s = s.replace(/,/g, '')
+  } else if (hayComa) {
+    const partes = s.split(',')
+    // Una sola coma con 1-4 decimales → decimal. Varias comas (grupos de miles) → miles.
+    if (partes.length === 2 && partes[1].length >= 1 && partes[1].length <= 4) {
+      s = partes[0] + '.' + partes[1]
+    } else {
+      s = s.replace(/,/g, '')
+    }
+  } else if (hayPunto) {
+    const partes = s.split('.')
+    if (partes.length > 2) {
+      s = s.replace(/\./g, '') // 1.234.567 → miles
+    } else if (partes.length === 2 && partes[1].length === 3) {
+      s = s.replace(/\./g, '') // 1.234 → miles (convención es_ES)
+    }
+    // resto (0-2 o 4 decimales con un solo punto) → el punto ya es decimal
   }
-  const n = parseFloat(v)
-  return isNaN(n) ? null : n
+
+  const n = parseFloat(s)
+  if (isNaN(n)) return null
+  return negativo ? -Math.abs(n) : n
+}
+
+// Alias interno legacy: todo el extractor pasa por el normalizador universal.
+function parseImporte(s: string): number | null {
+  const n = normalizarImporte(s)
+  return n === null ? null : n
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// NORMALIZADOR UNIVERSAL DE FECHAS (task 5): un token de fecha en cualquier
+// formato → ISO YYYY-MM-DD, o null. Acepta dd/mm/aaaa, dd-mm-aa, aaaa-mm-dd,
+// "5 de enero de 2026" y separadores . / - o espacios.
+// ──────────────────────────────────────────────────────────────────────────
+export function normalizarFecha(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const s = String(raw).trim()
+  // aaaa-mm-dd
+  let m = s.match(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/)
+  if (m) return isoValido(m[1], m[2], m[3])
+  // dd-mm-aaaa
+  m = s.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/)
+  if (m) return isoValido(m[3], m[2], m[1])
+  // dd-mm-aa (siglo 2000)
+  m = s.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})\b/)
+  if (m) return isoValido(`20${m[3]}`, m[2], m[1])
+  // "5 de enero de 2026"
+  m = s.match(/\b(\d{1,2})\s+(?:de\s+)?(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(?:de\s+)?(20\d{2})\b/i)
+  if (m) { const mo = MESES_ES[m[2].toLowerCase()]; return mo ? isoValido(m[3], mo, m[1]) : null }
+  return null
+}
+function isoValido(y: string, mo: string, d: string): string | null {
+  const yy = Number(y), mm = Number(mo), dd = Number(d)
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null
+  if (yy < 2000 || yy > 2035) return null
+  return `${yy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// VALIDACIÓN DEL NÚMERO DE FACTURA (task 4): rechaza palabras de cabecera que el
+// OCR confunde con el nº ("courier", "hora", "total"…), valores que son solo una
+// fecha, y valores sin ningún dígito. Si no pasa → null → el insert genera SN-…
+// y la regla de duplicado contable NO se dispara con basura.
+// ──────────────────────────────────────────────────────────────────────────
+const BLACKLIST_NUM_FACTURA = new Set([
+  'courier', 'hora', 'total', 'motivo', 'fecha', 'importe', 'cantidad', 'unidades',
+  'unidad', 'iva', 'base', 'subtotal', 'cliente', 'proveedor', 'factura', 'invoice',
+  'numero', 'número', 'num', 'serie', 'pagina', 'página', 'periodo', 'período',
+  'concepto', 'descripcion', 'descripción', 'referencia', 'ref', 'nif', 'cif',
+  'pedido', 'albaran', 'albarán', 'vencimiento', 'direccion', 'dirección',
+])
+function esSoloFecha(s: string): boolean {
+  return /^\s*\d{1,4}[-/.]\d{1,2}[-/.]\d{2,4}\s*$/.test(s) || normalizarFecha(s) === s.trim()
+}
+export function numeroFacturaValido(num: string | null | undefined): boolean {
+  if (!num) return false
+  const n = num.trim()
+  if (n.length < 3 || n.length > 40) return false
+  const limpio = n.toLowerCase().replace(/[.ºo:#·\-\s]+$/g, '').replace(/^[.ºo:#·\-\s]+/g, '').trim()
+  if (BLACKLIST_NUM_FACTURA.has(limpio)) return false
+  if (esSoloFecha(n)) return false            // un valor que es solo una fecha no es nº de factura
+  if (!/\d/.test(n)) return false             // debe contener al menos un dígito
+  if (!/[A-Za-z0-9]/.test(n)) return false
+  return true
 }
 
 const RE_IMPORTE = /(\d{1,3}(?:\.\d{3})*(?:,\d{2})|\d+[.,]\d{2})/g
@@ -356,29 +455,22 @@ function buscarTotal(texto: string, plantilla?: PlantillaNif | null): number | n
   }
   if (prioridad.length > 0) return Math.max(...prioridad)
 
-  // 2) Genérico RESTRINGIDO a la palabra "total" (la línea del total real).
-  //    BLINDAJE: NO se usan "importe"/"a pagar" sueltos ni se coge el número más
-  //    alto al azar de la página. Eso era lo que "inventaba" el total y dejaba el
-  //    mismo importe congelado en todas las facturas de un proveedor.
-  const candTotal: number[] = []
+  // 2) Genérico: total/importe/a pagar (+ línea siguiente si va a secas)
+  const candidatos: number[] = []
   for (let i = 0; i < lineas.length; i++) {
-    if (/\btotal\b/i.test(lineas[i])) {
-      const enLinea = importesDeLinea(lineas[i])
+    const linea = lineas[i]
+    if (/total|importe|a\s*pagar/i.test(linea)) {
+      const enLinea = importesDeLinea(linea)
       if (enLinea.length > 0) {
-        candTotal.push(...enLinea)
+        candidatos.push(...enLinea)
       } else if (i + 1 < lineas.length) {
         const sig = importesDeLinea(lineas[i + 1])
-        if (sig.length > 0) candTotal.push(sig[0])
+        if (sig.length > 0) candidatos.push(sig[0])
       }
     }
   }
-  if (candTotal.length > 0) return Math.max(...candTotal)
-
-  // 3) Sin etiqueta fiable de total → NO se inventa NUNCA. Se devuelve null para
-  //    que la cascada escale a una lectura buena (Anthropic, una sola vez) y
-  //    aprenda la etiqueta correcta del proveedor para las próximas. Es preferible
-  //    una lectura buena de pago puntual a congelar un importe equivocado.
-  return null
+  if (candidatos.length === 0) return null
+  return Math.max(...candidatos)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -575,7 +667,7 @@ export function extraerPorReglas(
 
   return {
     proveedor_nombre: '',
-    numero_factura: buscarNumeroFactura(texto, plantilla) || '',
+    numero_factura: (() => { const c = buscarNumeroFactura(texto, plantilla); return numeroFacturaValido(c) ? (c as string).trim() : '' })(),
     // Si no hay fecha válida (solo posible con requireFecha=false) se deja vacía:
     // procesarArchivo aplica la fecha de hoy como fallback.
     fecha_factura: fechaOk ? (fecha as string) : '',

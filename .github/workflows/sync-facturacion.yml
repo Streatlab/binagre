@@ -1,0 +1,60 @@
+name: Sync Facturación (ALM 17:00 / CENAS 01:00 Madrid)
+
+# Cuatro crons para cubrir verano e invierno (GitHub programa en UTC y no sabe de
+# horario de verano). El propio script decide el turno por la hora real de Madrid
+# y lleva candado: el ALM automático NO escribe antes de las 16:00 Madrid, para
+# que un disparo a deshora no guarde un almuerzo a medias.
+on:
+  schedule:
+    - cron: "0 15 * * *"   # 17:00 Madrid (verano) → ALM de hoy
+    - cron: "0 16 * * *"   # 17:00 Madrid (invierno) → ALM de hoy
+    - cron: "0 23 * * *"   # 01:00 Madrid (verano) → CENAS del día anterior
+    - cron: "0 0 * * *"    # 01:00 Madrid (invierno) → CENAS del día anterior
+  workflow_dispatch:
+    inputs:
+      servicio:
+        description: "Vacío = automático por hora · ALM/CENAS = un turno · DIA = rehacer ayer entero · JE = recalcular solo Just Eat"
+        type: choice
+        options: ["", "ALM", "CENAS", "DIA", "JE"]
+        default: ""
+      fecha:
+        description: "Forzar fecha AAAA-MM-DD (vacío = automático)"
+        type: string
+        default: ""
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Cache navegador Playwright
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Instalar navegador Playwright
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Instalar deps de sistema de Playwright (con caché)
+        if: steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Sync robot → facturacion_diario
+        env:
+          SYNC_SERVICIO: ${{ github.event.inputs.servicio }}
+          SYNC_FECHA: ${{ github.event.inputs.fecha }}
+          SYNC_MANUAL: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+          RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
+          RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
+          SINQRO_USER: ${{ secrets.SINQRO_USER }}
+          SINQRO_PASS: ${{ secrets.SINQRO_PASS }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/sync-facturacion.ts
