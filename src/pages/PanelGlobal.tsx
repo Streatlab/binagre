@@ -5,6 +5,8 @@
  *  · NEO → estilo Neobrutal actual (intacto).
  *  · SL  → estilo nuevo (Ley Visual SL v1), escrito desde cero en /components/panel/sl.
  * El interruptor de la barra superior alterna entre los dos. Es temporal.
+ *
+ * La franja "HOY EN VIVO" vive dentro del Resumen (ResumenLanding), no aquí.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -13,7 +15,6 @@ import { supabase } from '@/lib/supabase'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabResumen from '@/components/panel/resumen/TabResumen'
-import CardHoyEnVivo from '@/components/panel/resumen/CardHoyEnVivo'
 import TabOperaciones from '@/components/panel/TabOperaciones'
 import TabFinanzas from '@/components/panel/TabFinanzas'
 import Cashflow from '@/pages/finanzas/Cashflow'
@@ -291,13 +292,9 @@ export default function PanelGlobal() {
   const contenido = (
     <>
       {activeTab === 'resumen' && (
-        <>
-          {/* Banda de ventas del día en tiempo real (robot cada 5 min). Solo en horario de servicio. */}
-          {!esSL && <CardHoyEnVivo />}
-          {usaSL
-            ? <TabResumenSL rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />
-            : <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />}
-        </>
+        usaSL
+          ? <TabResumenSL rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />
+          : <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />
       )}
       {activeTab === 'operaciones' && <TabOperaciones rows={rowsPeriodo} />}
       {activeTab === 'finanzas'    && <TabFinanzas rows={rowsPeriodo} />}
