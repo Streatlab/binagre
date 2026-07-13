@@ -8,12 +8,15 @@
  *               DESPUÉS de cerrar el mes: si no está, no es error.
  *   backfill  → un mes completo (env MES = AAAA-MM). UN SOLO MES POR EJECUCIÓN.
  *
+ * Login (13-jul-2026): Uber propone primero código por SMS. NO se espera ese código:
+ * se pulsa "Más opciones" / "Otra forma" y se elige entrar con contraseña.
+ *
  * Credenciales y cuentas: tabla robot_credenciales (plataforma='uber').
  * Sin claves → sale en verde con 'sin_credenciales'.
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
-import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
+import { cuentasDe, guardarSesion, type Cuenta } from './_lib/portal.js';
 import { abrir, quitarEstorbos, descargarDeLaPagina } from './_lib/navegador.js';
 
 const P = 'uber';
@@ -21,8 +24,45 @@ const RAIZ = 'https://merchants.ubereats.com';
 const MODO = (process.env.MODO || 'diario').toLowerCase();
 const MES = process.env.MES || '';
 
+const RE_MAS_OPCIONES = /m[aá]s opciones|otras opciones|otra forma|otro m[eé]todo|more options|try another way|another way/i;
+const RE_CONTRASENA = /contrase[nñ]a|password/i;
+
 async function dentro(page: Page): Promise<boolean> {
   return !/login|auth|signin/i.test(page.url());
+}
+
+/** Si Uber ofrece SMS, abre "más opciones" y elige contraseña. Devuelve true si logró abrir el campo de contraseña. */
+async function elegirContrasena(page: Page): Promise<boolean> {
+  for (let intento = 0; intento < 3; intento++) {
+    if (await page.locator('input[type="password"]').count().catch(() => 0)) return true;
+
+    const mas = page.getByRole('button', { name: RE_MAS_OPCIONES })
+      .or(page.getByRole('link', { name: RE_MAS_OPCIONES }))
+      .or(page.locator('button, a, [role="button"]').filter({ hasText: RE_MAS_OPCIONES }))
+      .first();
+    if (await mas.count().catch(() => 0)) {
+      await mas.click({ timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(3000);
+    }
+
+    const opcionPass = page.getByRole('button', { name: RE_CONTRASENA })
+      .or(page.getByRole('link', { name: RE_CONTRASENA }))
+      .or(page.getByRole('radio', { name: RE_CONTRASENA }))
+      .or(page.locator('button, a, li, label, [role="button"], [role="radio"]').filter({ hasText: RE_CONTRASENA }))
+      .first();
+    if (await opcionPass.count().catch(() => 0)) {
+      await opcionPass.click({ timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(2000);
+      const seguir = page.getByRole('button', { name: /continuar|siguiente|continue|next/i }).first();
+      if (await seguir.count().catch(() => 0)) {
+        await seguir.click({ timeout: 5000 }).catch(() => {});
+        await page.waitForTimeout(3000);
+      }
+    }
+
+    await page.waitForTimeout(2000);
+  }
+  return (await page.locator('input[type="password"]').count().catch(() => 0)) > 0;
 }
 
 async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boolean> {
@@ -35,25 +75,22 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   await email.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
   await email.fill(c.usuario).catch(() => {});
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(6000);
+  await quitarEstorbos(page);
+
+  const hayPass = await elegirContrasena(page);
+  if (!hayPass) {
+    await log(P, 'login_ko', `${c.cuenta}: no aparece la opción de contraseña · url=${page.url()}`);
+    await volcar(`${P}_sin_opcion_pass`, await page.content());
+    return false;
+  }
 
   const pass = page.locator('input[type="password"]').first();
-  if (await pass.count().catch(() => 0)) {
-    await pass.fill(c.password).catch(() => {});
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(6000);
-  }
-
-  const codigoCampo = page.locator('input[id*="code" i], input[name*="code" i], input[autocomplete="one-time-code"]').first();
-  if (await codigoCampo.count().catch(() => 0)) {
-    const codigo = await esperarCodigo(P, c.otp_remitente || 'uber');
-    if (!codigo) { await volcar(`${P}_otp`, await page.content()); return false; }
-    await codigoCampo.fill(codigo).catch(() => {});
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(8000);
-  }
-
+  await pass.fill(c.password).catch(() => {});
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(9000);
   await quitarEstorbos(page);
+
   const ok = await dentro(page);
   await log(P, ok ? 'login_ok' : 'login_ko', `${c.cuenta} · url=${page.url()}`);
   if (!ok) await volcar(`${P}_login_ko`, await page.content());
