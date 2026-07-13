@@ -2,6 +2,10 @@
  * ROBOT GLOVO · Descarga informes del portal de gestión y los deja en la bandeja.
  * Hay DOS cuentas (posmodernos y streatlab): las recorre las dos.
  *
+ * Login (13-jul-2026): tras usuario+contraseña Glovo salta a /2fa y pide un código
+ * de 6 dígitos que manda por correo (no-reply@portal.glovoapp.com → reenviado al
+ * buzón del cartero). La pantalla de 2fa NO es estar dentro.
+ *
  * Modos (env MODO):
  *   diario   → historial de pedidos de ayer
  *   semanal  → liquidaciones de la semana cerrada + facturas
@@ -18,7 +22,33 @@ const MODO = (process.env.MODO || 'diario').toLowerCase();
 const MES = process.env.MES || '';
 
 async function dentro(page: Page): Promise<boolean> {
-  return !/login|signin/i.test(page.url()) && !(await page.locator('input[type="password"]').count().catch(() => 0));
+  const u = page.url();
+  if (/login|signin|2fa|otp|verif/i.test(u)) return false;
+  if (await page.locator('input[type="password"]').count().catch(() => 0)) return false;
+  return true;
+}
+
+/** Escribe el código, tanto si hay una caja como si hay seis huecos de un dígito. */
+async function escribirCodigo(page: Page, codigo: string): Promise<boolean> {
+  const huecos = page.locator('input[autocomplete="one-time-code"], input[maxlength="1"], input[type="tel"], input[name*="code" i], input[id*="otp" i], input[type="number"]');
+  const n = await huecos.count().catch(() => 0);
+  if (n === 0) return false;
+
+  if (n >= codigo.length) {
+    for (let i = 0; i < codigo.length; i++) {
+      await huecos.nth(i).fill(codigo[i]).catch(() => {});
+      await page.waitForTimeout(200);
+    }
+  } else {
+    await huecos.first().click({ timeout: 5000 }).catch(() => {});
+    await huecos.first().type(codigo, { delay: 120 }).catch(async () => { await huecos.first().fill(codigo).catch(() => {}); });
+  }
+
+  const b = page.getByRole('button', { name: /verificar|confirmar|continuar|acceder|verify|submit|enviar/i }).first();
+  if (await b.count().catch(() => 0)) await b.click({ timeout: 8000 }).catch(() => {});
+  else await page.keyboard.press('Enter').catch(() => {});
+  await page.waitForTimeout(9000);
+  return true;
 }
 
 async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boolean> {
@@ -33,21 +63,26 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   const pass = page.locator('input[type="password"]').first();
   await pass.fill(c.password).catch(() => {});
   await page.getByRole('button', { name: /entrar|log ?in|iniciar|continuar|sign in/i }).first().click({ timeout: 10000 }).catch(() => {});
-  await page.waitForTimeout(8000);
+  await page.waitForTimeout(9000);
+  await quitarEstorbos(page);
 
-  const codigoCampo = page.locator('input[autocomplete="one-time-code"], input[name*="code" i], input[id*="otp" i]').first();
-  if (await codigoCampo.count().catch(() => 0)) {
-    const codigo = await esperarCodigo(P, c.otp_remitente || 'glovo');
-    if (!codigo) { await volcar(`${P}_otp`, await page.content()); return false; }
-    await codigoCampo.fill(codigo).catch(() => {});
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(8000);
+  // Pantalla de código (2FA)
+  if (!(await dentro(page))) {
+    await volcar(`${P}_2fa_${c.cuenta}`, await page.content().catch(() => ''));
+    const codigo = await esperarCodigo(P, c.otp_remitente || 'glovo', 180);
+    if (!codigo) { await log(P, 'login_ko', `${c.cuenta}: no llegó el código`); return false; }
+    const escrito = await escribirCodigo(page, codigo);
+    if (!escrito) {
+      await log(P, 'login_ko', `${c.cuenta}: no encuentro dónde escribir el código · url=${page.url()}`);
+      await volcar(`${P}_sin_hueco_codigo_${c.cuenta}`, await page.content().catch(() => ''));
+      return false;
+    }
+    await quitarEstorbos(page);
   }
 
-  await quitarEstorbos(page);
   const ok = await dentro(page);
   await log(P, ok ? 'login_ok' : 'login_ko', `${c.cuenta} · url=${page.url()}`);
-  if (!ok) await volcar(`${P}_login_ko`, await page.content());
+  if (!ok) await volcar(`${P}_login_ko_${c.cuenta}`, await page.content());
   else await guardarSesion(P, c.cuenta, ctx);
   return ok;
 }
