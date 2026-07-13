@@ -3,8 +3,8 @@
  *
  * jul-26 · Ley Visual SL v2 APROBADA: SL pasa a ser el estilo POR DEFECTO.
  * El interruptor se mantiene solo para poder comparar con el neobrutal mientras
- * quedan pestañas sin migrar (Operaciones, Finanzas, Marcas). Cuando estén todas
- * en SL, se retira el interruptor y el neobrutal se borra.
+ * quedan pestañas sin migrar. Cuando estén todas en SL, se retira el interruptor
+ * y el neobrutal se borra.
  *
  * Aislado a propósito: no toca ningún token ni componente neobrutal.
  * Sin provider: cualquier pantalla puede llamar a useSkin() y colocar <SkinToggle />.
@@ -44,13 +44,45 @@ export function useSkin() {
   return { skin, setSkin }
 }
 
-/** Interruptor NEO / SL. Se coloca en la barra superior de cada pantalla migrada. */
+/**
+ * Interruptor NEO / SL. Se coloca en la barra superior de cada pantalla migrada.
+ * Estilos en línea a propósito: así ninguna regla global (neobrutal, index.css)
+ * puede pisarle el color. El activo va SIEMPRE en granate de marca.
+ */
 export function SkinToggle() {
   const { skin, setSkin } = useSkin()
+
+  const base: React.CSSProperties = {
+    border: 'none',
+    cursor: 'pointer',
+    padding: '7px 14px',
+    fontFamily: "'Nunito', system-ui, sans-serif",
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: '0.6px',
+    lineHeight: 1.2,
+    borderRadius: 0,
+    boxShadow: 'none',
+  }
+  const on: React.CSSProperties = { ...base, background: '#B01D23', color: '#fff' }
+  const off: React.CSSProperties = { ...base, background: 'transparent', color: '#9C9894' }
+
   return (
-    <div className="sl-switch" role="group" aria-label="Estilo visual">
-      <button className={skin === 'neo' ? 'on' : ''} onClick={() => setSkin('neo')}>NEO</button>
-      <button className={skin === 'sl' ? 'on' : ''} onClick={() => setSkin('sl')}>SL</button>
+    <div
+      role="group"
+      aria-label="Estilo visual"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0,
+        border: '1px solid #F0E7DC',
+        borderRadius: 999,
+        overflow: 'hidden',
+        background: '#fff',
+      }}
+    >
+      <button style={skin === 'neo' ? on : off} onClick={() => setSkin('neo')}>NEO</button>
+      <button style={skin === 'sl' ? on : off} onClick={() => setSkin('sl')}>SL</button>
     </div>
   )
 }
