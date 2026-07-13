@@ -1,5 +1,8 @@
 /**
- * ResumenLanding v18 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * ResumenLanding v19 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * v19: nueva fila 0 → HOY EN VIVO (70%) + estado de salud del periodo (30%).
+ *      El bloque en vivo solo aparece en horario de servicio (11:00–24:00); fuera de él,
+ *      el estado de salud vuelve a ocupar el ancho completo.
  * v18: columna derecha de la sección 5 con las 3 tarjetas (Cuándo te compran · Días pico ·
  *      Lo que deja cada pedido) repartidas a partes iguales (flex:1, misma altura). La tarjeta
  *      de pedido se simplifica: sin barra "ingreso − coste" y sin frase inferior.
@@ -13,6 +16,7 @@ import type { GrupoGasto } from './ColGruposGasto'
 import type { DiaPico } from './ColDiasPico'
 import type { PorCobrarResult } from '@/lib/panel/calcPorCobrar'
 import { elegirFrase, type MetricasInsight } from './frasesInsight'
+import CardHoyEnVivo, { enHorarioServicio } from './CardHoyEnVivo'
 
 const INK = '#140f08'
 const OSC = '#2b2117'
@@ -189,6 +193,9 @@ export default function ResumenLanding(p: Props) {
   const diaFuerte = diasConV.length ? diasConV.reduce((a, x) => x.valor > a.valor ? x : a) : null
   const diaFlojo = diasConV.length ? diasConV.reduce((a, x) => x.valor < a.valor ? x : a) : null
 
+  // ¿estamos dando servicio? Solo entonces se pinta el bloque HOY EN VIVO.
+  const enServicio = enHorarioServicio()
+
   // ¿hay costes cargados? Si no, no calculamos derivados (evita mostrar margen=neto=resultado)
   const hayProducto = p.grupos.producto.gasto > 0
   const hayCostes = hayProducto || p.grupos.equipo.gasto > 0 || p.grupos.local.gasto > 0 || p.grupos.controlables.gasto > 0
@@ -298,23 +305,30 @@ export default function ResumenLanding(p: Props) {
     <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}` }}>
       {p.datosDemo && <div style={{ background: AMA, borderBottom: `4px solid ${INK}`, padding: `8px ${PAD}`, fontFamily: OSW, letterSpacing: '1px', fontSize: 13, textTransform: 'uppercase' }}>Datos demo · BD vacía o sin datos en este periodo</div>}
 
-      {/* 0 · ESTADO DE SALUD */}
-      <section style={{ background: saludBg, color: saludTxt, borderBottom: `4px solid ${INK}`, padding: `20px ${PAD}`, display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 24, alignItems: 'center' }}>
-        <div>
-          <div style={{ ...d('clamp(26px,3.4vw,42px)', saludTxt) }}>{saludTitulo}</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-            {saludPuntos.map((t, i) => (
-              <span key={i} style={{ fontFamily: OSW, fontWeight: 700, fontSize: 'clamp(15px,1.7vw,19px)', lineHeight: 1, letterSpacing: '0.3px', textTransform: 'uppercase', background: '#ffffff26', border: `2px solid #ffffff66`, color: '#fff', padding: '5px 11px' }}>{t}</span>
-            ))}
+      {/* 0 · HOY EN VIVO (70%) + ESTADO DE SALUD DEL PERIODO (30%) */}
+      <div style={{ display: 'grid', gridTemplateColumns: enServicio ? '7fr 3fr' : '1fr', borderBottom: `4px solid ${INK}` }}>
+        {enServicio && (
+          <div style={{ borderRight: `4px solid ${INK}` }}>
+            <CardHoyEnVivo />
           </div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.85 }}>Periodo</div>
-          <div style={d('clamp(18px,2.2vw,26px)', saludTxt)}>{p.periodoLabel ?? '—'}</div>
-          {p.periodoRango && <div style={{ fontFamily: OSW, fontSize: 13.5, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.92, marginTop: 4 }}>{p.periodoRango}</div>}
-          <div style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.8, marginTop: 8 }}>Actualizado {actualizado} · Panel Global</div>
-        </div>
-      </section>
+        )}
+        <section style={{ background: saludBg, color: saludTxt, padding: '20px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16 }}>
+          <div>
+            <div style={{ ...d(enServicio ? 'clamp(20px,1.9vw,28px)' : 'clamp(26px,3.4vw,42px)', saludTxt) }}>{saludTitulo}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              {saludPuntos.map((t, i) => (
+                <span key={i} style={{ fontFamily: OSW, fontWeight: 700, fontSize: enServicio ? 'clamp(12px,1vw,14px)' : 'clamp(15px,1.7vw,19px)', lineHeight: 1.15, letterSpacing: '0.3px', textTransform: 'uppercase', background: '#ffffff26', border: `2px solid #ffffff66`, color: '#fff', padding: '5px 10px' }}>{t}</span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.85 }}>Periodo</div>
+            <div style={d('clamp(16px,1.7vw,24px)', saludTxt)}>{p.periodoLabel ?? '—'}</div>
+            {p.periodoRango && <div style={{ fontFamily: OSW, fontSize: 12.5, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.92, marginTop: 4 }}>{p.periodoRango}</div>}
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.8, marginTop: 8 }}>Actualizado {actualizado} · Panel Global</div>
+          </div>
+        </section>
+      </div>
 
       {/* 1 · HERO */}
       <section style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr', borderBottom: `4px solid ${INK}`, background: AMA }}>
