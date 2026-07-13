@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabResumen from '@/components/panel/resumen/TabResumen'
+import CardHoyEnVivo from '@/components/panel/resumen/CardHoyEnVivo'
 import TabOperaciones from '@/components/panel/TabOperaciones'
 import TabFinanzas from '@/components/panel/TabFinanzas'
 import Cashflow from '@/pages/finanzas/Cashflow'
@@ -290,9 +291,13 @@ export default function PanelGlobal() {
   const contenido = (
     <>
       {activeTab === 'resumen' && (
-        usaSL
-          ? <TabResumenSL rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />
-          : <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />
+        <>
+          {/* Ventas del día en tiempo real (robot cada 5 min). Siempre arriba del todo. */}
+          <CardHoyEnVivo sl={esSL} />
+          {usaSL
+            ? <TabResumenSL rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />
+            : <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />}
+        </>
       )}
       {activeTab === 'operaciones' && <TabOperaciones rows={rowsPeriodo} />}
       {activeTab === 'finanzas'    && <TabFinanzas rows={rowsPeriodo} />}
