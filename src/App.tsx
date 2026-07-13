@@ -16,6 +16,9 @@ const TabMarcas = React.lazy(() => import('@/pages/configuracion/marcas/TabMarca
 const TabCanales = React.lazy(() => import('@/pages/configuracion/marcas/TabCanales'))
 const TabDrive = React.lazy(() => import('@/pages/configuracion/marcas/TabDrive'))
 
+// A1 · Mapeo de marcas (venta ciega de Glovo / Just Eat)
+const MapeoMarcas = React.lazy(() => import('@/pages/configuracion/MapeoMarcas'))
+
 const ReglasPage = React.lazy(() => import('@/pages/configuracion/reglas/ReglasPage'))
 const TabReglasIngredientes = React.lazy(() => import('@/pages/configuracion/reglas/TabReglasIngredientes'))
 const TabReglasConciliacion = React.lazy(() => import('@/pages/configuracion/reglas/TabReglasConciliacion'))
@@ -168,6 +171,9 @@ function AppRoutes() {
           <Route path="configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
           {/* Pantalla Configuracion antigua eliminada · redirige a integraciones */}
           <Route path="configuracion/configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
+
+          {/* A1 · Mapeo de marcas: asigna marca a la venta ciega de Glovo / Just Eat */}
+          <Route path="configuracion/mapeo-marcas" element={<ProtectedRoute solo={['admin']}><MapeoMarcas /></ProtectedRoute>} />
 
           <Route path="configuracion/integraciones" element={<ProtectedRoute solo={['admin']}><MarcasPage /></ProtectedRoute>}>
             <Route index element={<TabMarcas />} />
