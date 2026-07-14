@@ -3,17 +3,18 @@
  * Dos cuentas (posmodernos y streatlab). Entra solo: sesión guardada + código por
  * correo leído por IMAP del buzón de la cuenta si hace falta.
  *
- * 14-jul-2026 · Al pulsar "Descargar informe" Glovo pide "Mantén pulsado para
- * confirmar que eres un ser humano" (lo resuelve mantenPulsado del navegador común).
- * Además, en la página de pedidos hay que esperar a que aparezca el chip de export:
- * si se mira demasiado pronto, parece que no existe.
+ * 15-jul-2026 · Los volcados demostraron que portal.glovoapp.com/invoicing e
+ * /invoices NO existen: redirigen al panel de managers. Facturas y liquidaciones
+ * se sacan navegando el menú del propio portal: [data-testid="finance-nav-item"].
+ * El export de pedidos sigue detrás del captcha "mantén pulsado" (PerimeterX);
+ * ahora se aguanta sobre el elemento del captcha de verdad (#px-captcha).
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
-import { abrir, quitarEstorbos, capturar, mantenPulsado, descargarDeLaPagina } from './_lib/navegador.js';
+import { abrir, quitarEstorbos, capturar, mantenPulsado, descargarDeLaPagina, bajarEnlaces } from './_lib/navegador.js';
 
 const P = 'glovo';
 const RAIZ = 'https://managers.glovoapp.com';
@@ -102,14 +103,61 @@ async function descargaGlovo(page: Page, paso: string) {
   return null;
 }
 
-async function seccion(page: Page, ruta: string, tipo: string, periodo: string, destino: string, cuenta: string) {
-  await page.goto(ruta.startsWith('http') ? ruta : `${RAIZ}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+/** Abre una sección por el menú lateral del portal (los goto directos no existen). */
+async function irPorMenu(page: Page, testid: string): Promise<boolean> {
+  await page.goto(RAIZ, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(8000);
+  await quitarEstorbos(page);
+  const item = page.locator(`[data-testid="${testid}"]`).first();
+  if (!(await item.count().catch(() => 0))) return false;
+  await item.click({ timeout: 10000 }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
-  const f = await descargaGlovo(page, `${tipo}_${cuenta}`);
-  if (!f) return;
-  await entregar({ fuente: P, tipo, nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino });
+  return true;
+}
+
+/** Finanzas: facturas y liquidaciones (PDFs con enlace directo, sin captcha). */
+async function finanzas(page: Page, periodo: string, cuenta: string) {
+  if (!(await irPorMenu(page, 'finance-nav-item'))) {
+    await log(P, 'aviso', `${cuenta}: no encuentro el menú de finanzas`);
+    return;
+  }
+  await volcar(`${P}_finanzas_${cuenta}`, await page.content().catch(() => ''));
+
+  // Recorrer las pestañas de la sección (Facturas / Liquidaciones / Pagos…)
+  const pestañas = page.locator('[role="tab"], a[role="tab"], button[role="tab"]');
+  const nTabs = Math.min(await pestañas.count().catch(() => 0), 5);
+
+  const bajarAqui = async (paso: string) => {
+    const ficheros = await bajarEnlaces(P, page, paso, 8);
+    for (const f of ficheros) {
+      await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'facturas' });
+    }
+    if (!ficheros.length) {
+      const f = await descargarDeLaPagina(P, page, paso);
+      if (f) await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'facturas' });
+    }
+  };
+
+  if (nTabs === 0) { await bajarAqui(`finanzas_${cuenta}`); return; }
+  for (let i = 0; i < nTabs; i++) {
+    await pestañas.nth(i).click({ timeout: 6000 }).catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(6000);
+    await bajarAqui(`finanzas_tab${i}_${cuenta}`);
+  }
+}
+
+/** Pedidos: el export CSV con captcha. Se intenta, pero ya no bloquea al resto. */
+async function pedidos(page: Page, periodo: string, cuenta: string) {
+  await page.goto('https://portal.glovoapp.com/orders', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(9000);
+  await quitarEstorbos(page);
+  const f = await descargaGlovo(page, `orderdetails_${cuenta}`);
+  if (f) await entregar({ fuente: P, tipo: 'glovo_orderdetails', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
 }
 
 async function trabajarCuenta(c: Cuenta) {
@@ -119,9 +167,8 @@ async function trabajarCuenta(c: Cuenta) {
     const ayer = hoyMadrid(1);
     const periodo = MODO === 'backfill' && /^\d{4}-\d{2}$/.test(MES) ? MES : ayer;
 
-    await seccion(page, 'https://portal.glovoapp.com/orders', 'glovo_orderdetails', periodo, 'ventas', c.cuenta);
-    await seccion(page, 'https://portal.glovoapp.com/invoicing', 'glovo_liquidacion', periodo, 'ventas', c.cuenta);
-    await seccion(page, 'https://portal.glovoapp.com/invoices', 'glovo_factura', periodo, 'facturas', c.cuenta);
+    await finanzas(page, periodo, c.cuenta);   // primero lo que NO tiene captcha
+    await pedidos(page, periodo, c.cuenta);    // el CSV con captcha, al final
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
     process.exitCode = 1;
