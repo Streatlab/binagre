@@ -1,17 +1,15 @@
 /**
- * ROBOT SINQRO · Descarga los informes de ventas de Sinqro (aquí viven los pedidos
- * de Just Eat, que en su portal no tiene informes) y los deja en la bandeja.
+ * ROBOT SINQRO · Los pedidos de Just Eat viven aquí. Entra SIEMPRE por
+ * panel.sinqro.com (NO por app.sinqro.com) y baja los informes del punto de venta.
  *
- * Mapa real del panel (14-jul-2026, volcado del login):
- *   - Cuenta de negocio:      /business_accounts/3976804
- *   - Punto de venta:         /selling_point_accounts/3976805
- *   - Facturación:            /billing_accounts
- * Los informes cuelgan del punto de venta. El robot recorre esa rama buscando
- * la sección de pedidos/informes y su botón de exportar; si no la encuentra,
- * vuelca el HTML para afinar la ruta.
+ * Mapa real (volcado 14-jul-2026):
+ *   /selling_point_accounts/3976805/orders   → pedidos
+ *   /selling_point_accounts/3976805/report   → informes
+ *   /business_accounts/3976804               → cuenta de negocio
+ *   /billing_accounts                        → facturación
  *
  * Login: robot_credenciales (plataforma='sinqro'). Código por correo si lo pide:
- * se lee por IMAP del buzón de la cuenta (buzones_otp).
+ * IMAP del buzón de la cuenta (buzones_otp).
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
@@ -19,20 +17,19 @@ import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/por
 import { abrir, quitarEstorbos, descargarDeLaPagina } from './_lib/navegador.js';
 
 const P = 'sinqro';
-const MODO = (process.env.MODO || 'diario').toLowerCase();
-const MES = process.env.MES || '';
+const PANEL = 'https://panel.sinqro.com';          // ← nunca app.sinqro.com
 const PUNTO_VENTA = '3976805';
 const NEGOCIO = '3976804';
+const MODO = (process.env.MODO || 'diario').toLowerCase();
+const MES = process.env.MES || '';
 
 async function dentro(page: Page): Promise<boolean> {
   if (await page.locator('input[type="password"]').count().catch(() => 0)) return false;
-  const u = page.url();
-  return !/\/(login|signin|sign_in|auth)/i.test(u);
+  return !/\/(login|signin|sign_in|auth)/i.test(page.url());
 }
 
 async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boolean> {
-  const base = (c.url_base || 'https://panel.sinqro.com').replace(/\/$/, '');
-  await page.goto(base, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.goto(PANEL, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForTimeout(5000);
   await quitarEstorbos(page);
   if (await dentro(page)) { await log(P, 'sesion_ok', `${c.cuenta}: sesión guardada todavía válida`); return true; }
@@ -40,8 +37,7 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   const email = page.locator('input[type="email"], input[name="email"], input[name="username"], input[id*="email" i], input[type="text"]').first();
   await email.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
   await email.fill(c.usuario).catch(() => {});
-  const pass = page.locator('input[type="password"]').first();
-  await pass.fill(c.password).catch(() => {});
+  await page.locator('input[type="password"]').first().fill(c.password).catch(() => {});
 
   const pedidoEn = new Date();
   await page.getByRole('button', { name: /entrar|acceder|log ?in|iniciar|continuar|sign in/i }).first()
@@ -72,50 +68,37 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
 async function seccion(page: Page, url: string, tipo: string, periodo: string, cuenta: string, destino = 'ventas'): Promise<boolean> {
   await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(6000);
+  await page.waitForTimeout(7000);
   await quitarEstorbos(page);
+
+  // Sinqro suele tener un botón de exportar/descargar; si hay filtro de fechas, se deja el de por defecto.
   const f = await descargarDeLaPagina(P, page, `${tipo}_${cuenta}`);
   if (!f) return false;
   await entregar({ fuente: P, tipo, nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino });
   return true;
 }
 
-/** Sigue los enlaces del punto de venta buscando pedidos/informes. */
-async function explorarPuntoVenta(page: Page, base: string, cuenta: string) {
-  await page.goto(`${base}/selling_point_accounts/${PUNTO_VENTA}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForTimeout(6000);
-  await volcar(`${P}_punto_venta`, await page.content().catch(() => ''));
-
-  const enlaces = await page.locator('a[href]').evaluateAll((as) =>
-    as.map((a) => (a as HTMLAnchorElement).getAttribute('href') || '')
-      .filter((h) => /order|pedido|report|informe|sale|venta|stat|export|invoice|factura|liquidac/i.test(h)),
-  ).catch(() => [] as string[]);
-
-  const unicos = [...new Set(enlaces)].slice(0, 12);
-  await log(P, 'mapa', unicos.length ? `enlaces de interés: ${unicos.join(' | ')}`.slice(0, 400) : 'ningún enlace de pedidos/informes en el punto de venta');
-  return unicos;
-}
-
 async function trabajarCuenta(c: Cuenta) {
   const { browser, ctx, page } = await abrir(P, c.cuenta);
   try {
     if (!(await entrar(page, ctx, c))) return;
-    const base = (c.url_base || 'https://panel.sinqro.com').replace(/\/$/, '');
     const periodo = MODO === 'backfill' && /^\d{4}-\d{2}$/.test(MES) ? MES : hoyMadrid(1);
 
-    const enlaces = await explorarPuntoVenta(page, base, c.cuenta);
-    for (const h of enlaces) {
-      const url = h.startsWith('http') ? h : `${base}${h.startsWith('/') ? '' : '/'}${h}`;
-      const tipo = /invoice|factura/i.test(h) ? 'sinqro_factura' : 'sinqro_ventas';
-      const destino = /invoice|factura/i.test(h) ? 'facturas' : 'ventas';
-      if (await seccion(page, url, tipo, periodo, c.cuenta, destino)) return;
-    }
+    const rutas: Array<[string, string, string]> = [
+      [`${PANEL}/selling_point_accounts/${PUNTO_VENTA}/report`, 'sinqro_informe', 'ventas'],
+      [`${PANEL}/selling_point_accounts/${PUNTO_VENTA}/orders`, 'sinqro_pedidos', 'ventas'],
+      [`${PANEL}/business_accounts/${NEGOCIO}`, 'sinqro_negocio', 'ventas'],
+      [`${PANEL}/billing_accounts`, 'sinqro_factura', 'facturas'],
+    ];
 
-    // Rutas conocidas del panel por si el punto de venta no lista nada
-    for (const r of [`/business_accounts/${NEGOCIO}`, '/billing_accounts']) {
-      if (await seccion(page, `${base}${r}`, 'sinqro_ventas', periodo, c.cuenta)) return;
+    let alguno = false;
+    for (const [url, tipo, destino] of rutas) {
+      if (await seccion(page, url, tipo, periodo, c.cuenta, destino)) alguno = true;
     }
-    await log(P, 'aviso', 'sin fichero; revisar volcados sinqro_punto_venta en robot_debug');
+    if (!alguno) {
+      await volcar(`${P}_informes`, await page.content().catch(() => ''));
+      await log(P, 'aviso', 'ninguna sección soltó fichero; revisar volcados sinqro_* en robot_debug');
+    }
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
     process.exitCode = 1;
