@@ -4,10 +4,9 @@
  *
  * Login (14-jul-2026): usuario+contraseña → pantalla /2fa con código de 6 dígitos
  * que Glovo manda por correo (no-reply@portal.glovoapp.com) al buzón de la cuenta.
- * El código se lee POR IMAP en el buzón de origen (tabla buzones_otp) y, si no hay
- * clave puesta, en el buzón del cartero (reenvío). Solo vale el correo posterior
- * al momento de pedirlo y que hable de código.
- * Prueba 14-jul 10:20 · primera con claves de buzón puestas.
+ * El código se lee POR IMAP en el buzón de origen (tabla buzones_otp).
+ * Solo vale el correo posterior al momento de pedirlo y que hable de código.
+ * Prueba 14-jul 10:55 · arreglada la lectura por UID del buzón.
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
