@@ -1,6 +1,7 @@
 /**
  * Conciliación en Ley Visual SL v2 (con acento oliva).
  * Se ve al pulsar SL en el interruptor. Solo lectura: no toca datos.
+ * Responsive según la receta de uiSLMovil.
  */
 import { useMemo, useState } from 'react'
 import { useConciliacion } from '@/hooks/useConciliacion'
@@ -14,6 +15,7 @@ import {
 import {
   OLIVA, KpiFoco, Ranking, Leyenda, BotonFoco, ChipsFoco, AnilloHero,
 } from '@/components/panel/sl/uiSLFoco'
+import { useMovil } from '@/components/panel/sl/uiSLMovil'
 
 type Filtro = 'sin_categoria' | 'sin_factura' | 'con_factura' | 'sin_titular' | 'ingresos' | 'gastos'
 
@@ -32,6 +34,7 @@ interface Mov {
 const IVA = 0.21
 
 export default function LabConciliacion() {
+  const movil = useMovil()
   const { movimientos: raw, categorias } = useConciliacion()
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState<Filtro | null>(null)
@@ -127,7 +130,6 @@ export default function LabConciliacion() {
   const tonoFila = (m: Mov) => {
     if (!m.categoria) return 'ambar' as const
     if (m.importe < 0 && !m.factura_id) return 'rojo' as const
-    if (m.importe > 0) return 'verde' as const
     return 'verde' as const
   }
   const textoEstado = (m: Mov) => {
@@ -140,7 +142,7 @@ export default function LabConciliacion() {
   const top = d.ranking[0]
 
   return (
-    <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
+    <div className="sl-skin" style={{ minHeight: '100vh', padding: movil ? '14px 12px' : '24px 28px' }}>
       <PageHead
         titulo="Conciliación"
         sub="Vista SL · solo lectura, no toca datos"
@@ -171,7 +173,7 @@ export default function LabConciliacion() {
         </Atencion>
       )}
 
-      <KpiGrid cols={4}>
+      <KpiGrid cols={movil ? 2 : 4}>
         <Kpi
           icono="✓" tono="verde" label="Cuadrados" valor={num0(d.conFactura.length)}
           pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>Con factura asociada</div>}
@@ -197,7 +199,7 @@ export default function LabConciliacion() {
         <SkeletonTabla filas={8} />
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : '1.15fr 1fr', gap: 12 }}>
             <Card>
               <CardHead title="Cómo va el mes" sub="Gasto por día" />
               <Leyenda items={[
@@ -206,7 +208,7 @@ export default function LabConciliacion() {
               ]} />
               {d.dias.length === 0
                 ? <Vacio>Sin gasto registrado todavía.</Vacio>
-                : <Barras datos={d.dias} fmt={eur0} />}
+                : <Barras datos={movil ? d.dias.slice(-8) : d.dias} fmt={eur0} />}
             </Card>
 
             <Card>
@@ -230,7 +232,7 @@ export default function LabConciliacion() {
             </Card>
           </div>
 
-          <Toolbar right={<Campo valor={busca} onChange={setBusca} placeholder="Buscar concepto o proveedor…" ancho={240} />}>
+          <Toolbar right={<Campo valor={busca} onChange={setBusca} placeholder="Buscar concepto o proveedor…" ancho={movil ? '100%' : 240} />}>
             <ChipsFoco
               activo={filtro}
               onChange={setFiltro}
@@ -261,9 +263,9 @@ export default function LabConciliacion() {
                 return (
                   <Fila key={m.id} tono={tonoFila(m)} onClick={() => setDetalle(m)}>
                     <Celda mono>{m.fecha.slice(8, 10)}/{m.fecha.slice(5, 7)}</Celda>
-                    <Celda fuerte style={{ maxWidth: 360 }}>
+                    <Celda fuerte style={{ maxWidth: movil ? 180 : 360 }}>
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.concepto}</div>
-                      <div style={{ fontSize: 10.5, fontWeight: 700, color: C.grisCl }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, color: C.grisCl, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {(m.proveedor || 'sin proveedor')} · {m.categoria ? (nombreCat[m.categoria] ?? m.categoria) : 'sin clasificar'}
                       </div>
                     </Celda>
@@ -304,7 +306,7 @@ export default function LabConciliacion() {
           onClose={() => setDetalle(null)}
           pie={<Boton variante="primario" onClick={() => setDetalle(null)}>Cerrar</Boton>}
         >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : 'repeat(2, 1fr)', gap: 12 }}>
             <Card style={{ marginBottom: 0 }}>
               <CardHead title="Importe" />
               <div className="slnum" style={{
