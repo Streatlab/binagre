@@ -1,19 +1,17 @@
 /**
- * LAB · Escandallo — pantalla espejo en Ley Visual SL v2.
- * Copia intocable: el Escandallo real sigue en neobrutal, sin tocar.
- * Elementos que aporta: pestañas con contador, buscador, rejilla de fichas,
- * listas anidadas y ficha en modal. Solo lectura.
+ * Escandallo en Ley Visual SL v2 (con acento oliva).
+ * Se ve al pulsar SL en el interruptor. Solo lectura: no toca datos.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  C, Card, CardHead, Kpi, KpiGrid, Pill, Nota, Vacio, InBar,
+  C, Hero, HeroPill, Card, CardHead, Kpi, KpiGrid, Pill, Nota, Vacio, InBar,
   eur2, num0, pct1,
 } from '@/components/panel/sl/uiSL'
 import {
-  PageHead, Tabs, Toolbar, Campo, Tabla, Fila, Celda, Modal, Boton,
-  SkeletonTabla, Estado,
+  PageHead, Tabs, Toolbar, Campo, Tabla, Fila, Celda, Modal, Boton, SkeletonTabla, Estado,
 } from '@/components/panel/sl/uiSLTabla'
+import { OLIVA, KpiFoco, Ranking, AnilloHero, BotonFoco } from '@/components/panel/sl/uiSLFoco'
 
 type TabId = 'ingredientes' | 'eps' | 'recetas' | 'mermas'
 
@@ -57,38 +55,99 @@ export default function LabEscandallo() {
   const fMermas = useMemo(() => mermas.filter(x => !q || (x.nombre ?? '').toLowerCase().includes(q)), [mermas, q])
 
   const conPrecio = ings.filter(i => Number(i.precio_kg ?? 0) > 0).length
-  const coberturaPrecio = ings.length > 0 ? (conPrecio / ings.length) * 100 : 0
+  const cobertura = ings.length > 0 ? (conPrecio / ings.length) * 100 : 0
+  const sinPrecio = ings.length - conPrecio
   const epsHuerfanos = eps.filter(e => (e.usos ?? 0) === 0).length
   const maxPrecio = Math.max(...ings.map(i => Number(i.precio_kg ?? 0)), 1)
 
-  const margenReceta = (r: Rec) => {
+  const margen = (r: Rec) => {
     const pvp = Number(r.pvp ?? 0)
     const coste = Number(r.coste_total ?? 0)
     if (pvp <= 0 || coste <= 0) return null
     return ((pvp - coste) / pvp) * 100
   }
 
+  const mejores = useMemo(() => recs
+    .map(r => ({ label: r.nombre, valor: margen(r) ?? 0 }))
+    .filter(r => r.valor > 0)
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 5), [recs])
+
+  const peores = useMemo(() => recs
+    .map(r => ({ r, m: margen(r) }))
+    .filter(x => x.m != null)
+    .sort((a, b) => (a.m as number) - (b.m as number))[0], [recs])
+
   return (
     <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
       <PageHead
         titulo="Escandallo"
-        sub="Pantalla espejo · solo lectura, no toca datos"
+        sub="Vista SL · solo lectura, no toca datos"
         right={<Pill tone="neutro">{num0(ings.length + eps.length + recs.length)} fichas</Pill>}
+      />
+
+      <Hero
+        eyebrow="INGREDIENTES SIN PRECIO"
+        titular={sinPrecio > 0
+          ? 'Mientras falten precios, el coste de tus platos es mentira'
+          : 'Todos los ingredientes están costeados'}
+        valor={num0(sinPrecio)}
+        sub={`${num0(conPrecio)} de ${num0(ings.length)} ingredientes con precio · ${num0(recs.length)} recetas dependen de ellos`}
+        right={
+          <>
+            <HeroPill solid>{num0(epsHuerfanos)} EPS sin usar</HeroPill>
+            <AnilloHero pct={cobertura} label="COSTEADO" />
+          </>
+        }
       />
 
       <KpiGrid cols={4}>
         <Kpi
-          icono="€" tono={coberturaPrecio >= 90 ? 'verde' : 'ambar'}
-          label="Ingredientes con precio" valor={pct1(coberturaPrecio)}
-          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>{num0(conPrecio)} de {num0(ings.length)} · sin precio no hay coste real</div>}
+          icono="€" tono={cobertura >= 90 ? 'verde' : 'ambar'}
+          label="Ingredientes con precio" valor={pct1(cobertura)}
+          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>{num0(conPrecio)} de {num0(ings.length)}</div>}
         />
         <Kpi icono="E" tono="blu" label="EPS" valor={num0(eps.length)}
-          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>{num0(epsHuerfanos)} sin usar en ninguna receta</div>} />
+          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>{num0(epsHuerfanos)} no se usan en ninguna receta</div>} />
         <Kpi icono="R" tono="blu" label="Recetas" valor={num0(recs.length)}
-          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>Cada receta debe acabar en un plato de carta</div>} />
-        <Kpi icono="%" tono="ambar" label="Mermas" valor={num0(mermas.length)}
-          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>Lo que se pierde antes de cocinar</div>} />
+          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>Cada receta debe acabar en carta</div>} />
+        <KpiFoco
+          label="Plato que menos margen deja"
+          valor={peores?.m != null ? pct1(peores.m) : '—'}
+          accion={peores ? peores.r.nombre : 'Sin datos'}
+          onAccion={() => setTab('recetas')}
+        />
       </KpiGrid>
+
+      {mejores.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Card>
+            <CardHead title="Los que más te dejan" sub="Margen por receta" />
+            <Ranking
+              filas={mejores.map(m => ({ ...m, color: OLIVA.medio }))}
+              fmt={(n) => pct1(n)}
+              pie={
+                <>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: C.grisCl }}>Empújalos en carta</span>
+                  <BotonFoco onClick={() => setTab('recetas')}>Ver recetas</BotonFoco>
+                </>
+              }
+            />
+          </Card>
+          <Card>
+            <CardHead title="Mermas más altas" sub="Lo que se pierde antes de cocinar" />
+            {mermas.length === 0 ? <Vacio>Sin mermas cargadas.</Vacio> : (
+              <Ranking
+                filas={[...mermas]
+                  .sort((a, b) => Number(b.merma_pct ?? 0) - Number(a.merma_pct ?? 0))
+                  .slice(0, 5)
+                  .map((m, i) => ({ label: m.nombre, valor: Number(m.merma_pct ?? 0), color: i === 0 ? C.rojoSem : C.naranja }))}
+                fmt={(n) => pct1(n)}
+              />
+            )}
+          </Card>
+        </div>
+      )}
 
       <Tabs
         activeId={tab}
@@ -112,7 +171,6 @@ export default function LabEscandallo() {
               <Tabla cabeceras={[
                 { label: 'Ingrediente' },
                 { label: 'Proveedor', ancho: 180 },
-                { label: 'Unidad', ancho: 90 },
                 { label: 'Precio', alinea: 'der', ancho: 170 },
                 { label: 'Estado', alinea: 'der', ancho: 130 },
               ]}>
@@ -130,10 +188,9 @@ export default function LabEscandallo() {
                     })}>
                       <Celda fuerte>{i.nombre}</Celda>
                       <Celda style={{ color: C.grisCl }}>{i.proveedor || '—'}</Celda>
-                      <Celda style={{ color: C.grisCl }}>{i.unidad || '—'}</Celda>
                       <Celda der>
                         <span className="slnum" style={{ fontWeight: 900 }}>{p > 0 ? eur2(p) : '—'}</span>
-                        {p > 0 && <InBar pct={(p / maxPrecio) * 100} color={C.rojo} />}
+                        {p > 0 && <InBar pct={(p / maxPrecio) * 100} color={C.naranja} />}
                       </Celda>
                       <Celda der>
                         <Estado tono={p > 0 ? 'verde' : 'ambar'}>{p > 0 ? 'Costeado' : 'Sin precio'}</Estado>
@@ -186,10 +243,10 @@ export default function LabEscandallo() {
                 { label: 'Receta' },
                 { label: 'Coste', alinea: 'der', ancho: 120 },
                 { label: 'PVP', alinea: 'der', ancho: 120 },
-                { label: 'Margen', alinea: 'der', ancho: 160 },
+                { label: 'Margen', alinea: 'der', ancho: 170 },
               ]}>
                 {fRecs.slice(0, 120).map(r => {
-                  const m = margenReceta(r)
+                  const m = margen(r)
                   const tono = m == null ? 'neutro' : m >= 65 ? 'verde' : m >= 50 ? 'ambar' : 'rojo'
                   return (
                     <Fila key={r.id} tono={tono} onClick={() => setFicha({
@@ -208,8 +265,8 @@ export default function LabEscandallo() {
                       <Celda der>
                         {m == null ? <Pill tone="neutro">Sin datos</Pill> : (
                           <>
-                            <span className="slnum" style={{ fontWeight: 900 }}>{pct1(m)}</span>
-                            <InBar pct={m} color={m >= 65 ? C.verde : m >= 50 ? C.ambar : C.rojoSem} />
+                            <span className="slnum" style={{ fontWeight: 900, color: m >= 65 ? OLIVA.hondo : C.ink }}>{pct1(m)}</span>
+                            <InBar pct={m} color={m >= 65 ? OLIVA.medio : m >= 50 ? C.ambar : C.rojoSem} />
                           </>
                         )}
                       </Celda>
@@ -233,7 +290,7 @@ export default function LabEscandallo() {
                       <Celda fuerte>{m.nombre}</Celda>
                       <Celda der>
                         <span className="slnum" style={{ fontWeight: 900 }}>{pct1(pct)}</span>
-                        <InBar pct={pct} color={pct > 25 ? C.rojoSem : pct > 12 ? C.ambar : C.verde} />
+                        <InBar pct={pct} color={pct > 25 ? C.rojoSem : pct > 12 ? C.ambar : OLIVA.medio} />
                       </Celda>
                     </Fila>
                   )
@@ -242,9 +299,9 @@ export default function LabEscandallo() {
             )
           )}
 
-          {tab === 'ingredientes' && coberturaPrecio < 90 && (
-            <Nota tono="ambar" accion="Ver los que faltan">
-              Mientras haya ingredientes sin precio, el coste de las recetas que los usan es mentira.
+          {tab === 'ingredientes' && cobertura < 90 && (
+            <Nota tono="ambar">
+              Faltan {num0(sinPrecio)} precios. Sin ellos, el coste de las recetas que los usan no vale.
             </Nota>
           )}
         </>
@@ -267,7 +324,7 @@ export default function LabEscandallo() {
               <span className="slnum" style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{v}</span>
             </div>
           ))}
-          <Nota tono="blu">Ficha de solo lectura. Para editar, ve al Escandallo real.</Nota>
+          <Nota tono="blu">Ficha de solo lectura. Para editar, cambia a la vista NEO.</Nota>
         </Modal>
       )}
     </div>
