@@ -1,30 +1,32 @@
 /**
  * ROBOT UBER EATS · Descarga informes y los deja en la bandeja.
  *
- * Entrada (14-jul-2026), por orden:
- *   1) SESIÓN SEMBRADA: cookies del navegador de Rubén guardadas en
- *      sesiones/uber__streatlab.json. Si valen, se entra sin login (Uber bloquea
- *      el login automático desde servidores: su antirrobot congela la pantalla).
- *   2) Si la sesión caducó: correo → "Continuar" → Uber ofrece SMS. Se pulsa
- *      "Más opciones"/"Otro método", se elige CORREO ELECTRÓNICO, y el código que
- *      llega a direccion@streatlab.com se lee POR IMAP (tabla buzones_otp).
- *   3) Si aparece campo de contraseña, se usa la contraseña de robot_credenciales.
+ * ENTRADA: sesión sembrada (cookies del navegador de Rubén en
+ * sesiones/uber__streatlab.json). Uber bloquea el login automático desde
+ * servidores, así que la sesión es el camino. Si caduca: correo → "Más opciones"
+ * → CORREO ELECTRÓNICO → el código llega a direccion@streatlab.com y se lee por
+ * IMAP (buzones_otp).
+ *
+ * DESCARGA (14-jul-2026): la sección "Informes" (/manager/reports) lista informes
+ * ya generados con estado "Disponible" y un menú "Acción" por fila con la descarga.
+ * El robot: 1) abre Informes, 2) en la fila más reciente disponible abre Acción y
+ * pulsa Descargar, 3) si no hay ninguno, pulsa "Solicitar de nuevo" en el último y
+ * espera a que se genere.
  *
  * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM)
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
-import { abrir, quitarEstorbos, descargarDeLaPagina } from './_lib/navegador.js';
+import { abrir, quitarEstorbos, capturar } from './_lib/navegador.js';
 
 const P = 'uber';
 const RAIZ = 'https://merchants.ubereats.com';
 const MODO = (process.env.MODO || 'diario').toLowerCase();
 const MES = process.env.MES || '';
 
-const RE_MAS = /m[aá]s opciones|otras opciones|otra forma|otro m[eé]todo|more options|try another way|another way|use another|enlace/i;
+const RE_MAS = /m[aá]s opciones|otras opciones|otra forma|otro m[eé]todo|more options|try another way|enlace/i;
 const RE_CORREO = /correo electr[oó]nico|email|e-mail/i;
-const RE_PASS = /contrase[nñ]a|password/i;
 const RE_SEGUIR = /^(continuar|siguiente|continue|next|acceder|iniciar sesi[oó]n|verificar)$/i;
 
 async function dentro(page: Page): Promise<boolean> {
@@ -32,134 +34,116 @@ async function dentro(page: Page): Promise<boolean> {
   return /merchants\.ubereats\.com/i.test(u) && !/auth\.uber\.com|\/login|\/signin/i.test(u);
 }
 
-async function pantalla(page: Page): Promise<string> {
-  return (await page.locator('h1, h2, [role="heading"]').first().innerText().catch(() => '')).trim();
-}
-
 async function seguir(page: Page) {
-  const antes = await pantalla(page);
   const b = page.getByRole('button', { name: RE_SEGUIR }).first();
   if (await b.count().catch(() => 0)) await b.click({ timeout: 8000 }).catch(() => {});
   else await page.keyboard.press('Enter').catch(() => {});
-  for (let i = 0; i < 15; i++) {
-    await page.waitForTimeout(2000);
-    if (await dentro(page)) return;
-    const ahora = await pantalla(page);
-    if (ahora && ahora !== antes) return;
-  }
-}
-
-/** Escribe un código de 4-8 dígitos en la pantalla de verificación. */
-async function escribirCodigo(page: Page, codigo: string): Promise<boolean> {
-  const huecos = page.locator('input[autocomplete="one-time-code"], input[maxlength="1"], input[name*="code" i], input[id*="code" i], input[type="tel"], input[type="number"]');
-  const n = await huecos.count().catch(() => 0);
-  if (n === 0) return false;
-  if (n >= codigo.length) {
-    for (let i = 0; i < codigo.length; i++) {
-      await huecos.nth(i).fill(codigo[i]).catch(() => {});
-      await page.waitForTimeout(200);
-    }
-  } else {
-    await huecos.first().click({ timeout: 5000 }).catch(() => {});
-    await huecos.first().type(codigo, { delay: 130 }).catch(() => {});
-  }
-  await page.waitForTimeout(1200);
-  await seguir(page);
-  return true;
+  await page.waitForTimeout(6000);
 }
 
 async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boolean> {
   await page.goto(`${RAIZ}/manager/`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForTimeout(6000);
+  await page.waitForTimeout(7000);
   await quitarEstorbos(page);
   if (await dentro(page)) { await log(P, 'sesion_ok', `${c.cuenta}: sesión sembrada válida`); return true; }
 
-  // Correo
   const email = page.locator('#PHONE_NUMBER_or_EMAIL_ADDRESS, input[type="email"], input[name="email"]').first();
   if (await email.count().catch(() => 0)) {
     await email.click({ timeout: 8000 }).catch(() => {});
     await email.type(c.usuario, { delay: 90 }).catch(() => {});
-    await page.waitForTimeout(1000);
     const pedidoEn = new Date();
     await seguir(page);
-    await quitarEstorbos(page);
 
-    // Uber propone SMS: abrir "más opciones" y elegir CORREO ELECTRÓNICO
     for (let i = 0; i < 3; i++) {
-      if (await page.locator('input[type="password"]').count().catch(() => 0)) break;
       if (await page.locator('input[autocomplete="one-time-code"], input[maxlength="1"]').count().catch(() => 0)) break;
-
-      const mas = page.locator('button, a, [role="button"], [role="link"], span[tabindex]').filter({ hasText: RE_MAS }).first();
+      const mas = page.locator('button, a, [role="button"], span[tabindex]').filter({ hasText: RE_MAS }).first();
       if (await mas.count().catch(() => 0)) { await mas.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(3000); }
-
-      const opcionCorreo = page.locator('button, a, li, label, div[role="button"], [role="radio"], [role="option"]').filter({ hasText: RE_CORREO }).first();
-      if (await opcionCorreo.count().catch(() => 0)) { await opcionCorreo.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(2500); await seguir(page); continue; }
-
-      const opcionPass = page.locator('button, a, li, label, div[role="button"], [role="radio"], [role="option"]').filter({ hasText: RE_PASS }).first();
-      if (await opcionPass.count().catch(() => 0)) { await opcionPass.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(2500); await seguir(page); continue; }
-
-      await volcar(`${P}_paso_${i}`, await page.content().catch(() => ''));
-      await page.waitForTimeout(3000);
+      const correo = page.locator('button, a, li, label, div[role="button"], [role="radio"]').filter({ hasText: RE_CORREO }).first();
+      if (await correo.count().catch(() => 0)) { await correo.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(2500); await seguir(page); }
     }
 
-    // Camino contraseña
-    if (await page.locator('input[type="password"]').count().catch(() => 0)) {
-      const pass = page.locator('input[type="password"]').first();
-      await pass.click({ timeout: 6000 }).catch(() => {});
-      await pass.type(c.password, { delay: 70 }).catch(() => {});
+    const codigo = await esperarCodigo(P, c.otp_remitente || 'uber.com', 240, pedidoEn, c.usuario);
+    if (codigo) {
+      const huecos = page.locator('input[autocomplete="one-time-code"], input[maxlength="1"], input[name*="code" i]');
+      const n = await huecos.count().catch(() => 0);
+      if (n >= codigo.length) for (let i = 0; i < codigo.length; i++) await huecos.nth(i).fill(codigo[i]).catch(() => {});
+      else await huecos.first().type(codigo, { delay: 130 }).catch(() => {});
       await seguir(page);
-      await page.waitForTimeout(5000);
-    }
-
-    // Camino código por correo
-    if (!(await dentro(page))) {
-      const codigo = await esperarCodigo(P, c.otp_remitente || 'uber.com', 240, pedidoEn, c.usuario);
-      if (codigo) await escribirCodigo(page, codigo);
-      await page.waitForTimeout(6000);
     }
   }
 
-  await quitarEstorbos(page);
   const ok = await dentro(page);
-  await log(P, ok ? 'login_ok' : 'login_ko', `${c.cuenta} · pantalla="${await pantalla(page)}" · url=${page.url()}`);
+  await log(P, ok ? 'login_ok' : 'login_ko', `${c.cuenta} · url=${page.url()}`);
   if (!ok) await volcar(`${P}_login_ko`, await page.content().catch(() => ''));
   else await guardarSesion(P, c.cuenta, ctx);
   return ok;
 }
 
-async function seccion(page: Page, ruta: string, tipo: string, periodo: string, destino: string) {
-  await page.goto(ruta.startsWith('http') ? ruta : `${RAIZ}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+/** Informes de Uber: descarga el informe disponible más reciente. */
+async function bajarInforme(page: Page, periodo: string): Promise<boolean> {
+  await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(7000);
+  await page.waitForTimeout(8000);
   await quitarEstorbos(page);
-  const f = await descargarDeLaPagina(P, page, tipo);
-  if (!f) return;
-  await entregar({ fuente: P, tipo, nombre: f.nombre, datos: f.datos, periodo, destino });
+
+  // 1) Filas con estado Disponible → menú Acción → Descargar
+  const filas = page.locator('tr, [role="row"]').filter({ hasText: /disponible|available/i });
+  const n = Math.min(await filas.count().catch(() => 0), 4);
+
+  for (let i = 0; i < n; i++) {
+    const fila = filas.nth(i);
+    const f = await capturar(page, P, async () => {
+      const accion = fila.getByRole('button').last().or(fila.locator('button, [role="button"]').last());
+      if (await accion.count().catch(() => 0)) { await accion.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(2500); }
+      const desc = page.getByRole('menuitem', { name: /descargar|download/i }).first()
+        .or(page.getByRole('button', { name: /descargar|download/i }).first())
+        .or(page.locator('li, a').filter({ hasText: /descargar|download/i }).first());
+      if (await desc.count().catch(() => 0)) await desc.click({ timeout: 6000 }).catch(() => {});
+    }, 90);
+
+    if (f) {
+      await log(P, 'descarga', `informe: ${f.nombre} (${f.datos.length} bytes)`);
+      await entregar({ fuente: P, tipo: 'uber_informe', nombre: f.nombre, datos: f.datos, periodo, destino: 'ventas' });
+      return true;
+    }
+  }
+
+  // 2) Nada disponible: pedir de nuevo el último informe y esperar a que se genere
+  const rehacer = page.getByRole('button', { name: /solicitar de nuevo|request again/i }).first()
+    .or(page.locator('button, [role="button"]').filter({ hasText: /solicitar de nuevo/i }).first());
+  if (await rehacer.count().catch(() => 0)) {
+    await rehacer.click({ timeout: 8000 }).catch(() => {});
+    await log(P, 'aviso', 'informe solicitado de nuevo; se descargará en la siguiente pasada');
+    await page.waitForTimeout(60000);
+    await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForTimeout(8000);
+    const f = await capturar(page, P, async () => {
+      const fila = page.locator('tr, [role="row"]').filter({ hasText: /disponible|available/i }).first();
+      const accion = fila.locator('button, [role="button"]').last();
+      if (await accion.count().catch(() => 0)) { await accion.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(2500); }
+      const desc = page.getByRole('menuitem', { name: /descargar|download/i }).first();
+      if (await desc.count().catch(() => 0)) await desc.click({ timeout: 6000 }).catch(() => {});
+    }, 120);
+    if (f) {
+      await entregar({ fuente: P, tipo: 'uber_informe', nombre: f.nombre, datos: f.datos, periodo, destino: 'ventas' });
+      await log(P, 'descarga', `informe (tras solicitar): ${f.nombre}`);
+      return true;
+    }
+  }
+
+  await volcar(`${P}_informes`, await page.content().catch(() => ''));
+  await log(P, 'sin_descarga', 'informes: no he podido bajar ninguno (pantalla volcada)');
+  return false;
 }
 
 async function trabajarCuenta(c: Cuenta) {
   const { browser, ctx, page } = await abrir(P, c.cuenta);
   try {
     if (!(await entrar(page, ctx, c))) return;
-    const ayer = hoyMadrid(1);
-
-    if (MODO === 'diario') {
-      await seccion(page, '/manager/orders', 'uber_historial_pedidos', ayer, 'ventas');
-      await seccion(page, '/manager/analytics', 'uber_detalle_articulo', ayer, 'ventas');
-    } else if (MODO === 'semanal') {
-      await seccion(page, '/manager/payments', 'uber_resumen_ganancias', ayer, 'ventas');
-    } else if (MODO === 'mensual') {
-      const d = new Date();
-      const mesAnterior = new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 7);
-      await seccion(page, '/manager/payments', 'uber_resumen_mensual', mesAnterior, 'ventas');
-    } else if (MODO === 'backfill') {
-      if (!/^\d{4}-\d{2}$/.test(MES)) { await log(P, 'error', 'backfill necesita MES=AAAA-MM'); process.exitCode = 1; return; }
-      await seccion(page, '/manager/orders', 'uber_historial_pedidos', MES, 'ventas');
-      await seccion(page, '/manager/payments', 'uber_resumen_ganancias', MES, 'ventas');
-    }
+    const periodo = MODO === 'backfill' && /^\d{4}-\d{2}$/.test(MES) ? MES : hoyMadrid(1);
+    await bajarInforme(page, periodo);
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
-    await volcar(`${P}_error`, await page.content().catch(() => ''));
     process.exitCode = 1;
   } finally {
     await browser.close();
