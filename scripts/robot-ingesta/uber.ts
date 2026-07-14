@@ -1,5 +1,6 @@
 /**
  * ROBOT UBER EATS · Descarga informes y los deja en la bandeja. No interpreta nada.
+ * Cuenta reactivada 14-jul-2026 (la había desactivado otro proceso). NO desactivar.
  *
  * Modos (env MODO):
  *   diario    → historial de pedidos de ayer + detalle de ganancias por artículo
@@ -7,14 +8,12 @@
  *   mensual   → resumen mensual (PDF) del mes anterior
  *   backfill  → un mes completo (env MES = AAAA-MM). UN SOLO MES POR EJECUCIÓN.
  *
- * Login (13-jul-2026):
- *   1) correo escrito a mano (tecla a tecla) → botón "Continuar".
+ * Login:
+ *   1) correo escrito tecla a tecla → botón "Continuar".
  *   2) Uber propone código por SMS: NO se espera. Se abre "Más opciones" y se elige
  *      entrar con contraseña.
- *   3) Uber tarda en pasar de pantalla: se espera a que el título cambie, hasta 40 s.
- *   Cada pantalla se vuelca a robot_debug (uber_paso_N) para ver dónde se atasca.
- *
- * Credenciales y cuentas: tabla robot_credenciales (plataforma='uber').
+ *   3) Uber tarda en pasar de pantalla: se espera a que el título cambie.
+ *   Cada pantalla se vuelca a robot_debug (uber_paso_N).
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
@@ -34,12 +33,10 @@ async function dentro(page: Page): Promise<boolean> {
   return /merchants\.ubereats\.com/i.test(page.url()) && !/login|auth|signin/i.test(page.url());
 }
 
-/** Texto del encabezado de la pantalla de login (sirve para saber si hemos avanzado). */
 async function pantalla(page: Page): Promise<string> {
   return (await page.locator('h1, h2, [role="heading"]').first().innerText().catch(() => '')).trim();
 }
 
-/** Pulsa Continuar y espera de verdad a que cambie la pantalla (hasta 40 s). */
 async function seguir(page: Page) {
   const antes = await pantalla(page);
   const b = page.getByRole('button', { name: RE_SEGUIR }).first();
@@ -55,7 +52,6 @@ async function seguir(page: Page) {
   }
 }
 
-/** Si Uber ofrece SMS, abre "más opciones" y elige contraseña. */
 async function abrirCampoContrasena(page: Page): Promise<boolean> {
   for (let i = 0; i < 4; i++) {
     if (await page.locator('input[type="password"]').count().catch(() => 0)) return true;
@@ -103,11 +99,11 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   await pass.click({ timeout: 8000 }).catch(() => {});
   await pass.type(c.password, { delay: 70 }).catch(async () => { await pass.fill(c.password).catch(() => {}); });
   await seguir(page);
-  await page.waitForTimeout(6000);
+  await page.waitForTimeout(8000);
   await quitarEstorbos(page);
 
   const ok = await dentro(page);
-  await log(P, ok ? 'login_ok' : 'login_ko', `${c.cuenta} · url=${page.url()}`);
+  await log(P, ok ? 'login_ok' : 'login_ko', `${c.cuenta} · pantalla="${await pantalla(page)}" · url=${page.url()}`);
   if (!ok) await volcar(`${P}_login_ko`, await page.content());
   else await guardarSesion(P, c.cuenta, ctx);
   return ok;
