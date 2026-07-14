@@ -1,6 +1,7 @@
 /**
  * Tesorería 13 semanas en Ley Visual SL v2 (con acento oliva).
  * Se ve al pulsar SL en el interruptor. El oliva marca lo que entra.
+ * Responsive según la receta de uiSLMovil.
  */
 import {
   useTesoreria13Semanas, UMBRAL_VERDE,
@@ -12,6 +13,7 @@ import {
 } from '@/components/panel/sl/uiSL'
 import { PageHead, Tabla, Fila, Celda, SkeletonTabla, Estado } from '@/components/panel/sl/uiSLTabla'
 import { OLIVA, KpiFoco, Leyenda, AnilloHero } from '@/components/panel/sl/uiSLFoco'
+import { useMovil } from '@/components/panel/sl/uiSLMovil'
 
 const TONO: Record<EstadoTes, 'verde' | 'ambar' | 'rojo'> = {
   verde: 'verde', ambar: 'ambar', rojo: 'rojo',
@@ -21,6 +23,7 @@ const TEXTO: Record<EstadoTes, string> = {
 }
 
 export default function LabTesoreria() {
+  const movil = useMovil()
   const {
     loading, error, saldoInicial, saldoInicialFuente,
     semanas, semanaCritica, saldoMinimo,
@@ -28,9 +31,11 @@ export default function LabTesoreria() {
     nominaSemanal, segSocialSemanal,
   } = useTesoreria13Semanas()
 
+  const pad = movil ? '14px 12px' : '24px 28px'
+
   if (loading) {
     return (
-      <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
+      <div className="sl-skin" style={{ minHeight: '100vh', padding: pad }}>
         <PageHead titulo="Tesorería 13 semanas" sub="Vista SL" />
         <SkeletonTabla filas={8} />
       </div>
@@ -39,7 +44,7 @@ export default function LabTesoreria() {
 
   if (error) {
     return (
-      <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
+      <div className="sl-skin" style={{ minHeight: '100vh', padding: pad }}>
         <PageHead titulo="Tesorería 13 semanas" sub="Vista SL" />
         <Atencion tono="rojo">No se ha podido calcular la previsión: {error}</Atencion>
       </div>
@@ -58,7 +63,7 @@ export default function LabTesoreria() {
     : 'Sin saldo disponible · se asume 0 €'
 
   return (
-    <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
+    <div className="sl-skin" style={{ minHeight: '100vh', padding: pad }}>
       <PageHead
         titulo="Tesorería 13 semanas"
         sub="Vista SL · previsión de caja desde el próximo lunes"
@@ -94,7 +99,7 @@ export default function LabTesoreria() {
         </Atencion>
       )}
 
-      <KpiGrid cols={4}>
+      <KpiGrid cols={movil ? 2 : 4}>
         <Kpi
           icono="€" tono="blu" label="Saldo hoy" valor={eur0(saldoInicial)}
           pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>{fuente}</div>}
@@ -146,12 +151,12 @@ export default function LabTesoreria() {
       >
         {semanas.map((s: SemanaTesoreria) => (
           <Fila key={s.index} tono={TONO[s.estado]}>
-            <Celda fuerte>{s.semana}</Celda>
-            <Celda der style={{ minWidth: 120 }}>
+            <Celda fuerte style={{ whiteSpace: 'nowrap' }}>{s.semana}</Celda>
+            <Celda der style={{ minWidth: movil ? 100 : 120 }}>
               <span className="slnum" style={{ color: OLIVA.hondo, fontWeight: 900 }}>{eur0(s.entradas)}</span>
               <InBar pct={(s.entradas / maxFlujo) * 100} color={OLIVA.medio} />
             </Celda>
-            <Celda der style={{ minWidth: 120 }}>
+            <Celda der style={{ minWidth: movil ? 100 : 120 }}>
               <span className="slnum" style={{ color: C.naranja, fontWeight: 900 }}>{eur0(s.salidas)}</span>
               <InBar pct={(s.salidas / maxFlujo) * 100} color={C.naranja} />
             </Celda>
@@ -168,6 +173,7 @@ export default function LabTesoreria() {
 
       <Nota tono="blu">
         Verde: saldo por encima de {eur0(UMBRAL_VERDE)}. Ámbar: entre 0 € y ese colchón. Rojo: caja negativa.
+        En pantalla pequeña la tabla se desliza de lado.
       </Nota>
     </div>
   )
