@@ -1,16 +1,14 @@
 /**
  * ROBOT GLOVO · Descarga informes del portal de gestión y los deja en la bandeja.
- * Hay DOS cuentas (posmodernos y streatlab): las recorre las dos.
+ * Dos cuentas (posmodernos y streatlab): las recorre las dos.
  *
  * Login (14-jul-2026): usuario+contraseña → pantalla /2fa con código de 6 dígitos
- * que Glovo manda por correo (no-reply@portal.glovoapp.com, reenviado al buzón del
- * cartero). Solo vale el código del correo que llega DESPUÉS de pedirlo: se marca
- * la hora justo antes de pulsar "entrar" y se descarta todo lo anterior.
+ * que Glovo manda por correo (no-reply@portal.glovoapp.com → reenviado al buzón
+ * del cartero). Solo vale el correo posterior al momento de pedirlo, y tiene que
+ * hablar de código (una factura de Glovo también trae números).
+ * Prueba 14-jul 09:40.
  *
- * Modos (env MODO):
- *   diario   → historial de pedidos de ayer
- *   semanal  → liquidaciones de la semana cerrada + facturas
- *   backfill → un mes completo (env MES = AAAA-MM)
+ * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
@@ -72,7 +70,7 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   await quitarEstorbos(page);
 
   if (!(await dentro(page))) {
-    const codigo = await esperarCodigo(P, c.otp_remitente || 'glovo', 180, pedidoEn);
+    const codigo = await esperarCodigo(P, c.otp_remitente || 'glovoapp.com', 240, pedidoEn);
     if (!codigo) { await log(P, 'login_ko', `${c.cuenta}: no llegó el código`); return false; }
     if (!(await escribirCodigo(page, codigo))) {
       await log(P, 'login_ko', `${c.cuenta}: no encuentro dónde escribir el código · url=${page.url()}`);
