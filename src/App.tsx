@@ -64,6 +64,7 @@ const BandejaPendientes = React.lazy(() => import('@/pages/BandejaPendientes'))
 const Ventas = React.lazy(() => import('@/pages/finanzas/Ventas'))
 
 const FondoManiobra = React.lazy(() => import('@/pages/finanzas/FondoManiobra'))
+const Reservas = React.lazy(() => import('@/pages/finanzas/Reservas'))
 const EstadosFinancieros = React.lazy(() => import('@/pages/finanzas/EstadosFinancieros'))
 const BreakEvenCanal = React.lazy(() => import('@/pages/finanzas/BreakEvenCanal'))
 const AnalisisHorizontalVertical = React.lazy(() => import('@/pages/finanzas/AnalisisHorizontalVertical'))
@@ -234,6 +235,7 @@ function AppRoutes() {
 
           <Route path="finanzas/tesoreria-13-semanas" element={<ProtectedRoute solo={['admin']}><TesoreriaSwitch /></ProtectedRoute>} />
           <Route path="finanzas/fondo-maniobra" element={<ProtectedRoute solo={['admin']}><FondoManiobra /></ProtectedRoute>} />
+          <Route path="finanzas/reservas" element={<ProtectedRoute solo={['admin']}><Reservas /></ProtectedRoute>} />
           <Route path="finanzas/estados-financieros" element={<ProtectedRoute solo={['admin']}><EstadosFinancieros /></ProtectedRoute>} />
           <Route path="finanzas/break-even" element={<ProtectedRoute solo={['admin']}><BreakEvenCanal /></ProtectedRoute>} />
           <Route path="finanzas/analisis-horizontal-vertical" element={<ProtectedRoute solo={['admin']}><AnalisisHorizontalVertical /></ProtectedRoute>} />
