@@ -1,7 +1,6 @@
 /**
- * LAB · Tesorería 13 semanas — pantalla espejo en Ley Visual SL v2.
- * Copia intocable: la Tesorería real sigue en neobrutal, sin tocar.
- * Elementos que aporta: serie temporal, tabla con semáforo y proyección.
+ * Tesorería 13 semanas en Ley Visual SL v2 (con acento oliva).
+ * Se ve al pulsar SL en el interruptor. El oliva marca lo que entra.
  */
 import {
   useTesoreria13Semanas, UMBRAL_VERDE,
@@ -12,6 +11,7 @@ import {
   LineaArea, InBar, Vacio, eur0, eur2,
 } from '@/components/panel/sl/uiSL'
 import { PageHead, Tabla, Fila, Celda, SkeletonTabla, Estado } from '@/components/panel/sl/uiSLTabla'
+import { OLIVA, KpiFoco, Leyenda, AnilloHero } from '@/components/panel/sl/uiSLFoco'
 
 const TONO: Record<EstadoTes, 'verde' | 'ambar' | 'rojo'> = {
   verde: 'verde', ambar: 'ambar', rojo: 'rojo',
@@ -31,7 +31,7 @@ export default function LabTesoreria() {
   if (loading) {
     return (
       <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
-        <PageHead titulo="Tesorería 13 semanas" sub="Pantalla espejo" />
+        <PageHead titulo="Tesorería 13 semanas" sub="Vista SL" />
         <SkeletonTabla filas={8} />
       </div>
     )
@@ -40,7 +40,7 @@ export default function LabTesoreria() {
   if (error) {
     return (
       <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
-        <PageHead titulo="Tesorería 13 semanas" sub="Pantalla espejo" />
+        <PageHead titulo="Tesorería 13 semanas" sub="Vista SL" />
         <Atencion tono="rojo">No se ha podido calcular la previsión: {error}</Atencion>
       </div>
     )
@@ -52,6 +52,7 @@ export default function LabTesoreria() {
   const entradas = semanas.reduce((s: number, x: SemanaTesoreria) => s + x.entradas, 0)
   const salidas = semanas.reduce((s: number, x: SemanaTesoreria) => s + x.salidas, 0)
   const maxFlujo = Math.max(...semanas.map((s: SemanaTesoreria) => Math.max(s.entradas, s.salidas)), 1)
+  const colchon = UMBRAL_VERDE > 0 ? Math.min(100, (saldoMinimo / UMBRAL_VERDE) * 100) : 0
   const fuente = saldoInicialFuente === 'extracto' ? 'Extracto bancario real'
     : saldoInicialFuente === 'manual' ? 'Saldo introducido a mano'
     : 'Sin saldo disponible · se asume 0 €'
@@ -60,32 +61,28 @@ export default function LabTesoreria() {
     <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
       <PageHead
         titulo="Tesorería 13 semanas"
-        sub="Pantalla espejo · previsión de caja desde el próximo lunes"
+        sub="Vista SL · previsión de caja desde el próximo lunes"
         right={<Pill tone="neutro">{fuente}</Pill>}
       />
 
       <Hero
         eyebrow="SALDO PREVISTO MÁS BAJO"
-        titular={semanaCritica ? `La semana peor es ${semanaCritica.semana}` : 'Sin semanas críticas'}
+        titular={semanaCritica ? `La semana peor es ${semanaCritica.semana}` : 'Ninguna semana en apuros'}
         valor={eur0(saldoMinimo)}
-        sub={`Hoy tienes ${eur2(saldoInicial)} · umbral de seguridad ${eur0(UMBRAL_VERDE)}`}
+        sub={`Hoy tienes ${eur2(saldoInicial)} · colchón de seguridad ${eur0(UMBRAL_VERDE)}`}
         spark={semanas.map((s: SemanaTesoreria) => Math.max(0, s.saldoAcumulado))}
         right={
           <>
             <HeroPill solid>{TEXTO[estadoMin]}</HeroPill>
-            <HeroPill>13 semanas vista</HeroPill>
+            <AnilloHero pct={Math.max(0, colchon)} label="COLCHÓN" />
           </>
         }
       />
 
       {estadoMin !== 'verde' && (
-        <Atencion
-          tono={TONO[estadoMin]}
-          cifra={eur0(saldoMinimo)}
-          accion="Ver la semana"
-        >
+        <Atencion tono={TONO[estadoMin]} cifra={eur0(saldoMinimo)} accion="Ver la semana">
           {estadoMin === 'rojo'
-            ? 'La caja se te va a números rojos si no adelantas cobros o retrasas pagos.'
+            ? 'La caja se va a números rojos si no adelantas cobros o retrasas pagos.'
             : 'La caja aguanta pero sin colchón. Un imprevisto te deja en rojo.'}
         </Atencion>
       )}
@@ -93,7 +90,7 @@ export default function LabTesoreria() {
       {gastosFijosCount === 0 && (
         <Atencion tono="ambar" accion="Cargar gastos fijos">
           No hay gastos fijos cargados (alquiler, nóminas, suscripciones). La previsión solo cuenta el gasto operativo
-          estimado desde el banco: {eur2(gastoOperativoSemanal)} por semana. Los números van a salir mejor de lo real.
+          estimado del banco: {eur2(gastoOperativoSemanal)} por semana. Los números salen mejor de lo real.
         </Atencion>
       )}
 
@@ -103,11 +100,6 @@ export default function LabTesoreria() {
           pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>{fuente}</div>}
         />
         <Kpi
-          icono="↑" tono="verde" label="Entradas previstas" valor={eur0(entradas)}
-          spark={semanas.map((s: SemanaTesoreria) => s.entradas)}
-          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>Suma de las 13 semanas</div>}
-        />
-        <Kpi
           icono="↓" tono="rojo" label="Salidas previstas" valor={eur0(salidas)}
           spark={semanas.map((s: SemanaTesoreria) => s.salidas)}
           pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>Nóminas {eur0(nominaSemanal)}/sem · SS {eur0(segSocialSemanal)}/sem</div>}
@@ -115,6 +107,11 @@ export default function LabTesoreria() {
         <Kpi
           icono="!" tono={TONO[estadoMin]} label="Saldo mínimo" valor={eur0(saldoMinimo)}
           pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>{semanaCritica ? semanaCritica.semana : '—'}</div>}
+        />
+        <KpiFoco
+          label="Lo que entra en 13 semanas"
+          valor={eur0(entradas)}
+          pie={`${eur0(entradas / Math.max(1, semanas.length))} por semana de media`}
         />
       </KpiGrid>
 
@@ -131,6 +128,12 @@ export default function LabTesoreria() {
         )}
       </Card>
 
+      <Leyenda items={[
+        { label: 'Entra', color: OLIVA.medio },
+        { label: 'Sale', color: C.naranja },
+        { label: 'Semana en rojo', color: C.rojoSem },
+      ]} />
+
       <Tabla
         cabeceras={[
           { label: 'Semana' },
@@ -145,14 +148,14 @@ export default function LabTesoreria() {
           <Fila key={s.index} tono={TONO[s.estado]}>
             <Celda fuerte>{s.semana}</Celda>
             <Celda der style={{ minWidth: 120 }}>
-              <span className="slnum" style={{ color: C.verde, fontWeight: 900 }}>{eur0(s.entradas)}</span>
-              <InBar pct={(s.entradas / maxFlujo) * 100} color={C.verde} />
+              <span className="slnum" style={{ color: OLIVA.hondo, fontWeight: 900 }}>{eur0(s.entradas)}</span>
+              <InBar pct={(s.entradas / maxFlujo) * 100} color={OLIVA.medio} />
             </Celda>
             <Celda der style={{ minWidth: 120 }}>
               <span className="slnum" style={{ color: C.naranja, fontWeight: 900 }}>{eur0(s.salidas)}</span>
               <InBar pct={(s.salidas / maxFlujo) * 100} color={C.naranja} />
             </Celda>
-            <Celda der mono style={{ color: s.saldoSemana >= 0 ? C.verde : C.rojoSem }}>
+            <Celda der mono style={{ color: s.saldoSemana >= 0 ? OLIVA.hondo : C.rojoSem }}>
               {eur0(s.saldoSemana)}
             </Celda>
             <Celda der mono fuerte style={{ color: s.saldoAcumulado >= 0 ? C.ink : C.rojoSem }}>
@@ -164,7 +167,7 @@ export default function LabTesoreria() {
       </Tabla>
 
       <Nota tono="blu">
-        Verde: saldo por encima de {eur0(UMBRAL_VERDE)}. Ámbar: entre 0 € y el umbral. Rojo: caja negativa.
+        Verde: saldo por encima de {eur0(UMBRAL_VERDE)}. Ámbar: entre 0 € y ese colchón. Rojo: caja negativa.
       </Nota>
     </div>
   )
