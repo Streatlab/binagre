@@ -1,24 +1,22 @@
 /**
  * ROBOT GLOVO · Descarga informes del portal de gestión y los deja en la bandeja.
- * Dos cuentas (posmodernos y streatlab): las recorre las dos.
+ * Dos cuentas (posmodernos y streatlab). Sesión guardada: entra sin código casi siempre.
  *
- * Login (14-jul-2026): usuario+contraseña → /2fa con código de 6 dígitos por correo
- * (no-reply@portal.glovoapp.com), leído POR IMAP del buzón de la cuenta (buzones_otp).
- * Sesión guardada: los próximos días entra sin código.
+ * Descarga (14-jul-2026): el botón real es el chip [data-testid="export-report-btn"]
+ * ("Descargar informe"). Se pulsa ese directamente; si Glovo abre un cuadro de
+ * periodo, se pulsa su confirmar y se vuelca la pantalla para afinar.
+ * La rejilla por defecto muestra "Últimos 7 días": el export cubre la semana.
  *
- * FALLO CAZADO 14-jul 11:05: tras meter el código Glovo aterriza en
- * portal.glovoapp.com/dashboard?ums-drawer=after-login y el chequeo antiguo veía
- * la palabra "login" en la URL y creía que seguíamos fuera. ESTÁBAMOS DENTRO.
- * Ahora solo se mira la RUTA (pathname), no los parámetros.
- * Prueba 14-jul 15:05 · el botón "Descargar informe" abre cuadro de periodo:
- * el confirmar lo pulsa ahora el navegador común.
+ * Login: usuario+contraseña → /2fa con código por correo, leído POR IMAP del buzón
+ * de la cuenta (buzones_otp). El chequeo de "estar dentro" mira solo la RUTA de la
+ * URL (el dashboard lleva "after-login" en los parámetros y engañaba).
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
-import { abrir, quitarEstorbos, descargarDeLaPagina } from './_lib/navegador.js';
+import { abrir, quitarEstorbos, capturar, descargarDeLaPagina } from './_lib/navegador.js';
 
 const P = 'glovo';
 const RAIZ = 'https://managers.glovoapp.com';
@@ -70,7 +68,7 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   const pass = page.locator('input[type="password"]').first();
   await pass.fill(c.password).catch(() => {});
 
-  const pedidoEn = new Date();   // a partir de aquí, el código que llegue es el bueno
+  const pedidoEn = new Date();
   await page.getByRole('button', { name: /entrar|log ?in|iniciar|continuar|sign in/i }).first().click({ timeout: 10000 }).catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
@@ -93,12 +91,31 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   return ok;
 }
 
+/** Descarga específica de Glovo: chip "Descargar informe" + posible cuadro de periodo. */
+async function descargaGlovo(page: Page, paso: string) {
+  const chip = page.locator('[data-testid="export-report-btn"]').first();
+  if (!(await chip.count().catch(() => 0))) return descargarDeLaPagina(P, page, paso);
+
+  const f = await capturar(page, async () => {
+    await chip.click({ timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(3500);
+    await volcar(`${P}_tras_export_${paso}`, await page.content().catch(() => ''));
+    // Confirmar del cuadro/panel de periodo, si aparece
+    const conf = page.getByRole('button', { name: /^(descargar|exportar|confirmar|aceptar|download|export)/i }).last();
+    if (await conf.count().catch(() => 0)) await conf.click({ timeout: 6000 }).catch(() => {});
+  }, 120);
+
+  if (f) { await log(P, 'descarga', `${paso}: ${f.nombre} (${f.datos.length} bytes)`); return f; }
+  await log(P, 'sin_descarga', `${paso}: el export no soltó fichero (pantalla volcada)`);
+  return null;
+}
+
 async function seccion(page: Page, ruta: string, tipo: string, periodo: string, destino: string, cuenta: string) {
   await page.goto(ruta.startsWith('http') ? ruta : `${RAIZ}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(6000);
   await quitarEstorbos(page);
-  const f = await descargarDeLaPagina(P, page, `${tipo}_${cuenta}`);
+  const f = await descargaGlovo(page, `${tipo}_${cuenta}`);
   if (!f) return;
   await entregar({ fuente: P, tipo, nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino });
 }
