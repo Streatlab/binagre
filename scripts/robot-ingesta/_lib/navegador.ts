@@ -6,8 +6,12 @@
  * el fichero que suelte el navegador. Si no aparece ninguno, se vuelca el HTML a
  * `robot_debug` para poder ver qué cambió.
  *
- * 13-jul-2026: Uber corta el login si huele robot. El navegador se abre con
- * apariencia de Chrome normal (user-agent real, sin la marca de automatización).
+ * 14-jul-2026: en Glovo el botón "Descargar informe" abre un cuadro intermedio
+ * (elegir periodo) con su propio botón de confirmar. Ahora, tras el primer clic,
+ * si no empieza la descarga se busca y pulsa el botón de confirmación del cuadro,
+ * y se vuelca el HTML del cuadro para poder afinar.
+ * 13-jul-2026: Uber corta el login si huele robot → navegador con pinta de Chrome
+ * normal (user-agent real, sin la marca de automatización).
  */
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { log, volcar } from './bandeja.js';
@@ -46,12 +50,27 @@ export async function abrir(plataforma: string, cuenta: string): Promise<{ brows
   return { browser, ctx, page };
 }
 
-const PATRON_DESCARGA = /export|exportar|descargar|download|csv|excel|xlsx?|pdf|informe|report/i;
+const PATRON_DESCARGA = /export|exportar|descargar|download|csv|excel|xlsx?|informe|report/i;
+const PATRON_CONFIRMAR = /^(descargar|download|confirmar|aceptar|exportar|generar|continuar|ok)/i;
 
-/** Captura el fichero que produce un clic. Devuelve null si no descarga nada. */
-export async function capturar(page: Page, clic: () => Promise<void>, segundos = 60): Promise<Fichero | null> {
+/** Captura el fichero que produce un clic (y el confirmar de un cuadro intermedio). */
+export async function capturar(page: Page, clic: () => Promise<void>, segundos = 90): Promise<Fichero | null> {
   const espera = page.waitForEvent('download', { timeout: segundos * 1000 });
   await clic();
+
+  // Si se abre un cuadro intermedio, pulsar su botón de confirmar (hasta 2 veces).
+  (async () => {
+    for (let i = 0; i < 2; i++) {
+      await page.waitForTimeout(4000);
+      const dialogo = page.locator('[role="dialog"], .modal, [class*="modal" i], [class*="dialog" i]').last();
+      if (!(await dialogo.count().catch(() => 0))) continue;
+      await volcar('descarga_cuadro', await dialogo.innerHTML().catch(() => '')).catch(() => {});
+      const conf = dialogo.getByRole('button', { name: PATRON_CONFIRMAR }).last()
+        .or(dialogo.locator('button').filter({ hasText: PATRON_CONFIRMAR }).last());
+      if (await conf.count().catch(() => 0)) await conf.click({ timeout: 5000 }).catch(() => {});
+    }
+  })().catch(() => {});
+
   try {
     const dl = await espera;
     const ruta = await dl.path();
@@ -72,6 +91,7 @@ export async function descargarDeLaPagina(
     page.getByRole('button', { name: PATRON_DESCARGA }).first(),
     page.getByRole('link', { name: PATRON_DESCARGA }).first(),
     page.getByRole('menuitem', { name: PATRON_DESCARGA }).first(),
+    page.getByText(/descargar informe|download report/i).first(),
     page.locator('a[download], [data-testid*="download" i], [data-testid*="export" i], [class*="download" i], [class*="export" i]').first(),
   ];
   for (const c of candidatos) {
