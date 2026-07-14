@@ -1,10 +1,12 @@
 /**
  * NAVEGADOR · Utilidades comunes de descarga.
  *
- * CANDADO "MANTÉN PULSADO" (Glovo, 14-jul-2026): antes de soltar el informe pide
- * apretar y aguantar. Se prueba sobre TODOS los elementos pulsables del cuadro,
- * aguantando 15-25 s con micro-temblor (un humano nunca está quieto del todo) y
- * mandando además los eventos de puntero que espera la librería del candado.
+ * CANDADO "MANTÉN PULSADO" (Glovo, 14-jul-2026): es el captcha de PerimeterX.
+ * 15-jul-2026: se apunta directamente al elemento del captcha (#px-captcha y
+ * variantes), que es donde hay que aguantar; aguantar sobre el botón del cuadro
+ * no vale (18 intentos fallidos lo confirman). Duraciones 10/20/30 s con
+ * micro-temblor y eventos de puntero reales de Playwright (van por CDP, son
+ * "de confianza" para la página).
  * 13-jul-2026 · Uber corta el login si huele robot → navegador con pinta de Chrome
  * normal (user-agent real, sin la marca de automatización).
  */
@@ -59,22 +61,31 @@ async function aguantar(page: Page, x: number, y: number, segundos: number) {
   await page.mouse.up();
 }
 
-/** Candado "mantén pulsado". Devuelve true si desaparece. */
+/** Candado "mantén pulsado" (PerimeterX). Devuelve true si desaparece. */
 export async function mantenPulsado(page: Page, plataforma: string): Promise<boolean> {
   if (!(await page.getByText(RE_MANTEN).count().catch(() => 0))) return false;
 
-  const candidatos = [
+  // El captcha de PerimeterX vive en su propio contenedor (a veces dentro de un iframe).
+  const marcos = [page, ...page.frames()];
+  const candidatos: Array<{ caja: () => Promise<{ x: number; y: number; width: number; height: number } | null> }> = [];
+  for (const m of marcos) {
+    for (const sel of ['#px-captcha', '[id*="px-captcha" i]', '[class*="px-captcha" i]', 'iframe[title*="human" i]']) {
+      const loc = (m as Page).locator(sel).first();
+      candidatos.push({ caja: async () => ((await loc.count().catch(() => 0)) ? loc.boundingBox().catch(() => null) : null) });
+    }
+  }
+  // Respaldo: los pulsables del cuadro (por si el captcha cambia de nombre).
+  for (const loc of [
+    page.getByText(RE_MANTEN).first(),
     page.locator('[role="dialog"] button').last(),
     page.locator('[role="dialog"] [role="button"]').last(),
-    page.locator('[role="dialog"] div[tabindex]').last(),
-    page.getByText(RE_MANTEN).first(),
-    page.locator('[role="dialog"] .MuiButton-root, [role="dialog"] [class*="hold" i]').last(),
-  ];
+  ]) {
+    candidatos.push({ caja: async () => ((await loc.count().catch(() => 0)) ? loc.boundingBox().catch(() => null) : null) });
+  }
 
-  for (const segundos of [15, 25]) {
+  for (const segundos of [10, 20, 30]) {
     for (const c of candidatos) {
-      if (!(await c.count().catch(() => 0))) continue;
-      const caja = await c.boundingBox().catch(() => null);
+      const caja = await c.caja();
       if (!caja || caja.width < 5 || caja.height < 5) continue;
 
       await aguantar(page, caja.x + caja.width / 2, caja.y + caja.height / 2, segundos).catch(() => {});
@@ -139,6 +150,19 @@ export async function descargarDeLaPagina(plataforma: string, page: Page, paso: 
   await volcar(`${plataforma}_${paso}`, await page.content().catch(() => ''));
   await log(plataforma, 'sin_descarga', `${paso}: no encuentro botón de descarga (HTML volcado)`);
   return null;
+}
+
+/** Baja hasta `tope` ficheros enlazados en la página (PDF, CSV, download). */
+export async function bajarEnlaces(plataforma: string, page: Page, paso: string, tope = 12): Promise<Fichero[]> {
+  const enlaces = page.locator('a[href$=".pdf"], a[download], a[href*="download" i], a[href$=".csv"], a[href$=".xlsx"]');
+  const n = Math.min(await enlaces.count().catch(() => 0), tope);
+  const bajados: Fichero[] = [];
+  for (let i = 0; i < n; i++) {
+    const f = await capturar(page, plataforma, async () => { await enlaces.nth(i).click({ timeout: 8000 }).catch(() => {}); }, 60);
+    if (f) bajados.push(f);
+  }
+  if (bajados.length) await log(plataforma, 'descarga', `${paso}: ${bajados.length} fichero(s) por enlace directo`);
+  return bajados;
 }
 
 /** Cierra avisos de cookies y modales que tapan los botones. */
