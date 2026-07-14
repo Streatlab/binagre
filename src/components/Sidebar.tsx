@@ -48,6 +48,7 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio',  emoji: '⚖️', perfiles: ['admin'] },
       { path: '/finanzas/running',              label: 'Running',              emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',       emoji: '💳', perfiles: ['admin'] },
+      { path: '/finanzas/reservas',             label: 'Reservas',             emoji: '🏦', perfiles: ['admin'] },
       { path: '/finanzas/verifactu',            label: 'Verifactu',            emoji: '✅', perfiles: ['admin'] },
       { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería', emoji: '🔮', perfiles: ['admin'] },
       { path: '/finanzas/tesoreria-13-semanas', label: 'Tesorería 13 Semanas', emoji: '📅', perfiles: ['admin'] },
