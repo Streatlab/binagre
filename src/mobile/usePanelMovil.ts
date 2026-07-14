@@ -55,19 +55,17 @@ export function usePanelMovil(): PanelData {
         const desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
         const iso = (x: Date) => x.toISOString().slice(0, 10)
 
-        const [fact, gastos, sinConc, reclam, tareas] = await Promise.all([
+        const [fact, gastos, avisos] = await Promise.all([
           supabase.from('facturacion_diario')
             .select('fecha,total_bruto,total_pedidos,uber_bruto,uber_pedidos,glovo_bruto,glovo_pedidos,je_bruto,je_pedidos,web_bruto,web_pedidos,directa_bruto,directa_pedidos')
             .gte('fecha', iso(desde)).lte('fecha', iso(hoy)),
           supabase.from('gastos').select('importe').gte('fecha', iso(desde)).lte('fecha', iso(hoy)),
-          supabase.from('facturas').select('id', { count: 'exact', head: true })
-            .eq('no_conciliable', false).gte('fecha_factura', '2023-07-03'),
-          supabase.from('v_reembolsos_pendientes').select('*', { count: 'exact', head: true }),
-          supabase.from('tareas_pendientes').select('*', { count: 'exact', head: true }),
+          supabase.from('v_panel_movil_avisos').select('*').maybeSingle(),
         ])
 
         if (cancel) return
         const filas = (fact.data || []) as any[]
+        const av = (avisos.data || {}) as any
 
         const sumar = (k: string) => filas.reduce((s, f) => s + (Number(f[k]) || 0), 0)
         const brutoMes = sumar('total_bruto')
@@ -98,9 +96,9 @@ export function usePanelMovil(): PanelData {
           resultadoMes: netoMes - gastoMes,
           canales,
           serieDias,
-          facturasSinConciliar: sinConc.count || 0,
-          reclamacionesPendientes: reclam.count || 0,
-          tareasPendientes: tareas.count || 0,
+          facturasSinConciliar: Number(av.facturas_sin_conciliar) || 0,
+          reclamacionesPendientes: Number(av.reclamaciones_pendientes) || 0,
+          tareasPendientes: Number(av.tareas_pendientes) || 0,
         })
       } catch (e: any) {
         if (!cancel) setD(s => ({ ...s, loading: false, error: e?.message || 'Error' }))
