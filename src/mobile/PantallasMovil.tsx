@@ -3,7 +3,9 @@
  * Medidas y aire copiados de Delasalud (todo en rem, tarjetas grandes,
  * mucho padding, tipografía legible). Estética: Neobrutal Binagre.
  */
+import { useNavigate } from 'react-router-dom'
 import { INK, BLANCO, AMA, VERDE, ROJO, NARANJA, GRANATE } from '@/mobile/mapaMovil'
+import { usePanelMovil } from '@/mobile/usePanelMovil'
 
 const OSW = 'Oswald, sans-serif'
 const SH = `4px 4px 0 ${INK}`
@@ -11,6 +13,11 @@ const SH = `4px 4px 0 ${INK}`
 export const card = {
   background: BLANCO, border: `3px solid ${INK}`, boxShadow: SH, padding: '1.1rem',
 } as const
+
+const eur = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 0 }) + ' €'
+const eur2 = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+const num = (n: number) => n.toLocaleString('es-ES')
+const pct = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 1 }) + ' %'
 
 export function Eyebrow({ children, bg = AMA, color = INK }: { children: React.ReactNode; bg?: string; color?: string }) {
   return (
@@ -22,17 +29,17 @@ export function Eyebrow({ children, bg = AMA, color = INK }: { children: React.R
   )
 }
 
-function Kpi({ label, valor, delta, color }: { label: string; valor: string; delta?: string; color?: string }) {
+function Kpi({ label, valor, sub, color }: { label: string; valor: string; sub?: string; color?: string }) {
   return (
     <div style={{ ...card, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
       <span style={{ fontSize: '0.72rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{label}</span>
-      <span style={{ fontFamily: OSW, fontSize: '2rem', fontWeight: 700, lineHeight: 1, color: color || INK }}>{valor}</span>
-      {delta && <span style={{ fontSize: '0.78rem', fontWeight: 600, color: color || INK, opacity: 0.9 }}>{delta}</span>}
+      <span style={{ fontFamily: OSW, fontSize: '1.9rem', fontWeight: 700, lineHeight: 1, color: color || INK }}>{valor}</span>
+      {sub && <span style={{ fontSize: '0.78rem', fontWeight: 600, opacity: 0.6 }}>{sub}</span>}
     </div>
   )
 }
 
-function Canal({ nombre, valor, pct, color, izq, der }: { nombre: string; valor: string; pct: number; color: string; izq: string; der: string }) {
+function Canal({ nombre, valor, pctBarra, color, izq, der }: { nombre: string; valor: string; pctBarra: number; color: string; izq: string; der: string }) {
   return (
     <div style={{ ...card, padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.6rem' }}>
@@ -40,7 +47,7 @@ function Canal({ nombre, valor, pct, color, izq, der }: { nombre: string; valor:
         <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: '1.1rem' }}>{valor}</span>
       </div>
       <div style={{ height: '1rem', border: `2px solid ${INK}`, background: '#ecdcb8', position: 'relative', overflow: 'hidden' }}>
-        <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: color, display: 'block' }} />
+        <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(100, pctBarra)}%`, background: color, display: 'block' }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.45rem', fontSize: '0.78rem', fontWeight: 600, opacity: 0.6 }}>
         <span>{izq}</span><span>{der}</span>
@@ -76,45 +83,80 @@ export function Fila({ emoji, bg, titulo, desc, chip, chipBg, chipColor, onClick
   )
 }
 
-// ═══════════ PANEL ═══════════
+function Cargando() {
+  return (
+    <div style={{ ...card, padding: '2.5rem 1rem', textAlign: 'center' }}>
+      <p style={{ fontFamily: OSW, fontWeight: 700, fontSize: '1.1rem', textTransform: 'uppercase' }}>Cargando…</p>
+    </div>
+  )
+}
+
+// ═══════════ PANEL (datos reales) ═══════════
 export function PanelMovil() {
+  const nav = useNavigate()
+  const d = usePanelMovil()
+
+  const mes = new Date().toLocaleDateString('es-ES', { month: 'long' })
+  const mesCap = mes.charAt(0).toUpperCase() + mes.slice(1)
+
+  if (d.loading) return <Cargando />
+  if (d.error) {
+    return <div style={{ ...card, borderColor: ROJO }}>
+      <p style={{ fontFamily: OSW, fontWeight: 700, textTransform: 'uppercase' }}>No se pudieron cargar los datos</p>
+      <p style={{ fontSize: '0.85rem', opacity: 0.6, marginTop: '0.3rem' }}>{d.error}</p>
+    </div>
+  }
+
+  const maxBruto = Math.max(...d.canales.map(c => c.bruto), 1)
+  const maxDia = Math.max(...d.serieDias.map(s => s.bruto), 1)
+  const margen = d.netoMes > 0 ? (d.resultadoMes / d.netoMes) * 100 : 0
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
 
-      <div><Eyebrow bg={BLANCO}>Datos de ejemplo · pendiente de conectar</Eyebrow></div>
-
       <div style={{ ...card, background: AMA, borderWidth: 4 }}>
         <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, opacity: 0.75 }}>
-          Ventas netas · Julio
+          Ventas netas · {mesCap}
         </span>
         <div style={{ fontFamily: OSW, fontSize: '3rem', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.02em', margin: '0.4rem 0 0.2rem' }}>
-          24.180 €
+          {eur(d.netoMes)}
         </div>
-        <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>+12,4% vs junio · 1.312 pedidos</div>
-        <div style={{ display: 'flex', gap: '0.3rem', height: '3rem', alignItems: 'flex-end', marginTop: '1rem' }}>
-          {[36, 58, 45, 70, 100, 80, 52].map((h, i) => (
-            <span key={i} style={{ flex: 1, height: `${h}%`, background: h === 100 ? VERDE : '#ecdcb8', border: `2px solid ${INK}` }} />
+        <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+          Bruto {eur(d.brutoMes)} · {num(d.pedidosMes)} pedidos
+        </div>
+        <div style={{ display: 'flex', gap: '0.2rem', height: '3rem', alignItems: 'flex-end', marginTop: '1rem' }}>
+          {d.serieDias.map(s => (
+            <span key={s.fecha} title={s.fecha}
+              style={{ flex: 1, height: `${Math.max(6, (s.bruto / maxDia) * 100)}%`, background: '#ecdcb8', border: `2px solid ${INK}` }} />
           ))}
         </div>
+        <div style={{ fontSize: '0.7rem', fontWeight: 600, opacity: 0.6, marginTop: '0.3rem' }}>Últimos días (bruto)</div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-        <Kpi label="Ticket medio" valor="18,4 €" delta="+0,9 €" color={VERDE} />
-        <Kpi label="Food cost" valor="31,2 %" delta="+1,8 pts" color={ROJO} />
-        <Kpi label="Pedidos" valor="1.312" delta="+7,1 %" color={NARANJA} />
-        <Kpi label="Margen neto" valor="8,6 %" delta="+1,1 pts" color={VERDE} />
+        <Kpi label="Ticket medio" valor={eur2(d.ticketMedio)} sub="Bruto por pedido" />
+        <Kpi label="Pedidos" valor={num(d.pedidosMes)} sub={mesCap} color={NARANJA} />
+        <Kpi label="Gasto del mes" valor={eur(d.gastoMes)} sub="Facturas registradas" color={ROJO} />
+        <Kpi label="Resultado" valor={eur(d.resultadoMes)} sub={`Margen ${pct(margen)}`}
+          color={d.resultadoMes >= 0 ? VERDE : ROJO} />
       </div>
 
       <div style={{ marginTop: '0.75rem' }}><Eyebrow>Por canal</Eyebrow></div>
-      <Canal nombre="Uber Eats" valor="9.740 €" pct={40} color="#06C167" izq="512 pedidos" der="Neto 54%" />
-      <Canal nombre="Glovo" valor="7.860 €" pct={32} color="#e8f442" izq="438 pedidos" der="Neto 52%" />
-      <Canal nombre="Just Eat" valor="4.290 €" pct={18} color="#f5a623" izq="248 pedidos" der="Neto 51%" />
-      <Canal nombre="Web propia" valor="2.290 €" pct={10} color={GRANATE} izq="114 pedidos" der="Neto 88%" />
+      {d.canales.map(c => (
+        <Canal key={c.id} nombre={c.nombre} valor={eur(c.neto)} pctBarra={(c.bruto / maxBruto) * 100} color={c.color}
+          izq={`${num(c.pedidos)} pedidos`} der={`Bruto ${eur(c.bruto)}`} />
+      ))}
 
       <div style={{ marginTop: '0.75rem' }}><Eyebrow bg={ROJO} color="#fff">Requiere acción</Eyebrow></div>
-      <Fila emoji="🧾" bg={ROJO} titulo="7 facturas sin conciliar" desc="Alcampo · Makro · Glovo" chip="Ver" chipBg={ROJO} chipColor="#fff" />
-      <Fila emoji="💸" bg={NARANJA} titulo="2 reclamaciones abiertas" desc="Uber Eats · 34,20 €" chip="Ver" />
-      <Fila emoji="📦" bg="#2D5BFF" titulo="Cachopo sin stock" desc="Lista de compra lista" chip="Ver" chipBg={ROJO} chipColor="#fff" />
+      <Fila emoji="🧾" bg={ROJO} titulo={`${num(d.facturasSinConciliar)} facturas sin conciliar`}
+        desc="Sin movimiento bancario asociado" chip="Ver" chipBg={ROJO} chipColor="#fff"
+        onClick={() => nav('/facturacion')} />
+      <Fila emoji="💸" bg={NARANJA} titulo={`${num(d.reclamacionesPendientes)} reclamaciones abiertas`}
+        desc="Dinero pendiente de recuperar" chip="Ver"
+        onClick={() => nav('/ops/reembolsos')} />
+      <Fila emoji="🔔" bg={GRANATE} titulo={`${num(d.tareasPendientes)} tareas pendientes`}
+        desc="Del ERP y del equipo" chip="Ver" chipBg={GRANATE} chipColor="#fff"
+        onClick={() => nav('/tareas')} />
     </div>
   )
 }
