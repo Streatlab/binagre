@@ -3,10 +3,11 @@
  * Just Eat no publica informes de ventas (esos salen de Sinqro), pero sí tiene
  * módulo de facturas: el robot entra, abre Facturas y baja los PDF que encuentre.
  *
- * 14-jul-2026: el portal es una aplicación que tarda en pintar y el HTML volcado
- * salía vacío (39 bytes) → ahora se espera a que aparezca contenido real, se
- * recorre el menú buscando "Facturas"/"Facturación" y se bajan todas las filas con
- * enlace de descarga (hasta 12 por pasada; la bandeja deduplica).
+ * 15-jul-2026: los goto a /invoices, /billing… de access.just-eat.es devolvían una
+ * página VACÍA (39 bytes): esas rutas no existen. Ahora el robot NO adivina rutas:
+ * entra, espera a que el portal pinte, VUELCA la página con su menú (para poder
+ * apuntar en la siguiente pasada) y sigue los enlaces del propio menú que hablen
+ * de facturas/facturación/pagos. También prueba el hub partner.just-eat.es.
  *
  * Login: robot_credenciales (plataforma='justeat', hola@streatlab.com).
  * Código por correo si lo pide: IMAP del buzón de la cuenta (buzones_otp).
@@ -14,14 +15,15 @@
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
-import { abrir, quitarEstorbos, capturar } from './_lib/navegador.js';
+import { abrir, quitarEstorbos, capturar, bajarEnlaces } from './_lib/navegador.js';
 
 const P = 'justeat';
 const RAIZ = 'https://access.just-eat.es';
+const HUB = 'https://partner.just-eat.es';
 const MODO = (process.env.MODO || 'semanal').toLowerCase();
 const TRIMESTRE = process.env.TRIMESTRE || '';
 
-const RE_FACTURAS = /facturas?|facturaci[oó]n|invoices?|billing/i;
+const RE_FACTURAS = /facturas?|facturaci[oó]n|invoices?|billing|pagos|payments|finanzas|finance/i;
 const RE_DESCARGA = /descargar|download|pdf|exportar|export/i;
 
 async function dentro(page: Page): Promise<boolean> {
@@ -30,7 +32,7 @@ async function dentro(page: Page): Promise<boolean> {
 }
 
 /** Espera a que el portal pinte algo de verdad (no una página en blanco). */
-async function esperarContenido(page: Page, segundos = 30) {
+async function esperarContenido(page: Page, segundos = 40) {
   for (let i = 0; i < segundos; i++) {
     const largo = (await page.content().catch(() => '')).length;
     if (largo > 5000) return;
@@ -42,7 +44,7 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   await page.goto(c.url_base || RAIZ, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await esperarContenido(page);
   await quitarEstorbos(page);
-  if (await dentro(page)) { await log(P, 'sesion_ok', `${c.cuenta}: sesión guardada todavía válida`); return true; }
+  if (await dentro(page)) { await log(P, 'sesion_ok', `${c.cuenta}: sesión guardada todavía válida · url=${page.url()}`); return true; }
 
   const email = page.locator('input[type="email"], input[name="email"], input[name="username"], input[id*="user" i]').first();
   await email.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
@@ -72,33 +74,33 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   return ok;
 }
 
-/** Abre la sección de facturas siguiendo el menú del portal. */
+/** Abre la sección de facturas SIGUIENDO EL MENÚ del portal (nada de rutas a ciegas). */
 async function abrirFacturas(page: Page): Promise<boolean> {
-  for (const ruta of ['/invoices', '/billing', '/facturas', '/payments']) {
-    await page.goto(`${RAIZ}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await esperarContenido(page);
-    const hay = await page.getByText(RE_FACTURAS).count().catch(() => 0);
-    if (hay) return true;
-  }
-  // Si las rutas directas no valen, buscar el enlace en el menú
-  const enlace = page.getByRole('link', { name: RE_FACTURAS }).first()
-    .or(page.locator('a, button').filter({ hasText: RE_FACTURAS }).first());
-  if (await enlace.count().catch(() => 0)) {
-    await enlace.click({ timeout: 8000 }).catch(() => {});
-    await esperarContenido(page);
-    return true;
+  for (const raiz of ['', HUB]) {
+    if (raiz) {
+      await page.goto(raiz, { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await esperarContenido(page);
+      await quitarEstorbos(page);
+    }
+    // Dejar constancia de qué menú se ve, para poder apuntar en la siguiente pasada.
+    await volcar(`${P}_menu`, await page.content().catch(() => ''));
+
+    const enlace = page.getByRole('link', { name: RE_FACTURAS }).first()
+      .or(page.locator('a, button, [role="menuitem"], [role="link"], nav *').filter({ hasText: RE_FACTURAS }).first());
+    if (await enlace.count().catch(() => 0)) {
+      await enlace.click({ timeout: 8000 }).catch(() => {});
+      await esperarContenido(page);
+      await page.waitForTimeout(4000);
+      if (await page.getByText(RE_FACTURAS).count().catch(() => 0)) return true;
+    }
   }
   return false;
 }
 
 async function bajarFacturas(page: Page, periodo: string): Promise<number> {
-  const enlaces = page.locator('a[href$=".pdf"], a[download], a[href*="download" i]');
-  const nEnlaces = Math.min(await enlaces.count().catch(() => 0), 12);
   let bajadas = 0;
-
-  for (let i = 0; i < nEnlaces; i++) {
-    const f = await capturar(page, P, async () => { await enlaces.nth(i).click({ timeout: 8000 }).catch(() => {}); }, 60);
-    if (!f) continue;
+  const ficheros = await bajarEnlaces(P, page, 'facturas', 12);
+  for (const f of ficheros) {
     await entregar({ fuente: P, tipo: 'justeat_factura', nombre: f.nombre, datos: f.datos, periodo, destino: 'facturas' });
     bajadas++;
   }
@@ -123,8 +125,7 @@ async function trabajarCuenta(c: Cuenta) {
     const periodo = MODO === 'backfill' && /^\d{4}-Q[1-4]$/i.test(TRIMESTRE) ? TRIMESTRE : hoyMadrid(1);
 
     if (!(await abrirFacturas(page))) {
-      await volcar(`${P}_sin_facturas`, await page.content().catch(() => ''));
-      await log(P, 'aviso', 'no encuentro la sección de facturas (pantalla volcada)');
+      await log(P, 'aviso', `no encuentro la sección de facturas (menú volcado en robot_debug ${P}_menu) · url=${page.url()}`);
       return;
     }
 
