@@ -20,8 +20,9 @@ const MapeoMarcas = React.lazy(() => import('@/pages/configuracion/MapeoMarcas')
 const CostePlato = React.lazy(() => import('@/pages/cocina/CostePlato'))
 // B3 · Rentabilidad por franja horaria
 const RentabilidadFranja = React.lazy(() => import('@/pages/analytics/RentabilidadFranja'))
-// B6 · Carta por canal: huecos entre plataformas y descuadres de precio
-const CartaCanal = React.lazy(() => import('@/pages/analytics/CartaCanal'))
+// Catalogo de platos: el mismo plato se llama distinto en cada plataforma.
+// Esto agrupa todos los nombres bajo un plato real.
+const CatalogoPlatos = React.lazy(() => import('@/pages/cocina/CatalogoPlatos'))
 
 // Pantallas con interruptor NEO / SL: el boton decide cual se ve
 const EscandalloSwitch = React.lazy(() => import('@/pages/switch/EscandalloSwitch'))
@@ -263,8 +264,6 @@ function AppRoutes() {
           <Route path="analytics/pareto-ventas" element={<ProtectedRoute solo={['admin']}><ParetoVentas /></ProtectedRoute>} />
           {/* B3 · Rentabilidad por franja horaria */}
           <Route path="analytics/rentabilidad-franja" element={<ProtectedRoute solo={['admin']}><RentabilidadFranja /></ProtectedRoute>} />
-          {/* B6 · Carta por canal: huecos entre plataformas y descuadres de precio */}
-          <Route path="analytics/carta-canal" element={<ProtectedRoute solo={['admin']}><CartaCanal /></ProtectedRoute>} />
 
           <Route path="ops/reembolsos" element={<ReclamacionReembolsos />} />
           <Route path="ops/temperaturas" element={<ControlTemperaturas />} />
@@ -314,6 +313,8 @@ function AppRoutes() {
           <Route path="cocina/recetas" element={<CocinaRecetas />} />
           {/* A2 + A4 · Coste por plato: enlaza lo que vendes con la receta que lo cuesta */}
           <Route path="cocina/coste-plato" element={<ProtectedRoute solo={['admin']}><CostePlato /></ProtectedRoute>} />
+          {/* Catalogo: agrupa los nombres distintos de cada plataforma en un plato real */}
+          <Route path="cocina/catalogo" element={<ProtectedRoute solo={['admin']}><CatalogoPlatos /></ProtectedRoute>} />
           <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
           <Route path="cocina/recetario" element={<Recetario />} />
           <Route path="cocina/esquemas" element={<Esquemas />} />
