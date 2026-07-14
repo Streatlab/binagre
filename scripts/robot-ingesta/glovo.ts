@@ -3,11 +3,12 @@
  * Dos cuentas (posmodernos y streatlab). Entra solo: sesión guardada + código por
  * correo leído por IMAP del buzón de la cuenta si hace falta.
  *
- * 15-jul-2026 · Los volcados demostraron que portal.glovoapp.com/invoicing e
- * /invoices NO existen: redirigen al panel de managers. Facturas y liquidaciones
- * se sacan navegando el menú del propio portal: [data-testid="finance-nav-item"].
+ * 15-jul-2026 · El propio portal enseñó sus rutas reales en el volcado:
+ * managers.glovoapp.com/finance y /gv-finance (facturas y liquidaciones).
+ * portal.glovoapp.com/invoicing e /invoices NO existen (redirigen al panel).
  * El export de pedidos sigue detrás del captcha "mantén pulsado" (PerimeterX);
- * ahora se aguanta sobre el elemento del captcha de verdad (#px-captcha).
+ * se aguanta sobre el elemento del captcha (#px-captcha) y va al final para no
+ * bloquear al resto.
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
@@ -103,50 +104,37 @@ async function descargaGlovo(page: Page, paso: string) {
   return null;
 }
 
-/** Abre una sección por el menú lateral del portal (los goto directos no existen). */
-async function irPorMenu(page: Page, testid: string): Promise<boolean> {
-  await page.goto(RAIZ, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(8000);
-  await quitarEstorbos(page);
-  const item = page.locator(`[data-testid="${testid}"]`).first();
-  if (!(await item.count().catch(() => 0))) return false;
-  await item.click({ timeout: 10000 }).catch(() => {});
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(9000);
-  await quitarEstorbos(page);
-  return true;
-}
-
-/** Finanzas: facturas y liquidaciones (PDFs con enlace directo, sin captcha). */
+/** Finanzas: /finance y /gv-finance (rutas reales del portal). PDFs y botones de descarga. */
 async function finanzas(page: Page, periodo: string, cuenta: string) {
-  if (!(await irPorMenu(page, 'finance-nav-item'))) {
-    await log(P, 'aviso', `${cuenta}: no encuentro el menú de finanzas`);
-    return;
-  }
-  await volcar(`${P}_finanzas_${cuenta}`, await page.content().catch(() => ''));
+  for (const ruta of ['/finance', '/gv-finance']) {
+    await page.goto(`${RAIZ}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(10000);
+    await quitarEstorbos(page);
+    await volcar(`${P}_fin${ruta.replace(/\//g, '_')}_${cuenta}`, await page.content().catch(() => ''));
 
-  // Recorrer las pestañas de la sección (Facturas / Liquidaciones / Pagos…)
-  const pestañas = page.locator('[role="tab"], a[role="tab"], button[role="tab"]');
-  const nTabs = Math.min(await pestañas.count().catch(() => 0), 5);
+    let alguno = false;
 
-  const bajarAqui = async (paso: string) => {
-    const ficheros = await bajarEnlaces(P, page, paso, 8);
+    // 1) Enlaces directos (PDF/CSV/download)
+    const ficheros = await bajarEnlaces(P, page, `fin${ruta.replace(/\//g, '_')}_${cuenta}`, 8);
     for (const f of ficheros) {
       await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'facturas' });
+      alguno = true;
     }
-    if (!ficheros.length) {
-      const f = await descargarDeLaPagina(P, page, paso);
-      if (f) await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'facturas' });
-    }
-  };
 
-  if (nTabs === 0) { await bajarAqui(`finanzas_${cuenta}`); return; }
-  for (let i = 0; i < nTabs; i++) {
-    await pestañas.nth(i).click({ timeout: 6000 }).catch(() => {});
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(6000);
-    await bajarAqui(`finanzas_tab${i}_${cuenta}`);
+    // 2) Botones de descarga por fila (icono en la lista de facturas)
+    if (!alguno) {
+      const botones = page.locator('button[aria-label*="descarg" i], button[aria-label*="download" i], [data-testid*="download" i], [data-testid*="invoice" i] button');
+      const n = Math.min(await botones.count().catch(() => 0), 10);
+      for (let i = 0; i < n; i++) {
+        const f = await capturar(page, P, async () => { await botones.nth(i).click({ timeout: 8000 }).catch(() => {}); }, 60);
+        if (!f) continue;
+        await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'facturas' });
+        alguno = true;
+      }
+    }
+
+    if (!alguno) await log(P, 'sin_descarga', `fin${ruta.replace(/\//g, '_')}_${cuenta}: nada que bajar (HTML volcado)`);
   }
 }
 
