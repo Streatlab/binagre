@@ -1,24 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
-  SECCIONES, DIRECTOS, tituloDeRuta,
+  SECCIONES, DIRECTOS, tituloDeRuta, emojiDeRuta,
   INK, CREMA, CREMA2, BLANCO, AMA, GRANATE,
   type SeccionMovil,
 } from '@/mobile/mapaMovil'
-import { PanelMovil, PantallaPendiente, emojiDeRuta } from '@/mobile/PantallasMovil'
+import { PanelMovil, PantallaPendiente, Fila } from '@/mobile/PantallasMovil'
 
 const OSW = 'Oswald, sans-serif'
-const ANCHO_MOVIL = 420 // ancho de referencia de la app
+const ANCHO = 480 // igual que Delasalud
 
-/**
- * App móvil Binagre — estructura Delasalud:
- * - Viewport bloqueado: nunca hay scroll horizontal.
- * - Contenido en una columna, scroll solo vertical.
- * - Barra inferior fija con carrusel de módulos + panel flotante.
- * - Escala forzada: aunque el navegador pida "versión de escritorio",
- *   la app se dibuja siempre a tamaño móvil.
- * - Aviso de instalación como app (PWA).
- */
 export default function ShellMovil() {
   const nav = useNavigate()
   const loc = useLocation()
@@ -31,11 +22,11 @@ export default function ShellMovil() {
 
   const ir = (path: string) => { setAbierta(null); nav(path) }
 
-  // ── Escala forzada a móvil (anula el "modo escritorio" del navegador) ──
+  // Escala forzada a móvil (anula el "modo escritorio" del navegador)
   useEffect(() => {
     const ajustar = () => {
       const w = window.innerWidth
-      const z = w > 560 ? Math.round((w / ANCHO_MOVIL) * 1000) / 1000 : 1
+      const z = w > 560 ? Math.round((w / 420) * 1000) / 1000 : 1
       ;(document.documentElement.style as any).zoom = String(z)
     }
     ajustar()
@@ -48,7 +39,7 @@ export default function ShellMovil() {
     }
   }, [])
 
-  // ── Aviso de instalación (PWA) ──
+  // Aviso de instalación (PWA)
   useEffect(() => {
     const captura = (e: Event) => { e.preventDefault(); setInstalar(e) }
     window.addEventListener('beforeinstallprompt', captura)
@@ -62,47 +53,41 @@ export default function ShellMovil() {
     setInstalar(null)
   }
 
-  // Centra el icono activo del carrusel
   useEffect(() => {
     const el = dockRef.current?.querySelector<HTMLElement>('[data-activo="1"]')
     el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }, [loc.pathname, abierta])
-
-  const pantalla = () => {
-    if (loc.pathname === '/') return <PanelMovil />
-    return <PantallaPendiente titulo={cab.titulo} emoji={emojiDeRuta(loc.pathname)} />
-  }
 
   const verAviso = !!instalar && !ocultarAviso
 
   return (
     <div style={{
       position: 'fixed', inset: 0, overflow: 'hidden', background: CREMA, color: INK,
-      fontFamily: 'Lexend, sans-serif', display: 'flex', flexDirection: 'column',
+      fontFamily: 'Lexend, sans-serif', fontSize: 16, display: 'flex', flexDirection: 'column',
     }}>
 
       {/* ── Cabecera ── */}
       <header style={{
-        flex: '0 0 auto', background: CREMA, borderBottom: `4px solid ${INK}`,
-        padding: 'calc(8px + env(safe-area-inset-top)) 12px 8px',
-        display: 'flex', alignItems: 'center', gap: 8,
+        flex: '0 0 auto', background: CREMA, borderBottom: `3px solid ${INK}`,
+        padding: 'calc(0.7rem + env(safe-area-inset-top)) 1rem 0.7rem',
+        display: 'flex', alignItems: 'center', gap: '0.7rem',
       }}>
         {!enPanel && (
           <button onClick={() => nav('/')} aria-label="Volver" style={{
-            width: 36, height: 36, flex: '0 0 36px', background: AMA, border: `3px solid ${INK}`,
-            boxShadow: `3px 3px 0 ${INK}`, fontFamily: OSW, fontWeight: 700, fontSize: 19,
-            cursor: 'pointer', borderRadius: 0, padding: 0,
+            width: '2.6rem', height: '2.6rem', flex: '0 0 auto', background: AMA, border: `3px solid ${INK}`,
+            boxShadow: `3px 3px 0 ${INK}`, fontFamily: OSW, fontWeight: 700, fontSize: '1.4rem',
+            cursor: 'pointer', borderRadius: 0, padding: 0, lineHeight: 1,
           }}>‹</button>
         )}
         <div style={{ minWidth: 0, flex: 1 }}>
           <span style={{
             display: 'inline-block', background: cab.color, color: cab.texto, border: `2px solid ${INK}`,
-            fontFamily: OSW, fontWeight: 600, fontSize: 9.5, letterSpacing: 1.6,
-            textTransform: 'uppercase', padding: '2px 7px', marginBottom: 3,
+            fontFamily: OSW, fontWeight: 600, fontSize: '0.65rem', letterSpacing: '0.12em',
+            textTransform: 'uppercase', padding: '0.1rem 0.45rem', marginBottom: '0.2rem',
           }}>{cab.seccion}</span>
           <h1 style={{
-            fontFamily: OSW, fontWeight: 700, fontSize: 21, textTransform: 'uppercase',
-            letterSpacing: '-0.4px', lineHeight: 1, whiteSpace: 'nowrap',
+            fontFamily: OSW, fontWeight: 700, fontSize: '1.6rem', textTransform: 'uppercase',
+            letterSpacing: '-0.01em', lineHeight: 1, whiteSpace: 'nowrap',
             overflow: 'hidden', textOverflow: 'ellipsis', margin: 0,
           }}>{cab.titulo}</h1>
         </div>
@@ -110,32 +95,32 @@ export default function ShellMovil() {
 
       {/* ── Contenido ── */}
       <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }}>
-        <div style={{ maxWidth: ANCHO_MOVIL, margin: '0 auto', padding: '14px 12px 24px' }}>
-          {pantalla()}
+        <div style={{ maxWidth: ANCHO, margin: '0 auto', padding: '1rem 1rem 2rem' }}>
+          {enPanel
+            ? <PanelMovil />
+            : <PantallaPendiente titulo={cab.titulo} emoji={emojiDeRuta(loc.pathname)} />}
         </div>
       </main>
 
       {/* ── Aviso instalar app ── */}
       {verAviso && (
         <div style={{
-          flex: '0 0 auto', background: AMA, borderTop: `4px solid ${INK}`, padding: '8px 12px',
-          display: 'flex', alignItems: 'center', gap: 8,
+          flex: '0 0 auto', background: AMA, borderTop: `3px solid ${INK}`, padding: '0.7rem 1rem',
+          display: 'flex', alignItems: 'center', gap: '0.7rem',
         }}>
-          <span style={{ fontSize: 20 }}>📲</span>
+          <span style={{ fontSize: '1.6rem' }}>📲</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <b style={{ display: 'block', fontFamily: OSW, fontWeight: 700, fontSize: 13, textTransform: 'uppercase' }}>
-              Instalar Binagre
-            </b>
-            <span style={{ fontSize: 10.5, fontWeight: 500 }}>Añádela a la pantalla de inicio</span>
+            <p style={{ fontFamily: OSW, fontWeight: 700, fontSize: '1rem', textTransform: 'uppercase' }}>Instalar Binagre</p>
+            <p style={{ fontSize: '0.78rem', opacity: 0.7 }}>Añádela a la pantalla de inicio</p>
           </div>
           <button onClick={instalarApp} style={{
             background: INK, color: AMA, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${BLANCO}`,
-            fontFamily: OSW, fontWeight: 700, fontSize: 12, textTransform: 'uppercase',
-            padding: '6px 10px', borderRadius: 0, cursor: 'pointer',
+            fontFamily: OSW, fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase',
+            padding: '0.5rem 0.8rem', borderRadius: 0, cursor: 'pointer',
           }}>Instalar</button>
           <button onClick={() => setOcultarAviso(true)} aria-label="Ahora no" style={{
             background: 'transparent', border: 'none', fontFamily: OSW, fontWeight: 700,
-            fontSize: 16, padding: '0 4px', cursor: 'pointer', borderRadius: 0,
+            fontSize: '1.2rem', padding: '0 0.2rem', cursor: 'pointer', borderRadius: 0,
           }}>✕</button>
         </div>
       )}
@@ -145,44 +130,32 @@ export default function ShellMovil() {
         <div onClick={() => setAbierta(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,10,.5)', zIndex: 62 }} />
       )}
 
-      {/* ── Panel flotante del módulo ── */}
+      {/* ── Panel flotante: lista grande, una fila por pantalla ── */}
       {abierta && (
         <div style={{
-          position: 'absolute', left: 10, right: 10, bottom: 'calc(96px + env(safe-area-inset-bottom))',
+          position: 'absolute', left: '0.75rem', right: '0.75rem', bottom: 'calc(6.4rem + env(safe-area-inset-bottom))',
           zIndex: 65, background: CREMA, border: `4px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}`,
-          padding: 10, maxHeight: '56dvh', display: 'flex', flexDirection: 'column',
-          maxWidth: ANCHO_MOVIL, marginLeft: 'auto', marginRight: 'auto',
+          padding: '0.75rem', maxHeight: '62dvh', display: 'flex', flexDirection: 'column',
+          maxWidth: ANCHO, marginLeft: 'auto', marginRight: 'auto',
           animation: 'slUp .32s cubic-bezier(.34,1.45,.5,1)',
         }}>
-          <style>{`@keyframes slUp{from{opacity:0;transform:translateY(16px) scale(.94)}to{opacity:1;transform:none}}`}</style>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
+          <style>{`@keyframes slUp{from{opacity:0;transform:translateY(18px) scale(.94)}to{opacity:1;transform:none}}`}</style>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
             <span style={{
               background: abierta.color, color: abierta.texto, border: `2px solid ${INK}`, fontFamily: OSW,
-              fontWeight: 600, fontSize: 9.5, letterSpacing: 1.6, textTransform: 'uppercase', padding: '2px 7px',
+              fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase',
+              padding: '0.25rem 0.6rem',
             }}>{abierta.label}</span>
             <button onClick={() => setAbierta(null)} style={{
-              background: BLANCO, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 9.5,
-              letterSpacing: 1.6, textTransform: 'uppercase', padding: '2px 7px', cursor: 'pointer', borderRadius: 0,
+              background: BLANCO, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700, fontSize: '0.75rem',
+              letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.25rem 0.6rem', cursor: 'pointer', borderRadius: 0,
             }}>Cerrar ✕</button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', overflowY: 'auto' }}>
             {abierta.items.map(it => (
-              <button key={it.path} onClick={() => ir(it.path)} style={{
-                background: BLANCO, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`,
-                padding: 8, cursor: 'pointer', textAlign: 'left', borderRadius: 0,
-              }}>
-                <span style={{ fontSize: 15, display: 'block', marginBottom: 3 }}>{it.emoji}</span>
-                <b style={{
-                  display: 'block', fontFamily: OSW, fontWeight: 600, fontSize: 12.5,
-                  textTransform: 'uppercase', lineHeight: 1.15,
-                }}>{it.label}</b>
-                {it.pendiente && (
-                  <span style={{
-                    display: 'inline-block', marginTop: 4, background: GRANATE, color: '#fff', fontFamily: OSW,
-                    fontSize: 8, fontWeight: 700, padding: '1px 4px', border: `1.5px solid ${INK}`,
-                  }}>PEND</span>
-                )}
-              </button>
+              <Fila key={it.path} emoji={it.emoji} bg={abierta.color} titulo={it.label} desc={it.desc}
+                chip={it.pendiente ? 'Pend' : undefined} chipBg={GRANATE} chipColor="#fff"
+                onClick={() => ir(it.path)} />
             ))}
           </div>
         </div>
@@ -190,28 +163,28 @@ export default function ShellMovil() {
 
       {/* ── Carrusel inferior ── */}
       <nav style={{
-        flex: '0 0 auto', background: CREMA2, borderTop: `4px solid ${INK}`,
-        padding: '10px 0 calc(10px + env(safe-area-inset-bottom))',
+        flex: '0 0 auto', background: CREMA2, borderTop: `3px solid ${INK}`,
+        padding: '0.6rem 0 calc(0.6rem + env(safe-area-inset-bottom))',
       }}>
         <div ref={dockRef} style={{ display: 'flex', overflowX: 'auto', scrollbarWidth: 'none' }}>
-          <div style={{ display: 'flex', gap: 8, margin: '0 auto', padding: '2px 12px 4px', minWidth: 'max-content' }}>
+          <div style={{ display: 'flex', gap: '0.55rem', margin: '0 auto', padding: '0.15rem 0.75rem 0.25rem', minWidth: 'max-content' }}>
 
             {DIRECTOS.map(d => {
               const activo = loc.pathname === d.path && !abierta
               return (
                 <button key={d.path} data-activo={activo ? '1' : undefined} onClick={() => ir(d.path)} style={{
-                  flex: '0 0 auto', width: 56, background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                  borderRadius: 0, transform: activo ? 'translateY(-5px) scale(1.06)' : 'none', transition: 'transform .25s',
+                  flex: '0 0 auto', width: '4.2rem', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                  borderRadius: 0, transform: activo ? 'translateY(-4px) scale(1.06)' : 'none', transition: 'transform .25s',
                 }}>
                   <span style={{
-                    width: 48, height: 48, margin: '0 auto', background: AMA, color: INK, border: `3px solid ${INK}`,
-                    boxShadow: activo ? `5px 5px 0 ${INK}` : `3px 3px 0 ${INK}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                    width: '3.4rem', height: '3.4rem', margin: '0 auto', background: AMA, color: INK,
+                    border: `3px solid ${INK}`, boxShadow: activo ? `5px 5px 0 ${INK}` : `3px 3px 0 ${INK}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem',
                   }}>{d.emoji}</span>
                   <span style={{
-                    display: 'block', fontFamily: OSW, fontWeight: 600, fontSize: 9, letterSpacing: .6,
-                    textTransform: 'uppercase', marginTop: 4, textAlign: 'center',
-                    textDecoration: activo ? 'underline' : 'none', textUnderlineOffset: 2,
+                    display: 'block', fontFamily: OSW, fontWeight: 600, fontSize: '0.66rem', letterSpacing: '0.06em',
+                    textTransform: 'uppercase', marginTop: '0.3rem', textAlign: 'center',
+                    textDecoration: activo ? 'underline' : 'none', textUnderlineOffset: 3,
                   }}>{d.label}</span>
                 </button>
               )
@@ -222,18 +195,18 @@ export default function ShellMovil() {
               return (
                 <button key={s.key} data-activo={activo ? '1' : undefined}
                   onClick={() => setAbierta(abierta?.key === s.key ? null : s)} style={{
-                    flex: '0 0 auto', width: 56, background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                    borderRadius: 0, transform: activo ? 'translateY(-5px) scale(1.06)' : 'none', transition: 'transform .25s',
+                    flex: '0 0 auto', width: '4.2rem', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                    borderRadius: 0, transform: activo ? 'translateY(-4px) scale(1.06)' : 'none', transition: 'transform .25s',
                   }}>
                   <span style={{
-                    width: 48, height: 48, margin: '0 auto', background: s.color, color: s.texto,
+                    width: '3.4rem', height: '3.4rem', margin: '0 auto', background: s.color, color: s.texto,
                     border: `3px solid ${INK}`, boxShadow: activo ? `5px 5px 0 ${INK}` : `3px 3px 0 ${INK}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem',
                   }}>{s.emoji}</span>
                   <span style={{
-                    display: 'block', fontFamily: OSW, fontWeight: 600, fontSize: 9, letterSpacing: .6,
-                    textTransform: 'uppercase', marginTop: 4, textAlign: 'center', lineHeight: 1.1,
-                    textDecoration: activo ? 'underline' : 'none', textUnderlineOffset: 2,
+                    display: 'block', fontFamily: OSW, fontWeight: 600, fontSize: '0.66rem', letterSpacing: '0.06em',
+                    textTransform: 'uppercase', marginTop: '0.3rem', textAlign: 'center', lineHeight: 1.1,
+                    textDecoration: activo ? 'underline' : 'none', textUnderlineOffset: 3,
                   }}>{s.label}</span>
                 </button>
               )
