@@ -2,57 +2,51 @@
  * calcNetoPlataforma.ts · FUNCIÓN CENTRAL ÚNICA del ERP
  *
  * Fuente de verdad: config_canales + marca_plataforma_acceso (Supabase).
- * Documentación canónica: Notion 366c8b1f-6139-81a8-95a7-dd0abdf63a91
- * Procedimiento: Notion 366c8b1f-6139-81c1-8451-fbef75dd3aa2
+ * Documentación canónica: docs/LEY_NETO.md
  *
- * Fórmulas reales verificadas (64 pedidos + 10 facturas, may 2026):
+ * ⚖️ LEY-NETO-01 (real manda) + LEY-NETO-02 (autoaprendizaje).
+ *
+ * AUTOAPRENDIZAJE (LEY-NETO-02):
+ *   Los porcentajes de comportamiento de cliente/plataforma NO se escriben a mano.
+ *   La función de BD fn_recalibrar_calcneto() los recalcula solos cada vez que entra
+ *   una liquidación real (trigger en uber_liquidaciones / glovo_liquidaciones), con
+ *   ventana de 183 días y muestra mínima (>=120 pedidos o >=3 liquidaciones):
+ *     · pct_pedidos_promo_estim        → % de pedidos que llevan promo (cargo de promo / fee unitario)
+ *     · pct_pedidos_prime_estim        → % de pedidos de cliente prime (se despeja de la comisión efectiva)
+ *     · pct_promo_subvencionada_estim  → % del bruto que nos comemos en promociones
+ *     · pct_ads_estim                  → % del bruto que se va en publicidad de plataforma
+ *   Historial de cada ajuste en la tabla calcneto_calibracion_log.
+ *   PROHIBIDO hardcodear estos valores aquí.
+ *
+ * Fórmulas base (verificadas may 2026, ajustadas solas desde entonces):
  *
  *   UBER EATS
- *     Por pedido:
- *       Si Uber One        → comisión = 33% × precio
- *       Si NO Uber One     → comisión = 30% × precio
- *       Si pedido con promo → +0,82€ extra (sea Prime o no)
- *     Periodo:
- *       fee_periódico = 2,29€ × semanas × marcas activas Uber
- *       IVA 21% sobre TODO
- *
+ *     Por pedido:  comisión = 30% (33% si Uber One) × precio
+ *                  pedido con promo → +0,82€
+ *     Periodo:     fee = 2,29€ × semanas × marcas activas Uber
  *   GLOVO
- *     Por pedido:
- *       comisión = 30% × precio
- *       Si cliente Prime → +0,74€ extra
- *     Periodo:
- *       fee_periódico = 10€ × quincenas × marcas activas Glovo
- *       IVA 21% sobre TODO
- *
+ *     Por pedido:  comisión = 30% × precio; cliente Prime → +0,74€
+ *     Periodo:     fee = 10€ × quincenas × marcas activas Glovo
  *   JUST EAT
- *     Por pedido:
- *       comisión = 30% × (precio − GastosUsuario × 1,21)
- *       fee_pedido = 0,30€
- *     IVA 21% sobre TODO
- *
+ *     comisión = 30% × (precio − GastosUsuario × 1,21) + 0,30€/pedido
  *   WEB PROPIA
- *     fee_pedido = 0,50€ + IVA21%
- *
+ *     fee = 0,50€/pedido
  *   VENTA DIRECTA
- *     Sin fees, Neto = Bruto
+ *     sin fees
+ *   IVA 21% sobre comisiones y fees.
+ *   Promociones subvencionadas y ads: se restan tal cual (ya vienen con su importe final).
  *
- * NOTA PRORRATEO (02 jun 2026 · corrige bug semana a medio cargar):
- *   El fee periódico se prorratea por DÍAS CON DATOS REALES, no por días
- *   del rango. Si el rango es "semana actual" (7 días) pero solo hay 1 día
- *   metido, antes cargaba el fee de los 7 días sobre la venta de 1 → neto
- *   hundido. Ahora si pasas diasConDatos, prorratea sobre esos días reales.
- *   Si no se pasa diasConDatos, cae al comportamiento antiguo (días del rango).
+ * NOTA PRORRATEO (02 jun 2026):
+ *   El fee periódico se prorratea por DÍAS CON DATOS REALES, no por días del rango.
  *
  * NOTA MARCAS ACTIVAS:
  *   El nº de marcas SIEMPRE sale de marca_plataforma_acceso WHERE activo=true.
- *   Nunca se asume 26. Si una marca se desactiva en Configuración, deja de
- *   contar para el fee periódico automáticamente.
  *
  * Funciones expuestas:
- *   - calcNetoPorCanal()      → devuelve solo el neto total (para conciliación)
- *   - calcDesglosePorCanal()  → devuelve cada componente desglosado (para Running)
- *   - loadConfigCanales()     → carga config desde Supabase (con caché y realtime)
- *   - loadMarcasPorCanal()    → carga nº marcas por canal
+ *   - calcNetoPorCanal()      → neto total (fallback del resolver)
+ *   - calcDesglosePorCanal()  → cada componente desglosado (Running)
+ *   - loadConfigCanales()     → config desde Supabase (caché + realtime)
+ *   - loadMarcasPorCanal()    → nº marcas por canal
  */
 
 import { useEffect, useState } from 'react'
@@ -64,18 +58,19 @@ export interface NetoResult { neto: number; margenPct: number }
 
 /**
  * Desglose completo de los componentes que componen el neto de un canal.
- * Cada importe ya lleva IVA del 21% (excepto bruto que es el cobrado por el cliente).
- * Útil para mostrar línea a línea en el Running.
+ * Comisiones y fees llevan IVA 21%. Promo subvencionada y ads van a importe final.
  */
 export interface DesgloseCanal {
-  bruto: number              // Lo pagado por el cliente
-  comisionConIva: number     // Comisión variable (30/33% × bruto) + IVA 21%
-  feePromoConIva: number     // Uber: 0,82€ × pedidos_promo + IVA. Glovo: 0
-  feePrimeConIva: number     // Glovo: 0,74€ × pedidos_prime + IVA. Uber: 0
-  feePeriodicoConIva: number // Uber: 2,29€ × semanas × marcas + IVA. Glovo: 10€ × quincenas × marcas + IVA
-  fijoPedidoConIva: number   // JE: 0,30€/ped + IVA. Web: 0,50€/ped + IVA
-  totalDescuentos: number    // Suma de todos los anteriores (sin bruto)
-  neto: number               // bruto − totalDescuentos
+  bruto: number                    // Lo pagado por el cliente
+  comisionConIva: number           // Comisión variable (30/33% × bruto) + IVA 21%
+  feePromoConIva: number           // Uber: 0,82€ × pedidos_promo + IVA
+  feePrimeConIva: number           // Glovo: 0,74€ × pedidos_prime + IVA
+  feePeriodicoConIva: number       // Uber: 2,29€ × semanas × marcas. Glovo: 10€ × quincenas × marcas
+  fijoPedidoConIva: number         // JE: 0,30€/ped + IVA. Web: 0,50€/ped + IVA
+  promoSubvencionada: number       // Descuentos que pagamos nosotros (autocalibrado)
+  adsPlataforma: number            // Publicidad de plataforma (autocalibrado)
+  totalDescuentos: number          // Suma de todo lo anterior (sin bruto)
+  neto: number                     // bruto − totalDescuentos
 }
 
 export interface CanalConfig {
@@ -89,6 +84,9 @@ export interface CanalConfig {
   fee_periodicidad: string
   pct_pedidos_prime_estim: number
   pct_pedidos_promo_estim: number
+  /** Autocalibrados por fn_recalibrar_calcneto (LEY-NETO-02) */
+  pct_promo_subvencionada_estim: number
+  pct_ads_estim: number
 }
 
 /** Marcas activas reales por canal (de marca_plataforma_acceso) */
@@ -108,12 +106,13 @@ export interface OpcionesCalcNeto {
   fechaDesde?: Date
   fechaHasta?: Date
   marcasPorCanal?: MarcasPorCanal | number
+  /** Override explícito de promo subvencionada. Si no se pasa, se usa el % autocalibrado. */
   promoSubvencionada?: number
   configCanales?: Record<string, CanalConfig>
   /**
    * Nº de días con datos reales de facturación en el rango. Si se pasa,
    * el fee periódico se prorratea sobre estos días en vez de sobre los
-   * días naturales del rango. Evita que una semana a medio cargar hunda el neto.
+   * días naturales del rango.
    */
   diasConDatos?: number
 }
@@ -124,8 +123,6 @@ let realtimeInit = false
 
 /* ════════════════════════════════════════════════════════════════════════
  * REAL MANDA · liquidaciones reales (ventas_plataforma) + autoalimentación
- * El neto real que entra por Documentación → Ventas manda sobre el estimado.
- * El ratio neto/bruto empírico por canal se afina solo según entran ventas.
  * ════════════════════════════════════════════════════════════════════════ */
 const MIN_PEDIDOS_CALIBRACION = 120
 const MIN_PERIODOS_CALIBRACION = 3
@@ -174,7 +171,6 @@ export async function loadRatiosRealesCanal(): Promise<Record<string, RatioCanal
   if (cacheRatiosReales) return cacheRatiosReales
   const liq = await loadVentasRealesIndex()
   // RECENCIA: solo liquidaciones de los ultimos 6 meses, ponderando mas lo reciente.
-  // Asi el ratio neto/bruto refleja la tendencia actual y no un promedio plano de todo el historico.
   const VENTANA_DIAS = 183
   const hoyEpoch = Math.floor(Date.now() / 86400000)
   const minEpoch = hoyEpoch - VENTANA_DIAS
@@ -272,7 +268,7 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
   if (cacheConfig) return cacheConfig
   const { data, error } = await supabase
     .from('config_canales')
-    .select('canal, comision_pct, comision_pct_prime, fijo_eur, fee_prime_eur, fee_promo_eur, fee_periodo_eur, fee_periodicidad, pct_pedidos_prime_estim, pct_pedidos_promo_estim')
+    .select('canal, comision_pct, comision_pct_prime, fijo_eur, fee_prime_eur, fee_promo_eur, fee_periodo_eur, fee_periodicidad, pct_pedidos_prime_estim, pct_pedidos_promo_estim, pct_promo_subvencionada_estim, pct_ads_estim')
     .eq('activo', true)
   if (error || !data) { cacheConfig = {}; return cacheConfig }
   const out: Record<string, CanalConfig> = {}
@@ -288,6 +284,8 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
       fee_periodicidad: String(row.fee_periodicidad ?? 'mensual'),
       pct_pedidos_prime_estim: Number(row.pct_pedidos_prime_estim ?? 0),
       pct_pedidos_promo_estim: Number(row.pct_pedidos_promo_estim ?? 0),
+      pct_promo_subvencionada_estim: Number(row.pct_promo_subvencionada_estim ?? 0),
+      pct_ads_estim: Number(row.pct_ads_estim ?? 0),
     }
   }
   cacheConfig = out
@@ -364,10 +362,6 @@ export function useMarcasPorCanal(): MarcasPorCanal {
 
 /**
  * Devuelve el fee periódico PRORRATEADO.
- * Si se pasa diasConDatos (días con facturación real en el rango), prorratea
- * sobre esos días. Si no, usa los días naturales del rango (comportamiento antiguo).
- * Esto evita que una semana a medio cargar (7 días de rango, 1 con datos)
- * cargue el fee de toda la semana sobre la venta de un solo día.
  */
 function calcularPeriodosProrrateados(
   periodicidad: string,
@@ -403,7 +397,6 @@ function resolveMarcas(canalId: string, marcas: number | MarcasPorCanal | undefi
 
 /**
  * Cálculo neto por canal · FUNCIÓN CENTRAL ÚNICA del ERP.
- * Devuelve solo el neto total. Para desglosar componentes, ver calcDesglosePorCanal.
  */
 export function calcNetoPorCanal(
   canalId: string,
@@ -415,7 +408,6 @@ export function calcNetoPorCanal(
   configOverrideLegacy?: Record<string, CanalConfig>,
   promoSubvencionadaLegacy?: number,
 ): NetoResult {
-  // Parse opciones para saber modo + periodo + marca
   let modo: ModoNeto = 'agregado_canal'
   let desde: Date | undefined = fechaDesdeLegacy
   let hasta: Date | undefined = fechaHastaLegacy
@@ -431,7 +423,6 @@ export function calcNetoPorCanal(
   }
 
   // REAL MANDA solo a nivel agregado de canal con periodo definido.
-  // Modo 'plato' / 'subset_marca' o sin fechas → estimado puro (economía unitaria).
   if (modo === 'agregado_canal' && desde && hasta) {
     const reales = realesContenidas(canalId, desde, hasta, marca)
     const brutoReal = reales.reduce((s, l) => s + l.bruto, 0)
@@ -445,7 +436,7 @@ export function calcNetoPorCanal(
         const c = normalizarCanalId((canalId || '').toLowerCase())
         const ratio = cacheRatiosReales?.[c]
         if (ratio && ratio.fiable && ratio.ratio > 0) {
-          netoResidual = brutoResidual * ratio.ratio   // estimado afinado con histórico real
+          netoResidual = brutoResidual * ratio.ratio
         } else {
           netoResidual = calcDesglosePorCanal(canalId, brutoResidual, pedResidual, opcsOrLegacyMarcas, fechaDesdeLegacy, fechaHastaLegacy, configOverrideLegacy, promoSubvencionadaLegacy).neto
         }
@@ -453,7 +444,6 @@ export function calcNetoPorCanal(
       const neto = netoReal + netoResidual
       return { neto, margenPct: bruto > 0 ? (neto / bruto) * 100 : 0 }
     }
-    // Sin real para este periodo: estimado, pero afinado con ratio empírico si es fiable
     const c = normalizarCanalId((canalId || '').toLowerCase())
     const ratio = cacheRatiosReales?.[c]
     if (ratio && ratio.fiable && ratio.ratio > 0 && bruto > 0) {
@@ -468,10 +458,9 @@ export function calcNetoPorCanal(
 
 /**
  * Cálculo del desglose completo por canal.
- * Devuelve cada componente (comisión, fees, tasas) con IVA incluido.
- * Usado por Running para mostrar línea a línea el coste de cada plataforma.
- *
- * Misma firma que calcNetoPorCanal — usa fórmulas idénticas, solo expone los componentes.
+ * Comisiones y fees con IVA. Promo subvencionada y ads a importe final.
+ * Los % de promo / prime / promo subvencionada / ads salen SIEMPRE de config_canales,
+ * que se autocalibra con cada liquidación real (LEY-NETO-02). Nunca se hardcodean.
  */
 export function calcDesglosePorCanal(
   canalId: string,
@@ -483,7 +472,6 @@ export function calcDesglosePorCanal(
   configOverrideLegacy?: Record<string, CanalConfig>,
   promoSubvencionadaLegacy?: number,
 ): DesgloseCanal {
-  // Normalizar argumentos
   let opciones: OpcionesCalcNeto
   if (opcsOrLegacyMarcas && typeof opcsOrLegacyMarcas === 'object' && !Array.isArray(opcsOrLegacyMarcas) && (
     'modo' in opcsOrLegacyMarcas || 'fechaDesde' in opcsOrLegacyMarcas || 'configCanales' in opcsOrLegacyMarcas || 'diasConDatos' in opcsOrLegacyMarcas
@@ -513,6 +501,8 @@ export function calcDesglosePorCanal(
     feePrimeConIva: 0,
     feePeriodicoConIva: 0,
     fijoPedidoConIva: 0,
+    promoSubvencionada: 0,
+    adsPlataforma: 0,
     totalDescuentos: 0,
     neto: bruto,
   }
@@ -520,11 +510,16 @@ export function calcDesglosePorCanal(
   if (!cfg) return empty
   if (bruto <= 0) return { ...empty, bruto: 0, neto: 0 }
 
-  const promo = opciones.promoSubvencionada ?? 0
+  /* ── Promo subvencionada: override explícito o % autocalibrado ── */
+  const pctPromoSub = Number(cfg.pct_promo_subvencionada_estim ?? 0)
+  const promo = opciones.promoSubvencionada != null
+    ? opciones.promoSubvencionada
+    : (modo === 'plato' ? 0 : bruto * pctPromoSub)
+
   const factorPromoIva = id === 'je' ? 1.21 : 1.0
   const baseCobrado = Math.max(0, bruto - promo * factorPromoIva)
 
-  // Comisión variable
+  // Comisión variable (mezcla normal / prime con el % autocalibrado)
   const pctPrime = cfg.pct_pedidos_prime_estim
   const pctPromo = cfg.pct_pedidos_promo_estim
   let comisionVariable = 0
@@ -541,7 +536,7 @@ export function calcDesglosePorCanal(
   // Fee fijo por pedido (JE 0,30€, Web 0,50€)
   const fijoTotal = cfg.fijo_eur * pedidos
 
-  // Fees variables por pedido (Glovo Prime, Uber promo)
+  // Fees variables por pedido (Glovo Prime, Uber promo) según % autocalibrados
   let feePrimeTotal = 0
   let feePromoTotal = 0
   if (modo !== 'plato') {
@@ -551,8 +546,7 @@ export function calcDesglosePorCanal(
     feePromoTotal = cfg.fee_promo_eur * nPromo
   }
 
-  // Fee periódico PRORRATEADO por días con datos reales (o días del rango si no se pasa)
-  // Marcas SIEMPRE de marca_plataforma_acceso (activas). Nunca se asume 26.
+  // Fee periódico PRORRATEADO por días con datos reales
   let feePeriodoTotal = 0
   if (
     modo === 'agregado_canal' &&
@@ -565,15 +559,20 @@ export function calcDesglosePorCanal(
     feePeriodoTotal = cfg.fee_periodo_eur * periodosFraccionales * nMarcas
   }
 
-  // Aplicar IVA 21% sobre cada componente
+  // Publicidad de plataforma: % del bruto, autocalibrado. No aplica a economía de plato.
+  const adsPlataforma = modo === 'plato' ? 0 : bruto * Number(cfg.pct_ads_estim ?? 0)
+
+  // IVA 21% sobre comisiones y fees
   const comisionConIva     = comisionVariable * (1 + IVA)
   const feePromoConIva     = feePromoTotal    * (1 + IVA)
   const feePrimeConIva     = feePrimeTotal    * (1 + IVA)
   const feePeriodicoConIva = feePeriodoTotal  * (1 + IVA)
   const fijoPedidoConIva   = fijoTotal        * (1 + IVA)
 
-  const totalDescuentos = comisionConIva + feePromoConIva + feePrimeConIva + feePeriodicoConIva + fijoPedidoConIva
-  const neto = Math.max(0, bruto - promo - totalDescuentos)
+  const totalDescuentos =
+    comisionConIva + feePromoConIva + feePrimeConIva + feePeriodicoConIva +
+    fijoPedidoConIva + promo + adsPlataforma
+  const neto = Math.max(0, bruto - totalDescuentos)
 
   return {
     bruto,
@@ -582,6 +581,8 @@ export function calcDesglosePorCanal(
     feePrimeConIva,
     feePeriodicoConIva,
     fijoPedidoConIva,
+    promoSubvencionada: promo,
+    adsPlataforma,
     totalDescuentos,
     neto,
   }
