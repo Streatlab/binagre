@@ -16,18 +16,15 @@ const TabDrive = React.lazy(() => import('@/pages/configuracion/marcas/TabDrive'
 
 // A1 · Mapeo de marcas (venta ciega de Glovo / Just Eat)
 const MapeoMarcas = React.lazy(() => import('@/pages/configuracion/MapeoMarcas'))
-// A2 + A4 · Coste por plato (enlaza venta con receta) y limpieza de duplicados
+// A2 · Coste por plato (enlaza venta con receta costeada)
 const CostePlato = React.lazy(() => import('@/pages/cocina/CostePlato'))
-// B3 · Rentabilidad por franja horaria
-const RentabilidadFranja = React.lazy(() => import('@/pages/analytics/RentabilidadFranja'))
-// Catalogo de platos: el mismo plato se llama distinto en cada plataforma.
-// Esto agrupa todos los nombres bajo un plato real.
-const CatalogoPlatos = React.lazy(() => import('@/pages/cocina/CatalogoPlatos'))
 
-// Pantallas con interruptor NEO / SL: el boton decide cual se ve
+
+// Pantallas con interruptor NEO / SL: la ruta decide cual se ve
 const EscandalloSwitch = React.lazy(() => import('@/pages/switch/EscandalloSwitch'))
 const ConciliacionSwitch = React.lazy(() => import('@/pages/switch/ConciliacionSwitch'))
 const TesoreriaSwitch = React.lazy(() => import('@/pages/switch/TesoreriaSwitch'))
+const PanelSwitch = React.lazy(() => import('@/pages/switch/PanelSwitch'))
 
 const ReglasPage = React.lazy(() => import('@/pages/configuracion/reglas/ReglasPage'))
 const TabReglasIngredientes = React.lazy(() => import('@/pages/configuracion/reglas/TabReglasIngredientes'))
@@ -64,7 +61,6 @@ const BandejaPendientes = React.lazy(() => import('@/pages/BandejaPendientes'))
 const Ventas = React.lazy(() => import('@/pages/finanzas/Ventas'))
 
 const FondoManiobra = React.lazy(() => import('@/pages/finanzas/FondoManiobra'))
-const Reservas = React.lazy(() => import('@/pages/finanzas/Reservas'))
 const EstadosFinancieros = React.lazy(() => import('@/pages/finanzas/EstadosFinancieros'))
 const BreakEvenCanal = React.lazy(() => import('@/pages/finanzas/BreakEvenCanal'))
 const AnalisisHorizontalVertical = React.lazy(() => import('@/pages/finanzas/AnalisisHorizontalVertical'))
@@ -178,6 +174,7 @@ function AppRoutes() {
           <Route path="facturacion/conciliacion" element={<ProtectedRoute solo={['admin']}><ConciliacionSwitch /></ProtectedRoute>} />
           <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
 
+
           <Route path="configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
           {/* Pantalla Configuracion antigua eliminada · redirige a integraciones */}
           <Route path="configuracion/configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
@@ -235,7 +232,6 @@ function AppRoutes() {
 
           <Route path="finanzas/tesoreria-13-semanas" element={<ProtectedRoute solo={['admin']}><TesoreriaSwitch /></ProtectedRoute>} />
           <Route path="finanzas/fondo-maniobra" element={<ProtectedRoute solo={['admin']}><FondoManiobra /></ProtectedRoute>} />
-          <Route path="finanzas/reservas" element={<ProtectedRoute solo={['admin']}><Reservas /></ProtectedRoute>} />
           <Route path="finanzas/estados-financieros" element={<ProtectedRoute solo={['admin']}><EstadosFinancieros /></ProtectedRoute>} />
           <Route path="finanzas/break-even" element={<ProtectedRoute solo={['admin']}><BreakEvenCanal /></ProtectedRoute>} />
           <Route path="finanzas/analisis-horizontal-vertical" element={<ProtectedRoute solo={['admin']}><AnalisisHorizontalVertical /></ProtectedRoute>} />
@@ -244,7 +240,7 @@ function AppRoutes() {
           <Route path="finanzas/roi-canal" element={<ProtectedRoute solo={['admin']}><RoiCanal /></ProtectedRoute>} />
           <Route path="finanzas/ticket-medio" element={<ProtectedRoute solo={['admin']}><TicketMedio /></ProtectedRoute>} />
 
-          <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
+          <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelSwitch /></ProtectedRoute>} />
           <Route path="panel-direccion" element={<ProtectedRoute solo={['admin']}><PanelDireccion /></ProtectedRoute>} />
 
           <Route path="importador" element={<Navigate to="/finanzas/documentacion" replace />} />
@@ -264,8 +260,6 @@ function AppRoutes() {
           <Route path="analytics/ranking" element={<ProtectedRoute solo={['admin']}><RankingProductos /></ProtectedRoute>} />
           <Route path="analytics/demanda" element={<ProtectedRoute solo={['admin']}><PrediccionDemanda /></ProtectedRoute>} />
           <Route path="analytics/pareto-ventas" element={<ProtectedRoute solo={['admin']}><ParetoVentas /></ProtectedRoute>} />
-          {/* B3 · Rentabilidad por franja horaria */}
-          <Route path="analytics/rentabilidad-franja" element={<ProtectedRoute solo={['admin']}><RentabilidadFranja /></ProtectedRoute>} />
 
           <Route path="ops/reembolsos" element={<ReclamacionReembolsos />} />
           <Route path="ops/temperaturas" element={<ControlTemperaturas />} />
@@ -313,10 +307,8 @@ function AppRoutes() {
 
           <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><CocinaInventario /></ProtectedRoute>} />
           <Route path="cocina/recetas" element={<CocinaRecetas />} />
-          {/* A2 + A4 · Coste por plato: enlaza lo que vendes con la receta que lo cuesta */}
+          {/* A2 · Coste por plato: enlaza lo que vendes con la receta que lo cuesta */}
           <Route path="cocina/coste-plato" element={<ProtectedRoute solo={['admin']}><CostePlato /></ProtectedRoute>} />
-          {/* Catalogo: agrupa los nombres distintos de cada plataforma en un plato real */}
-          <Route path="cocina/catalogo" element={<ProtectedRoute solo={['admin']}><CatalogoPlatos /></ProtectedRoute>} />
           <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
           <Route path="cocina/recetario" element={<Recetario />} />
           <Route path="cocina/esquemas" element={<Esquemas />} />
