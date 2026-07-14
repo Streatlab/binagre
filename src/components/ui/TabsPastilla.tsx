@@ -2,6 +2,7 @@
  * TabsPastilla — pestañas del Panel Global (Resumen, Operaciones, Finanzas…).
  * v10: modelo T3 — pastilla dura, activa en ROSA con sombra negra, inactivas en
  * crema con borde negro. Oswald mayúsculas.
+ * En móvil (.movil-scope) se convierte en una tira deslizable: ver movil-scope.css.
  */
 
 const INK = '#140f08'
@@ -23,13 +24,14 @@ interface TabsPastillaProps {
 
 export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaProps) {
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+    <div className="tabs-pastilla" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {tabs.map(tab => {
         const active = tab.id === activeId
         return (
           <button
             key={tab.id}
             onClick={() => onChange(tab.id)}
+            data-activo={active ? '1' : undefined}
             style={{
               fontFamily: OSW,
               fontWeight: 600,
@@ -45,6 +47,8 @@ export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaP
               boxShadow: active ? `4px 4px 0 ${INK}` : 'none',
               display: 'inline-flex',
               alignItems: 'center',
+              flex: '0 0 auto',
+              whiteSpace: 'nowrap',
             }}
           >
             {tab.label}
