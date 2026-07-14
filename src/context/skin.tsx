@@ -1,16 +1,15 @@
 /**
  * skin — interruptor entre el estilo Neobrutal (antiguo) y el estilo SL (canon).
  *
- * jul-26 · Ley Visual SL v2 APROBADA: SL pasa a ser el estilo POR DEFECTO.
- * El interruptor se mantiene solo para poder comparar con el neobrutal mientras
- * quedan pestañas sin migrar. Cuando estén todas en SL, se retira el interruptor
- * y el neobrutal se borra.
+ * jul-26 · Ley Visual SL v2 APROBADA: SL es el estilo por defecto.
+ * El interruptor se mantiene para comparar mientras quedan pantallas sin migrar.
  *
  * Aislado a propósito: no toca ningún token ni componente neobrutal.
  * Sin provider: cualquier pantalla puede llamar a useSkin() y colocar <SkinToggle />.
  */
 import { useEffect, useState } from 'react'
 import '@/styles/sl.css'
+import '@/styles/sl-movil.css'
 
 export type Skin = 'neo' | 'sl'
 
@@ -45,24 +44,47 @@ export function useSkin() {
 }
 
 /**
+ * ¿Estamos en móvil? Detección real por ancho de pantalla, no por navegador.
+ * Se actualiza sola al girar el móvil o al estrechar la ventana del ordenador,
+ * así que también funciona con las herramientas de desarrollo en modo móvil.
+ */
+export function useEsMovil(corte = 768) {
+  const [esMovil, setEsMovil] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(`(max-width: ${corte}px)`).matches
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${corte}px)`)
+    const on = (e: MediaQueryListEvent) => setEsMovil(e.matches)
+    setEsMovil(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [corte])
+
+  return esMovil
+}
+
+/**
  * Interruptor NEO / SL. Se coloca en la barra superior de cada pantalla migrada.
  * Estilos en línea a propósito: así ninguna regla global (neobrutal, index.css)
  * puede pisarle el color. El activo va SIEMPRE en granate de marca.
  */
 export function SkinToggle() {
   const { skin, setSkin } = useSkin()
+  const esMovil = useEsMovil()
 
   const base: React.CSSProperties = {
     border: 'none',
     cursor: 'pointer',
-    padding: '7px 14px',
+    padding: esMovil ? '9px 16px' : '7px 14px',
     fontFamily: "'Nunito', system-ui, sans-serif",
-    fontSize: 11,
+    fontSize: esMovil ? 12 : 11,
     fontWeight: 800,
     letterSpacing: '0.6px',
     lineHeight: 1.2,
     borderRadius: 0,
     boxShadow: 'none',
+    minHeight: esMovil ? 40 : undefined,
   }
   const on: React.CSSProperties = { ...base, background: '#B01D23', color: '#fff' }
   const off: React.CSSProperties = { ...base, background: 'transparent', color: '#9C9894' }
