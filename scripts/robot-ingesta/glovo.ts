@@ -2,10 +2,10 @@
  * ROBOT GLOVO · Descarga informes del portal de gestión y los deja en la bandeja.
  * Hay DOS cuentas (posmodernos y streatlab): las recorre las dos.
  *
- * Login (13-jul-2026): tras usuario+contraseña Glovo salta a /2fa y pide un código
- * de 6 dígitos que manda por correo (no-reply@portal.glovoapp.com → reenviado al
- * buzón del cartero). La pantalla de 2fa NO es estar dentro.
- * Prueba 13-jul 22:00 con radiografía del buzón.
+ * Login (14-jul-2026): usuario+contraseña → pantalla /2fa con código de 6 dígitos
+ * que Glovo manda por correo (no-reply@portal.glovoapp.com, reenviado al buzón del
+ * cartero). Solo vale el código del correo que llega DESPUÉS de pedirlo: se marca
+ * la hora justo antes de pulsar "entrar" y se descarta todo lo anterior.
  *
  * Modos (env MODO):
  *   diario   → historial de pedidos de ayer
@@ -37,18 +37,20 @@ async function escribirCodigo(page: Page, codigo: string): Promise<boolean> {
 
   if (n >= codigo.length) {
     for (let i = 0; i < codigo.length; i++) {
+      await huecos.nth(i).click({ timeout: 4000 }).catch(() => {});
       await huecos.nth(i).fill(codigo[i]).catch(() => {});
-      await page.waitForTimeout(200);
+      await page.waitForTimeout(250);
     }
   } else {
     await huecos.first().click({ timeout: 5000 }).catch(() => {});
-    await huecos.first().type(codigo, { delay: 120 }).catch(async () => { await huecos.first().fill(codigo).catch(() => {}); });
+    await huecos.first().type(codigo, { delay: 150 }).catch(async () => { await huecos.first().fill(codigo).catch(() => {}); });
   }
+  await page.waitForTimeout(1500);
 
-  const b = page.getByRole('button', { name: /verificar|confirmar|continuar|acceder|verify|submit|enviar/i }).first();
+  const b = page.getByRole('button', { name: /verificar|confirmar|continuar|acceder|entrar|verify|submit|enviar/i }).first();
   if (await b.count().catch(() => 0)) await b.click({ timeout: 8000 }).catch(() => {});
   else await page.keyboard.press('Enter').catch(() => {});
-  await page.waitForTimeout(9000);
+  await page.waitForTimeout(10000);
   return true;
 }
 
@@ -63,17 +65,16 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   await email.fill(c.usuario).catch(() => {});
   const pass = page.locator('input[type="password"]').first();
   await pass.fill(c.password).catch(() => {});
+
+  const pedidoEn = new Date();   // a partir de aquí, el código que llegue es el bueno
   await page.getByRole('button', { name: /entrar|log ?in|iniciar|continuar|sign in/i }).first().click({ timeout: 10000 }).catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
 
-  // Pantalla de código (2FA)
   if (!(await dentro(page))) {
-    await volcar(`${P}_2fa_${c.cuenta}`, await page.content().catch(() => ''));
-    const codigo = await esperarCodigo(P, c.otp_remitente || 'glovo', 180);
+    const codigo = await esperarCodigo(P, c.otp_remitente || 'glovo', 180, pedidoEn);
     if (!codigo) { await log(P, 'login_ko', `${c.cuenta}: no llegó el código`); return false; }
-    const escrito = await escribirCodigo(page, codigo);
-    if (!escrito) {
+    if (!(await escribirCodigo(page, codigo))) {
       await log(P, 'login_ko', `${c.cuenta}: no encuentro dónde escribir el código · url=${page.url()}`);
       await volcar(`${P}_sin_hueco_codigo_${c.cuenta}`, await page.content().catch(() => ''));
       return false;
