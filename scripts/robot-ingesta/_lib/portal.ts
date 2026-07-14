@@ -3,16 +3,19 @@
  *
  *  · Credenciales: tabla `robot_credenciales` en Supabase (NO en el repo).
  *  · Sesión: estado del navegador guardado en el bucket 'informes-plataforma'.
- *  · Código de un solo uso: se lee POR IMAP. Se mira primero el buzón de origen
- *    (tabla `buzones_otp`: admin@streatlab.com, admin@posmodernos.com…) y, si no
- *    hay clave puesta, el buzón del cartero en Gmail (reenvío).
- *    El reenvío a Gmail puede perderse (Gmail rechaza correos reenviados que
- *    fallan SPF/DMARC), así que el buzón de origen es el camino bueno.
+ *  · Código de un solo uso: se lee POR IMAP del buzón de origen (tabla `buzones_otp`)
+ *    y, de respaldo, del buzón del cartero en Gmail.
  *
- * Dos reglas que costaron sangre (14-jul-2026):
+ * Tres reglas que costaron sangre (14-jul-2026):
  *   1) Solo vale el código de un correo posterior al momento de pedirlo.
  *   2) El correo debe HABLAR de código/verificación: una factura de Glovo también
- *      viene de glovo y tiene números de 6 cifras.
+ *      viene de glovo y trae números de 6 cifras.
+ *   3) EL FALLO GORDO: `search()` de imapflow devuelve números de ORDEN, no UID.
+ *      Si luego se pide el correo por UID, no aparece nada aunque esté ahí.
+ *      Hay que pedir `search(..., { uid: true })`. Por esto el robot juraba que el
+ *      buzón estaba vacío mientras el correo del código estaba dentro.
+ *   Además: un reenvío a Gmail se pierde (SPF/DMARC) y el filtro de Roundcube que
+ *   redirige SIN copia se lleva el correo del buzón. Por eso se lee el de origen.
  */
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
@@ -70,7 +73,6 @@ const RE_ES_CODIGO = /c[oó]digo|code|verificaci[oó]n|verification|acceso|inici
 
 interface Buzon { cli: ImapFlow; carpetas: string[]; nombre: string }
 
-/** Buzón de origen (el que recibe el correo de la plataforma). */
 async function buzonOrigen(email: string): Promise<Buzon | null> {
   const { data } = await sb
     .from('buzones_otp')
@@ -90,7 +92,6 @@ async function buzonOrigen(email: string): Promise<Buzon | null> {
   return { cli, carpetas: CARPETAS_CPANEL, nombre: `origen ${data.email}` };
 }
 
-/** Buzón del cartero en Gmail (donde caen los reenvíos). */
 async function buzonCartero(): Promise<Buzon | null> {
   const { data } = await sb
     .from('cartero_credenciales')
@@ -127,7 +128,8 @@ async function buscarEn(cli: ImapFlow, carpeta: string, remitente: string, desde
   let lock;
   try { lock = await cli.getMailboxLock(carpeta); } catch { return null; }
   try {
-    const uids = await cli.search({ since: new Date(desde.getTime() - 24 * 60 * 60 * 1000) });
+    // OJO: sin { uid: true } esto devuelve números de orden, no UIDs (ver cabecera).
+    const uids = await cli.search({ since: new Date(desde.getTime() - 24 * 60 * 60 * 1000) }, { uid: true });
     const lista = Array.isArray(uids) ? uids.slice(-30).reverse() : [];
     let mejor: Hallazgo | null = null;
     for (const uid of lista) {
@@ -155,7 +157,7 @@ async function radiografia(buzones: Buzon[], plataforma: string, desde: Date) {
     let lock;
     try { lock = await b.cli.getMailboxLock('INBOX'); } catch { continue; }
     try {
-      const uids = await b.cli.search({ since: new Date(desde.getTime() - 60 * 60 * 1000) });
+      const uids = await b.cli.search({ since: new Date(desde.getTime() - 60 * 60 * 1000) }, { uid: true });
       const lista = Array.isArray(uids) ? uids.slice(-6).reverse() : [];
       const filas: string[] = [];
       for (const uid of lista) {
