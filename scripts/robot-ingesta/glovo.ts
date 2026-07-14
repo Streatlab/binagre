@@ -2,11 +2,13 @@
  * ROBOT GLOVO · Descarga informes del portal de gestión y los deja en la bandeja.
  * Dos cuentas (posmodernos y streatlab): las recorre las dos.
  *
- * Login (14-jul-2026): usuario+contraseña → pantalla /2fa con código de 6 dígitos
- * que Glovo manda por correo (no-reply@portal.glovoapp.com) al buzón de la cuenta.
- * El código se lee POR IMAP en el buzón de origen (tabla buzones_otp).
- * Solo vale el correo posterior al momento de pedirlo y que hable de código.
- * Prueba 14-jul 10:55 · arreglada la lectura por UID del buzón.
+ * Login (14-jul-2026): usuario+contraseña → /2fa con código de 6 dígitos por correo
+ * (no-reply@portal.glovoapp.com), leído POR IMAP del buzón de la cuenta (buzones_otp).
+ *
+ * FALLO CAZADO 14-jul 11:05: tras meter el código Glovo aterriza en
+ * portal.glovoapp.com/dashboard?ums-drawer=after-login y el chequeo antiguo veía
+ * la palabra "login" en la URL y creía que seguíamos fuera. ESTÁBAMOS DENTRO.
+ * Ahora solo se mira la RUTA (pathname), no los parámetros.
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
@@ -21,8 +23,9 @@ const MODO = (process.env.MODO || 'diario').toLowerCase();
 const MES = process.env.MES || '';
 
 async function dentro(page: Page): Promise<boolean> {
-  const u = page.url();
-  if (/login|signin|2fa|otp|verif/i.test(u)) return false;
+  let ruta = '';
+  try { ruta = new URL(page.url()).pathname; } catch { ruta = page.url(); }
+  if (/\/(login|signin|sign-in|2fa|otp|verify|verificacion)/i.test(ruta)) return false;
   if (await page.locator('input[type="password"]').count().catch(() => 0)) return false;
   return true;
 }
@@ -88,7 +91,7 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
 }
 
 async function seccion(page: Page, ruta: string, tipo: string, periodo: string, destino: string, cuenta: string) {
-  await page.goto(`${RAIZ}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.goto(ruta.startsWith('http') ? ruta : `${RAIZ}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(6000);
   await quitarEstorbos(page);
@@ -104,14 +107,14 @@ async function trabajarCuenta(c: Cuenta) {
     const ayer = hoyMadrid(1);
 
     if (MODO === 'diario') {
-      await seccion(page, '/orders', 'glovo_orderdetails', ayer, 'ventas', c.cuenta);
+      await seccion(page, 'https://portal.glovoapp.com/orders', 'glovo_orderdetails', ayer, 'ventas', c.cuenta);
     } else if (MODO === 'semanal') {
-      await seccion(page, '/invoicing', 'glovo_liquidacion', ayer, 'ventas', c.cuenta);
-      await seccion(page, '/invoices', 'glovo_factura', ayer, 'facturas', c.cuenta);
+      await seccion(page, 'https://portal.glovoapp.com/invoicing', 'glovo_liquidacion', ayer, 'ventas', c.cuenta);
+      await seccion(page, 'https://portal.glovoapp.com/invoices', 'glovo_factura', ayer, 'facturas', c.cuenta);
     } else if (MODO === 'backfill') {
       if (!/^\d{4}-\d{2}$/.test(MES)) { await log(P, 'error', 'backfill necesita MES=AAAA-MM'); process.exitCode = 1; return; }
-      await seccion(page, '/orders', 'glovo_orderdetails', MES, 'ventas', c.cuenta);
-      await seccion(page, '/invoicing', 'glovo_liquidacion', MES, 'ventas', c.cuenta);
+      await seccion(page, 'https://portal.glovoapp.com/orders', 'glovo_orderdetails', MES, 'ventas', c.cuenta);
+      await seccion(page, 'https://portal.glovoapp.com/invoicing', 'glovo_liquidacion', MES, 'ventas', c.cuenta);
     }
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
