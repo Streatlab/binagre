@@ -1,13 +1,11 @@
 /**
  * ROBOT JUST EAT · Baja las FACTURAS del portal de socios y las deja en la bandeja.
- * Just Eat no publica informes de ventas (esos salen de Sinqro), pero sí tiene
- * módulo de facturas: el robot entra, abre Facturas y baja los PDF que encuentre.
  *
- * 15-jul-2026: los goto a /invoices, /billing… de access.just-eat.es devolvían una
- * página VACÍA (39 bytes): esas rutas no existen. Ahora el robot NO adivina rutas:
- * entra, espera a que el portal pinte, VUELCA la página con su menú (para poder
- * apuntar en la siguiente pasada) y sigue los enlaces del propio menú que hablen
- * de facturas/facturación/pagos. También prueba el hub partner.just-eat.es.
+ * 15-jul-2026: la sesión aterriza en el portal REAL: partner-hub.just-eat.es
+ * (access.just-eat.es solo es la puerta). Es una app single-spa que tarda en
+ * hidratar: hay que esperar a que el HTML crezca de verdad. El robot va directo
+ * al hub, prueba sus rutas de facturación y, si no, sigue los enlaces del menú.
+ * Siempre vuelca lo que ve para poder apuntar mejor en la siguiente pasada.
  *
  * Login: robot_credenciales (plataforma='justeat', hola@streatlab.com).
  * Código por correo si lo pide: IMAP del buzón de la cuenta (buzones_otp).
@@ -19,7 +17,7 @@ import { abrir, quitarEstorbos, capturar, bajarEnlaces } from './_lib/navegador.
 
 const P = 'justeat';
 const RAIZ = 'https://access.just-eat.es';
-const HUB = 'https://partner.just-eat.es';
+const HUB = 'https://partner-hub.just-eat.es';
 const MODO = (process.env.MODO || 'semanal').toLowerCase();
 const TRIMESTRE = process.env.TRIMESTRE || '';
 
@@ -31,18 +29,18 @@ async function dentro(page: Page): Promise<boolean> {
   return !/\/(login|signin|auth)/i.test(page.url());
 }
 
-/** Espera a que el portal pinte algo de verdad (no una página en blanco). */
-async function esperarContenido(page: Page, segundos = 40) {
+/** Espera a que la app single-spa hidrate (el HTML crece muy por encima del cascarón). */
+async function esperarContenido(page: Page, segundos = 45) {
   for (let i = 0; i < segundos; i++) {
     const largo = (await page.content().catch(() => '')).length;
-    if (largo > 5000) return;
+    if (largo > 60000) return;
     await page.waitForTimeout(1000);
   }
 }
 
 async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boolean> {
   await page.goto(c.url_base || RAIZ, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await esperarContenido(page);
+  await esperarContenido(page, 25);
   await quitarEstorbos(page);
   if (await dentro(page)) { await log(P, 'sesion_ok', `${c.cuenta}: sesión guardada todavía válida · url=${page.url()}`); return true; }
 
@@ -54,7 +52,7 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   const pedidoEn = new Date();
   await page.getByRole('button', { name: /entrar|log ?in|iniciar|continuar|sign in|acceder/i }).first().click({ timeout: 10000 }).catch(() => {});
   await page.waitForTimeout(9000);
-  await esperarContenido(page);
+  await esperarContenido(page, 25);
 
   const campoCodigo = page.locator('input[autocomplete="one-time-code"], input[name*="code" i], input[id*="otp" i], input[maxlength="1"]').first();
   if (await campoCodigo.count().catch(() => 0)) {
@@ -74,25 +72,33 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   return ok;
 }
 
-/** Abre la sección de facturas SIGUIENDO EL MENÚ del portal (nada de rutas a ciegas). */
+/** Abre facturación en el hub: rutas conocidas primero, después el menú hidratado. */
 async function abrirFacturas(page: Page): Promise<boolean> {
-  for (const raiz of ['', HUB]) {
-    if (raiz) {
-      await page.goto(raiz, { waitUntil: 'domcontentloaded' }).catch(() => {});
-      await esperarContenido(page);
-      await quitarEstorbos(page);
+  for (const ruta of ['/invoices', '/financial/invoices', '/financial', '/billing', '/payments', '/history']) {
+    await page.goto(`${HUB}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await esperarContenido(page);
+    await quitarEstorbos(page);
+    const largo = (await page.content().catch(() => '')).length;
+    if (largo > 60000 && (await page.getByText(RE_FACTURAS).count().catch(() => 0))) {
+      await volcar(`${P}_facturacion${ruta.replace(/\//g, '_')}`, await page.content().catch(() => ''));
+      return true;
     }
-    // Dejar constancia de qué menú se ve, para poder apuntar en la siguiente pasada.
-    await volcar(`${P}_menu`, await page.content().catch(() => ''));
+  }
 
-    const enlace = page.getByRole('link', { name: RE_FACTURAS }).first()
-      .or(page.locator('a, button, [role="menuitem"], [role="link"], nav *').filter({ hasText: RE_FACTURAS }).first());
-    if (await enlace.count().catch(() => 0)) {
-      await enlace.click({ timeout: 8000 }).catch(() => {});
-      await esperarContenido(page);
-      await page.waitForTimeout(4000);
-      if (await page.getByText(RE_FACTURAS).count().catch(() => 0)) return true;
-    }
+  // Menú hidratado del hub
+  await page.goto(HUB, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await esperarContenido(page);
+  await quitarEstorbos(page);
+  await volcar(`${P}_menu`, await page.content().catch(() => ''));
+
+  const enlace = page.getByRole('link', { name: RE_FACTURAS }).first()
+    .or(page.locator('a, button, [role="menuitem"], [role="link"], nav *').filter({ hasText: RE_FACTURAS }).first());
+  if (await enlace.count().catch(() => 0)) {
+    await enlace.click({ timeout: 8000 }).catch(() => {});
+    await esperarContenido(page);
+    await page.waitForTimeout(4000);
+    await volcar(`${P}_facturacion_menu`, await page.content().catch(() => ''));
+    return true;
   }
   return false;
 }
@@ -125,7 +131,7 @@ async function trabajarCuenta(c: Cuenta) {
     const periodo = MODO === 'backfill' && /^\d{4}-Q[1-4]$/i.test(TRIMESTRE) ? TRIMESTRE : hoyMadrid(1);
 
     if (!(await abrirFacturas(page))) {
-      await log(P, 'aviso', `no encuentro la sección de facturas (menú volcado en robot_debug ${P}_menu) · url=${page.url()}`);
+      await log(P, 'aviso', `no encuentro la sección de facturas (volcados ${P}_* en robot_debug) · url=${page.url()}`);
       return;
     }
 
