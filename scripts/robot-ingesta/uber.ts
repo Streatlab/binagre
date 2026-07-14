@@ -1,23 +1,20 @@
 /**
- * ROBOT UBER EATS · Descarga informes y los deja en la bandeja. No interpreta nada.
- * Cuenta reactivada 14-jul-2026 (la había desactivado otro proceso). NO desactivar.
+ * ROBOT UBER EATS · Descarga informes y los deja en la bandeja.
  *
- * Modos (env MODO):
- *   diario    → historial de pedidos de ayer + detalle de ganancias por artículo
- *   semanal   → resumen de ganancias (CSV) de la última semana cerrada
- *   mensual   → resumen mensual (PDF) del mes anterior
- *   backfill  → un mes completo (env MES = AAAA-MM). UN SOLO MES POR EJECUCIÓN.
+ * Entrada (14-jul-2026), por orden:
+ *   1) SESIÓN SEMBRADA: cookies del navegador de Rubén guardadas en
+ *      sesiones/uber__streatlab.json. Si valen, se entra sin login (Uber bloquea
+ *      el login automático desde servidores: su antirrobot congela la pantalla).
+ *   2) Si la sesión caducó: correo → "Continuar" → Uber ofrece SMS. Se pulsa
+ *      "Más opciones"/"Otro método", se elige CORREO ELECTRÓNICO, y el código que
+ *      llega a direccion@streatlab.com se lee POR IMAP (tabla buzones_otp).
+ *   3) Si aparece campo de contraseña, se usa la contraseña de robot_credenciales.
  *
- * Login:
- *   1) correo escrito tecla a tecla → botón "Continuar".
- *   2) Uber propone código por SMS: NO se espera. Se abre "Más opciones" y se elige
- *      entrar con contraseña.
- *   3) Uber tarda en pasar de pantalla: se espera a que el título cambie.
- *   Cada pantalla se vuelca a robot_debug (uber_paso_N).
+ * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM)
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
-import { cuentasDe, guardarSesion, type Cuenta } from './_lib/portal.js';
+import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
 import { abrir, quitarEstorbos, descargarDeLaPagina } from './_lib/navegador.js';
 
 const P = 'uber';
@@ -25,12 +22,14 @@ const RAIZ = 'https://merchants.ubereats.com';
 const MODO = (process.env.MODO || 'diario').toLowerCase();
 const MES = process.env.MES || '';
 
-const RE_MAS = /m[aá]s opciones|otras opciones|otra forma|otro m[eé]todo|more options|try another way|another way|use another/i;
+const RE_MAS = /m[aá]s opciones|otras opciones|otra forma|otro m[eé]todo|more options|try another way|another way|use another|enlace/i;
+const RE_CORREO = /correo electr[oó]nico|email|e-mail/i;
 const RE_PASS = /contrase[nñ]a|password/i;
-const RE_SEGUIR = /^(continuar|siguiente|continue|next|acceder|iniciar sesi[oó]n)$/i;
+const RE_SEGUIR = /^(continuar|siguiente|continue|next|acceder|iniciar sesi[oó]n|verificar)$/i;
 
 async function dentro(page: Page): Promise<boolean> {
-  return /merchants\.ubereats\.com/i.test(page.url()) && !/login|auth|signin/i.test(page.url());
+  const u = page.url();
+  return /merchants\.ubereats\.com/i.test(u) && !/auth\.uber\.com|\/login|\/signin/i.test(u);
 }
 
 async function pantalla(page: Page): Promise<string> {
@@ -42,69 +41,88 @@ async function seguir(page: Page) {
   const b = page.getByRole('button', { name: RE_SEGUIR }).first();
   if (await b.count().catch(() => 0)) await b.click({ timeout: 8000 }).catch(() => {});
   else await page.keyboard.press('Enter').catch(() => {});
-
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 15; i++) {
     await page.waitForTimeout(2000);
-    if (await page.locator('input[type="password"]').count().catch(() => 0)) return;
+    if (await dentro(page)) return;
     const ahora = await pantalla(page);
     if (ahora && ahora !== antes) return;
-    if (await dentro(page)) return;
   }
 }
 
-async function abrirCampoContrasena(page: Page): Promise<boolean> {
-  for (let i = 0; i < 4; i++) {
-    if (await page.locator('input[type="password"]').count().catch(() => 0)) return true;
-    await volcar(`${P}_paso_${i}`, await page.content().catch(() => ''));
-
-    const mas = page.locator('button, a, [role="button"], [role="link"], span[tabindex]').filter({ hasText: RE_MAS }).first();
-    if (await mas.count().catch(() => 0)) {
-      await mas.click({ timeout: 6000 }).catch(() => {});
-      await page.waitForTimeout(3500);
+/** Escribe un código de 4-8 dígitos en la pantalla de verificación. */
+async function escribirCodigo(page: Page, codigo: string): Promise<boolean> {
+  const huecos = page.locator('input[autocomplete="one-time-code"], input[maxlength="1"], input[name*="code" i], input[id*="code" i], input[type="tel"], input[type="number"]');
+  const n = await huecos.count().catch(() => 0);
+  if (n === 0) return false;
+  if (n >= codigo.length) {
+    for (let i = 0; i < codigo.length; i++) {
+      await huecos.nth(i).fill(codigo[i]).catch(() => {});
+      await page.waitForTimeout(200);
     }
-
-    const opcion = page.locator('button, a, li, label, div[role="button"], [role="radio"], [role="option"]').filter({ hasText: RE_PASS }).first();
-    if (await opcion.count().catch(() => 0)) {
-      await opcion.click({ timeout: 6000 }).catch(() => {});
-      await page.waitForTimeout(2500);
-      if (!(await page.locator('input[type="password"]').count().catch(() => 0))) await seguir(page);
-    } else {
-      await page.waitForTimeout(4000);
-    }
+  } else {
+    await huecos.first().click({ timeout: 5000 }).catch(() => {});
+    await huecos.first().type(codigo, { delay: 130 }).catch(() => {});
   }
-  return (await page.locator('input[type="password"]').count().catch(() => 0)) > 0;
+  await page.waitForTimeout(1200);
+  await seguir(page);
+  return true;
 }
 
 async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boolean> {
-  await page.goto(c.url_base || `${RAIZ}/manager`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForTimeout(5000);
+  await page.goto(`${RAIZ}/manager/`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForTimeout(6000);
   await quitarEstorbos(page);
-  if (await dentro(page)) { await log(P, 'sesion_ok', `${c.cuenta}: sesión guardada todavía válida`); return true; }
+  if (await dentro(page)) { await log(P, 'sesion_ok', `${c.cuenta}: sesión sembrada válida`); return true; }
 
+  // Correo
   const email = page.locator('#PHONE_NUMBER_or_EMAIL_ADDRESS, input[type="email"], input[name="email"]').first();
-  await email.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
-  await email.click({ timeout: 8000 }).catch(() => {});
-  await email.type(c.usuario, { delay: 90 }).catch(async () => { await email.fill(c.usuario).catch(() => {}); });
-  await page.waitForTimeout(1200);
-  await seguir(page);
-  await quitarEstorbos(page);
+  if (await email.count().catch(() => 0)) {
+    await email.click({ timeout: 8000 }).catch(() => {});
+    await email.type(c.usuario, { delay: 90 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    const pedidoEn = new Date();
+    await seguir(page);
+    await quitarEstorbos(page);
 
-  if (!(await abrirCampoContrasena(page))) {
-    await log(P, 'login_ko', `${c.cuenta}: atascado en "${await pantalla(page)}" · url=${page.url()}`);
-    await volcar(`${P}_sin_opcion_pass`, await page.content());
-    return false;
+    // Uber propone SMS: abrir "más opciones" y elegir CORREO ELECTRÓNICO
+    for (let i = 0; i < 3; i++) {
+      if (await page.locator('input[type="password"]').count().catch(() => 0)) break;
+      if (await page.locator('input[autocomplete="one-time-code"], input[maxlength="1"]').count().catch(() => 0)) break;
+
+      const mas = page.locator('button, a, [role="button"], [role="link"], span[tabindex]').filter({ hasText: RE_MAS }).first();
+      if (await mas.count().catch(() => 0)) { await mas.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(3000); }
+
+      const opcionCorreo = page.locator('button, a, li, label, div[role="button"], [role="radio"], [role="option"]').filter({ hasText: RE_CORREO }).first();
+      if (await opcionCorreo.count().catch(() => 0)) { await opcionCorreo.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(2500); await seguir(page); continue; }
+
+      const opcionPass = page.locator('button, a, li, label, div[role="button"], [role="radio"], [role="option"]').filter({ hasText: RE_PASS }).first();
+      if (await opcionPass.count().catch(() => 0)) { await opcionPass.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(2500); await seguir(page); continue; }
+
+      await volcar(`${P}_paso_${i}`, await page.content().catch(() => ''));
+      await page.waitForTimeout(3000);
+    }
+
+    // Camino contraseña
+    if (await page.locator('input[type="password"]').count().catch(() => 0)) {
+      const pass = page.locator('input[type="password"]').first();
+      await pass.click({ timeout: 6000 }).catch(() => {});
+      await pass.type(c.password, { delay: 70 }).catch(() => {});
+      await seguir(page);
+      await page.waitForTimeout(5000);
+    }
+
+    // Camino código por correo
+    if (!(await dentro(page))) {
+      const codigo = await esperarCodigo(P, c.otp_remitente || 'uber.com', 240, pedidoEn, c.usuario);
+      if (codigo) await escribirCodigo(page, codigo);
+      await page.waitForTimeout(6000);
+    }
   }
 
-  const pass = page.locator('input[type="password"]').first();
-  await pass.click({ timeout: 8000 }).catch(() => {});
-  await pass.type(c.password, { delay: 70 }).catch(async () => { await pass.fill(c.password).catch(() => {}); });
-  await seguir(page);
-  await page.waitForTimeout(8000);
   await quitarEstorbos(page);
-
   const ok = await dentro(page);
   await log(P, ok ? 'login_ok' : 'login_ko', `${c.cuenta} · pantalla="${await pantalla(page)}" · url=${page.url()}`);
-  if (!ok) await volcar(`${P}_login_ko`, await page.content());
+  if (!ok) await volcar(`${P}_login_ko`, await page.content().catch(() => ''));
   else await guardarSesion(P, c.cuenta, ctx);
   return ok;
 }
@@ -112,7 +130,7 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
 async function seccion(page: Page, ruta: string, tipo: string, periodo: string, destino: string) {
   await page.goto(ruta.startsWith('http') ? ruta : `${RAIZ}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(6000);
+  await page.waitForTimeout(7000);
   await quitarEstorbos(page);
   const f = await descargarDeLaPagina(P, page, tipo);
   if (!f) return;
@@ -129,15 +147,15 @@ async function trabajarCuenta(c: Cuenta) {
       await seccion(page, '/manager/orders', 'uber_historial_pedidos', ayer, 'ventas');
       await seccion(page, '/manager/analytics', 'uber_detalle_articulo', ayer, 'ventas');
     } else if (MODO === 'semanal') {
-      await seccion(page, c.url_base || '/manager/payments', 'uber_resumen_ganancias', ayer, 'ventas');
+      await seccion(page, '/manager/payments', 'uber_resumen_ganancias', ayer, 'ventas');
     } else if (MODO === 'mensual') {
       const d = new Date();
       const mesAnterior = new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 7);
-      await seccion(page, c.url_base || '/manager/payments', 'uber_resumen_mensual', mesAnterior, 'ventas');
+      await seccion(page, '/manager/payments', 'uber_resumen_mensual', mesAnterior, 'ventas');
     } else if (MODO === 'backfill') {
       if (!/^\d{4}-\d{2}$/.test(MES)) { await log(P, 'error', 'backfill necesita MES=AAAA-MM'); process.exitCode = 1; return; }
       await seccion(page, '/manager/orders', 'uber_historial_pedidos', MES, 'ventas');
-      await seccion(page, '/manager/analytics', 'uber_detalle_articulo', MES, 'ventas');
+      await seccion(page, '/manager/payments', 'uber_resumen_ganancias', MES, 'ventas');
     }
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
