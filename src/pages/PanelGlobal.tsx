@@ -7,6 +7,13 @@
  * El interruptor de la barra superior alterna entre los dos. Es temporal.
  *
  * La franja "HOY EN VIVO" vive dentro del Resumen (ResumenLanding), no aquí.
+ *
+ * FUENTE DE DATOS (14 jul 2026):
+ *   Lee de la vista `v_facturacion_diario_unificada`, NO de la tabla `facturacion_diario`.
+ *   La vista = facturación del robot (por servicio) + fila complementaria con lo que el robot
+ *   EN VIVO (Rushour) ya ha visto y aún no está facturado. Nunca resta ni pisa: solo completa.
+ *   Así el Resumen, la Evolución y las tarjetas de abajo cuadran con la franja "hoy en vivo".
+ *   El neto de esas ventas lo resuelve siempre netoResolver (LEY-NETO-01 / LEY-NETO-02).
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -31,6 +38,9 @@ import CashflowSL from '@/components/panel/sl/CashflowSL'
 interface MarcaItem { id: string; nombre: string }
 
 type TabId = 'resumen' | 'operaciones' | 'finanzas' | 'cashflow' | 'evolucion' | 'marcas'
+
+/** Vista unificada: facturación del robot + lo que el robot en vivo ve de más. */
+const FUENTE_VENTAS = 'v_facturacion_diario_unificada'
 
 // Theme-aware: fondo e INK salen de variables → cambian solos en claro/oscuro
 const PAGE_BG = 'var(--neo-bg)'
@@ -241,6 +251,7 @@ export default function PanelGlobal() {
   const [marcasDisp, setMarcasDisp] = useState<MarcaItem[]>([])
   const [rowsPeriodo, setRowsPeriodo] = useState<RowFacturacion[]>([])
   const [rowsAll, setRowsAll] = useState<RowFacturacion[]>([])
+  const [tickVivo, setTickVivo] = useState(0)
 
   useEffect(() => {
     supabase.from('marcas').select('id,nombre').eq('activa', true).then(({ data }) => {
@@ -248,24 +259,35 @@ export default function PanelGlobal() {
     })
   }, [])
 
+  /* Refresco al entrar un snapshot nuevo del robot en vivo: el panel se recalcula solo. */
+  useEffect(() => {
+    const ch = supabase
+      .channel('ventas_vivo_panel')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ventas_vivo' }, () => {
+        setTickVivo(t => t + 1)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
+
   useEffect(() => {
     const desde = toLocalDateStr(fechaDesde)
     const hasta  = toLocalDateStr(fechaHasta)
     supabase
-      .from('facturacion_diario').select('*')
+      .from(FUENTE_VENTAS).select('*')
       .gte('fecha', desde).lte('fecha', hasta)
       .order('fecha', { ascending: true })
       .then(({ data }) => { setRowsPeriodo((data ?? []) as RowFacturacion[]) })
-  }, [fechaDesde, fechaHasta])
+  }, [fechaDesde, fechaHasta, tickVivo])
 
   useEffect(() => {
     const anoActual = new Date().getFullYear()
     supabase
-      .from('facturacion_diario').select('*')
+      .from(FUENTE_VENTAS).select('*')
       .gte('fecha', `${anoActual - 1}-01-01`)
       .order('fecha', { ascending: true })
       .then(({ data }) => { setRowsAll((data ?? []) as RowFacturacion[]) })
-  }, [])
+  }, [tickVivo])
 
   const handleFecha = useCallback((desde: Date, hasta: Date, label: string) => {
     setFechaDesde(desde); setFechaHasta(hasta); setPeriodoLabel(label)
