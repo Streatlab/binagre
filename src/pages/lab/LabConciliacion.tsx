@@ -1,19 +1,19 @@
 /**
- * LAB · Conciliación — pantalla espejo en Ley Visual SL v2.
- * Copia intocable: la Conciliación real sigue intacta.
- * Aquí viven los elementos densos: tabla, filtros, buscador, semáforo y ficha.
- * Solo lectura: desde el laboratorio no se modifica ningún dato.
+ * Conciliación en Ley Visual SL v2 (con acento oliva).
+ * Se ve al pulsar SL en el interruptor. Solo lectura: no toca datos.
  */
 import { useMemo, useState } from 'react'
 import { useConciliacion } from '@/hooks/useConciliacion'
 import {
-  C, Card, CardHead, Kpi, KpiGrid, Pill, Atencion, Nota, Vacio, InBar,
-  eur2, eur0, num0, pct1,
+  C, Hero, HeroPill, Card, CardHead, Kpi, KpiGrid, Pill, Atencion, Nota, Vacio, InBar,
+  Barras, eur2, eur0, num0, pct1,
 } from '@/components/panel/sl/uiSL'
 import {
-  PageHead, Toolbar, Campo, Chips, Tabla, Fila, Celda, Modal, Boton,
-  SkeletonTabla, Estado,
+  PageHead, Toolbar, Campo, Tabla, Fila, Celda, Modal, Boton, SkeletonTabla, Estado,
 } from '@/components/panel/sl/uiSLTabla'
+import {
+  OLIVA, KpiFoco, Ranking, Leyenda, BotonFoco, ChipsFoco, AnilloHero,
+} from '@/components/panel/sl/uiSLFoco'
 
 type Filtro = 'sin_categoria' | 'sin_factura' | 'con_factura' | 'sin_titular' | 'ingresos' | 'gastos'
 
@@ -28,6 +28,8 @@ interface Mov {
   titular_id: string | null
   doc: string
 }
+
+const IVA = 0.21
 
 export default function LabConciliacion() {
   const { movimientos: raw, categorias } = useConciliacion()
@@ -55,16 +57,51 @@ export default function LabConciliacion() {
     return m
   }, [categorias])
 
-  const cuentas = useMemo(() => {
-    const sinCat = movs.filter(m => !m.categoria).length
+  const d = useMemo(() => {
     const gastos = movs.filter(m => m.importe < 0)
-    const sinFactura = gastos.filter(m => !m.factura_id).length
-    const conFactura = movs.filter(m => !!m.factura_id).length
-    const sinTitular = movs.filter(m => !m.titular_id).length
+    const ingresos = movs.filter(m => m.importe > 0)
+    const sinFactura = gastos.filter(m => !m.factura_id)
+    const sinCat = movs.filter(m => !m.categoria)
+    const conFactura = movs.filter(m => !!m.factura_id)
+    const sinTitular = movs.filter(m => !m.titular_id)
+
+    const importeSinFactura = sinFactura.reduce((s, m) => s + Math.abs(m.importe), 0)
     const totalGasto = gastos.reduce((s, m) => s + Math.abs(m.importe), 0)
-    const totalIngreso = movs.filter(m => m.importe > 0).reduce((s, m) => s + m.importe, 0)
-    const cobertura = gastos.length > 0 ? ((gastos.length - sinFactura) / gastos.length) * 100 : 100
-    return { sinCat, sinFactura, conFactura, sinTitular, totalGasto, totalIngreso, cobertura, nGastos: gastos.length }
+    const totalIngreso = ingresos.reduce((s, m) => s + m.importe, 0)
+    const cobertura = gastos.length > 0 ? ((gastos.length - sinFactura.length) / gastos.length) * 100 : 100
+
+    const porProveedor: Record<string, number> = {}
+    sinFactura.forEach(m => {
+      const p = m.proveedor || 'Sin proveedor'
+      porProveedor[p] = (porProveedor[p] ?? 0) + Math.abs(m.importe)
+    })
+    const ranking = Object.entries(porProveedor)
+      .map(([label, valor]) => ({ label, valor }))
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 5)
+
+    // Gasto por día: en rojo los días con algún gasto sin factura
+    const porDia: Record<string, { total: number; roto: boolean }> = {}
+    gastos.forEach(m => {
+      const k = m.fecha
+      if (!porDia[k]) porDia[k] = { total: 0, roto: false }
+      porDia[k].total += Math.abs(m.importe)
+      if (!m.factura_id) porDia[k].roto = true
+    })
+    const dias = Object.entries(porDia)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-16)
+      .map(([fecha, v]) => ({
+        label: fecha.slice(8, 10),
+        valor: Math.round(v.total),
+        color: v.roto ? C.rojoSem : C.naranja,
+      }))
+
+    return {
+      sinFactura, sinCat, conFactura, sinTitular, importeSinFactura,
+      totalGasto, totalIngreso, cobertura, ranking, dias,
+      nGastos: gastos.length,
+    }
   }, [movs])
 
   const filtrados = useMemo(() => {
@@ -90,113 +127,172 @@ export default function LabConciliacion() {
   const tonoFila = (m: Mov) => {
     if (!m.categoria) return 'ambar' as const
     if (m.importe < 0 && !m.factura_id) return 'rojo' as const
-    if (m.factura_id) return 'verde' as const
-    return 'blu' as const
+    if (m.importe > 0) return 'verde' as const
+    return 'verde' as const
   }
   const textoEstado = (m: Mov) => {
     if (!m.categoria) return 'Sin categoría'
     if (m.importe < 0 && !m.factura_id) return 'Falta factura'
-    if (m.factura_id) return 'Cuadrado'
-    return 'Ingreso'
+    if (m.importe > 0) return 'Ingreso'
+    return 'Cuadrado'
   }
+
+  const top = d.ranking[0]
 
   return (
     <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
       <PageHead
         titulo="Conciliación"
-        sub="Pantalla espejo · solo lectura, no toca datos"
+        sub="Vista SL · solo lectura, no toca datos"
         right={<Pill tone="neutro">{num0(movs.length)} movimientos</Pill>}
       />
 
-      {cuentas.sinFactura > 0 && (
+      <Hero
+        eyebrow="GASTO SIN FACTURA"
+        titular={`${num0(d.sinFactura.length)} movimientos pagados que no puedes deducir`}
+        valor={eur0(d.importeSinFactura)}
+        sub={`Cobertura documental ${pct1(d.cobertura)} · ${num0(d.nGastos - d.sinFactura.length)} de ${num0(d.nGastos)} gastos con factura`}
+        right={
+          <>
+            <HeroPill solid>IVA en riesgo {eur0(d.importeSinFactura * IVA)}</HeroPill>
+            <AnilloHero pct={d.cobertura} label="CUADRADO" />
+          </>
+        }
+      />
+
+      {d.sinFactura.length > 0 && (
         <Atencion
           tono="rojo"
-          cifra={num0(cuentas.sinFactura)}
+          cifra={num0(d.sinFactura.length)}
           accion="Ver los que faltan"
           onAccion={() => setFiltro('sin_factura')}
         >
-          Gastos pagados sin factura asociada. Cada uno es IVA que no te devuelven.
+          Cada gasto sin factura es IVA que no te devuelven. Empieza por el proveedor que más te debe.
         </Atencion>
       )}
 
       <KpiGrid cols={4}>
         <Kpi
-          icono="✓" tono={cuentas.cobertura >= 90 ? 'verde' : 'ambar'}
-          label="Cobertura documental" valor={pct1(cuentas.cobertura)}
-          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>{num0(cuentas.nGastos - cuentas.sinFactura)} de {num0(cuentas.nGastos)} gastos con factura</div>}
+          icono="✓" tono="verde" label="Cuadrados" valor={num0(d.conFactura.length)}
+          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>Con factura asociada</div>}
         />
         <Kpi
-          icono="?" tono={cuentas.sinCat > 0 ? 'ambar' : 'verde'}
-          label="Sin categorizar" valor={num0(cuentas.sinCat)}
-          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>No entran en el P&amp;L hasta clasificarlos</div>}
+          icono="!" tono="rojo" label="Falta factura" valor={num0(d.sinFactura.length)}
+          delta={<Pill tone="rojo">{eur0(d.importeSinFactura)}</Pill>}
+          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>Gastos pagados sin justificar</div>}
         />
         <Kpi
-          icono="↑" tono="verde" label="Ingresos" valor={eur0(cuentas.totalIngreso)}
-          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>Todo lo que ha entrado en banco</div>}
+          icono="?" tono={d.sinCat.length > 0 ? 'ambar' : 'verde'} label="Sin categoría" valor={num0(d.sinCat.length)}
+          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>No entran en el P&amp;L</div>}
         />
-        <Kpi
-          icono="↓" tono="rojo" label="Gastos" valor={eur0(cuentas.totalGasto)}
-          pie={<div style={{ fontSize: 11.5, color: C.grisCl, fontWeight: 800 }}>Todo lo que ha salido</div>}
+        <KpiFoco
+          label="Foco de la semana"
+          valor={top ? eur0(top.valor) : eur0(0)}
+          accion={top ? `Reclamar a ${top.label}` : 'Nada que reclamar'}
+          onAccion={() => setFiltro('sin_factura')}
         />
       </KpiGrid>
 
-      <Toolbar
-        right={<Campo valor={busca} onChange={setBusca} placeholder="Buscar concepto o proveedor…" ancho={240} />}
-      >
-        <Chips
-          activo={filtro}
-          onChange={setFiltro}
-          opciones={[
-            { id: 'sin_categoria', label: 'Sin categoría', count: cuentas.sinCat },
-            { id: 'sin_factura', label: 'Falta factura', count: cuentas.sinFactura },
-            { id: 'con_factura', label: 'Cuadrados', count: cuentas.conFactura },
-            { id: 'sin_titular', label: 'Sin titular', count: cuentas.sinTitular },
-            { id: 'ingresos', label: 'Ingresos' },
-            { id: 'gastos', label: 'Gastos' },
-          ]}
-        />
-      </Toolbar>
-
       {cargando ? (
         <SkeletonTabla filas={8} />
-      ) : filtrados.length === 0 ? (
-        <Card><Vacio>Ningún movimiento con esos filtros.</Vacio></Card>
       ) : (
         <>
-          <Tabla
-            cabeceras={[
-              { label: 'Fecha', ancho: 96 },
-              { label: 'Concepto' },
-              { label: 'Proveedor', ancho: 170 },
-              { label: 'Categoría', ancho: 180 },
-              { label: 'Importe', alinea: 'der', ancho: 150 },
-              { label: 'Estado', alinea: 'der', ancho: 140 },
-            ]}
-          >
-            {filtrados.map(m => (
-              <Fila key={m.id} tono={tonoFila(m)} onClick={() => setDetalle(m)}>
-                <Celda mono>{m.fecha.slice(8, 10)}/{m.fecha.slice(5, 7)}</Celda>
-                <Celda fuerte style={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {m.concepto}
-                </Celda>
-                <Celda style={{ color: C.grisCl }}>{m.proveedor || '—'}</Celda>
-                <Celda style={{ color: C.grisCl, fontSize: 11.5 }}>
-                  {m.categoria ? (nombreCat[m.categoria] ?? m.categoria) : <Pill tone="ambar">Pendiente</Pill>}
-                </Celda>
-                <Celda der>
-                  <span className="slnum" style={{ fontWeight: 900, color: m.importe >= 0 ? C.verde : C.ink }}>
-                    {eur2(m.importe)}
-                  </span>
-                  <InBar pct={(Math.abs(m.importe) / maxImporte) * 100} color={m.importe >= 0 ? C.verde : C.rojo} />
-                </Celda>
-                <Celda der><Estado tono={tonoFila(m)}>{textoEstado(m)}</Estado></Celda>
-              </Fila>
-            ))}
-          </Tabla>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 1fr', gap: 12 }}>
+            <Card>
+              <CardHead title="Cómo va el mes" sub="Gasto por día" />
+              <Leyenda items={[
+                { label: 'Gasto cuadrado', color: C.naranja },
+                { label: 'Día con gasto sin factura', color: C.rojoSem },
+              ]} />
+              {d.dias.length === 0
+                ? <Vacio>Sin gasto registrado todavía.</Vacio>
+                : <Barras datos={d.dias} fmt={eur0} />}
+            </Card>
+
+            <Card>
+              <CardHead title="Quién te falta por justificar" sub="Proveedores sin factura" />
+              {d.ranking.length === 0 ? (
+                <Vacio>Todo justificado. Nada que reclamar.</Vacio>
+              ) : (
+                <Ranking
+                  filas={d.ranking.map((r, i) => ({ ...r, color: i === 0 ? C.rojoSem : C.naranja }))}
+                  fmt={eur0}
+                  pie={
+                    <>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: C.grisCl }}>Reclamables ya</span>
+                      <BotonFoco onClick={() => setFiltro('sin_factura')}>
+                        Pedir {num0(d.ranking.length)} facturas
+                      </BotonFoco>
+                    </>
+                  }
+                />
+              )}
+            </Card>
+          </div>
+
+          <Toolbar right={<Campo valor={busca} onChange={setBusca} placeholder="Buscar concepto o proveedor…" ancho={240} />}>
+            <ChipsFoco
+              activo={filtro}
+              onChange={setFiltro}
+              opciones={[
+                { id: 'sin_factura', label: 'Falta factura', count: d.sinFactura.length },
+                { id: 'sin_categoria', label: 'Sin categoría', count: d.sinCat.length },
+                { id: 'con_factura', label: 'Cuadrados', count: d.conFactura.length },
+                { id: 'sin_titular', label: 'Sin titular', count: d.sinTitular.length },
+                { id: 'ingresos', label: 'Ingresos' },
+                { id: 'gastos', label: 'Gastos' },
+              ]}
+            />
+          </Toolbar>
+
+          {filtrados.length === 0 ? (
+            <Card><Vacio>Ningún movimiento con esos filtros.</Vacio></Card>
+          ) : (
+            <Tabla
+              cabeceras={[
+                { label: 'Fecha', ancho: 92 },
+                { label: 'Concepto' },
+                { label: 'Importe', alinea: 'der', ancho: 160 },
+                { label: 'Estado', alinea: 'der', ancho: 140 },
+              ]}
+            >
+              {filtrados.map(m => {
+                const entra = m.importe > 0
+                return (
+                  <Fila key={m.id} tono={tonoFila(m)} onClick={() => setDetalle(m)}>
+                    <Celda mono>{m.fecha.slice(8, 10)}/{m.fecha.slice(5, 7)}</Celda>
+                    <Celda fuerte style={{ maxWidth: 360 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.concepto}</div>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, color: C.grisCl }}>
+                        {(m.proveedor || 'sin proveedor')} · {m.categoria ? (nombreCat[m.categoria] ?? m.categoria) : 'sin clasificar'}
+                      </div>
+                    </Celda>
+                    <Celda der>
+                      <span className="slnum" style={{ fontWeight: 900, color: entra ? OLIVA.hondo : C.ink }}>
+                        {eur2(m.importe)}
+                      </span>
+                      <InBar
+                        pct={(Math.abs(m.importe) / maxImporte) * 100}
+                        color={entra ? OLIVA.medio : C.rojo}
+                      />
+                    </Celda>
+                    <Celda der>
+                      {entra
+                        ? <span style={{
+                            background: OLIVA.soft, color: OLIVA.hondo, borderRadius: 999,
+                            padding: '3px 10px', fontSize: 11, fontWeight: 900,
+                          }}>Ingreso</span>
+                        : <Estado tono={tonoFila(m)}>{textoEstado(m)}</Estado>}
+                    </Celda>
+                  </Fila>
+                )
+              })}
+            </Tabla>
+          )}
 
           <Nota tono="blu">
-            La banda de color de cada fila es el estado: verde cuadrado, rojo falta factura, ámbar sin categoría.
-            Se lee sin necesidad de mirar la última columna.
+            La banda de color de cada fila es el estado: rojo falta factura, ámbar sin categoría, verde cuadrado.
+            El oliva marca lo que entra.
           </Nota>
         </>
       )}
@@ -206,17 +302,15 @@ export default function LabConciliacion() {
           titulo={detalle.concepto}
           sub={`${detalle.fecha} · ${detalle.proveedor || 'sin proveedor'}`}
           onClose={() => setDetalle(null)}
-          pie={
-            <>
-              <Boton onClick={() => setDetalle(null)}>Cerrar</Boton>
-              <Boton variante="primario" onClick={() => setDetalle(null)}>Abrir en Conciliación real</Boton>
-            </>
-          }
+          pie={<Boton variante="primario" onClick={() => setDetalle(null)}>Cerrar</Boton>}
         >
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
             <Card style={{ marginBottom: 0 }}>
               <CardHead title="Importe" />
-              <div className="slnum" style={{ fontSize: 26, fontWeight: 800, color: detalle.importe >= 0 ? C.verde : C.ink, letterSpacing: '-1px' }}>
+              <div className="slnum" style={{
+                fontSize: 26, fontWeight: 800, letterSpacing: '-1px',
+                color: detalle.importe >= 0 ? OLIVA.hondo : C.ink,
+              }}>
                 {eur2(detalle.importe)}
               </div>
             </Card>
@@ -237,8 +331,8 @@ export default function LabConciliacion() {
           </Card>
 
           {!detalle.factura_id && detalle.importe < 0 && (
-            <Nota tono="rojo" accion="Buscar la factura">
-              Este gasto no tiene factura asociada. Sin ella no puedes deducir el IVA.
+            <Nota tono="rojo">
+              Sin factura no puedes deducir el IVA de este gasto: {eur2(Math.abs(detalle.importe) * IVA)}.
             </Nota>
           )}
         </Modal>
