@@ -3,19 +3,15 @@
  * Deja convivir la pantalla antigua (neobrutal) y la nueva (Ley Visual SL v2)
  * bajo la misma ruta. El botón NEO/SL decide cuál se ve.
  *
- * Cuando el estilo SL esté aprobado del todo, esta pieza se borra y la ruta
- * apunta directamente a la pantalla SL.
+ * La posición del botón la manda sl-movil.css (.sl-toggle-flotante):
+ * arriba a la derecha en ordenador, abajo a la derecha en móvil.
  */
 import type { ReactNode } from 'react'
 import { SkinToggle } from '@/context/skin'
 
-/** Toggle flotante para poder volver a SL desde una pantalla antigua. */
 export function ToggleFlotante() {
   return (
-    <div style={{
-      position: 'fixed', top: 14, right: 20, zIndex: 400,
-      boxShadow: '0 4px 14px rgba(0,0,0,0.12)', borderRadius: 999,
-    }}>
+    <div className="sl-toggle-flotante">
       <SkinToggle />
     </div>
   )
