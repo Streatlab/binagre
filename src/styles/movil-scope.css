@@ -1,0 +1,63 @@
+/* Adaptación móvil de las pantallas reales del ERP.
+   Se aplica solo dentro de la app móvil (.movil-scope): las pantallas de
+   escritorio se reutilizan tal cual (mismos datos, mismos cálculos) y aquí
+   se reordenan a una sola columna para que quepan en el teléfono. */
+
+.movil-scope {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Fuera paddings y alturas de pantalla completa del layout de escritorio */
+.movil-scope > div,
+.movil-scope > div > div:first-child {
+  min-height: 0 !important;
+}
+.movil-scope > div {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+/* Todo lo que sea rejilla, a una columna */
+.movil-scope [style*="display: grid"],
+.movil-scope [style*="display:grid"] {
+  grid-template-columns: 1fr !important;
+  gap: 0.75rem !important;
+}
+
+/* Cabecera + filtros: en columna, sin desbordar */
+.movil-scope [style*="justify-content: space-between"] {
+  flex-wrap: wrap;
+  row-gap: 0.6rem;
+}
+
+/* Pestañas: tira horizontal deslizable */
+.movil-scope .tabs-pastilla,
+.movil-scope [data-tabs] {
+  overflow-x: auto;
+  flex-wrap: nowrap !important;
+  scrollbar-width: none;
+}
+.movil-scope .tabs-pastilla::-webkit-scrollbar,
+.movil-scope [data-tabs]::-webkit-scrollbar { display: none; }
+
+/* Tablas: scroll propio, nunca ensanchan la pantalla */
+.movil-scope table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Nada puede pasarse del ancho */
+.movil-scope img,
+.movil-scope svg,
+.movil-scope canvas {
+  max-width: 100%;
+  height: auto;
+}
+.movil-scope * {
+  max-width: 100%;
+}
