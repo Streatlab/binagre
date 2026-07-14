@@ -2,8 +2,9 @@ name: Robots de plataforma (Uber / Glovo / Just Eat → bandeja)
 
 # Los robots solo DESCARGAN informes y los dejan en la bandeja de Papeleo.
 # Credenciales: tabla robot_credenciales de Supabase (nunca aqui).
+# Codigo de verificacion: se lee por IMAP del buzon de la cuenta (tabla buzones_otp).
 # El disparo por 'push' sirve para lanzar una prueba tocando este fichero.
-# Prueba 13-jul-2026 21:15 · provocar correos de verificacion Uber y Glovo.
+# Prueba 14-jul-2026 10:35 · filtros de reenvio eliminados, lectura directa del buzon.
 
 on:
   workflow_dispatch:
