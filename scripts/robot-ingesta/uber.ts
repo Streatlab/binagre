@@ -1,24 +1,24 @@
 /**
- * ROBOT UBER EATS · Descarga informes y los deja en la bandeja.
+ * ROBOT UBER EATS · Baja TODO lo que Uber deja descargar y lo deja en la bandeja.
  *
  * ENTRADA: sesión sembrada (cookies del navegador de Rubén en
- * sesiones/uber__streatlab.json). Uber bloquea el login automático desde
- * servidores, así que la sesión es el camino. Si caduca: correo → "Más opciones"
- * → CORREO ELECTRÓNICO → el código llega a direccion@streatlab.com y se lee por
- * IMAP (buzones_otp).
+ * sesiones/uber__streatlab.json). Uber bloquea el login automático desde servidores.
+ * Si la sesión caduca: correo → "Más opciones" → CORREO ELECTRÓNICO → el código
+ * llega a direccion@streatlab.com y se lee por IMAP (buzones_otp).
  *
- * DESCARGA (14-jul-2026): la sección "Informes" (/manager/reports) lista informes
- * ya generados con estado "Disponible" y un menú "Acción" por fila con la descarga.
- * El robot: 1) abre Informes, 2) en la fila más reciente disponible abre Acción y
- * pulsa Descargar, 3) si no hay ninguno, pulsa "Solicitar de nuevo" en el último y
- * espera a que se genere.
+ * QUÉ BAJA (14-jul-2026):
+ *   1) INFORMES (/manager/reports): hay que PEDIRLOS y esperar unos minutos a que
+ *      Uber los prepare ("Disponible"). El robot pide, espera y baja en la misma
+ *      pasada; si tarda más, lo baja la pasada siguiente (ya estará disponible).
+ *   2) PAGOS (/manager/payments): resumen mensual.
+ *   3) FACTURAS (/manager/invoices): facturas semanales → van a la bandeja de facturas.
  *
  * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM)
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
-import { abrir, quitarEstorbos, capturar } from './_lib/navegador.js';
+import { abrir, quitarEstorbos, capturar, descargarDeLaPagina } from './_lib/navegador.js';
 
 const P = 'uber';
 const RAIZ = 'https://merchants.ubereats.com';
@@ -28,6 +28,8 @@ const MES = process.env.MES || '';
 const RE_MAS = /m[aá]s opciones|otras opciones|otra forma|otro m[eé]todo|more options|try another way|enlace/i;
 const RE_CORREO = /correo electr[oó]nico|email|e-mail/i;
 const RE_SEGUIR = /^(continuar|siguiente|continue|next|acceder|iniciar sesi[oó]n|verificar)$/i;
+const RE_DESCARGAR = /descargar|download/i;
+const RE_DISPONIBLE = /disponible|available|listo|ready/i;
 
 async function dentro(page: Page): Promise<boolean> {
   const u = page.url();
@@ -79,61 +81,69 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   return ok;
 }
 
-/** Informes de Uber: descarga el informe disponible más reciente. */
-async function bajarInforme(page: Page, periodo: string): Promise<boolean> {
+/** Baja la primera fila con estado Disponible (menú de acción → Descargar). */
+async function bajarFilaDisponible(page: Page, tipo: string, periodo: string, destino: string): Promise<boolean> {
+  const filas = page.locator('tr, [role="row"]').filter({ hasText: RE_DISPONIBLE });
+  const n = Math.min(await filas.count().catch(() => 0), 5);
+  for (let i = 0; i < n; i++) {
+    const fila = filas.nth(i);
+    const f = await capturar(page, P, async () => {
+      const directo = fila.getByRole('button', { name: RE_DESCARGAR }).first()
+        .or(fila.locator('a[download], a[href*="download" i]').first());
+      if (await directo.count().catch(() => 0)) { await directo.click({ timeout: 6000 }).catch(() => {}); return; }
+      const accion = fila.locator('button, [role="button"]').last();
+      if (await accion.count().catch(() => 0)) { await accion.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(2500); }
+      const desc = page.getByRole('menuitem', { name: RE_DESCARGAR }).first()
+        .or(page.locator('li, a, button').filter({ hasText: RE_DESCARGAR }).first());
+      if (await desc.count().catch(() => 0)) await desc.click({ timeout: 6000 }).catch(() => {});
+    }, 90);
+    if (f) {
+      await entregar({ fuente: P, tipo, nombre: f.nombre, datos: f.datos, periodo, destino });
+      await log(P, 'descarga', `${tipo}: ${f.nombre} (${f.datos.length} bytes)`);
+      return true;
+    }
+  }
+  return false;
+}
+
+/** INFORMES: pedir y volver cuando Uber los tenga listos. */
+async function informes(page: Page, periodo: string) {
   await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(8000);
   await quitarEstorbos(page);
 
-  // 1) Filas con estado Disponible → menú Acción → Descargar
-  const filas = page.locator('tr, [role="row"]').filter({ hasText: /disponible|available/i });
-  const n = Math.min(await filas.count().catch(() => 0), 4);
+  if (await bajarFilaDisponible(page, 'uber_informe', periodo, 'ventas')) return;
 
-  for (let i = 0; i < n; i++) {
-    const fila = filas.nth(i);
-    const f = await capturar(page, P, async () => {
-      const accion = fila.getByRole('button').last().or(fila.locator('button, [role="button"]').last());
-      if (await accion.count().catch(() => 0)) { await accion.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(2500); }
-      const desc = page.getByRole('menuitem', { name: /descargar|download/i }).first()
-        .or(page.getByRole('button', { name: /descargar|download/i }).first())
-        .or(page.locator('li, a').filter({ hasText: /descargar|download/i }).first());
-      if (await desc.count().catch(() => 0)) await desc.click({ timeout: 6000 }).catch(() => {});
-    }, 90);
-
-    if (f) {
-      await log(P, 'descarga', `informe: ${f.nombre} (${f.datos.length} bytes)`);
-      await entregar({ fuente: P, tipo: 'uber_informe', nombre: f.nombre, datos: f.datos, periodo, destino: 'ventas' });
-      return true;
-    }
+  // Nada listo: pedir de nuevo el último informe y esperar hasta 8 minutos
+  const rehacer = page.getByRole('button', { name: /solicitar de nuevo|request again|crear informe|create report/i }).first()
+    .or(page.locator('button, [role="button"]').filter({ hasText: /solicitar de nuevo|crear informe/i }).first());
+  if (!(await rehacer.count().catch(() => 0))) {
+    await volcar(`${P}_informes`, await page.content().catch(() => ''));
+    await log(P, 'sin_descarga', 'informes: no encuentro ni descarga ni "solicitar de nuevo"');
+    return;
   }
 
-  // 2) Nada disponible: pedir de nuevo el último informe y esperar a que se genere
-  const rehacer = page.getByRole('button', { name: /solicitar de nuevo|request again/i }).first()
-    .or(page.locator('button, [role="button"]').filter({ hasText: /solicitar de nuevo/i }).first());
-  if (await rehacer.count().catch(() => 0)) {
-    await rehacer.click({ timeout: 8000 }).catch(() => {});
-    await log(P, 'aviso', 'informe solicitado de nuevo; se descargará en la siguiente pasada');
+  await rehacer.click({ timeout: 8000 }).catch(() => {});
+  await log(P, 'aviso', 'informe solicitado; esperando a que Uber lo prepare');
+
+  for (let vuelta = 0; vuelta < 8; vuelta++) {
     await page.waitForTimeout(60000);
     await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForTimeout(8000);
-    const f = await capturar(page, P, async () => {
-      const fila = page.locator('tr, [role="row"]').filter({ hasText: /disponible|available/i }).first();
-      const accion = fila.locator('button, [role="button"]').last();
-      if (await accion.count().catch(() => 0)) { await accion.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(2500); }
-      const desc = page.getByRole('menuitem', { name: /descargar|download/i }).first();
-      if (await desc.count().catch(() => 0)) await desc.click({ timeout: 6000 }).catch(() => {});
-    }, 120);
-    if (f) {
-      await entregar({ fuente: P, tipo: 'uber_informe', nombre: f.nombre, datos: f.datos, periodo, destino: 'ventas' });
-      await log(P, 'descarga', `informe (tras solicitar): ${f.nombre}`);
-      return true;
-    }
+    if (await bajarFilaDisponible(page, 'uber_informe', periodo, 'ventas')) return;
   }
+  await log(P, 'aviso', 'el informe seguía preparándose; se bajará en la próxima pasada');
+}
 
-  await volcar(`${P}_informes`, await page.content().catch(() => ''));
-  await log(P, 'sin_descarga', 'informes: no he podido bajar ninguno (pantalla volcada)');
-  return false;
+async function seccionSimple(page: Page, ruta: string, tipo: string, periodo: string, destino: string) {
+  await page.goto(`${RAIZ}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(8000);
+  await quitarEstorbos(page);
+  if (await bajarFilaDisponible(page, tipo, periodo, destino)) return;
+  const f = await descargarDeLaPagina(P, page, tipo);
+  if (f) await entregar({ fuente: P, tipo, nombre: f.nombre, datos: f.datos, periodo, destino });
 }
 
 async function trabajarCuenta(c: Cuenta) {
@@ -141,7 +151,10 @@ async function trabajarCuenta(c: Cuenta) {
   try {
     if (!(await entrar(page, ctx, c))) return;
     const periodo = MODO === 'backfill' && /^\d{4}-\d{2}$/.test(MES) ? MES : hoyMadrid(1);
-    await bajarInforme(page, periodo);
+
+    await informes(page, periodo);                                                   // ventas detalladas
+    await seccionSimple(page, '/manager/payments', 'uber_resumen_pagos', periodo, 'ventas');   // resumen mensual
+    await seccionSimple(page, '/manager/invoices', 'uber_factura', periodo, 'facturas');       // facturas semanales
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
     process.exitCode = 1;
