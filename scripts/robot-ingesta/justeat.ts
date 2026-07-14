@@ -1,81 +1,141 @@
 /**
- * ROBOT JUST EAT · Descarga facturas y liquidaciones del portal de socios
- * (access.just-eat.es) y las deja en la bandeja. No interpreta nada.
+ * ROBOT JUST EAT · Baja las FACTURAS del portal de socios y las deja en la bandeja.
+ * Just Eat no publica informes de ventas (esos salen de Sinqro), pero sí tiene
+ * módulo de facturas: el robot entra, abre Facturas y baja los PDF que encuentre.
  *
- * Modos (env MODO):
- *   semanal  → lo que haya nuevo (la bandeja deduplica por huella)
- *   backfill → trimestre completo (env TRIMESTRE = AAAA-Qn)
+ * 14-jul-2026: el portal es una aplicación que tarda en pintar y el HTML volcado
+ * salía vacío (39 bytes) → ahora se espera a que aparezca contenido real, se
+ * recorre el menú buscando "Facturas"/"Facturación" y se bajan todas las filas con
+ * enlace de descarga (hasta 12 por pasada; la bandeja deduplica).
+ *
+ * Login: robot_credenciales (plataforma='justeat', hola@streatlab.com).
+ * Código por correo si lo pide: IMAP del buzón de la cuenta (buzones_otp).
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
-import { abrir, quitarEstorbos, descargarDeLaPagina } from './_lib/navegador.js';
+import { abrir, quitarEstorbos, capturar } from './_lib/navegador.js';
 
 const P = 'justeat';
 const RAIZ = 'https://access.just-eat.es';
 const MODO = (process.env.MODO || 'semanal').toLowerCase();
 const TRIMESTRE = process.env.TRIMESTRE || '';
 
+const RE_FACTURAS = /facturas?|facturaci[oó]n|invoices?|billing/i;
+const RE_DESCARGA = /descargar|download|pdf|exportar|export/i;
+
 async function dentro(page: Page): Promise<boolean> {
-  return !(await page.locator('input[type="password"]').count().catch(() => 0));
+  if (await page.locator('input[type="password"]').count().catch(() => 0)) return false;
+  return !/\/(login|signin|auth)/i.test(page.url());
+}
+
+/** Espera a que el portal pinte algo de verdad (no una página en blanco). */
+async function esperarContenido(page: Page, segundos = 30) {
+  for (let i = 0; i < segundos; i++) {
+    const largo = (await page.content().catch(() => '')).length;
+    if (largo > 5000) return;
+    await page.waitForTimeout(1000);
+  }
 }
 
 async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boolean> {
   await page.goto(c.url_base || RAIZ, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForTimeout(4000);
+  await esperarContenido(page);
   await quitarEstorbos(page);
   if (await dentro(page)) { await log(P, 'sesion_ok', `${c.cuenta}: sesión guardada todavía válida`); return true; }
 
   const email = page.locator('input[type="email"], input[name="email"], input[name="username"], input[id*="user" i]').first();
   await email.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
   await email.fill(c.usuario).catch(() => {});
-  const pass = page.locator('input[type="password"]').first();
-  await pass.fill(c.password).catch(() => {});
-  await page.getByRole('button', { name: /entrar|log ?in|iniciar|continuar|sign in|acceder/i }).first().click({ timeout: 10000 }).catch(() => {});
-  await page.waitForTimeout(8000);
+  await page.locator('input[type="password"]').first().fill(c.password).catch(() => {});
 
-  const codigoCampo = page.locator('input[autocomplete="one-time-code"], input[name*="code" i], input[id*="otp" i]').first();
-  if (await codigoCampo.count().catch(() => 0)) {
-    const codigo = await esperarCodigo(P, c.otp_remitente || 'just');
-    if (!codigo) { await volcar(`${P}_otp`, await page.content()); return false; }
-    await codigoCampo.fill(codigo).catch(() => {});
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(8000);
+  const pedidoEn = new Date();
+  await page.getByRole('button', { name: /entrar|log ?in|iniciar|continuar|sign in|acceder/i }).first().click({ timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(9000);
+  await esperarContenido(page);
+
+  const campoCodigo = page.locator('input[autocomplete="one-time-code"], input[name*="code" i], input[id*="otp" i], input[maxlength="1"]').first();
+  if (await campoCodigo.count().catch(() => 0)) {
+    const codigo = await esperarCodigo(P, c.otp_remitente || 'just', 240, pedidoEn, c.usuario);
+    if (codigo) {
+      await campoCodigo.type(codigo, { delay: 120 }).catch(() => {});
+      await page.keyboard.press('Enter').catch(() => {});
+      await page.waitForTimeout(9000);
+    }
   }
 
   await quitarEstorbos(page);
   const ok = await dentro(page);
   await log(P, ok ? 'login_ok' : 'login_ko', `${c.cuenta} · url=${page.url()}`);
-  if (!ok) await volcar(`${P}_login_ko`, await page.content());
+  if (!ok) await volcar(`${P}_login_ko`, await page.content().catch(() => ''));
   else await guardarSesion(P, c.cuenta, ctx);
   return ok;
 }
 
-async function seccion(page: Page, ruta: string, tipo: string, periodo: string, destino: string) {
-  await page.goto(`${RAIZ}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(6000);
-  await quitarEstorbos(page);
-  const f = await descargarDeLaPagina(P, page, tipo);
-  if (!f) return;
-  await entregar({ fuente: P, tipo, nombre: f.nombre, datos: f.datos, periodo, destino });
+/** Abre la sección de facturas siguiendo el menú del portal. */
+async function abrirFacturas(page: Page): Promise<boolean> {
+  for (const ruta of ['/invoices', '/billing', '/facturas', '/payments']) {
+    await page.goto(`${RAIZ}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await esperarContenido(page);
+    const hay = await page.getByText(RE_FACTURAS).count().catch(() => 0);
+    if (hay) return true;
+  }
+  // Si las rutas directas no valen, buscar el enlace en el menú
+  const enlace = page.getByRole('link', { name: RE_FACTURAS }).first()
+    .or(page.locator('a, button').filter({ hasText: RE_FACTURAS }).first());
+  if (await enlace.count().catch(() => 0)) {
+    await enlace.click({ timeout: 8000 }).catch(() => {});
+    await esperarContenido(page);
+    return true;
+  }
+  return false;
+}
+
+async function bajarFacturas(page: Page, periodo: string): Promise<number> {
+  const enlaces = page.locator('a[href$=".pdf"], a[download], a[href*="download" i]');
+  const nEnlaces = Math.min(await enlaces.count().catch(() => 0), 12);
+  let bajadas = 0;
+
+  for (let i = 0; i < nEnlaces; i++) {
+    const f = await capturar(page, P, async () => { await enlaces.nth(i).click({ timeout: 8000 }).catch(() => {}); }, 60);
+    if (!f) continue;
+    await entregar({ fuente: P, tipo: 'justeat_factura', nombre: f.nombre, datos: f.datos, periodo, destino: 'facturas' });
+    bajadas++;
+  }
+
+  if (bajadas === 0) {
+    const botones = page.getByRole('button', { name: RE_DESCARGA });
+    const nBotones = Math.min(await botones.count().catch(() => 0), 12);
+    for (let i = 0; i < nBotones; i++) {
+      const f = await capturar(page, P, async () => { await botones.nth(i).click({ timeout: 8000 }).catch(() => {}); }, 60);
+      if (!f) continue;
+      await entregar({ fuente: P, tipo: 'justeat_factura', nombre: f.nombre, datos: f.datos, periodo, destino: 'facturas' });
+      bajadas++;
+    }
+  }
+  return bajadas;
 }
 
 async function trabajarCuenta(c: Cuenta) {
   const { browser, ctx, page } = await abrir(P, c.cuenta);
   try {
     if (!(await entrar(page, ctx, c))) return;
+    const periodo = MODO === 'backfill' && /^\d{4}-Q[1-4]$/i.test(TRIMESTRE) ? TRIMESTRE : hoyMadrid(1);
 
-    if (MODO === 'backfill' && !/^\d{4}-Q[1-4]$/i.test(TRIMESTRE)) {
-      await log(P, 'error', 'backfill necesita TRIMESTRE=AAAA-Qn'); process.exitCode = 1; return;
+    if (!(await abrirFacturas(page))) {
+      await volcar(`${P}_sin_facturas`, await page.content().catch(() => ''));
+      await log(P, 'aviso', 'no encuentro la sección de facturas (pantalla volcada)');
+      return;
     }
-    const periodo = MODO === 'backfill' ? TRIMESTRE : hoyMadrid(1);
 
-    await seccion(page, '/invoices', 'justeat_factura', periodo, 'facturas');
-    await seccion(page, '/payments', 'justeat_liquidacion', periodo, 'ventas');
+    const n = await bajarFacturas(page, periodo);
+    if (n > 0) await log(P, 'descarga', `${n} factura(s) de Just Eat a la bandeja`);
+    else {
+      await volcar(`${P}_facturas`, await page.content().catch(() => ''));
+      await log(P, 'sin_descarga', 'sección de facturas abierta pero sin ficheros que bajar');
+    }
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
-    await volcar(`${P}_error`, await page.content().catch(() => ''));
     process.exitCode = 1;
   } finally {
     await browser.close();
