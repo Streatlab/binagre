@@ -7,6 +7,7 @@
  * El código se lee POR IMAP en el buzón de origen (tabla buzones_otp) y, si no hay
  * clave puesta, en el buzón del cartero (reenvío). Solo vale el correo posterior
  * al momento de pedirlo y que hable de código.
+ * Prueba 14-jul 10:20 · primera con claves de buzón puestas.
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
