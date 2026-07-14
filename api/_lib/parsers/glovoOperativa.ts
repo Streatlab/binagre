@@ -9,7 +9,7 @@
 // local), así que se parsea el CSV completo respetando las comillas.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { normalizarMarca, limpiarSufijoLocal, type MarcaCanonica } from './normalizarMarca'
+import { normalizarMarca, limpiarSufijoLocal, type MarcaCanonica } from './normalizarMarca.js'
 
 // CSV robusto: respeta comillas y saltos de línea dentro de campos.
 function parseCSV(text: string): string[][] {

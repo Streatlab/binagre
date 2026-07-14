@@ -252,11 +252,18 @@ async function carpetaDestino(drive: drive_v3.Drive, niveles: string[]): Promise
   return folderId
 }
 
-export async function subirArchivoADrive(
+// Núcleo compartido: sube un buffer a una ruta de carpetas YA DECIDIDA (niveles),
+// con la misma red de seguridad "cero pérdida" (respaldo en Storage + registro de
+// repesca ANTES de tocar Drive). Un fallo de Drive (incluso "no configurado",
+// que antes lanzaba y perdía el storagePath ya calculado) NUNCA propaga excepción:
+// se devuelve driveOk=false con el storagePath ya a salvo, para que el llamador
+// guarde el dato igual y marque el archivado como pendiente de reintento.
+async function subirBufferConNiveles(
   buffer: Buffer,
   nombre: string,
-  extracted: DriveExtracted,
+  niveles: string[],
   ext: string,
+  metaPdf?: { proveedor_nombre?: string; numero_factura?: string; fecha_factura?: string },
 ): Promise<{ id: string; webViewLink: string; storagePath: string; driveOk: boolean }> {
   // Hash del documento TAL Y COMO LLEGA (antes de cualquier conversión). Coincide
   // con el pdf_hash que calcula procesarArchivo, para poder vincular la repesca
@@ -272,14 +279,18 @@ export async function subirArchivoADrive(
       const crudo = buffer.toString('utf-8')
       const legible = pareceHtml(crudo) ? htmlATexto(crudo) : crudo
       if (legible && legible.trim().length > 0) {
-        buffer = textoLegibleAPdf(legible, extracted)
+        buffer = textoLegibleAPdf(legible, {
+          proveedor_nombre: metaPdf?.proveedor_nombre || '',
+          numero_factura: metaPdf?.numero_factura,
+          fecha_factura: metaPdf?.fecha_factura || '',
+          tipo: 'proveedor',
+        })
         nombre = nombre.replace(/\.[a-z0-9]+$/i, '') + '.pdf'
         ext = 'pdf'
       }
     } catch { /* se sube el original */ }
   }
 
-  const niveles = nivelesCarpeta(extracted)
   const mimeType = mimeTypeParaExtension(ext)
   const storagePath = [...niveles, nombre].join('/')
 
@@ -312,11 +323,20 @@ export async function subirArchivoADrive(
   } catch { /* el registro de repesca nunca rompe el archivado */ }
 
   // ── Drive con reintentos (hasta 6 en el momento, con espera creciente) ─────
-  // getDriveGlobal() va AQUÍ (no al principio): si Drive está caído lanza, pero el
-  // documento ya está respaldado y registrado arriba, así que la repesca lo recupera.
-  const drive = await getDriveGlobal()
-  const folderId = await carpetaDestino(drive, niveles)
-  const { id: driveId, webViewLink } = await subirBufferAFolder(drive, folderId, nombre, mimeType, buffer)
+  // Todo el tramo de Drive va en try/catch: si getDriveGlobal() lanza (no
+  // configurado / desconectado) o subirBufferAFolder no logra subir, el
+  // documento YA está a salvo en Storage y registrado arriba — driveOk queda
+  // false y el llamador decide (guardar el dato igual, marcar pendiente de
+  // archivar). Nunca se pierde una excepción de Drive hacia arriba.
+  let driveId: string | null = null
+  let webViewLink: string | null = null
+  try {
+    const drive = await getDriveGlobal()
+    const folderId = await carpetaDestino(drive, niveles)
+    const subida = await subirBufferAFolder(drive, folderId, nombre, mimeType, buffer)
+    driveId = subida.id
+    webViewLink = subida.webViewLink
+  } catch { /* Drive caído/no configurado: driveOk queda false, ver comentario arriba */ }
 
   // Drive OK: completar la fila de repesca con el drive_id real.
   if (driveId) {
@@ -337,10 +357,32 @@ export async function subirArchivoADrive(
     } catch { /* el registro de repesca nunca rompe el archivado */ }
   }
 
-  // Aunque Drive haya fallado los 6 intentos, el original está a salvo en
-  // Storage y registrado en archivo_respaldo. La repesca lo subirá a Drive. El
-  // documento NO se pierde y acaba SIEMPRE en Drive (en el momento o por repesca).
+  // Aunque Drive haya fallado (o no esté configurado), el original está a salvo en
+  // Storage y registrado en archivo_respaldo. El documento NO se pierde: acaba en
+  // Drive en el momento, por la repesca general, o por el reintento explícito de EQUIPO.
   return { id: driveId || '', webViewLink: webViewLink ?? '', storagePath, driveOk: !!driveId }
+}
+
+export async function subirArchivoADrive(
+  buffer: Buffer,
+  nombre: string,
+  extracted: DriveExtracted,
+  ext: string,
+): Promise<{ id: string; webViewLink: string; storagePath: string; driveOk: boolean }> {
+  const niveles = nivelesCarpeta(extracted)
+  return subirBufferConNiveles(buffer, nombre, niveles, ext, extracted)
+}
+
+// Variante para EQUIPO (nóminas/Seguridad Social): ruta de carpetas EXACTA y fija,
+// sin pasar por nivelesCarpeta() (que exige carpeta_titular/tipo de factura). Misma
+// red de seguridad "cero pérdida" que subirArchivoADrive.
+export async function subirArchivoACarpetaExacta(
+  buffer: Buffer,
+  nombre: string,
+  niveles: string[],
+  ext: string,
+): Promise<{ id: string; webViewLink: string; storagePath: string; driveOk: boolean }> {
+  return subirBufferConNiveles(buffer, nombre, niveles, ext)
 }
 
 // Repesca: sube a Drive un documento que está en el respaldo de Storage (porque

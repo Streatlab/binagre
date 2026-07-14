@@ -19,7 +19,17 @@
  *  13  total del pedido
  *  14  extra
  *
- * Canales: Glovo → 'glovo', JustEat → 'sinqro', Uber → 'uber_eats'
+ * ── FIX 13-jul-26 ────────────────────────────────────────────────
+ * El fichero de Sinqro SÍ trae la marca de cada pedido. El problema era que
+ * este parser nombraba los canales de forma distinta a como están guardados
+ * en `ventas_plato` ('sinqro' en vez de 'justeat', 'uber_eats' en vez de
+ * 'uber'). Resultado: al reimportar no pisaba las filas existentes, creaba
+ * filas nuevas en paralelo y la venta seguía apareciendo sin marca.
+ *
+ * Canales normalizados (los mismos que usa toda la BD):
+ *   Glovo    → 'glovo'
+ *   JustEat  → 'justeat'
+ *   Uber     → 'uber'
  *
  * Output:
  *   - VentaPlato[]  → ventas_plato (estimado=false, origen='sincro')
@@ -69,19 +79,24 @@ function esModificadorOExtra(nombre: string): boolean {
 }
 
 // ── Canal normalizado ────────────────────────────────────────────
+// IMPORTANTE: estos valores tienen que ser EXACTAMENTE los que ya hay en la
+// base de datos ('uber', 'glovo', 'justeat'). Si no, se duplican las ventas.
 function normalizarCanal(raw: string): VentaPlato['canal'] {
   const c = (raw || '').toLowerCase();
-  if (c.includes('uber')) return 'uber_eats';
-  if (c.includes('glovo')) return 'glovo';
-  if (c.includes('just') || c.includes('je')) return 'sinqro';
-  return 'sinqro';
+  if (c.includes('uber')) return 'uber' as VentaPlato['canal'];
+  if (c.includes('glovo')) return 'glovo' as VentaPlato['canal'];
+  if (c.includes('just') || c.replace(/[^a-z]/g, '') === 'je') return 'justeat' as VentaPlato['canal'];
+  return 'justeat' as VentaPlato['canal'];
 }
 
-// ── Marca desde dirección (col 4) ────────────────────────────────
+// ── Marca desde la dirección (col 4) ─────────────────────────────
+// Sinqro mete el nombre de la marca virtual delante de la dirección.
+// Nos quedamos con lo que va antes de la primera coma.
 function normalizarMarca(dir: string): string {
-  if (!dir) return 'Streat Lab';
+  if (!dir || !dir.trim()) return 'Streat Lab';
   const m = dir.match(/^([^,]+)/);
-  return m ? m[1].trim() : dir.trim();
+  const marca = (m ? m[1] : dir).trim();
+  return marca || 'Streat Lab';
 }
 
 // ── Parseo CSV con separador ; ────────────────────────────────────
@@ -133,6 +148,10 @@ function parseFechaHora(s: string): FechaHora | null {
 export interface SinqroResult {
   platos: VentaPlato[];
   franjas: VentaFranja[];
+  /** Diagnóstico: cuántas líneas venían sin marca en el fichero. */
+  sinMarca: number;
+  /** Diagnóstico: marcas distintas encontradas en el fichero. */
+  marcasDetectadas: string[];
 }
 
 export function parseSinqroSoldProducts(csvText: string): VentaPlato[] {
@@ -141,7 +160,7 @@ export function parseSinqroSoldProducts(csvText: string): VentaPlato[] {
 
 export function parseSinqroSoldProductsFull(csvText: string): SinqroResult {
   const allRows = parseCSVSemicolon(csvText);
-  if (allRows.length < 1) return { platos: [], franjas: [] };
+  if (allRows.length < 1) return { platos: [], franjas: [], sinMarca: 0, marcasDetectadas: [] };
 
   // Detectar si la primera fila es cabecera textual (col 0 no numérico)
   const primeraCeldaEsTexto = allRows[0][0] && isNaN(Number(allRows[0][0]));
@@ -157,6 +176,9 @@ export function parseSinqroSoldProductsFull(csvText: string): SinqroResult {
     dia_semana: number; pedidos: Set<string>; unidades: number; importe: number;
   }> = {};
 
+  let sinMarca = 0;
+  const marcasSet = new Set<string>();
+
   for (const row of dataRows) {
     if (!row[POS.PEDIDO]) continue; // fila vacía
 
@@ -169,7 +191,12 @@ export function parseSinqroSoldProductsFull(csvText: string): SinqroResult {
 
     const plato = platoRaw.trim();
     const canal = normalizarCanal(row[POS.CANAL] || '');
-    const marca = normalizarMarca(row[POS.MARCA] || '');
+
+    const marcaRaw = row[POS.MARCA] || '';
+    if (!marcaRaw.trim()) sinMarca++;
+    const marca = normalizarMarca(marcaRaw);
+    marcasSet.add(marca);
+
     const unidades = Math.max(1, parseInt(row[POS.UNIDS] || '1') || 1);
     const fh = parseFechaHora(row[POS.FECHA] || '');
     const mes = fh?.mes ?? (new Date().getMonth() + 1);
@@ -213,5 +240,10 @@ export function parseSinqroSoldProductsFull(csvText: string): SinqroResult {
     importe: Math.round(g.importe * 100) / 100,
   }));
 
-  return { platos, franjas };
+  return {
+    platos,
+    franjas,
+    sinMarca,
+    marcasDetectadas: [...marcasSet].sort((a, b) => a.localeCompare(b, 'es')),
+  };
 }

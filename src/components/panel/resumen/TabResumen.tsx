@@ -563,10 +563,10 @@ export default function TabResumen({
         .filter(p => prefijos.some(pr => p.categoria.startsWith(pr)))
         .reduce((a, p) => a + (Number(p.tope) || 0), 0)
     }
-    const presProducto     = presupuestosGrupo.producto     || presFromBD(['PRD-'])
-    const presEquipo       = presupuestosGrupo.equipo       || presFromBD(['RRH-'])
-    const presLocal        = presupuestosGrupo.local        || presFromBD(['LOC-', 'SUM-'])
-    const presControlables = presupuestosGrupo.controlables || presFromBD(['CTR-'])
+    const presProducto     = presupuestosGrupo.producto     || presFromBD(['2.11.', '2.12.', '2.13.'])
+    const presEquipo       = presupuestosGrupo.equipo       || presFromBD(['2.21.', '2.22.'])
+    const presLocal        = presupuestosGrupo.local        || presFromBD(['2.31.'])
+    const presControlables = presupuestosGrupo.controlables || presFromBD(['2.41.', '2.42.', '2.43.', '2.44.'])
 
     const pctNeto = (g: number) => netoEstimado > 0 ? (g / netoEstimado) * 100 : 0
     return {

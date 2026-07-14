@@ -22,23 +22,9 @@ export interface RunningAnualData {
   loading: boolean
 }
 
-// Lista explícita de categorías estimables (gastos fijos que se repiten mes a mes)
-const CATEGORIAS_ESTIMABLES = new Set<string>([
-  // Equipo
-  '2.21.1','2.21.2','2.21.3','2.21.4','2.21.5','2.21.6','2.21.7','2.21.10','2.21.11','2.21.12',
-  // Local
-  '2.31.1','2.31.2','2.31.3',
-  // Internet
-  '2.42.1','2.42.2','2.42.3',
-  // Integraciones
-  '2.43.2','2.43.3','2.43.4',
-  // Suministros (todos)
-  '2.44.1','2.44.2','2.44.3','2.44.4',
-])
-
-function esCategoriaFijaEstimable(catId: string): boolean {
-  return CATEGORIAS_ESTIMABLES.has(catId)
-}
+// Las categorias estimables (gastos fijos que se repiten mes a mes) YA NO se escriben aqui.
+// Se leen de categorias_pyg.estimable, que es la unica fuente de verdad y se edita desde
+// Configuracion. Antes habia una lista a fuego que se desincronizaba con la base de datos.
 
 export function useRunningAnual(año: number, titularId: string|null): RunningAnualData {
   const [ingresos, setIngresos] = useState<Record<string, Record<number, number>>>({})
@@ -86,15 +72,16 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
         ;(dGas || []).forEach((r: any) => { const mes = new Date(r.fecha).getMonth()+1; const cat = r.categoria_codigo; if (!gasMap[cat]) gasMap[cat] = {}; gasMap[cat][mes] = (gasMap[cat][mes]||0) + Math.abs(Number(r.base_imponible||0)) })
       }
 
-      const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden').eq('activa',true).order('orden')
-      const cats = dCat || []
+      const { data: dCat } = await supabase.from('categorias_pyg').select('id,nombre,parent_id,nivel,bloque,orden,estimable').eq('activa',true).order('orden')
+      const cats = (dCat || []) as any[]
 
-      // === GASTOS FIJOS ESTIMABLES (lista explícita) ===
+      // === GASTOS FIJOS ESTIMABLES (leidos de la configuracion, no escritos a mano) ===
+      const categoriasEstimables: string[] = cats.filter((c: any) => c.estimable).map((c: any) => String(c.id))
       const gasEstMap: Record<string, Record<number, boolean>> = {}
-      for (const cat of Array.from(CATEGORIAS_ESTIMABLES)) {
+      for (const cat of categoriasEstimables) {
         if (!gasMap[cat]) gasMap[cat] = {}
         if (!gasEstMap[cat]) gasEstMap[cat] = {}
-        // Forward fill: replicar último importe real hacia delante
+        // Forward fill: replicar ultimo importe real hacia delante
         let ultimoImporte = 0
         for (let mes = 1; mes <= 12; mes++) {
           const valorReal = gasMap[cat][mes] || 0
@@ -105,7 +92,7 @@ export function useRunningAnual(año: number, titularId: string|null): RunningAn
             gasEstMap[cat][mes] = true
           }
         }
-        // Backward fill: si los primeros meses están vacíos, replicar el primer importe real
+        // Backward fill: si los primeros meses estan vacios, replicar el primer importe real
         let primerImporte = 0
         for (let mes = 1; mes <= 12; mes++) {
           if (gasMap[cat][mes] && gasMap[cat][mes] > 0 && !gasEstMap[cat][mes]) {

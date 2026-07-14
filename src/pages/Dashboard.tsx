@@ -427,6 +427,7 @@ export default function Dashboard() {
   void nSemana; void ticketMedioBruto; void variacionPct; void ticketMedioNeto; void ventasSemana
   void diasPico; void diasRestantesMesOp; void tabBtnStyle; void editandoObjetivo; void valorEditObjetivo
   void setTopTab; void setEditandoObjetivo; void setValorEditObjetivo; void guardarObjetivo
+  void ventasHoy; void pedidosHoy
 
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:80 }}>

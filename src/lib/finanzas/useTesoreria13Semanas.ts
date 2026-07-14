@@ -7,6 +7,14 @@
  *  - facturacion_diario (90 días)                → ventas previstas por canal
  *  - gastos_fijos (activo=true)                  → salidas fijas normalizadas a semanal
  *  - conciliacion (tipo='gasto', 90 días)         → gasto operativo semanal estimado
+ *  - nominas (últimos meses por empleado)         → salida de nóminas normalizada a semanal
+ *  - seguridad_social_resumen (últimos meses)     → salida de SS normalizada a semanal
+ *
+ * Nóminas y SS son salidas reales que antes NO estaban modeladas aquí (solo
+ * `gastos_fijos`, que no las incluye para no duplicar con esta fuente más
+ * precisa). Mientras esas tablas estén vacías, su aportación es 0 — no se
+ * inventa un importe, se ve reflejado en cuanto Rubén suba la primera nómina
+ * o el primer resumen de SS.
  *
  * Todo el cálculo vive aquí; la página solo pinta.
  */
@@ -65,7 +73,16 @@ export interface Tesoreria13SemanasResult {
   gastosFijosCount: number
   gastoFijoSemanal: number
   gastoOperativoSemanal: number
+  nominaSemanal: number
+  segSocialSemanal: number
+  nominasCount: number
+  segSocialCount: number
 }
+
+/** Semanas-equivalentes por mes (52/12 semanas ≈ 4,333), usado para normalizar
+ *  importes mensuales de nóminas/SS a una salida semanal, igual criterio que
+ *  `SEMANAS_POR_PERIODO.mensual` de gastos_fijos. */
+const SEMANAS_POR_MES = 52 / 12
 
 /* ────────────────────────────────────────────────────────────
    Helpers de fecha (sin dependencias externas)
@@ -170,6 +187,19 @@ interface ConciliacionGastoRow {
   importe: number | null
   tipo: string
 }
+interface NominaRow {
+  empleado_id: string
+  mes: number
+  anio: number
+  importe_bruto: number | null
+  ss_empresa: number | null
+  coste_empresa: number | null
+}
+interface SegSocialRow {
+  mes: number
+  anio: number
+  importe: number | null
+}
 
 export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
   const [loading, setLoading] = useState(true)
@@ -180,6 +210,8 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
   const [facturacion, setFacturacion] = useState<FacturacionRow[]>([])
   const [gastosFijos, setGastosFijos] = useState<GastoFijoRow[]>([])
   const [gastosConciliacion, setGastosConciliacion] = useState<ConciliacionGastoRow[]>([])
+  const [nominas, setNominas] = useState<NominaRow[]>([])
+  const [segSocial, setSegSocial] = useState<SegSocialRow[]>([])
 
   useEffect(() => {
     let cancelado = false
@@ -190,7 +222,7 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
         const hoy = new Date()
         const desdeHistorico = toLocal(addDays(hoy, -DIAS_HISTORICO))
 
-        const [cajaAuto, facRes, gfRes, concRes] = await Promise.all([
+        const [cajaAuto, facRes, gfRes, concRes, nomRes, segRes] = await Promise.all([
           // Saldo inicial: último saldo real del extracto bancario (ver cajaExtracto.ts),
           // con respaldo a la clave manual configuracion.saldo_banco_actual si no hay extracto.
           getCajaAutomatica(),
@@ -205,6 +237,10 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
             .select('fecha,importe,tipo')
             .eq('tipo', 'gasto')
             .gte('fecha', desdeHistorico),
+          // Nóminas: salida real por empleado (bruto + SS empresa), ver módulo Equipo → Nóminas.
+          supabase.from('nominas').select('empleado_id,mes,anio,importe_bruto,ss_empresa,coste_empresa').order('anio', { ascending: false }).order('mes', { ascending: false }),
+          // Resumen mensual de Seguridad Social, ver módulo Equipo → Seguridad Social.
+          supabase.from('seguridad_social_resumen').select('mes,anio,importe').order('anio', { ascending: false }).order('mes', { ascending: false }).limit(6),
         ])
 
         if (cancelado) return
@@ -212,6 +248,8 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
         if (facRes.error) throw facRes.error
         if (gfRes.error) throw gfRes.error
         if (concRes.error) throw concRes.error
+        if (nomRes.error) throw nomRes.error
+        if (segRes.error) throw segRes.error
 
         setSaldoInicial(cajaAuto.caja)
         setSaldoInicialFuente(cajaAuto.origen)
@@ -219,6 +257,8 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
         setFacturacion((facRes.data ?? []) as FacturacionRow[])
         setGastosFijos((gfRes.data ?? []) as GastoFijoRow[])
         setGastosConciliacion((concRes.data ?? []) as ConciliacionGastoRow[])
+        setNominas((nomRes.data ?? []) as NominaRow[])
+        setSegSocial((segRes.data ?? []) as SegSocialRow[])
       } catch (e) {
         if (!cancelado) setError(e instanceof Error ? e.message : 'Error cargando tesorería')
       } finally {
@@ -258,6 +298,39 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
     const total = [...porSemana.values()].reduce((s, v) => s + v, 0)
     return total / porSemana.size
   }, [gastosConciliacion])
+
+  // Salida semanal de nóminas: por cada empleado activo en la tabla, coste
+  // mensual = coste_empresa si se leyó (bruto+SS empresa), si no bruto+ss_empresa
+  // sumados manualmente, si no solo bruto (mejor una estimación parcial real que
+  // omitir la salida por completo). Se usa la nómina MÁS RECIENTE de cada
+  // empleado como estimación del mes siguiente (no se promedia con meses muy
+  // antiguos, que pueden no reflejar bajas/altas recientes).
+  const nominaSemanal = useMemo(() => {
+    const masRecientePorEmpleado = new Map<string, NominaRow>()
+    for (const n of nominas) {
+      const actual = masRecientePorEmpleado.get(n.empleado_id)
+      if (!actual || n.anio > actual.anio || (n.anio === actual.anio && n.mes > actual.mes)) {
+        masRecientePorEmpleado.set(n.empleado_id, n)
+      }
+    }
+    let totalMensual = 0
+    for (const n of masRecientePorEmpleado.values()) {
+      const bruto = Number(n.importe_bruto) || 0
+      const ssEmpresa = Number(n.ss_empresa) || 0
+      const coste = n.coste_empresa != null ? Number(n.coste_empresa) : bruto + ssEmpresa
+      totalMensual += coste
+    }
+    return totalMensual / SEMANAS_POR_MES
+  }, [nominas])
+
+  // Salida semanal de Seguridad Social: promedio de los últimos importes
+  // conocidos del resumen mensual (hasta 3), normalizado a semanal.
+  const segSocialSemanal = useMemo(() => {
+    const importes = segSocial.map(s => Number(s.importe) || 0).filter(v => v > 0).slice(0, 3)
+    if (importes.length === 0) return 0
+    const media = importes.reduce((s, v) => s + v, 0) / importes.length
+    return media / SEMANAS_POR_MES
+  }, [segSocial])
 
   const promedioVentasPorDia = useMemo(() => {
     // promedio[diaSemana][canal] con diaSemana Lunes=0…Domingo=6
@@ -300,7 +373,7 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
         inicio: toLocal(ini),
         fin: toLocal(fin),
         entradas: 0,
-        salidas: gastoFijoSemanal + gastoOperativoSemanal,
+        salidas: gastoFijoSemanal + gastoOperativoSemanal + nominaSemanal + segSocialSemanal,
         saldoSemana: 0,
       }
     })
@@ -330,7 +403,7 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
       acumulado += saldoSemana
       return { ...s, saldoSemana, saldoAcumulado: acumulado, estado: estadoDe(acumulado) }
     })
-  }, [promedioVentasPorDia, gastoFijoSemanal, gastoOperativoSemanal, saldoInicial])
+  }, [promedioVentasPorDia, gastoFijoSemanal, gastoOperativoSemanal, nominaSemanal, segSocialSemanal, saldoInicial])
 
   const semanaCritica = useMemo(() => {
     if (semanas.length === 0) return null
@@ -350,5 +423,9 @@ export function useTesoreria13Semanas(): Tesoreria13SemanasResult {
     gastosFijosCount: gastosFijos.length,
     gastoFijoSemanal,
     gastoOperativoSemanal,
+    nominaSemanal,
+    segSocialSemanal,
+    nominasCount: nominas.length,
+    segSocialCount: segSocial.length,
   }
 }

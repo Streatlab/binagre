@@ -1,4 +1,11 @@
-// OcrCompletadoGlobal v4 — aviso GRANDE y veraz fuera de Papeleo al terminar un lote.
+// OcrCompletadoGlobal v5 — aviso GRANDE y veraz fuera de Papeleo al terminar un lote.
+// v5: TOAST ÚNICO — OcrUploadToast (montado una sola vez en Layout) ya avisa de todo
+//     lote con visible=true, en cualquier página. Este componente solo debe cubrir el
+//     hueco de los lotes que el usuario ocultó a mitad de proceso ("Ocultar: sigue
+//     procesando en segundo plano", visible=false) para que no se queden sin resumen
+//     final. Por eso solo consulta sesiones visible=false: si está visible, ya la
+//     muestra OcrUploadToast y una segunda notificación aquí sería un aviso duplicado
+//     del mismo evento.
 // v4: el mensaje refleja el desglose real (nuevas / ya estaban / a revisar / con error).
 //     Las DUPLICADAS no son un fallo: "ya estaban" no pinta de rojo. Solo hay error si
 //     errores>0. Antes mostraba "{ok} de {total}" y un lote de duplicados (p.ej. 9/144)
@@ -35,6 +42,7 @@ export default function OcrCompletadoGlobal() {
         .from('ocr_sessions')
         .select('id,ok,duplicados,pendientes,errores,ignorados,total,completado_en')
         .eq('estado_cola', 'completada')
+        .eq('visible', false) // visible=true ya lo cubre OcrUploadToast: evita el aviso duplicado
         .gte('completado_en', cutoff)
         .limit(10)
       if (!data) return

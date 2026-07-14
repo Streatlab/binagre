@@ -3,6 +3,7 @@ import { useTheme, FONT, pageTitleStyle } from '@/styles/tokens'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import TabEmpleados from './equipo/TabEmpleados'
 import TabNominas from './equipo/TabNominas'
+import TabSeguridadSocial from './equipo/TabSeguridadSocial'
 import TabCalendarioLaboral from './equipo/TabCalendarioLaboral'
 import TabPermisos from './equipo/TabPermisos'
 import TabPortal from './equipo/TabPortal'
@@ -13,11 +14,12 @@ const NEO_INK = 'var(--neo-ink)'
 const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
 const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
 
-type TabKey = 'empleados' | 'nominas' | 'incentivos' | 'calendario' | 'permisos' | 'portal'
+type TabKey = 'empleados' | 'nominas' | 'segsocial' | 'incentivos' | 'calendario' | 'permisos' | 'portal'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'empleados',  label: 'Empleados' },
   { key: 'nominas',    label: 'Nóminas' },
+  { key: 'segsocial',  label: 'Seguridad Social' },
   { key: 'incentivos', label: 'Incentivos' },
   { key: 'calendario', label: 'Calendario laboral' },
   { key: 'permisos',   label: 'Permisos' },
@@ -79,6 +81,7 @@ export default function Equipo() {
       <div style={{ ...NEO_CARD, background: 'var(--sl-card)', padding: isMobile ? '14px 12px' : '20px 22px', overflowX: 'auto' }}>
         {activeTab === 'empleados'  && <TabEmpleados />}
         {activeTab === 'nominas'    && <TabNominas />}
+        {activeTab === 'segsocial'  && <TabSeguridadSocial />}
         {activeTab === 'incentivos' && <TabIncentivos />}
         {activeTab === 'calendario' && <TabCalendarioLaboral />}
         {activeTab === 'permisos'   && <TabPermisos />}

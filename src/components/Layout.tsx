@@ -9,6 +9,7 @@ import OcrUploadToast from '@/components/ocr/OcrUploadToast'
 import CommandPalette from '@/components/CommandPalette'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useTheme } from '@/styles/tokens'
+import ShellMovil from '@/mobile/ShellMovil'
 
 // Fondo del wrapper del ERP: crema en modo claro (mismo crema del sidebar).
 const CREMA_WRAP = '#FCEFD6'
@@ -19,13 +20,16 @@ export default function Layout() {
   const { isDark } = useTheme()
   const appBg = isDark ? 'var(--sl-app)' : CREMA_WRAP
 
+  // En móvil: app propia (shell con carrusel inferior). En ordenador: ERP de siempre.
+  if (movil) return <ShellMovil />
+
   return (
     <div className="flex h-screen text-[var(--sl-text-primary)] font-sans" style={{ background: appBg }}>
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <header
-          className={`h-12 flex items-center px-4 border-b border-[var(--sl-border)] ${movil ? '' : 'md:hidden'}`}
+          className="h-12 flex items-center px-4 border-b border-[var(--sl-border)] md:hidden"
           style={{ background: appBg }}
         >
           <button

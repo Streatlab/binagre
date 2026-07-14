@@ -1,0 +1,117 @@
+/* ═══════════════════════════════════════════════════════════════
+   SKIN SL — Ley Visual SL v1 · AISLADO
+   Todo vive bajo .sl-skin. No toca ni una regla del estilo Neobrutal.
+   Si el skin no convence: se borra esta carpeta y no pasa nada.
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap');
+
+.sl-skin {
+  /* Marca */
+  --slx-rojo: #B01D23;
+  --slx-rojo-deep: #951218;
+  --slx-naranja: #EE8A4E;
+  --slx-amarillo: #F7B54B;
+
+  /* Neutros cálidos */
+  --slx-ink: #292828;
+  --slx-canvas: #FAF6F1;
+  --slx-card: #FFFFFF;
+  --slx-line: #F0E7DC;
+  --slx-gris: #6E6B68;
+  --slx-gris-cl: #9C9894;
+  --slx-zebra: #FCF3EB;
+  --slx-hover: #F9EADD;
+  --slx-track: #F1EFEA;
+
+  /* Semánticos (solo significado de dato) */
+  --slx-verde: #0B8A4B;
+  --slx-verde-soft: #E3F5EC;
+  --slx-rojo-sem: #D3261B;
+  --slx-rojo-soft: #FCE9E7;
+  --slx-ambar: #B36A00;
+  --slx-ambar-soft: #FCF2DE;
+  --slx-blu: #4A63C8;
+  --slx-blu-soft: #E9EDFB;
+
+  --slx-shadow: 0 2px 4px rgba(41,40,40,.04), 0 8px 24px rgba(176,29,35,.06);
+
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-weight: 600;
+  color: var(--slx-ink);
+  background: var(--slx-canvas);
+}
+
+[data-theme="dark"] .sl-skin {
+  --slx-rojo: #E04A50;
+  --slx-rojo-deep: #B01D23;
+  --slx-ink: #F2EFEC;
+  --slx-canvas: #171412;
+  --slx-card: #211D1A;
+  --slx-line: #332D28;
+  --slx-gris: #ABA7A2;
+  --slx-gris-cl: #847F7A;
+  --slx-zebra: #282320;
+  --slx-hover: #2F2925;
+  --slx-track: #332D28;
+  --slx-verde: #3DD68C;
+  --slx-verde-soft: #1E3A2C;
+  --slx-rojo-sem: #FF7B6E;
+  --slx-rojo-soft: #3A2422;
+  --slx-ambar: #FFC24D;
+  --slx-ambar-soft: #3A2F1C;
+  --slx-blu: #7B90E8;
+  --slx-blu-soft: #232A44;
+  --slx-shadow: 0 2px 4px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.2);
+}
+
+/* Cifras: siempre monoespaciadas y tabulares */
+.sl-skin .slnum {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* Tablas — se imponen a las reglas globales de index.css */
+.sl-skin table { width: 100%; border-collapse: collapse; }
+.sl-skin thead th {
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .9px;
+  color: var(--slx-gris-cl); text-align: left; padding: 0 12px 10px;
+  border-bottom: 2px solid var(--slx-line); white-space: nowrap;
+}
+.sl-skin thead th.r { text-align: right; }
+.sl-skin tbody td {
+  padding: 12px; font-size: 13px; font-weight: 700; color: var(--slx-ink);
+  border-bottom: 1px solid var(--slx-line);
+}
+.sl-skin tbody td.r { text-align: right; }
+.sl-skin tbody td:first-child { font-weight: 800; }
+.sl-skin tbody tr:nth-child(odd)  { background: var(--slx-card) !important; }
+.sl-skin tbody tr:nth-child(even) { background: var(--slx-zebra) !important; }
+.sl-skin tbody tr:hover { background: var(--slx-hover) !important; }
+.sl-skin tfoot td {
+  padding: 13px 12px; font-size: 13px; font-weight: 900;
+  background: var(--slx-ambar-soft); border-top: 2px solid var(--slx-line);
+}
+.sl-skin tfoot td.r { text-align: right; }
+
+.sl-skin small.slsub {
+  display: block; font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px; font-weight: 500; color: var(--slx-gris-cl); margin-top: 2px;
+}
+
+/* Interruptor de estilo (NEO / SL) */
+.sl-switch {
+  display: inline-flex; align-items: center; gap: 0;
+  border: 1px solid #F0E7DC; border-radius: 999px; overflow: hidden;
+  background: #fff; font-family: 'Nunito', system-ui, sans-serif;
+}
+[data-theme="dark"] .sl-switch { background: #211D1A; border-color: #332D28; }
+.sl-switch button {
+  border: none; cursor: pointer; padding: 7px 14px;
+  font-family: inherit; font-size: 11px; font-weight: 800; letter-spacing: .6px;
+  background: transparent; color: #9C9894;
+}
+[data-theme="dark"] .sl-switch button { color: #847F7A; }
+.sl-switch button.on { background: #B01D23; color: #fff; }
+[data-theme="dark"] .sl-switch button.on { background: #E04A50; }

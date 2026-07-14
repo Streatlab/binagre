@@ -45,7 +45,7 @@ export function useFacturasPendientes() {
   useEffect(() => { cargar() }, [cargar])
 
   const setCategoria = useCallback(async (id: string, categoria: string) => {
-    await supabase.from('facturas').update({ categoria_factura: categoria }).eq('id', id)
+    await supabase.from('facturas').update({ categoria_factura: categoria, categoria_factura_origen: 'manual' }).eq('id', id)
     await cargar()
   }, [cargar])
 

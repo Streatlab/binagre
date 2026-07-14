@@ -1,5 +1,7 @@
 /**
- * ResumenLanding v18 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * ResumenLanding v20 — pestaña Resumen del Panel Global (neobrutal Food Pop).
+ * v20: sección HOY EN VIVO a ancho completo encima del estado de salud (solo en horario de
+ *      servicio, 11:00–24:00). El estado de salud vuelve a ser exactamente como era.
  * v18: columna derecha de la sección 5 con las 3 tarjetas (Cuándo te compran · Días pico ·
  *      Lo que deja cada pedido) repartidas a partes iguales (flex:1, misma altura). La tarjeta
  *      de pedido se simplifica: sin barra "ingreso − coste" y sin frase inferior.
@@ -13,6 +15,7 @@ import type { GrupoGasto } from './ColGruposGasto'
 import type { DiaPico } from './ColDiasPico'
 import type { PorCobrarResult } from '@/lib/panel/calcPorCobrar'
 import { elegirFrase, type MetricasInsight } from './frasesInsight'
+import CardHoyEnVivo, { enHorarioServicio } from './CardHoyEnVivo'
 
 const INK = '#140f08'
 const OSC = '#2b2117'
@@ -189,6 +192,9 @@ export default function ResumenLanding(p: Props) {
   const diaFuerte = diasConV.length ? diasConV.reduce((a, x) => x.valor > a.valor ? x : a) : null
   const diaFlojo = diasConV.length ? diasConV.reduce((a, x) => x.valor < a.valor ? x : a) : null
 
+  // ¿estamos dando servicio? Solo entonces se pinta la sección HOY EN VIVO.
+  const enServicio = enHorarioServicio()
+
   // ¿hay costes cargados? Si no, no calculamos derivados (evita mostrar margen=neto=resultado)
   const hayProducto = p.grupos.producto.gasto > 0
   const hayCostes = hayProducto || p.grupos.equipo.gasto > 0 || p.grupos.local.gasto > 0 || p.grupos.controlables.gasto > 0
@@ -298,7 +304,10 @@ export default function ResumenLanding(p: Props) {
     <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}` }}>
       {p.datosDemo && <div style={{ background: AMA, borderBottom: `4px solid ${INK}`, padding: `8px ${PAD}`, fontFamily: OSW, letterSpacing: '1px', fontSize: 13, textTransform: 'uppercase' }}>Datos demo · BD vacía o sin datos en este periodo</div>}
 
-      {/* 0 · ESTADO DE SALUD */}
+      {/* 0 · HOY EN VIVO (solo en horario de servicio) */}
+      {enServicio && <CardHoyEnVivo />}
+
+      {/* 0b · ESTADO DE SALUD */}
       <section style={{ background: saludBg, color: saludTxt, borderBottom: `4px solid ${INK}`, padding: `20px ${PAD}`, display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 24, alignItems: 'center' }}>
         <div>
           <div style={{ ...d('clamp(26px,3.4vw,42px)', saludTxt) }}>{saludTitulo}</div>
