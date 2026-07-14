@@ -1,16 +1,10 @@
 /**
  * NAVEGADOR · Utilidades comunes de descarga.
  *
- * Los portales cambian de aspecto a menudo, así que NO se atan selectores
- * frágiles: se busca cualquier botón/enlace de exportar o descargar y se captura
- * el fichero que suelte el navegador. Si no aparece ninguno, se vuelca el HTML a
- * `robot_debug` para poder ver qué cambió.
- *
- * 14-jul-2026: en Glovo el botón "Descargar informe" abre un cuadro intermedio
- * (elegir periodo) con su propio botón de confirmar. Ahora, tras el primer clic,
- * si no empieza la descarga se busca y pulsa el botón de confirmación del cuadro,
- * y se vuelca el HTML del cuadro para poder afinar.
- * 13-jul-2026: Uber corta el login si huele robot → navegador con pinta de Chrome
+ * 14-jul-2026 · Glovo pone un candado "Mantén pulsado para confirmar que eres un
+ * ser humano" ANTES de soltar el informe. Se resuelve manteniendo el ratón pulsado
+ * sobre el botón unos segundos (mantenPulsado). Si no se resuelve, no hay fichero.
+ * 13-jul-2026 · Uber corta el login si huele robot → navegador con pinta de Chrome
  * normal (user-agent real, sin la marca de automatización).
  */
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
@@ -52,21 +46,57 @@ export async function abrir(plataforma: string, cuenta: string): Promise<{ brows
 
 const PATRON_DESCARGA = /export|exportar|descargar|download|csv|excel|xlsx?|informe|report/i;
 const PATRON_CONFIRMAR = /^(descargar|download|confirmar|aceptar|exportar|generar|continuar|ok)/i;
+const RE_MANTEN = /mant[eé]n pulsado|mantener pulsado|press ?(&|and) ?hold|hold to confirm/i;
 
-/** Captura el fichero que produce un clic (y el confirmar de un cuadro intermedio). */
-export async function capturar(page: Page, clic: () => Promise<void>, segundos = 90): Promise<Fichero | null> {
+/**
+ * Candado "mantén pulsado": aprieta el ratón sobre el botón y aguanta.
+ * Devuelve true si el candado desaparece.
+ */
+export async function mantenPulsado(page: Page, plataforma: string): Promise<boolean> {
+  const aviso = page.getByText(RE_MANTEN).first();
+  if (!(await aviso.count().catch(() => 0))) return false;
+
+  // El botón suele ser el propio texto o su contenedor pulsable
+  const objetivo = page.locator('[role="dialog"] button, [role="dialog"] [role="button"], [role="dialog"] div[tabindex]').first()
+    .or(aviso);
+  const caja = await objetivo.boundingBox().catch(() => null) || await aviso.boundingBox().catch(() => null);
+  if (!caja) return false;
+
+  const x = caja.x + caja.width / 2;
+  const y = caja.y + caja.height / 2;
+
+  for (const segundos of [12, 16]) {
+    await page.mouse.move(x, y, { steps: 8 }).catch(() => {});
+    await page.mouse.down().catch(() => {});
+    for (let i = 0; i < segundos * 2; i++) {
+      await page.waitForTimeout(500);
+      await page.mouse.move(x + (i % 2 ? 0.4 : -0.4), y, { steps: 1 }).catch(() => {});   // micro-temblor humano
+    }
+    await page.mouse.up().catch(() => {});
+    await page.waitForTimeout(5000);
+    const sigue = await page.getByText(RE_MANTEN).count().catch(() => 0);
+    if (!sigue) { await log(plataforma, 'candado', 'candado "mantén pulsado" superado'); return true; }
+  }
+  await log(plataforma, 'candado_ko', 'no he podido superar el "mantén pulsado"');
+  await volcar(`${plataforma}_candado`, await page.content().catch(() => ''));
+  return false;
+}
+
+/** Captura el fichero que produce un clic (resolviendo candado y cuadro intermedio). */
+export async function capturar(page: Page, plataforma: string, clic: () => Promise<void>, segundos = 120): Promise<Fichero | null> {
   const espera = page.waitForEvent('download', { timeout: segundos * 1000 });
   await clic();
 
-  // Si se abre un cuadro intermedio, pulsar su botón de confirmar (hasta 2 veces).
   (async () => {
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
       await page.waitForTimeout(4000);
-      const dialogo = page.locator('[role="dialog"], .modal, [class*="modal" i], [class*="dialog" i]').last();
+      if (await page.getByText(RE_MANTEN).count().catch(() => 0)) {
+        const ok = await mantenPulsado(page, plataforma);
+        if (!ok) continue;
+      }
+      const dialogo = page.locator('[role="dialog"]').last();
       if (!(await dialogo.count().catch(() => 0))) continue;
-      await volcar('descarga_cuadro', await dialogo.innerHTML().catch(() => '')).catch(() => {});
-      const conf = dialogo.getByRole('button', { name: PATRON_CONFIRMAR }).last()
-        .or(dialogo.locator('button').filter({ hasText: PATRON_CONFIRMAR }).last());
+      const conf = dialogo.getByRole('button', { name: PATRON_CONFIRMAR }).last();
       if (await conf.count().catch(() => 0)) await conf.click({ timeout: 5000 }).catch(() => {});
     }
   })().catch(() => {});
@@ -88,15 +118,16 @@ export async function descargarDeLaPagina(
   paso: string,
 ): Promise<Fichero | null> {
   const candidatos = [
+    page.locator('[data-testid="export-report-btn"]').first(),
     page.getByRole('button', { name: PATRON_DESCARGA }).first(),
     page.getByRole('link', { name: PATRON_DESCARGA }).first(),
     page.getByRole('menuitem', { name: PATRON_DESCARGA }).first(),
     page.getByText(/descargar informe|download report/i).first(),
-    page.locator('a[download], [data-testid*="download" i], [data-testid*="export" i], [class*="download" i], [class*="export" i]').first(),
+    page.locator('a[download], [data-testid*="download" i], [data-testid*="export" i]').first(),
   ];
   for (const c of candidatos) {
     if (!(await c.count().catch(() => 0))) continue;
-    const f = await capturar(page, async () => { await c.click({ timeout: 10000 }).catch(() => {}); });
+    const f = await capturar(page, plataforma, async () => { await c.click({ timeout: 10000 }).catch(() => {}); });
     if (f) {
       await log(plataforma, 'descarga', `${paso}: ${f.nombre} (${f.datos.length} bytes)`);
       return f;
@@ -109,7 +140,7 @@ export async function descargarDeLaPagina(
 
 /** Cierra avisos de cookies y modales que tapan los botones. */
 export async function quitarEstorbos(page: Page) {
-  const textos = /aceptar|accept|entendido|got it|permitir|allow all|cerrar|close/i;
+  const textos = /aceptar|accept|entendido|got it|permitir|allow all/i;
   for (const rol of ['button', 'link'] as const) {
     const b = page.getByRole(rol, { name: textos }).first();
     if (await b.count().catch(() => 0)) await b.click({ timeout: 3000 }).catch(() => {});
