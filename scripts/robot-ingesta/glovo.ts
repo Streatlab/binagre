@@ -4,11 +4,14 @@
  *
  * Login (14-jul-2026): usuario+contraseña → /2fa con código de 6 dígitos por correo
  * (no-reply@portal.glovoapp.com), leído POR IMAP del buzón de la cuenta (buzones_otp).
+ * Sesión guardada: los próximos días entra sin código.
  *
  * FALLO CAZADO 14-jul 11:05: tras meter el código Glovo aterriza en
  * portal.glovoapp.com/dashboard?ums-drawer=after-login y el chequeo antiguo veía
  * la palabra "login" en la URL y creía que seguíamos fuera. ESTÁBAMOS DENTRO.
  * Ahora solo se mira la RUTA (pathname), no los parámetros.
+ * Prueba 14-jul 15:05 · el botón "Descargar informe" abre cuadro de periodo:
+ * el confirmar lo pulsa ahora el navegador común.
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
