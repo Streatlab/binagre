@@ -1,6 +1,7 @@
 /**
  * Escandallo en Ley Visual SL v2 (con acento oliva).
  * Se ve al pulsar SL en el interruptor. Solo lectura: no toca datos.
+ * Responsive según la receta de uiSLMovil.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -12,6 +13,7 @@ import {
   PageHead, Tabs, Toolbar, Campo, Tabla, Fila, Celda, Modal, Boton, SkeletonTabla, Estado,
 } from '@/components/panel/sl/uiSLTabla'
 import { OLIVA, KpiFoco, Ranking, AnilloHero, BotonFoco } from '@/components/panel/sl/uiSLFoco'
+import { useMovil } from '@/components/panel/sl/uiSLMovil'
 
 type TabId = 'ingredientes' | 'eps' | 'recetas' | 'mermas'
 
@@ -21,6 +23,7 @@ interface Rec { id: string; codigo?: string | null; nombre: string; coste_total?
 interface Mer { id: string; nombre: string; merma_pct?: number | null }
 
 export default function LabEscandallo() {
+  const movil = useMovil()
   const [tab, setTab] = useState<TabId>('ingredientes')
   const [busca, setBusca] = useState('')
   const [cargando, setCargando] = useState(true)
@@ -79,7 +82,7 @@ export default function LabEscandallo() {
     .sort((a, b) => (a.m as number) - (b.m as number))[0], [recs])
 
   return (
-    <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
+    <div className="sl-skin" style={{ minHeight: '100vh', padding: movil ? '14px 12px' : '24px 28px' }}>
       <PageHead
         titulo="Escandallo"
         sub="Vista SL · solo lectura, no toca datos"
@@ -101,7 +104,7 @@ export default function LabEscandallo() {
         }
       />
 
-      <KpiGrid cols={4}>
+      <KpiGrid cols={movil ? 2 : 4}>
         <Kpi
           icono="€" tono={cobertura >= 90 ? 'verde' : 'ambar'}
           label="Ingredientes con precio" valor={pct1(cobertura)}
@@ -120,7 +123,7 @@ export default function LabEscandallo() {
       </KpiGrid>
 
       {mejores.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: movil ? '1fr' : '1fr 1fr', gap: 12 }}>
           <Card>
             <CardHead title="Los que más te dejan" sub="Margen por receta" />
             <Ranking
@@ -160,7 +163,7 @@ export default function LabEscandallo() {
         ]}
       />
 
-      <Toolbar right={<Campo valor={busca} onChange={setBusca} placeholder="Buscar por nombre…" ancho={260} />} />
+      <Toolbar right={<Campo valor={busca} onChange={setBusca} placeholder="Buscar por nombre…" ancho={movil ? '100%' : 260} />} />
 
       {cargando ? (
         <SkeletonTabla filas={8} />
