@@ -1,15 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import ToastHost from '@/components/ui/ToastHost'
+import ResponsiveTables from '@/components/ResponsiveTables'
+import OcrCompletadoGlobal from '@/components/ocr/OcrCompletadoGlobal'
+import OcrUploadToast from '@/components/ocr/OcrUploadToast'
 import {
-  SECCIONES, DIRECTOS, tituloDeRuta, emojiDeRuta,
+  SECCIONES, DIRECTOS, tituloDeRuta,
   INK, CREMA, CREMA2, BLANCO, AMA, GRANATE,
   type SeccionMovil,
 } from '@/mobile/mapaMovil'
-import { PanelMovil, PantallaPendiente, Fila } from '@/mobile/PantallasMovil'
+import { Fila } from '@/mobile/PantallasMovil'
+import '@/styles/movil-scope.css'
 
 const OSW = 'Oswald, sans-serif'
-const ANCHO = 480 // igual que Delasalud
 
+/**
+ * App móvil Binagre.
+ * Estructura: Delasalud (una columna, cabecera fija, barra inferior).
+ * Contenido: las PANTALLAS REALES del ERP (mismos datos y cálculos que en
+ * escritorio), reordenadas a una columna con movil-scope.css.
+ */
 export default function ShellMovil() {
   const nav = useNavigate()
   const loc = useLocation()
@@ -17,6 +27,7 @@ export default function ShellMovil() {
   const [instalar, setInstalar] = useState<any>(null)
   const [ocultarAviso, setOcultarAviso] = useState(false)
   const dockRef = useRef<HTMLDivElement>(null)
+  const mainRef = useRef<HTMLElement>(null)
   const cab = tituloDeRuta(loc.pathname)
   const enPanel = loc.pathname === '/'
 
@@ -53,7 +64,9 @@ export default function ShellMovil() {
     setInstalar(null)
   }
 
+  // Al cambiar de pantalla: arriba del todo y centrar icono activo
   useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 })
     const el = dockRef.current?.querySelector<HTMLElement>('[data-activo="1"]')
     el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }, [loc.pathname, abierta])
@@ -93,12 +106,10 @@ export default function ShellMovil() {
         </div>
       </header>
 
-      {/* ── Contenido ── */}
-      <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }}>
-        <div style={{ maxWidth: ANCHO, margin: '0 auto', padding: '1rem 1rem 2rem' }}>
-          {enPanel
-            ? <PanelMovil />
-            : <PantallaPendiente titulo={cab.titulo} emoji={emojiDeRuta(loc.pathname)} />}
+      {/* ── Contenido: pantallas reales del ERP ── */}
+      <main ref={mainRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }}>
+        <div className="movil-scope" style={{ padding: '0.9rem 0.75rem 2rem' }}>
+          <Outlet />
         </div>
       </main>
 
@@ -130,13 +141,13 @@ export default function ShellMovil() {
         <div onClick={() => setAbierta(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,10,.5)', zIndex: 62 }} />
       )}
 
-      {/* ── Panel flotante: lista grande, una fila por pantalla ── */}
+      {/* ── Panel flotante del módulo ── */}
       {abierta && (
         <div style={{
           position: 'absolute', left: '0.75rem', right: '0.75rem', bottom: 'calc(6.4rem + env(safe-area-inset-bottom))',
           zIndex: 65, background: CREMA, border: `4px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}`,
           padding: '0.75rem', maxHeight: '62dvh', display: 'flex', flexDirection: 'column',
-          maxWidth: ANCHO, marginLeft: 'auto', marginRight: 'auto',
+          maxWidth: 480, marginLeft: 'auto', marginRight: 'auto',
           animation: 'slUp .32s cubic-bezier(.34,1.45,.5,1)',
         }}>
           <style>{`@keyframes slUp{from{opacity:0;transform:translateY(18px) scale(.94)}to{opacity:1;transform:none}}`}</style>
@@ -214,6 +225,11 @@ export default function ShellMovil() {
           </div>
         </div>
       </nav>
+
+      <ToastHost />
+      <ResponsiveTables />
+      <OcrUploadToast />
+      <OcrCompletadoGlobal />
     </div>
   )
 }
