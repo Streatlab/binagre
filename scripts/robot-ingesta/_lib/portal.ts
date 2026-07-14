@@ -1,13 +1,14 @@
 /**
  * PORTAL · Lo común a todos los robots de portal (Uber, Glovo, Just Eat).
  *
- *  · Credenciales: tabla `robot_credenciales` en Supabase (NO en el repo, NO en
- *    los secretos de GitHub).
+ *  · Credenciales: tabla `robot_credenciales` en Supabase (NO en el repo).
  *  · Sesión: se guarda el estado del navegador en el bucket 'informes-plataforma'.
- *  · Código de un solo uso: se lee del buzón del cartero por IMAP
- *    (tabla `cartero_credenciales`). Mira BANDEJA y SPAM. No marca leídos.
- *    Si no aparece, deja en el log los últimos correos recibidos para saber si
- *    el reenvío está llegando o no.
+ *  · Código de un solo uso: se lee del buzón del cartero por IMAP.
+ *
+ * 14-jul-2026 · IMPORTANTE: solo vale el código del correo que llega DESPUÉS de
+ * pedirlo. Antes se cogía cualquier correo de los últimos 15 min y se metía un
+ * código ya caducado → el portal lo rechazaba. Ahora se descartan los correos
+ * anteriores al momento de pedirlo y se coge siempre el más reciente.
  */
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
@@ -80,27 +81,32 @@ async function buzon(): Promise<ImapFlow | null> {
   return cli;
 }
 
-/** Busca el código en una carpeta concreta. */
-async function buscarEn(cli: ImapFlow, carpeta: string, remitente: string, desde: Date): Promise<string | null> {
+interface Hallazgo { codigo: string; fecha: number }
+
+/** Busca en una carpeta el correo MÁS RECIENTE del remitente posterior a `desde`. */
+async function buscarEn(cli: ImapFlow, carpeta: string, remitente: string, desde: Date): Promise<Hallazgo | null> {
   let lock;
   try { lock = await cli.getMailboxLock(carpeta); } catch { return null; }
   try {
-    const uids = await cli.search({ since: desde });
-    const lista = Array.isArray(uids) ? uids.slice(-25).reverse() : [];
+    const dia = new Date(desde.getTime() - 24 * 60 * 60 * 1000);
+    const uids = await cli.search({ since: dia });
+    const lista = Array.isArray(uids) ? uids.slice(-30).reverse() : [];
+    let mejor: Hallazgo | null = null;
     for (const uid of lista) {
       const msg = await cli.fetchOne(String(uid), { source: true }, { uid: true });
       if (!msg || !msg.source) continue;
       const parsed = await simpleParser(msg.source as Buffer);
+      const fecha = parsed.date ? parsed.date.getTime() : 0;
+      if (fecha < desde.getTime()) continue;                       // correo viejo → código caducado
       const de = `${(parsed.from as any)?.text || ''}`.toLowerCase();
       const asunto = `${parsed.subject || ''}`;
-      const cuerpo = `${parsed.text || ''}`;
-      const esSuyo = de.includes(remitente.toLowerCase()) || asunto.toLowerCase().includes(remitente.toLowerCase());
-      if (!esSuyo) continue;
-      const m = `${asunto}\n${cuerpo}`.match(/\b(\d{4,8})\b/);
-      if (m) return m[1];
+      if (!de.includes(remitente.toLowerCase()) && !asunto.toLowerCase().includes(remitente.toLowerCase())) continue;
+      const m = `${asunto}\n${parsed.text || ''}`.match(/\b(\d{4,8})\b/);
+      if (!m) continue;
+      if (!mejor || fecha > mejor.fecha) mejor = { codigo: m[1], fecha };
     }
+    return mejor;
   } finally { try { lock?.release(); } catch { /* noop */ } }
-  return null;
 }
 
 /** Deja en el log qué ha llegado últimamente, para saber si el reenvío funciona. */
@@ -108,7 +114,7 @@ async function radiografia(cli: ImapFlow, plataforma: string, desde: Date) {
   try {
     const lock = await cli.getMailboxLock('INBOX');
     try {
-      const uids = await cli.search({ since: desde });
+      const uids = await cli.search({ since: new Date(desde.getTime() - 24 * 60 * 60 * 1000) });
       const lista = Array.isArray(uids) ? uids.slice(-8).reverse() : [];
       const filas: string[] = [];
       for (const uid of lista) {
@@ -123,15 +129,15 @@ async function radiografia(cli: ImapFlow, plataforma: string, desde: Date) {
 }
 
 /**
- * Espera un correo del remitente indicado con un código de 4-8 dígitos.
+ * Espera el código que llega DESPUÉS de `pedidoEn` (por defecto, ahora mismo).
  * Sondea cada 5 s hasta `segundos`. Devuelve el código o null.
  */
 export async function esperarCodigo(
   plataforma: string,
   remitente: string,
   segundos = 180,
+  pedidoEn: Date = new Date(Date.now() - 60 * 1000),
 ): Promise<string | null> {
-  const desde = new Date(Date.now() - 15 * 60 * 1000);
   const limite = Date.now() + segundos * 1000;
 
   while (Date.now() < limite) {
@@ -139,9 +145,15 @@ export async function esperarCodigo(
     try {
       cli = await buzon();
       if (!cli) { await log(plataforma, 'otp_sin_buzon', 'no hay credenciales de correo del cartero'); return null; }
+      let mejor: Hallazgo | null = null;
+      let donde = '';
       for (const carpeta of CARPETAS) {
-        const codigo = await buscarEn(cli, carpeta, remitente, desde);
-        if (codigo) { await log(plataforma, 'otp_ok', `código de ${remitente} encontrado en ${carpeta}`); return codigo; }
+        const h = await buscarEn(cli, carpeta, remitente, pedidoEn);
+        if (h && (!mejor || h.fecha > mejor.fecha)) { mejor = h; donde = carpeta; }
+      }
+      if (mejor) {
+        await log(plataforma, 'otp_ok', `código nuevo de ${remitente} (${new Date(mejor.fecha).toISOString()}) en ${donde}`);
+        return mejor.codigo;
       }
     } catch (e: any) {
       await log(plataforma, 'otp_aviso', String(e?.message || e));
@@ -154,9 +166,9 @@ export async function esperarCodigo(
   let cli: ImapFlow | null = null;
   try {
     cli = await buzon();
-    if (cli) await radiografia(cli, plataforma, desde);
+    if (cli) await radiografia(cli, plataforma, pedidoEn);
   } catch { /* noop */ } finally { try { await cli?.logout(); } catch { /* noop */ } }
 
-  await log(plataforma, 'otp_no_recibido', `no llegó código de ${remitente} en ${segundos}s`);
+  await log(plataforma, 'otp_no_recibido', `no llegó código nuevo de ${remitente} en ${segundos}s`);
   return null;
 }
