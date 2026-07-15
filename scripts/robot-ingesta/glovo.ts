@@ -1,18 +1,15 @@
 /**
- * ROBOT GLOVO · Descarga los informes del portal (Rendimiento, Historial, Pagos) y los deja
- * en la bandeja. Dos cuentas. Entra solo (sesión guardada + código por IMAP).
+ * ROBOT GLOVO · Descarga los informes del portal (Rendimiento, Historial, Pagos) por API
+ * interna y los deja en la bandeja. Dos cuentas. Entra solo (sesión guardada + código IMAP).
  *
- * 15-jul-2026 · TODO POR API INTERNA (sin captcha), capturado de los HAR de Rubén:
- *   VENTAS      → POST vos-api.../reports/performance/summary/export (CSV) → downloadURL → GET
- *   OPERACIONES → POST vos-api.../reports/ops/summary/export (CSV) → downloadURL → GET
- *   HISTORIAL   → GraphQL vagw .../query op DownloadReport → downloadURL → GET (CSV orderDetails)
- *   FACTURAS    → GraphQL vagw .../query: ListPayouts → RequestPayouts → downloadUrl → GET (ZIP)
- *   Se captura la cabecera x-px-cookies (token del antibot) de una llamada real del portal y se
- *   replica con page.request (arrastra la sesión). CERO botón, CERO captcha.
- *   NOTA: si el navegador headless no pasa el antibot, el gateway responde 403 → hará falta
- *   camuflar el navegador (Patchright/headful).
+ * VENTAS/OPERACIONES → POST vos-api.../reports/.../export (CSV) → downloadURL → GET
+ * HISTORIAL          → GraphQL vagw op DownloadReport → downloadURL → GET
+ * FACTURAS           → GraphQL vagw ListPayouts → RequestPayouts → GET zip
  *
- * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
+ * 15-jul-2026 · El token del antibot (x-px-cookies) CADUCA EN ~1 MIN. Por eso:
+ *   - capturamos SIEMPRE el más reciente (no el primero),
+ *   - recortamos las esperas y lanzamos las llamadas cuanto antes tras cargar la página.
+ * Navegador headful (ver _lib/navegador.ts) para que el token nazca válido.
  */
 import type { Page, BrowserContext } from 'playwright';
 import { randomUUID } from 'node:crypto';
@@ -44,37 +41,11 @@ const ACCOUNTS_GLOVO = [
 ];
 
 const Q_LIST_PAYOUTS = `query ListPayouts($params: ListPayoutsRequest!) {
-  finances {
-    listPayouts(input: $params) {
-      nextPageToken
-      prevPageToken
-      payouts {
-        payoutId: id
-        payoutAmount: netPayout
-        payoutCurrency: currency
-        payoutOrders: ordersCount
-        at: paymentDateLocal
-        status: payoutStatus
-        payoutAttachments: attachments
-        payoutAccount: account { grid billingParentId chainId __typename }
-        invoices {
-          invoiceId: id
-          invoiceAttachments: attachments
-          invoiceAccount: account { grid billingParentId chainId __typename }
-          __typename
-        }
-        __typename
-      }
-      __typename
-    }
-    __typename
-  }
+  finances { listPayouts(input: $params) { payouts { payoutId: id at: paymentDateLocal payoutAttachments: attachments payoutAccount: account { grid __typename } invoices { invoiceAttachments: attachments __typename } __typename } __typename } __typename }
 }`;
-
 const Q_REQUEST_PAYOUTS = `query RequestPayouts($params: DownloadPayoutsRequest!) {
   finances { downloadPayouts(input: $params) { downloadUrl __typename } __typename }
 }`;
-
 const Q_DOWNLOAD_REPORT = `query DownloadReport($params: DownloadOrdersExportReq!) {
   orders { ordersExport { downloadOrdersExport(input: $params) { downloadURL __typename } __typename } __typename }
 }`;
@@ -131,22 +102,22 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   return ok;
 }
 
-/** Captura x-px-cookies (para vos-api) de una llamada real del portal. */
+/** Captura SIEMPRE el token más reciente (x-px-cookies) de las llamadas del portal. */
 function capturarPx(page: Page): { get: () => string | null } {
   const box: { v: string | null } = { v: null };
   page.on('request', (req) => {
     try {
-      if (box.v || req.method() !== 'POST') return;
+      if (req.method() !== 'POST') return;
       const u = req.url();
       if (!u.startsWith(REPORTS_API) && !u.startsWith(GATEWAY)) return;
       const h = req.headers();
-      if (h['x-px-cookies']) box.v = h['x-px-cookies'];
+      if (h['x-px-cookies']) box.v = h['x-px-cookies'];   // el último, el más fresco
     } catch {}
   });
   return { get: () => box.v };
 }
 
-/** Captura las cabeceras completas del gateway vagw (para GraphQL) de una llamada real. */
+/** Captura las cabeceras del gateway vagw, refrescando SIEMPRE el token más reciente. */
 function capturarVagw(page: Page): { get: () => Record<string, string> | null; accounts: () => any[] | null } {
   let hdrs: Record<string, string> | null = null;
   let accs: any[] | null = null;
@@ -155,7 +126,7 @@ function capturarVagw(page: Page): { get: () => Record<string, string> | null; a
       if (req.method() !== 'POST' || !req.url().startsWith(GATEWAY)) return;
       const h = req.headers();
       if (!h['x-px-cookies']) return;
-      if (!hdrs) hdrs = {
+      hdrs = {
         'content-type': 'application/json',
         'apollographql-client-name': h['apollographql-client-name'] || 'API Gateway',
         'x-app-name': h['x-app-name'] || 'one-web',
@@ -164,7 +135,7 @@ function capturarVagw(page: Page): { get: () => Record<string, string> | null; a
         'x-user-id': h['x-user-id'] || '',
         'x-vendor-id': h['x-vendor-id'] || '',
         'x-rps-device': h['x-rps-device'] || '',
-        'x-px-cookies': h['x-px-cookies'],
+        'x-px-cookies': h['x-px-cookies'],   // refrescado en cada llamada
       };
       const pd = req.postData() || '';
       if (!accs && pd.includes('ListPayouts')) { try { accs = JSON.parse(pd).variables.params.accounts; } catch {} }
@@ -173,17 +144,11 @@ function capturarVagw(page: Page): { get: () => Record<string, string> | null; a
   return { get: () => hdrs, accounts: () => accs };
 }
 
-async function esperarCarga(page: Page): Promise<void> {
-  const t0 = Date.now();
-  try {
-    while (Date.now() - t0 < 35000) {
-      const cargando = await page.locator('[role="progressbar"]:visible').count().catch(() => 0);
-      if (cargando === 0) break;
-      await page.waitForTimeout(1500);
-    }
-  } catch { /* seguimos */ }
+/** Espera corta a que la página dispare sus llamadas (y con ellas un token fresco). */
+async function esperarToken(page: Page, tiene: () => boolean): Promise<void> {
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2500);
+  for (let i = 0; i < 8 && !tiene(); i++) await page.waitForTimeout(1000);
+  await page.waitForTimeout(500);
 }
 
 function rango(): { from: string; to: string } {
@@ -196,14 +161,12 @@ function rango(): { from: string; to: string } {
   return { from: hoyMadrid(7), to: hoyMadrid(1) };
 }
 
-/** Export de un informe de Rendimiento por API: POST export → reportDownloadURL → GET → CSV. */
-async function exportarInforme(page: Page, tipo: string, path: string, fieldMask: string, token: string, from: string, to: string, periodo: string, cuenta: string) {
+async function exportarInforme(page: Page, tipo: string, path: string, fieldMask: string, px: () => string | null, from: string, to: string, periodo: string, cuenta: string) {
+  const token = px();
+  if (!token) { await log(P, 'sin_descarga', `${tipo}_${cuenta}: sin token`); return; }
   const hdr = { 'content-type': 'application/json', 'accept': 'application/json, text/plain, */*', 'x-px-cookies': token };
   try {
-    const r = await page.request.post(`${REPORTS_API}${path}`, {
-      headers: hdr,
-      data: { locale: 'es-ES', format: 'CSV', global_vendor_codes: VENDOR_CODES, from, to, field_mask: fieldMask },
-    });
+    const r = await page.request.post(`${REPORTS_API}${path}`, { headers: hdr, data: { locale: 'es-ES', format: 'CSV', global_vendor_codes: VENDOR_CODES, from, to, field_mask: fieldMask } });
     if (!r.ok()) { await log(P, 'sin_descarga', `${tipo}_${cuenta}: export devolvió ${r.status()}`); return; }
     const url = (await r.json())?.reportDownloadURL;
     if (!url) { await log(P, 'sin_descarga', `${tipo}_${cuenta}: sin reportDownloadURL`); return; }
@@ -216,45 +179,27 @@ async function exportarInforme(page: Page, tipo: string, path: string, fieldMask
   }
 }
 
-/** RENDIMIENTO · Ventas + Operaciones por API interna. */
+/** RENDIMIENTO · Ventas + Operaciones. */
 async function rendimiento(page: Page, periodo: string, cuenta: string, from: string, to: string) {
   const px = capturarPx(page);
   await page.goto(`${PORTAL}/reports?from=${from}&to=${to}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(9000);
   await quitarEstorbos(page);
-  await esperarCarga(page);
-
-  const token = px.get();
-  if (!token) {
-    await volcar(`${P}_reports_${cuenta}`, await page.content().catch(() => ''));
-    await log(P, 'sin_descarga', `reports_${cuenta}: no capturé el token del antibot (pudo bloquear la carga)`);
-    return;
-  }
-  await exportarInforme(page, 'ventas', '/v1/vendors/reports/performance/summary/export', 'revenue,orderCount,avgBasketSize', token, from, to, periodo, cuenta);
-  await exportarInforme(page, 'operaciones', '/v1/vendors/reports/ops/summary/export', 'offlineDuration,rejectionRate,avgPreparationTime,contactRate,ordersMarkedAsReadyRate', token, from, to, periodo, cuenta);
+  await esperarToken(page, () => !!px.get());
+  if (!px.get()) { await volcar(`${P}_reports_${cuenta}`, await page.content().catch(() => '')); await log(P, 'sin_descarga', `reports_${cuenta}: no capturé el token`); return; }
+  await exportarInforme(page, 'ventas', '/v1/vendors/reports/performance/summary/export', 'revenue,orderCount,avgBasketSize', px.get, from, to, periodo, cuenta);
+  await exportarInforme(page, 'operaciones', '/v1/vendors/reports/ops/summary/export', 'offlineDuration,rejectionRate,avgPreparationTime,contactRate,ordersMarkedAsReadyRate', px.get, from, to, periodo, cuenta);
 }
 
-/** HISTORIAL de pedidos · GraphQL DownloadReport → CSV (orderDetails). */
+/** HISTORIAL de pedidos · DownloadReport. */
 async function historial(page: Page, periodo: string, cuenta: string, from: string, to: string) {
   const cap = capturarVagw(page);
   await page.goto(`${PORTAL}/orders?from=${from}&to=${to}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(9000);
   await quitarEstorbos(page);
-  await esperarCarga(page);
-
+  await esperarToken(page, () => !!cap.get());
   const headers = cap.get();
-  if (!headers) {
-    await volcar(`${P}_historial_${cuenta}`, await page.content().catch(() => ''));
-    await log(P, 'sin_descarga', `historial_${cuenta}: no capturé el token del antibot`);
-    return;
-  }
+  if (!headers) { await volcar(`${P}_historial_${cuenta}`, await page.content().catch(() => '')); await log(P, 'sin_descarga', `historial_${cuenta}: no capturé el token`); return; }
   try {
-    const r = await page.request.post(GATEWAY, {
-      headers: { ...headers, 'x-request-id': randomUUID() },
-      data: { operationName: 'DownloadReport', query: Q_DOWNLOAD_REPORT, variables: { params: { globalVendorCodes: VENDOR_OBJS, timeFrom: `${from}T22:00:00.000Z`, timeTo: `${to}T21:59:59.999Z`, format: 'CSV', locale: 'es-ES', withBillingFields: true } } },
-    });
+    const r = await page.request.post(GATEWAY, { headers: { ...headers, 'x-request-id': randomUUID() }, data: { operationName: 'DownloadReport', query: Q_DOWNLOAD_REPORT, variables: { params: { globalVendorCodes: VENDOR_OBJS, timeFrom: `${from}T22:00:00.000Z`, timeTo: `${to}T21:59:59.999Z`, format: 'CSV', locale: 'es-ES', withBillingFields: true } } } });
     if (!r.ok()) { await log(P, 'sin_descarga', `historial_${cuenta}: DownloadReport ${r.status()}`); return; }
     const url = (await r.json())?.data?.orders?.ordersExport?.downloadOrdersExport?.downloadURL;
     if (!url) { await log(P, 'sin_descarga', `historial_${cuenta}: sin downloadURL`); return; }
@@ -267,24 +212,17 @@ async function historial(page: Page, periodo: string, cuenta: string, from: stri
   }
 }
 
-/** FACTURAS + LIQUIDACIONES · vía API interna: ListPayouts → RequestPayouts → GET zip. */
+/** FACTURAS · ListPayouts → RequestPayouts → GET zip. */
 async function finanzas(page: Page, periodo: string, cuenta: string) {
   const cap = capturarVagw(page);
   await page.goto(`${PORTAL}/finance`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(9000);
   await quitarEstorbos(page);
-  await esperarCarga(page);
-
+  await esperarToken(page, () => !!cap.get());
   const headers = cap.get();
-  if (!headers) {
-    await volcar(`${P}_finanzas_${cuenta}`, await page.content().catch(() => ''));
-    await log(P, 'sin_descarga', `finanzas_${cuenta}: no capturé la llamada interna del portal (antibot pudo bloquear)`);
-    return;
-  }
+  if (!headers) { await volcar(`${P}_finanzas_${cuenta}`, await page.content().catch(() => '')); await log(P, 'sin_descarga', `finanzas_${cuenta}: no capturé el token`); return; }
 
   const req = (op: string, query: string, variables: any) =>
-    page.request.post(GATEWAY, { headers: { ...headers, 'x-request-id': randomUUID() }, data: { operationName: op, query, variables } });
+    page.request.post(GATEWAY, { headers: { ...cap.get()!, 'x-request-id': randomUUID() }, data: { operationName: op, query, variables } });
 
   const { from, to } = rango();
   const desde = MODO === 'backfill' ? from : hoyMadrid(60);
@@ -295,30 +233,24 @@ async function finanzas(page: Page, periodo: string, cuenta: string) {
     const r = await req('ListPayouts', Q_LIST_PAYOUTS, { params: { startDate: desde, endDate: to, filter: {}, pagination: { pageSize: 50 }, globalEntityId: 'GV_ES', accounts: cuentasFin } });
     if (r.ok()) payouts = (await r.json())?.data?.finances?.listPayouts?.payouts || [];
     else await log(P, 'sin_descarga', `finanzas_${cuenta}: ListPayouts devolvió ${r.status()}`);
-  } catch (e: any) {
-    await log(P, 'sin_descarga', `finanzas_${cuenta}: ListPayouts error (${e?.message || e})`);
-  }
+  } catch (e: any) { await log(P, 'sin_descarga', `finanzas_${cuenta}: ListPayouts error (${e?.message || e})`); }
 
   let bajados = 0;
   for (const po of payouts) {
     try {
-      const att = (po.payoutAttachments && po.payoutAttachments.length)
-        ? po.payoutAttachments
-        : (po.invoices || []).flatMap((iv: any) => iv.invoiceAttachments || []);
+      const att = (po.payoutAttachments && po.payoutAttachments.length) ? po.payoutAttachments : (po.invoices || []).flatMap((iv: any) => iv.invoiceAttachments || []);
       if (!att.length) continue;
       const grid = po.payoutAccount?.grid || '';
       const r = await req('RequestPayouts', Q_REQUEST_PAYOUTS, { params: { payoutId: po.payoutId, paymentDateLocal: po.at, attachments: att, globalEntityId: 'GV_ES', accounts: [{ grid, billingParentId: '', chainId: '' }] } });
       const j = r.ok() ? await r.json() : null;
       const url = j?.data?.finances?.downloadPayouts?.downloadUrl;
-      if (!url) { await log(P, 'sin_descarga', `finanzas_${cuenta}: sin enlace para pago ${po.payoutId}`); continue; }
+      if (!url) continue;
       const dl = await page.request.get(url);
-      if (!dl.ok()) { await log(P, 'sin_descarga', `finanzas_${cuenta}: zip ${dl.status()} pago ${po.payoutId}`); continue; }
+      if (!dl.ok()) continue;
       await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_pagos_${po.payoutId}.zip`, datos: Buffer.from(await dl.body()), periodo, destino: 'facturas' });
       bajados++;
-      await page.waitForTimeout(400);
-    } catch (e: any) {
-      await log(P, 'sin_descarga', `finanzas_${cuenta}: error pago ${po?.payoutId} (${e?.message || e})`);
-    }
+      await page.waitForTimeout(300);
+    } catch { /* siguiente */ }
   }
   await log(P, bajados ? 'descarga' : 'sin_descarga', `finanzas_${cuenta}: ${bajados}/${payouts.length} pago(s) descargado(s)`);
 }
@@ -329,16 +261,13 @@ async function trabajarCuenta(c: Cuenta) {
     if (!(await entrar(page, ctx, c))) return;
     const { from, to } = rango();
     const periodo = MODO === 'backfill' && /^\d{4}-\d{2}$/.test(MES) ? MES : hoyMadrid(1);
-
     await rendimiento(page, periodo, c.cuenta, from, to);
     await historial(page, periodo, c.cuenta, from, to);
     await finanzas(page, periodo, c.cuenta);
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
     process.exitCode = 1;
-  } finally {
-    await browser.close();
-  }
+  } finally { await browser.close(); }
 }
 
 async function main() {
