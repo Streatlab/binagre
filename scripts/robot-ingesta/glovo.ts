@@ -1,22 +1,15 @@
 /**
  * ROBOT GLOVO · Descarga los informes del portal de comercio y los deja en la bandeja.
- * Dos cuentas (posmodernos y streatlab). Entra solo: sesión guardada + código por
- * correo (IMAP del buzón de la cuenta) si hace falta.
+ * Dos cuentas (posmodernos y streatlab). Entra solo: sesión guardada + código por IMAP.
  *
- * 15-jul-2026 · RUTAS REALES (confirmadas por Rubén con capturas):
- *   portal.glovoapp.com/reports  → Rendimiento: pestañas Ventas / Operaciones / Clientes
- *   portal.glovoapp.com/orders   → Historial de pedidos ("Descargar informe")
- *   portal.glovoapp.com/finance  → "Pagos": facturas + liquidaciones
- *
- * 15-jul-2026 · FACTURAS POR API INTERNA (sin captcha, capturado del HAR de Rubén):
- *   El portal descarga las facturas llamando a su gateway GraphQL vagw-api.../query:
- *     1) ListPayouts  → lista de pagos con sus adjuntos (xlsx+pdf en S3) y su cuenta (grid)
- *     2) RequestPayouts(payoutId, paymentDateLocal, attachments, account) → downloadUrl (zip)
- *     3) GET downloadUrl → ZIP con los ficheros
- *   El propio navegador del robot, al abrir /finance, ya hace esas llamadas con un token válido
- *   del antibot (cabecera x-px-cookies). Capturamos esas cabeceras de una llamada real y
- *   replicamos la secuencia con page.request (que arrastra la sesión). CERO botón, CERO captcha.
- *   Reports (Ventas/Operaciones) e Historial siguen por botón; pendiente pasarlos a la misma vía.
+ * 15-jul-2026 · TODO POR API INTERNA (sin captcha), capturado de los HAR de Rubén:
+ *   VENTAS  → POST vos-api.../v1/vendors/reports/performance/summary/export {format:CSV,
+ *             global_vendor_codes, from, to, field_mask} → {reportDownloadURL} → GET → CSV
+ *   FACTURAS→ GraphQL vagw-api.../query: ListPayouts → RequestPayouts → downloadUrl → GET → ZIP
+ *   El navegador del robot, al abrir /reports o /finance, hace esas llamadas con un token
+ *   válido del antibot (cabecera x-px-cookies). Capturamos esa cabecera de una llamada real y
+ *   replicamos con page.request (que arrastra la sesión). CERO botón, CERO captcha.
+ *   Operaciones e Historial: pendientes de capturar su export (mismo patrón).
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
@@ -31,8 +24,12 @@ const P = 'glovo';
 const PORTAL = 'https://portal.glovoapp.com';
 const MANAGERS = 'https://managers.glovoapp.com';
 const GATEWAY = 'https://vagw-api.eu.prd.portal.restaurant/query';
+const REPORTS_API = 'https://vos-api.eu.prd.portal.restaurant';
 const MODO = (process.env.MODO || 'diario').toLowerCase();
 const MES = process.env.MES || '';
+
+// Los 8 códigos de tienda (global_vendor_codes) para los informes de Rendimiento.
+const VENDOR_CODES = ['GV_ES;578570', 'GV_ES;244299', 'GV_ES;580042', 'GV_ES;459466', 'GV_ES;569883', 'GV_ES;580156', 'GV_ES;580336', 'GV_ES;349698'];
 
 // Las 8 cuentas de facturación (grid/chainId), por si no se capturan en vivo.
 const ACCOUNTS_GLOVO = [
@@ -141,24 +138,20 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   return ok;
 }
 
-/** El portal filtra por establecimiento; "Ver negocio" cubre TODAS las tiendas. */
-async function verNegocio(page: Page, paso: string): Promise<void> {
-  try {
-    const abridor = page.locator('[data-testid="brand-view-selection"], [data-testid="vendor-filter-button"]').first()
-      .or(page.getByRole('button', { name: /todos los establecimientos|establecimientos|establishments/i }).first());
-    if (await abridor.count().catch(() => 0)) {
-      await abridor.click({ timeout: 5000 }).catch(() => {});
-      await page.waitForTimeout(1500);
-    }
-    const verNeg = page.getByRole('button', { name: /ver negocio|view business/i }).first()
-      .or(page.locator('[data-testid="chain-select-button"]').first());
-    if (await verNeg.count().catch(() => 0)) {
-      await verNeg.click({ timeout: 6000 }).catch(() => {});
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(4000);
-      await log(P, 'negocio', `${paso}: "Ver negocio" (todas las tiendas)`);
-    }
-  } catch { /* seguimos */ }
+/** Captura la cabecera del antibot (x-px-cookies) de una llamada real del portal a su API. */
+function capturarPx(page: Page): { get: () => string | null } {
+  const box: { v: string | null } = { v: null };
+  page.on('request', (req) => {
+    try {
+      if (box.v) return;
+      if (req.method() !== 'POST') return;
+      const u = req.url();
+      if (!u.startsWith(REPORTS_API) && !u.startsWith(GATEWAY)) return;
+      const h = req.headers();
+      if (h['x-px-cookies']) box.v = h['x-px-cookies'];
+    } catch {}
+  });
+  return { get: () => box.v };
 }
 
 /** Espera a que el informe/página termine de cargar (spinner role=progressbar). */
@@ -173,10 +166,9 @@ async function esperarCarga(page: Page, paso: string): Promise<void> {
   } catch { /* seguimos */ }
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(2500);
-  await log(P, 'carga', `${paso}: cargado (${Math.round((Date.now() - t0) / 1000)}s)`);
 }
 
-/** Rango de fechas para la URL de los informes (from/to = AAAA-MM-DD). */
+/** Rango de fechas para los informes (from/to = AAAA-MM-DD). */
 function rango(): { from: string; to: string } {
   if (MODO === 'backfill' && /^\d{4}-\d{2}$/.test(MES)) {
     const [a, m] = MES.split('-').map(Number);
@@ -187,87 +179,60 @@ function rango(): { from: string; to: string } {
   return { from: hoyMadrid(7), to: hoyMadrid(1) };
 }
 
-/** Pulsa el botón de descarga (por testid o texto) y captura el fichero (para reports/orders). */
-async function bajarDescargar(page: Page, paso: string, testid?: string): Promise<{ nombre: string; datos: Buffer } | null> {
-  const porTexto = page.getByRole('button', { name: /descargar( informe)?/i }).first()
-    .or(page.locator('button, a, [role="button"]').filter({ hasText: /descargar( informe)?/i }).first());
-  const boton = testid ? page.locator(`[data-testid="${testid}"]`).first().or(porTexto) : porTexto;
-  if (!(await boton.count().catch(() => 0))) {
-    await volcar(`${P}_${paso}`, await page.content().catch(() => ''));
-    await log(P, 'sin_descarga', `${paso}: no veo el botón de descarga (HTML volcado)`);
-    return null;
-  }
-  try {
-    const f = await captureExport(page, async () => {
-      await boton.click({ timeout: 10000 }).catch(() => {});
-      await page.waitForTimeout(1800);
-      const dlg = page.locator('[role="dialog"], .modal, [class*="modal" i]')
-        .filter({ hasText: /formato del informe|descargar informe|archivo \.?csv/i }).first();
-      if (await dlg.count().catch(() => 0)) {
-        const csv = dlg.getByText(/archivo\s*\.?csv/i).first().or(dlg.locator('input[type="radio"]').first());
-        await csv.click({ timeout: 4000 }).catch(() => {});
-        await page.waitForTimeout(400);
-        const conf = dlg.getByRole('button', { name: /descargar( informe)?/i }).first()
-          .or(dlg.locator('button').filter({ hasText: /descargar/i }).last());
-        await conf.click({ timeout: 8000 }).catch(() => {});
-      }
-    });
-    await log(P, 'descarga', `${paso}: ${f.filename} (${f.buffer.length} bytes · ${f.source})`);
-    return { nombre: f.filename, datos: f.buffer };
-  } catch (e: any) {
-    await volcar(`${P}_${paso}`, await page.content().catch(() => ''));
-    await log(P, 'sin_descarga', `${paso}: el export no soltó fichero (${e?.message || e})`);
-    return null;
-  }
-}
-
-/** Rendimiento: pestañas Ventas [tab-sales] y Operaciones [tab-ops]. */
+/**
+ * RENDIMIENTO · Ventas por API interna (sin captcha).
+ * Abre /reports (mint del token), captura x-px-cookies y llama al export de resumen.
+ * Operaciones queda pendiente de capturar su field_mask.
+ */
 async function rendimiento(page: Page, periodo: string, cuenta: string, from: string, to: string) {
+  const px = capturarPx(page);
   await page.goto(`${PORTAL}/reports?from=${from}&to=${to}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
-  if (/\/dashboard/.test(page.url())) {
-    const nav = page.locator('[data-testid="plugin-link-reports"], [data-testid="reports-nav-item"]').first();
-    if (await nav.count().catch(() => 0)) {
-      await nav.click({ timeout: 6000 }).catch(() => {});
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(5000);
-    }
-  }
-  await verNegocio(page, `ventas_${cuenta}`);
+  await esperarCarga(page, `ventas_${cuenta}`);
 
-  for (const [testid, nombreTab, tipo] of [['tab-sales', 'Ventas', 'glovo_ventas'], ['tab-ops', 'Operaciones', 'glovo_operaciones']] as const) {
-    const tab = page.locator(`[data-testid="${testid}"]`).first()
-      .or(page.getByRole('tab', { name: new RegExp(`^${nombreTab}$`, 'i') }).first())
-      .or(page.locator('[role="tab"], button, a').filter({ hasText: new RegExp(`^${nombreTab}$`, 'i') }).first());
-    if (await tab.count().catch(() => 0)) {
-      await tab.click({ timeout: 6000 }).catch(() => {});
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(3000);
-    }
-    await esperarCarga(page, `${tipo}_${cuenta}`);
-    const f = await bajarDescargar(page, `${tipo}_${cuenta}`);
-    if (f) await entregar({ fuente: P, tipo, nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
+  const token = px.get();
+  if (!token) {
+    await volcar(`${P}_ventas_${cuenta}`, await page.content().catch(() => ''));
+    await log(P, 'sin_descarga', `ventas_${cuenta}: no capturé el token del antibot (pudo bloquear la carga)`);
+    return;
   }
+  const hdr = { 'content-type': 'application/json', 'accept': 'application/json, text/plain, */*', 'x-px-cookies': token };
+
+  try {
+    const r = await page.request.post(`${REPORTS_API}/v1/vendors/reports/performance/summary/export`, {
+      headers: hdr,
+      data: { locale: 'es-ES', format: 'CSV', global_vendor_codes: VENDOR_CODES, from, to, field_mask: 'revenue,orderCount,avgBasketSize' },
+    });
+    if (!r.ok()) { await log(P, 'sin_descarga', `ventas_${cuenta}: export devolvió ${r.status()}`); }
+    else {
+      const url = (await r.json())?.reportDownloadURL;
+      if (!url) { await log(P, 'sin_descarga', `ventas_${cuenta}: sin reportDownloadURL`); }
+      else {
+        const dl = await page.request.get(url);
+        if (!dl.ok()) { await log(P, 'sin_descarga', `ventas_${cuenta}: descarga CSV ${dl.status()}`); }
+        else {
+          await entregar({ fuente: P, tipo: 'glovo_ventas', nombre: `${cuenta}_ventas_${from}_${to}.csv`, datos: Buffer.from(await dl.body()), periodo, destino: 'ventas' });
+          await log(P, 'descarga', `ventas_${cuenta}: CSV ok`);
+        }
+      }
+    }
+  } catch (e: any) {
+    await log(P, 'sin_descarga', `ventas_${cuenta}: error (${e?.message || e})`);
+  }
+
+  await log(P, 'pendiente', `operaciones_${cuenta}: pendiente capturar su export (mismo patrón, otro field_mask)`);
 }
 
-/** Historial de pedidos. */
-async function historial(page: Page, periodo: string, cuenta: string, from: string, to: string) {
-  await page.goto(`${PORTAL}/orders?from=${from}&to=${to}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(9000);
-  await quitarEstorbos(page);
-  await verNegocio(page, `historial_${cuenta}`);
-  await esperarCarga(page, `historial_${cuenta}`);
-  const f = await bajarDescargar(page, `historial_${cuenta}`, 'export-report-btn');
-  if (f) await entregar({ fuente: P, tipo: 'glovo_historial', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
+/** Historial de pedidos · pendiente de pasar a la API interna (mismo patrón que Ventas). */
+async function historial(page: Page, periodo: string, cuenta: string, _from: string, _to: string) {
+  await log(P, 'pendiente', `historial_${cuenta}: pendiente capturar su export (vía API interna)`);
 }
 
 /**
  * FACTURAS + LIQUIDACIONES · vía API interna (sin captcha).
- * Abre /finance para que el portal haga sus llamadas (y con ellas un token válido del antibot),
- * captura esas cabeceras y replica ListPayouts → RequestPayouts → GET zip con la propia sesión.
+ * ListPayouts → RequestPayouts → GET zip, con las cabeceras de la sesión real.
  */
 async function finanzas(page: Page, periodo: string, cuenta: string) {
   let apiHeaders: Record<string, string> | null = null;
