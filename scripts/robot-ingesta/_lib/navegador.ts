@@ -1,31 +1,45 @@
 /**
  * NAVEGADOR · Utilidades comunes de descarga.
  *
- * 15-jul-2026 · CAMUFLAJE ANTIBOT: chromium de Patchright (drop-in de Playwright, sin la fuga
- * CDP ni la marca de automatización), en modo HEADFUL bajo xvfb en CI. Sin parches manuales
- * (PerimeterX los detecta). Usa el chromium propio de Patchright (instalado con
- * `patchright install chromium`). Con esto el gateway deja de dar 403 al robot.
+ * 15-jul-2026 · CAMUFLAJE (gratis): navegador HEADFUL bajo xvfb (no headless), que es la
+ * señal de bot más gorda para PerimeterX. Playwright normal (sin patchright, que rompía el
+ * montaje en CI). Sesión sembrada + user-agent de Chrome + sin la marca de automatización.
  */
-import { chromium, type Browser, type BrowserContext, type Page } from 'patchright';
+import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { log, volcar } from './bandeja.js';
 import { cargarSesion } from './portal.js';
 
 export interface Fichero { nombre: string; datos: Buffer }
 
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
 export async function abrir(plataforma: string, cuenta: string): Promise<{ browser: Browser; ctx: BrowserContext; page: Page }> {
-  const args = ['--no-sandbox', '--disable-dev-shm-usage', '--lang=es-ES'];
   let browser: Browser;
   try {
-    browser = await chromium.launch({ headless: false, args });   // headful (bajo xvfb)
+    browser = await chromium.launch({
+      headless: false,
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled', '--lang=es-ES', '--start-maximized'],
+    });
   } catch {
-    browser = await chromium.launch({ headless: true, args });    // por si xvfb no está
+    browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled', '--lang=es-ES'],
+    });
   }
   const sesion = await cargarSesion(plataforma, cuenta);
   const ctx = await browser.newContext({
     acceptDownloads: true,
     timezoneId: 'Europe/Madrid',
     locale: 'es-ES',
+    userAgent: UA,
+    viewport: { width: 1440, height: 900 },
+    hasTouch: false,
     storageState: sesion as any,
+  });
+  await ctx.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    Object.defineProperty(navigator, 'languages', { get: () => ['es-ES', 'es'] });
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
   });
   ctx.setDefaultTimeout(30000);
   const page = await ctx.newPage();
@@ -72,8 +86,10 @@ export async function mantenPulsado(page: Page, plataforma: string): Promise<boo
     for (const c of candidatos) {
       const caja = await c.caja();
       if (!caja || caja.width < 5 || caja.height < 5) continue;
+
       await aguantar(page, caja.x + caja.width / 2, caja.y + caja.height / 2, segundos).catch(() => {});
       await page.waitForTimeout(5000);
+
       if (!(await page.getByText(RE_MANTEN).count().catch(() => 0))) {
         await log(plataforma, 'candado', `candado superado (${segundos}s)`);
         return true;
