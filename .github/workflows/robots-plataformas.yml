@@ -1,8 +1,6 @@
 name: Robots de plataforma (Uber / Glovo / Just Eat / Sinqro → bandeja)
 
 # Los robots solo DESCARGAN informes y los dejan en la bandeja de Papeleo.
-# Credenciales: tabla robot_credenciales de Supabase (nunca aqui).
-# Codigo de verificacion: se lee por IMAP del buzon de la cuenta (tabla buzones_otp).
 # 15-jul-2026 · navegador camuflado (Chrome real + Patchright) headful bajo xvfb.
 
 on:
@@ -112,13 +110,13 @@ jobs:
       - name: Instalar dependencias
         if: steps.toca.outputs.si == '1'
         run: npm install --no-audit --no-fund
-      - name: Navegador camuflado (Chrome real + deps + xvfb)
+      - name: Navegador camuflado (Chrome real + chromium fallback + xvfb)
         if: steps.toca.outputs.si == '1'
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb
-          npx playwright install-deps chromium
-          npx patchright install chrome
+          npx playwright install --with-deps chromium
+          npx patchright install chrome || echo "sin Chrome real; se usará chromium"
 
       - name: Descargar informes y dejarlos en la bandeja
         if: steps.toca.outputs.si == '1'
