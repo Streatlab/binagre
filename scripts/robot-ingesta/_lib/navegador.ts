@@ -3,10 +3,8 @@
  *
  * 15-jul-2026 · CAMUFLAJE ANTIBOT: Chrome real vía Patchright (drop-in de Playwright, sin la
  * fuga CDP ni la marca de automatización), en modo HEADFUL bajo xvfb en CI. Se quitan los
- * parches manuales de navigator.* porque PerimeterX los detecta; Patchright lo hace mejor.
- * Con esto el gateway del portal deja de responder 403 al robot.
- * (Histórico) El candado "mantén pulsado" de PerimeterX ya no se usa: las descargas van por
- * la API interna del portal, no por el botón.
+ * parches manuales de navigator.* porque PerimeterX los detecta. Si no hay Chrome real,
+ * cae a chromium de Patchright para no romper el run.
  */
 import { chromium, type Browser, type BrowserContext, type Page } from 'patchright';
 import { log, volcar } from './bandeja.js';
@@ -15,12 +13,14 @@ import { cargarSesion } from './portal.js';
 export interface Fichero { nombre: string; datos: Buffer }
 
 export async function abrir(plataforma: string, cuenta: string): Promise<{ browser: Browser; ctx: BrowserContext; page: Page }> {
-  // Chrome real, sin marcas de bot, headful (bajo xvfb en CI).
-  const browser = await chromium.launch({
-    headless: false,
-    channel: 'chrome',
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--lang=es-ES'],
-  });
+  const args = ['--no-sandbox', '--disable-dev-shm-usage', '--lang=es-ES'];
+  let browser: Browser;
+  try {
+    browser = await chromium.launch({ headless: false, channel: 'chrome', args });
+  } catch {
+    // Sin Chrome real disponible → chromium de Patchright (headful igualmente).
+    browser = await chromium.launch({ headless: false, args }).catch(() => chromium.launch({ headless: true, args }));
+  }
   const sesion = await cargarSesion(plataforma, cuenta);
   const ctx = await browser.newContext({
     acceptDownloads: true,
@@ -37,7 +37,6 @@ const PATRON_DESCARGA = /export|exportar|descargar|download|csv|excel|xlsx?|info
 const PATRON_CONFIRMAR = /^(descargar|download|confirmar|aceptar|exportar|generar|continuar|ok)/i;
 const RE_MANTEN = /mant[eé]n pulsado|mantener pulsado|press ?(&|and) ?hold|hold to confirm/i;
 
-/** Aprieta y aguanta sobre un punto, con micro-temblor humano. */
 async function aguantar(page: Page, x: number, y: number, segundos: number) {
   await page.mouse.move(x, y, { steps: 10 });
   await page.mouse.down();
@@ -51,7 +50,6 @@ async function aguantar(page: Page, x: number, y: number, segundos: number) {
   await page.mouse.up();
 }
 
-/** Candado "mantén pulsado" (PerimeterX). Devuelve true si desaparece. */
 export async function mantenPulsado(page: Page, plataforma: string): Promise<boolean> {
   if (!(await page.getByText(RE_MANTEN).count().catch(() => 0))) return false;
 
@@ -75,10 +73,8 @@ export async function mantenPulsado(page: Page, plataforma: string): Promise<boo
     for (const c of candidatos) {
       const caja = await c.caja();
       if (!caja || caja.width < 5 || caja.height < 5) continue;
-
       await aguantar(page, caja.x + caja.width / 2, caja.y + caja.height / 2, segundos).catch(() => {});
       await page.waitForTimeout(5000);
-
       if (!(await page.getByText(RE_MANTEN).count().catch(() => 0))) {
         await log(plataforma, 'candado', `candado superado (${segundos}s)`);
         return true;
@@ -91,7 +87,6 @@ export async function mantenPulsado(page: Page, plataforma: string): Promise<boo
   return false;
 }
 
-/** Captura el fichero que produce un clic (resolviendo candado y cuadro intermedio). */
 export async function capturar(page: Page, plataforma: string, clic: () => Promise<void>, segundos = 120): Promise<Fichero | null> {
   const espera = page.waitForEvent('download', { timeout: segundos * 1000 });
   await clic();
@@ -117,7 +112,6 @@ export async function capturar(page: Page, plataforma: string, clic: () => Promi
   } catch { return null; }
 }
 
-/** Busca un botón/enlace de descarga en la página y captura el fichero. */
 export async function descargarDeLaPagina(plataforma: string, page: Page, paso: string): Promise<Fichero | null> {
   const candidatos = [
     page.locator('[data-testid="export-report-btn"]').first(),
@@ -140,7 +134,6 @@ export async function descargarDeLaPagina(plataforma: string, page: Page, paso: 
   return null;
 }
 
-/** Baja hasta `tope` ficheros enlazados en la página (PDF, CSV, download). */
 export async function bajarEnlaces(plataforma: string, page: Page, paso: string, tope = 12): Promise<Fichero[]> {
   const enlaces = page.locator('a[href$=".pdf"], a[download], a[href*="download" i], a[href$=".csv"], a[href$=".xlsx"]');
   const n = Math.min(await enlaces.count().catch(() => 0), tope);
@@ -153,7 +146,6 @@ export async function bajarEnlaces(plataforma: string, page: Page, paso: string,
   return bajados;
 }
 
-/** Cierra avisos de cookies y modales que tapan los botones. */
 export async function quitarEstorbos(page: Page) {
   const textos = /aceptar|accept|entendido|got it|permitir|allow all/i;
   for (const rol of ['button', 'link'] as const) {
