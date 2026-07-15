@@ -17,8 +17,8 @@
  *
  * 15-jul-2026 (fix CARGA): en Rendimiento las tarjetas de informe (performance_report,
  *   weekly_turnover) TARDAN en calcularse: mientras cargan hay un spinner [role=progressbar]
- *   y el botón de descarga aún no existe. Por eso salía "no veo el botón". esperarCarga()
- *   espera a que el spinner desaparezca antes de pulsar Descargar.
+ *   y el botón de descarga aún no existe. esperarCarga() espera a que el spinner desaparezca.
+ *   En Pagos, la tabla también tarda en traer filas → esperamos a la primera descarga.
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
@@ -89,7 +89,6 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
 /**
  * El portal filtra por establecimiento. Abre el selector y pulsa "Ver negocio" para que
  * el informe cubra TODAS las tiendas (8). Una tienda suelta daría datos parciales.
- * Si no encuentra el control, no hace nada (el informe puede venir ya en "Todos").
  */
 async function verNegocio(page: Page, paso: string): Promise<void> {
   try {
@@ -247,6 +246,11 @@ async function finanzas(page: Page, periodo: string, cuenta: string) {
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(4000);
   }
+
+  // La tabla de Pagos a veces tarda en traer filas: esperar a la primera descarga (hasta 22s)
+  await page.locator('[data-testid="download-bulk-button"], [data-testid^="download-"]').first()
+    .waitFor({ state: 'visible', timeout: 22000 }).catch(() => {});
+  await page.waitForTimeout(1500);
 
   let bajados = 0;
 
