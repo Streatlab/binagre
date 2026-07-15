@@ -41,7 +41,7 @@ jobs:
       - name: Ejecutar robot
         env:
           DIAG: "1"
-          MAX_ITEMS: "8" # TEMP-TEST: quitar tras la prueba en vivo
+          MAX_ITEMS: "" # TEMP-RUN: tirada completa de los 301
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/robot-precios-super/robot.ts
