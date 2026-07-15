@@ -9,8 +9,8 @@
  *     - Coincidencia única y clara por nombre+formato → guarda mapeo `ok` y sigue.
  *     - Varias candidatas o formato distinto → guarda `dudoso`, NO carga precio.
  *  3. Precio leído → fn_ingesta_precio_super(iding, precio).
- *  4. Si la tienda oficial de Mercadona bloquea, cae a radarsuper.com como plan B
- *     (marca el origen en robot_log).
+ *  4. Mercadona va siempre por radarsuper.com (agregador público): la tienda
+ *     oficial bloquea todos los intentos por anti-bot, así que no se ni intenta.
  *
  * Nada de precios inventados: sin lectura fiable = hueco + log, nunca se adivina.
  */
@@ -55,6 +55,34 @@ export async function logRobot(fuente: string, estado: string, detalle: string) 
     const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
     await sb.from('robot_log').insert([{ fuente, estado, detalle }]);
   } catch {}
+}
+
+// Vuelca a robot_log los <input> reales de la página (type/name/id/placeholder) para
+// diagnosticar selectores sin depender de capturas (el storage de artifacts no es accesible).
+async function sniffInputs(page: Page, limite = 15): Promise<string> {
+  const inputs = page.locator('input');
+  const total = await inputs.count().catch(() => 0);
+  const partes: string[] = [];
+  for (let i = 0; i < Math.min(total, limite); i++) {
+    const el = inputs.nth(i);
+    const type = (await el.getAttribute('type').catch(() => null)) || '?';
+    const name = (await el.getAttribute('name').catch(() => null)) || '';
+    const id = (await el.getAttribute('id').catch(() => null)) || '';
+    const ph = (await el.getAttribute('placeholder').catch(() => null)) || '';
+    partes.push(`[type=${type} name=${name} id=${id} ph=${ph}]`);
+  }
+  return `inputs(${total} total, primeros ${partes.length}): ${partes.join(' ')}`;
+}
+async function sniffAnchors(page: Page, locator: ReturnType<Page['locator']>, limite = 5): Promise<string> {
+  const total = await locator.count().catch(() => 0);
+  const partes: string[] = [];
+  for (let i = 0; i < Math.min(total, limite); i++) {
+    const el = locator.nth(i);
+    const txt = ((await el.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    const href = (await el.getAttribute('href').catch(() => null)) || '';
+    partes.push(`"${txt}"→${href}`);
+  }
+  return partes.join(' | ');
 }
 
 type Objetivo = { iding: string; nombre: string; proveedor: 'Mercadona' | 'Alcampo'; formato: string; precio_actual: number | null };
@@ -103,88 +131,60 @@ async function cerrarModales(page: Page) {
 }
 
 // ---------- MERCADONA ----------
-const MERCADONA_CP = '28038';
+// La tienda oficial bloquea siempre (anti-bot) → no se intenta, va directa a RadarSuper
+// (agregador público, sin login) para no quemar tiempo/IP en un camino muerto.
+const RADARSUPER_PRECIO = /\d{1,3}[.,]\d{2}\s*€/;
 
-async function fijarCpMercadona(page: Page) {
-  await page.goto('https://tienda.mercadona.es/', { waitUntil: 'domcontentloaded' });
-  await sleepAleatorio(1200, 2200);
+function extraerPrecio(texto: string): number | null {
+  const m = texto.match(RADARSUPER_PRECIO);
+  return m ? numES(m[0]) : null;
+}
+
+// Extrae precio/nombre/url del primer resultado de un locator de anclas ya acotado.
+async function extraerPrimeraAncla(locator: ReturnType<Page['locator']>, base: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
+  const total = await locator.count().catch(() => 0);
+  const primera = locator.first();
+  const texto = ((await primera.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+  const href = await primera.getAttribute('href').catch(() => null);
+  const url = href ? new URL(href, base).toString() : null;
+  return { precio: extraerPrecio(texto), url, nombreWeb: texto.slice(0, 80), candidatos: total };
+}
+
+// Busca en RadarSuper: primero intenta el buscador on-page (si existe), si no hay
+// prueba el parámetro ?q= por si acaso. Sea cual sea el listado resultante, acota
+// candidatos por anclas que contengan la palabra clave del producto Y un precio en
+// euros — así no dependemos de adivinar la clase CSS de la tarjeta (ver histórico:
+// un selector genérico devolvía siempre ~378 candidatos, el listado por defecto
+// completo, sin filtrar de verdad).
+async function buscarEnRadarsuper(page: Page, consulta: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
+  await page.goto('https://radarsuper.com/mercadona', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await sleepAleatorio(1500, 2500);
   await cerrarModales(page);
-  const input = page.locator('input[placeholder*="ostal" i], input[name*="postal" i]').first();
-  if (await input.count().catch(() => 0)) {
-    await input.fill(MERCADONA_CP);
+
+  const buscador = page.locator('input[type="search"], input[placeholder*="usca" i]').first();
+  if (await buscador.count().catch(() => 0)) {
+    await buscador.fill(consulta);
     await page.keyboard.press('Enter').catch(() => {});
     await sleepAleatorio(1500, 2500);
-    await page.getByRole('button', { name: /continuar|confirmar|aceptar/i }).first().click({ timeout: 2000 }).catch(() => {});
+  } else {
+    await page.goto(`https://radarsuper.com/mercadona?q=${encodeURIComponent(consulta)}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await sleepAleatorio(1500, 2500);
   }
-}
-
-async function loginMercadona(page: Page, cred: Credencial) {
-  await page.goto('https://tienda.mercadona.es/login', { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await sleepAleatorio(1200, 2000);
-  await cerrarModales(page);
-  const userInput = page.locator('input[type="email"], input[name*="email" i]').first();
-  if (!(await userInput.count().catch(() => 0))) return false;
-  await userInput.fill(cred.usuario);
-  await page.getByRole('button', { name: /continuar|siguiente/i }).first().click({ timeout: 3000 }).catch(() => {});
-  await sleepAleatorio(1000, 1800);
-  const passInput = page.locator('input[type="password"]').first();
-  if (!(await passInput.count().catch(() => 0))) return false;
-  await passInput.fill(cred.password);
-  await page.getByRole('button', { name: /iniciar sesión|entrar|continuar/i }).first().click({ timeout: 3000 }).catch(() => {});
-  await sleepAleatorio(2000, 3000);
-  return true;
-}
-
-function bloqueadoMercadona(html: string): boolean {
-  return /acceso denegado|captcha|unusual traffic|blocked|too many requests/i.test(html);
-}
-
-// Devuelve { precio, url, nombreWeb, candidatos } tras buscar `consulta` en el buscador de Mercadona.
-async function buscarEnMercadona(page: Page, consulta: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
-  const buscador = page.locator('input[type="search"], input[placeholder*="usca" i]').first();
-  if (!(await buscador.count().catch(() => 0))) return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
-  await buscador.fill(consulta);
-  await page.keyboard.press('Enter');
-  await sleepAleatorio(1800, 2800);
-  await diag(page, `mercadona-buscar-${consulta.slice(0, 20)}`);
-
-  const tarjetas = page.locator('[data-testid*="product" i], .product-cell, li:has(article)');
-  const total = await tarjetas.count().catch(() => 0);
-  if (total === 0) return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
-  if (total > 6) return { precio: null, url: null, nombreWeb: null, candidatos: total }; // demasiado ambiguo, no forzar
-
-  const primera = tarjetas.first();
-  const nombreWeb = ((await primera.locator('h4, [data-testid*="name" i]').first().textContent().catch(() => '')) || '').trim();
-  const precioTxt = ((await primera.locator('[data-testid*="price" i], .product-price').first().textContent().catch(() => '')) || '').trim();
-  const precio = numES(precioTxt);
-  const href = await primera.locator('a').first().getAttribute('href').catch(() => null);
-  const url = href ? new URL(href, 'https://tienda.mercadona.es').toString() : null;
-  return { precio, url, nombreWeb, candidatos: total };
-}
-
-async function leerPrecioMercadonaDesdeUrl(page: Page, url: string): Promise<number | null> {
-  await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await sleepAleatorio(1200, 2000);
-  const precioTxt = ((await page.locator('[data-testid*="price" i], .product-price').first().textContent().catch(() => '')) || '').trim();
-  return numES(precioTxt);
-}
-
-// Plan B: radarsuper.com/mercadona cuando la tienda oficial bloquea.
-async function buscarEnRadarsuper(page: Page, consulta: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
-  await page.goto(`https://radarsuper.com/mercadona?q=${encodeURIComponent(consulta)}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await sleepAleatorio(1500, 2500);
+  await page.waitForLoadState('networkidle').catch(() => {});
   await diag(page, `radarsuper-${consulta.slice(0, 20)}`);
-  const filas = page.locator('[class*="product" i], .card, li:has(a)');
-  const total = await filas.count().catch(() => 0);
-  if (total === 0) return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
+
+  const primeraPalabra = consulta.split(/\s+/)[0];
+  const porNombreYPrecio = page.locator('a[href]').filter({ hasText: new RegExp(primeraPalabra, 'i') }).filter({ hasText: RADARSUPER_PRECIO });
+  let total = await porNombreYPrecio.count().catch(() => 0);
+  if (total >= 1 && total <= 6) return extraerPrimeraAncla(porNombreYPrecio, 'https://radarsuper.com');
+
+  // Sin match por nombre+precio: probamos solo por precio (por si el texto de la
+  // tarjeta no incluye el nombre buscado literalmente) y dejamos rastro para ajustar.
+  const soloPrecio = page.locator('a[href]').filter({ hasText: RADARSUPER_PRECIO });
+  const totalPrecio = await soloPrecio.count().catch(() => 0);
+  await logRobot('precios_super', 'aviso', `radarsuper "${consulta}": ${total} por nombre+precio, ${totalPrecio} solo por precio, url=${page.url()} → ${await sniffAnchors(page, total > 0 ? porNombreYPrecio : soloPrecio)}`);
   if (total > 6) return { precio: null, url: null, nombreWeb: null, candidatos: total };
-  const primera = filas.first();
-  const nombreWeb = ((await primera.locator('h2, h3, [class*="name" i]').first().textContent().catch(() => '')) || '').trim();
-  const precioTxt = ((await primera.locator('[class*="price" i]').first().textContent().catch(() => '')) || '').trim();
-  const precio = numES(precioTxt);
-  const href = await primera.locator('a').first().getAttribute('href').catch(() => null);
-  const url = href ? new URL(href, 'https://radarsuper.com').toString() : null;
-  return { precio, url, nombreWeb, candidatos: total };
+  return { precio: null, url: null, nombreWeb: null, candidatos: totalPrecio };
 }
 
 // ---------- ALCAMPO ----------
@@ -205,48 +205,67 @@ async function fijarCpAlcampo(page: Page) {
   }
 }
 
-async function loginAlcampo(page: Page, cred: Credencial) {
+// Devuelve si el login quedó confirmado (no basta con haber pulsado "entrar":
+// si el formulario sigue ahí o la URL sigue en /login, no ha entrado de verdad).
+async function loginAlcampo(page: Page, cred: Credencial): Promise<boolean> {
   await page.goto('https://www.compraonline.alcampo.es/login', { waitUntil: 'domcontentloaded' }).catch(() => {});
   await sleepAleatorio(1200, 2000);
   await cerrarModales(page);
   const userInput = page.locator('input[type="email"], input[type="text"][name*="user" i], input[id*="dni" i]').first();
-  if (!(await userInput.count().catch(() => 0))) return false;
+  if (!(await userInput.count().catch(() => 0))) {
+    await logRobot('precios_super', 'error', `alcampo login: campo usuario no encontrado. url=${page.url()} title="${await page.title().catch(() => '')}" ${await sniffInputs(page)}`);
+    return false;
+  }
   await userInput.fill(cred.usuario);
   const passInput = page.locator('input[type="password"]').first();
-  if (!(await passInput.count().catch(() => 0))) return false;
+  if (!(await passInput.count().catch(() => 0))) {
+    await logRobot('precios_super', 'error', `alcampo login: campo password no encontrado tras rellenar usuario. url=${page.url()} ${await sniffInputs(page)}`);
+    return false;
+  }
   await passInput.fill(cred.password);
   await page.getByRole('button', { name: /iniciar sesión|entrar|acceder/i }).first().click({ timeout: 3000 }).catch(() => {});
-  await sleepAleatorio(2000, 3000);
-  return true;
+  await sleepAleatorio(2500, 3500);
+
+  const siguePassword = await page.locator('input[type="password"]').first().count().catch(() => 0);
+  const sigueEnLogin = /login/i.test(page.url());
+  const logueado = !siguePassword && !sigueEnLogin;
+  await logRobot('precios_super', logueado ? 'ok' : 'error', `alcampo login ${logueado ? 'confirmado' : 'FALLÓ'}: url=${page.url()} password_visible=${!!siguePassword}`);
+  return logueado;
 }
 
 async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
   const buscador = page.locator('input[type="search"], input[placeholder*="usca" i]').first();
-  if (!(await buscador.count().catch(() => 0))) return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
+  if (!(await buscador.count().catch(() => 0))) {
+    await logRobot('precios_super', 'aviso', `alcampo buscador no encontrado. url=${page.url()} ${await sniffInputs(page)}`);
+    return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
+  }
   await buscador.fill(consulta);
   await page.keyboard.press('Enter');
   await sleepAleatorio(1800, 2800);
   await diag(page, `alcampo-buscar-${consulta.slice(0, 20)}`);
 
-  const tarjetas = page.locator('[data-testid*="product" i], .product-card, li:has(article)');
-  const total = await tarjetas.count().catch(() => 0);
-  if (total === 0) return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
-  if (total > 6) return { precio: null, url: null, nombreWeb: null, candidatos: total };
-
-  const primera = tarjetas.first();
-  const nombreWeb = ((await primera.locator('h2, h3, [data-testid*="name" i]').first().textContent().catch(() => '')) || '').trim();
-  const precioTxt = ((await primera.locator('[data-testid*="price" i], .product-price').first().textContent().catch(() => '')) || '').trim();
-  const precio = numES(precioTxt);
-  const href = await primera.locator('a').first().getAttribute('href').catch(() => null);
-  const url = href ? new URL(href, 'https://www.compraonline.alcampo.es').toString() : null;
-  return { precio, url, nombreWeb, candidatos: total };
+  const primeraPalabra = consulta.split(/\s+/)[0];
+  const candidatos = page.locator('a[href]').filter({ hasText: new RegExp(primeraPalabra, 'i') }).filter({ hasText: RADARSUPER_PRECIO });
+  const total = await candidatos.count().catch(() => 0);
+  if (total === 0 || total > 6) {
+    if (total === 0) await logRobot('precios_super', 'aviso', `alcampo "${consulta}": 0 candidatos por nombre+precio. url=${page.url()}`);
+    return { precio: null, url: null, nombreWeb: null, candidatos: total };
+  }
+  return extraerPrimeraAncla(candidatos, 'https://www.compraonline.alcampo.es');
 }
 
 async function leerPrecioAlcampoDesdeUrl(page: Page, url: string): Promise<number | null> {
   await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await sleepAleatorio(1200, 2000);
-  const precioTxt = ((await page.locator('[data-testid*="price" i], .product-price').first().textContent().catch(() => '')) || '').trim();
-  return numES(precioTxt);
+  const texto = ((await page.locator('main, body').first().textContent().catch(() => '')) || '');
+  return extraerPrecio(texto);
+}
+
+async function leerPrecioRadarsuperDesdeUrl(page: Page, url: string): Promise<number | null> {
+  await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await sleepAleatorio(1200, 2000);
+  const texto = ((await page.locator('main, body').first().textContent().catch(() => '')) || '');
+  return extraerPrecio(texto);
 }
 
 // ---------- Resultado por ingrediente ----------
@@ -255,33 +274,22 @@ type Resultado = 'cargado' | 'sin_cambio_precio' | 'dudoso' | 'sin_match' | 'fal
 async function procesarMercadona(page: Page, sb: SupabaseClient, obj: Objetivo, mapeo: Mapeo | undefined): Promise<Resultado> {
   try {
     let precio: number | null = null;
-    let origen = 'tienda_oficial';
 
     if (mapeo?.estado_match === 'ok' && mapeo.url_producto) {
-      precio = await leerPrecioMercadonaDesdeUrl(page, mapeo.url_producto);
-      if (precio == null) {
-        const html = await page.content().catch(() => '');
-        if (bloqueadoMercadona(html)) { precio = null; } // se reintenta abajo con radarsuper
-      }
+      precio = await leerPrecioRadarsuperDesdeUrl(page, mapeo.url_producto);
     }
 
     if (precio == null) {
       const consulta = nombreBusqueda(obj.nombre);
-      let res = await buscarEnMercadona(page, consulta);
-      const html = await page.content().catch(() => '');
-      if (res.precio == null && bloqueadoMercadona(html)) {
-        await logRobot('precios_super', 'aviso', `${obj.iding} tienda oficial Mercadona bloqueada, usando radarsuper`);
-        origen = 'radarsuper';
-        res = await buscarEnRadarsuper(page, consulta);
-      }
+      const res = await buscarEnRadarsuper(page, consulta);
       if (res.candidatos > 6 || (res.candidatos > 1 && res.precio == null)) {
         await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'dudoso', nombre_web: res.nombreWeb, url_producto: res.url });
-        await logRobot('precios_super', 'dudoso', `${obj.iding} (${origen}) ${res.candidatos} candidatos, no se carga precio`);
+        await logRobot('precios_super', 'dudoso', `${obj.iding} (radarsuper) ${res.candidatos} candidatos, no se carga precio`);
         return 'dudoso';
       }
       if (res.precio == null || !res.url) {
         await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'sin_match' });
-        await logRobot('precios_super', 'sin_match', `${obj.iding} (${origen}) sin resultado buscando "${consulta}"`);
+        await logRobot('precios_super', 'sin_match', `${obj.iding} (radarsuper) sin resultado buscando "${consulta}"`);
         return 'sin_match';
       }
       precio = res.precio;
@@ -289,7 +297,7 @@ async function procesarMercadona(page: Page, sb: SupabaseClient, obj: Objetivo, 
     }
 
     if (precio == null || precio <= 0) {
-      await logRobot('precios_super', 'fallido', `${obj.iding} precio inválido/no leído (${origen})`);
+      await logRobot('precios_super', 'fallido', `${obj.iding} precio inválido/no leído (radarsuper)`);
       return 'fallido';
     }
     const ok = await ingestarPrecio(sb, obj.iding, precio);
@@ -346,19 +354,21 @@ async function procesarLote(
   const contadores: Record<Resultado, number> = { cargado: 0, sin_cambio_precio: 0, dudoso: 0, sin_match: 0, fallido: 0 };
   const items = objetivos.filter((o) => o.proveedor === proveedor).slice(0, MAX_ITEMS);
   if (!items.length) return contadores;
-  if (!cred) {
-    await logRobot('precios_super', 'error', `sin credenciales para ${proveedor}, se salta el lote (${items.length} ingredientes)`);
+  // RadarSuper (Mercadona) es público, sin login. Alcampo sí necesita credenciales.
+  if (proveedor === 'Alcampo' && !cred) {
+    await logRobot('precios_super', 'error', `sin credenciales para Alcampo, se salta el lote (${items.length} ingredientes)`);
     return contadores;
   }
 
   const page = await browser.newPage();
   try {
-    if (proveedor === 'Mercadona') {
-      await fijarCpMercadona(page);
-      await loginMercadona(page, cred);
-    } else {
+    if (proveedor === 'Alcampo') {
       await fijarCpAlcampo(page);
-      await loginAlcampo(page, cred);
+      const logueado = await loginAlcampo(page, cred!);
+      if (!logueado) {
+        await logRobot('precios_super', 'error', `alcampo: login no confirmado, se aborta el lote (${items.length} ingredientes) para no perder tiempo/anti-bot`);
+        return contadores;
+      }
     }
     await diag(page, `${proveedor}-post-login`);
 
@@ -397,9 +407,10 @@ async function main() {
       sin_match: mer.sin_match + alc.sin_match,
       fallido: mer.fallido + alc.fallido,
     };
-    const intentados = objetivos.length;
+    const intentados = total.cargado + total.sin_cambio_precio + total.dudoso + total.sin_match + total.fallido;
     const conPrecioFresco = total.cargado + total.sin_cambio_precio;
-    const detalle = `intentados=${intentados} cargados=${total.cargado} sin_cambio=${total.sin_cambio_precio} dudoso=${total.dudoso} sin_match=${total.sin_match} fallidos=${total.fallido} (${((conPrecioFresco / intentados) * 100).toFixed(1)}% con precio fresco)`;
+    const pct = intentados ? ((conPrecioFresco / intentados) * 100).toFixed(1) : '0.0';
+    const detalle = `objetivo=${objetivos.length} intentados=${intentados} cargados=${total.cargado} sin_cambio=${total.sin_cambio_precio} dudoso=${total.dudoso} sin_match=${total.sin_match} fallidos=${total.fallido} (${pct}% con precio fresco)`;
     await logRobot('precios_super', 'resumen', detalle);
     console.log(detalle);
   } finally {
