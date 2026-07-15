@@ -341,6 +341,28 @@ async function loginAlcampo(page: Page, cred: Credencial): Promise<boolean> {
   return false;
 }
 
+// Busca por proximidad: localiza nodos de texto con precio en € y sube al <a>
+// ancestro más cercano (la tarjeta de producto), filtrando por si su texto
+// contiene la palabra clave — evita adivinar la clase CSS de la tarjeta o
+// asumir que el precio vive dentro del propio <a>.
+async function candidatosPorPrecioCercano(page: Page, primeraPalabra: string, base: string, limite = 30): Promise<{ texto: string; url: string | null; precio: number | null }[]> {
+  const precios = page.getByText(PRECIO_EUR_REGEX);
+  const total = await precios.count().catch(() => 0);
+  const vistos = new Set<string>();
+  const candidatos: { texto: string; url: string | null; precio: number | null }[] = [];
+  for (let i = 0; i < Math.min(total, limite); i++) {
+    const ancla = precios.nth(i).locator('xpath=ancestor::a[1]');
+    if (!(await ancla.count().catch(() => 0))) continue;
+    const href = await ancla.getAttribute('href').catch(() => null);
+    if (!href || vistos.has(href)) continue;
+    const texto = ((await ancla.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    if (!new RegExp(primeraPalabra, 'i').test(texto)) continue;
+    vistos.add(href);
+    candidatos.push({ texto, url: new URL(href, base).toString(), precio: extraerPrecio(texto) });
+  }
+  return candidatos;
+}
+
 async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
   const buscador = page.locator('input[type="search"], input[placeholder*="usca" i]').first();
   if (!(await buscador.count().catch(() => 0))) {
@@ -355,7 +377,7 @@ async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: 
   const primeraPalabra = consulta.split(/\s+/)[0];
   const candidatos = await candidatosPorPrecioCercano(page, primeraPalabra, 'https://www.compraonline.alcampo.es');
   if (candidatos.length === 0) {
-    const totalPrecios = await page.getByText(RADARSUPER_PRECIO).count().catch(() => 0);
+    const totalPrecios = await page.getByText(PRECIO_EUR_REGEX).count().catch(() => 0);
     await logRobot('precios_super', 'aviso', `alcampo "${consulta}": 0 candidatos tras filtrar por nombre (${totalPrecios} nodos con precio en la página, url=${page.url()})`);
     return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
   }
