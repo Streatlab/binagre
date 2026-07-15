@@ -1,0 +1,139 @@
+name: Robots de plataforma (Uber / Glovo / Just Eat / Sinqro → bandeja)
+
+# Los robots solo DESCARGAN informes y los dejan en la bandeja de Papeleo.
+# Credenciales: tabla robot_credenciales de Supabase (nunca aqui).
+# Codigo de verificacion: se lee por IMAP del buzon de la cuenta (tabla buzones_otp).
+# El disparo por 'push' sirve para lanzar una prueba tocando este fichero.
+# 14-jul-2026 15:20 · alta de sinqro (Just Eat sale de ahi).
+
+on:
+  workflow_dispatch:
+    inputs:
+      plataforma:
+        description: "Plataforma"
+        type: choice
+        options: ["uber", "glovo", "justeat", "sinqro", "todas"]
+        default: "todas"
+      modo:
+        description: "diario | semanal | mensual | backfill"
+        type: choice
+        options: ["diario", "semanal", "mensual", "backfill"]
+        default: "diario"
+      mes:
+        description: "Solo para backfill: AAAA-MM (Uber/Glovo/Sinqro) o AAAA-Qn (Just Eat)"
+        type: string
+        default: ""
+      simulacro:
+        description: "1 = solo mira, no deja nada en la bandeja"
+        type: choice
+        options: ["0", "1"]
+        default: "0"
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/robots-plataformas.yml"
+      - "scripts/robot-ingesta/uber.ts"
+      - "scripts/robot-ingesta/glovo.ts"
+      - "scripts/robot-ingesta/justeat.ts"
+      - "scripts/robot-ingesta/sinqro.ts"
+  schedule:
+    - cron: "0 2 * * *"   # 04:00 Madrid (verano) · diario
+    - cron: "0 3 * * *"   # 04:00 Madrid (invierno) · diario
+    - cron: "0 3 * * 1"   # 05:00 Madrid (verano) · semanal (lunes)
+    - cron: "0 4 * * 1"   # 05:00 Madrid (invierno) · semanal (lunes)
+    - cron: "0 3 5 * *"   # 05:00 Madrid (verano) · mensual (dia 5)
+    - cron: "0 4 5 * *"   # 05:00 Madrid (invierno) · mensual (dia 5)
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      seguir: ${{ steps.candado.outputs.seguir }}
+      modo: ${{ steps.candado.outputs.modo }}
+    steps:
+      - name: Candado horario y modo
+        id: candado
+        run: |
+          H=$(TZ=Europe/Madrid date +%H)
+          D=$(TZ=Europe/Madrid date +%u)
+          DIA=$(TZ=Europe/Madrid date +%d)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "seguir=1" >> $GITHUB_OUTPUT
+            echo "modo=${{ github.event.inputs.modo }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "seguir=1" >> $GITHUB_OUTPUT
+            echo "modo=diario" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if [ "$H" = "04" ]; then
+            echo "seguir=1" >> $GITHUB_OUTPUT; echo "modo=diario" >> $GITHUB_OUTPUT; exit 0
+          fi
+          if [ "$H" = "05" ] && [ "$DIA" = "05" ]; then
+            echo "seguir=1" >> $GITHUB_OUTPUT; echo "modo=mensual" >> $GITHUB_OUTPUT; exit 0
+          fi
+          if [ "$H" = "05" ] && [ "$D" = "1" ]; then
+            echo "seguir=1" >> $GITHUB_OUTPUT; echo "modo=semanal" >> $GITHUB_OUTPUT; exit 0
+          fi
+          echo "seguir=0" >> $GITHUB_OUTPUT
+          echo "modo=" >> $GITHUB_OUTPUT
+
+  robot:
+    needs: plan
+    if: needs.plan.outputs.seguir == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        plataforma: ["uber", "glovo", "justeat", "sinqro"]
+    steps:
+      - name: ¿Toca esta plataforma?
+        id: toca
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            P="${{ github.event.inputs.plataforma }}"
+            if [ "$P" = "todas" ] || [ "$P" = "${{ matrix.plataforma }}" ]; then
+              echo "si=1" >> $GITHUB_OUTPUT
+            else
+              echo "si=0" >> $GITHUB_OUTPUT
+            fi
+            exit 0
+          fi
+          echo "si=1" >> $GITHUB_OUTPUT
+
+      - uses: actions/checkout@v4
+        if: steps.toca.outputs.si == '1'
+      - uses: actions/setup-node@v4
+        if: steps.toca.outputs.si == '1'
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Instalar dependencias
+        if: steps.toca.outputs.si == '1'
+        run: npm install --no-audit --no-fund
+      - name: Cache navegador Playwright
+        id: cache-playwright
+        if: steps.toca.outputs.si == '1'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Instalar navegador Playwright
+        if: steps.toca.outputs.si == '1' && steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Dependencias de sistema (con cache)
+        if: steps.toca.outputs.si == '1' && steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Descargar informes y dejarlos en la bandeja
+        if: steps.toca.outputs.si == '1'
+        env:
+          MODO: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.modo || needs.plan.outputs.modo }}
+          MES: ${{ github.event.inputs.mes }}
+          TRIMESTRE: ${{ github.event.inputs.mes }}
+          ROBOT_DRY: ${{ github.event.inputs.simulacro }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/${{ matrix.plataforma }}.ts
