@@ -3,13 +3,13 @@
  * Dos cuentas (posmodernos y streatlab). Entra solo: sesión guardada + código por IMAP.
  *
  * 15-jul-2026 · TODO POR API INTERNA (sin captcha), capturado de los HAR de Rubén:
- *   VENTAS  → POST vos-api.../v1/vendors/reports/performance/summary/export {format:CSV,
- *             global_vendor_codes, from, to, field_mask} → {reportDownloadURL} → GET → CSV
- *   FACTURAS→ GraphQL vagw-api.../query: ListPayouts → RequestPayouts → downloadUrl → GET → ZIP
- *   El navegador del robot, al abrir /reports o /finance, hace esas llamadas con un token
- *   válido del antibot (cabecera x-px-cookies). Capturamos esa cabecera de una llamada real y
- *   replicamos con page.request (que arrastra la sesión). CERO botón, CERO captcha.
- *   Operaciones e Historial: pendientes de capturar su export (mismo patrón).
+ *   VENTAS      → POST vos-api.../v1/vendors/reports/performance/summary/export (field_mask ventas)
+ *   OPERACIONES → POST vos-api.../v1/vendors/reports/ops/summary/export (field_mask ops)
+ *                 ambos → {reportDownloadURL} → GET → CSV
+ *   FACTURAS    → GraphQL vagw-api.../query: ListPayouts → RequestPayouts → downloadUrl → GET → ZIP
+ *   Se captura la cabecera x-px-cookies de una llamada real del portal y se replica con
+ *   page.request (arrastra la sesión). CERO botón, CERO captcha.
+ *   HISTORIAL: pendiente de capturar su export (su descarga por botón choca con el captcha).
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
@@ -18,7 +18,6 @@ import { randomUUID } from 'node:crypto';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
 import { abrir, quitarEstorbos } from './_lib/navegador.js';
-import { captureExport } from './_lib/capturar-export.js';
 
 const P = 'glovo';
 const PORTAL = 'https://portal.glovoapp.com';
@@ -28,10 +27,8 @@ const REPORTS_API = 'https://vos-api.eu.prd.portal.restaurant';
 const MODO = (process.env.MODO || 'diario').toLowerCase();
 const MES = process.env.MES || '';
 
-// Los 8 códigos de tienda (global_vendor_codes) para los informes de Rendimiento.
 const VENDOR_CODES = ['GV_ES;578570', 'GV_ES;244299', 'GV_ES;580042', 'GV_ES;459466', 'GV_ES;569883', 'GV_ES;580156', 'GV_ES;580336', 'GV_ES;349698'];
 
-// Las 8 cuentas de facturación (grid/chainId), por si no se capturan en vivo.
 const ACCOUNTS_GLOVO = [
   { grid: '4MWIW9', billingParentId: '', chainId: '392092' },
   { grid: '4MW2I2', billingParentId: '', chainId: '136613' },
@@ -155,7 +152,7 @@ function capturarPx(page: Page): { get: () => string | null } {
 }
 
 /** Espera a que el informe/página termine de cargar (spinner role=progressbar). */
-async function esperarCarga(page: Page, paso: string): Promise<void> {
+async function esperarCarga(page: Page): Promise<void> {
   const t0 = Date.now();
   try {
     while (Date.now() - t0 < 35000) {
@@ -179,61 +176,51 @@ function rango(): { from: string; to: string } {
   return { from: hoyMadrid(7), to: hoyMadrid(1) };
 }
 
-/**
- * RENDIMIENTO · Ventas por API interna (sin captcha).
- * Abre /reports (mint del token), captura x-px-cookies y llama al export de resumen.
- * Operaciones queda pendiente de capturar su field_mask.
- */
+/** Export de un informe de Rendimiento por API: POST export → reportDownloadURL → GET → CSV. */
+async function exportarInforme(page: Page, tipo: string, path: string, fieldMask: string, token: string, from: string, to: string, periodo: string, cuenta: string) {
+  const hdr = { 'content-type': 'application/json', 'accept': 'application/json, text/plain, */*', 'x-px-cookies': token };
+  try {
+    const r = await page.request.post(`${REPORTS_API}${path}`, {
+      headers: hdr,
+      data: { locale: 'es-ES', format: 'CSV', global_vendor_codes: VENDOR_CODES, from, to, field_mask: fieldMask },
+    });
+    if (!r.ok()) { await log(P, 'sin_descarga', `${tipo}_${cuenta}: export devolvió ${r.status()}`); return; }
+    const url = (await r.json())?.reportDownloadURL;
+    if (!url) { await log(P, 'sin_descarga', `${tipo}_${cuenta}: sin reportDownloadURL`); return; }
+    const dl = await page.request.get(url);
+    if (!dl.ok()) { await log(P, 'sin_descarga', `${tipo}_${cuenta}: descarga CSV ${dl.status()}`); return; }
+    await entregar({ fuente: P, tipo: `glovo_${tipo}`, nombre: `${cuenta}_${tipo}_${from}_${to}.csv`, datos: Buffer.from(await dl.body()), periodo, destino: 'ventas' });
+    await log(P, 'descarga', `${tipo}_${cuenta}: CSV ok`);
+  } catch (e: any) {
+    await log(P, 'sin_descarga', `${tipo}_${cuenta}: error (${e?.message || e})`);
+  }
+}
+
+/** RENDIMIENTO · Ventas + Operaciones por API interna (sin captcha). */
 async function rendimiento(page: Page, periodo: string, cuenta: string, from: string, to: string) {
   const px = capturarPx(page);
   await page.goto(`${PORTAL}/reports?from=${from}&to=${to}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
-  await esperarCarga(page, `ventas_${cuenta}`);
+  await esperarCarga(page);
 
   const token = px.get();
   if (!token) {
-    await volcar(`${P}_ventas_${cuenta}`, await page.content().catch(() => ''));
-    await log(P, 'sin_descarga', `ventas_${cuenta}: no capturé el token del antibot (pudo bloquear la carga)`);
+    await volcar(`${P}_reports_${cuenta}`, await page.content().catch(() => ''));
+    await log(P, 'sin_descarga', `reports_${cuenta}: no capturé el token del antibot (pudo bloquear la carga)`);
     return;
   }
-  const hdr = { 'content-type': 'application/json', 'accept': 'application/json, text/plain, */*', 'x-px-cookies': token };
-
-  try {
-    const r = await page.request.post(`${REPORTS_API}/v1/vendors/reports/performance/summary/export`, {
-      headers: hdr,
-      data: { locale: 'es-ES', format: 'CSV', global_vendor_codes: VENDOR_CODES, from, to, field_mask: 'revenue,orderCount,avgBasketSize' },
-    });
-    if (!r.ok()) { await log(P, 'sin_descarga', `ventas_${cuenta}: export devolvió ${r.status()}`); }
-    else {
-      const url = (await r.json())?.reportDownloadURL;
-      if (!url) { await log(P, 'sin_descarga', `ventas_${cuenta}: sin reportDownloadURL`); }
-      else {
-        const dl = await page.request.get(url);
-        if (!dl.ok()) { await log(P, 'sin_descarga', `ventas_${cuenta}: descarga CSV ${dl.status()}`); }
-        else {
-          await entregar({ fuente: P, tipo: 'glovo_ventas', nombre: `${cuenta}_ventas_${from}_${to}.csv`, datos: Buffer.from(await dl.body()), periodo, destino: 'ventas' });
-          await log(P, 'descarga', `ventas_${cuenta}: CSV ok`);
-        }
-      }
-    }
-  } catch (e: any) {
-    await log(P, 'sin_descarga', `ventas_${cuenta}: error (${e?.message || e})`);
-  }
-
-  await log(P, 'pendiente', `operaciones_${cuenta}: pendiente capturar su export (mismo patrón, otro field_mask)`);
+  await exportarInforme(page, 'ventas', '/v1/vendors/reports/performance/summary/export', 'revenue,orderCount,avgBasketSize', token, from, to, periodo, cuenta);
+  await exportarInforme(page, 'operaciones', '/v1/vendors/reports/ops/summary/export', 'offlineDuration,rejectionRate,avgPreparationTime,contactRate,ordersMarkedAsReadyRate', token, from, to, periodo, cuenta);
 }
 
-/** Historial de pedidos · pendiente de pasar a la API interna (mismo patrón que Ventas). */
-async function historial(page: Page, periodo: string, cuenta: string, _from: string, _to: string) {
+/** Historial de pedidos · pendiente de capturar su export (choca con el captcha por botón). */
+async function historial(page: Page, _periodo: string, cuenta: string, _from: string, _to: string) {
   await log(P, 'pendiente', `historial_${cuenta}: pendiente capturar su export (vía API interna)`);
 }
 
-/**
- * FACTURAS + LIQUIDACIONES · vía API interna (sin captcha).
- * ListPayouts → RequestPayouts → GET zip, con las cabeceras de la sesión real.
- */
+/** FACTURAS + LIQUIDACIONES · vía API interna (sin captcha). */
 async function finanzas(page: Page, periodo: string, cuenta: string) {
   let apiHeaders: Record<string, string> | null = null;
   let accounts: any[] | null = null;
@@ -264,7 +251,7 @@ async function finanzas(page: Page, periodo: string, cuenta: string) {
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
-  await esperarCarga(page, `finanzas_${cuenta}`);
+  await esperarCarga(page);
 
   if (!apiHeaders) {
     await volcar(`${P}_finanzas_${cuenta}`, await page.content().catch(() => ''));
