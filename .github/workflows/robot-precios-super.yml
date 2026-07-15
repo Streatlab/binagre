@@ -15,7 +15,7 @@ on:
         type: string
         default: ""
   push:
-    branches: [master]
+    branches: [master, trabajo] # TEMP-RUN: trabajo se quita tras la tirada completa
     paths:
       - "scripts/robot-precios-super/robot.ts"
       - ".github/workflows/robot-precios-super.yml"
@@ -40,8 +40,8 @@ jobs:
 
       - name: Ejecutar robot
         env:
-          DIAG: ${{ github.event.inputs.diag == 'false' && '0' || '1' }}
-          MAX_ITEMS: ${{ github.event.inputs.max_items }}
+          DIAG: "1"
+          MAX_ITEMS: "" # TEMP-RUN: tirada completa de los 301
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/robot-precios-super/robot.ts

@@ -217,6 +217,19 @@ function normalizar(s: string): string {
 // Coincidencia por solape de palabras (sin depender de clases CSS ni de un
 // endpoint de búsqueda): cuenta cuántas palabras de la consulta aparecen en el
 // nombre del producto. Si el mejor resultado está empatado con otro, es dudoso.
+// Desempate Hacendado: entre varios candidatos empatados, si solo uno empieza
+// literalmente por el término buscado y es marca propia Hacendado (la más
+// habitual en el Escandallo), se elige sin marcar dudoso — es la coincidencia
+// más directa posible. Si el mejor candidato ni siquiera contiene el término
+// base no se fuerza nada (p.ej. "Cebolla blanca" no debe resolver a "Alubia").
+function desempatarHacendado(consultaNorm: string, empatados: ProductoMercadona[]): ProductoMercadona | null {
+  const candidatos = empatados.filter((p) => {
+    const n = normalizar(p.nombre);
+    return n.startsWith(consultaNorm) && /hacendado/.test(n);
+  });
+  return candidatos.length === 1 ? candidatos[0] : null;
+}
+
 function mejorCoincidencia(consulta: string, catalogo: ProductoMercadona[]): { mejor: ProductoMercadona | null; mejorScore: number; empatados: number } {
   const consultaNorm = normalizar(consulta);
   const tokensConsulta = consultaNorm.split(' ').filter(Boolean);
@@ -229,15 +242,19 @@ function mejorCoincidencia(consulta: string, catalogo: ProductoMercadona[]): { m
   if (porSubcadena.length > 0) {
     porSubcadena.sort((a, b) => a.nombre.length - b.nombre.length);
     const largoMinimo = porSubcadena[0].nombre.length;
-    const empatados = porSubcadena.filter((p) => p.nombre.length === largoMinimo).length;
-    return { mejor: porSubcadena[0], mejorScore: tokensConsulta.length, empatados };
+    const empatadosArr = porSubcadena.filter((p) => p.nombre.length === largoMinimo);
+    if (empatadosArr.length > 1) {
+      const ganador = desempatarHacendado(consultaNorm, empatadosArr);
+      if (ganador) return { mejor: ganador, mejorScore: tokensConsulta.length, empatados: 1 };
+    }
+    return { mejor: porSubcadena[0], mejorScore: tokensConsulta.length, empatados: empatadosArr.length };
   }
 
   // 2) Solape de palabras (fallback), desempatando también por nombre más corto.
   let mejor: ProductoMercadona | null = null;
   let mejorScore = 0;
   let mejorLen = Infinity;
-  let empatados = 0;
+  let empatadosArr: ProductoMercadona[] = [];
   for (const p of catalogo) {
     const nombreNorm = normalizar(p.nombre);
     const tokensNombre = new Set(nombreNorm.split(' ').filter(Boolean));
@@ -245,12 +262,16 @@ function mejorCoincidencia(consulta: string, catalogo: ProductoMercadona[]): { m
     for (const t of tokensConsulta) if (tokensNombre.has(t)) score++;
     if (score === 0) continue;
     if (score > mejorScore || (score === mejorScore && nombreNorm.length < mejorLen)) {
-      mejor = p; mejorScore = score; mejorLen = nombreNorm.length; empatados = 1;
+      mejor = p; mejorScore = score; mejorLen = nombreNorm.length; empatadosArr = [p];
     } else if (score === mejorScore && nombreNorm.length === mejorLen) {
-      empatados++;
+      empatadosArr.push(p);
     }
   }
-  return { mejor, mejorScore, empatados };
+  if (empatadosArr.length > 1) {
+    const ganador = desempatarHacendado(consultaNorm, empatadosArr);
+    if (ganador) return { mejor: ganador, mejorScore, empatados: 1 };
+  }
+  return { mejor, mejorScore, empatados: empatadosArr.length };
 }
 
 // ---------- ALCAMPO ----------
