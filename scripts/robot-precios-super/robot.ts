@@ -10,13 +10,14 @@
  *     - Varias candidatas o formato distinto → guarda `dudoso`, NO carga precio.
  *  3. Precio leído → fn_ingesta_precio_super(iding, precio).
  *  4. Mercadona usa la API JSON pública de tienda.mercadona.es (sin login, sin
- *     Playwright, sin anti-bot) — ver bloque MERCADONA. Alcampo sigue con
- *     Playwright (login real).
+ *     Playwright, sin anti-bot) — ver bloque MERCADONA. Alcampo usa Playwright
+ *     con login real + intercepción de las respuestas JSON internas de la SPA
+ *     (nunca se parsea el HTML renderizado) — ver bloque ALCAMPO.
  *
  * Nada de precios inventados: sin lectura fiable = hueco + log, nunca se adivina.
  */
 
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser, Page, Response } from 'playwright';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -123,16 +124,10 @@ async function cerrarModales(page: Page) {
 // tienda.mercadona.es expone una API JSON pública (misma que usa su propia web).
 // Nada de anti-bot ni RadarSuper: fetch directo. Referencia de esquema:
 // github.com/datania/mercadona-catalog (api.md).
-const PRECIO_EUR_REGEX = /\d{1,3}[.,]\d{2}\s*€/;
-function extraerPrecio(texto: string): number | null {
-  const m = texto.match(PRECIO_EUR_REGEX);
-  return m ? numES(m[0]) : null;
-}
-
 const MERCADONA_API = 'https://tienda.mercadona.es/api';
 const MERCADONA_CP = '28038';
 
-type ProductoMercadona = { id: string; nombre: string; precio: number | null };
+type ProductoCatalogo = { id: string; nombre: string; precio: number | null };
 
 async function fetchJson(url: string, cookie: string, init?: RequestInit): Promise<any> {
   const res = await fetch(url, { ...init, headers: { ...(cookie ? { Cookie: cookie } : {}), ...(init?.headers || {}) } });
@@ -167,10 +162,10 @@ function extraerPrecioProducto(p: any): number | null {
 // en memoria. Se hace una sola vez por pasada (no por ingrediente): más rápido
 // y evita 200 búsquedas sueltas. Subcategorías puntuales que fallan se saltan,
 // no tumban el crawl.
-async function crawlCatalogoMercadona(cookie: string): Promise<ProductoMercadona[]> {
+async function crawlCatalogoMercadona(cookie: string): Promise<ProductoCatalogo[]> {
   const raiz = await fetchJson(`${MERCADONA_API}/categories/`, cookie);
   const categoriasRaiz: any[] = raiz?.results ?? raiz?.categories ?? [];
-  const productos: ProductoMercadona[] = [];
+  const productos: ProductoCatalogo[] = [];
   let subOk = 0, subFallo = 0;
 
   for (const cat of categoriasRaiz) {
@@ -222,7 +217,7 @@ function normalizar(s: string): string {
 // habitual en el Escandallo), se elige sin marcar dudoso — es la coincidencia
 // más directa posible. Si el mejor candidato ni siquiera contiene el término
 // base no se fuerza nada (p.ej. "Cebolla blanca" no debe resolver a "Alubia").
-function desempatarHacendado(consultaNorm: string, empatados: ProductoMercadona[]): ProductoMercadona | null {
+function desempatarHacendado(consultaNorm: string, empatados: ProductoCatalogo[]): ProductoCatalogo | null {
   const candidatos = empatados.filter((p) => {
     const n = normalizar(p.nombre);
     return n.startsWith(consultaNorm) && /hacendado/.test(n);
@@ -230,7 +225,7 @@ function desempatarHacendado(consultaNorm: string, empatados: ProductoMercadona[
   return candidatos.length === 1 ? candidatos[0] : null;
 }
 
-function mejorCoincidencia(consulta: string, catalogo: ProductoMercadona[]): { mejor: ProductoMercadona | null; mejorScore: number; empatados: number } {
+function mejorCoincidencia(consulta: string, catalogo: ProductoCatalogo[]): { mejor: ProductoCatalogo | null; mejorScore: number; empatados: number } {
   const consultaNorm = normalizar(consulta);
   const tokensConsulta = consultaNorm.split(' ').filter(Boolean);
 
@@ -251,10 +246,10 @@ function mejorCoincidencia(consulta: string, catalogo: ProductoMercadona[]): { m
   }
 
   // 2) Solape de palabras (fallback), desempatando también por nombre más corto.
-  let mejor: ProductoMercadona | null = null;
+  let mejor: ProductoCatalogo | null = null;
   let mejorScore = 0;
   let mejorLen = Infinity;
-  let empatadosArr: ProductoMercadona[] = [];
+  let empatadosArr: ProductoCatalogo[] = [];
   for (const p of catalogo) {
     const nombreNorm = normalizar(p.nombre);
     const tokensNombre = new Set(nombreNorm.split(' ').filter(Boolean));
@@ -274,8 +269,39 @@ function mejorCoincidencia(consulta: string, catalogo: ProductoMercadona[]): { m
   return { mejor, mejorScore, empatados: empatadosArr.length };
 }
 
-// ---------- ALCAMPO ----------
+// ---------- ALCAMPO (Playwright con login + intercepción de red JSON interna) ----------
 const ALCAMPO_CP = '28038';
+
+// La SPA de compraonline.alcampo.es no tiene API pública documentada: en vez
+// de parsear el HTML renderizado (comprobado en vivo que nombre y precio
+// viven en ramas distintas del DOM, sin forma fiable de emparejarlos) se
+// interceptan las respuestas JSON que la propia SPA dispara al buscar.
+// Escanea cualquier JSON recursivamente en busca de objetos "producto": un
+// campo de nombre y uno de precio numérico >0. No se asume un esquema fijo.
+function buscarProductosEnJson(obj: any, resultados: ProductoCatalogo[] = [], profundidad = 0): ProductoCatalogo[] {
+  if (obj == null || typeof obj !== 'object' || profundidad > 8) return resultados;
+  if (Array.isArray(obj)) {
+    for (const item of obj) buscarProductosEnJson(item, resultados, profundidad + 1);
+    return resultados;
+  }
+  const nombre = obj.name ?? obj.displayName ?? obj.title ?? obj.productName ?? obj.description;
+  const precioRaw = obj.price ?? obj.unitPrice ?? obj.currentPrice ?? obj.finalPrice ?? obj.sellingPrice
+    ?? obj?.price?.value ?? obj?.prices?.price ?? obj?.priceInfo?.price;
+  if (typeof nombre === 'string' && nombre.trim().length > 2) {
+    const precio = typeof precioRaw === 'number' ? precioRaw : numES(precioRaw != null ? String(precioRaw) : null);
+    if (precio != null && precio > 0) {
+      const id = String(obj.id ?? obj.sku ?? obj.productId ?? obj.ean ?? `${nombre}-${precio}`);
+      resultados.push({ id, nombre: nombre.trim(), precio });
+    }
+  }
+  for (const key of Object.keys(obj)) buscarProductosEnJson(obj[key], resultados, profundidad + 1);
+  return resultados;
+}
+
+async function cookiesComoHeader(page: Page): Promise<string> {
+  const cookies = await page.context().cookies();
+  return cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+}
 
 async function fijarCpAlcampo(page: Page) {
   await page.goto('https://www.compraonline.alcampo.es/', { waitUntil: 'domcontentloaded' });
@@ -362,81 +388,81 @@ async function loginAlcampo(page: Page, cred: Credencial): Promise<boolean> {
   return false;
 }
 
-// Busca por proximidad: localiza nodos de texto con precio en € y sube al <a>
-// ancestro más cercano (la tarjeta de producto), filtrando por si su texto
-// contiene la palabra clave — evita adivinar la clase CSS de la tarjeta o
-// asumir que el precio vive dentro del propio <a>.
-async function candidatosPorPrecioCercano(page: Page, primeraPalabra: string, base: string, limite = 30): Promise<{ texto: string; url: string | null; precio: number | null }[]> {
-  const precios = page.getByText(PRECIO_EUR_REGEX);
-  const total = await precios.count().catch(() => 0);
-  const vistos = new Set<string>();
-  const candidatos: { texto: string; url: string | null; precio: number | null }[] = [];
-  for (let i = 0; i < Math.min(total, limite); i++) {
-    const nodo = precios.nth(i);
-    // El nombre del producto no siempre vive en el mismo <a> que el precio
-    // (comprobado en vivo, RadarSuper y Alcampo) — se sube nivel a nivel hasta
-    // encontrar un contenedor que tenga el nombre Y un enlace de producto.
-    for (let nivel = 1; nivel <= 6; nivel++) {
-      const contenedor = nodo.locator(`xpath=ancestor::*[${nivel}]`);
-      if (!(await contenedor.count().catch(() => 0))) break;
-      const texto = ((await contenedor.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-      // Texto ya demasiado largo: el contenedor se salió de la tarjeta y abarca
-      // varios productos vecinos (subir más solo lo empeora) — se abandona este nodo.
-      if (texto.length > 400) break;
-      if (!new RegExp(primeraPalabra, 'i').test(texto)) continue;
-      const href = await contenedor.locator('a[href]').first().getAttribute('href').catch(() => null);
-      if (!href || vistos.has(href)) break;
-      vistos.add(href);
-      candidatos.push({ texto: texto.slice(0, 200), url: new URL(href, base).toString(), precio: extraerPrecio(texto) });
-      break;
-    }
-  }
-  return candidatos;
-}
-
+// Busca en Alcampo interceptando las respuestas JSON internas que la SPA
+// dispara al escribir en el buscador — NO se parsea el HTML renderizado.
+// LEY-ANTIFALSOS: solo se carga si el nombre casa de verdad contra la
+// consulta (mejorCoincidencia); ambiguo o sin match no fuerza nada.
 async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
   const buscador = page.locator('input[type="search"], input[placeholder*="usca" i]').first();
   if (!(await buscador.count().catch(() => 0))) {
     await logRobot('precios_super', 'aviso', `alcampo buscador no encontrado. url=${page.url()} ${await sniffInputs(page)}`);
     return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
   }
+
+  const capturas: { url: string; productos: ProductoCatalogo[] }[] = [];
+  const onResponse = async (res: Response) => {
+    try {
+      const headers = await res.headers();
+      const ct = headers['content-type'] || '';
+      if (!ct.includes('json')) return;
+      const url = res.url();
+      if (!/search|product|catalog|listing|item/i.test(url)) return;
+      const data = await res.json().catch(() => null);
+      if (!data) return;
+      const productos = buscarProductosEnJson(data);
+      if (productos.length) capturas.push({ url, productos });
+    } catch {}
+  };
+  page.on('response', onResponse);
+
   await buscador.fill(consulta);
   await page.keyboard.press('Enter');
-  await sleepAleatorio(1800, 2800);
+  await sleepAleatorio(2500, 4000); // deja tiempo a que la SPA dispare y resuelva las llamadas
+  page.off('response', onResponse);
   await diag(page, `alcampo-buscar-${consulta.slice(0, 20)}`);
 
-  const primeraPalabra = consulta.split(/\s+/)[0];
-  const candidatos = await candidatosPorPrecioCercano(page, primeraPalabra, 'https://www.compraonline.alcampo.es');
-  if (candidatos.length === 0) {
-    const totalPrecios = await page.getByText(PRECIO_EUR_REGEX).count().catch(() => 0);
-    await logRobot('precios_super', 'aviso', `alcampo "${consulta}": 0 candidatos tras filtrar por nombre (${totalPrecios} nodos con precio en la página, url=${page.url()})`);
+  if (!capturas.length) {
+    await logRobot('precios_super', 'aviso', `alcampo "${consulta}": 0 respuestas JSON con productos interceptadas. url=${page.url()}`);
     return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
   }
-  if (candidatos.length > 6) {
-    return { precio: null, url: null, nombreWeb: null, candidatos: candidatos.length };
+
+  // Nos quedamos con la captura que trae más productos (la de resultados de
+  // búsqueda; descarta llamadas sueltas de recomendaciones/analítica).
+  capturas.sort((a, b) => b.productos.length - a.productos.length);
+  const { url: endpoint, productos } = capturas[0];
+
+  const { mejor, mejorScore, empatados } = mejorCoincidencia(consulta, productos);
+  if (mejorScore === 0 || !mejor) {
+    return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
   }
-  const c = candidatos[0];
-  return { precio: c.precio, url: c.url, nombreWeb: c.texto.slice(0, 80), candidatos: candidatos.length };
+  if (empatados > 1) {
+    return { precio: null, url: null, nombreWeb: mejor.nombre, candidatos: empatados };
+  }
+  return { precio: mejor.precio, url: endpoint, nombreWeb: mejor.nombre, candidatos: 1 };
 }
 
-async function leerPrecioAlcampoDesdeUrl(page: Page, url: string): Promise<number | null> {
-  await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await sleepAleatorio(1200, 2000);
-  const texto = ((await page.locator('main, body').first().textContent().catch(() => '')) || '');
-  return extraerPrecio(texto);
-}
-
-async function leerPrecioRadarsuperDesdeUrl(page: Page, url: string): Promise<number | null> {
-  await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await sleepAleatorio(1200, 2000);
-  const texto = ((await page.locator('main, body').first().textContent().catch(() => '')) || '');
-  return extraerPrecio(texto);
+// Reutiliza el patrón de endpoint JSON guardado en el mapeo con la cookie de
+// sesión capturada tras el login — evita repetir la búsqueda completa por
+// Playwright cuando ya sabemos qué endpoint y qué nombre de producto buscar.
+async function leerPrecioAlcampoDesdeUrl(url: string, cookie: string, nombreEsperado: string): Promise<number | null> {
+  try {
+    const res = await fetch(url, { headers: { Accept: 'application/json', ...(cookie ? { Cookie: cookie } : {}) } });
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    if (!data) return null;
+    const productos = buscarProductosEnJson(data);
+    const nombreNorm = normalizar(nombreEsperado);
+    const match = productos.find((p) => normalizar(p.nombre) === nombreNorm);
+    return match?.precio ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ---------- Resultado por ingrediente ----------
 type Resultado = 'cargado' | 'sin_cambio_precio' | 'dudoso' | 'sin_match' | 'fallido';
 
-async function procesarMercadona(sb: SupabaseClient, obj: Objetivo, mapeo: Mapeo | undefined, catalogo: ProductoMercadona[], cookie: string): Promise<Resultado> {
+async function procesarMercadona(sb: SupabaseClient, obj: Objetivo, mapeo: Mapeo | undefined, catalogo: ProductoCatalogo[], cookie: string): Promise<Resultado> {
   try {
     let precio: number | null = null;
 
@@ -475,12 +501,12 @@ async function procesarMercadona(sb: SupabaseClient, obj: Objetivo, mapeo: Mapeo
   }
 }
 
-async function procesarAlcampo(page: Page, sb: SupabaseClient, obj: Objetivo, mapeo: Mapeo | undefined): Promise<Resultado> {
+async function procesarAlcampo(page: Page, sb: SupabaseClient, obj: Objetivo, mapeo: Mapeo | undefined, cookie: string): Promise<Resultado> {
   try {
     let precio: number | null = null;
 
-    if (mapeo?.estado_match === 'ok' && mapeo.url_producto) {
-      precio = await leerPrecioAlcampoDesdeUrl(page, mapeo.url_producto);
+    if (mapeo?.estado_match === 'ok' && mapeo.url_producto && mapeo.nombre_web) {
+      precio = await leerPrecioAlcampoDesdeUrl(mapeo.url_producto, cookie, mapeo.nombre_web);
     }
 
     if (precio == null) {
@@ -533,10 +559,11 @@ async function procesarLoteAlcampo(
       return contadores;
     }
     await diag(page, 'alcampo-post-login');
+    const cookie = await cookiesComoHeader(page);
 
     for (const obj of items) {
       const mapeo = mapeos.get(obj.iding);
-      const resultado = await procesarAlcampo(page, sb, obj, mapeo);
+      const resultado = await procesarAlcampo(page, sb, obj, mapeo, cookie);
       contadores[resultado]++;
       await sleepAleatorio(1500, 3500); // ritmo humano entre productos
     }
@@ -562,7 +589,7 @@ async function procesarLoteMercadona(sb: SupabaseClient, objetivos: Objetivo[], 
   }
 
   const necesitaCrawl = items.some((o) => mapeos.get(o.iding)?.estado_match !== 'ok' || !mapeos.get(o.iding)?.url_producto);
-  let catalogo: ProductoMercadona[] = [];
+  let catalogo: ProductoCatalogo[] = [];
   if (necesitaCrawl) {
     try {
       catalogo = await crawlCatalogoMercadona(cookie);
