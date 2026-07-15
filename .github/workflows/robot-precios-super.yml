@@ -15,7 +15,7 @@ on:
         type: string
         default: ""
   push:
-    branches: [master, trabajo] # TEMP-TEST: trabajo se quita tras la prueba en vivo
+    branches: [master]
     paths:
       - "scripts/robot-precios-super/robot.ts"
       - ".github/workflows/robot-precios-super.yml"
@@ -40,8 +40,8 @@ jobs:
 
       - name: Ejecutar robot
         env:
-          DIAG: "1"
-          MAX_ITEMS: "3" # TEMP-TEST: quitar tras la prueba en vivo
+          DIAG: ${{ github.event.inputs.diag == 'false' && '0' || '1' }}
+          MAX_ITEMS: ${{ github.event.inputs.max_items }}
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/robot-precios-super/robot.ts
