@@ -8,17 +8,14 @@
  *   portal.glovoapp.com/orders   → Historial de pedidos ("Descargar informe")
  *   portal.glovoapp.com/finance  → "Pagos" (última opción del sidebar): facturas + liquidaciones
  *
- * 15-jul-2026 (fix flujo real, capturas de Rubén):
- *   1) El portal filtra por establecimiento. Hay que abrir el selector y pulsar
- *      "Ver negocio" para que coja TODAS las tiendas (informe completo). Elegir una
- *      tienda suelta da datos parciales.
- *   2) "Descargar informe" abre un MODAL de formato (.csv / .xls). Hay que elegir .csv
- *      y confirmar el botón verde DENTRO del modal. El robot antes solo daba el primer
- *      clic → se quedaba esperando un fichero que nunca bajaba.
- *   verNegocio() hace (1); bajarDescargar() hace (2) dentro de captureExport.
- *   3) FACTURAS: NO están en managers/finance. Salen de portal.glovoapp.com/finance
- *      (menú "Pagos", al fondo del sidebar): sin captcha, ya con los 8 establecimientos.
- *      Se bajan con "Descargar todo" y con el icono de descarga de cada fila (PDF individual).
+ * 15-jul-2026 (testids REALES, del modo exploración):
+ *   reports  → pestañas [tab-sales] [tab-ops] [tab-customers]; si aterriza en /dashboard,
+ *              entrar por [plugin-link-reports] / [reports-nav-item].
+ *   orders   → botón exportar [export-report-btn].
+ *   finance  → "Descargar todo" [download-bulk-button]; por fila [download-<ID>] y
+ *              [payouts-download-link]. Sin captcha, 8 establecimientos ya cargados.
+ *   Flujo: verNegocio() = todas las tiendas; bajarDescargar() pulsa el botón (por testid si
+ *   se le pasa) y confirma el modal de formato .csv dentro de captureExport.
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
@@ -93,7 +90,7 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
  */
 async function verNegocio(page: Page, paso: string): Promise<void> {
   try {
-    const abridor = page.locator('[data-testid="brand-view-selection"]').first()
+    const abridor = page.locator('[data-testid="brand-view-selection"], [data-testid="vendor-filter-button"]').first()
       .or(page.getByRole('button', { name: /todos los establecimientos|establecimientos|establishments/i }).first());
     if (await abridor.count().catch(() => 0)) {
       await abridor.click({ timeout: 5000 }).catch(() => {});
@@ -124,16 +121,17 @@ function rango(): { from: string; to: string } {
 }
 
 /**
- * Pulsa "Descargar informe" y captura el fichero. Si aparece el modal de formato
- * (.csv / .xls), elige .csv y confirma el botón verde DENTRO del modal.
- * Todo va dentro de captureExport para no perder ni el evento download ni la respuesta XHR.
+ * Pulsa el botón de descarga (por testid si se le pasa; si no, por texto "Descargar informe")
+ * y captura el fichero. Si aparece el modal de formato (.csv / .xls), elige .csv y confirma
+ * el botón verde DENTRO del modal. Todo dentro de captureExport (evento download o XHR).
  */
-async function bajarDescargar(page: Page, paso: string): Promise<{ nombre: string; datos: Buffer } | null> {
-  const boton = page.getByRole('button', { name: /descargar( informe)?/i }).first()
+async function bajarDescargar(page: Page, paso: string, testid?: string): Promise<{ nombre: string; datos: Buffer } | null> {
+  const porTexto = page.getByRole('button', { name: /descargar( informe)?/i }).first()
     .or(page.locator('button, a, [role="button"]').filter({ hasText: /descargar( informe)?/i }).first());
+  const boton = testid ? page.locator(`[data-testid="${testid}"]`).first().or(porTexto) : porTexto;
   if (!(await boton.count().catch(() => 0))) {
     await volcar(`${P}_${paso}`, await page.content().catch(() => ''));
-    await log(P, 'sin_descarga', `${paso}: no veo el botón Descargar (HTML volcado)`);
+    await log(P, 'sin_descarga', `${paso}: no veo el botón de descarga (HTML volcado)`);
     return null;
   }
   try {
@@ -162,16 +160,27 @@ async function bajarDescargar(page: Page, paso: string): Promise<{ nombre: strin
   }
 }
 
-/** Rendimiento: pestañas Ventas y Operaciones (Clientes lo dejamos para CRM más adelante). */
+/** Rendimiento: pestañas Ventas [tab-sales] y Operaciones [tab-ops]. */
 async function rendimiento(page: Page, periodo: string, cuenta: string, from: string, to: string) {
   await page.goto(`${PORTAL}/reports?from=${from}&to=${to}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
+
+  // A veces /reports aterriza en /dashboard: entrar a Rendimiento por el menú
+  if (/\/dashboard/.test(page.url())) {
+    const nav = page.locator('[data-testid="plugin-link-reports"], [data-testid="reports-nav-item"]').first();
+    if (await nav.count().catch(() => 0)) {
+      await nav.click({ timeout: 6000 }).catch(() => {});
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForTimeout(5000);
+    }
+  }
   await verNegocio(page, `ventas_${cuenta}`);   // todas las tiendas → informe completo
 
-  for (const [nombreTab, tipo] of [['Ventas', 'glovo_ventas'], ['Operaciones', 'glovo_operaciones']] as const) {
-    const tab = page.getByRole('tab', { name: new RegExp(`^${nombreTab}$`, 'i') }).first()
+  for (const [testid, nombreTab, tipo] of [['tab-sales', 'Ventas', 'glovo_ventas'], ['tab-ops', 'Operaciones', 'glovo_operaciones']] as const) {
+    const tab = page.locator(`[data-testid="${testid}"]`).first()
+      .or(page.getByRole('tab', { name: new RegExp(`^${nombreTab}$`, 'i') }).first())
       .or(page.locator('[role="tab"], button, a').filter({ hasText: new RegExp(`^${nombreTab}$`, 'i') }).first());
     if (await tab.count().catch(() => 0)) {
       await tab.click({ timeout: 6000 }).catch(() => {});
@@ -190,14 +199,14 @@ async function historial(page: Page, periodo: string, cuenta: string, from: stri
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
   await verNegocio(page, `historial_${cuenta}`);   // todas las tiendas → informe completo
-  const f = await bajarDescargar(page, `historial_${cuenta}`);
+  const f = await bajarDescargar(page, `historial_${cuenta}`, 'export-report-btn');
   if (f) await entregar({ fuente: P, tipo: 'glovo_historial', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
 }
 
 /**
  * FACTURAS + LIQUIDACIONES · página "Pagos" = portal.glovoapp.com/finance (última opción
- * del sidebar). Sin captcha y ya con los 8 establecimientos. Bajamos con "Descargar todo"
- * (paquete del rango) y con el icono de descarga de cada fila (PDF individual → Conciliación).
+ * del sidebar). Sin captcha y ya con los 8 establecimientos. "Descargar todo"
+ * [download-bulk-button] + icono por fila [download-<ID>] / [payouts-download-link].
  */
 async function finanzas(page: Page, periodo: string, cuenta: string) {
   await page.goto(`${PORTAL}/finance`, { waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -218,8 +227,8 @@ async function finanzas(page: Page, periodo: string, cuenta: string) {
   let bajados = 0;
 
   // 1) "Descargar todo": un clic, todo el rango
-  const todo = page.getByRole('button', { name: /descargar todo/i }).first()
-    .or(page.locator('button, a, [role="button"]').filter({ hasText: /descargar todo/i }).first());
+  const todo = page.locator('[data-testid="download-bulk-button"]').first()
+    .or(page.getByRole('button', { name: /descargar todo/i }).first());
   if (await todo.count().catch(() => 0)) {
     try {
       const f = await captureExport(page, async () => { await todo.click({ timeout: 10000 }).catch(() => {}); });
@@ -232,8 +241,8 @@ async function finanzas(page: Page, periodo: string, cuenta: string) {
   }
 
   // 2) Icono de descarga por fila: PDF individual de cada factura / pago
-  const iconos = page.locator('button[aria-label*="descarg" i], a[aria-label*="descarg" i], [data-testid*="download" i]');
-  const n = Math.min(await iconos.count().catch(() => 0), 40);
+  const iconos = page.locator('[data-testid^="download-"]:not([data-testid="download-bulk-button"]), [data-testid="payouts-download-link"], button[aria-label*="descarg" i]');
+  const n = Math.min(await iconos.count().catch(() => 0), 60);
   for (let i = 0; i < n; i++) {
     try {
       const f = await captureExport(page, async () => { await iconos.nth(i).click({ timeout: 8000 }).catch(() => {}); }, { timeoutMs: 18000 });
