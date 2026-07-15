@@ -1,7 +1,7 @@
 name: Robots de plataforma (Uber / Glovo / Just Eat / Sinqro → bandeja)
 
 # Los robots solo DESCARGAN informes y los dejan en la bandeja de Papeleo.
-# 15-jul-2026 · navegador camuflado (Chrome real + Patchright) headful bajo xvfb.
+# 15-jul-2026 · navegador camuflado (chromium Patchright) headful bajo xvfb.
 
 on:
   workflow_dispatch:
@@ -110,13 +110,13 @@ jobs:
       - name: Instalar dependencias
         if: steps.toca.outputs.si == '1'
         run: npm install --no-audit --no-fund
-      - name: Navegador camuflado (Chrome real + chromium fallback + xvfb)
+      - name: Navegador camuflado (chromium Patchright + xvfb)
         if: steps.toca.outputs.si == '1'
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb
-          npx playwright install --with-deps chromium
-          npx patchright install chrome || echo "sin Chrome real; se usará chromium"
+          npx playwright install-deps chromium
+          npx patchright install chromium
 
       - name: Descargar informes y dejarlos en la bandeja
         if: steps.toca.outputs.si == '1'
