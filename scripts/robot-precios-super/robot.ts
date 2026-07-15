@@ -298,6 +298,24 @@ function buscarProductosEnJson(obj: any, resultados: ProductoCatalogo[] = [], pr
   return resultados;
 }
 
+// Algunas SPAs no llaman a un endpoint JSON aparte para la búsqueda: renderizan
+// el resultado en servidor y embeben el estado inicial en un <script> del HTML
+// (__NEXT_DATA__, __NUXT__, window.__INITIAL_STATE__…). Se extraen esos bloques
+// para pasarlos también por buscarProductosEnJson.
+function extraerBloquesJsonDeHtml(html: string): any[] {
+  const bloques: any[] = [];
+  const reScript = /<script[^>]*(?:type=["']application\/json["']|id=["'][^"']*(?:NEXT_DATA|__NUXT__|INITIAL_STATE)[^"']*["'])[^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = reScript.exec(html))) {
+    try { bloques.push(JSON.parse(m[1])); } catch {}
+  }
+  const reVar = /window\.__[A-Za-z0-9_]+__\s*=\s*(\{[\s\S]*?\})\s*;\s*(?:<\/script>|\n)/g;
+  while ((m = reVar.exec(html))) {
+    try { bloques.push(JSON.parse(m[1])); } catch {}
+  }
+  return bloques;
+}
+
 async function cookiesComoHeader(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
   return cookies.map((c) => `${c.name}=${c.value}`).join('; ');
@@ -404,13 +422,27 @@ async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: 
     try {
       const headers = await res.headers();
       const ct = headers['content-type'] || '';
-      if (!ct.includes('json')) return;
       const url = res.url();
-      if (!/search|product|catalog|listing|item/i.test(url)) return;
-      const data = await res.json().catch(() => null);
-      if (!data) return;
-      const productos = buscarProductosEnJson(data);
-      if (productos.length) capturas.push({ url, productos });
+      // Sin filtrar por palabra clave en la URL (podría ser GraphQL u otro
+      // endpoint sin nombre reconocible) — cualquier JSON cuenta, el filtro
+      // real es que buscarProductosEnJson encuentre objetos con forma de
+      // producto (nombre + precio), no ruido de analítica/config.
+      if (ct.includes('json')) {
+        const data = await res.json().catch(() => null);
+        if (!data) return;
+        const productos = buscarProductosEnJson(data);
+        if (productos.length) capturas.push({ url, productos });
+        return;
+      }
+      // Fallback: SPAs con renderizado en servidor embeben el estado inicial
+      // en el HTML (sin llamada JSON aparte) — se busca ahí también.
+      if (ct.includes('html') && /search/i.test(url)) {
+        const html = await res.text().catch(() => '');
+        for (const bloque of extraerBloquesJsonDeHtml(html)) {
+          const productos = buscarProductosEnJson(bloque);
+          if (productos.length) capturas.push({ url, productos });
+        }
+      }
     } catch {}
   };
   page.on('response', onResponse);
