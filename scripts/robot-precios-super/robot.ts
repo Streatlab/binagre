@@ -418,11 +418,13 @@ async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: 
   }
 
   const capturas: { url: string; productos: ProductoCatalogo[] }[] = [];
+  const vistas: string[] = [];
   const onResponse = async (res: Response) => {
     try {
       const headers = await res.headers();
       const ct = headers['content-type'] || '';
       const url = res.url();
+      if (vistas.length < 25) vistas.push(`${ct.split(';')[0] || '?'}::${url}`);
       // Sin filtrar por palabra clave en la URL (podría ser GraphQL u otro
       // endpoint sin nombre reconocible) — cualquier JSON cuenta, el filtro
       // real es que buscarProductosEnJson encuentre objetos con forma de
@@ -454,7 +456,7 @@ async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: 
   await diag(page, `alcampo-buscar-${consulta.slice(0, 20)}`);
 
   if (!capturas.length) {
-    await logRobot('precios_super', 'aviso', `alcampo "${consulta}": 0 respuestas JSON con productos interceptadas. url=${page.url()}`);
+    await logRobot('precios_super', 'aviso', `alcampo "${consulta}": 0 respuestas JSON con productos interceptadas. url=${page.url()} respuestas_vistas(${vistas.length}): ${vistas.join(' | ')}`);
     return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
   }
 
