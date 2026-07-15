@@ -278,6 +278,21 @@ const ALCAMPO_CP = '28038';
 // interceptan las respuestas JSON que la propia SPA dispara al buscar.
 // Escanea cualquier JSON recursivamente en busca de objetos "producto": un
 // campo de nombre y uno de precio numérico >0. No se asume un esquema fijo.
+// El precio casi nunca es un número/string suelto: suele venir anidado como
+// {amount:"1.45", currency:"EUR"} o {value:1.45} (confirmado en vivo con el
+// endpoint real de Alcampo: price.amount). Se baja recursivamente hasta dar
+// con un número — un `??` normal no sirve aquí porque el objeto anidado no es
+// null/undefined y por tanto nunca deja pasar al siguiente candidato.
+function extraerPrecioNumerico(candidato: any, profundidad = 0): number | null {
+  if (candidato == null || profundidad > 3) return null;
+  if (typeof candidato === 'number') return candidato > 0 ? candidato : null;
+  if (typeof candidato === 'string') return numES(candidato);
+  if (typeof candidato === 'object') {
+    return extraerPrecioNumerico(candidato.amount ?? candidato.value ?? candidato.price, profundidad + 1);
+  }
+  return null;
+}
+
 function buscarProductosEnJson(obj: any, resultados: ProductoCatalogo[] = [], profundidad = 0): ProductoCatalogo[] {
   if (obj == null || typeof obj !== 'object' || profundidad > 8) return resultados;
   if (Array.isArray(obj)) {
@@ -285,12 +300,12 @@ function buscarProductosEnJson(obj: any, resultados: ProductoCatalogo[] = [], pr
     return resultados;
   }
   const nombre = obj.name ?? obj.displayName ?? obj.title ?? obj.productName ?? obj.description;
-  const precioRaw = obj.price ?? obj.unitPrice ?? obj.currentPrice ?? obj.finalPrice ?? obj.sellingPrice
-    ?? obj?.price?.value ?? obj?.prices?.price ?? obj?.priceInfo?.price;
+  const precioRaw = obj.price ?? obj.unitPrice?.price ?? obj.currentPrice ?? obj.finalPrice ?? obj.sellingPrice
+    ?? obj?.prices?.price ?? obj?.priceInfo?.price;
   if (typeof nombre === 'string' && nombre.trim().length > 2) {
-    const precio = typeof precioRaw === 'number' ? precioRaw : numES(precioRaw != null ? String(precioRaw) : null);
+    const precio = extraerPrecioNumerico(precioRaw);
     if (precio != null && precio > 0) {
-      const id = String(obj.id ?? obj.sku ?? obj.productId ?? obj.ean ?? `${nombre}-${precio}`);
+      const id = String(obj.id ?? obj.sku ?? obj.productId ?? obj.retailerProductId ?? obj.ean ?? `${nombre}-${precio}`);
       resultados.push({ id, nombre: nombre.trim(), precio });
     }
   }
