@@ -419,6 +419,10 @@ async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: 
 
   const capturas: { url: string; productos: ProductoCatalogo[] }[] = [];
   const vistas: string[] = [];
+  // Patrón de endpoint confirmado en vivo: /api/webproductpagews/v6/product-pages/search
+  // — si su JSON no produce productos (forma real desconocida), se vuelca un
+  // fragmento para ajustar buscarProductosEnJson.
+  let debugEndpointPrincipal: string | null = null;
   const onResponse = async (res: Response) => {
     try {
       const headers = await res.headers();
@@ -433,7 +437,10 @@ async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: 
         const data = await res.json().catch(() => null);
         if (!data) return;
         const productos = buscarProductosEnJson(data);
-        if (productos.length) capturas.push({ url, productos });
+        if (productos.length) { capturas.push({ url, productos }); return; }
+        if (!debugEndpointPrincipal && /webproductpagews/i.test(url)) {
+          debugEndpointPrincipal = JSON.stringify(data).slice(0, 1500);
+        }
         return;
       }
       // Fallback: SPAs con renderizado en servidor embeben el estado inicial
@@ -456,7 +463,7 @@ async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: 
   await diag(page, `alcampo-buscar-${consulta.slice(0, 20)}`);
 
   if (!capturas.length) {
-    await logRobot('precios_super', 'aviso', `alcampo "${consulta}": 0 respuestas JSON con productos interceptadas. url=${page.url()} respuestas_vistas(${vistas.length}): ${vistas.join(' | ')}`);
+    await logRobot('precios_super', 'aviso', `alcampo "${consulta}": 0 respuestas JSON con productos interceptadas. debug_webproductpagews=${debugEndpointPrincipal ?? 'sin captura'}`);
     return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
   }
 
