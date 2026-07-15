@@ -14,8 +14,11 @@
  *   orders   → botón exportar [export-report-btn].
  *   finance  → "Descargar todo" [download-bulk-button]; por fila [download-<ID>] y
  *              [payouts-download-link]. Sin captcha, 8 establecimientos ya cargados.
- *   Flujo: verNegocio() = todas las tiendas; bajarDescargar() pulsa el botón (por testid si
- *   se le pasa) y confirma el modal de formato .csv dentro de captureExport.
+ *
+ * 15-jul-2026 (fix CARGA): en Rendimiento las tarjetas de informe (performance_report,
+ *   weekly_turnover) TARDAN en calcularse: mientras cargan hay un spinner [role=progressbar]
+ *   y el botón de descarga aún no existe. Por eso salía "no veo el botón". esperarCarga()
+ *   espera a que el spinner desaparezca antes de pulsar Descargar.
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
@@ -109,6 +112,24 @@ async function verNegocio(page: Page, paso: string): Promise<void> {
   } catch { /* seguimos: bajarDescargar volcará el DOM si no aparece el botón */ }
 }
 
+/**
+ * El informe tarda en calcularse: mientras carga hay un spinner [role=progressbar] y el
+ * botón de descarga aún no existe. Espera a que el spinner desaparezca (hasta ~35s).
+ */
+async function esperarCarga(page: Page, paso: string): Promise<void> {
+  const t0 = Date.now();
+  try {
+    while (Date.now() - t0 < 35000) {
+      const cargando = await page.locator('[role="progressbar"]:visible').count().catch(() => 0);
+      if (cargando === 0) break;
+      await page.waitForTimeout(1500);
+    }
+  } catch { /* seguimos igualmente */ }
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(2500);
+  await log(P, 'carga', `${paso}: informe cargado (${Math.round((Date.now() - t0) / 1000)}s)`);
+}
+
 /** Rango de fechas para la URL de los informes (from/to = AAAA-MM-DD). */
 function rango(): { from: string; to: string } {
   if (MODO === 'backfill' && /^\d{4}-\d{2}$/.test(MES)) {
@@ -185,8 +206,9 @@ async function rendimiento(page: Page, periodo: string, cuenta: string, from: st
     if (await tab.count().catch(() => 0)) {
       await tab.click({ timeout: 6000 }).catch(() => {});
       await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(5000);
+      await page.waitForTimeout(3000);
     }
+    await esperarCarga(page, `${tipo}_${cuenta}`);   // esperar a que el informe termine de calcularse
     const f = await bajarDescargar(page, `${tipo}_${cuenta}`);
     if (f) await entregar({ fuente: P, tipo, nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
   }
@@ -199,6 +221,7 @@ async function historial(page: Page, periodo: string, cuenta: string, from: stri
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
   await verNegocio(page, `historial_${cuenta}`);   // todas las tiendas → informe completo
+  await esperarCarga(page, `historial_${cuenta}`);
   const f = await bajarDescargar(page, `historial_${cuenta}`, 'export-report-btn');
   if (f) await entregar({ fuente: P, tipo: 'glovo_historial', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
 }
@@ -213,6 +236,7 @@ async function finanzas(page: Page, periodo: string, cuenta: string) {
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
+  await esperarCarga(page, `finanzas_${cuenta}`);
 
   // Rango por los chips de la propia página: semanal → 7 días; resto → 30 días (cubre la quincena)
   const preset = MODO === 'semanal' ? /últimos 7 días|ultimos 7 dias/i : /últimos 30 días|ultimos 30 dias/i;
