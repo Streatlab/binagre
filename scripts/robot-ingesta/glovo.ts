@@ -4,16 +4,20 @@
  * correo (IMAP del buzón de la cuenta) si hace falta.
  *
  * 15-jul-2026 · RUTAS REALES (confirmadas por Rubén con capturas):
- *   portal.glovoapp.com/reports  → Rendimiento: pestañas Ventas / Operaciones / Clientes  (botón "Descargar")
- *   portal.glovoapp.com/orders   → Historial de pedidos                                    (botón "Descargar informe")
- *   managers.glovoapp.com/finance y /gv-finance → facturas y liquidaciones (enlaces PDF directos)
+ *   portal.glovoapp.com/reports  → Rendimiento: pestañas Ventas / Operaciones / Clientes
+ *   portal.glovoapp.com/orders   → Historial de pedidos ("Descargar informe")
+ *   managers.glovoapp.com/finance y /gv-finance → facturas y liquidaciones
  *
- * 15-jul-2026 (fix) · El portal ABRE EN EL SELECTOR DE TIENDA. Sin elegir tienda no se
- * renderiza el informe ni su botón "Descargar" (por eso entra pero no baja nada: en el DOM
- * solo aparecían store-select-list-item / chain-select-button, ningún control de descarga).
- * seleccionarTienda() elige la tienda antes de intentar la descarga.
- * PENDIENTE: /finance entrega por EMAIL con enlace (download_bulk → "Enviar archivos"),
- * no como descarga directa → hace falta leer el buzón por IMAP y seguir el enlace.
+ * 15-jul-2026 (fix flujo real, capturas de Rubén):
+ *   1) El portal filtra por establecimiento. Hay que abrir el selector y pulsar
+ *      "Ver negocio" para que coja TODAS las tiendas (informe completo). Elegir una
+ *      tienda suelta da datos parciales.
+ *   2) "Descargar informe" abre un MODAL de formato (.csv / .xls). Hay que elegir .csv
+ *      y confirmar el botón verde DENTRO del modal. El robot antes solo daba el primer
+ *      clic → se quedaba esperando un fichero que nunca bajaba.
+ *   verNegocio() hace (1); bajarDescargar() hace (2) dentro de captureExport.
+ *   PENDIENTE: /finance entrega facturas por EMAIL con enlace (no descarga directa) →
+ *   falta lector IMAP que siga el enlace del correo.
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
@@ -82,29 +86,27 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
 }
 
 /**
- * El portal de Glovo abre en el SELECTOR DE TIENDA. Sin una tienda elegida el informe
- * no se renderiza y no existe el botón "Descargar". Elegimos la primera tienda de la lista
- * (o aplicamos el selector de cadena) para que aparezca el informe y su descarga.
- * Si no hay selector visible, no hace nada (ya estamos dentro del informe).
+ * El portal filtra por establecimiento. Abre el selector y pulsa "Ver negocio" para que
+ * el informe cubra TODAS las tiendas (8). Una tienda suelta daría datos parciales.
+ * Si no encuentra el control, no hace nada (el informe puede venir ya en "Todos").
  */
-async function seleccionarTienda(page: Page, paso: string): Promise<void> {
+async function verNegocio(page: Page, paso: string): Promise<void> {
   try {
-    const item = page.locator('[data-testid="store-select-list-item"]').first();
-    if (await item.count().catch(() => 0)) {
-      const nombre = ((await item.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim().slice(0, 50);
-      await item.click({ timeout: 6000 }).catch(() => {});
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(4000);
-      await log(P, 'tienda', `${paso}: tienda seleccionada (${nombre || 's/n'})`);
-      return;
+    const abridor = page.locator('[data-testid="brand-view-selection"]').first()
+      .or(page.getByRole('button', { name: /todos los establecimientos|establecimientos|establishments/i }).first());
+    if (await abridor.count().catch(() => 0)) {
+      await abridor.click({ timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(1500);
     }
-    const cadena = page.getByRole('button', { name: /ver informe|aplicar|continuar|todas las tiendas|all stores/i }).first()
+    const verNeg = page.getByRole('button', { name: /ver negocio|view business/i }).first()
       .or(page.locator('[data-testid="chain-select-button"]').first());
-    if (await cadena.count().catch(() => 0)) {
-      await cadena.click({ timeout: 6000 }).catch(() => {});
+    if (await verNeg.count().catch(() => 0)) {
+      await verNeg.click({ timeout: 6000 }).catch(() => {});
       await page.waitForLoadState('networkidle').catch(() => {});
       await page.waitForTimeout(4000);
-      await log(P, 'tienda', `${paso}: aplicado selector de cadena`);
+      await log(P, 'negocio', `${paso}: "Ver negocio" (todas las tiendas)`);
+    } else {
+      await log(P, 'negocio', `${paso}: no veo "Ver negocio"; sigo con la vista actual`);
     }
   } catch { /* seguimos: bajarDescargar volcará el DOM si no aparece el botón */ }
 }
@@ -120,7 +122,11 @@ function rango(): { from: string; to: string } {
   return { from: hoyMadrid(7), to: hoyMadrid(1) };   // últimos 7 días cerrados
 }
 
-/** Pulsa "Descargar" (o "Descargar informe") en la página actual y captura el fichero. */
+/**
+ * Pulsa "Descargar informe" y captura el fichero. Si aparece el modal de formato
+ * (.csv / .xls), elige .csv y confirma el botón verde DENTRO del modal.
+ * Todo va dentro de captureExport para no perder ni el evento download ni la respuesta XHR.
+ */
 async function bajarDescargar(page: Page, paso: string): Promise<{ nombre: string; datos: Buffer } | null> {
   const boton = page.getByRole('button', { name: /descargar( informe)?/i }).first()
     .or(page.locator('button, a, [role="button"]').filter({ hasText: /descargar( informe)?/i }).first());
@@ -130,7 +136,22 @@ async function bajarDescargar(page: Page, paso: string): Promise<{ nombre: strin
     return null;
   }
   try {
-    const f = await captureExport(page, async () => { await boton.click({ timeout: 10000 }).catch(() => {}); });
+    const f = await captureExport(page, async () => {
+      await boton.click({ timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(1800);
+      // Modal de formato: "Formato del informe" con .csv / .xls
+      const dlg = page.locator('[role="dialog"], .modal, [class*="modal" i]')
+        .filter({ hasText: /formato del informe|descargar informe|archivo \.?csv/i }).first();
+      if (await dlg.count().catch(() => 0)) {
+        const csv = dlg.getByText(/archivo\s*\.?csv/i).first()
+          .or(dlg.locator('input[type="radio"]').first());
+        await csv.click({ timeout: 4000 }).catch(() => {});
+        await page.waitForTimeout(400);
+        const conf = dlg.getByRole('button', { name: /descargar( informe)?/i }).first()
+          .or(dlg.locator('button').filter({ hasText: /descargar/i }).last());
+        await conf.click({ timeout: 8000 }).catch(() => {});
+      }
+    });
     await log(P, 'descarga', `${paso}: ${f.filename} (${f.buffer.length} bytes · ${f.source})`);
     return { nombre: f.filename, datos: f.buffer };
   } catch (e: any) {
@@ -146,7 +167,7 @@ async function rendimiento(page: Page, periodo: string, cuenta: string, from: st
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
-  await seleccionarTienda(page, `ventas_${cuenta}`);   // sin tienda no aparece el informe ni el botón
+  await verNegocio(page, `ventas_${cuenta}`);   // todas las tiendas → informe completo
 
   for (const [nombreTab, tipo] of [['Ventas', 'glovo_ventas'], ['Operaciones', 'glovo_operaciones']] as const) {
     const tab = page.getByRole('tab', { name: new RegExp(`^${nombreTab}$`, 'i') }).first()
@@ -167,7 +188,7 @@ async function historial(page: Page, periodo: string, cuenta: string, from: stri
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
-  await seleccionarTienda(page, `historial_${cuenta}`);   // sin tienda no aparece el informe ni el botón
+  await verNegocio(page, `historial_${cuenta}`);   // todas las tiendas → informe completo
   const f = await bajarDescargar(page, `historial_${cuenta}`);
   if (f) await entregar({ fuente: P, tipo: 'glovo_historial', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
 }
@@ -180,7 +201,6 @@ async function finanzas(page: Page, periodo: string, cuenta: string) {
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(9000);
     await quitarEstorbos(page);
-    await seleccionarTienda(page, `fin${ruta.replace(/\//g, '_')}_${cuenta}`);
     const ficheros = await bajarEnlaces(P, page, `fin${ruta.replace(/\//g, '_')}_${cuenta}`, 8);
     for (const f of ficheros) {
       await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'facturas' });
