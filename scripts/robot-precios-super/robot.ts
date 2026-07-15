@@ -351,14 +351,21 @@ async function candidatosPorPrecioCercano(page: Page, primeraPalabra: string, ba
   const vistos = new Set<string>();
   const candidatos: { texto: string; url: string | null; precio: number | null }[] = [];
   for (let i = 0; i < Math.min(total, limite); i++) {
-    const ancla = precios.nth(i).locator('xpath=ancestor::a[1]');
-    if (!(await ancla.count().catch(() => 0))) continue;
-    const href = await ancla.getAttribute('href').catch(() => null);
-    if (!href || vistos.has(href)) continue;
-    const texto = ((await ancla.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-    if (!new RegExp(primeraPalabra, 'i').test(texto)) continue;
-    vistos.add(href);
-    candidatos.push({ texto, url: new URL(href, base).toString(), precio: extraerPrecio(texto) });
+    const nodo = precios.nth(i);
+    // El nombre del producto no siempre vive en el mismo <a> que el precio
+    // (comprobado en vivo, RadarSuper y Alcampo) — se sube nivel a nivel hasta
+    // encontrar un contenedor que tenga el nombre Y un enlace de producto.
+    for (let nivel = 1; nivel <= 6; nivel++) {
+      const contenedor = nodo.locator(`xpath=ancestor::*[${nivel}]`);
+      if (!(await contenedor.count().catch(() => 0))) break;
+      const texto = ((await contenedor.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      if (!new RegExp(primeraPalabra, 'i').test(texto)) continue;
+      const href = await contenedor.locator('a[href]').first().getAttribute('href').catch(() => null);
+      if (!href || vistos.has(href)) break;
+      vistos.add(href);
+      candidatos.push({ texto: texto.slice(0, 200), url: new URL(href, base).toString(), precio: extraerPrecio(texto) });
+      break;
+    }
   }
   return candidatos;
 }
