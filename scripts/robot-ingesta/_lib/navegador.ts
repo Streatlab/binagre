@@ -1,10 +1,10 @@
 /**
  * NAVEGADOR · Utilidades comunes de descarga.
  *
- * 15-jul-2026 · CAMUFLAJE ANTIBOT: Chrome real vía Patchright (drop-in de Playwright, sin la
- * fuga CDP ni la marca de automatización), en modo HEADFUL bajo xvfb en CI. Se quitan los
- * parches manuales de navigator.* porque PerimeterX los detecta. Si no hay Chrome real,
- * cae a chromium de Patchright para no romper el run.
+ * 15-jul-2026 · CAMUFLAJE ANTIBOT: chromium de Patchright (drop-in de Playwright, sin la fuga
+ * CDP ni la marca de automatización), en modo HEADFUL bajo xvfb en CI. Sin parches manuales
+ * (PerimeterX los detecta). Usa el chromium propio de Patchright (instalado con
+ * `patchright install chromium`), no el Chrome de Google (que en el runner no se instala).
  */
 import { chromium, type Browser, type BrowserContext, type Page } from 'patchright';
 import { log, volcar } from './bandeja.js';
@@ -16,10 +16,9 @@ export async function abrir(plataforma: string, cuenta: string): Promise<{ brows
   const args = ['--no-sandbox', '--disable-dev-shm-usage', '--lang=es-ES'];
   let browser: Browser;
   try {
-    browser = await chromium.launch({ headless: false, channel: 'chrome', args });
+    browser = await chromium.launch({ headless: false, args });   // headful (bajo xvfb)
   } catch {
-    // Sin Chrome real disponible → chromium de Patchright (headful igualmente).
-    browser = await chromium.launch({ headless: false, args }).catch(() => chromium.launch({ headless: true, args }));
+    browser = await chromium.launch({ headless: true, args });    // por si xvfb no está
   }
   const sesion = await cargarSesion(plataforma, cuenta);
   const ctx = await browser.newContext({
