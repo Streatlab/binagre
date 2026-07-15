@@ -1,7 +1,6 @@
 name: Robots de plataforma (Uber / Glovo / Just Eat / Sinqro → bandeja)
 
 # Los robots solo DESCARGAN informes y los dejan en la bandeja de Papeleo.
-# 15-jul-2026 · navegador camuflado (chromium Patchright) headful bajo xvfb.
 
 on:
   workflow_dispatch:
@@ -110,13 +109,19 @@ jobs:
       - name: Instalar dependencias
         if: steps.toca.outputs.si == '1'
         run: npm install --no-audit --no-fund
-      - name: Navegador camuflado (chromium Patchright + xvfb)
+      - name: Cache navegador Playwright
+        id: cache-playwright
         if: steps.toca.outputs.si == '1'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb
-          npx playwright install-deps chromium
-          npx patchright install chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Instalar navegador Playwright
+        if: steps.toca.outputs.si == '1' && steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Dependencias de sistema (con cache)
+        if: steps.toca.outputs.si == '1' && steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Descargar informes y dejarlos en la bandeja
         if: steps.toca.outputs.si == '1'
@@ -127,4 +132,4 @@ jobs:
           ROBOT_DRY: ${{ github.event.inputs.simulacro }}
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: xvfb-run -a npx tsx scripts/robot-ingesta/${{ matrix.plataforma }}.ts
+        run: npx tsx scripts/robot-ingesta/${{ matrix.plataforma }}.ts
