@@ -73,18 +73,6 @@ async function sniffInputs(page: Page, limite = 15): Promise<string> {
   }
   return `inputs(${total} total, primeros ${partes.length}): ${partes.join(' ')}`;
 }
-async function sniffAnchors(page: Page, locator: ReturnType<Page['locator']>, limite = 5): Promise<string> {
-  const total = await locator.count().catch(() => 0);
-  const partes: string[] = [];
-  for (let i = 0; i < Math.min(total, limite); i++) {
-    const el = locator.nth(i);
-    const txt = ((await el.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-    const href = (await el.getAttribute('href').catch(() => null)) || '';
-    partes.push(`"${txt}"→${href}`);
-  }
-  return partes.join(' | ');
-}
-
 type Objetivo = { iding: string; nombre: string; proveedor: 'Mercadona' | 'Alcampo'; formato: string; precio_actual: number | null };
 type Mapeo = { iding: string; proveedor: string; url_producto: string | null; ean: string | null; nombre_web: string | null; estado_match: string };
 type Credencial = { plataforma: string; usuario: string; password: string; url_base: string };
@@ -140,22 +128,31 @@ function extraerPrecio(texto: string): number | null {
   return m ? numES(m[0]) : null;
 }
 
-// Extrae precio/nombre/url del primer resultado de un locator de anclas ya acotado.
-async function extraerPrimeraAncla(locator: ReturnType<Page['locator']>, base: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
-  const total = await locator.count().catch(() => 0);
-  const primera = locator.first();
-  const texto = ((await primera.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-  const href = await primera.getAttribute('href').catch(() => null);
-  const url = href ? new URL(href, base).toString() : null;
-  return { precio: extraerPrecio(texto), url, nombreWeb: texto.slice(0, 80), candidatos: total };
+// Busca por proximidad: localiza nodos de texto con precio en € y sube al <a>
+// ancestro más cercano (la tarjeta de producto), filtrando por si su texto
+// contiene la palabra clave — evita adivinar la clase CSS de la tarjeta o
+// asumir que el precio vive dentro del propio <a> (comprobado en vivo: el
+// precio de RadarSuper está fuera del enlace, no dentro).
+async function candidatosPorPrecioCercano(page: Page, primeraPalabra: string, base: string, limite = 30): Promise<{ texto: string; url: string | null; precio: number | null }[]> {
+  const precios = page.getByText(RADARSUPER_PRECIO);
+  const total = await precios.count().catch(() => 0);
+  const vistos = new Set<string>();
+  const candidatos: { texto: string; url: string | null; precio: number | null }[] = [];
+  for (let i = 0; i < Math.min(total, limite); i++) {
+    const ancla = precios.nth(i).locator('xpath=ancestor::a[1]');
+    if (!(await ancla.count().catch(() => 0))) continue;
+    const href = await ancla.getAttribute('href').catch(() => null);
+    if (!href || vistos.has(href)) continue;
+    const texto = ((await ancla.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    if (!new RegExp(primeraPalabra, 'i').test(texto)) continue;
+    vistos.add(href);
+    candidatos.push({ texto, url: new URL(href, base).toString(), precio: extraerPrecio(texto) });
+  }
+  return candidatos;
 }
 
-// Busca en RadarSuper: primero intenta el buscador on-page (si existe), si no hay
-// prueba el parámetro ?q= por si acaso. Sea cual sea el listado resultante, acota
-// candidatos por anclas que contengan la palabra clave del producto Y un precio en
-// euros — así no dependemos de adivinar la clase CSS de la tarjeta (ver histórico:
-// un selector genérico devolvía siempre ~378 candidatos, el listado por defecto
-// completo, sin filtrar de verdad).
+// Busca en RadarSuper: primero intenta el buscador on-page (si existe), si no
+// hay prueba el parámetro ?q= por si acaso.
 async function buscarEnRadarsuper(page: Page, consulta: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
   await page.goto('https://radarsuper.com/mercadona', { waitUntil: 'domcontentloaded' }).catch(() => {});
   await sleepAleatorio(1500, 2500);
@@ -174,25 +171,18 @@ async function buscarEnRadarsuper(page: Page, consulta: string): Promise<{ preci
   await diag(page, `radarsuper-${consulta.slice(0, 20)}`);
 
   const primeraPalabra = consulta.split(/\s+/)[0];
-  const porNombreYPrecio = page.locator('a[href]').filter({ hasText: new RegExp(primeraPalabra, 'i') }).filter({ hasText: RADARSUPER_PRECIO });
-  let total = await porNombreYPrecio.count().catch(() => 0);
-  if (total >= 1 && total <= 6) return extraerPrimeraAncla(porNombreYPrecio, 'https://radarsuper.com');
-
-  // Sin match por nombre+precio: probamos solo por precio (por si el texto de la
-  // tarjeta no incluye el nombre buscado literalmente) y dejamos rastro para ajustar.
-  const soloPrecio = page.locator('a[href]').filter({ hasText: RADARSUPER_PRECIO });
-  const totalPrecio = await soloPrecio.count().catch(() => 0);
-  if (total === 0 && totalPrecio === 0) {
-    // Ni un ancla con precio en toda la página: probablemente no cargó contenido
-    // real (bloqueo, redirect, cookie-wall, URL/parámetro equivocado).
-    const totalAnclas = await page.locator('a[href]').count().catch(() => 0);
-    const cuerpo = ((await page.locator('body').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-    await logRobot('precios_super', 'error', `radarsuper "${consulta}": página sin precios. url=${page.url()} title="${await page.title().catch(() => '')}" anclas_totales=${totalAnclas} tiene_€=${/€/.test(cuerpo)} cuerpo(200)="${cuerpo.slice(0, 200)}"`);
-  } else {
-    await logRobot('precios_super', 'aviso', `radarsuper "${consulta}": ${total} por nombre+precio, ${totalPrecio} solo por precio, url=${page.url()} → ${await sniffAnchors(page, total > 0 ? porNombreYPrecio : soloPrecio)}`);
+  const candidatos = await candidatosPorPrecioCercano(page, primeraPalabra, 'https://radarsuper.com');
+  if (candidatos.length === 0) {
+    const totalPrecios = await page.getByText(RADARSUPER_PRECIO).count().catch(() => 0);
+    await logRobot('precios_super', 'aviso', `radarsuper "${consulta}": 0 candidatos tras filtrar por nombre (${totalPrecios} nodos con precio en la página, url=${page.url()})`);
+    return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
   }
-  if (total > 6) return { precio: null, url: null, nombreWeb: null, candidatos: total };
-  return { precio: null, url: null, nombreWeb: null, candidatos: totalPrecio };
+  if (candidatos.length > 6) {
+    await logRobot('precios_super', 'aviso', `radarsuper "${consulta}": ${candidatos.length} candidatos ambiguos → ${candidatos.slice(0, 5).map((c) => `"${c.texto.slice(0, 60)}"`).join(' | ')}`);
+    return { precio: null, url: null, nombreWeb: null, candidatos: candidatos.length };
+  }
+  const c = candidatos[0];
+  return { precio: c.precio, url: c.url, nombreWeb: c.texto.slice(0, 80), candidatos: candidatos.length };
 }
 
 // ---------- ALCAMPO ----------
@@ -237,8 +227,9 @@ async function loginAlcampo(page: Page, cred: Credencial): Promise<boolean> {
   await passInput.fill(cred.password);
 
   const submitCandidatos = [
+    page.locator('#btnSubmit_login'), // botón real confirmado en vivo: id=btnSubmit_login, texto "Conectarme"
     page.locator('#Login'),
-    page.getByRole('button', { name: /iniciar sesión|entrar|acceder|log ?in/i }),
+    page.getByRole('button', { name: /iniciar sesión|entrar|acceder|conectarme|log ?in/i }),
     page.locator('input[type="submit"]'),
     page.locator('button[type="submit"]'),
   ];
@@ -285,13 +276,17 @@ async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: 
   await diag(page, `alcampo-buscar-${consulta.slice(0, 20)}`);
 
   const primeraPalabra = consulta.split(/\s+/)[0];
-  const candidatos = page.locator('a[href]').filter({ hasText: new RegExp(primeraPalabra, 'i') }).filter({ hasText: RADARSUPER_PRECIO });
-  const total = await candidatos.count().catch(() => 0);
-  if (total === 0 || total > 6) {
-    if (total === 0) await logRobot('precios_super', 'aviso', `alcampo "${consulta}": 0 candidatos por nombre+precio. url=${page.url()}`);
-    return { precio: null, url: null, nombreWeb: null, candidatos: total };
+  const candidatos = await candidatosPorPrecioCercano(page, primeraPalabra, 'https://www.compraonline.alcampo.es');
+  if (candidatos.length === 0) {
+    const totalPrecios = await page.getByText(RADARSUPER_PRECIO).count().catch(() => 0);
+    await logRobot('precios_super', 'aviso', `alcampo "${consulta}": 0 candidatos tras filtrar por nombre (${totalPrecios} nodos con precio en la página, url=${page.url()})`);
+    return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
   }
-  return extraerPrimeraAncla(candidatos, 'https://www.compraonline.alcampo.es');
+  if (candidatos.length > 6) {
+    return { precio: null, url: null, nombreWeb: null, candidatos: candidatos.length };
+  }
+  const c = candidatos[0];
+  return { precio: c.precio, url: c.url, nombreWeb: c.texto.slice(0, 80), candidatos: candidatos.length };
 }
 
 async function leerPrecioAlcampoDesdeUrl(page: Page, url: string): Promise<number | null> {
