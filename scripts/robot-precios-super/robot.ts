@@ -182,7 +182,15 @@ async function buscarEnRadarsuper(page: Page, consulta: string): Promise<{ preci
   // tarjeta no incluye el nombre buscado literalmente) y dejamos rastro para ajustar.
   const soloPrecio = page.locator('a[href]').filter({ hasText: RADARSUPER_PRECIO });
   const totalPrecio = await soloPrecio.count().catch(() => 0);
-  await logRobot('precios_super', 'aviso', `radarsuper "${consulta}": ${total} por nombre+precio, ${totalPrecio} solo por precio, url=${page.url()} → ${await sniffAnchors(page, total > 0 ? porNombreYPrecio : soloPrecio)}`);
+  if (total === 0 && totalPrecio === 0) {
+    // Ni un ancla con precio en toda la página: probablemente no cargó contenido
+    // real (bloqueo, redirect, cookie-wall, URL/parámetro equivocado).
+    const totalAnclas = await page.locator('a[href]').count().catch(() => 0);
+    const cuerpo = ((await page.locator('body').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    await logRobot('precios_super', 'error', `radarsuper "${consulta}": página sin precios. url=${page.url()} title="${await page.title().catch(() => '')}" anclas_totales=${totalAnclas} tiene_€=${/€/.test(cuerpo)} cuerpo(200)="${cuerpo.slice(0, 200)}"`);
+  } else {
+    await logRobot('precios_super', 'aviso', `radarsuper "${consulta}": ${total} por nombre+precio, ${totalPrecio} solo por precio, url=${page.url()} → ${await sniffAnchors(page, total > 0 ? porNombreYPrecio : soloPrecio)}`);
+  }
   if (total > 6) return { precio: null, url: null, nombreWeb: null, candidatos: total };
   return { precio: null, url: null, nombreWeb: null, candidatos: totalPrecio };
 }
@@ -207,30 +215,62 @@ async function fijarCpAlcampo(page: Page) {
 
 // Devuelve si el login quedó confirmado (no basta con haber pulsado "entrar":
 // si el formulario sigue ahí o la URL sigue en /login, no ha entrado de verdad).
+// El login de Alcampo redirige a un dominio Salesforce Experience Cloud
+// (*.my.site.com/authorization) — probamos primero sus selectores estándar
+// (#username/#password/#Login) y varios candidatos de envío, con Enter como
+// último recurso si ningún botón hace nada.
 async function loginAlcampo(page: Page, cred: Credencial): Promise<boolean> {
   await page.goto('https://www.compraonline.alcampo.es/login', { waitUntil: 'domcontentloaded' }).catch(() => {});
   await sleepAleatorio(1200, 2000);
   await cerrarModales(page);
-  const userInput = page.locator('input[type="email"], input[type="text"][name*="user" i], input[id*="dni" i]').first();
+  const userInput = page.locator('#username, input[type="email"], input[type="text"][name*="user" i], input[id*="dni" i]').first();
   if (!(await userInput.count().catch(() => 0))) {
     await logRobot('precios_super', 'error', `alcampo login: campo usuario no encontrado. url=${page.url()} title="${await page.title().catch(() => '')}" ${await sniffInputs(page)}`);
     return false;
   }
   await userInput.fill(cred.usuario);
-  const passInput = page.locator('input[type="password"]').first();
+  const passInput = page.locator('#password, input[type="password"]').first();
   if (!(await passInput.count().catch(() => 0))) {
     await logRobot('precios_super', 'error', `alcampo login: campo password no encontrado tras rellenar usuario. url=${page.url()} ${await sniffInputs(page)}`);
     return false;
   }
   await passInput.fill(cred.password);
-  await page.getByRole('button', { name: /iniciar sesión|entrar|acceder/i }).first().click({ timeout: 3000 }).catch(() => {});
+
+  const submitCandidatos = [
+    page.locator('#Login'),
+    page.getByRole('button', { name: /iniciar sesión|entrar|acceder|log ?in/i }),
+    page.locator('input[type="submit"]'),
+    page.locator('button[type="submit"]'),
+  ];
+  let clicado = false;
+  for (const cand of submitCandidatos) {
+    if (await cand.first().count().catch(() => 0)) {
+      await cand.first().click({ timeout: 2000 }).catch(() => {});
+      clicado = true;
+      break;
+    }
+  }
+  if (!clicado) await passInput.press('Enter').catch(() => {});
   await sleepAleatorio(2500, 3500);
 
   const siguePassword = await page.locator('input[type="password"]').first().count().catch(() => 0);
-  const sigueEnLogin = /login/i.test(page.url());
+  const sigueEnLogin = /login|authorization/i.test(page.url());
   const logueado = !siguePassword && !sigueEnLogin;
-  await logRobot('precios_super', logueado ? 'ok' : 'error', `alcampo login ${logueado ? 'confirmado' : 'FALLÓ'}: url=${page.url()} password_visible=${!!siguePassword}`);
-  return logueado;
+  if (logueado) {
+    await logRobot('precios_super', 'ok', `alcampo login confirmado: url=${page.url()}`);
+    return true;
+  }
+  const botones = page.locator('button, input[type="submit"], input[type="button"]');
+  const totalBotones = await botones.count().catch(() => 0);
+  const muestraBotones: string[] = [];
+  for (let i = 0; i < Math.min(totalBotones, 8); i++) {
+    const b = botones.nth(i);
+    const txt = ((await b.textContent().catch(() => '')) || (await b.getAttribute('value').catch(() => '')) || '').trim();
+    const id = (await b.getAttribute('id').catch(() => null)) || '';
+    muestraBotones.push(`[id=${id} "${txt}"]`);
+  }
+  await logRobot('precios_super', 'error', `alcampo login FALLÓ: url=${page.url()} password_visible=${!!siguePassword} clicado=${clicado} botones: ${muestraBotones.join(' ')}`);
+  return false;
 }
 
 async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
