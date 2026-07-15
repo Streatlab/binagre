@@ -1,15 +1,16 @@
 /**
- * ROBOT GLOVO · Descarga los informes del portal de comercio y los deja en la bandeja.
- * Dos cuentas (posmodernos y streatlab). Entra solo: sesión guardada + código por IMAP.
+ * ROBOT GLOVO · Descarga los informes del portal (Rendimiento, Historial, Pagos) y los deja
+ * en la bandeja. Dos cuentas. Entra solo (sesión guardada + código por IMAP).
  *
  * 15-jul-2026 · TODO POR API INTERNA (sin captcha), capturado de los HAR de Rubén:
- *   VENTAS      → POST vos-api.../v1/vendors/reports/performance/summary/export (field_mask ventas)
- *   OPERACIONES → POST vos-api.../v1/vendors/reports/ops/summary/export (field_mask ops)
- *                 ambos → {reportDownloadURL} → GET → CSV
- *   FACTURAS    → GraphQL vagw-api.../query: ListPayouts → RequestPayouts → downloadUrl → GET → ZIP
- *   Se captura la cabecera x-px-cookies de una llamada real del portal y se replica con
- *   page.request (arrastra la sesión). CERO botón, CERO captcha.
- *   HISTORIAL: pendiente de capturar su export (su descarga por botón choca con el captcha).
+ *   VENTAS      → POST vos-api.../reports/performance/summary/export (CSV) → downloadURL → GET
+ *   OPERACIONES → POST vos-api.../reports/ops/summary/export (CSV) → downloadURL → GET
+ *   HISTORIAL   → GraphQL vagw .../query op DownloadReport → downloadURL → GET (CSV orderDetails)
+ *   FACTURAS    → GraphQL vagw .../query: ListPayouts → RequestPayouts → downloadUrl → GET (ZIP)
+ *   Se captura la cabecera x-px-cookies (token del antibot) de una llamada real del portal y se
+ *   replica con page.request (arrastra la sesión). CERO botón, CERO captcha.
+ *   NOTA: si el navegador headless no pasa el antibot, el gateway responde 403 → hará falta
+ *   camuflar el navegador (Patchright/headful).
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
@@ -27,7 +28,9 @@ const REPORTS_API = 'https://vos-api.eu.prd.portal.restaurant';
 const MODO = (process.env.MODO || 'diario').toLowerCase();
 const MES = process.env.MES || '';
 
-const VENDOR_CODES = ['GV_ES;578570', 'GV_ES;244299', 'GV_ES;580042', 'GV_ES;459466', 'GV_ES;569883', 'GV_ES;580156', 'GV_ES;580336', 'GV_ES;349698'];
+const VENDOR_IDS = ['578570', '244299', '580042', '459466', '569883', '580156', '580336', '349698'];
+const VENDOR_CODES = VENDOR_IDS.map((v) => `GV_ES;${v}`);
+const VENDOR_OBJS = VENDOR_IDS.map((v) => ({ globalEntityId: 'GV_ES', vendorId: v }));
 
 const ACCOUNTS_GLOVO = [
   { grid: '4MWIW9', billingParentId: '', chainId: '392092' },
@@ -56,12 +59,7 @@ const Q_LIST_PAYOUTS = `query ListPayouts($params: ListPayoutsRequest!) {
         payoutAccount: account { grid billingParentId chainId __typename }
         invoices {
           invoiceId: id
-          invoiceAmount: totalPayout
-          invoiceCurrency: currency
-          invoiceOrders: ordersCount
-          processedDate
           invoiceAttachments: attachments
-          period: earningsPeriod { from: invoiceStartDate to: invoiceEndDate __typename }
           invoiceAccount: account { grid billingParentId chainId __typename }
           __typename
         }
@@ -74,13 +72,11 @@ const Q_LIST_PAYOUTS = `query ListPayouts($params: ListPayoutsRequest!) {
 }`;
 
 const Q_REQUEST_PAYOUTS = `query RequestPayouts($params: DownloadPayoutsRequest!) {
-  finances {
-    downloadPayouts(input: $params) {
-      downloadUrl
-      __typename
-    }
-    __typename
-  }
+  finances { downloadPayouts(input: $params) { downloadUrl __typename } __typename }
+}`;
+
+const Q_DOWNLOAD_REPORT = `query DownloadReport($params: DownloadOrdersExportReq!) {
+  orders { ordersExport { downloadOrdersExport(input: $params) { downloadURL __typename } __typename } __typename }
 }`;
 
 async function dentro(page: Page): Promise<boolean> {
@@ -135,13 +131,12 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   return ok;
 }
 
-/** Captura la cabecera del antibot (x-px-cookies) de una llamada real del portal a su API. */
+/** Captura x-px-cookies (para vos-api) de una llamada real del portal. */
 function capturarPx(page: Page): { get: () => string | null } {
   const box: { v: string | null } = { v: null };
   page.on('request', (req) => {
     try {
-      if (box.v) return;
-      if (req.method() !== 'POST') return;
+      if (box.v || req.method() !== 'POST') return;
       const u = req.url();
       if (!u.startsWith(REPORTS_API) && !u.startsWith(GATEWAY)) return;
       const h = req.headers();
@@ -151,7 +146,33 @@ function capturarPx(page: Page): { get: () => string | null } {
   return { get: () => box.v };
 }
 
-/** Espera a que el informe/página termine de cargar (spinner role=progressbar). */
+/** Captura las cabeceras completas del gateway vagw (para GraphQL) de una llamada real. */
+function capturarVagw(page: Page): { get: () => Record<string, string> | null; accounts: () => any[] | null } {
+  let hdrs: Record<string, string> | null = null;
+  let accs: any[] | null = null;
+  page.on('request', (req) => {
+    try {
+      if (req.method() !== 'POST' || !req.url().startsWith(GATEWAY)) return;
+      const h = req.headers();
+      if (!h['x-px-cookies']) return;
+      if (!hdrs) hdrs = {
+        'content-type': 'application/json',
+        'apollographql-client-name': h['apollographql-client-name'] || 'API Gateway',
+        'x-app-name': h['x-app-name'] || 'one-web',
+        'x-country': h['x-country'] || 'ES',
+        'x-global-entity-id': h['x-global-entity-id'] || 'GV_ES',
+        'x-user-id': h['x-user-id'] || '',
+        'x-vendor-id': h['x-vendor-id'] || '',
+        'x-rps-device': h['x-rps-device'] || '',
+        'x-px-cookies': h['x-px-cookies'],
+      };
+      const pd = req.postData() || '';
+      if (!accs && pd.includes('ListPayouts')) { try { accs = JSON.parse(pd).variables.params.accounts; } catch {} }
+    } catch {}
+  });
+  return { get: () => hdrs, accounts: () => accs };
+}
+
 async function esperarCarga(page: Page): Promise<void> {
   const t0 = Date.now();
   try {
@@ -165,7 +186,6 @@ async function esperarCarga(page: Page): Promise<void> {
   await page.waitForTimeout(2500);
 }
 
-/** Rango de fechas para los informes (from/to = AAAA-MM-DD). */
 function rango(): { from: string; to: string } {
   if (MODO === 'backfill' && /^\d{4}-\d{2}$/.test(MES)) {
     const [a, m] = MES.split('-').map(Number);
@@ -196,7 +216,7 @@ async function exportarInforme(page: Page, tipo: string, path: string, fieldMask
   }
 }
 
-/** RENDIMIENTO · Ventas + Operaciones por API interna (sin captcha). */
+/** RENDIMIENTO · Ventas + Operaciones por API interna. */
 async function rendimiento(page: Page, periodo: string, cuenta: string, from: string, to: string) {
   const px = capturarPx(page);
   await page.goto(`${PORTAL}/reports?from=${from}&to=${to}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -215,61 +235,64 @@ async function rendimiento(page: Page, periodo: string, cuenta: string, from: st
   await exportarInforme(page, 'operaciones', '/v1/vendors/reports/ops/summary/export', 'offlineDuration,rejectionRate,avgPreparationTime,contactRate,ordersMarkedAsReadyRate', token, from, to, periodo, cuenta);
 }
 
-/** Historial de pedidos · pendiente de capturar su export (choca con el captcha por botón). */
-async function historial(page: Page, _periodo: string, cuenta: string, _from: string, _to: string) {
-  await log(P, 'pendiente', `historial_${cuenta}: pendiente capturar su export (vía API interna)`);
+/** HISTORIAL de pedidos · GraphQL DownloadReport → CSV (orderDetails). */
+async function historial(page: Page, periodo: string, cuenta: string, from: string, to: string) {
+  const cap = capturarVagw(page);
+  await page.goto(`${PORTAL}/orders?from=${from}&to=${to}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(9000);
+  await quitarEstorbos(page);
+  await esperarCarga(page);
+
+  const headers = cap.get();
+  if (!headers) {
+    await volcar(`${P}_historial_${cuenta}`, await page.content().catch(() => ''));
+    await log(P, 'sin_descarga', `historial_${cuenta}: no capturé el token del antibot`);
+    return;
+  }
+  try {
+    const r = await page.request.post(GATEWAY, {
+      headers: { ...headers, 'x-request-id': randomUUID() },
+      data: { operationName: 'DownloadReport', query: Q_DOWNLOAD_REPORT, variables: { params: { globalVendorCodes: VENDOR_OBJS, timeFrom: `${from}T22:00:00.000Z`, timeTo: `${to}T21:59:59.999Z`, format: 'CSV', locale: 'es-ES', withBillingFields: true } } },
+    });
+    if (!r.ok()) { await log(P, 'sin_descarga', `historial_${cuenta}: DownloadReport ${r.status()}`); return; }
+    const url = (await r.json())?.data?.orders?.ordersExport?.downloadOrdersExport?.downloadURL;
+    if (!url) { await log(P, 'sin_descarga', `historial_${cuenta}: sin downloadURL`); return; }
+    const dl = await page.request.get(url);
+    if (!dl.ok()) { await log(P, 'sin_descarga', `historial_${cuenta}: descarga CSV ${dl.status()}`); return; }
+    await entregar({ fuente: P, tipo: 'glovo_historial', nombre: `${cuenta}_historial_${from}_${to}.csv`, datos: Buffer.from(await dl.body()), periodo, destino: 'ventas' });
+    await log(P, 'descarga', `historial_${cuenta}: CSV ok`);
+  } catch (e: any) {
+    await log(P, 'sin_descarga', `historial_${cuenta}: error (${e?.message || e})`);
+  }
 }
 
-/** FACTURAS + LIQUIDACIONES · vía API interna (sin captcha). */
+/** FACTURAS + LIQUIDACIONES · vía API interna: ListPayouts → RequestPayouts → GET zip. */
 async function finanzas(page: Page, periodo: string, cuenta: string) {
-  let apiHeaders: Record<string, string> | null = null;
-  let accounts: any[] | null = null;
-
-  page.on('request', (req) => {
-    try {
-      if (apiHeaders) return;
-      if (req.method() !== 'POST' || !req.url().startsWith(GATEWAY)) return;
-      const h = req.headers();
-      if (!h['x-px-cookies']) return;
-      apiHeaders = {
-        'content-type': 'application/json',
-        'apollographql-client-name': h['apollographql-client-name'] || 'API Gateway',
-        'x-app-name': h['x-app-name'] || 'one-web',
-        'x-country': h['x-country'] || 'ES',
-        'x-global-entity-id': h['x-global-entity-id'] || 'GV_ES',
-        'x-user-id': h['x-user-id'] || '',
-        'x-vendor-id': h['x-vendor-id'] || '',
-        'x-rps-device': h['x-rps-device'] || '',
-        'x-px-cookies': h['x-px-cookies'],
-      };
-      const pd = req.postData() || '';
-      if (pd.includes('ListPayouts')) { try { accounts = JSON.parse(pd).variables.params.accounts; } catch {} }
-    } catch {}
-  });
-
+  const cap = capturarVagw(page);
   await page.goto(`${PORTAL}/finance`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
   await esperarCarga(page);
 
-  if (!apiHeaders) {
+  const headers = cap.get();
+  if (!headers) {
     await volcar(`${P}_finanzas_${cuenta}`, await page.content().catch(() => ''));
-    await log(P, 'sin_descarga', `finanzas_${cuenta}: no capturé la llamada interna del portal (antibot pudo bloquear la carga)`);
+    await log(P, 'sin_descarga', `finanzas_${cuenta}: no capturé la llamada interna del portal (antibot pudo bloquear)`);
     return;
   }
 
   const req = (op: string, query: string, variables: any) =>
-    page.request.post(GATEWAY, { headers: { ...apiHeaders!, 'x-request-id': randomUUID() }, data: { operationName: op, query, variables } });
+    page.request.post(GATEWAY, { headers: { ...headers, 'x-request-id': randomUUID() }, data: { operationName: op, query, variables } });
 
   const { from, to } = rango();
   const desde = MODO === 'backfill' ? from : hoyMadrid(60);
-  const hasta = to;
-  const cuentasFin = accounts && accounts.length ? accounts : ACCOUNTS_GLOVO;
+  const cuentasFin = cap.accounts() && cap.accounts()!.length ? cap.accounts()! : ACCOUNTS_GLOVO;
 
   let payouts: any[] = [];
   try {
-    const r = await req('ListPayouts', Q_LIST_PAYOUTS, { params: { startDate: desde, endDate: hasta, filter: {}, pagination: { pageSize: 50 }, globalEntityId: 'GV_ES', accounts: cuentasFin } });
+    const r = await req('ListPayouts', Q_LIST_PAYOUTS, { params: { startDate: desde, endDate: to, filter: {}, pagination: { pageSize: 50 }, globalEntityId: 'GV_ES', accounts: cuentasFin } });
     if (r.ok()) payouts = (await r.json())?.data?.finances?.listPayouts?.payouts || [];
     else await log(P, 'sin_descarga', `finanzas_${cuenta}: ListPayouts devolvió ${r.status()}`);
   } catch (e: any) {
@@ -290,8 +313,7 @@ async function finanzas(page: Page, periodo: string, cuenta: string) {
       if (!url) { await log(P, 'sin_descarga', `finanzas_${cuenta}: sin enlace para pago ${po.payoutId}`); continue; }
       const dl = await page.request.get(url);
       if (!dl.ok()) { await log(P, 'sin_descarga', `finanzas_${cuenta}: zip ${dl.status()} pago ${po.payoutId}`); continue; }
-      const buf = Buffer.from(await dl.body());
-      await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_pagos_${po.payoutId}.zip`, datos: buf, periodo, destino: 'facturas' });
+      await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_pagos_${po.payoutId}.zip`, datos: Buffer.from(await dl.body()), periodo, destino: 'facturas' });
       bajados++;
       await page.waitForTimeout(400);
     } catch (e: any) {
