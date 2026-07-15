@@ -1,0 +1,55 @@
+name: Robot precios super (Mercadona + Alcampo)
+
+# BLOQUE 6 — semanal, lunes de madrugada, para estar cargado mucho antes de las
+# 12:00 Madrid. Cron a las 04:00 UTC cubre 06:00 verano / 05:00 invierno.
+# Job aparte de robot-ingesta-diaria.yml para no pisar los robots de plataformas.
+on:
+  workflow_dispatch:
+    inputs:
+      diag:
+        description: "Modo diagnóstico (guarda capturas/HTML)"
+        type: boolean
+        default: true
+      max_items:
+        description: "Límite de ingredientes a procesar (vacío = todos)"
+        type: string
+        default: ""
+  push:
+    branches: [master]
+    paths:
+      - "scripts/robot-precios-super/robot.ts"
+      - ".github/workflows/robot-precios-super.yml"
+  schedule:
+    - cron: "0 4 * * 1" # lunes 04:00 UTC
+
+jobs:
+  precios-super:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+
+      - name: Instalar navegador Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar robot
+        env:
+          DIAG: ${{ github.event.inputs.diag == 'false' && '0' || '1' }}
+          MAX_ITEMS: ${{ github.event.inputs.max_items }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-precios-super/robot.ts
+
+      - name: Subir diagnóstico
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-precios-super-artifacts
+          path: robot-artifacts/
+          if-no-files-found: ignore

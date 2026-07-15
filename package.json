@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:neto": "tsx scripts/test-coherencia-neto.ts",
-    "robot:ingesta": "tsx scripts/robot-ingesta/robot.ts"
+    "robot:ingesta": "tsx scripts/robot-ingesta/robot.ts",
+    "robot:precios-super": "tsx scripts/robot-precios-super/robot.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.0",
