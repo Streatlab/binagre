@@ -359,6 +359,9 @@ async function candidatosPorPrecioCercano(page: Page, primeraPalabra: string, ba
       const contenedor = nodo.locator(`xpath=ancestor::*[${nivel}]`);
       if (!(await contenedor.count().catch(() => 0))) break;
       const texto = ((await contenedor.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      // Texto ya demasiado largo: el contenedor se salió de la tarjeta y abarca
+      // varios productos vecinos (subir más solo lo empeora) — se abandona este nodo.
+      if (texto.length > 400) break;
       if (!new RegExp(primeraPalabra, 'i').test(texto)) continue;
       const href = await contenedor.locator('a[href]').first().getAttribute('href').catch(() => null);
       if (!href || vistos.has(href)) break;
