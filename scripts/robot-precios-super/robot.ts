@@ -9,8 +9,9 @@
  *     - Coincidencia única y clara por nombre+formato → guarda mapeo `ok` y sigue.
  *     - Varias candidatas o formato distinto → guarda `dudoso`, NO carga precio.
  *  3. Precio leído → fn_ingesta_precio_super(iding, precio).
- *  4. Mercadona va siempre por radarsuper.com (agregador público): la tienda
- *     oficial bloquea todos los intentos por anti-bot, así que no se ni intenta.
+ *  4. Mercadona usa la API JSON pública de tienda.mercadona.es (sin login, sin
+ *     Playwright, sin anti-bot) — ver bloque MERCADONA. Alcampo sigue con
+ *     Playwright (login real).
  *
  * Nada de precios inventados: sin lectura fiable = hueco + log, nunca se adivina.
  */
@@ -118,71 +119,117 @@ async function cerrarModales(page: Page) {
   }
 }
 
-// ---------- MERCADONA ----------
-// La tienda oficial bloquea siempre (anti-bot) → no se intenta, va directa a RadarSuper
-// (agregador público, sin login) para no quemar tiempo/IP en un camino muerto.
-const RADARSUPER_PRECIO = /\d{1,3}[.,]\d{2}\s*€/;
-
+// ---------- MERCADONA (API pública, sin Playwright ni login) ----------
+// tienda.mercadona.es expone una API JSON pública (misma que usa su propia web).
+// Nada de anti-bot ni RadarSuper: fetch directo. Referencia de esquema:
+// github.com/datania/mercadona-catalog (api.md).
+const PRECIO_EUR_REGEX = /\d{1,3}[.,]\d{2}\s*€/;
 function extraerPrecio(texto: string): number | null {
-  const m = texto.match(RADARSUPER_PRECIO);
+  const m = texto.match(PRECIO_EUR_REGEX);
   return m ? numES(m[0]) : null;
 }
 
-// Busca por proximidad: localiza nodos de texto con precio en € y sube al <a>
-// ancestro más cercano (la tarjeta de producto), filtrando por si su texto
-// contiene la palabra clave — evita adivinar la clase CSS de la tarjeta o
-// asumir que el precio vive dentro del propio <a> (comprobado en vivo: el
-// precio de RadarSuper está fuera del enlace, no dentro).
-async function candidatosPorPrecioCercano(page: Page, primeraPalabra: string, base: string, limite = 30): Promise<{ texto: string; url: string | null; precio: number | null }[]> {
-  const precios = page.getByText(RADARSUPER_PRECIO);
-  const total = await precios.count().catch(() => 0);
-  const vistos = new Set<string>();
-  const candidatos: { texto: string; url: string | null; precio: number | null }[] = [];
-  for (let i = 0; i < Math.min(total, limite); i++) {
-    const ancla = precios.nth(i).locator('xpath=ancestor::a[1]');
-    if (!(await ancla.count().catch(() => 0))) continue;
-    const href = await ancla.getAttribute('href').catch(() => null);
-    if (!href || vistos.has(href)) continue;
-    const texto = ((await ancla.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-    if (!new RegExp(primeraPalabra, 'i').test(texto)) continue;
-    vistos.add(href);
-    candidatos.push({ texto, url: new URL(href, base).toString(), precio: extraerPrecio(texto) });
-  }
-  return candidatos;
+const MERCADONA_API = 'https://tienda.mercadona.es/api';
+const MERCADONA_CP = '28038';
+
+type ProductoMercadona = { id: string; nombre: string; precio: number | null };
+
+async function fetchJson(url: string, cookie: string, init?: RequestInit): Promise<any> {
+  const res = await fetch(url, { ...init, headers: { ...(cookie ? { Cookie: cookie } : {}), ...(init?.headers || {}) } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} en ${url}`);
+  return res.json();
 }
 
-// Busca en RadarSuper: primero intenta el buscador on-page (si existe), si no
-// hay prueba el parámetro ?q= por si acaso.
-async function buscarEnRadarsuper(page: Page, consulta: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
-  await page.goto('https://radarsuper.com/mercadona', { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await sleepAleatorio(1500, 2500);
-  await cerrarModales(page);
+// Fija el CP de la cocina y devuelve la cookie de sesión (identifica el
+// almacén) que hay que reenviar en el resto de peticiones.
+async function fijarCpMercadonaApi(): Promise<string> {
+  const res = await fetch(`${MERCADONA_API}/postal-codes/actions/change-pc/`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ new_postal_code: MERCADONA_CP }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status} fijando CP`);
+  const setCookie = typeof (res.headers as any).getSetCookie === 'function' ? (res.headers as any).getSetCookie() : [];
+  return (setCookie as string[]).map((c) => c.split(';')[0]).join('; ');
+}
 
-  const buscador = page.locator('input[type="search"], input[placeholder*="usca" i]').first();
-  if (await buscador.count().catch(() => 0)) {
-    await buscador.fill(consulta);
-    await page.keyboard.press('Enter').catch(() => {});
-    await sleepAleatorio(1500, 2500);
-  } else {
-    await page.goto(`https://radarsuper.com/mercadona?q=${encodeURIComponent(consulta)}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await sleepAleatorio(1500, 2500);
+function extraerPrecioProducto(p: any): number | null {
+  const candidatos = [p?.price_instructions?.unit_price, p?.price_instructions?.bulk_price, p?.price_instructions?.reference_price];
+  for (const c of candidatos) {
+    if (c == null) continue;
+    const n = typeof c === 'number' ? c : numES(String(c));
+    if (n != null && n > 0) return n;
   }
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await diag(page, `radarsuper-${consulta.slice(0, 20)}`);
+  return null;
+}
 
-  const primeraPalabra = consulta.split(/\s+/)[0];
-  const candidatos = await candidatosPorPrecioCercano(page, primeraPalabra, 'https://radarsuper.com');
-  if (candidatos.length === 0) {
-    const totalPrecios = await page.getByText(RADARSUPER_PRECIO).count().catch(() => 0);
-    await logRobot('precios_super', 'aviso', `radarsuper "${consulta}": 0 candidatos tras filtrar por nombre (${totalPrecios} nodos con precio en la página, url=${page.url()})`);
-    return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
+// Recorre categorías → subcategorías → productos y devuelve el catálogo plano
+// en memoria. Se hace una sola vez por pasada (no por ingrediente): más rápido
+// y evita 200 búsquedas sueltas. Subcategorías puntuales que fallan se saltan,
+// no tumban el crawl.
+async function crawlCatalogoMercadona(cookie: string): Promise<ProductoMercadona[]> {
+  const raiz = await fetchJson(`${MERCADONA_API}/categories/`, cookie);
+  const categoriasRaiz: any[] = raiz?.results ?? raiz?.categories ?? [];
+  const productos: ProductoMercadona[] = [];
+  let subOk = 0, subFallo = 0;
+
+  for (const cat of categoriasRaiz) {
+    const subs: any[] = cat?.categories ?? [];
+    for (const sub of subs) {
+      const subId = sub?.id;
+      if (subId == null) continue;
+      try {
+        const det = await fetchJson(`${MERCADONA_API}/categories/${subId}/`, cookie);
+        const listas: any[][] = [];
+        if (Array.isArray(det?.products)) listas.push(det.products);
+        for (const s of det?.categories ?? []) if (Array.isArray(s?.products)) listas.push(s.products);
+        for (const lista of listas) {
+          for (const p of lista) {
+            const nombre = p?.display_name || p?.name || '';
+            if (!nombre) continue;
+            productos.push({ id: String(p.id), nombre, precio: extraerPrecioProducto(p) });
+          }
+        }
+        subOk++;
+      } catch {
+        subFallo++;
+      }
+      await sleepAleatorio(150, 350);
+    }
   }
-  if (candidatos.length > 6) {
-    await logRobot('precios_super', 'aviso', `radarsuper "${consulta}": ${candidatos.length} candidatos ambiguos → ${candidatos.slice(0, 5).map((c) => `"${c.texto.slice(0, 60)}"`).join(' | ')}`);
-    return { precio: null, url: null, nombreWeb: null, candidatos: candidatos.length };
+  await logRobot('precios_super', 'ok', `mercadona API: crawl completo — ${categoriasRaiz.length} categorías raíz, ${subOk} subcategorías ok, ${subFallo} fallidas, ${productos.length} productos indexados`);
+  return productos;
+}
+
+async function leerPrecioMercadonaPorUrl(url: string, cookie: string): Promise<number | null> {
+  try {
+    const data = await fetchJson(url, cookie);
+    return extraerPrecioProducto(data);
+  } catch {
+    return null;
   }
-  const c = candidatos[0];
-  return { precio: c.precio, url: c.url, nombreWeb: c.texto.slice(0, 80), candidatos: candidatos.length };
+}
+
+// Quita tildes/puntuación para comparar nombres sin depender del acentuado exacto.
+function normalizar(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// Coincidencia por solape de palabras (sin depender de clases CSS ni de un
+// endpoint de búsqueda): cuenta cuántas palabras de la consulta aparecen en el
+// nombre del producto. Si el mejor resultado está empatado con otro, es dudoso.
+function mejorCoincidencia(consulta: string, catalogo: ProductoMercadona[]): { mejor: ProductoMercadona | null; mejorScore: number; empatados: number } {
+  const tokensConsulta = normalizar(consulta).split(' ').filter(Boolean);
+  let mejor: ProductoMercadona | null = null;
+  let mejorScore = 0;
+  let empatados = 0;
+  for (const p of catalogo) {
+    const tokensNombre = new Set(normalizar(p.nombre).split(' ').filter(Boolean));
+    let score = 0;
+    for (const t of tokensConsulta) if (tokensNombre.has(t)) score++;
+    if (score > mejorScore) { mejor = p; mejorScore = score; empatados = 1; }
+    else if (score === mejorScore && score > 0) { empatados++; }
+  }
+  return { mejor, mejorScore, empatados };
 }
 
 // ---------- ALCAMPO ----------
@@ -306,40 +353,41 @@ async function leerPrecioRadarsuperDesdeUrl(page: Page, url: string): Promise<nu
 // ---------- Resultado por ingrediente ----------
 type Resultado = 'cargado' | 'sin_cambio_precio' | 'dudoso' | 'sin_match' | 'fallido';
 
-async function procesarMercadona(page: Page, sb: SupabaseClient, obj: Objetivo, mapeo: Mapeo | undefined): Promise<Resultado> {
+async function procesarMercadona(sb: SupabaseClient, obj: Objetivo, mapeo: Mapeo | undefined, catalogo: ProductoMercadona[], cookie: string): Promise<Resultado> {
   try {
     let precio: number | null = null;
 
     if (mapeo?.estado_match === 'ok' && mapeo.url_producto) {
-      precio = await leerPrecioRadarsuperDesdeUrl(page, mapeo.url_producto);
+      precio = await leerPrecioMercadonaPorUrl(mapeo.url_producto, cookie);
     }
 
     if (precio == null) {
       const consulta = nombreBusqueda(obj.nombre);
-      const res = await buscarEnRadarsuper(page, consulta);
-      if (res.candidatos > 6 || (res.candidatos > 1 && res.precio == null)) {
-        await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'dudoso', nombre_web: res.nombreWeb, url_producto: res.url });
-        await logRobot('precios_super', 'dudoso', `${obj.iding} (radarsuper) ${res.candidatos} candidatos, no se carga precio`);
-        return 'dudoso';
-      }
-      if (res.precio == null || !res.url) {
+      const { mejor, mejorScore, empatados } = mejorCoincidencia(consulta, catalogo);
+      if (mejorScore === 0 || !mejor) {
         await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'sin_match' });
-        await logRobot('precios_super', 'sin_match', `${obj.iding} (radarsuper) sin resultado buscando "${consulta}"`);
+        await logRobot('precios_super', 'sin_match', `${obj.iding} (mercadona API) sin coincidencia para "${consulta}" en catálogo de ${catalogo.length} productos`);
         return 'sin_match';
       }
-      precio = res.precio;
-      await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'ok', url_producto: res.url, nombre_web: res.nombreWeb });
+      if (empatados > 1) {
+        await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'dudoso', nombre_web: mejor.nombre });
+        await logRobot('precios_super', 'dudoso', `${obj.iding} (mercadona API) ${empatados} candidatos empatados para "${consulta}" (mejor: "${mejor.nombre}")`);
+        return 'dudoso';
+      }
+      const urlProducto = `${MERCADONA_API}/products/${mejor.id}/`;
+      precio = mejor.precio ?? await leerPrecioMercadonaPorUrl(urlProducto, cookie);
+      await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'ok', url_producto: urlProducto, nombre_web: mejor.nombre });
     }
 
     if (precio == null || precio <= 0) {
-      await logRobot('precios_super', 'fallido', `${obj.iding} precio inválido/no leído (radarsuper)`);
+      await logRobot('precios_super', 'fallido', `${obj.iding} precio inválido/no leído (mercadona API)`);
       return 'fallido';
     }
     const ok = await ingestarPrecio(sb, obj.iding, precio);
     if (!ok) return 'fallido';
     return precio === obj.precio_actual ? 'sin_cambio_precio' : 'cargado';
   } catch (e: any) {
-    await logRobot('precios_super', 'error', `${obj.iding} excepción: ${String(e?.message || e)}`);
+    await logRobot('precios_super', 'error', `${obj.iding} excepción mercadona API: ${String(e?.message || e)}`);
     return 'fallido';
   }
 }
@@ -382,41 +430,69 @@ async function procesarAlcampo(page: Page, sb: SupabaseClient, obj: Objetivo, ma
   }
 }
 
-async function procesarLote(
-  browser: Browser, sb: SupabaseClient, proveedor: 'Mercadona' | 'Alcampo',
-  objetivos: Objetivo[], mapeos: Map<string, Mapeo>, cred: Credencial | undefined,
+async function procesarLoteAlcampo(
+  browser: Browser, sb: SupabaseClient, objetivos: Objetivo[], mapeos: Map<string, Mapeo>, cred: Credencial | undefined,
 ): Promise<Record<Resultado, number>> {
   const contadores: Record<Resultado, number> = { cargado: 0, sin_cambio_precio: 0, dudoso: 0, sin_match: 0, fallido: 0 };
-  const items = objetivos.filter((o) => o.proveedor === proveedor).slice(0, MAX_ITEMS);
+  const items = objetivos.filter((o) => o.proveedor === 'Alcampo').slice(0, MAX_ITEMS);
   if (!items.length) return contadores;
-  // RadarSuper (Mercadona) es público, sin login. Alcampo sí necesita credenciales.
-  if (proveedor === 'Alcampo' && !cred) {
+  if (!cred) {
     await logRobot('precios_super', 'error', `sin credenciales para Alcampo, se salta el lote (${items.length} ingredientes)`);
     return contadores;
   }
 
   const page = await browser.newPage();
   try {
-    if (proveedor === 'Alcampo') {
-      await fijarCpAlcampo(page);
-      const logueado = await loginAlcampo(page, cred!);
-      if (!logueado) {
-        await logRobot('precios_super', 'error', `alcampo: login no confirmado, se aborta el lote (${items.length} ingredientes) para no perder tiempo/anti-bot`);
-        return contadores;
-      }
+    await fijarCpAlcampo(page);
+    const logueado = await loginAlcampo(page, cred);
+    if (!logueado) {
+      await logRobot('precios_super', 'error', `alcampo: login no confirmado, se aborta el lote (${items.length} ingredientes) para no perder tiempo/anti-bot`);
+      return contadores;
     }
-    await diag(page, `${proveedor}-post-login`);
+    await diag(page, 'alcampo-post-login');
 
     for (const obj of items) {
       const mapeo = mapeos.get(obj.iding);
-      const resultado = proveedor === 'Mercadona'
-        ? await procesarMercadona(page, sb, obj, mapeo)
-        : await procesarAlcampo(page, sb, obj, mapeo);
+      const resultado = await procesarAlcampo(page, sb, obj, mapeo);
       contadores[resultado]++;
       await sleepAleatorio(1500, 3500); // ritmo humano entre productos
     }
   } finally {
     await page.close();
+  }
+  return contadores;
+}
+
+// Mercadona vía API: sin Playwright, un solo crawl del catálogo por pasada
+// (si hace falta) y fetch directo para los que ya tienen mapeo 'ok'.
+async function procesarLoteMercadona(sb: SupabaseClient, objetivos: Objetivo[], mapeos: Map<string, Mapeo>): Promise<Record<Resultado, number>> {
+  const contadores: Record<Resultado, number> = { cargado: 0, sin_cambio_precio: 0, dudoso: 0, sin_match: 0, fallido: 0 };
+  const items = objetivos.filter((o) => o.proveedor === 'Mercadona').slice(0, MAX_ITEMS);
+  if (!items.length) return contadores;
+
+  let cookie = '';
+  try {
+    cookie = await fijarCpMercadonaApi();
+  } catch (e: any) {
+    await logRobot('precios_super', 'error', `mercadona API: no se pudo fijar CP: ${String(e?.message || e)}`);
+    return contadores;
+  }
+
+  const necesitaCrawl = items.some((o) => mapeos.get(o.iding)?.estado_match !== 'ok' || !mapeos.get(o.iding)?.url_producto);
+  let catalogo: ProductoMercadona[] = [];
+  if (necesitaCrawl) {
+    try {
+      catalogo = await crawlCatalogoMercadona(cookie);
+    } catch (e: any) {
+      await logRobot('precios_super', 'error', `mercadona API: fallo el crawl de categorías: ${String(e?.message || e)}`);
+    }
+  }
+
+  for (const obj of items) {
+    const mapeo = mapeos.get(obj.iding);
+    const resultado = await procesarMercadona(sb, obj, mapeo, catalogo, cookie);
+    contadores[resultado]++;
+    await sleepAleatorio(300, 800);
   }
   return contadores;
 }
@@ -430,27 +506,33 @@ async function main() {
     cargarObjetivos(sb), cargarMapeo(sb), cargarCredenciales(sb),
   ]);
 
-  const browser = await chromium.launch({ headless: process.env.HEADFUL !== '1', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-  try {
-    const mer = await procesarLote(browser, sb, 'Mercadona', objetivos, mapeos, credenciales.get('mercadona'));
-    const alc = await procesarLote(browser, sb, 'Alcampo', objetivos, mapeos, credenciales.get('alcampo'));
+  // Mercadona (API, sin navegador) va primero y no necesita Playwright.
+  const mer = await procesarLoteMercadona(sb, objetivos, mapeos);
 
-    const total: Record<Resultado, number> = {
-      cargado: mer.cargado + alc.cargado,
-      sin_cambio_precio: mer.sin_cambio_precio + alc.sin_cambio_precio,
-      dudoso: mer.dudoso + alc.dudoso,
-      sin_match: mer.sin_match + alc.sin_match,
-      fallido: mer.fallido + alc.fallido,
-    };
-    const intentados = total.cargado + total.sin_cambio_precio + total.dudoso + total.sin_match + total.fallido;
-    const conPrecioFresco = total.cargado + total.sin_cambio_precio;
-    const pct = intentados ? ((conPrecioFresco / intentados) * 100).toFixed(1) : '0.0';
-    const detalle = `objetivo=${objetivos.length} intentados=${intentados} cargados=${total.cargado} sin_cambio=${total.sin_cambio_precio} dudoso=${total.dudoso} sin_match=${total.sin_match} fallidos=${total.fallido} (${pct}% con precio fresco)`;
-    await logRobot('precios_super', 'resumen', detalle);
-    console.log(detalle);
-  } finally {
-    await browser.close();
+  const alcItems = objetivos.filter((o) => o.proveedor === 'Alcampo').length;
+  let alc: Record<Resultado, number> = { cargado: 0, sin_cambio_precio: 0, dudoso: 0, sin_match: 0, fallido: 0 };
+  if (alcItems > 0) {
+    const browser = await chromium.launch({ headless: process.env.HEADFUL !== '1', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    try {
+      alc = await procesarLoteAlcampo(browser, sb, objetivos, mapeos, credenciales.get('alcampo'));
+    } finally {
+      await browser.close();
+    }
   }
+
+  const total: Record<Resultado, number> = {
+    cargado: mer.cargado + alc.cargado,
+    sin_cambio_precio: mer.sin_cambio_precio + alc.sin_cambio_precio,
+    dudoso: mer.dudoso + alc.dudoso,
+    sin_match: mer.sin_match + alc.sin_match,
+    fallido: mer.fallido + alc.fallido,
+  };
+  const intentados = total.cargado + total.sin_cambio_precio + total.dudoso + total.sin_match + total.fallido;
+  const conPrecioFresco = total.cargado + total.sin_cambio_precio;
+  const pct = intentados ? ((conPrecioFresco / intentados) * 100).toFixed(1) : '0.0';
+  const detalle = `objetivo=${objetivos.length} intentados=${intentados} cargados=${total.cargado} sin_cambio=${total.sin_cambio_precio} dudoso=${total.dudoso} sin_match=${total.sin_match} fallidos=${total.fallido} (${pct}% con precio fresco)`;
+  await logRobot('precios_super', 'resumen', detalle);
+  console.log(detalle);
 }
 
 const esEntryPoint = !!process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
