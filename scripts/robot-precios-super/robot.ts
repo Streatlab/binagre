@@ -218,16 +218,37 @@ function normalizar(s: string): string {
 // endpoint de búsqueda): cuenta cuántas palabras de la consulta aparecen en el
 // nombre del producto. Si el mejor resultado está empatado con otro, es dudoso.
 function mejorCoincidencia(consulta: string, catalogo: ProductoMercadona[]): { mejor: ProductoMercadona | null; mejorScore: number; empatados: number } {
-  const tokensConsulta = normalizar(consulta).split(' ').filter(Boolean);
+  const consultaNorm = normalizar(consulta);
+  const tokensConsulta = consultaNorm.split(' ').filter(Boolean);
+
+  // 1) Subcadena exacta: el nombre del producto contiene la consulta completa
+  // literal. Mucho más fiable que el solape de palabras para consultas cortas
+  // (p.ej. "Limón" solapa con decenas de productos, pero muy pocos lo tienen
+  // como subcadena exacta). Desempata por nombre más corto = coincidencia más directa.
+  const porSubcadena = catalogo.filter((p) => normalizar(p.nombre).includes(consultaNorm));
+  if (porSubcadena.length > 0) {
+    porSubcadena.sort((a, b) => a.nombre.length - b.nombre.length);
+    const largoMinimo = porSubcadena[0].nombre.length;
+    const empatados = porSubcadena.filter((p) => p.nombre.length === largoMinimo).length;
+    return { mejor: porSubcadena[0], mejorScore: tokensConsulta.length, empatados };
+  }
+
+  // 2) Solape de palabras (fallback), desempatando también por nombre más corto.
   let mejor: ProductoMercadona | null = null;
   let mejorScore = 0;
+  let mejorLen = Infinity;
   let empatados = 0;
   for (const p of catalogo) {
-    const tokensNombre = new Set(normalizar(p.nombre).split(' ').filter(Boolean));
+    const nombreNorm = normalizar(p.nombre);
+    const tokensNombre = new Set(nombreNorm.split(' ').filter(Boolean));
     let score = 0;
     for (const t of tokensConsulta) if (tokensNombre.has(t)) score++;
-    if (score > mejorScore) { mejor = p; mejorScore = score; empatados = 1; }
-    else if (score === mejorScore && score > 0) { empatados++; }
+    if (score === 0) continue;
+    if (score > mejorScore || (score === mejorScore && nombreNorm.length < mejorLen)) {
+      mejor = p; mejorScore = score; mejorLen = nombreNorm.length; empatados = 1;
+    } else if (score === mejorScore && nombreNorm.length === mejorLen) {
+      empatados++;
+    }
   }
   return { mejor, mejorScore, empatados };
 }
@@ -289,11 +310,20 @@ async function loginAlcampo(page: Page, cred: Credencial): Promise<boolean> {
     }
   }
   if (!clicado) await passInput.press('Enter').catch(() => {});
-  await sleepAleatorio(2500, 3500);
+  await sleepAleatorio(2000, 3000);
+
+  // El login pasa por varios saltos de Salesforce Identity (authorization →
+  // intermediary → vuelta a alcampo.es) — comprobado en vivo: a los 2.5-3s
+  // seguía en un salto intermedio y se marcaba como fallo en falso. Se espera
+  // a que la URL salga del dominio my.site.com antes de decidir.
+  for (let i = 0; i < 8; i++) {
+    if (!/my\.site\.com/i.test(page.url())) break;
+    await sleepAleatorio(1000, 1500);
+  }
 
   const siguePassword = await page.locator('input[type="password"]').first().count().catch(() => 0);
-  const sigueEnLogin = /login|authorization/i.test(page.url());
-  const logueado = !siguePassword && !sigueEnLogin;
+  const sigueFueraDeAlcampo = /my\.site\.com/i.test(page.url());
+  const logueado = !siguePassword && !sigueFueraDeAlcampo;
   if (logueado) {
     await logRobot('precios_super', 'ok', `alcampo login confirmado: url=${page.url()}`);
     return true;
