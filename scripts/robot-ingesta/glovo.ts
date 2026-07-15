@@ -6,7 +6,7 @@
  * 15-jul-2026 · RUTAS REALES (confirmadas por Rubén con capturas):
  *   portal.glovoapp.com/reports  → Rendimiento: pestañas Ventas / Operaciones / Clientes
  *   portal.glovoapp.com/orders   → Historial de pedidos ("Descargar informe")
- *   managers.glovoapp.com/finance y /gv-finance → facturas y liquidaciones
+ *   portal.glovoapp.com/finance  → "Pagos" (última opción del sidebar): facturas + liquidaciones
  *
  * 15-jul-2026 (fix flujo real, capturas de Rubén):
  *   1) El portal filtra por establecimiento. Hay que abrir el selector y pulsar
@@ -16,15 +16,16 @@
  *      y confirmar el botón verde DENTRO del modal. El robot antes solo daba el primer
  *      clic → se quedaba esperando un fichero que nunca bajaba.
  *   verNegocio() hace (1); bajarDescargar() hace (2) dentro de captureExport.
- *   PENDIENTE: /finance entrega facturas por EMAIL con enlace (no descarga directa) →
- *   falta lector IMAP que siga el enlace del correo.
+ *   3) FACTURAS: NO están en managers/finance. Salen de portal.glovoapp.com/finance
+ *      (menú "Pagos", al fondo del sidebar): sin captcha, ya con los 8 establecimientos.
+ *      Se bajan con "Descargar todo" y con el icono de descarga de cada fila (PDF individual).
  *
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
-import { abrir, quitarEstorbos, descargarDeLaPagina, bajarEnlaces } from './_lib/navegador.js';
+import { abrir, quitarEstorbos } from './_lib/navegador.js';
 import { captureExport } from './_lib/capturar-export.js';
 
 const P = 'glovo';
@@ -193,23 +194,60 @@ async function historial(page: Page, periodo: string, cuenta: string, from: stri
   if (f) await entregar({ fuente: P, tipo: 'glovo_historial', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
 }
 
-/** Finanzas: facturas y liquidaciones. OJO: /finance entrega por EMAIL (enlace), no descarga
- *  directa. Intentamos enlaces PDF directos; si no hay, queda pendiente el lector IMAP. */
+/**
+ * FACTURAS + LIQUIDACIONES · página "Pagos" = portal.glovoapp.com/finance (última opción
+ * del sidebar). Sin captcha y ya con los 8 establecimientos. Bajamos con "Descargar todo"
+ * (paquete del rango) y con el icono de descarga de cada fila (PDF individual → Conciliación).
+ */
 async function finanzas(page: Page, periodo: string, cuenta: string) {
-  for (const ruta of ['/finance', '/gv-finance']) {
-    await page.goto(`${MANAGERS}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.goto(`${PORTAL}/finance`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(9000);
+  await quitarEstorbos(page);
+
+  // Rango por los chips de la propia página: semanal → 7 días; resto → 30 días (cubre la quincena)
+  const preset = MODO === 'semanal' ? /últimos 7 días|ultimos 7 dias/i : /últimos 30 días|ultimos 30 dias/i;
+  const chip = page.getByRole('button', { name: preset }).first()
+    .or(page.locator('button, [role="button"]').filter({ hasText: preset }).first());
+  if (await chip.count().catch(() => 0)) {
+    await chip.click({ timeout: 6000 }).catch(() => {});
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(9000);
-    await quitarEstorbos(page);
-    const ficheros = await bajarEnlaces(P, page, `fin${ruta.replace(/\//g, '_')}_${cuenta}`, 8);
-    for (const f of ficheros) {
-      await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'facturas' });
+    await page.waitForTimeout(4000);
+  }
+
+  let bajados = 0;
+
+  // 1) "Descargar todo": un clic, todo el rango
+  const todo = page.getByRole('button', { name: /descargar todo/i }).first()
+    .or(page.locator('button, a, [role="button"]').filter({ hasText: /descargar todo/i }).first());
+  if (await todo.count().catch(() => 0)) {
+    try {
+      const f = await captureExport(page, async () => { await todo.click({ timeout: 10000 }).catch(() => {}); });
+      await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_${f.filename}`, datos: f.buffer, periodo, destino: 'facturas' });
+      bajados++;
+      await log(P, 'descarga', `finanzas_todo_${cuenta}: ${f.filename} (${f.buffer.length} bytes · ${f.source})`);
+    } catch (e: any) {
+      await log(P, 'sin_descarga', `finanzas_todo_${cuenta}: ${e?.message || e}`);
     }
-    if (!ficheros.length) {
-      const f = await descargarDeLaPagina(P, page, `fin${ruta.replace(/\//g, '_')}_${cuenta}`);
-      if (f) await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'facturas' });
-      else await log(P, 'finanzas_email', `${ruta} ${cuenta}: sin enlace directo → probable entrega por email (pendiente lector IMAP)`);
-    }
+  }
+
+  // 2) Icono de descarga por fila: PDF individual de cada factura / pago
+  const iconos = page.locator('button[aria-label*="descarg" i], a[aria-label*="descarg" i], [data-testid*="download" i]');
+  const n = Math.min(await iconos.count().catch(() => 0), 40);
+  for (let i = 0; i < n; i++) {
+    try {
+      const f = await captureExport(page, async () => { await iconos.nth(i).click({ timeout: 8000 }).catch(() => {}); }, { timeoutMs: 18000 });
+      await entregar({ fuente: P, tipo: 'glovo_finanzas', nombre: `${cuenta}_${f.filename}`, datos: f.buffer, periodo, destino: 'facturas' });
+      bajados++;
+    } catch { /* fila sin descarga directa; seguimos */ }
+    await page.waitForTimeout(600);
+  }
+
+  if (!bajados) {
+    await volcar(`${P}_finanzas_${cuenta}`, await page.content().catch(() => ''));
+    await log(P, 'sin_descarga', `finanzas_${cuenta}: sin ficheros (HTML volcado para ver los botones reales)`);
+  } else {
+    await log(P, 'descarga', `finanzas_${cuenta}: ${bajados} fichero(s)`);
   }
 }
 
@@ -222,7 +260,7 @@ async function trabajarCuenta(c: Cuenta) {
 
     await rendimiento(page, periodo, c.cuenta, from, to);   // Ventas + Operaciones
     await historial(page, periodo, c.cuenta, from, to);     // Historial de pedidos
-    await finanzas(page, periodo, c.cuenta);                // Facturas y liquidaciones
+    await finanzas(page, periodo, c.cuenta);                // Facturas y liquidaciones (Pagos)
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
     process.exitCode = 1;
