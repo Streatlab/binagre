@@ -5,17 +5,16 @@ name: Sinqro vivo (Just Eat, cada 10 min en servicio)
 # franjas de cron (verano/invierno) y un candado por hora real de Madrid,
 # igual que sold-products.yml. El cron mínimo real de Actions ronda los 5 min
 # con posibles retrasos; se acepta la deriva.
+# INCIDENTE 16-jul: este workflow tenía un disparador push: en trabajo que
+# hizo correr el robot solo, sin querer, al pushear un commit que tocaba estos
+# archivos — escribió una lectura en 0 que tumbó el Panel en vivo. Quitado el
+# push: mientras el robot no esté validado (ver cabecera de sinqro-vivo.ts).
+# Solo cron + botón manual.
 on:
   schedule:
     - cron: "*/10 9-23 * * *"   # 11:00-00:59 Madrid (verano, UTC+2)
     - cron: "*/10 10-23,0 * * *" # 11:00-00:59 Madrid (invierno, UTC+1)
   workflow_dispatch:
-  push:
-    branches: [trabajo]
-    paths:
-      - "scripts/robot-ingesta/sinqro-vivo.ts"
-      - "scripts/robot-ingesta/robot.ts"
-      - ".github/workflows/sinqro-vivo.yml"
 
 jobs:
   vivo:
