@@ -8,6 +8,11 @@
  * NOTA: la lectura de los KPIs de Rushour se hace con LOCATORS de Playwright (en
  * Node), NO con page.evaluate, porque tsx/esbuild inyecta el helper `__name` que
  * no existe dentro del navegador y rompía el evaluate ("__name is not defined").
+ *
+ * 16-jul: si la lectura de pedidos de Sinqro devuelve 0 bloques, se vuelca el
+ * DOM completo a robot_debug (fuente 'sinqro_vivo_dom') para poder auditar por
+ * SQL qué pinta tiene la página (la lectura lleva días en 0 y sin DOM no se
+ * puede saber si cambió el selector, el filtro de fecha o el login de app.*).
  */
 
 import { chromium, Browser, Page } from 'playwright';
@@ -100,6 +105,16 @@ async function latidoRobot(ultimoDato: string, detalle: string) {
   try {
     const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
     await sb.from('robot_salud').upsert([{ fuente: 'robot', ultima_ejecucion: new Date().toISOString(), ultimo_dato: ultimoDato, estado: 'ok', detalle }]);
+  } catch {}
+}
+
+// Vuelca el DOM completo de una página a robot_debug para poder auditarlo por SQL.
+async function volcarDom(page: Page, fuente: string, fecha: string) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  try {
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const html = await page.content().catch(() => '');
+    if (html) await sb.from('robot_debug').insert([{ fuente, fecha, html }]);
   } catch {}
 }
 
@@ -310,7 +325,11 @@ export async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fi
       pedidos.push({ cliente, importe, textoBloque });
     }
 
-    if (!pedidos.length) { await logRobot('sinqro', 'vacio', 'pedidos_leidos=0'); return []; }
+    if (!pedidos.length) {
+      await logRobot('sinqro', 'vacio', 'pedidos_leidos=0 (DOM volcado a robot_debug: sinqro_vivo_dom)');
+      await volcarDom(page, 'sinqro_vivo_dom', fecha);
+      return [];
+    }
 
     // DEDUPE: de Sinqro solo Just Eat (Glovo se cuenta desde Rushour).
     const acc = new Map<Turno, { pedidos: number; bruto: number }>();
