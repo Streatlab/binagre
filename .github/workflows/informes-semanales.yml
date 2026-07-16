@@ -1,0 +1,63 @@
+name: Informes semanales (lunes 03:00 Madrid)
+
+# plan-v2/T7. Sinqro (informes PV+negocio) ya corre semanalmente por
+# robots-plataformas.yml (lunes 05:00 Madrid) — no se duplica aquí. Este
+# workflow cubre lo nuevo: Rushour reports (/rapports + mapa de /business).
+# Doble cron UTC (verano/invierno) + candado por hora real de Madrid.
+on:
+  schedule:
+    - cron: "0 1 * * 1"   # 03:00 Madrid (verano)
+    - cron: "0 2 * * 1"   # 03:00 Madrid (invierno)
+  workflow_dispatch:
+
+jobs:
+  informes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        robot: ["rushour-reports"]
+    steps:
+      - name: Candado horario (solo lunes 03:00 Madrid)
+        id: candado
+        run: |
+          H=$(TZ=Europe/Madrid date +%H)
+          DOW=$(TZ=Europe/Madrid date +%u)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || { [ "$H" = "03" ] && [ "$DOW" = "1" ]; }; then
+            echo "seguir=1" >> $GITHUB_OUTPUT
+          else
+            echo "seguir=0" >> $GITHUB_OUTPUT
+            echo "En Madrid son las $H:00 del día $DOW (1=lunes), no toca."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.candado.outputs.seguir == '1'
+      - uses: actions/setup-node@v4
+        if: steps.candado.outputs.seguir == '1'
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Instalar dependencias
+        if: steps.candado.outputs.seguir == '1'
+        run: npm install --no-audit --no-fund
+      - name: Cache navegador Playwright
+        id: cache-playwright
+        if: steps.candado.outputs.seguir == '1'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Instalar navegador Playwright
+        if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Instalar deps de sistema de Playwright (con caché)
+        if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Descargar informes y dejarlos en la bandeja
+        if: steps.candado.outputs.seguir == '1'
+        env:
+          RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
+          RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/${{ matrix.robot }}.ts
