@@ -3,6 +3,9 @@
  * Vista por defecto de solo lectura. Botón "Editar" muestra celdas editables
  * (hasta 2 turnos HH:MM por celda). "Guardar" persiste en Supabase y vuelve a vista.
  * Export/Compartir usan lo guardado (emitido vía onTurnosChange en carga y al guardar).
+ *
+ * FIX 16-jul-26: moverEmpleado ahora opera sobre empleadosVisibles (solo activos),
+ * no sobre la lista completa incl. archivados — evitaba que reordenar diera error/resultado erratico.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { ChevronUp, ChevronDown, X, Plus, Pencil } from 'lucide-react'
