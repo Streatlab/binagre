@@ -82,6 +82,33 @@ async function compararFormulaVsRobot(fecha: string) {
     }
   } catch (e: any) { await log('divergencia_error', String(e?.message || e)); }
 }
+
+/**
+ * plan-v2/T4: detecta pedidos aún pendientes en Rushour/Sinqro — compara lo
+ * que se acaba de consolidar en facturacion_diario contra el último snapshot
+ * de ventas_vivo de ese día (si el vivo vio más pedidos que los consolidados,
+ * algo se quedó fuera del cierre nocturno).
+ */
+async function detectarPendientes(fecha: string) {
+  try {
+    const { data: filas } = await sb.from('facturacion_diario').select('total_pedidos').eq('fecha', fecha).is('marca_id', null);
+    const totalConsolidado = (filas || []).reduce((a: number, r: any) => a + Number(r.total_pedidos || 0), 0);
+
+    const { data: vivos } = await sb.from('ventas_vivo').select('plataforma, marca, pedidos, momento').eq('fecha', fecha).order('momento', { ascending: false });
+    if (!vivos || !vivos.length) return;
+    const vistos = new Set<string>();
+    let totalVivo = 0;
+    for (const v of vivos) {
+      const clave = `${v.plataforma}|${v.marca}`;
+      if (vistos.has(clave) || v.plataforma === 'TOTAL') continue;
+      vistos.add(clave);
+      totalVivo += Number(v.pedidos || 0);
+    }
+    if (totalVivo > totalConsolidado + 2) {
+      await log('pendientes', `${fecha}: vivo vio ${totalVivo} pedidos, consolidado quedó en ${totalConsolidado} — revisar pedidos aún pendientes en Rushour/Sinqro`);
+    }
+  } catch (e: any) { await log('pendientes_error', String(e?.message || e)); }
+}
 function fechaMadrid(offsetDias = 0): string {
   const d = new Date(Date.now() + offsetDias * 86400000);
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(d);
@@ -455,6 +482,7 @@ async function main() {
     await browser.close();
     await log('fin', 'sync terminado');
     await compararFormulaVsRobot(fechaObj);
+    await detectarPendientes(fechaObj);
     await latido(fechaObj, `servicio=${servicio}`);
   }
 }
