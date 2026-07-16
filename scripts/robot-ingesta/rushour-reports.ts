@@ -114,7 +114,7 @@ async function login(page: Page): Promise<boolean> {
   return ok;
 }
 
-const RE_EXPORTAR = /descargar|exportar|export|download|csv|excel|xlsx?/i;
+const RE_EXPORTAR = /descargar|exportar|exporter|export|download|t[e\u00e9]l[e\u00e9]charger|csv|excel|xlsx?/i;
 
 function slugificar(s: string): string {
   return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -126,7 +126,11 @@ async function bajarBloquesExportables(page: Page, periodo: string): Promise<num
   let bajados = 0;
   const vistos = new Set<string>();
   for (let scroll = 0; scroll < 15; scroll++) {
-    const botones = page.locator('button, [role="button"], a').filter({ hasText: RE_EXPORTAR });
+    // 16-jul (noche, fix): los bloques de /rapports exportan con botones de SOLO
+    // ICONO (anticon download/export/file-excel), sin texto -> el filtro por texto
+    // daba 0 bloques. Se unen ambos caminos: texto O icono de descarga.
+    const botones = page.locator('button, [role="button"], a').filter({ hasText: RE_EXPORTAR })
+      .or(page.locator('button:has(.anticon-download), [role="button"]:has(.anticon-download), a:has(.anticon-download), button:has(.anticon-export), button:has(.anticon-file-excel), button:has(.anticon-cloud-download), [data-intercom-target*="export" i], [data-intercom-target*="telecharger" i]'));
     const n = await botones.count().catch(() => 0);
     for (let i = 0; i < n; i++) {
       const btn = botones.nth(i);
@@ -171,6 +175,7 @@ async function main() {
       await cerrarModales(page);
       const n = await bajarBloquesExportables(page, periodo);
       await log(P, n ? 'descarga' : 'sin_descarga', `/rapports ${from}..${to}: ${n} bloque(s) exportado(s)`);
+      if (!n) await volcar(`${P}_rapports_sin_export`, await page.content().catch(() => ''));   // mapa para la siguiente pasada
     }
 
     // /business: sin mapear en vivo — se vuelca el DOM para mapear a mano.
