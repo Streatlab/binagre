@@ -14,6 +14,11 @@
  *     con login real + intercepción de las respuestas JSON internas de la SPA
  *     (nunca se parsea el HTML renderizado) — ver bloque ALCAMPO.
  *
+ * BÚSQUEDA: la consulta que se manda a cada web sale de la columna `busqueda`
+ * de v_robot_precios_objetivo (= ingredientes.nombre_super si Rubén lo fijó a
+ * mano; si no, el nombre sin sufijo _MER/_ALC). NUNCA se recalcula a partir de
+ * obj.nombre en este fichero — eso ignoraría las correcciones manuales.
+ *
  * Nada de precios inventados: sin lectura fiable = hueco + log, nunca se adivina.
  */
 
@@ -46,10 +51,6 @@ function numES(s: string | null | undefined): number | null {
   const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 }
-// Limpia el sufijo de proveedor (_MER/_ALC/_ALC_MRM…) y separadores para buscar en la web.
-function nombreBusqueda(nombre: string): string {
-  return nombre.replace(/_(MER|ALC)(_MRM)?$/i, '').replace(/_/g, ' ').trim();
-}
 
 export async function logRobot(fuente: string, estado: string, detalle: string) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return;
@@ -75,12 +76,12 @@ async function sniffInputs(page: Page, limite = 15): Promise<string> {
   }
   return `inputs(${total} total, primeros ${partes.length}): ${partes.join(' ')}`;
 }
-type Objetivo = { iding: string; nombre: string; proveedor: 'Mercadona' | 'Alcampo'; formato: string; precio_actual: number | null };
+type Objetivo = { iding: string; nombre: string; proveedor: 'Mercadona' | 'Alcampo'; busqueda: string; formato: string; precio_actual: number | null };
 type Mapeo = { iding: string; proveedor: string; url_producto: string | null; ean: string | null; nombre_web: string | null; estado_match: string };
 type Credencial = { plataforma: string; usuario: string; password: string; url_base: string };
 
 async function cargarObjetivos(sb: SupabaseClient): Promise<Objetivo[]> {
-  const { data, error } = await sb.from('v_robot_precios_objetivo').select('iding, nombre, proveedor, formato, precio_actual');
+  const { data, error } = await sb.from('v_robot_precios_objetivo').select('iding, nombre, proveedor, busqueda, formato, precio_actual');
   if (error) throw new Error(`v_robot_precios_objetivo: ${error.message}`);
   return (data || []) as Objetivo[];
 }
@@ -527,7 +528,7 @@ async function procesarMercadona(sb: SupabaseClient, obj: Objetivo, mapeo: Mapeo
     }
 
     if (precio == null) {
-      const consulta = nombreBusqueda(obj.nombre);
+      const consulta = obj.busqueda;
       const { mejor, mejorScore, empatados } = mejorCoincidencia(consulta, catalogo);
       if (mejorScore === 0 || !mejor) {
         await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'sin_match' });
@@ -566,7 +567,7 @@ async function procesarAlcampo(page: Page, sb: SupabaseClient, obj: Objetivo, ma
     }
 
     if (precio == null) {
-      const consulta = nombreBusqueda(obj.nombre);
+      const consulta = obj.busqueda;
       const res = await buscarEnAlcampo(page, consulta);
       if (res.candidatos > 6 || (res.candidatos > 1 && res.precio == null)) {
         await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'dudoso', nombre_web: res.nombreWeb, url_producto: res.url });
