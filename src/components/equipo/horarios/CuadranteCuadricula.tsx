@@ -220,12 +220,17 @@ export function CuadranteCuadricula({
     setTimeout(() => setGuardado('idle'), 2500)
   }
 
+  // OJO: el orden que ve y mueve el usuario es SIEMPRE el de empleadosVisibles (solo activos).
+  // Antes esto operaba sobre `empleados` (incluye archivados), así que en cuanto había algún
+  // archivado de por medio, el índice visible y el índice real dejaban de coincidir y el
+  // intercambio se hacía contra la persona equivocada (o se salía de rango).
   async function moverEmpleado(idx: number, dir: -1 | 1) {
     const j = idx + dir
-    if (j < 0 || j >= empleados.length) return
-    const ids = empleados.map(e => e.id)
+    if (j < 0 || j >= empleadosVisibles.length) return
+    const ids = empleadosVisibles.map(e => e.id)
     ;[ids[idx], ids[j]] = [ids[j], ids[idx]]
-    await guardarOrden(ids)
+    const ok = await guardarOrden(ids)
+    if (!ok) { window.alert('No se pudo guardar el nuevo orden. Reintenta.'); return }
     onEmpleadosChange?.()
   }
 
