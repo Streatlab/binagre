@@ -17,18 +17,23 @@
  *   OJO: _lib/capturar-export.js NO EXISTE en el repo; importarlo tumbaba el robot al
  *   arrancar (ERR_MODULE_NOT_FOUND). No reintroducir ese import.
  *
- * 16-jul-2026 · RUN REAL: streatlab bajó TODO (ventas+operaciones+historial+9 finanzas)
- *   y posmodernos solo finanzas. Causa real (aviso de Rubén): posmodernos tiene UNA sola
- *   tienda, así que el selector no muestra "Ver negocio" (eso es solo para agregar varias);
- *   el paso correcto ahí es elegir directamente esa única tienda. El código anterior solo
- *   probaba eso como último recurso tras 3 intentos fallidos buscando "Ver negocio" que
- *   nunca iba a aparecer. Fix: verNegocio cuenta las tiendas del selector — si es 1, la
- *   elige directamente (ruta normal, no fallback); si son varias, pulsa "Ver negocio"
- *   para agregarlas todas (streatlab, 8 tiendas).
+ * 16-jul-2026 · RUN REAL: streatlab bajó TODO, posmodernos solo finanzas.
+ *   1er intento de fix: se pensó que era el selector de tienda sin cerrar. FALSO.
+ *   Causa real (DOM volcado, revisado a fondo): en posmodernos apareció el candado
+ *   PerimeterX "mantén pulsado para confirmar que eres un ser humano" ANTES de buscar
+ *   el botón "Descargar" — y ese candado solo se vigilaba dentro de capturar() (mientras
+ *   se espera la descarga), nunca nada más cargar la página. Por eso "no veo el botón
+ *   Descargar": la página entera estaba tapada por el diálogo del candado.
+ *   Además: la tienda única de posmodernos YA sale marcada `data-selected="true"` de
+ *   fábrica — no hace falta (ni hay que forzar) ningún clic para elegirla.
+ *   Fix: 1) resolverCandado() se llama nada más cargar cada página (reports/orders/
+ *   finance), antes de buscar cualquier botón. 2) verNegocio ya no fuerza clic en la
+ *   tienda si ya está seleccionada; solo agrega con "Ver negocio"/"Ver marca" cuando
+ *   hay varias tiendas y ninguna está ya marcada como vista agregada.
  *
  * Flujo real del portal (capturas de Rubén):
- *   1) Cuenta con 1 tienda (posmodernos) → elegir esa tienda directamente.
- *      Cuenta con varias tiendas (streatlab, 8) → abrir selector y pulsar "Ver negocio".
+ *   1) Cuenta con 1 tienda (posmodernos) → ya viene seleccionada, no tocar.
+ *      Cuenta con varias tiendas (streatlab, 8) → abrir selector y pulsar "Ver negocio"/"Ver marca".
  *   2) "Descargar informe" abre un MODAL de formato (.csv / .xls) → elegir .csv y
  *      confirmar el botón verde DENTRO del modal.
  *   3) FACTURAS: portal.glovoapp.com/finance (menú "Pagos"): "Descargar todo" +
@@ -39,7 +44,7 @@
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
-import { abrir, quitarEstorbos, capturar } from './_lib/navegador.js';
+import { abrir, quitarEstorbos, capturar, mantenPulsado } from './_lib/navegador.js';
 
 const P = 'glovo';
 const PORTAL = 'https://portal.glovoapp.com';
@@ -100,63 +105,57 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
 }
 
 /**
+ * Resuelve el candado PerimeterX ("mantén pulsado para confirmar que eres un ser humano")
+ * si aparece nada más cargar la página. Antes solo se vigilaba dentro de capturar()
+ * mientras se esperaba una descarga; si salía ANTES (p. ej. justo tras el goto), tapaba
+ * toda la página y ni el botón "Descargar" ni el selector de tienda se veían.
+ */
+async function resolverCandado(page: Page, paso: string): Promise<void> {
+  const hay = await page.getByText(/mant[eé]n pulsado|press ?(&|and) ?hold/i).count().catch(() => 0);
+  if (!hay) return;
+  await log(P, 'candado_previo', `${paso}: candado antes de buscar botones`);
+  await mantenPulsado(page, P);
+  await page.waitForTimeout(2000);
+}
+
+/**
  * El portal filtra por establecimiento. Si la cuenta tiene UNA sola tienda (posmodernos),
- * el selector no ofrece "Ver negocio" (eso es solo para agregar varias) → hay que elegir
- * directamente esa única tienda. Si tiene varias (streatlab, 8), pulsar "Ver negocio" para
- * agregarlas todas. Verifica que el selector se cierra de verdad antes de continuar.
+ * esa tienda YA sale seleccionada por defecto (`data-selected="true"`) → no hace falta
+ * ningún clic. Si tiene varias (streatlab, 8), pulsar "Ver negocio"/"Ver marca" para
+ * agregarlas todas. Ya no fuerza clics contra elementos que no son un modal bloqueante.
  */
 async function verNegocio(page: Page, paso: string): Promise<void> {
   try {
-    const itemsTienda = () => page.locator('[data-testid="store-select-list-item"]');
-    const enSelector = async () =>
-      (await itemsTienda().count().catch(() => 0)) > 0 || (await page.locator('[data-testid="chain-select-button"]').count().catch(() => 0)) > 0;
-
-    for (let intento = 1; intento <= 3; intento++) {
-      const abridor = page.locator('[data-testid="brand-view-selection"]').first()
-        .or(page.getByRole('button', { name: /todos los establecimientos|establecimientos|establishments/i }).first());
-      if (!(await enSelector()) && (await abridor.count().catch(() => 0))) {
-        await abridor.click({ timeout: 5000 }).catch(() => {});
-        await page.waitForTimeout(1500);
-      }
-      if (!(await enSelector())) {
-        if (intento === 1) await log(P, 'negocio', `${paso}: sin selector de tienda; sigo con la vista actual`);
-        return;
-      }
-
-      const nTiendas = await itemsTienda().count().catch(() => 0);
-      if (nTiendas === 1) {
-        // Cuenta de 1 sola tienda (posmodernos): se elige directamente, es la ruta normal.
-        await itemsTienda().first().click({ timeout: 6000 }).catch(() => {});
-        await page.waitForLoadState('networkidle').catch(() => {});
-        await page.waitForTimeout(5000);
-        if (!(await enSelector())) {
-          await log(P, 'negocio', `${paso}: 1 sola tienda → elegida directamente`);
-          return;
-        }
-      } else {
-        // Varias tiendas (streatlab): agregar todas con "Ver negocio".
-        const candidatos = [
-          page.locator('[data-testid="chain-select-button"]').first(),
-          page.getByRole('button', { name: /ver negocio|view business/i }).first(),
-          page.getByText(/ver negocio|view business/i).first(),
-        ];
-        let pulsado = false;
-        for (const c of candidatos) {
-          if (await c.count().catch(() => 0)) { await c.click({ timeout: 6000 }).catch(() => {}); pulsado = true; break; }
-        }
-        if (!pulsado && intento === 3) {
-          await itemsTienda().first().click({ timeout: 6000 }).catch(() => {});
-          await log(P, 'negocio', `${paso}: sin "Ver negocio"; elijo la 1ª tienda (datos parciales)`);
-        }
-        await page.waitForLoadState('networkidle').catch(() => {});
-        await page.waitForTimeout(5000);
-        if (!(await enSelector())) {
-          await log(P, 'negocio', `${paso}: "Ver negocio" (todas las tiendas) al intento ${intento}`);
-          return;
-        }
-      }
+    const itemsTienda = page.locator('[data-testid="store-select-list-item"]');
+    const abridor = page.locator('[data-testid="brand-view-selection"]').first()
+      .or(page.getByRole('button', { name: /todos los establecimientos|establecimientos|establishments/i }).first());
+    if (await abridor.count().catch(() => 0)) {
+      await abridor.click({ timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(1500);
     }
-    await log(P, 'negocio', `${paso}: el selector de tienda no se cierra tras 3 intentos`);
+
+    const nTiendas = await itemsTienda.count().catch(() => 0);
+    if (nTiendas === 0) {
+      await log(P, 'negocio', `${paso}: sin selector de tienda; sigo con la vista actual`);
+      return;
+    }
+    if (nTiendas === 1) {
+      const yaElegida = (await itemsTienda.first().getAttribute('data-selected').catch(() => null)) === 'true';
+      if (!yaElegida) await itemsTienda.first().click({ timeout: 6000 }).catch(() => {});
+      await log(P, 'negocio', `${paso}: 1 sola tienda (${yaElegida ? 'ya venía seleccionada' : 'elegida ahora'})`);
+      return;
+    }
+    // Varias tiendas: agregar todas con "Ver negocio" / "Ver marca".
+    const chip = page.locator('[data-testid="chain-select-button"]').first();
+    const yaAgregada = (await chip.getAttribute('data-selected').catch(() => null)) === 'true';
+    if (yaAgregada) { await log(P, 'negocio', `${paso}: ya en vista agregada (todas las tiendas)`); return; }
+    const candidatos = [chip, page.getByRole('button', { name: /ver negocio|ver marca|view business/i }).first(), page.getByText(/ver negocio|ver marca|view business/i).first()];
+    for (const c of candidatos) {
+      if (await c.count().catch(() => 0)) { await c.click({ timeout: 6000 }).catch(() => {}); break; }
+    }
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(4000);
+    await log(P, 'negocio', `${paso}: "Ver negocio"/"Ver marca" (todas las tiendas)`);
   } catch { /* seguimos: bajarDescargar volcará el DOM si no aparece el botón */ }
 }
 
@@ -177,12 +176,16 @@ function rango(): { from: string; to: string } {
  * Si aparece el modal de formato (.csv / .xls), elige .csv y confirma DENTRO del modal.
  */
 async function bajarDescargar(page: Page, paso: string): Promise<{ nombre: string; datos: Buffer } | null> {
+  await resolverCandado(page, paso);
   const boton = page.getByRole('button', { name: /descargar( informe)?/i }).first()
     .or(page.locator('button, a, [role="button"]').filter({ hasText: /descargar( informe)?/i }).first());
   if (!(await boton.count().catch(() => 0))) {
-    await volcar(`${P}_${paso}`, await page.content().catch(() => ''));
-    await log(P, 'sin_descarga', `${paso}: no veo el botón Descargar (HTML volcado)`);
-    return null;
+    await resolverCandado(page, paso);
+    if (!(await boton.count().catch(() => 0))) {
+      await volcar(`${P}_${paso}`, await page.content().catch(() => ''));
+      await log(P, 'sin_descarga', `${paso}: no veo el botón Descargar (HTML volcado)`);
+      return null;
+    }
   }
   const f = await capturar(page, P, async () => {
     await boton.click({ timeout: 10000 }).catch(() => {});
@@ -215,6 +218,7 @@ async function rendimiento(page: Page, periodo: string, cuenta: string, from: st
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
+  await resolverCandado(page, `ventas_${cuenta}`);
   await verNegocio(page, `ventas_${cuenta}`);   // todas las tiendas → informe completo
 
   for (const [nombreTab, tipo] of [['Ventas', 'glovo_ventas'], ['Operaciones', 'glovo_operaciones']] as const) {
@@ -236,6 +240,7 @@ async function historial(page: Page, periodo: string, cuenta: string, from: stri
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
+  await resolverCandado(page, `historial_${cuenta}`);
   await verNegocio(page, `historial_${cuenta}`);   // todas las tiendas → informe completo
   const f = await bajarDescargar(page, `historial_${cuenta}`);
   if (f) await entregar({ fuente: P, tipo: 'glovo_historial', nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
@@ -251,6 +256,7 @@ async function finanzas(page: Page, periodo: string, cuenta: string) {
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
   await quitarEstorbos(page);
+  await resolverCandado(page, `finanzas_${cuenta}`);
 
   // Rango por los chips de la propia página: semanal → 7 días; resto → 30 días (cubre la quincena)
   const preset = MODO === 'semanal' ? /últimos 7 días|ultimos 7 dias/i : /últimos 30 días|ultimos 30 dias/i;
