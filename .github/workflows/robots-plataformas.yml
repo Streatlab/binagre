@@ -40,6 +40,12 @@ on:
     - cron: "0 3 5 * *"   # 05:00 Madrid (verano) · mensual (dia 5)
     - cron: "0 4 5 * *"   # 05:00 Madrid (invierno) · mensual (dia 5)
 
+# 16-jul (noche): los push de fixes disparan el workflow; si llegan varios seguidos,
+# solo importa el ultimo (codigo final) -> se cancela el run anterior.
+concurrency:
+  group: robots-plataformas
+  cancel-in-progress: true
+
 jobs:
   plan:
     runs-on: ubuntu-latest
@@ -59,8 +65,10 @@ jobs:
             exit 0
           fi
           if [ "${{ github.event_name }}" = "push" ]; then
+            # Un push a los robots es un fix que se quiere probar ENTERO:
+            # semanal cubre tambien lo diario (rendimiento Glovo, informes Uber...)
             echo "seguir=1" >> $GITHUB_OUTPUT
-            echo "modo=diario" >> $GITHUB_OUTPUT
+            echo "modo=semanal" >> $GITHUB_OUTPUT
             exit 0
           fi
           if [ "$H" = "04" ]; then
