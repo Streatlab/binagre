@@ -17,6 +17,13 @@
  *   OJO: _lib/capturar-export.js NO EXISTE en el repo; importarlo tumbaba el robot al
  *   arrancar (ERR_MODULE_NOT_FOUND). No reintroducir ese import.
  *
+ * 16-jul-2026 · RUN REAL: streatlab bajó TODO (ventas+operaciones+historial+9 finanzas)
+ *   y posmodernos solo finanzas. Causa (DOM volcado): en posmodernos el clic a
+ *   "Ver negocio" no cerró el selector de tienda (seguían store-select-list-item /
+ *   chain-select-button en el DOM) → sin tienda elegida no se renderiza "Descargar".
+ *   Fix: verNegocio ahora VERIFICA que el selector se cierra y reintenta hasta 3 veces;
+ *   último recurso: elegir la 1ª tienda (datos parciales, mejor que nada).
+ *
  * Flujo real del portal (capturas de Rubén):
  *   1) Abrir el selector de establecimientos y pulsar "Ver negocio" → coge las 8 tiendas.
  *   2) "Descargar informe" abre un MODAL de formato (.csv / .xls) → elegir .csv y
@@ -92,26 +99,48 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
 /**
  * El portal filtra por establecimiento. Abre el selector y pulsa "Ver negocio" para que
  * el informe cubra TODAS las tiendas (8). Una tienda suelta daría datos parciales.
- * Si no encuentra el control, no hace nada (el informe puede venir ya en "Todos").
+ * VERIFICA que el selector se cierra de verdad (en posmodernos el primer clic no cerraba
+ * y sin tienda elegida no se renderiza "Descargar"). Reintenta hasta 3 veces; último
+ * recurso: elegir la 1ª tienda.
  */
 async function verNegocio(page: Page, paso: string): Promise<void> {
   try {
-    const abridor = page.locator('[data-testid="brand-view-selection"]').first()
-      .or(page.getByRole('button', { name: /todos los establecimientos|establecimientos|establishments/i }).first());
-    if (await abridor.count().catch(() => 0)) {
-      await abridor.click({ timeout: 5000 }).catch(() => {});
-      await page.waitForTimeout(1500);
-    }
-    const verNeg = page.getByRole('button', { name: /ver negocio|view business/i }).first()
-      .or(page.locator('[data-testid="chain-select-button"]').first());
-    if (await verNeg.count().catch(() => 0)) {
-      await verNeg.click({ timeout: 6000 }).catch(() => {});
+    const enSelector = async () =>
+      (await page.locator('[data-testid="store-select-list-item"], [data-testid="chain-select-button"]').count().catch(() => 0)) > 0;
+
+    for (let intento = 1; intento <= 3; intento++) {
+      const abridor = page.locator('[data-testid="brand-view-selection"]').first()
+        .or(page.getByRole('button', { name: /todos los establecimientos|establecimientos|establishments/i }).first());
+      if (!(await enSelector()) && (await abridor.count().catch(() => 0))) {
+        await abridor.click({ timeout: 5000 }).catch(() => {});
+        await page.waitForTimeout(1500);
+      }
+      if (!(await enSelector())) {
+        if (intento === 1) await log(P, 'negocio', `${paso}: sin selector de tienda; sigo con la vista actual`);
+        return;
+      }
+      // Preferimos el botón exacto del portal; luego el texto; último recurso: la 1ª tienda
+      const candidatos = [
+        page.locator('[data-testid="chain-select-button"]').first(),
+        page.getByRole('button', { name: /ver negocio|view business/i }).first(),
+        page.getByText(/ver negocio|view business/i).first(),
+      ];
+      let pulsado = false;
+      for (const c of candidatos) {
+        if (await c.count().catch(() => 0)) { await c.click({ timeout: 6000 }).catch(() => {}); pulsado = true; break; }
+      }
+      if (!pulsado && intento === 3) {
+        await page.locator('[data-testid="store-select-list-item"]').first().click({ timeout: 6000 }).catch(() => {});
+        await log(P, 'negocio', `${paso}: sin "Ver negocio"; elijo la 1ª tienda (datos parciales)`);
+      }
       await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(4000);
-      await log(P, 'negocio', `${paso}: "Ver negocio" (todas las tiendas)`);
-    } else {
-      await log(P, 'negocio', `${paso}: no veo "Ver negocio"; sigo con la vista actual`);
+      await page.waitForTimeout(5000);
+      if (!(await enSelector())) {
+        await log(P, 'negocio', `${paso}: "Ver negocio" (todas las tiendas) al intento ${intento}`);
+        return;
+      }
     }
+    await log(P, 'negocio', `${paso}: el selector de tienda no se cierra tras 3 intentos`);
   } catch { /* seguimos: bajarDescargar volcará el DOM si no aparece el botón */ }
 }
 
