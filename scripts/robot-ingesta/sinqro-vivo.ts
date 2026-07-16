@@ -85,8 +85,13 @@ async function main() {
     for (let i = 0; i < n; i++) {
       const t = tarjetas.nth(i);
       const icono = (await t.locator('img').first().getAttribute('src').catch(() => '')) || '';
-      const esJE = /just/i.test(icono);
-      if (!esJE) { if (/glovo/i.test(icono)) vistosGlovo++; continue; }
+      // 16-jul (noche, fix): el logo de Just Eat en Sinqro NO lleva 'just' en la URL
+      // (es un png con nombre hasheado en content.sinqro.com); el de Glovo SI lleva
+      // 'glovo_icon'. En esta pantalla solo entran Glovo y Just Eat, asi que la regla
+      // se invierte: tarjeta con icono que NO sea Glovo (ni Uber, por si acaso) = JE.
+      const esGlovo = /glovo/i.test(icono);
+      const esJE = !!icono && !esGlovo && !/uber|rushour/i.test(icono);
+      if (!esJE) { if (esGlovo) vistosGlovo++; continue; }
 
       const numTxt = ((await t.locator('.orderNumberBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
       const numero = (numTxt.match(/#(\d+)/) || [])[1];
