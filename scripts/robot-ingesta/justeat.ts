@@ -73,12 +73,66 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
   return ok;
 }
 
-/** Abre facturación en el hub: rutas conocidas primero, después el menú hidratado. */
-async function abrirFacturas(page: Page): Promise<boolean> {
-  for (const ruta of ['/invoices', '/financial/invoices', '/financial', '/billing', '/payments', '/history']) {
-    await page.goto(`${HUB}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+/**
+ * 16-jul (noche, fix con robot_log + volcado justeat_menu): dos causas reales de
+ * "no encuentro la seccion de facturas":
+ *   1. Al saltar del hub a otra ruta, Just Eat mete una puerta intermedia de
+ *      re-login (access.just-eat.es/auth, Keycloak). A veces es SSO silencioso
+ *      (redirige solo); a veces vuelve a pedir usuario/clave (+codigo).
+ *   2. El hub a veces carga con "An error occurred while loading Partner Hub"
+ *      (la SPA no hidrata) -> hay que recargar, no rendirse.
+ */
+async function asegurarSesion(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boolean> {
+  if (!/access\.just-eat\.es/i.test(page.url())) return true;
+  await log(P, 'reauth', `puerta intermedia de login · url=${page.url()}`);
+  // SSO silencioso: darle unos segundos por si redirige solo
+  for (let i = 0; i < 12; i++) {
+    if (!/access\.just-eat\.es/i.test(page.url())) return true;
+    await page.waitForTimeout(1000);
+  }
+  const email = page.locator('input[type="email"], input[name="username"], input[name="email"], input[id*="user" i]').first();
+  if (await email.count().catch(() => 0)) {
+    await email.fill(c.usuario).catch(() => {});
+    await page.locator('input[type="password"]').first().fill(c.password).catch(() => {});
+    const pedidoEn = new Date();
+    await page.getByRole('button', { name: /entrar|log ?in|iniciar|continuar|sign in|acceder/i }).first().click({ timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(8000);
+    const campoCodigo = page.locator('input[autocomplete="one-time-code"], input[name*="code" i], input[id*="otp" i], input[maxlength="1"]').first();
+    if (await campoCodigo.count().catch(() => 0)) {
+      const codigo = await esperarCodigo(P, c.otp_remitente || 'just', 240, pedidoEn, c.usuario);
+      if (codigo) {
+        await campoCodigo.type(codigo, { delay: 120 }).catch(() => {});
+        await page.keyboard.press('Enter').catch(() => {});
+        await page.waitForTimeout(8000);
+      }
+    }
+  }
+  const ok = !/access\.just-eat\.es/i.test(page.url());
+  await log(P, ok ? 'reauth_ok' : 'reauth_ko', `url=${page.url()}`);
+  if (ok) await guardarSesion(P, c.cuenta, ctx);
+  return ok;
+}
+
+/** Carga una ruta del hub aguantando re-login intermedio y el error de carga de la SPA. */
+async function cargarHub(page: Page, ctx: BrowserContext, c: Cuenta, url: string): Promise<boolean> {
+  for (let intento = 0; intento < 3; intento++) {
+    await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await esperarContenido(page);
     await quitarEstorbos(page);
+    if (!(await asegurarSesion(page, ctx, c))) return false;
+    if (/access\.just-eat\.es/i.test(page.url())) return false;
+    const roto = await page.getByText(/error occurred while loading|se ha producido un error/i).count().catch(() => 0);
+    if (!roto) return true;
+    await log(P, 'aviso', `el hub cargo con error (intento ${intento + 1}/3), recargo`);
+    await page.waitForTimeout(4000);
+  }
+  return false;
+}
+
+/** Abre facturación en el hub: rutas conocidas primero, después el menú hidratado. */
+async function abrirFacturas(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boolean> {
+  for (const ruta of ['/invoices', '/finance/invoices', '/financial/invoices', '/financial', '/finance', '/billing', '/payments', '/documents', '/history']) {
+    if (!(await cargarHub(page, ctx, c, `${HUB}${ruta}`))) continue;
     const largo = (await page.content().catch(() => '')).length;
     if (largo > 60000 && (await page.getByText(RE_FACTURAS).count().catch(() => 0))) {
       await volcar(`${P}_facturacion${ruta.replace(/\//g, '_')}`, await page.content().catch(() => ''));
@@ -87,9 +141,9 @@ async function abrirFacturas(page: Page): Promise<boolean> {
   }
 
   // Menú hidratado del hub
-  await page.goto(HUB, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await esperarContenido(page);
-  await quitarEstorbos(page);
+  if (!(await cargarHub(page, ctx, c, `${HUB}/home`))) {
+    await cargarHub(page, ctx, c, HUB);
+  }
   await volcar(`${P}_menu`, await page.content().catch(() => ''));
 
   const enlace = page.getByRole('link', { name: RE_FACTURAS }).first()
@@ -141,7 +195,7 @@ async function trabajarCuenta(c: Cuenta) {
       return;
     }
 
-    if (!(await abrirFacturas(page))) {
+    if (!(await abrirFacturas(page, ctx, c))) {
       await log(P, 'aviso', `no encuentro la sección de facturas (volcados ${P}_* en robot_debug) · url=${page.url()}`);
       if (!esBackfill) await registrarIntento(P, q.periodo, 'facturas', 'no encontré la sección de facturas');
       return;
