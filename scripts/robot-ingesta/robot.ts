@@ -11,8 +11,16 @@
  *
  * 16-jul: si la lectura de pedidos de Sinqro devuelve 0 bloques, se vuelca el
  * DOM completo a robot_debug (fuente 'sinqro_vivo_dom') para poder auditar por
- * SQL qué pinta tiene la página (la lectura lleva días en 0 y sin DOM no se
- * puede saber si cambió el selector, el filtro de fecha o el login de app.*).
+ * SQL qué pinta tiene la página.
+ *
+ * 16-jul (noche) · FIX FECHAS SINQRO: la lectura llevaba en 0 desde el 11-jul.
+ * El DOM volcado demostró: login OK, cuenta OK (sp/6416), filtros OK, pero
+ * "No se han encontrado pedidos para el rango de fechas seleccionado" — el
+ * datepicker de Sinqro cambió y reinterpreta la fecha tecleada, dejando un
+ * rango vacío. Arreglo: para leer el día de HOY (vivo y tomas comida/cena) NO
+ * se tocan los inputs de fecha (la vista ya muestra lo de hoy por defecto);
+ * solo se teclean fechas para días pasados (backfill), y si con fechas
+ * tecleadas sale 0, se reintenta una vez sin tocarlas.
  */
 
 import { chromium, Browser, Page } from 'playwright';
@@ -256,7 +264,10 @@ async function loginSinqro(page: Page) {
   await diag(page, 'sinqro-02-postlogin');
 }
 
-async function irAVentasSinqro(page: Page, fecha: string) {
+// tocarFechas=false → deja el rango por defecto de la vista (muestra lo de hoy).
+// Necesario desde ~11-jul: el datepicker reinterpreta lo tecleado y deja un
+// rango sin resultados aunque cuenta y filtros estén bien.
+async function irAVentasSinqro(page: Page, fecha: string, tocarFechas: boolean) {
   await page.goto(SINQRO.ventasUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(3500);
 
@@ -271,28 +282,33 @@ async function irAVentasSinqro(page: Page, fecha: string) {
   }
   await page.waitForTimeout(1000);
 
-  // AngularJS (ng-model) no registra .fill(): hay que escribir carácter a
-  // carácter y disparar input+change para que el filtro de fecha se aplique.
-  const f = ddmmyyyy(fecha);
-  const sd = page.locator(SINQRO.startDate).first();
-  const ed = page.locator(SINQRO.endDate).first();
-  if (await sd.count()) {
-    await sd.fill('').catch(() => {});
-    await sd.type(f, { delay: 40 }).catch(() => {});
-    await sd.dispatchEvent('input').catch(() => {});
-    await sd.dispatchEvent('change').catch(() => {});
-    await page.keyboard.press('Escape').catch(() => {});
+  if (tocarFechas) {
+    // AngularJS (ng-model) no registra .fill(): hay que escribir carácter a
+    // carácter y disparar input+change para que el filtro de fecha se aplique.
+    const f = ddmmyyyy(fecha);
+    const sd = page.locator(SINQRO.startDate).first();
+    const ed = page.locator(SINQRO.endDate).first();
+    if (await sd.count()) {
+      await sd.fill('').catch(() => {});
+      await sd.type(f, { delay: 40 }).catch(() => {});
+      await sd.dispatchEvent('input').catch(() => {});
+      await sd.dispatchEvent('change').catch(() => {});
+      await page.keyboard.press('Escape').catch(() => {});
+    }
+    if (await ed.count()) {
+      await ed.fill('').catch(() => {});
+      await ed.type(f, { delay: 40 }).catch(() => {});
+      await ed.dispatchEvent('input').catch(() => {});
+      await ed.dispatchEvent('change').catch(() => {});
+      await page.keyboard.press('Escape').catch(() => {});
+    }
+    await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
+    await page.waitForTimeout(4000);
+  } else {
+    // Vista por defecto (hoy): basta con refrescar la búsqueda si hay botón.
+    await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
+    await page.waitForTimeout(4000);
   }
-  if (await ed.count()) {
-    await ed.fill('').catch(() => {});
-    await ed.type(f, { delay: 40 }).catch(() => {});
-    await ed.dispatchEvent('input').catch(() => {});
-    await ed.dispatchEvent('change').catch(() => {});
-    await page.keyboard.press('Escape').catch(() => {});
-  }
-
-  await page.getByRole('button', { name: /buscar/i }).first().click().catch(() => {});
-  await page.waitForTimeout(4000);
 }
 
 // Clasifica un texto de bloque de pedido en comida (<17:00) / cena (>=17:00) Madrid.
@@ -304,25 +320,40 @@ export function turnoDeTextoPedido(texto: string): Turno | null {
   return horas < 17 ? 'comida' : 'cena';
 }
 
+// Lee los bloques de pedido visibles en la página. Devuelve la lista cruda.
+async function leerBloquesPedidos(page: Page): Promise<{ cliente: string; importe: string; textoBloque: string }[]> {
+  const bloques = page.locator('[ng-repeat*="order in orders"]');
+  const total = await bloques.count().catch(() => 0);
+  const pedidos: { cliente: string; importe: string; textoBloque: string }[] = [];
+  for (let i = 0; i < total; i++) {
+    const b = bloques.nth(i);
+    const cliente = ((await b.locator('.orderClientBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    const importe = ((await b.locator('.orderAmountBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    const textoBloque = ((await b.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    pedidos.push({ cliente, importe, textoBloque });
+  }
+  return pedidos;
+}
+
 // ---------- SINQRO (una fecha completa: separa comida/cena por hora real del pedido) ----------
 export async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fila[]> {
   if (!SINQRO.user || !SINQRO.pass) { await logRobot('sinqro', 'error', 'sin credenciales'); return []; }
   const page = await browser.newPage();
   try {
     await loginSinqro(page);
-    await irAVentasSinqro(page, fecha);
+
+    const esHoy = fecha === fechaMadrid(0);
+    // HOY: vista por defecto, sin tocar fechas (el datepicker roto dejaba rango vacío).
+    await irAVentasSinqro(page, fecha, !esHoy);
     await diag(page, 'sinqro-03-report');
 
-    // Leer pedidos con locators (cada pedido = bloque ng-repeat "order in orders").
-    const bloques = page.locator('[ng-repeat*="order in orders"]');
-    const total = await bloques.count().catch(() => 0);
-    const pedidos: { cliente: string; importe: string; textoBloque: string }[] = [];
-    for (let i = 0; i < total; i++) {
-      const b = bloques.nth(i);
-      const cliente = ((await b.locator('.orderClientBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-      const importe = ((await b.locator('.orderAmountBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-      const textoBloque = ((await b.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-      pedidos.push({ cliente, importe, textoBloque });
+    let pedidos = await leerBloquesPedidos(page);
+
+    // Día pasado con fechas tecleadas y 0 resultados → reintento sin tocar fechas
+    // por si el rango por defecto ya lo cubre (y para distinguir "no hay" de "filtro roto").
+    if (!pedidos.length && !esHoy) {
+      await irAVentasSinqro(page, fecha, false);
+      pedidos = await leerBloquesPedidos(page);
     }
 
     if (!pedidos.length) {
@@ -332,6 +363,9 @@ export async function ingestaSinqro(browser: Browser, fecha: string): Promise<Fi
     }
 
     // DEDUPE: de Sinqro solo Just Eat (Glovo se cuenta desde Rushour).
+    // OJO cuando la lectura viene de la vista por defecto: puede traer pedidos de
+    // otros días; el filtro de turno usa la hora del bloque y el texto suele decir
+    // "hoy" — solo se cuentan bloques que no digan otra fecha explícita distinta.
     const acc = new Map<Turno, { pedidos: number; bruto: number }>();
     let sinHora = 0;
     for (const p of pedidos) {
