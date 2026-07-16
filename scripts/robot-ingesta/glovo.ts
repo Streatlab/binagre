@@ -311,9 +311,11 @@ async function trabajarCuenta(c: Cuenta) {
     const { from, to } = rango();
     const periodo = MODO === 'backfill' && /^\d{4}-\d{2}$/.test(MES) ? MES : hoyMadrid(1);
 
-    await rendimiento(page, periodo, c.cuenta, from, to);   // Ventas + Operaciones
+    // plan-v2/T5: diario baja SOLO historial; ventas+operaciones (rendimiento)
+    // quedan para semanal/mensual/backfill. Facturas (antes "finanzas" aquí)
+    // pasan a T6, con su propia lógica de insistencia por quincena.
+    if (MODO !== 'diario') await rendimiento(page, periodo, c.cuenta, from, to);   // Ventas + Operaciones
     await historial(page, periodo, c.cuenta, from, to);     // Historial de pedidos
-    await finanzas(page, periodo, c.cuenta);                // Facturas y liquidaciones (Pagos)
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
     process.exitCode = 1;
