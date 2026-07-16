@@ -9,6 +9,13 @@ import { IVAProvider } from './contexts/IVAContext'
 import { CalendarioProvider } from './contexts/CalendarioContext'
 import { ConfigProvider } from './contexts/ConfigContext'
 
+// PWA: registrar el service worker (necesario para poder instalar la app).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* sin PWA, la web sigue funcionando */ })
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>

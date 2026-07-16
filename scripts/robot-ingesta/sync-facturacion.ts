@@ -55,6 +55,60 @@ const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio'
 async function log(estado: string, detalle: string) {
   try { await sb.from('robot_log').insert([{ fuente: 'sync_facturacion', estado, detalle }]); } catch { /* noop */ }
 }
+async function latido(ultimoDato: string, detalle: string) {
+  try { await sb.from('robot_salud').upsert([{ fuente: 'sync_facturacion', ultima_ejecucion: new Date().toISOString(), ultimo_dato: ultimoDato, estado: 'ok', detalle }]); } catch { /* noop */ }
+}
+
+/**
+ * plan-v2/T3: mientras corren en paralelo el robot.ts viejo (agregador
+ * rushour/sinqro) y el corte-fórmula nuevo (agregador formula, fn_corte_turno
+ * en Supabase), compara el total del día de cada uno. Si difieren más de 2€,
+ * deja un log estado='divergencia' para poder decidir con datos cuándo
+ * jubilar robot.ts (5 días sin divergencias).
+ */
+async function compararFormulaVsRobot(fecha: string) {
+  try {
+    const { data } = await sb.from('ingesta_robot_diaria').select('agregador, bruto').eq('fecha', fecha);
+    if (!data || !data.length) return;
+    const sum = (ags: string[]) => data.filter((r: any) => ags.includes(r.agregador)).reduce((a: number, r: any) => a + Number(r.bruto || 0), 0);
+    const totalFormula = sum(['formula']);
+    const totalRobot = sum(['rushour', 'sinqro']);
+    if (totalFormula === 0 && totalRobot === 0) return; // nada que comparar todavía
+    const diff = Math.round((totalFormula - totalRobot) * 100) / 100;
+    if (Math.abs(diff) > 2) {
+      await log('divergencia', `${fecha}: formula=${totalFormula.toFixed(2)} robot=${totalRobot.toFixed(2)} diff=${diff.toFixed(2)}`);
+    } else {
+      await log('cuadra', `${fecha}: formula=${totalFormula.toFixed(2)} robot=${totalRobot.toFixed(2)} diff=${diff.toFixed(2)}`);
+    }
+  } catch (e: any) { await log('divergencia_error', String(e?.message || e)); }
+}
+
+/**
+ * plan-v2/T4: detecta pedidos aún pendientes en Rushour/Sinqro — compara lo
+ * que se acaba de consolidar en facturacion_diario contra el último snapshot
+ * de ventas_vivo de ese día (si el vivo vio más pedidos que los consolidados,
+ * algo se quedó fuera del cierre nocturno).
+ */
+async function detectarPendientes(fecha: string) {
+  try {
+    const { data: filas } = await sb.from('facturacion_diario').select('total_pedidos').eq('fecha', fecha).is('marca_id', null);
+    const totalConsolidado = (filas || []).reduce((a: number, r: any) => a + Number(r.total_pedidos || 0), 0);
+
+    const { data: vivos } = await sb.from('ventas_vivo').select('plataforma, marca, pedidos, momento').eq('fecha', fecha).order('momento', { ascending: false });
+    if (!vivos || !vivos.length) return;
+    const vistos = new Set<string>();
+    let totalVivo = 0;
+    for (const v of vivos) {
+      const clave = `${v.plataforma}|${v.marca}`;
+      if (vistos.has(clave) || v.plataforma === 'TOTAL') continue;
+      vistos.add(clave);
+      totalVivo += Number(v.pedidos || 0);
+    }
+    if (totalVivo > totalConsolidado + 2) {
+      await log('pendientes', `${fecha}: vivo vio ${totalVivo} pedidos, consolidado quedó en ${totalConsolidado} — revisar pedidos aún pendientes en Rushour/Sinqro`);
+    }
+  } catch (e: any) { await log('pendientes_error', String(e?.message || e)); }
+}
 function fechaMadrid(offsetDias = 0): string {
   const d = new Date(Date.now() + offsetDias * 86400000);
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(d);
@@ -427,6 +481,9 @@ async function main() {
   } finally {
     await browser.close();
     await log('fin', 'sync terminado');
+    await compararFormulaVsRobot(fechaObj);
+    await detectarPendientes(fechaObj);
+    await latido(fechaObj, `servicio=${servicio}`);
   }
 }
 main().catch((e) => { console.error(e); process.exit(1); });

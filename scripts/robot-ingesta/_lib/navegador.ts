@@ -1,14 +1,9 @@
 /**
  * NAVEGADOR · Utilidades comunes de descarga.
  *
- * CANDADO "MANTÉN PULSADO" (Glovo, 14-jul-2026): es el captcha de PerimeterX.
- * 15-jul-2026: se apunta directamente al elemento del captcha (#px-captcha y
- * variantes), que es donde hay que aguantar; aguantar sobre el botón del cuadro
- * no vale (18 intentos fallidos lo confirman). Duraciones 10/20/30 s con
- * micro-temblor y eventos de puntero reales de Playwright (van por CDP, son
- * "de confianza" para la página).
- * 13-jul-2026 · Uber corta el login si huele robot → navegador con pinta de Chrome
- * normal (user-agent real, sin la marca de automatización).
+ * 15-jul-2026 · CAMUFLAJE (gratis): navegador HEADFUL bajo xvfb (no headless), que es la
+ * señal de bot más gorda para PerimeterX. Playwright normal (sin patchright, que rompía el
+ * montaje en CI). Sesión sembrada + user-agent de Chrome + sin la marca de automatización.
  */
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { log, volcar } from './bandeja.js';
@@ -19,10 +14,18 @@ export interface Fichero { nombre: string; datos: Buffer }
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
 export async function abrir(plataforma: string, cuenta: string): Promise<{ browser: Browser; ctx: BrowserContext; page: Page }> {
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled', '--lang=es-ES'],
-  });
+  let browser: Browser;
+  try {
+    browser = await chromium.launch({
+      headless: false,
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled', '--lang=es-ES', '--start-maximized'],
+    });
+  } catch {
+    browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled', '--lang=es-ES'],
+    });
+  }
   const sesion = await cargarSesion(plataforma, cuenta);
   const ctx = await browser.newContext({
     acceptDownloads: true,
@@ -47,7 +50,6 @@ const PATRON_DESCARGA = /export|exportar|descargar|download|csv|excel|xlsx?|info
 const PATRON_CONFIRMAR = /^(descargar|download|confirmar|aceptar|exportar|generar|continuar|ok)/i;
 const RE_MANTEN = /mant[eé]n pulsado|mantener pulsado|press ?(&|and) ?hold|hold to confirm/i;
 
-/** Aprieta y aguanta sobre un punto, con micro-temblor humano. */
 async function aguantar(page: Page, x: number, y: number, segundos: number) {
   await page.mouse.move(x, y, { steps: 10 });
   await page.mouse.down();
@@ -61,11 +63,9 @@ async function aguantar(page: Page, x: number, y: number, segundos: number) {
   await page.mouse.up();
 }
 
-/** Candado "mantén pulsado" (PerimeterX). Devuelve true si desaparece. */
 export async function mantenPulsado(page: Page, plataforma: string): Promise<boolean> {
   if (!(await page.getByText(RE_MANTEN).count().catch(() => 0))) return false;
 
-  // El captcha de PerimeterX vive en su propio contenedor (a veces dentro de un iframe).
   const marcos = [page, ...page.frames()];
   const candidatos: Array<{ caja: () => Promise<{ x: number; y: number; width: number; height: number } | null> }> = [];
   for (const m of marcos) {
@@ -74,7 +74,6 @@ export async function mantenPulsado(page: Page, plataforma: string): Promise<boo
       candidatos.push({ caja: async () => ((await loc.count().catch(() => 0)) ? loc.boundingBox().catch(() => null) : null) });
     }
   }
-  // Respaldo: los pulsables del cuadro (por si el captcha cambia de nombre).
   for (const loc of [
     page.getByText(RE_MANTEN).first(),
     page.locator('[role="dialog"] button').last(),
@@ -103,7 +102,6 @@ export async function mantenPulsado(page: Page, plataforma: string): Promise<boo
   return false;
 }
 
-/** Captura el fichero que produce un clic (resolviendo candado y cuadro intermedio). */
 export async function capturar(page: Page, plataforma: string, clic: () => Promise<void>, segundos = 120): Promise<Fichero | null> {
   const espera = page.waitForEvent('download', { timeout: segundos * 1000 });
   await clic();
@@ -129,7 +127,6 @@ export async function capturar(page: Page, plataforma: string, clic: () => Promi
   } catch { return null; }
 }
 
-/** Busca un botón/enlace de descarga en la página y captura el fichero. */
 export async function descargarDeLaPagina(plataforma: string, page: Page, paso: string): Promise<Fichero | null> {
   const candidatos = [
     page.locator('[data-testid="export-report-btn"]').first(),
@@ -152,7 +149,6 @@ export async function descargarDeLaPagina(plataforma: string, page: Page, paso: 
   return null;
 }
 
-/** Baja hasta `tope` ficheros enlazados en la página (PDF, CSV, download). */
 export async function bajarEnlaces(plataforma: string, page: Page, paso: string, tope = 12): Promise<Fichero[]> {
   const enlaces = page.locator('a[href$=".pdf"], a[download], a[href*="download" i], a[href$=".csv"], a[href$=".xlsx"]');
   const n = Math.min(await enlaces.count().catch(() => 0), tope);
@@ -165,7 +161,6 @@ export async function bajarEnlaces(plataforma: string, page: Page, paso: string,
   return bajados;
 }
 
-/** Cierra avisos de cookies y modales que tapan los botones. */
 export async function quitarEstorbos(page: Page) {
   const textos = /aceptar|accept|entendido|got it|permitir|allow all/i;
   for (const rol of ['button', 'link'] as const) {

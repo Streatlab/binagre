@@ -12,7 +12,7 @@
  * IMAP del buzón de la cuenta (buzones_otp).
  */
 import type { Page, BrowserContext } from 'playwright';
-import { entregar, log, volcar, hoyMadrid } from './_lib/bandeja.js';
+import { entregar, log, volcar, hoyMadrid, latido } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
 import { abrir, quitarEstorbos, descargarDeLaPagina, bajarEnlaces } from './_lib/navegador.js';
 
@@ -148,8 +148,9 @@ async function trabajarCuenta(c: Cuenta) {
 async function main() {
   await log(P, 'inicio', `modo=${MODO}${MES ? ` mes=${MES}` : ''}`);
   const cuentas = await cuentasDe(P);
-  if (cuentas.length === 0) { await log(P, 'sin_credenciales', 'no hay cuentas activas de Sinqro'); return; }
+  if (cuentas.length === 0) { await log(P, 'sin_credenciales', 'no hay cuentas activas de Sinqro'); await latido(P, hoyMadrid(), 'sin credenciales'); return; }
   for (const c of cuentas) await trabajarCuenta(c);
   await log(P, 'fin', `${cuentas.length} cuenta(s)`);
+  await latido(P, hoyMadrid(), `${cuentas.length} cuenta(s)`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });

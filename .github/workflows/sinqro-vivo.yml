@@ -1,40 +1,41 @@
-name: SOLD_PRODUCTS Sinqro (semanal, lunes 02:00 Madrid → bandeja Papeleo)
+name: Sinqro vivo (Just Eat, cada 10 min en servicio)
 
-# plan-v2/T5: pasa de diario a semanal (lunes). GitHub programa en UTC y no
-# sabe de horario de verano, así que hay dos disparos y un candado: solo se
-# ejecuta si en Madrid son de verdad las 02:00 de un lunes.
-# NOTA: este workflow (y sold-products.ts) solo existen en la rama trabajo —
-# el schedule: de Actions siempre corre sobre el branch por defecto (master),
-# así que hasta que no se haga el merge trabajo→master (plan-v2/T9) esto no
-# dispara solo. Es la causa real de que llevara desde el 12-jul sin correr.
+# Snapshot del día en curso durante el servicio (11:00-00:30 Madrid). GitHub
+# Actions programa en UTC y no sabe de horario de verano, así que hay dos
+# franjas de cron (verano/invierno) y un candado por hora real de Madrid,
+# igual que sold-products.yml. El cron mínimo real de Actions ronda los 5 min
+# con posibles retrasos; se acepta la deriva.
+# INCIDENTE 16-jul: este workflow tenía un disparador push: en trabajo que
+# hizo correr el robot solo, sin querer, al pushear un commit que tocaba estos
+# archivos — escribió una lectura en 0 que tumbó el Panel en vivo. Quitado el
+# push: mientras el robot no esté validado (ver cabecera de sinqro-vivo.ts).
+# Solo cron + botón manual.
 on:
   schedule:
-    - cron: "0 0 * * 1"   # lunes 02:00 Madrid (verano)
-    - cron: "0 1 * * 1"   # lunes 02:00 Madrid (invierno)
+    - cron: "*/10 9-23 * * *"   # 11:00-00:59 Madrid (verano, UTC+2)
+    - cron: "*/10 10-23,0 * * *" # 11:00-00:59 Madrid (invierno, UTC+1)
   workflow_dispatch:
-    inputs:
-      simulacro:
-        description: "1 = solo mira, no deja nada en la bandeja"
-        type: choice
-        options: ["0", "1"]
-        default: "0"
 
 jobs:
-  sold:
+  vivo:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     steps:
-      - name: Candado horario (solo lunes 02:00 Madrid)
+      - name: Candado horario (solo 11:00-00:30 Madrid)
         id: candado
         run: |
           H=$(TZ=Europe/Madrid date +%H)
-          DOW=$(TZ=Europe/Madrid date +%u)   # 1 = lunes
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || { [ "$H" = "02" ] && [ "$DOW" = "1" ]; }; then
-            echo "seguir=1" >> $GITHUB_OUTPUT
-          else
-            echo "seguir=0" >> $GITHUB_OUTPUT
-            echo "En Madrid son las $H:00 del día $DOW (1=lunes), no toca (lunes 02:00)."
+          M=$(TZ=Europe/Madrid date +%M)
+          seguir=0
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            seguir=1
+          elif [ "$H" -ge 11 ] && [ "$H" -le 23 ]; then
+            seguir=1
+          elif [ "$H" = "00" ] && [ "$M" -le 30 ]; then
+            seguir=1
           fi
+          echo "seguir=$seguir" >> $GITHUB_OUTPUT
+          echo "Madrid son las $H:$M — seguir=$seguir"
       - uses: actions/checkout@v4
         if: steps.candado.outputs.seguir == '1'
       - uses: actions/setup-node@v4
@@ -58,12 +59,11 @@ jobs:
       - name: Instalar deps de sistema de Playwright (con caché)
         if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
-      - name: Descargar informe y dejarlo en la bandeja
+      - name: Leer pedidos Just Eat del día y guardar en ventas_vivo
         if: steps.candado.outputs.seguir == '1'
         env:
-          SOLD_DRY: ${{ github.event.inputs.simulacro }}
           SINQRO_USER: ${{ secrets.SINQRO_USER }}
           SINQRO_PASS: ${{ secrets.SINQRO_PASS }}
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/robot-ingesta/sold-products.ts
+        run: npx tsx scripts/robot-ingesta/sinqro-vivo.ts

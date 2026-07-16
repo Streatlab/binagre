@@ -1,8 +1,16 @@
 /**
  * Cuadrante visual común — Esta Semana, Histórico, Próxima, Plantillas, Generador.
  * Vista por defecto de solo lectura. Botón "Editar" muestra celdas editables
- * (hasta 2 turnos HH:MM por celda). "Guardar" persiste en Supabase y vuelve a vista.
+ * (hasta 2 turnos HH:MM por celda) y permite reordenar personas.
+ * TODO queda en local hasta pulsar "Guardar": turnos y orden se persisten juntos
+ * en una sola pasada. "Guardar" persiste en Supabase y vuelve a vista.
  * Export/Compartir usan lo guardado (emitido vía onTurnosChange en carga y al guardar).
+ *
+ * FIX 16-jul-26 (1): moverEmpleado operaba sobre la lista completa (incl. archivados)
+ * en vez de la visible → índice descuadrado, movía a la persona equivocada.
+ * FIX 16-jul-26 (2): mover empleado guardaba en el momento (parecía "Guardar" fantasma
+ * a mitad de edición). Ahora el orden es 100% local mientras editas — igual que los
+ * turnos — y se persiste solo al pulsar "Guardar", junto con los turnos.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { ChevronUp, ChevronDown, X, Plus, Pencil } from 'lucide-react'
@@ -126,6 +134,9 @@ export function CuadranteCuadricula({
   const [editando, setEditando] = useState(false)
   const [guardado, setGuardado] = useState<'idle' | 'guardando' | 'guardado'>('idle')
   const [nuevoNombre, setNuevoNombre] = useState('')
+  // Orden de personas mientras se edita. null = usar el orden que llega por props (BD).
+  // Se rellena al entrar en modo Editar y se persiste solo al pulsar Guardar.
+  const [ordenLocal, setOrdenLocal] = useState<string[] | null>(null)
 
   const baseDatos = useMemo(() => {
     const m: Record<string, Tramo[]> = {}
@@ -169,10 +180,20 @@ export function CuadranteCuadricula({
 
   // Solo activos en la vista. Un empleado archivado desaparece siempre,
   // aunque la semana mostrada aún tenga sus turnos (p. ej. histórico hardcodeado).
-  const empleadosVisibles = useMemo(
-    () => empleados.filter(e => !e.estado || e.estado === 'activo'),
-    [empleados],
-  )
+  // Si hay un orden local en curso (modo Editar con movimientos pendientes), manda ese orden.
+  const empleadosVisibles = useMemo(() => {
+    const activos = empleados.filter(e => !e.estado || e.estado === 'activo')
+    if (!ordenLocal) return activos
+    const porId = new Map(activos.map(e => [e.id, e]))
+    const reordenados: Empleado[] = []
+    for (const id of ordenLocal) {
+      const e = porId.get(id)
+      if (e) reordenados.push(e)
+    }
+    const idsEnOrden = new Set(ordenLocal)
+    const nuevos = activos.filter(e => !idsEnOrden.has(e.id)) // altas hechas durante la edición
+    return [...reordenados, ...nuevos]
+  }, [empleados, ordenLocal])
 
   function color(idx: number) {
     const pal = [
@@ -203,8 +224,25 @@ export function CuadranteCuadricula({
     setDatos(prev => ({ ...prev, [k]: tramos }))
   }
 
+  function iniciarEdicion() {
+    setOrdenLocal(empleadosVisibles.map(e => e.id))
+    setEditando(true)
+  }
+
   async function guardarTodo() {
     setGuardado('guardando')
+
+    // 1) Orden de personas, si se ha tocado durante esta edición.
+    if (ordenLocal) {
+      const ok = await guardarOrden(ordenLocal)
+      if (!ok) {
+        setGuardado('idle')
+        window.alert('No se pudo guardar el nuevo orden de personas. Reintenta.')
+        return
+      }
+    }
+
+    // 2) Turnos.
     const celdas = empleados.flatMap(emp =>
       dias.map(d => ({ empId: emp.id, iso: d.iso, tramos: datos[claveOverride(emp.id, d.iso)] ?? [] })),
     )
@@ -214,19 +252,22 @@ export function CuadranteCuadricula({
       window.alert(`No se pudieron guardar los cambios.\n${res.error ?? ''}`)
       return
     }
+
     emitir(datos)
     setGuardado('guardado')
     setEditando(false)
+    setOrdenLocal(null)
+    onEmpleadosChange?.() // refresca el orden real desde BD tras guardar
     setTimeout(() => setGuardado('idle'), 2500)
   }
 
-  async function moverEmpleado(idx: number, dir: -1 | 1) {
+  // Puramente local: no toca BD. Se persiste junto con todo lo demás al pulsar Guardar.
+  function moverEmpleado(idx: number, dir: -1 | 1) {
     const j = idx + dir
-    if (j < 0 || j >= empleados.length) return
-    const ids = empleados.map(e => e.id)
+    if (j < 0 || j >= empleadosVisibles.length) return
+    const ids = empleadosVisibles.map(e => e.id)
     ;[ids[idx], ids[j]] = [ids[j], ids[idx]]
-    await guardarOrden(ids)
-    onEmpleadosChange?.()
+    setOrdenLocal(ids)
   }
 
   async function archivar(emp: Empleado) {
@@ -266,7 +307,7 @@ export function CuadranteCuadricula({
             <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: '#1D9E75', fontWeight: 600 }}>Guardado ✓</span>
           )}
           {!editando ? (
-            <button onClick={() => setEditando(true)} style={topBtn(NEGRO)}>
+            <button onClick={iniciarEdicion} style={topBtn(NEGRO)}>
               <Pencil size={14} /> Editar
             </button>
           ) : (

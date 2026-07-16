@@ -1,0 +1,15 @@
+{
+  "name": "Binagre · Streat Lab",
+  "short_name": "Binagre",
+  "description": "ERP de Streat Lab en el bolsillo",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FCEFD6",
+  "theme_color": "#FCEFD6",
+  "icons": [
+    { "src": "/icon-app.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-app.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

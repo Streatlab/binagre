@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:neto": "tsx scripts/test-coherencia-neto.ts",
-    "robot:ingesta": "tsx scripts/robot-ingesta/robot.ts"
+    "robot:ingesta": "tsx scripts/robot-ingesta/robot.ts",
+    "robot:precios-super": "tsx scripts/robot-precios-super/robot.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.0",
@@ -50,6 +51,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "patchright": "^1.52.5",
     "playwright": "^1.49.1",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.2.2",

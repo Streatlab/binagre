@@ -43,6 +43,50 @@ export async function volcar(fuente: string, html: string) {
   } catch { /* noop */ }
 }
 
+export async function latido(fuente: string, ultimoDato?: string | Date, detalle?: string) {
+  try {
+    await sb.from('robot_salud').upsert([{
+      fuente,
+      ultima_ejecucion: new Date().toISOString(),
+      ultimo_dato: ultimoDato ? new Date(ultimoDato).toISOString() : null,
+      estado: 'ok',
+      detalle: detalle || null,
+    }]);
+  } catch { /* el latido nunca tumba al robot */ }
+}
+
+/** ¿Sigue pendiente este objetivo por periodo? Sin fila = pendiente. */
+export async function objetivoPendiente(fuente: string, periodo: string, objetivo: string): Promise<boolean> {
+  try {
+    const { data } = await sb.from('robot_objetivos').select('conseguido')
+      .eq('fuente', fuente).eq('periodo', periodo).eq('objetivo', objetivo).maybeSingle();
+    return !data?.conseguido;
+  } catch { return true; }
+}
+
+/** Registra un intento (conseguido o no) sin tumbar el robot si falla. */
+export async function registrarIntento(fuente: string, periodo: string, objetivo: string, detalle?: string) {
+  try {
+    const { data: actual } = await sb.from('robot_objetivos').select('intentos')
+      .eq('fuente', fuente).eq('periodo', periodo).eq('objetivo', objetivo).maybeSingle();
+    await sb.from('robot_objetivos').upsert([{
+      fuente, periodo, objetivo, intentos: (actual?.intentos || 0) + 1,
+      ultima_prueba: new Date().toISOString(), detalle: detalle || null,
+    }], { onConflict: 'fuente,periodo,objetivo' });
+  } catch { /* noop */ }
+}
+
+export async function marcarConseguido(fuente: string, periodo: string, objetivo: string, detalle?: string) {
+  try {
+    const { data: actual } = await sb.from('robot_objetivos').select('intentos')
+      .eq('fuente', fuente).eq('periodo', periodo).eq('objetivo', objetivo).maybeSingle();
+    await sb.from('robot_objetivos').upsert([{
+      fuente, periodo, objetivo, conseguido: true, intentos: (actual?.intentos || 0) + 1,
+      ultima_prueba: new Date().toISOString(), detalle: detalle || null,
+    }], { onConflict: 'fuente,periodo,objetivo' });
+  } catch { /* noop */ }
+}
+
 function mimeDe(nombre: string): string {
   const e = (nombre.match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase();
   if (e === '.csv') return 'text/csv';

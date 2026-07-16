@@ -1,10 +1,6 @@
 name: Robots de plataforma (Uber / Glovo / Just Eat / Sinqro → bandeja)
 
 # Los robots solo DESCARGAN informes y los dejan en la bandeja de Papeleo.
-# Credenciales: tabla robot_credenciales de Supabase (nunca aqui).
-# Codigo de verificacion: se lee por IMAP del buzon de la cuenta (tabla buzones_otp).
-# El disparo por 'push' sirve para lanzar una prueba tocando este fichero.
-# 14-jul-2026 15:20 · alta de sinqro (Just Eat sale de ahi).
 
 on:
   workflow_dispatch:
@@ -126,6 +122,9 @@ jobs:
       - name: Dependencias de sistema (con cache)
         if: steps.toca.outputs.si == '1' && steps.cache-playwright.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
+      - name: Pantalla virtual (xvfb) para headful
+        if: steps.toca.outputs.si == '1'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
 
       - name: Descargar informes y dejarlos en la bandeja
         if: steps.toca.outputs.si == '1'
@@ -136,4 +135,4 @@ jobs:
           ROBOT_DRY: ${{ github.event.inputs.simulacro }}
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/robot-ingesta/${{ matrix.plataforma }}.ts
+        run: xvfb-run -a npx tsx scripts/robot-ingesta/${{ matrix.plataforma }}.ts

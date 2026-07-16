@@ -1,39 +1,34 @@
-name: SOLD_PRODUCTS Sinqro (semanal, lunes 02:00 Madrid → bandeja Papeleo)
+name: Informes semanales (lunes 03:00 Madrid)
 
-# plan-v2/T5: pasa de diario a semanal (lunes). GitHub programa en UTC y no
-# sabe de horario de verano, así que hay dos disparos y un candado: solo se
-# ejecuta si en Madrid son de verdad las 02:00 de un lunes.
-# NOTA: este workflow (y sold-products.ts) solo existen en la rama trabajo —
-# el schedule: de Actions siempre corre sobre el branch por defecto (master),
-# así que hasta que no se haga el merge trabajo→master (plan-v2/T9) esto no
-# dispara solo. Es la causa real de que llevara desde el 12-jul sin correr.
+# plan-v2/T7. Sinqro (informes PV+negocio) ya corre semanalmente por
+# robots-plataformas.yml (lunes 05:00 Madrid) — no se duplica aquí. Este
+# workflow cubre lo nuevo: Rushour reports (/rapports + mapa de /business).
+# Doble cron UTC (verano/invierno) + candado por hora real de Madrid.
 on:
   schedule:
-    - cron: "0 0 * * 1"   # lunes 02:00 Madrid (verano)
-    - cron: "0 1 * * 1"   # lunes 02:00 Madrid (invierno)
+    - cron: "0 1 * * 1"   # 03:00 Madrid (verano)
+    - cron: "0 2 * * 1"   # 03:00 Madrid (invierno)
   workflow_dispatch:
-    inputs:
-      simulacro:
-        description: "1 = solo mira, no deja nada en la bandeja"
-        type: choice
-        options: ["0", "1"]
-        default: "0"
 
 jobs:
-  sold:
+  informes:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        robot: ["rushour-reports"]
     steps:
-      - name: Candado horario (solo lunes 02:00 Madrid)
+      - name: Candado horario (solo lunes 03:00 Madrid)
         id: candado
         run: |
           H=$(TZ=Europe/Madrid date +%H)
-          DOW=$(TZ=Europe/Madrid date +%u)   # 1 = lunes
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || { [ "$H" = "02" ] && [ "$DOW" = "1" ]; }; then
+          DOW=$(TZ=Europe/Madrid date +%u)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || { [ "$H" = "03" ] && [ "$DOW" = "1" ]; }; then
             echo "seguir=1" >> $GITHUB_OUTPUT
           else
             echo "seguir=0" >> $GITHUB_OUTPUT
-            echo "En Madrid son las $H:00 del día $DOW (1=lunes), no toca (lunes 02:00)."
+            echo "En Madrid son las $H:00 del día $DOW (1=lunes), no toca."
           fi
       - uses: actions/checkout@v4
         if: steps.candado.outputs.seguir == '1'
@@ -58,12 +53,11 @@ jobs:
       - name: Instalar deps de sistema de Playwright (con caché)
         if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
-      - name: Descargar informe y dejarlo en la bandeja
+      - name: Descargar informes y dejarlos en la bandeja
         if: steps.candado.outputs.seguir == '1'
         env:
-          SOLD_DRY: ${{ github.event.inputs.simulacro }}
-          SINQRO_USER: ${{ secrets.SINQRO_USER }}
-          SINQRO_PASS: ${{ secrets.SINQRO_PASS }}
+          RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
+          RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/robot-ingesta/sold-products.ts
+        run: npx tsx scripts/robot-ingesta/${{ matrix.robot }}.ts

@@ -1,0 +1,88 @@
+/* Adaptación móvil de las pantallas REALES del ERP.
+   Regla de oro: en móvil no se pierde NI UN DATO. No se ocultan tarjetas,
+   ni columnas, ni pestañas. Solo se reordena a una columna y se permite
+   deslizar lo que sea más ancho que la pantalla.
+   Se aplica únicamente dentro de la app móvil (.movil-scope). */
+
+.movil-scope {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Fuera paddings, anchos y alturas de pantalla completa del layout de escritorio */
+.movil-scope > div {
+  padding: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
+  width: 100% !important;
+}
+
+/* Todo lo que sea rejilla → una sola columna */
+.movil-scope [style*="display: grid"],
+.movil-scope [style*="display:grid"] {
+  grid-template-columns: 1fr !important;
+  gap: 0.75rem !important;
+}
+
+/* Cabecera y filtros: se apilan, nada se corta */
+.movil-scope [style*="justify-content: space-between"] {
+  flex-wrap: wrap;
+  row-gap: 0.6rem;
+}
+
+/* Pestañas del panel: tira horizontal deslizable (no se pierde ninguna) */
+.movil-scope .tabs-pastilla {
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+  margin-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.movil-scope .tabs-pastilla::-webkit-scrollbar { display: none; }
+
+/* Tablas: se ven enteras deslizando en horizontal, nunca ensanchan la app */
+.movil-scope table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Gráficos y contenedores con ancho fijo, al ancho del móvil */
+.movil-scope img,
+.movil-scope svg,
+.movil-scope canvas,
+.movil-scope .recharts-wrapper,
+.movil-scope .recharts-responsive-container {
+  max-width: 100% !important;
+}
+
+/* Cifras enormes del escritorio: se recortan un poco para que no desborden */
+.movil-scope [style*="font-size: 64px"],
+.movil-scope [style*="font-size: 56px"],
+.movil-scope [style*="font-size: 48px"],
+.movil-scope [style*="font-size: 44px"],
+.movil-scope [style*="font-size: 42px"],
+.movil-scope [style*="font-size: 40px"] {
+  font-size: 34px !important;
+  line-height: 1.05 !important;
+}
+.movil-scope [style*="font-size: 38px"],
+.movil-scope [style*="font-size: 36px"],
+.movil-scope [style*="font-size: 34px"],
+.movil-scope [style*="font-size: 32px"] {
+  font-size: 28px !important;
+  line-height: 1.05 !important;
+}
+
+/* Nada puede pasarse del ancho de la pantalla */
+.movil-scope * {
+  max-width: 100%;
+}
+.movil-scope [style*="white-space: nowrap"] {
+  overflow-x: auto;
+  scrollbar-width: none;
+}

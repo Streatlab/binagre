@@ -1,15 +1,13 @@
-name: Sync Facturación (ALM 17:00 / CENAS 01:00 Madrid)
+name: Sync Facturación (CENAS 01:00 Madrid, consolidación única del día)
 
-# Cuatro crons para cubrir verano e invierno (GitHub programa en UTC y no sabe de
-# horario de verano). El propio script decide el turno por la hora real de Madrid
-# y lleva candado: el ALM automático NO escribe antes de las 16:00 Madrid, para
-# que un disparo a deshora no guarde un almuerzo a medias.
+# plan-v2/T4: se quitan los crons de ALM 17:00 — el corte de las 16:30 ya lo
+# hace la fórmula (plan-v2/T3, fn_corte_turno). Solo queda la consolidación
+# de madrugada del día completo anterior. Dos crons para cubrir verano e
+# invierno (GitHub programa en UTC y no sabe de horario de verano).
 on:
   schedule:
-    - cron: "0 15 * * *"   # 17:00 Madrid (verano) → ALM de hoy
-    - cron: "0 16 * * *"   # 17:00 Madrid (invierno) → ALM de hoy
-    - cron: "0 23 * * *"   # 01:00 Madrid (verano) → CENAS del día anterior
-    - cron: "0 0 * * *"    # 01:00 Madrid (invierno) → CENAS del día anterior
+    - cron: "0 23 * * *"   # 01:00 Madrid (verano) → día anterior completo
+    - cron: "0 0 * * *"    # 01:00 Madrid (invierno) → día anterior completo
   workflow_dispatch:
     inputs:
       servicio:
