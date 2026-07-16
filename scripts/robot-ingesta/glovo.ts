@@ -18,14 +18,17 @@
  *   arrancar (ERR_MODULE_NOT_FOUND). No reintroducir ese import.
  *
  * 16-jul-2026 · RUN REAL: streatlab bajó TODO (ventas+operaciones+historial+9 finanzas)
- *   y posmodernos solo finanzas. Causa (DOM volcado): en posmodernos el clic a
- *   "Ver negocio" no cerró el selector de tienda (seguían store-select-list-item /
- *   chain-select-button en el DOM) → sin tienda elegida no se renderiza "Descargar".
- *   Fix: verNegocio ahora VERIFICA que el selector se cierra y reintenta hasta 3 veces;
- *   último recurso: elegir la 1ª tienda (datos parciales, mejor que nada).
+ *   y posmodernos solo finanzas. Causa real (aviso de Rubén): posmodernos tiene UNA sola
+ *   tienda, así que el selector no muestra "Ver negocio" (eso es solo para agregar varias);
+ *   el paso correcto ahí es elegir directamente esa única tienda. El código anterior solo
+ *   probaba eso como último recurso tras 3 intentos fallidos buscando "Ver negocio" que
+ *   nunca iba a aparecer. Fix: verNegocio cuenta las tiendas del selector — si es 1, la
+ *   elige directamente (ruta normal, no fallback); si son varias, pulsa "Ver negocio"
+ *   para agregarlas todas (streatlab, 8 tiendas).
  *
  * Flujo real del portal (capturas de Rubén):
- *   1) Abrir el selector de establecimientos y pulsar "Ver negocio" → coge las 8 tiendas.
+ *   1) Cuenta con 1 tienda (posmodernos) → elegir esa tienda directamente.
+ *      Cuenta con varias tiendas (streatlab, 8) → abrir selector y pulsar "Ver negocio".
  *   2) "Descargar informe" abre un MODAL de formato (.csv / .xls) → elegir .csv y
  *      confirmar el botón verde DENTRO del modal.
  *   3) FACTURAS: portal.glovoapp.com/finance (menú "Pagos"): "Descargar todo" +
@@ -97,16 +100,16 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
 }
 
 /**
- * El portal filtra por establecimiento. Abre el selector y pulsa "Ver negocio" para que
- * el informe cubra TODAS las tiendas (8). Una tienda suelta daría datos parciales.
- * VERIFICA que el selector se cierra de verdad (en posmodernos el primer clic no cerraba
- * y sin tienda elegida no se renderiza "Descargar"). Reintenta hasta 3 veces; último
- * recurso: elegir la 1ª tienda.
+ * El portal filtra por establecimiento. Si la cuenta tiene UNA sola tienda (posmodernos),
+ * el selector no ofrece "Ver negocio" (eso es solo para agregar varias) → hay que elegir
+ * directamente esa única tienda. Si tiene varias (streatlab, 8), pulsar "Ver negocio" para
+ * agregarlas todas. Verifica que el selector se cierra de verdad antes de continuar.
  */
 async function verNegocio(page: Page, paso: string): Promise<void> {
   try {
+    const itemsTienda = () => page.locator('[data-testid="store-select-list-item"]');
     const enSelector = async () =>
-      (await page.locator('[data-testid="store-select-list-item"], [data-testid="chain-select-button"]').count().catch(() => 0)) > 0;
+      (await itemsTienda().count().catch(() => 0)) > 0 || (await page.locator('[data-testid="chain-select-button"]').count().catch(() => 0)) > 0;
 
     for (let intento = 1; intento <= 3; intento++) {
       const abridor = page.locator('[data-testid="brand-view-selection"]').first()
@@ -119,25 +122,38 @@ async function verNegocio(page: Page, paso: string): Promise<void> {
         if (intento === 1) await log(P, 'negocio', `${paso}: sin selector de tienda; sigo con la vista actual`);
         return;
       }
-      // Preferimos el botón exacto del portal; luego el texto; último recurso: la 1ª tienda
-      const candidatos = [
-        page.locator('[data-testid="chain-select-button"]').first(),
-        page.getByRole('button', { name: /ver negocio|view business/i }).first(),
-        page.getByText(/ver negocio|view business/i).first(),
-      ];
-      let pulsado = false;
-      for (const c of candidatos) {
-        if (await c.count().catch(() => 0)) { await c.click({ timeout: 6000 }).catch(() => {}); pulsado = true; break; }
-      }
-      if (!pulsado && intento === 3) {
-        await page.locator('[data-testid="store-select-list-item"]').first().click({ timeout: 6000 }).catch(() => {});
-        await log(P, 'negocio', `${paso}: sin "Ver negocio"; elijo la 1ª tienda (datos parciales)`);
-      }
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(5000);
-      if (!(await enSelector())) {
-        await log(P, 'negocio', `${paso}: "Ver negocio" (todas las tiendas) al intento ${intento}`);
-        return;
+
+      const nTiendas = await itemsTienda().count().catch(() => 0);
+      if (nTiendas === 1) {
+        // Cuenta de 1 sola tienda (posmodernos): se elige directamente, es la ruta normal.
+        await itemsTienda().first().click({ timeout: 6000 }).catch(() => {});
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await page.waitForTimeout(5000);
+        if (!(await enSelector())) {
+          await log(P, 'negocio', `${paso}: 1 sola tienda → elegida directamente`);
+          return;
+        }
+      } else {
+        // Varias tiendas (streatlab): agregar todas con "Ver negocio".
+        const candidatos = [
+          page.locator('[data-testid="chain-select-button"]').first(),
+          page.getByRole('button', { name: /ver negocio|view business/i }).first(),
+          page.getByText(/ver negocio|view business/i).first(),
+        ];
+        let pulsado = false;
+        for (const c of candidatos) {
+          if (await c.count().catch(() => 0)) { await c.click({ timeout: 6000 }).catch(() => {}); pulsado = true; break; }
+        }
+        if (!pulsado && intento === 3) {
+          await itemsTienda().first().click({ timeout: 6000 }).catch(() => {});
+          await log(P, 'negocio', `${paso}: sin "Ver negocio"; elijo la 1ª tienda (datos parciales)`);
+        }
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await page.waitForTimeout(5000);
+        if (!(await enSelector())) {
+          await log(P, 'negocio', `${paso}: "Ver negocio" (todas las tiendas) al intento ${intento}`);
+          return;
+        }
       }
     }
     await log(P, 'negocio', `${paso}: el selector de tienda no se cierra tras 3 intentos`);
