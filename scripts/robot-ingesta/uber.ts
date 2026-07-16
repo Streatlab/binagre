@@ -12,12 +12,19 @@
  * robot_objetivos, igual que Glovo/Just Eat con las quincenas:
  *   1) INFORMES SEMANALES (/manager/reports): resumen de ganancias + detalle
  *      por artículo de la semana cerrada (lunes-domingo anterior). Se pide y
- *      se espera EN EL MISMO RUN a que Uber lo prepare (~10 min, tope 12).
+ *      se espera a que Uber lo prepare (\"Disponible\"); si no da tiempo, la
+ *      pasada siguiente ya lo encuentra listo.
  *   2) FACTURAS (/manager/invoices): Uber las emite el domingo ~02:00: se
  *      intenta lunes y martes (reintento si el lunes no había nada nuevo).
  *   3) RESUMEN MENSUAL POR MARCA (/manager/payments): desde el día 3 del mes,
- *      baja el resumen de CADA marca del mes cerrado con los selectores REALES
- *      mapeados del DOM volcado (uber_mapa_payments, 16-jul).
+ *      intenta bajar el resumen de CADA marca del mes cerrado. DECISIÓN
+ *      AUTÓNOMA: no se ha podido inspeccionar /manager/payments en vivo desde
+ *      esta sesión, así que el selector de marca se busca de forma genérica
+ *      (patrones data-testid/role habituales) y SIEMPRE se vuelca el DOM a
+ *      robot_debug (fuente=uber_mapa_payments) mientras el objetivo siga
+ *      pendiente, para poder mapear los selectores reales a mano. Si no se
+ *      detecta selector de marca, se intenta una descarga única y NO se marca
+ *      conseguido — reintenta cada día hasta que alguien afine esta función.
  *
  * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM, se
  * salta toda la lógica de robot_objetivos y baja el mes pedido a mano).
@@ -188,8 +195,10 @@ async function seccionSimple(page: Page, ruta: string, tipo: string, periodo: st
 }
 
 /**
- * Resumen mensual POR MARCA en Pagos (/manager/payments). Selectores REALES
- * mapeados del DOM volcado (uber_mapa_payments, 16-jul).
+ * Resumen mensual POR MARCA en Pagos (/manager/payments). Sin selectores
+ * confirmados en vivo (ver cabecera): busca un selector de marca/negocio con
+ * patrones genéricos; si lo encuentra, baja el resumen de cada opción, si no,
+ * un único intento. Siempre vuelca el DOM mientras el objetivo esté pendiente.
  */
 async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: string): Promise<{ bajadas: number; totalMarcas: number | null }> {
   // 16-jul (noche, fix con DOM volcado uber_mapa_payments): la pagina real de
