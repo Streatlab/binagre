@@ -95,6 +95,14 @@ export async function logRobot(fuente: string, estado: string, detalle: string) 
   } catch {}
 }
 
+async function latidoRobot(ultimoDato: string, detalle: string) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  try {
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+    await sb.from('robot_salud').upsert([{ fuente: 'robot', ultima_ejecucion: new Date().toISOString(), ultimo_dato: ultimoDato, estado: 'ok', detalle }]);
+  } catch {}
+}
+
 // Lee un KPI de Rushour con locators: localiza el <span> etiqueta, sube por sus
 // ancestros <div> (la card) y devuelve el primer valor numérico (con € para
 // importes, entero para volumen). Todo en Node → sin page.evaluate.
@@ -351,6 +359,7 @@ async function main() {
     const rush = await ingestaRushour(browser, fecha, toma);
     const sinq = await ingestaSinqro(browser, fecha);
     await guardar([...rush, ...sinq]);
+    await latidoRobot(fecha, `toma=${toma} filas=${rush.length + sinq.length}`);
   } finally { await browser.close(); }
 }
 

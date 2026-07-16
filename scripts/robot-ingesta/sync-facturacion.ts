@@ -55,6 +55,9 @@ const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio'
 async function log(estado: string, detalle: string) {
   try { await sb.from('robot_log').insert([{ fuente: 'sync_facturacion', estado, detalle }]); } catch { /* noop */ }
 }
+async function latido(ultimoDato: string, detalle: string) {
+  try { await sb.from('robot_salud').upsert([{ fuente: 'sync_facturacion', ultima_ejecucion: new Date().toISOString(), ultimo_dato: ultimoDato, estado: 'ok', detalle }]); } catch { /* noop */ }
+}
 function fechaMadrid(offsetDias = 0): string {
   const d = new Date(Date.now() + offsetDias * 86400000);
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(d);
@@ -427,6 +430,7 @@ async function main() {
   } finally {
     await browser.close();
     await log('fin', 'sync terminado');
+    await latido(fechaObj, `servicio=${servicio}`);
   }
 }
 main().catch((e) => { console.error(e); process.exit(1); });

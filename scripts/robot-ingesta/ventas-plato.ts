@@ -30,6 +30,9 @@ const RUSHOUR = {
 async function log(estado: string, detalle: string) {
   try { await sb.from('robot_log').insert([{ fuente: 'ventas_plato', estado, detalle }]); } catch { /* noop */ }
 }
+async function latido(ultimoDato: string, detalle: string) {
+  try { await sb.from('robot_salud').upsert([{ fuente: 'ventas_plato', ultima_ejecucion: new Date().toISOString(), ultimo_dato: ultimoDato, estado: 'ok', detalle }]); } catch { /* noop */ }
+}
 async function volcar(fuente: string, fecha: string, html: string) {
   try {
     const { error } = await sb.from('robot_debug').insert([{ fuente, fecha, html }]);
@@ -246,6 +249,7 @@ async function main() {
       }
     }
     await log('fin', 'ok');
+    await latido(`${meses[meses.length - 1]}-01`, `meses=${meses.join(',')}`);
   } catch (e: any) {
     await log('error', String(e?.message || e));
     process.exitCode = 1;

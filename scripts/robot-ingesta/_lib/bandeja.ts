@@ -43,6 +43,18 @@ export async function volcar(fuente: string, html: string) {
   } catch { /* noop */ }
 }
 
+export async function latido(fuente: string, ultimoDato?: string | Date, detalle?: string) {
+  try {
+    await sb.from('robot_salud').upsert([{
+      fuente,
+      ultima_ejecucion: new Date().toISOString(),
+      ultimo_dato: ultimoDato ? new Date(ultimoDato).toISOString() : null,
+      estado: 'ok',
+      detalle: detalle || null,
+    }]);
+  } catch { /* el latido nunca tumba al robot */ }
+}
+
 function mimeDe(nombre: string): string {
   const e = (nombre.match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase();
   if (e === '.csv') return 'text/csv';

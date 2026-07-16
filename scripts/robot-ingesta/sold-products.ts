@@ -41,6 +41,9 @@ const SOLO_LEER = process.env.SOLD_DRY === '1';
 async function log(estado: string, detalle: string) {
   try { await sb.from('robot_log').insert([{ fuente: 'sold_products', estado, detalle }]); } catch { /* noop */ }
 }
+async function latido(detalle: string) {
+  try { await sb.from('robot_salud').upsert([{ fuente: 'sold_products', ultima_ejecucion: new Date().toISOString(), ultimo_dato: HOY, estado: 'ok', detalle }]); } catch { /* noop */ }
+}
 async function volcar(fuente: string, page: Page) {
   try {
     const html = await page.content();
@@ -197,6 +200,7 @@ async function main() {
     if (SOLO_LEER) { await log('simulacro', `${fichero.nombre} (${fichero.datos.length} bytes) · no dejo nada en la bandeja`); return; }
     await aBandeja(fichero.nombre, fichero.datos);
     await log('fin', 'ok');
+    await latido(fichero.nombre);
   } catch (e: any) {
     await log('error', String(e?.message || e));
     await volcar('sold_error', page);
