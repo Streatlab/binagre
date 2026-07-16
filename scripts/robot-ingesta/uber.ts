@@ -12,19 +12,12 @@
  * robot_objetivos, igual que Glovo/Just Eat con las quincenas:
  *   1) INFORMES SEMANALES (/manager/reports): resumen de ganancias + detalle
  *      por artículo de la semana cerrada (lunes-domingo anterior). Se pide y
- *      se espera a que Uber lo prepare ("Disponible"); si no da tiempo, la
- *      pasada siguiente ya lo encuentra listo.
+ *      se espera EN EL MISMO RUN a que Uber lo prepare (~10 min, tope 12).
  *   2) FACTURAS (/manager/invoices): Uber las emite el domingo ~02:00: se
  *      intenta lunes y martes (reintento si el lunes no había nada nuevo).
  *   3) RESUMEN MENSUAL POR MARCA (/manager/payments): desde el día 3 del mes,
- *      intenta bajar el resumen de CADA marca del mes cerrado. DECISIÓN
- *      AUTÓNOMA: no se ha podido inspeccionar /manager/payments en vivo desde
- *      esta sesión, así que el selector de marca se busca de forma genérica
- *      (patrones data-testid/role habituales) y SIEMPRE se vuelca el DOM a
- *      robot_debug (fuente=uber_mapa_payments) mientras el objetivo siga
- *      pendiente, para poder mapear los selectores reales a mano. Si no se
- *      detecta selector de marca, se intenta una descarga única y NO se marca
- *      conseguido — reintenta cada día hasta que alguien afine esta función.
+ *      baja el resumen de CADA marca del mes cerrado con los selectores REALES
+ *      mapeados del DOM volcado (uber_mapa_payments, 16-jul).
  *
  * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM, se
  * salta toda la lógica de robot_objetivos y baja el mes pedido a mano).
@@ -103,7 +96,12 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
  * recorrido, sin recargar entre descargas (evita reprocesar la misma fila).
  */
 async function bajarFilasDisponibles(page: Page, tipo: string, periodo: string, destino: string, tope = 5): Promise<number> {
-  const filas = page.locator('tr, [role="row"]').filter({ hasText: RE_DISPONIBLE });
+  // 16-jul (noche, fix con DOM volcado): en el centro de informes "Disponible" es el
+  // nombre de la PESTANA, no aparece en las filas. Una fila lista para bajar se
+  // reconoce porque su columna Accion trae un boton/enlace "Descargar". Se filtra
+  // por eso; el filtro antiguo por "Disponible" queda de respaldo.
+  let filas = page.locator('tr, [role="row"]').filter({ has: page.locator('button, a, [role="button"]').filter({ hasText: RE_DESCARGAR }) });
+  if (!(await filas.count().catch(() => 0))) filas = page.locator('tr, [role="row"]').filter({ hasText: RE_DISPONIBLE });
   const n = Math.min(await filas.count().catch(() => 0), tope);
   let bajadas = 0;
   for (let i = 0; i < n; i++) {
@@ -141,25 +139,40 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
 
   if (await bajarFilaDisponible(page, 'uber_informe', periodo, 'ventas')) return true;
 
-  // Nada listo: pedir de nuevo el último informe y esperar hasta 8 minutos
-  const rehacer = page.getByRole('button', { name: /solicitar de nuevo|request again|crear informe|create report/i }).first()
-    .or(page.locator('button, [role="button"]').filter({ hasText: /solicitar de nuevo|crear informe/i }).first());
-  if (!(await rehacer.count().catch(() => 0))) {
-    await volcar(`${P}_informes`, await page.content().catch(() => ''));
-    await log(P, 'sin_descarga', 'informes: no encuentro ni descarga ni "solicitar de nuevo"');
-    return false;
+  // Nada listo: pedir de nuevo los informes QUE INTERESAN (resumen/detalle de pagos,
+  // ganancias, historial de pedidos) y quedarse esperando en el MISMO run hasta 12
+  // minutos (orden de Rubén 16-jul: Uber tarda ~10 min como mucho; no salir sin bajar).
+  const RE_INFORMES_UTILES = /detalles del pago|payment details|resumen de pagos|pagos|payment summary|ganancias|earnings|historial de pedidos|order history/i;
+  const filasUtiles = page.locator('tr, [role="row"]').filter({ hasText: RE_INFORMES_UTILES });
+  const nUtiles = Math.min(await filasUtiles.count().catch(() => 0), 3);
+  let pedidos = 0;
+  for (let i = 0; i < nUtiles; i++) {
+    const b = filasUtiles.nth(i).locator('button[aria-label="Solicitar de nuevo"], button, [role="button"]').filter({ hasText: /solicitar de nuevo|request again/i }).first();
+    if (await b.count().catch(() => 0)) { await b.click({ timeout: 8000 }).catch(() => {}); pedidos++; await page.waitForTimeout(1500); }
   }
+  if (!pedidos) {
+    const rehacer = page.getByRole('button', { name: /solicitar de nuevo|request again|crear informe|create report/i }).first()
+      .or(page.locator('button, [role="button"]').filter({ hasText: /solicitar de nuevo|crear informe/i }).first());
+    if (!(await rehacer.count().catch(() => 0))) {
+      await volcar(`${P}_informes`, await page.content().catch(() => ''));
+      await log(P, 'sin_descarga', 'informes: no encuentro ni descarga ni "solicitar de nuevo"');
+      return false;
+    }
+    await rehacer.click({ timeout: 8000 }).catch(() => {});
+    pedidos = 1;
+  }
+  await log(P, 'aviso', `${pedidos} informe(s) solicitados; espero en este mismo run a que Uber los prepare (tope 12 min)`);
 
-  await rehacer.click({ timeout: 8000 }).catch(() => {});
-  await log(P, 'aviso', 'informe solicitado; esperando a que Uber lo prepare');
-
-  for (let vuelta = 0; vuelta < 8; vuelta++) {
+  let bajadas = 0;
+  for (let vuelta = 0; vuelta < 12; vuelta++) {
     await page.waitForTimeout(60000);
     await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForTimeout(8000);
-    if ((await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas')) > 0) return true;
+    bajadas += await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas');
+    if (bajadas >= pedidos) return true;   // todos los pedidos bajados: no seguir esperando
   }
-  await log(P, 'aviso', 'el informe seguía preparándose; se bajará en la próxima pasada');
+  if (bajadas > 0) return true;
+  await log(P, 'aviso', 'el informe seguía preparándose tras 12 min; se bajará en la próxima pasada');
   return false;
 }
 
@@ -175,53 +188,86 @@ async function seccionSimple(page: Page, ruta: string, tipo: string, periodo: st
 }
 
 /**
- * Resumen mensual POR MARCA en Pagos (/manager/payments). Sin selectores
- * confirmados en vivo (ver cabecera): busca un selector de marca/negocio con
- * patrones genéricos; si lo encuentra, baja el resumen de cada opción, si no,
- * un único intento. Siempre vuelca el DOM mientras el objetivo esté pendiente.
+ * Resumen mensual POR MARCA en Pagos (/manager/payments). Selectores REALES
+ * mapeados del DOM volcado (uber_mapa_payments, 16-jul).
  */
 async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: string): Promise<{ bajadas: number; totalMarcas: number | null }> {
+  // 16-jul (noche, fix con DOM volcado uber_mapa_payments): la pagina real de
+  // "Resumenes de pagos" tiene:
+  //   - selector de MARCA: [data-testid="location-selector-button-testid"] (p. ej. "Binagre")
+  //   - rango de fechas: input[aria-label="Select a date range."] (dd/mm/yyyy - dd/mm/yyyy, se puede teclear)
+  //   - descarga: un div[role="button"] con el texto "Descargar" (icono de nube), NO un <button>
   await page.goto(`${RAIZ}/manager/payments`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(8000);
   await quitarEstorbos(page);
   await volcar('uber_mapa_payments', await page.content().catch(() => ''));
 
-  const selectorMarca = page.locator(
-    '[data-testid*="store-switcher" i], [data-testid*="store-select" i], [data-testid*="restaurant-switcher" i], [data-testid*="brand-switcher" i], [data-testid*="location-switcher" i]',
-  ).first();
+  // Rango = mes cerrado (periodo AAAA-MM) tecleado en el date-picker
+  const [anio, mes] = periodo.split('-').map(Number);
+  const finMes = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+  const mm = String(mes).padStart(2, '0');
+  const rangoTxt = `01/${mm}/${anio} \u2013 ${String(finMes).padStart(2, '0')}/${mm}/${anio}`;
+  const campoFecha = page.locator('input[aria-label="Select a date range."]').first();
+  if (await campoFecha.count().catch(() => 0)) {
+    await campoFecha.click({ timeout: 6000 }).catch(() => {});
+    await campoFecha.fill(rangoTxt).catch(() => {});
+    await page.keyboard.press('Enter').catch(() => {});
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(4000);
+  } else {
+    await log(P, 'aviso', `mensual_${cuenta}: no veo el campo de rango de fechas; bajo el rango que este puesto`);
+  }
 
+  const controlDescargar = () => page.locator('[role="button"], button', { hasText: /^\s*Descargar\s*$/ }).last();
+
+  const bajarActual = async (nombreMarca: string): Promise<number> => {
+    const ctrl = controlDescargar();
+    if (!(await ctrl.count().catch(() => 0))) {
+      await log(P, 'sin_descarga', `mensual_${cuenta} · ${nombreMarca}: no veo el control Descargar`);
+      return 0;
+    }
+    const f = await capturar(page, P, async () => {
+      await ctrl.click({ timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(1500);
+      // Si sale menu de formato (CSV/PDF), elegir la primera opcion
+      const opcion = page.getByRole('menuitem', { name: /csv|pdf|descargar/i }).first();
+      if (await opcion.count().catch(() => 0)) await opcion.click({ timeout: 5000 }).catch(() => {});
+    }, 90);
+    if (!f) return 0;
+    await entregar({ fuente: P, tipo: 'uber_resumen_pagos_mensual', nombre: `${nombreMarca}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
+    await log(P, 'descarga', `mensual_${cuenta} · ${nombreMarca}: ${f.nombre} (${f.datos.length} bytes)`);
+    return 1;
+  };
+
+  const selectorMarca = page.locator('[data-testid="location-selector-button-testid"], [data-testid*="location-selector" i], [data-testid*="store-switcher" i]').first();
   if (!(await selectorMarca.count().catch(() => 0))) {
-    // Sin selector detectado: una sola pasada (cuenta con 1 marca, o el
-    // selector no encaja con los patrones probados — queda pendiente de mapeo).
-    const n = await seccionSimple(page, '/manager/payments', 'uber_resumen_pagos_mensual', periodo, 'ventas');
-    await log(P, n ? 'descarga' : 'sin_descarga', `mensual_${cuenta}: sin selector de marca detectado, ${n} fichero(s) en una pasada`);
+    const n = await bajarActual(cuenta);
+    await log(P, n ? 'descarga' : 'sin_descarga', `mensual_${cuenta}: sin selector de marca, ${n} fichero(s) en una pasada`);
     return { bajadas: n, totalMarcas: null };
   }
 
   await selectorMarca.click({ timeout: 6000 }).catch(() => {});
   await page.waitForTimeout(1500);
-  const opciones = page.locator('[role="option"], [role="menuitem"], li[data-testid*="option" i]');
-  const totalMarcas = await opciones.count().catch(() => 0);
+  const opciones = () => page.locator('[data-baseweb="popover"] [role="option"], [data-baseweb="popover"] [role="menuitem"], [data-baseweb="menu"] li, [role="listbox"] [role="option"], [role="menu"] [role="menuitem"]');
+  const totalMarcas = Math.min(await opciones().count().catch(() => 0), 20);
   if (!totalMarcas) {
-    await log(P, 'aviso', `mensual_${cuenta}: selector de marca sin opciones legibles (DOM volcado en uber_mapa_payments)`);
-    return { bajadas: 0, totalMarcas: null };
+    await page.keyboard.press('Escape').catch(() => {});
+    const n = await bajarActual(cuenta);
+    await log(P, 'aviso', `mensual_${cuenta}: selector sin opciones legibles; ${n} fichero(s) de la marca visible (DOM en uber_mapa_payments)`);
+    return { bajadas: n, totalMarcas: null };
   }
 
   let bajadas = 0;
   for (let i = 0; i < totalMarcas; i++) {
-    await selectorMarca.click({ timeout: 6000 }).catch(() => {});
-    await page.waitForTimeout(1000);
-    const opt = page.locator('[role="option"], [role="menuitem"], li[data-testid*="option" i]').nth(i);
-    const nombreMarca = ((await opt.textContent().catch(() => '')) || `marca_${i}`).trim();
+    if (i > 0) { await selectorMarca.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(1200); }
+    const opt = opciones().nth(i);
+    const nombreMarca = (((await opt.textContent().catch(() => '')) || `marca_${i}`).trim()).slice(0, 60) || `marca_${i}`;
     await opt.click({ timeout: 6000 }).catch(() => {});
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(4000);
-    if (await bajarFilaDisponible(page, `uber_resumen_pagos_mensual_${nombreMarca}`, periodo, 'ventas')) bajadas++;
-    else {
-      const f = await descargarDeLaPagina(P, page, `uber_resumen_pagos_mensual_${nombreMarca}`);
-      if (f) { await entregar({ fuente: P, tipo: 'uber_resumen_pagos_mensual', nombre: `${nombreMarca}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' }); bajadas++; }
-    }
+    bajadas += await bajarActual(nombreMarca);
   }
   await log(P, 'descarga', `mensual_${cuenta}: ${bajadas}/${totalMarcas} marca(s) bajadas`);
   return { bajadas, totalMarcas };
