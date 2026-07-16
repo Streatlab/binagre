@@ -16,18 +16,19 @@
  * DEDUPE de plataformas: aquí SOLO Just Eat (Glovo y Uber se cuentan por
  * Rushour; regla canónica anti doble conteo).
  *
- * Reglas del incidente del 16-jul:
- *   1. Escribe en `ventas_vivo_pruebas` hasta validarse (cambiar TABLA_VIVO).
- *   2. No guardar snapshots en 0 (se loguean como 'sin_actividad', no es fallo:
- *      puede no haber JE activos en ese momento y el acumulado del día manda).
- *   3. Cuando pase a `ventas_vivo`: solo fila plataforma=just_eat, jamás TOTAL.
+ * PRODUCCIÓN (16-jul noche, validado por Rubén): escribe en `ventas_vivo`.
+ * El Panel lo integra: v_vivo_snapshot une el lote TOTAL de Rushour + la última
+ * fila just_eat del día; v_vivo_hoy y "Por dónde entran" suman ambas fuentes.
+ * Reglas que siguen vigentes del incidente del 16-jul:
+ *   1. No guardar snapshots en 0 (se loguean como 'sin_actividad').
+ *   2. SOLO fila plataforma=just_eat, jamás una fila TOTAL propia.
  */
 import { chromium, Page } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { hoyMadrid, log, latido } from './_lib/bandeja.js';
 
 const P = 'sinqro_vivo';
-const TABLA_VIVO = 'ventas_vivo_pruebas';
+const TABLA_VIVO = 'ventas_vivo';
 const URL_POS = 'https://app.sinqro.com/#/sp/6416/pos/services';
 const sb = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '');
 
