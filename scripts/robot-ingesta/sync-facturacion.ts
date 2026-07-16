@@ -58,6 +58,30 @@ async function log(estado: string, detalle: string) {
 async function latido(ultimoDato: string, detalle: string) {
   try { await sb.from('robot_salud').upsert([{ fuente: 'sync_facturacion', ultima_ejecucion: new Date().toISOString(), ultimo_dato: ultimoDato, estado: 'ok', detalle }]); } catch { /* noop */ }
 }
+
+/**
+ * plan-v2/T3: mientras corren en paralelo el robot.ts viejo (agregador
+ * rushour/sinqro) y el corte-fórmula nuevo (agregador formula, fn_corte_turno
+ * en Supabase), compara el total del día de cada uno. Si difieren más de 2€,
+ * deja un log estado='divergencia' para poder decidir con datos cuándo
+ * jubilar robot.ts (5 días sin divergencias).
+ */
+async function compararFormulaVsRobot(fecha: string) {
+  try {
+    const { data } = await sb.from('ingesta_robot_diaria').select('agregador, bruto').eq('fecha', fecha);
+    if (!data || !data.length) return;
+    const sum = (ags: string[]) => data.filter((r: any) => ags.includes(r.agregador)).reduce((a: number, r: any) => a + Number(r.bruto || 0), 0);
+    const totalFormula = sum(['formula']);
+    const totalRobot = sum(['rushour', 'sinqro']);
+    if (totalFormula === 0 && totalRobot === 0) return; // nada que comparar todavía
+    const diff = Math.round((totalFormula - totalRobot) * 100) / 100;
+    if (Math.abs(diff) > 2) {
+      await log('divergencia', `${fecha}: formula=${totalFormula.toFixed(2)} robot=${totalRobot.toFixed(2)} diff=${diff.toFixed(2)}`);
+    } else {
+      await log('cuadra', `${fecha}: formula=${totalFormula.toFixed(2)} robot=${totalRobot.toFixed(2)} diff=${diff.toFixed(2)}`);
+    }
+  } catch (e: any) { await log('divergencia_error', String(e?.message || e)); }
+}
 function fechaMadrid(offsetDias = 0): string {
   const d = new Date(Date.now() + offsetDias * 86400000);
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(d);
@@ -430,6 +454,7 @@ async function main() {
   } finally {
     await browser.close();
     await log('fin', 'sync terminado');
+    await compararFormulaVsRobot(fechaObj);
     await latido(fechaObj, `servicio=${servicio}`);
   }
 }
