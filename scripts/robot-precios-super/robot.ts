@@ -210,14 +210,24 @@ async function leerPrecioMercadonaPorUrl(url: string, cookie: string): Promise<n
 function normalizar(s: string): string {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
-// Coincidencia por solape de palabras (sin depender de clases CSS ni de un
-// endpoint de búsqueda): cuenta cuántas palabras de la consulta aparecen en el
-// nombre del producto. Si el mejor resultado está empatado con otro, es dudoso.
-// Desempate Hacendado: entre varios candidatos empatados, si solo uno empieza
+// LEY-ANTIFALSOS-01: un match parcial (solo alguna palabra suelta) NUNCA es
+// 'ok'. Bug real detectado en producción: "Cebolla blanca fresca" casaba con
+// "Pasta fresca ravioli... con cebolla Hacendado" porque el solape de tokens
+// aceptaba ganador único aunque solo compartiera 1-2 palabras de 3-4, y
+// palabras función (de/con/para/del…) inflaban el solape entre productos sin
+// relación real. Ahora: sin subcadena exacta, un match solo es de confianza
+// (`confianzaAlta`) si el producto contiene TODAS las palabras significativas
+// de la consulta (sin stopwords). Cobertura parcial → dudoso, nunca ok.
+const STOPWORDS_ES = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y', 'en', 'a', 'con', 'para', 'al', 'un', 'una', 'unos', 'unas', 'o', 'su', 'sus']);
+function tokensSignificativos(consultaNorm: string): string[] {
+  return consultaNorm.split(' ').filter((t) => t.length > 0 && !STOPWORDS_ES.has(t));
+}
+
+// Desempate Hacendado: entre varios candidatos empatados de confianza alta
+// (subcadena exacta o cobertura completa de palabras), si solo uno empieza
 // literalmente por el término buscado y es marca propia Hacendado (la más
-// habitual en el Escandallo), se elige sin marcar dudoso — es la coincidencia
-// más directa posible. Si el mejor candidato ni siquiera contiene el término
-// base no se fuerza nada (p.ej. "Cebolla blanca" no debe resolver a "Alubia").
+// habitual en el Escandallo), se elige sin marcar dudoso. Si el mejor
+// candidato ni siquiera contiene el término base no se fuerza nada.
 function desempatarHacendado(consultaNorm: string, empatados: ProductoCatalogo[]): ProductoCatalogo | null {
   const candidatos = empatados.filter((p) => {
     const n = normalizar(p.nombre);
@@ -226,14 +236,12 @@ function desempatarHacendado(consultaNorm: string, empatados: ProductoCatalogo[]
   return candidatos.length === 1 ? candidatos[0] : null;
 }
 
-function mejorCoincidencia(consulta: string, catalogo: ProductoCatalogo[]): { mejor: ProductoCatalogo | null; mejorScore: number; empatados: number } {
+function mejorCoincidencia(consulta: string, catalogo: ProductoCatalogo[]): { mejor: ProductoCatalogo | null; mejorScore: number; empatados: number; confianzaAlta: boolean } {
   const consultaNorm = normalizar(consulta);
-  const tokensConsulta = consultaNorm.split(' ').filter(Boolean);
+  const tokensConsulta = tokensSignificativos(consultaNorm);
 
-  // 1) Subcadena exacta: el nombre del producto contiene la consulta completa
-  // literal. Mucho más fiable que el solape de palabras para consultas cortas
-  // (p.ej. "Limón" solapa con decenas de productos, pero muy pocos lo tienen
-  // como subcadena exacta). Desempata por nombre más corto = coincidencia más directa.
+  // 1) Subcadena exacta: el nombre del producto contiene la CADENA COMPLETA
+  // normalizada, no tokens sueltos. La señal más fiable — se acepta directa.
   const porSubcadena = catalogo.filter((p) => normalizar(p.nombre).includes(consultaNorm));
   if (porSubcadena.length > 0) {
     porSubcadena.sort((a, b) => a.nombre.length - b.nombre.length);
@@ -241,33 +249,42 @@ function mejorCoincidencia(consulta: string, catalogo: ProductoCatalogo[]): { me
     const empatadosArr = porSubcadena.filter((p) => p.nombre.length === largoMinimo);
     if (empatadosArr.length > 1) {
       const ganador = desempatarHacendado(consultaNorm, empatadosArr);
-      if (ganador) return { mejor: ganador, mejorScore: tokensConsulta.length, empatados: 1 };
+      if (ganador) return { mejor: ganador, mejorScore: tokensConsulta.length, empatados: 1, confianzaAlta: true };
+      return { mejor: empatadosArr[0], mejorScore: tokensConsulta.length, empatados: empatadosArr.length, confianzaAlta: false };
     }
-    return { mejor: porSubcadena[0], mejorScore: tokensConsulta.length, empatados: empatadosArr.length };
+    return { mejor: porSubcadena[0], mejorScore: tokensConsulta.length, empatados: 1, confianzaAlta: true };
   }
 
-  // 2) Solape de palabras (fallback), desempatando también por nombre más corto.
-  let mejor: ProductoCatalogo | null = null;
-  let mejorScore = 0;
-  let mejorLen = Infinity;
-  let empatadosArr: ProductoCatalogo[] = [];
-  for (const p of catalogo) {
-    const nombreNorm = normalizar(p.nombre);
-    const tokensNombre = new Set(nombreNorm.split(' ').filter(Boolean));
-    let score = 0;
-    for (const t of tokensConsulta) if (tokensNombre.has(t)) score++;
-    if (score === 0) continue;
-    if (score > mejorScore || (score === mejorScore && nombreNorm.length < mejorLen)) {
-      mejor = p; mejorScore = score; mejorLen = nombreNorm.length; empatadosArr = [p];
-    } else if (score === mejorScore && nombreNorm.length === mejorLen) {
-      empatadosArr.push(p);
+  // 2) Cobertura de palabras: solo cuenta como confiable si el producto
+  // contiene TODAS las palabras significativas de la consulta.
+  const candidatos = catalogo
+    .map((p) => {
+      const nombreNorm = normalizar(p.nombre);
+      const tokensNombre = new Set(nombreNorm.split(' ').filter(Boolean));
+      const encontrados = tokensConsulta.filter((t) => tokensNombre.has(t)).length;
+      return { p, nombreNorm, encontrados };
+    })
+    .filter((c) => c.encontrados > 0);
+
+  if (candidatos.length === 0) return { mejor: null, mejorScore: 0, empatados: 0, confianzaAlta: false };
+
+  const cobertosCompletos = tokensConsulta.length > 0 ? candidatos.filter((c) => c.encontrados === tokensConsulta.length) : [];
+  if (cobertosCompletos.length > 0) {
+    cobertosCompletos.sort((a, b) => a.nombreNorm.length - b.nombreNorm.length);
+    const largoMinimo = cobertosCompletos[0].nombreNorm.length;
+    const empatadosArr = cobertosCompletos.filter((c) => c.nombreNorm.length === largoMinimo).map((c) => c.p);
+    if (empatadosArr.length > 1) {
+      const ganador = desempatarHacendado(consultaNorm, empatadosArr);
+      if (ganador) return { mejor: ganador, mejorScore: tokensConsulta.length, empatados: 1, confianzaAlta: true };
+      return { mejor: empatadosArr[0], mejorScore: tokensConsulta.length, empatados: empatadosArr.length, confianzaAlta: false };
     }
+    return { mejor: empatadosArr[0], mejorScore: tokensConsulta.length, empatados: 1, confianzaAlta: true };
   }
-  if (empatadosArr.length > 1) {
-    const ganador = desempatarHacendado(consultaNorm, empatadosArr);
-    if (ganador) return { mejor: ganador, mejorScore, empatados: 1 };
-  }
-  return { mejor, mejorScore, empatados: empatadosArr.length };
+
+  // Ningún candidato cubre todas las palabras: se deja el mejor esfuerzo como
+  // referencia para el log, pero confianzaAlta=false ⇒ nunca se carga (dudoso).
+  candidatos.sort((a, b) => b.encontrados - a.encontrados);
+  return { mejor: candidatos[0].p, mejorScore: candidatos[0].encontrados, empatados: candidatos.length, confianzaAlta: false };
 }
 
 // ---------- ALCAMPO (Playwright con login + intercepción de red JSON interna) ----------
@@ -426,11 +443,11 @@ async function loginAlcampo(page: Page, cred: Credencial): Promise<boolean> {
 // dispara al escribir en el buscador — NO se parsea el HTML renderizado.
 // LEY-ANTIFALSOS: solo se carga si el nombre casa de verdad contra la
 // consulta (mejorCoincidencia); ambiguo o sin match no fuerza nada.
-async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; candidatos: number }> {
+async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: number | null; url: string | null; nombreWeb: string | null; confianzaAlta: boolean }> {
   const buscador = page.locator('input[type="search"], input[placeholder*="usca" i]').first();
   if (!(await buscador.count().catch(() => 0))) {
     await logRobot('precios_super', 'aviso', `alcampo buscador no encontrado. url=${page.url()} ${await sniffInputs(page)}`);
-    return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
+    return { precio: null, url: null, nombreWeb: null, confianzaAlta: false };
   }
 
   const capturas: { url: string; productos: ProductoCatalogo[] }[] = [];
@@ -480,7 +497,7 @@ async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: 
 
   if (!capturas.length) {
     await logRobot('precios_super', 'aviso', `alcampo "${consulta}": 0 respuestas JSON con productos interceptadas. debug_webproductpagews=${debugEndpointPrincipal ?? 'sin captura'}`);
-    return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
+    return { precio: null, url: null, nombreWeb: null, confianzaAlta: false };
   }
 
   // Nos quedamos con la captura que trae más productos (la de resultados de
@@ -488,14 +505,16 @@ async function buscarEnAlcampo(page: Page, consulta: string): Promise<{ precio: 
   capturas.sort((a, b) => b.productos.length - a.productos.length);
   const { url: endpoint, productos } = capturas[0];
 
-  const { mejor, mejorScore, empatados } = mejorCoincidencia(consulta, productos);
+  const { mejor, mejorScore, empatados, confianzaAlta } = mejorCoincidencia(consulta, productos);
   if (mejorScore === 0 || !mejor) {
-    return { precio: null, url: null, nombreWeb: null, candidatos: 0 };
+    return { precio: null, url: null, nombreWeb: null, confianzaAlta: false };
   }
-  if (empatados > 1) {
-    return { precio: null, url: null, nombreWeb: mejor.nombre, candidatos: empatados };
+  // LEY-ANTIFALSOS-01: sin confianza alta (subcadena exacta o cobertura
+  // completa de palabras sin empate), nunca se carga — queda dudoso.
+  if (!confianzaAlta || empatados > 1) {
+    return { precio: null, url: null, nombreWeb: mejor.nombre, confianzaAlta: false };
   }
-  return { precio: mejor.precio, url: endpoint, nombreWeb: mejor.nombre, candidatos: 1 };
+  return { precio: mejor.precio, url: endpoint, nombreWeb: mejor.nombre, confianzaAlta: true };
 }
 
 // Reutiliza el patrón de endpoint JSON guardado en el mapeo con la cookie de
@@ -529,15 +548,18 @@ async function procesarMercadona(sb: SupabaseClient, obj: Objetivo, mapeo: Mapeo
 
     if (precio == null) {
       const consulta = obj.busqueda;
-      const { mejor, mejorScore, empatados } = mejorCoincidencia(consulta, catalogo);
+      const { mejor, mejorScore, empatados, confianzaAlta } = mejorCoincidencia(consulta, catalogo);
       if (mejorScore === 0 || !mejor) {
         await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'sin_match' });
         await logRobot('precios_super', 'sin_match', `${obj.iding} (mercadona API) sin coincidencia para "${consulta}" en catálogo de ${catalogo.length} productos`);
         return 'sin_match';
       }
-      if (empatados > 1) {
+      // LEY-ANTIFALSOS-01: cobertura parcial de palabras o empate → dudoso,
+      // nunca ok (bug real: "Cebolla blanca fresca" casaba con un ravioli
+      // porque compartía 1-2 palabras de 3 y ganaba por ser único candidato).
+      if (!confianzaAlta || empatados > 1) {
         await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'dudoso', nombre_web: mejor.nombre });
-        await logRobot('precios_super', 'dudoso', `${obj.iding} (mercadona API) ${empatados} candidatos empatados para "${consulta}" (mejor: "${mejor.nombre}")`);
+        await logRobot('precios_super', 'dudoso', `${obj.iding} (mercadona API) sin confianza alta para "${consulta}" (mejor: "${mejor.nombre}", score=${mejorScore}, empatados=${empatados})`);
         return 'dudoso';
       }
       const urlProducto = `${MERCADONA_API}/products/${mejor.id}/`;
@@ -569,15 +591,18 @@ async function procesarAlcampo(page: Page, sb: SupabaseClient, obj: Objetivo, ma
     if (precio == null) {
       const consulta = obj.busqueda;
       const res = await buscarEnAlcampo(page, consulta);
-      if (res.candidatos > 6 || (res.candidatos > 1 && res.precio == null)) {
-        await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'dudoso', nombre_web: res.nombreWeb, url_producto: res.url });
-        await logRobot('precios_super', 'dudoso', `${obj.iding} ${res.candidatos} candidatos, no se carga precio`);
-        return 'dudoso';
-      }
-      if (res.precio == null || !res.url) {
+      if (res.nombreWeb == null) {
         await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'sin_match' });
         await logRobot('precios_super', 'sin_match', `${obj.iding} sin resultado buscando "${consulta}"`);
         return 'sin_match';
+      }
+      // LEY-ANTIFALSOS-01: sin confianza alta, dudoso — nunca se carga
+      // (bug real: coincidencias parciales de palabras casaban productos sin
+      // relación real, ej. "Tiras de pimiento asado con ajo" → "Hummus...").
+      if (!res.confianzaAlta || res.precio == null || !res.url) {
+        await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'dudoso', nombre_web: res.nombreWeb });
+        await logRobot('precios_super', 'dudoso', `${obj.iding} sin confianza alta buscando "${consulta}" (mejor: "${res.nombreWeb}")`);
+        return 'dudoso';
       }
       precio = res.precio;
       await guardarMapeo(sb, obj.iding, obj.proveedor, { estado_match: 'ok', url_producto: res.url, nombre_web: res.nombreWeb });
