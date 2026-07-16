@@ -1,0 +1,70 @@
+name: Sinqro vivo (Just Eat, cada 10 min en servicio)
+
+# Snapshot del día en curso durante el servicio (11:00-00:30 Madrid). GitHub
+# Actions programa en UTC y no sabe de horario de verano, así que hay dos
+# franjas de cron (verano/invierno) y un candado por hora real de Madrid,
+# igual que sold-products.yml. El cron mínimo real de Actions ronda los 5 min
+# con posibles retrasos; se acepta la deriva.
+on:
+  schedule:
+    - cron: "*/10 9-23 * * *"   # 11:00-00:59 Madrid (verano, UTC+2)
+    - cron: "*/10 10-23,0 * * *" # 11:00-00:59 Madrid (invierno, UTC+1)
+  workflow_dispatch:
+  push:
+    branches: [trabajo]
+    paths:
+      - "scripts/robot-ingesta/sinqro-vivo.ts"
+      - "scripts/robot-ingesta/robot.ts"
+      - ".github/workflows/sinqro-vivo.yml"
+
+jobs:
+  vivo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Candado horario (solo 11:00-00:30 Madrid)
+        id: candado
+        run: |
+          H=$(TZ=Europe/Madrid date +%H)
+          M=$(TZ=Europe/Madrid date +%M)
+          seguir=0
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            seguir=1
+          elif [ "$H" -ge 11 ] && [ "$H" -le 23 ]; then
+            seguir=1
+          elif [ "$H" = "00" ] && [ "$M" -le 30 ]; then
+            seguir=1
+          fi
+          echo "seguir=$seguir" >> $GITHUB_OUTPUT
+          echo "Madrid son las $H:$M — seguir=$seguir"
+      - uses: actions/checkout@v4
+        if: steps.candado.outputs.seguir == '1'
+      - uses: actions/setup-node@v4
+        if: steps.candado.outputs.seguir == '1'
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Instalar dependencias
+        if: steps.candado.outputs.seguir == '1'
+        run: npm install --no-audit --no-fund
+      - name: Cache navegador Playwright
+        id: cache-playwright
+        if: steps.candado.outputs.seguir == '1'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Instalar navegador Playwright
+        if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Instalar deps de sistema de Playwright (con caché)
+        if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Leer pedidos Just Eat del día y guardar en ventas_vivo
+        if: steps.candado.outputs.seguir == '1'
+        env:
+          SINQRO_USER: ${{ secrets.SINQRO_USER }}
+          SINQRO_PASS: ${{ secrets.SINQRO_PASS }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/sinqro-vivo.ts
