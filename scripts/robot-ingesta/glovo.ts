@@ -213,6 +213,45 @@ async function bajarDescargar(page: Page, paso: string): Promise<{ nombre: strin
   return f;
 }
 
+/**
+ * 16-jul (noche, fix real con el DOM volcado): en /reports YA NO existe un boton
+ * "Descargar informe" global. Cada bloque del informe lleva su propio boton de
+ * exportar con data-testid="<bloque>-report-export-button":
+ *   - Ventas: performance_report, weekly_turnover
+ *   - Operaciones: prep_time, order_rejections, offline_duration, contact_rate,
+ *     orders_marked_as_ready
+ * Se pulsan TODOS los del tab activo y se entrega cada fichero por separado.
+ */
+async function bajarExportsBloques(page: Page, paso: string, tipo: string, periodo: string, cuenta: string): Promise<number> {
+  await resolverCandado(page, paso);
+  const botones = page.locator('button[data-testid$="-report-export-button"]');
+  const n = await botones.count().catch(() => 0);
+  if (!n) return 0;
+  let bajados = 0;
+  for (let i = 0; i < n; i++) {
+    const btn = botones.nth(i);
+    const testid = (await btn.getAttribute('data-testid').catch(() => '')) || `bloque_${i}`;
+    const bloque = testid.replace(/-report-export-button$/, '');
+    await btn.scrollIntoViewIfNeeded().catch(() => {});
+    const f = await capturar(page, P, async () => {
+      await btn.click({ timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(1200);
+      // Si al pulsar sale menu o modal de formato, elegir CSV y confirmar
+      const opcion = page.getByRole('menuitem', { name: /csv/i }).first()
+        .or(page.locator('[role="dialog"], [role="menu"], .modal, [class*="modal" i]').locator('li, button, label, [role="menuitem"]').filter({ hasText: /csv|descargar/i }).first());
+      if (await opcion.count().catch(() => 0)) await opcion.click({ timeout: 5000 }).catch(() => {});
+    }, 60);
+    if (f) {
+      await entregar({ fuente: P, tipo, nombre: `${cuenta}_${bloque}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
+      await log(P, 'descarga', `${paso} · ${bloque}: ${f.nombre} (${f.datos.length} bytes)`);
+      bajados++;
+    } else {
+      await log(P, 'sin_descarga', `${paso} · ${bloque}: el export no solto fichero`);
+    }
+  }
+  return bajados;
+}
+
 /** Rendimiento: pestañas Ventas y Operaciones (Clientes lo dejamos para CRM más adelante). */
 async function rendimiento(page: Page, periodo: string, cuenta: string, from: string, to: string) {
   await page.goto(`${PORTAL}/reports?from=${from}&to=${to}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -230,8 +269,12 @@ async function rendimiento(page: Page, periodo: string, cuenta: string, from: st
       await page.waitForLoadState('networkidle').catch(() => {});
       await page.waitForTimeout(5000);
     }
-    const f = await bajarDescargar(page, `${tipo}_${cuenta}`);
-    if (f) await entregar({ fuente: P, tipo, nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
+    const bajados = await bajarExportsBloques(page, `${tipo}_${cuenta}`, tipo, periodo, cuenta);
+    if (bajados === 0) {
+      // Fallback al boton global antiguo por si Glovo vuelve a cambiar la pantalla
+      const f = await bajarDescargar(page, `${tipo}_${cuenta}`);
+      if (f) await entregar({ fuente: P, tipo, nombre: `${cuenta}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
+    }
   }
 }
 
