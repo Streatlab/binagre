@@ -42,9 +42,10 @@
  * Modos (env MODO): diario | semanal | backfill (MES=AAAA-MM)
  */
 import type { Page, BrowserContext } from 'playwright';
-import { entregar, log, volcar, hoyMadrid, latido } from './_lib/bandeja.js';
+import { entregar, log, volcar, hoyMadrid, latido, objetivoPendiente, registrarIntento, marcarConseguido } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
 import { abrir, quitarEstorbos, capturar, mantenPulsado } from './_lib/navegador.js';
+import { quincenaCerrada } from './_lib/periodos.js';
 
 const P = 'glovo';
 const PORTAL = 'https://portal.glovoapp.com';
@@ -251,7 +252,7 @@ async function historial(page: Page, periodo: string, cuenta: string, from: stri
  * del sidebar). Sin captcha y ya con los 8 establecimientos. Bajamos con "Descargar todo"
  * (paquete del rango) y con el icono de descarga de cada fila (PDF individual → Conciliación).
  */
-async function finanzas(page: Page, periodo: string, cuenta: string) {
+async function finanzas(page: Page, periodo: string, cuenta: string): Promise<number> {
   await page.goto(`${PORTAL}/finance`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(9000);
@@ -302,6 +303,7 @@ async function finanzas(page: Page, periodo: string, cuenta: string) {
   } else {
     await log(P, 'descarga', `finanzas_${cuenta}: ${bajados} fichero(s)`);
   }
+  return bajados;
 }
 
 async function trabajarCuenta(c: Cuenta) {
@@ -316,6 +318,20 @@ async function trabajarCuenta(c: Cuenta) {
     // pasan a T6, con su propia lógica de insistencia por quincena.
     if (MODO !== 'diario') await rendimiento(page, periodo, c.cuenta, from, to);   // Ventas + Operaciones
     await historial(page, periodo, c.cuenta, from, to);     // Historial de pedidos
+
+    // plan-v2/T6: facturas por quincena con insistencia — cada pasada comprueba
+    // si la quincena cerrada más reciente ya está conseguida; si no, reintenta.
+    // El backfill explícito (MES a mano) no toca robot_objetivos.
+    if (MODO !== 'backfill') {
+      const q = quincenaCerrada();
+      if (await objetivoPendiente(P, q.periodo, 'facturas')) {
+        const n = await finanzas(page, q.periodo, c.cuenta);
+        if (n > 0) await marcarConseguido(P, q.periodo, 'facturas', `${c.cuenta}: ${n} fichero(s)`);
+        else await registrarIntento(P, q.periodo, 'facturas', `${c.cuenta}: 0 ficheros nuevos`);
+      } else {
+        await log(P, 'facturas_ok', `quincena ${q.periodo} ya conseguida, no repito`);
+      }
+    }
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
     process.exitCode = 1;

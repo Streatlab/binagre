@@ -11,9 +11,10 @@
  * Código por correo si lo pide: IMAP del buzón de la cuenta (buzones_otp).
  */
 import type { Page, BrowserContext } from 'playwright';
-import { entregar, log, volcar, hoyMadrid, latido } from './_lib/bandeja.js';
+import { entregar, log, volcar, hoyMadrid, latido, objetivoPendiente, registrarIntento, marcarConseguido } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
 import { abrir, quitarEstorbos, capturar, bajarEnlaces } from './_lib/navegador.js';
+import { quincenaCerrada } from './_lib/periodos.js';
 
 const P = 'justeat';
 const RAIZ = 'https://access.just-eat.es';
@@ -128,18 +129,32 @@ async function trabajarCuenta(c: Cuenta) {
   const { browser, ctx, page } = await abrir(P, c.cuenta);
   try {
     if (!(await entrar(page, ctx, c))) return;
-    const periodo = MODO === 'backfill' && /^\d{4}-Q[1-4]$/i.test(TRIMESTRE) ? TRIMESTRE : hoyMadrid(1);
+    const esBackfill = MODO === 'backfill' && /^\d{4}-Q[1-4]$/i.test(TRIMESTRE);
 
-    if (!(await abrirFacturas(page))) {
-      await log(P, 'aviso', `no encuentro la sección de facturas (volcados ${P}_* en robot_debug) · url=${page.url()}`);
+    // plan-v2/T6: mismo mecanismo de insistencia por quincena que Glovo — Just
+    // Eat también se retrasa; se reintenta cada pasada hasta conseguir algo.
+    // El backfill explícito (MES/TRIMESTRE a mano) se salta la insistencia:
+    // pide directamente el periodo pedido, sin mirar robot_objetivos.
+    const q = esBackfill ? { periodo: TRIMESTRE } : quincenaCerrada();
+    if (!esBackfill && !(await objetivoPendiente(P, q.periodo, 'facturas'))) {
+      await log(P, 'facturas_ok', `quincena ${q.periodo} ya conseguida, no repito`);
       return;
     }
 
-    const n = await bajarFacturas(page, periodo);
-    if (n > 0) await log(P, 'descarga', `${n} factura(s) de Just Eat a la bandeja`);
-    else {
+    if (!(await abrirFacturas(page))) {
+      await log(P, 'aviso', `no encuentro la sección de facturas (volcados ${P}_* en robot_debug) · url=${page.url()}`);
+      if (!esBackfill) await registrarIntento(P, q.periodo, 'facturas', 'no encontré la sección de facturas');
+      return;
+    }
+
+    const n = await bajarFacturas(page, q.periodo);
+    if (n > 0) {
+      await log(P, 'descarga', `${n} factura(s) de Just Eat a la bandeja`);
+      if (!esBackfill) await marcarConseguido(P, q.periodo, 'facturas', `${n} fichero(s)`);
+    } else {
       await volcar(`${P}_facturas`, await page.content().catch(() => ''));
       await log(P, 'sin_descarga', 'sección de facturas abierta pero sin ficheros que bajar');
+      if (!esBackfill) await registrarIntento(P, q.periodo, 'facturas', '0 ficheros nuevos');
     }
   } catch (e: any) {
     await log(P, 'error', `${c.cuenta}: ${e?.message || e}`);
