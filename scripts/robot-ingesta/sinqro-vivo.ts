@@ -2,55 +2,98 @@
  * SINQRO VIVO · snapshot de pedidos Just Eat del día en curso, cada ~10 min
  * durante servicio (11:00–00:30 Madrid).
  *
- * INCIDENTE 16-jul: la primera versión escribía directo en `ventas_vivo` y una
- * lectura en 0 (login/scrape sin verificar aún) tumbó el Panel en vivo de
- * producción. Regla desde entonces, mientras este robot no esté validado:
- *   1. PROHIBIDO escribir en `ventas_vivo`. Se escribe en `ventas_vivo_pruebas`
- *      (mismo esquema) — el Panel no la lee.
- *   2. Solo cuando se confirme que lee bien de verdad, cambiar TABLA_VIVO a
- *      'ventas_vivo' más abajo.
- *   3. Nunca se escribe una lectura en 0 pedidos/0€ (probable fallo de login o
- *      scrape, no un "todavía no hay pedidos" fiable) — se salta esa pasada y
- *      se loguea como sospechosa en vez de guardar un dato falso.
- *   4. Cuando algún día se escriba en `ventas_vivo` de verdad: el Panel ancla
- *      el vivo a la fila plataforma=TOTAL de Rushour, así que esta tabla
- *      SOLO debe aportar su fila plataforma=just_eat (nunca una fila TOTAL
- *      propia que compita con la de Rushour).
+ * 16-jul (noche) · CAMBIO DE PANTALLA: la vista online/orders quedó VACÍA desde
+ * el ~11-jul (comprobado con DOM volcado: cuenta y filtros bien, 0 pedidos, con
+ * o sin fechas tecleadas). Los pedidos viven ahora en la pantalla de POS que
+ * Rubén indicó desde el principio: app.sinqro.com/#/sp/6416/pos/services.
+ * Este robot va a esa pantalla. Como su DOM aún no está mapeado, en cada pasada
+ * vuelca el HTML a robot_debug (fuente 'sinqro_pos_dom') y hace una lectura
+ * genérica (bloques que mencionen Just Eat con un importe €). Cuando el volcado
+ * confirme los selectores reales, se afina el lector.
  *
- * DECISIÓN AUTÓNOMA (plan-v2 T2): el plan pedía leer
- * app.sinqro.com/#/sp/6416/pos/services, una pantalla de punto de venta que no
- * se ha podido inspeccionar en vivo (sin acceso interactivo al portal desde
- * esta sesión). En vez de adivinar selectores contra una página no vista, este
- * robot reutiliza ingestaSinqro() de robot.ts — el mismo login (#login-email/
- * #login-password/#loginButton) y la misma lectura de app.sinqro.com/#/sp/
- * 6416/online/orders que YA funciona en producción (toma comida/cena) — pidiendo
- * como rango el día de hoy. Limitación conocida: esa vista es el listado de
- * pedidos del día, no un panel de "en preparación/en reparto" en tiempo real;
- * si Sinqro tarda en reflejar un pedido ahí, el vivo se retrasa lo mismo.
- * Pendiente: mapear pos/services (DOM real) para una lectura más instantánea.
+ * Reglas vigentes del incidente del 16-jul:
+ *   1. Escribe en `ventas_vivo_pruebas` hasta validarse (cambiar TABLA_VIVO).
+ *   2. Nunca guardar lecturas en 0 (se loguean como sospechosas).
+ *   3. Cuando pase a `ventas_vivo`: solo fila plataforma=just_eat, jamás TOTAL.
  */
-import { chromium } from 'playwright';
+import { chromium, Page } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
-import { ingestaSinqro } from './robot.js';
 import { hoyMadrid, log, latido } from './_lib/bandeja.js';
 
 const P = 'sinqro_vivo';
-// TODO(validación pendiente): cambiar a 'ventas_vivo' cuando este robot lea
-// bien de verdad varios días seguidos. Hasta entonces, tabla de pruebas.
 const TABLA_VIVO = 'ventas_vivo_pruebas';
+const URL_POS = 'https://app.sinqro.com/#/sp/6416/pos/services';
 const sb = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '');
 
+const USER = process.env.SINQRO_USER || '';
+const PASS = process.env.SINQRO_PASS || '';
+
+function numES(s: string | null | undefined): number | null {
+  if (!s) return null;
+  const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+async function volcarDom(page: Page, fuente: string, fecha: string) {
+  try {
+    const html = await page.content().catch(() => '');
+    if (html) await sb.from('robot_debug').insert([{ fuente, fecha, html }]);
+  } catch {}
+}
+
+async function login(page: Page) {
+  await page.goto('https://app.sinqro.com/', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+  const email = page.locator('#login-email').first();
+  if (await email.count().catch(() => 0)) {
+    await email.fill(USER).catch(() => {});
+    await page.locator('#login-password').first().fill(PASS).catch(() => {});
+    await Promise.all([
+      page.waitForLoadState('networkidle').catch(() => {}),
+      page.locator('#loginButton').first().click().catch(() => {}),
+    ]);
+    await page.waitForTimeout(3000);
+  }
+}
+
 async function main() {
+  if (!USER || !PASS) { await log(P, 'error', 'sin credenciales SINQRO_USER/PASS'); return; }
   const fecha = hoyMadrid();
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   try {
-    const filas = await ingestaSinqro(browser, fecha);
-    const pedidos = filas.reduce((a, f) => a + (f.pedidos || 0), 0);
-    const facturacion = Number(filas.reduce((a, f) => a + (f.bruto || 0), 0).toFixed(2));
+    const page = await browser.newPage();
+    await login(page);
 
-    if (pedidos === 0 && facturacion === 0) {
-      await log(P, 'sospechoso', `${fecha}: lectura en 0 pedidos/0€ — probable fallo de login o scrape, NO se guarda`);
-      await latido(P, fecha, 'lectura en 0, descartada');
+    await page.goto(URL_POS, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(6000);
+
+    // Volcado SIEMPRE (pantalla aún sin mapear): así se pueden fijar los
+    // selectores reales leyendo robot_debug por SQL.
+    await volcarDom(page, 'sinqro_pos_dom', fecha);
+
+    // Lectura genérica provisional: elementos que mencionen Just Eat y tengan
+    // un importe € en su texto. Sirve para validar que la pantalla ES la buena;
+    // el lector fino se escribe con el DOM volcado.
+    const candidatos = page.locator('div,li,tr').filter({ hasText: /just\s?eat/i });
+    const n = Math.min(await candidatos.count().catch(() => 0), 200);
+    let pedidos = 0; let bruto = 0;
+    const vistos = new Set<string>();
+    for (let i = 0; i < n; i++) {
+      const txt = ((await candidatos.nth(i).textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      if (txt.length > 400) continue;            // contenedores grandes, no un pedido
+      const m = txt.match(/(\d+[.,]\d{2})\s*€/);
+      if (!m) continue;
+      if (vistos.has(txt)) continue;             // el mismo bloque anidado repetido
+      vistos.add(txt);
+      pedidos += 1;
+      bruto += numES(m[1]) || 0;
+    }
+    bruto = Math.round(bruto * 100) / 100;
+
+    if (pedidos === 0) {
+      await log(P, 'sospechoso', `${fecha}: lectura en 0 en pos/services — DOM volcado (sinqro_pos_dom), afinar lector con él`);
+      await latido(P, fecha, 'lectura en 0 en pos/services, DOM volcado');
       return;
     }
 
@@ -62,16 +105,16 @@ async function main() {
       .limit(1)
       .maybeSingle();
 
-    const cambiado = !ultimo || Number(ultimo.pedidos) !== pedidos || Number(ultimo.facturacion) !== facturacion;
+    const cambiado = !ultimo || Number(ultimo.pedidos) !== pedidos || Number(ultimo.facturacion) !== bruto;
     if (cambiado) {
       await sb.from(TABLA_VIVO).insert([{
         fecha, plataforma: 'just_eat', marca: 'Streat Lab',
-        pedidos, facturacion, por_horas: null, crudo: { turnos: filas },
+        pedidos, facturacion: bruto, por_horas: null, crudo: { origen: 'pos/services', lector: 'generico_v1' },
       }]);
     }
 
-    await log(P, 'ok', `${fecha} · pedidos=${pedidos} facturacion=${facturacion} · ${cambiado ? 'guardado' : 'sin cambios'} · tabla=${TABLA_VIVO}`);
-    await latido(P, fecha, `pedidos=${pedidos} facturacion=${facturacion} · tabla=${TABLA_VIVO}`);
+    await log(P, 'ok', `${fecha} · pedidos=${pedidos} facturacion=${bruto} · ${cambiado ? 'guardado' : 'sin cambios'} · tabla=${TABLA_VIVO} · pos/services`);
+    await latido(P, fecha, `pedidos=${pedidos} facturacion=${bruto} · pos/services`);
   } catch (e: any) {
     await log(P, 'error', String(e?.message || e));
     process.exitCode = 1;
