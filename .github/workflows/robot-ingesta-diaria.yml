@@ -9,8 +9,9 @@ name: Robot ingesta diaria (Rushour + Sinqro)
 # sabe de horario de verano; el propio robot.ts decide comida/cena por la hora
 # real de Madrid al arrancar, así que el disparo "de más" que cae fuera de
 # temporada no rompe el reparto (ver tomaPorHoraMadrid en robot.ts).
-# También se dispara al tocar su código (push a este path) para poder probarlo
-# sin usar la pestaña Actions, y por botón manual con toma/fecha explícitos.
+# BLOQUEO CERO (17-jul): el schedule corre en master pero el código vive en
+# trabajo → checkout con ref: trabajo hasta la fusión definitiva. Disparador
+# push quitado (los cambios de código ocurren en trabajo).
 on:
   workflow_dispatch:
     inputs:
@@ -27,11 +28,6 @@ on:
         description: "Fecha a procesar YYYY-MM-DD (vacío = hoy)"
         type: string
         default: ""
-  push:
-    branches: [master]
-    paths:
-      - "scripts/robot-ingesta/robot.ts"
-      - ".github/workflows/robot-ingesta-diaria.yml"
   schedule:
     - cron: "30 14 * * *" # comida 16:30 Madrid (verano, UTC+2)
     - cron: "30 15 * * *" # comida 16:30 Madrid (invierno, UTC+1)
@@ -43,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: trabajo
 
       - uses: actions/setup-node@v4
         with:
