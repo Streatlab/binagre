@@ -101,10 +101,27 @@ async function bajarFilasDisponibles(page: Page, tipo: string, periodo: string, 
   // nombre de la PESTANA, no aparece en las filas. Una fila lista para bajar se
   // reconoce porque su columna Accion trae un boton/enlace "Descargar". Se filtra
   // por eso; el filtro antiguo por "Disponible" queda de respaldo.
+  // 17-jul (v3): las "filas" del centro de informes son DIVs, no <tr>/[role=row],
+  // por eso ninguna pasada veia nada listo. Se pulsan directamente los botones
+  // "Descargar" que haya en la pagina (aria-label o texto), sin buscar filas.
+  const directos = page.locator('button[aria-label="Descargar"], a[aria-label="Descargar"], button[aria-label="Download"]')
+    .or(page.getByRole('button', { name: /^\s*descargar\s*$/i }))
+    .or(page.getByRole('link', { name: /^\s*descargar\s*$/i }));
+  const nd = Math.min(await directos.count().catch(() => 0), tope);
+  let bajadas = 0;
+  for (let i = 0; i < nd; i++) {
+    const f = await capturar(page, P, async () => { await directos.nth(i).click({ timeout: 6000 }).catch(() => {}); }, 90);
+    if (f) {
+      await entregar({ fuente: P, tipo, nombre: f.nombre, datos: f.datos, periodo, destino });
+      await log(P, 'descarga', `${tipo}: ${f.nombre} (${f.datos.length} bytes)`);
+      bajadas++;
+    }
+  }
+  if (bajadas > 0) return bajadas;
+
   let filas = page.locator('tr, [role="row"]').filter({ has: page.locator('button, a, [role="button"]').filter({ hasText: RE_DESCARGAR }) });
   if (!(await filas.count().catch(() => 0))) filas = page.locator('tr, [role="row"]').filter({ hasText: RE_DISPONIBLE });
   const n = Math.min(await filas.count().catch(() => 0), tope);
-  let bajadas = 0;
   for (let i = 0; i < n; i++) {
     const fila = filas.nth(i);
     const f = await capturar(page, P, async () => {
@@ -222,11 +239,14 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
   }
 
   const controlDescargar = () => page.getByText('Descargar', { exact: true }).last()
-    .or(page.locator('[role="button"], button', { hasText: /^\s*Descargar\s*$/ }).last());
+    .or(page.locator('[role="button"], button', { hasText: /^\s*Descargar\s*$/ }).last())
+    .or(page.locator('button[aria-label*="escarg" i], [role="button"][aria-label*="escarg" i], button[aria-label*="ownload" i]').last());
 
+  let yaVolcado = false;
   const bajarActual = async (nombreMarca: string): Promise<number> => {
     const ctrl = controlDescargar();
     if (!(await ctrl.count().catch(() => 0))) {
+      if (!yaVolcado) { yaVolcado = true; await volcar('uber_mapa_payments_marca', await page.content().catch(() => '')); }
       await log(P, 'sin_descarga', `mensual_${cuenta} · ${nombreMarca}: no veo el control Descargar`);
       return 0;
     }
@@ -234,10 +254,13 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
       await ctrl.click({ timeout: 8000 }).catch(() => {});
       await page.waitForTimeout(1800);
       // Si sale menu de formato (CSV/PDF), elegir la primera opcion
-      const opcion = page.getByRole('menuitem', { name: /csv|pdf|descargar|exportar/i }).first()
-        .or(page.locator('[data-baseweb="popover"], [role="menu"], [role="listbox"]').locator('li, [role="option"], [role="menuitem"], button').filter({ hasText: /csv|pdf|descargar|exportar/i }).first());
+      // OJO: "Descargar en el centro de informes" NAVEGA, no descarga -> excluirlo.
+      const opcion = page.getByRole('menuitem', { name: /csv|pdf/i }).first()
+        .or(page.locator('[data-baseweb="popover"], [role="menu"], [role="listbox"]').locator('li, [role="option"], [role="menuitem"], button')
+          .filter({ hasText: /csv|pdf|descargar|exportar/i })
+          .filter({ hasNotText: /centro de informes|reports hub/i }).first());
       if (await opcion.count().catch(() => 0)) await opcion.click({ timeout: 5000 }).catch(() => {});
-      else await volcar('uber_mapa_descarga', await page.content().catch(() => ''));
+      else if (!yaVolcado) { yaVolcado = true; await volcar('uber_mapa_descarga', await page.content().catch(() => '')); }
     }, 90);
     if (!f) return 0;
     await entregar({ fuente: P, tipo: 'uber_resumen_pagos_mensual', nombre: `${nombreMarca}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
