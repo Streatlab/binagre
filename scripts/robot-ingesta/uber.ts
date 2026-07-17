@@ -215,7 +215,10 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
   //   - selector de MARCA: [data-testid="location-selector-button-testid"] (p. ej. "Binagre")
   //   - rango de fechas: input[aria-label="Select a date range."] (dd/mm/yyyy - dd/mm/yyyy, se puede teclear)
   //   - descarga: un div[role="button"] con el texto "Descargar" (icono de nube), NO un <button>
-  await page.goto(`${RAIZ}/manager/payments`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  // 17-jul (captura de Ruben): la pantalla simple es /manager/payments/statements
+  // ("Ganancias > Resumenes"): tabla mensual con boton "Descargar" por fila y
+  // selector de tienda arriba. Sin nube, sin rango que teclear.
+  await page.goto(`${RAIZ}/manager/payments/statements`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(8000);
   await quitarEstorbos(page);
@@ -238,9 +241,12 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
     await log(P, 'aviso', `mensual_${cuenta}: no veo el campo de rango de fechas; bajo el rango que este puesto`);
   }
 
-  const controlDescargar = () => page.getByText('Descargar', { exact: true }).last()
-    .or(page.locator('[role="button"], button', { hasText: /^\s*Descargar\s*$/ }).last())
-    .or(page.locator('button[aria-label*="escarg" i], [role="button"][aria-label*="escarg" i], button[aria-label*="ownload" i]').last());
+  // 17-jul (captura de Ruben): en /statements hay UN boton "Descargar" por mes;
+  // el PRIMERO de la tabla es el mes cerrado mas reciente -> first(), no last().
+  const controlDescargar = () => page.getByRole('button', { name: /^\s*Descargar\s*$/ }).first()
+    .or(page.getByText('Descargar', { exact: true }).first())
+    .or(page.locator('[role="button"], button', { hasText: /^\s*Descargar\s*$/ }).first())
+    .or(page.locator('button[aria-label*="escarg" i], [role="button"][aria-label*="escarg" i], button[aria-label*="ownload" i]').first());
 
   let yaVolcado = false;
   const bajarActual = async (nombreMarca: string): Promise<number> => {
@@ -291,7 +297,7 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
 
   // 17-jul (v3): al elegir una marca en el selector, Uber NAVEGA a la vista de esa
   // marca y el toolbar con "Descargar" desaparece -> tras cada seleccion hay que
-  // VOLVER a /manager/payments, refijar el rango y entonces descargar.
+  // VOLVER a /manager/payments/statements, refijar el rango y entonces descargar.
   totalMarcas = Math.min(totalMarcas, 12);
   // 17-jul (v4, run 19:58 "0/12 en 45s"): el desplegable quedaba ABIERTO tras contar
   // las marcas; el primer click del bucle lo cerraba, la opcion 0 no aparecia y el
@@ -327,7 +333,10 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(3000);
     // volver a la vista de pagos de ESTA marca
-    await page.goto(`${RAIZ}/manager/payments`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    // 17-jul (captura de Ruben): la pantalla simple es /manager/payments/statements
+  // ("Ganancias > Resumenes"): tabla mensual con boton "Descargar" por fila y
+  // selector de tienda arriba. Sin nube, sin rango que teclear.
+  await page.goto(`${RAIZ}/manager/payments/statements`, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(5000);
     await quitarEstorbos(page);
@@ -346,7 +355,7 @@ async function trabajarCuenta(c: Cuenta) {
     if (MODO === 'backfill' && /^\d{4}-\d{2}$/.test(MES)) {
       // Backfill explícito: baja todo lo del mes pedido, sin tocar robot_objetivos.
       await informes(page, MES);
-      await seccionSimple(page, '/manager/payments', 'uber_resumen_pagos', MES, 'ventas');
+      await seccionSimple(page, '/manager/payments/statements', 'uber_resumen_pagos', MES, 'ventas');
       await seccionSimple(page, '/manager/invoices', 'uber_factura', MES, 'facturas');
       return;
     }
