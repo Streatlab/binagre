@@ -1,6 +1,9 @@
 name: Robots de plataforma (Uber / Glovo / Just Eat / Sinqro → bandeja)
 
 # Los robots solo DESCARGAN informes y los dejan en la bandeja de Papeleo.
+# BLOQUEO CERO (17-jul): el schedule corre en master pero el código vive en
+# trabajo → checkout con ref: trabajo hasta la fusión definitiva. Disparador
+# push quitado (los cambios de código ocurren en trabajo).
 
 on:
   workflow_dispatch:
@@ -24,14 +27,6 @@ on:
         type: choice
         options: ["0", "1"]
         default: "0"
-  push:
-    branches: [master]
-    paths:
-      - ".github/workflows/robots-plataformas.yml"
-      - "scripts/robot-ingesta/uber.ts"
-      - "scripts/robot-ingesta/glovo.ts"
-      - "scripts/robot-ingesta/justeat.ts"
-      - "scripts/robot-ingesta/sinqro.ts"
   schedule:
     - cron: "0 2 * * *"   # 04:00 Madrid (verano) · diario
     - cron: "0 3 * * *"   # 04:00 Madrid (invierno) · diario
@@ -39,12 +34,6 @@ on:
     - cron: "0 4 * * 1"   # 05:00 Madrid (invierno) · semanal (lunes)
     - cron: "0 3 5 * *"   # 05:00 Madrid (verano) · mensual (dia 5)
     - cron: "0 4 5 * *"   # 05:00 Madrid (invierno) · mensual (dia 5)
-
-# 16-jul (noche): los push de fixes disparan el workflow; si llegan varios seguidos,
-# solo importa el ultimo (codigo final) -> se cancela el run anterior.
-concurrency:
-  group: robots-plataformas
-  cancel-in-progress: true
 
 jobs:
   plan:
@@ -65,10 +54,8 @@ jobs:
             exit 0
           fi
           if [ "${{ github.event_name }}" = "push" ]; then
-            # Un push a los robots es un fix que se quiere probar ENTERO:
-            # semanal cubre tambien lo diario (rendimiento Glovo, informes Uber...)
             echo "seguir=1" >> $GITHUB_OUTPUT
-            echo "modo=semanal" >> $GITHUB_OUTPUT
+            echo "modo=diario" >> $GITHUB_OUTPUT
             exit 0
           fi
           if [ "$H" = "04" ]; then
@@ -87,7 +74,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.seguir == '1'
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -109,6 +96,8 @@ jobs:
 
       - uses: actions/checkout@v4
         if: steps.toca.outputs.si == '1'
+        with:
+          ref: trabajo
       - uses: actions/setup-node@v4
         if: steps.toca.outputs.si == '1'
         with:
