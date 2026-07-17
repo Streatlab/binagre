@@ -3,7 +3,7 @@
 //    ingredientes pre-creados pendientes de completar, alertas de subida de precio.
 // C: inventario quincenal por foto (leer → confirmar) con confianza por línea.
 // D: coste real del periodo y varianza teórico vs real en €.
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente } from './types'
 import { fmtES } from './types'
@@ -14,6 +14,7 @@ interface Props { onOpenIngrediente: (ing: Ingrediente) => void }
 
 interface Estado {
   facturas_sin_lineas: number
+  facturas_procesando?: number
   ingredientes_borrador: number
   alertas_pendientes: number
   estructura_real: { estructura_pct_real: string | null; ingresos_3m: string | null; ultimo_mes_usado: string | null } | null
@@ -67,6 +68,7 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const [costeReal, setCosteReal] = useState<CosteReal | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const cargar = useCallback(async () => {
     const [est, al, bo, inv, vza, cr] = await Promise.all([
@@ -91,28 +93,33 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
     } else {
       setInvLineas([])
     }
+    return est as Estado | null
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
 
-  /* ── Fase A ── */
+  /* ── Fase A: lanza extracción (responde ya) y refresca hasta que termina ── */
   const procesarLote = async () => {
     setBusy('lote'); setMsg(null)
     try {
-      const r = await fetch(`${API}/extraer-lineas`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ limit: 1 }) })
+      const r = await fetch(`${API}/extraer-lineas`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}) })
       const j = await r.json()
       if (j.error) throw new Error(j.error)
-      const res0 = (j.resultados || [])[0]
-      const traduccion: Record<string, string> = {
-        extraidas: 'líneas extraídas y cruzadas',
-        sin_detalle_lineas: 'la factura no desglosa artículos (o no cuadra al céntimo)',
-        fallo_lectura: 'no se pudo leer el PDF',
-        error: 'error al procesar',
-      }
-      setMsg(j.procesadas === 0
-        ? 'No quedan facturas de materia prima pendientes.'
-        : `Factura procesada (${res0?.proveedor ?? '—'}): ${traduccion[res0?.estado] ?? res0?.estado}. Pulsa otra vez para la siguiente.`)
-      await cargar()
+      if (j.vacio) { setMsg('No quedan facturas de materia prima pendientes.'); await cargar(); return }
+      setMsg(`Procesando factura de ${j.proveedor ?? '—'}… (tarda unos segundos, se actualiza solo)`)
+      // Poll hasta que ya no haya facturas 'procesando'
+      if (pollRef.current) clearInterval(pollRef.current)
+      let intentos = 0
+      pollRef.current = setInterval(async () => {
+        intentos++
+        const est = await cargar()
+        if ((est?.facturas_procesando ?? 0) === 0 || intentos >= 30) {
+          if (pollRef.current) clearInterval(pollRef.current)
+          pollRef.current = null
+          setMsg('Factura procesada. Revisa alertas e ingredientes por completar más abajo, y pulsa otra vez para la siguiente.')
+        }
+      }, 4000)
     } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
   }
 
@@ -173,6 +180,7 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const estrReal = estado?.estructura_real?.estructura_pct_real
   const sinVincular = invLineas.filter(l => !l.ingrediente_id).length
   const driveOff = estado?.drive_conectado === false
+  const procesando = (estado?.facturas_procesando ?? 0) > 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -199,15 +207,15 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
       <div style={card}>
         <h3 style={h3}>Facturas de materia prima → ingredientes y precios (automático)</h3>
         <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
-          Lee 1 factura (PDF de Drive), extrae sus líneas y las cruza solas: producto conocido → actualiza precio y recalcula escandallos; producto nuevo → lo pre-crea y deja tarea. Coste: céntimos por factura, se gasta solo al pulsar. Vuelve a pulsar para la siguiente.
+          Lee 1 factura (PDF de Drive), extrae sus líneas y las cruza solas: producto conocido → actualiza precio y recalcula escandallos; producto nuevo → lo pre-crea y deja tarea. Coste: céntimos por factura, se gasta solo al pulsar. Se procesa por detrás y se actualiza solo; vuelve a pulsar para la siguiente.
         </p>
         {driveOff && (
           <p style={{ fontFamily: LEX, fontSize: 13, color: ROJO, fontWeight: 700, margin: '0 0 10px' }}>
             Drive no está conectado. Ve a Configuración → Integraciones → Drive y conéctalo primero.
           </p>
         )}
-        <button style={btn(AMA)} disabled={busy === 'lote' || driveOff} onClick={procesarLote}>
-          {busy === 'lote' ? 'Procesando…' : 'Procesar 1 factura'}
+        <button style={btn(AMA)} disabled={busy === 'lote' || driveOff || procesando} onClick={procesarLote}>
+          {busy === 'lote' || procesando ? 'Procesando…' : 'Procesar 1 factura'}
         </button>
       </div>
 
