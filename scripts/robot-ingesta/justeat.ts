@@ -108,6 +108,13 @@ async function asegurarSesion(page: Page, ctx: BrowserContext, c: Cuenta): Promi
     }
   }
   const ok = !/access\.just-eat\.es/i.test(page.url());
+  if (!ok && fallosDiag.some((f) => f.startsWith('http403: https://access.just-eat.es'))) {
+    // 17-jul: causa raiz confirmada en justeat_diag — el WAF de Just Eat devuelve
+    // 403 al endpoint de login (Keycloak) desde las IPs de GitHub Actions. No es
+    // un problema de selectores: el portal bloquea el datacenter. Necesita correr
+    // desde otra IP (residencial/proxy) o sesion con refresh valido. Decision de Ruben.
+    await log(P, 'waf_403', 'Just Eat bloquea el login (403 del WAF) desde la IP de GitHub Actions; facturas imposibles desde aqui sin proxy/IP residencial');
+  }
   await log(P, ok ? 'reauth_ok' : 'reauth_ko', `url=${page.url()}`);
   if (ok) await guardarSesion(P, c.cuenta, ctx);
   return ok;
