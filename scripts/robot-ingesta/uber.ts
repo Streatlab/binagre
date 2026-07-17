@@ -293,6 +293,11 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
   // marca y el toolbar con "Descargar" desaparece -> tras cada seleccion hay que
   // VOLVER a /manager/payments, refijar el rango y entonces descargar.
   totalMarcas = Math.min(totalMarcas, 12);
+  // 17-jul (v4, run 19:58 "0/12 en 45s"): el desplegable quedaba ABIERTO tras contar
+  // las marcas; el primer click del bucle lo cerraba, la opcion 0 no aparecia y el
+  // bucle rompia a la primera. Cerrarlo aqui y reabrir con reintento dentro del bucle.
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(800);
   const refijarRango = async () => {
     const cf = page.locator('input[aria-label="Select a date range."]').first();
     if (await cf.count().catch(() => 0)) {
@@ -308,8 +313,14 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
     const sel = page.locator('[data-testid="location-selector-button-testid"], [data-testid*="location-selector" i]').first();
     await sel.click({ timeout: 6000 }).catch(() => {});
     await page.waitForTimeout(1500);
-    const opt = opciones().nth(i);
-    if (!(await opt.count().catch(() => 0))) { await page.keyboard.press('Escape').catch(() => {}); break; }
+    let opt = opciones().nth(i);
+    if (!(await opt.count().catch(() => 0))) {
+      // el click anterior pudo cerrar un desplegable ya abierto: reintentar una vez
+      await sel.click({ timeout: 6000 }).catch(() => {});
+      await page.waitForTimeout(1500);
+      opt = opciones().nth(i);
+    }
+    if (!(await opt.count().catch(() => 0))) { await page.keyboard.press('Escape').catch(() => {}); await log(P, 'aviso', `mensual_${cuenta}: el desplegable no reabre en la marca ${i}; paro aquí`); break; }
     const crudo = ((await opt.textContent().catch(() => '')) || `marca_${i}`).trim();
     const nombreMarca = (crudo.split(/calle|c\/|avda|avenida|[0-9a-f]{8}-/i)[0].trim() || `marca_${i}`).slice(0, 40);
     await opt.click({ timeout: 6000 }).catch(() => {});
