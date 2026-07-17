@@ -4,20 +4,13 @@ name: Informes semanales (lunes 03:00 Madrid)
 # robots-plataformas.yml (lunes 05:00 Madrid) — no se duplica aquí. Este
 # workflow cubre lo nuevo: Rushour reports (/rapports + mapa de /business).
 # Doble cron UTC (verano/invierno) + candado por hora real de Madrid.
+# BLOQUEO CERO (17-jul): el schedule corre en master pero el código vive en
+# trabajo → checkout con ref: trabajo hasta la fusión definitiva.
 on:
   schedule:
     - cron: "0 1 * * 1"   # 03:00 Madrid (verano)
     - cron: "0 2 * * 1"   # 03:00 Madrid (invierno)
   workflow_dispatch:
-  push:
-    branches: [master]
-    paths:
-      - ".github/workflows/informes-semanales.yml"
-      - "scripts/robot-ingesta/rushour-reports.ts"
-
-concurrency:
-  group: informes-semanales
-  cancel-in-progress: true
 
 jobs:
   informes:
@@ -33,7 +26,7 @@ jobs:
         run: |
           H=$(TZ=Europe/Madrid date +%H)
           DOW=$(TZ=Europe/Madrid date +%u)
-          if [ "${{ github.event_name }}" != "schedule" ] || { [ "$H" = "03" ] && [ "$DOW" = "1" ]; }; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || { [ "$H" = "03" ] && [ "$DOW" = "1" ]; }; then
             echo "seguir=1" >> $GITHUB_OUTPUT
           else
             echo "seguir=0" >> $GITHUB_OUTPUT
@@ -41,6 +34,8 @@ jobs:
           fi
       - uses: actions/checkout@v4
         if: steps.candado.outputs.seguir == '1'
+        with:
+          ref: trabajo
       - uses: actions/setup-node@v4
         if: steps.candado.outputs.seguir == '1'
         with:
@@ -69,4 +64,4 @@ jobs:
           RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/robot-ingesta/${{ matrix.robot }}.ts
+        run: npx tsx scripts/robot-ingesta/rushour-reports.ts
