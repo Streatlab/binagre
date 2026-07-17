@@ -17,6 +17,7 @@ interface Estado {
   ingredientes_borrador: number
   alertas_pendientes: number
   estructura_real: { estructura_pct_real: string | null; ingresos_3m: string | null; ultimo_mes_usado: string | null } | null
+  drive_conectado?: boolean
 }
 
 interface Alerta {
@@ -98,10 +99,19 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const procesarLote = async () => {
     setBusy('lote'); setMsg(null)
     try {
-      const r = await fetch(`${API}/extraer-lineas`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ limit: 5 }) })
+      const r = await fetch(`${API}/extraer-lineas`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ limit: 1 }) })
       const j = await r.json()
-      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`)
-      setMsg(`Lote procesado: ${j.procesadas} facturas (${(j.resultados || []).filter((x: any) => x.estado === 'extraidas').length} con líneas).`)
+      if (j.error) throw new Error(j.error)
+      const res0 = (j.resultados || [])[0]
+      const traduccion: Record<string, string> = {
+        extraidas: 'líneas extraídas y cruzadas',
+        sin_detalle_lineas: 'la factura no desglosa artículos (o no cuadra al céntimo)',
+        fallo_lectura: 'no se pudo leer el PDF',
+        error: 'error al procesar',
+      }
+      setMsg(j.procesadas === 0
+        ? 'No quedan facturas de materia prima pendientes.'
+        : `Factura procesada (${res0?.proveedor ?? '—'}): ${traduccion[res0?.estado] ?? res0?.estado}. Pulsa otra vez para la siguiente.`)
       await cargar()
     } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
   }
@@ -135,7 +145,7 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
         body: JSON.stringify({ inventario_id: inventario.id, imagen_base64: b64, media_type: file.type || 'image/jpeg' }),
       })
       const j = await r.json()
-      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`)
+      if (j.error) throw new Error(j.error)
       setMsg(`Foto leída: ${j.insertadas} líneas.`)
       await cargar()
     } catch (e: any) { setMsg(`Error leyendo foto: ${e.message}`) } finally { setBusy(null) }
@@ -152,7 +162,7 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
     try {
       const r = await fetch(`${API}/confirmar-conteo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ inventario_id: inventario.id }) })
       const j = await r.json()
-      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`)
+      if (j.error) throw new Error(j.error)
       setMsg(j.lineas_sin_vincular_ignoradas > 0
         ? `Inventario confirmado. Ojo: ${j.lineas_sin_vincular_ignoradas} líneas sin vincular quedaron fuera.`
         : 'Inventario confirmado.')
@@ -162,6 +172,7 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
 
   const estrReal = estado?.estructura_real?.estructura_pct_real
   const sinVincular = invLineas.filter(l => !l.ingrediente_id).length
+  const driveOff = estado?.drive_conectado === false
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -188,10 +199,15 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
       <div style={card}>
         <h3 style={h3}>Facturas de materia prima → ingredientes y precios (automático)</h3>
         <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
-          Cada lote lee 5 facturas (PDF de Drive), extrae sus líneas y las cruza solas: si el producto es conocido actualiza el precio y recalcula los escandallos; si es nuevo lo pre-crea y deja tarea. Coste aprox.: céntimos por factura, se gasta solo al pulsar.
+          Lee 1 factura (PDF de Drive), extrae sus líneas y las cruza solas: producto conocido → actualiza precio y recalcula escandallos; producto nuevo → lo pre-crea y deja tarea. Coste: céntimos por factura, se gasta solo al pulsar. Vuelve a pulsar para la siguiente.
         </p>
-        <button style={btn(AMA)} disabled={busy === 'lote'} onClick={procesarLote}>
-          {busy === 'lote' ? 'Procesando…' : 'Procesar lote de 5 facturas'}
+        {driveOff && (
+          <p style={{ fontFamily: LEX, fontSize: 13, color: ROJO, fontWeight: 700, margin: '0 0 10px' }}>
+            Drive no está conectado. Ve a Configuración → Integraciones → Drive y conéctalo primero.
+          </p>
+        )}
+        <button style={btn(AMA)} disabled={busy === 'lote' || driveOff} onClick={procesarLote}>
+          {busy === 'lote' ? 'Procesando…' : 'Procesar 1 factura'}
         </button>
       </div>
 
