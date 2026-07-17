@@ -4,6 +4,8 @@ name: Sync Facturación (CENAS 01:00 Madrid, consolidación única del día)
 # hace la fórmula (plan-v2/T3, fn_corte_turno). Solo queda la consolidación
 # de madrugada del día completo anterior. Dos crons para cubrir verano e
 # invierno (GitHub programa en UTC y no sabe de horario de verano).
+# BLOQUEO CERO (17-jul): el schedule corre en master pero el código vive en
+# trabajo → checkout con ref: trabajo hasta la fusión definitiva.
 on:
   schedule:
     - cron: "0 23 * * *"   # 01:00 Madrid (verano) → día anterior completo
@@ -26,6 +28,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: trabajo
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
