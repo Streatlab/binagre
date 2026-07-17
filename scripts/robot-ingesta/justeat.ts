@@ -113,10 +113,22 @@ async function asegurarSesion(page: Page, ctx: BrowserContext, c: Cuenta): Promi
   return ok;
 }
 
+// 17-jul (v2): el hub carga SIEMPRE con "An error occurred while loading Partner Hub"
+// en este navegador (verificado en 3 runs). Para cazar la causa real se recogen los
+// errores de consola y las peticiones fallidas y se vuelcan a robot_debug
+// (fuente=justeat_diag) — texto plano, no HTML.
+const fallosDiag: string[] = [];
+function engancharDiagnostico(page: Page) {
+  page.on('console', (msg) => { if (msg.type() === 'error' && fallosDiag.length < 60) fallosDiag.push(`console: ${msg.text().slice(0, 300)}`); });
+  page.on('requestfailed', (req) => { if (fallosDiag.length < 60) fallosDiag.push(`reqfail: ${req.url().slice(0, 200)} · ${req.failure()?.errorText || ''}`); });
+  page.on('response', (res) => { if (res.status() >= 400 && fallosDiag.length < 60) fallosDiag.push(`http${res.status()}: ${res.url().slice(0, 200)}`); });
+}
+
 /** Carga una ruta del hub aguantando re-login intermedio y el error de carga de la SPA. */
 async function cargarHub(page: Page, ctx: BrowserContext, c: Cuenta, url: string): Promise<boolean> {
   for (let intento = 0; intento < 3; intento++) {
     await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
     await esperarContenido(page);
     await quitarEstorbos(page);
     if (!(await asegurarSesion(page, ctx, c))) return false;
@@ -124,7 +136,8 @@ async function cargarHub(page: Page, ctx: BrowserContext, c: Cuenta, url: string
     const roto = await page.getByText(/error occurred while loading|se ha producido un error/i).count().catch(() => 0);
     if (!roto) return true;
     await log(P, 'aviso', `el hub cargo con error (intento ${intento + 1}/3), recargo`);
-    await page.waitForTimeout(4000);
+    if (fallosDiag.length) await volcar(`${P}_diag`, fallosDiag.join('\n'));
+    await page.waitForTimeout(6000);
   }
   return false;
 }
@@ -182,6 +195,7 @@ async function bajarFacturas(page: Page, periodo: string): Promise<number> {
 async function trabajarCuenta(c: Cuenta) {
   const { browser, ctx, page } = await abrir(P, c.cuenta);
   try {
+    engancharDiagnostico(page);
     if (!(await entrar(page, ctx, c))) return;
     const esBackfill = MODO === 'backfill' && /^\d{4}-Q[1-4]$/i.test(TRIMESTRE);
 
@@ -196,6 +210,7 @@ async function trabajarCuenta(c: Cuenta) {
     }
 
     if (!(await abrirFacturas(page, ctx, c))) {
+      if (fallosDiag.length) await volcar(`${P}_diag`, fallosDiag.join('\n'));
       await log(P, 'aviso', `no encuentro la sección de facturas (volcados ${P}_* en robot_debug) · url=${page.url()}`);
       if (!esBackfill) await registrarIntento(P, q.periodo, 'facturas', 'no encontré la sección de facturas');
       return;
