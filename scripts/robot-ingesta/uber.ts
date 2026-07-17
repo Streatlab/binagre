@@ -105,8 +105,11 @@ async function bajarFilasDisponibles(page: Page, tipo: string, periodo: string, 
   // por eso ninguna pasada veia nada listo. Se pulsan directamente los botones
   // "Descargar" que haya en la pagina (aria-label o texto), sin buscar filas.
   const directos = page.locator('button[aria-label="Descargar"], a[aria-label="Descargar"], button[aria-label="Download"]')
-    .or(page.getByRole('button', { name: /^\s*descargar\s*$/i }))
-    .or(page.getByRole('link', { name: /^\s*descargar\s*$/i }));
+    .or(page.getByRole('button', { name: /^\s*descargar( archivo( csv)?)?\s*$/i }))
+    .or(page.getByRole('link', { name: /^\s*descargar( archivo( csv)?)?\s*$/i }))
+    // 17-jul (captura de Ruben): en el centro de informes el boton final dice
+    // "Descargar archivo CSV" — hay que reconocerlo tambien.
+    .or(page.locator('button, a, [role="button"]').filter({ hasText: /descargar archivo csv/i }));
   const nd = Math.min(await directos.count().catch(() => 0), tope);
   let bajadas = 0;
   for (let i = 0; i < nd; i++) {
@@ -148,6 +151,70 @@ async function bajarFilaDisponible(page: Page, tipo: string, periodo: string, de
   return (await bajarFilasDisponibles(page, tipo, periodo, destino, 1)) > 0;
 }
 
+/**
+ * 17-jul (receta de Ruben, capturas): crear un reporte desde cero en
+ * /manager/reports/create-report cuando no hay nada que re-solicitar.
+ * 1. Marcar tipos "Resumen de ganancias" y "Detalles de las ganancias (nivel de
+ *    articulo)". 2. "Una vez" ya viene elegido. 3. "Elegir restaurantes" ->
+ *    marcar todas. 4. Intervalo de fechas -> preset de la semana pasada si
+ *    existe. 5. Boton "Crear un reporte". Uber lo genera EN HORAS (toast verde
+ *    "Generando reportes... te enviaremos un correo"): la descarga la hara otra
+ *    pasada al ver el boton "Descargar archivo CSV".
+ */
+async function crearReporte(page: Page, periodo: string): Promise<boolean> {
+  await page.goto(`${RAIZ}/manager/reports/create-report`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(6000);
+  await quitarEstorbos(page);
+
+  let marcados = 0;
+  for (const t of [/resumen de ganancias/i, /detalles de las ganancias/i]) {
+    const casilla = page.locator('label').filter({ hasText: t }).first().or(page.getByText(t).first());
+    if (await casilla.count().catch(() => 0)) { await casilla.click({ timeout: 5000 }).catch(() => {}); marcados++; await page.waitForTimeout(600); }
+  }
+  if (!marcados) { await volcar('uber_crear_reporte', await page.content().catch(() => '')); return false; }
+
+  // Tiendas: abrir "Elegir restaurantes" y marcar todo (o cada opcion, tope 40)
+  const tiendas = page.locator('button, [role="button"], [role="combobox"]').filter({ hasText: /elegir restaurantes|choose restaurants/i }).first();
+  if (await tiendas.count().catch(() => 0)) {
+    await tiendas.click({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const panel = page.locator('[role="listbox"], [data-baseweb="popover"], [role="dialog"], [role="menu"]');
+    const todas = panel.locator('label, [role="option"], li, button').filter({ hasText: /seleccionar todo|select all|todas las tiendas/i }).first();
+    if (await todas.count().catch(() => 0)) await todas.click({ timeout: 4000 }).catch(() => {});
+    else {
+      const ops = panel.locator('[role="option"], li, label');
+      const n = Math.min(await ops.count().catch(() => 0), 40);
+      for (let i = 0; i < n; i++) await ops.nth(i).click({ timeout: 2500 }).catch(() => {});
+    }
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForTimeout(800);
+  }
+
+  // Fechas: abrir el desplegable de intervalo y elegir un preset de semana pasada
+  const fechas = page.locator('button, [role="button"], [role="combobox"], input').filter({ hasText: /intervalo de fechas|yyyy\/mm\/dd|date range/i }).first();
+  if (await fechas.count().catch(() => 0)) {
+    await fechas.click({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const preset = page.locator('[role="listbox"], [data-baseweb="popover"], [role="menu"], [role="dialog"]').locator('li, [role="option"], button, [role="menuitem"]')
+      .filter({ hasText: /semana pasada|ultima semana|última semana|ultimos 7|últimos 7|last week/i }).first();
+    if (await preset.count().catch(() => 0)) await preset.click({ timeout: 4000 }).catch(() => {});
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForTimeout(800);
+  }
+
+  const crear = page.getByRole('button', { name: /crear un reporte|create report/i }).last();
+  if (!(await crear.count().catch(() => 0))) { await volcar('uber_crear_reporte', await page.content().catch(() => '')); return false; }
+  await crear.click({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(4000);
+  const toast = await page.getByText(/generando reportes|te enviaremos un correo/i).count().catch(() => 0);
+  await log(P, toast ? 'solicitado' : 'aviso', `crear reporte (${periodo}): ${toast ? 'Uber confirmo la generacion (llegara en horas)' : 'sin confirmacion visible; DOM volcado'}`);
+  if (!toast) await volcar('uber_crear_reporte_post', await page.content().catch(() => ''));
+  await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForTimeout(5000);
+  return true;
+}
+
 /** INFORMES: pedir y volver cuando Uber los tenga listos. Devuelve si bajó algo. */
 async function informes(page: Page, periodo: string): Promise<boolean> {
   await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -165,19 +232,25 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
   const nUtiles = Math.min(await filasUtiles.count().catch(() => 0), 3);
   let pedidos = 0;
   for (let i = 0; i < nUtiles; i++) {
-    const b = filasUtiles.nth(i).locator('button[aria-label="Solicitar de nuevo"], button, [role="button"]').filter({ hasText: /solicitar de nuevo|request again/i }).first();
+    const b = filasUtiles.nth(i).locator('button[aria-label="Solicitar de nuevo"], button, [role="button"]').filter({ hasText: /volver a solicitar|solicitar de nuevo|request again/i }).first();
     if (await b.count().catch(() => 0)) { await b.click({ timeout: 8000 }).catch(() => {}); pedidos++; await page.waitForTimeout(1500); }
   }
   if (!pedidos) {
-    const rehacer = page.getByRole('button', { name: /solicitar de nuevo|request again|crear informe|create report/i }).first()
-      .or(page.locator('button, [role="button"]').filter({ hasText: /solicitar de nuevo|crear informe/i }).first());
-    if (!(await rehacer.count().catch(() => 0))) {
-      await volcar(`${P}_informes`, await page.content().catch(() => ''));
-      await log(P, 'sin_descarga', 'informes: no encuentro ni descarga ni "solicitar de nuevo"');
-      return false;
+    const rehacer = page.getByRole('button', { name: /volver a solicitar|solicitar de nuevo|request again/i }).first()
+      .or(page.locator('button, [role="button"]').filter({ hasText: /volver a solicitar|solicitar de nuevo/i }).first());
+    if (await rehacer.count().catch(() => 0)) {
+      await rehacer.click({ timeout: 8000 }).catch(() => {});
+      pedidos = 1;
+    } else {
+      // 17-jul (receta de Ruben): si no hay filas que re-solicitar, se CREA el
+      // reporte desde cero en /manager/reports/create-report.
+      if (!(await crearReporte(page, periodo))) {
+        await volcar(`${P}_informes`, await page.content().catch(() => ''));
+        await log(P, 'sin_descarga', 'informes: ni descarga, ni re-solicitar, ni pude crear el reporte (DOM volcado)');
+        return false;
+      }
+      pedidos = 1;
     }
-    await rehacer.click({ timeout: 8000 }).catch(() => {});
-    pedidos = 1;
   }
   await log(P, 'aviso', `${pedidos} informe(s) solicitados; espero en este mismo run a que Uber los prepare (tope 12 min)`);
 
