@@ -17,14 +17,8 @@
  *   2) FACTURAS (/manager/invoices): Uber las emite el domingo ~02:00: se
  *      intenta lunes y martes (reintento si el lunes no había nada nuevo).
  *   3) RESUMEN MENSUAL POR MARCA (/manager/payments): desde el día 3 del mes,
- *      intenta bajar el resumen de CADA marca del mes cerrado. DECISIÓN
- *      AUTÓNOMA: no se ha podido inspeccionar /manager/payments en vivo desde
- *      esta sesión, así que el selector de marca se busca de forma genérica
- *      (patrones data-testid/role habituales) y SIEMPRE se vuelca el DOM a
- *      robot_debug (fuente=uber_mapa_payments) mientras el objetivo siga
- *      pendiente, para poder mapear los selectores reales a mano. Si no se
- *      detecta selector de marca, se intenta una descarga única y NO se marca
- *      conseguido — reintenta cada día hasta que alguien afine esta función.
+ *      intenta bajar el resumen de CADA marca del mes cerrado con los
+ *      selectores reales mapeados el 16-jul (ver resumenMensualPorMarca).
  *
  * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM, se
  * salta toda la lógica de robot_objetivos y baja el mes pedido a mano).
@@ -229,7 +223,8 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
     await log(P, 'aviso', `mensual_${cuenta}: no veo el campo de rango de fechas; bajo el rango que este puesto`);
   }
 
-  const controlDescargar = () => page.locator('[role="button"], button', { hasText: /^\s*Descargar\s*$/ }).last();
+  const controlDescargar = () => page.getByText('Descargar', { exact: true }).last()
+    .or(page.locator('[role="button"], button', { hasText: /^\s*Descargar\s*$/ }).last());
 
   const bajarActual = async (nombreMarca: string): Promise<number> => {
     const ctrl = controlDescargar();
@@ -239,10 +234,12 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
     }
     const f = await capturar(page, P, async () => {
       await ctrl.click({ timeout: 8000 }).catch(() => {});
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(1800);
       // Si sale menu de formato (CSV/PDF), elegir la primera opcion
-      const opcion = page.getByRole('menuitem', { name: /csv|pdf|descargar/i }).first();
+      const opcion = page.getByRole('menuitem', { name: /csv|pdf|descargar|exportar/i }).first()
+        .or(page.locator('[data-baseweb="popover"], [role="menu"], [role="listbox"]').locator('li, [role="option"], [role="menuitem"], button').filter({ hasText: /csv|pdf|descargar|exportar/i }).first());
       if (await opcion.count().catch(() => 0)) await opcion.click({ timeout: 5000 }).catch(() => {});
+      else await volcar('uber_mapa_descarga', await page.content().catch(() => ''));
     }, 90);
     if (!f) return 0;
     await entregar({ fuente: P, tipo: 'uber_resumen_pagos_mensual', nombre: `${nombreMarca}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
@@ -258,10 +255,13 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
   }
 
   await selectorMarca.click({ timeout: 6000 }).catch(() => {});
-  await page.waitForTimeout(1500);
-  const opciones = () => page.locator('[data-baseweb="popover"] [role="option"], [data-baseweb="popover"] [role="menuitem"], [data-baseweb="menu"] li, [role="listbox"] [role="option"], [role="menu"] [role="menuitem"]');
-  const totalMarcas = Math.min(await opciones().count().catch(() => 0), 20);
+  await page.waitForTimeout(2500);
+  const opciones = () => page.locator('[data-baseweb="popover"], [data-baseweb="menu"], [role="dialog"], [role="listbox"], [role="menu"]')
+    .locator('[role="option"], [role="menuitem"], li, label, [data-testid*="option" i], [data-testid*="location" i] button');
+  let totalMarcas = Math.min(await opciones().count().catch(() => 0), 20);
   if (!totalMarcas) {
+    // volcar el desplegable abierto para mapearlo a mano en la siguiente pasada
+    await volcar('uber_mapa_marcas', await page.content().catch(() => ''));
     await page.keyboard.press('Escape').catch(() => {});
     const n = await bajarActual(cuenta);
     await log(P, 'aviso', `mensual_${cuenta}: selector sin opciones legibles; ${n} fichero(s) de la marca visible (DOM en uber_mapa_payments)`);
