@@ -2,8 +2,9 @@ name: Robots de plataforma (Uber / Glovo / Just Eat / Sinqro → bandeja)
 
 # Los robots solo DESCARGAN informes y los dejan en la bandeja de Papeleo.
 # BLOQUEO CERO (17-jul): el schedule corre en master pero el código vive en
-# trabajo → checkout con ref: trabajo hasta la fusión definitiva. Disparador
-# push quitado (los cambios de código ocurren en trabajo).
+# trabajo → checkout con ref: trabajo hasta la fusión definitiva.
+# 17-jul: reintento de MARTES solo para Uber (las facturas semanales las emite
+# Uber el domingo de madrugada; si el lunes aún no estaban, el martes sí).
 
 on:
   workflow_dispatch:
@@ -32,6 +33,8 @@ on:
     - cron: "0 3 * * *"   # 04:00 Madrid (invierno) · diario
     - cron: "0 3 * * 1"   # 05:00 Madrid (verano) · semanal (lunes)
     - cron: "0 4 * * 1"   # 05:00 Madrid (invierno) · semanal (lunes)
+    - cron: "0 3 * * 2"   # 05:00 Madrid (verano) · reintento facturas Uber (martes)
+    - cron: "0 4 * * 2"   # 05:00 Madrid (invierno) · reintento facturas Uber (martes)
     - cron: "0 3 5 * *"   # 05:00 Madrid (verano) · mensual (dia 5)
     - cron: "0 4 5 * *"   # 05:00 Madrid (invierno) · mensual (dia 5)
 
@@ -41,6 +44,7 @@ jobs:
     outputs:
       seguir: ${{ steps.candado.outputs.seguir }}
       modo: ${{ steps.candado.outputs.modo }}
+      solo: ${{ steps.candado.outputs.solo }}
     steps:
       - name: Candado horario y modo
         id: candado
@@ -48,14 +52,10 @@ jobs:
           H=$(TZ=Europe/Madrid date +%H)
           D=$(TZ=Europe/Madrid date +%u)
           DIA=$(TZ=Europe/Madrid date +%d)
+          echo "solo=" >> $GITHUB_OUTPUT
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "seguir=1" >> $GITHUB_OUTPUT
             echo "modo=${{ github.event.inputs.modo }}" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "seguir=1" >> $GITHUB_OUTPUT
-            echo "modo=diario" >> $GITHUB_OUTPUT
             exit 0
           fi
           if [ "$H" = "04" ]; then
@@ -67,6 +67,12 @@ jobs:
           if [ "$H" = "05" ] && [ "$D" = "1" ]; then
             echo "seguir=1" >> $GITHUB_OUTPUT; echo "modo=semanal" >> $GITHUB_OUTPUT; exit 0
           fi
+          if [ "$H" = "05" ] && [ "$D" = "2" ]; then
+            # Martes: reintento de facturas semanales SOLO Uber
+            echo "seguir=1" >> $GITHUB_OUTPUT; echo "modo=semanal" >> $GITHUB_OUTPUT
+            { echo "solo=uber"; } >> $GITHUB_OUTPUT
+            exit 0
+          fi
           echo "seguir=0" >> $GITHUB_OUTPUT
           echo "modo=" >> $GITHUB_OUTPUT
 
@@ -74,7 +80,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.seguir == '1'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 55
     strategy:
       fail-fast: false
       matrix:
@@ -90,6 +96,12 @@ jobs:
             else
               echo "si=0" >> $GITHUB_OUTPUT
             fi
+            exit 0
+          fi
+          SOLO="${{ needs.plan.outputs.solo }}"
+          if [ -n "$SOLO" ] && [ "$SOLO" != "${{ matrix.plataforma }}" ]; then
+            echo "si=0" >> $GITHUB_OUTPUT
+            echo "Corrida restringida a $SOLO; ${{ matrix.plataforma }} no toca."
             exit 0
           fi
           echo "si=1" >> $GITHUB_OUTPUT
