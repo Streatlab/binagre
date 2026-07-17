@@ -6,15 +6,16 @@ import TabIngredientes from '@/components/escandallo/TabIngredientes'
 import TabMermas from '@/components/escandallo/TabMermas'
 import TabEPS from '@/components/escandallo/TabEPS'
 import TabRecetas from '@/components/escandallo/TabRecetas'
+import TabAuto from '@/components/escandallo/TabAuto'
 import ModalEPS from '@/components/escandallo/ModalEPS'
 import ModalReceta from '@/components/escandallo/ModalReceta'
 import ModalIngrediente from '@/components/escandallo/ModalIngrediente'
 import ModalMerma from '@/components/escandallo/ModalMerma'
 import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, ROSA, GRANATE, ROJO } from '@/styles/neobrutal'
 
-type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas'
+type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas' | 'auto'
 const TAB_KEY = 'sl_fichas_tab'
-const esTab = (v: string | null): v is Tab => v === 'indice' || v === 'ingredientes' || v === 'mermas' || v === 'eps' || v === 'recetas'
+const esTab = (v: string | null): v is Tab => v === 'indice' || v === 'ingredientes' || v === 'mermas' || v === 'eps' || v === 'recetas' || v === 'auto'
 
 const TABS: { id: Tab; label: string; count: (d: Data) => number }[] = [
   { id: 'indice', label: 'Índice', count: d => d.epsList.length + d.recetasList.length },
@@ -22,6 +23,7 @@ const TABS: { id: Tab; label: string; count: (d: Data) => number }[] = [
   { id: 'mermas', label: 'Mermas', count: d => d.mermas.length },
   { id: 'eps', label: 'EPS', count: d => d.epsList.length },
   { id: 'recetas', label: 'Recetas', count: d => d.recetasList.length },
+  { id: 'auto', label: 'Auto', count: d => d.ingredientes.filter(i => (i as any).borrador).length },
 ]
 
 interface Data {
@@ -187,6 +189,9 @@ export default function Escandallo() {
                 onSelect={receta => setModalReceta({ open: true, receta })}
                 onNew={() => setModalReceta({ open: true, receta: null })}
               />
+            )}
+            {tab === 'auto' && (
+              <TabAuto onOpenIngrediente={ing => setModalIng({ open: true, ing })} />
             )}
           </>
         )}
