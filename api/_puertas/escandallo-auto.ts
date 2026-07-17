@@ -1,12 +1,10 @@
 // escandallo-auto — ESCANDALLO 2.0 (Fases A y C)
-// A) Extracción de líneas de facturas de materia prima desde el PDF en Drive.
-//    Procesado ASÍNCRONO: el POST /extraer-lineas responde al instante marcando
-//    la factura como 'procesando' y lanza el trabajo en segundo plano (sin await).
-//    El resultado aparece al refrescar el estado. Esto evita respuestas vacías
-//    ("Unexpected end of JSON input") cuando el PDF es grande.
+// A) Extracción de líneas de UNA factura de materia prima desde el PDF en Drive.
+//    Procesado SÍNCRONO de 1 sola factura: baja el PDF, lo manda a visión,
+//    valida ±0,05€ e inserta líneas (el trigger de BBDD vincula/pre-crea
+//    ingredientes, actualiza precios y recalcula escandallos). Con 1 factura
+//    cabe de sobra en el tiempo de la función; SIEMPRE responde JSON.
 // C) Lectura por foto del conteo de inventario quincenal → inventario_lineas.
-//
-// ROBUSTEZ: este handler SIEMPRE responde JSON.
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { google } from 'googleapis'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
@@ -23,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = String(req.query.action || (req.body as any)?.action || '')
   try {
     if (req.method === 'GET' && action === 'estado') return await estado(res)
-    if (req.method === 'POST' && action === 'extraer-lineas') return await lanzarExtraccion(req, res)
+    if (req.method === 'POST' && action === 'extraer-lineas') return await extraerUnaFactura(req, res)
     if (req.method === 'POST' && action === 'leer-conteo') return await leerConteo(req, res)
     if (req.method === 'POST' && action === 'confirmar-conteo') return await confirmarConteo(req, res)
     return res.status(200).json({ error: `Acción desconocida: ${action || '(vacía)'}` })
@@ -38,9 +36,8 @@ async function estado(res: VercelResponse) {
   const prefijos = await prefijosMateriaPrima()
   const orCat = prefijos.map(p => `categoria_factura.like.${p}%`).join(',')
 
-  const [pend, proc, borr, alertas, estr, drive] = await Promise.all([
+  const [pend, borr, alertas, estr, drive] = await Promise.all([
     supabaseAdmin.from('facturas').select('id', { count: 'exact', head: true }).or(orCat).not('pdf_drive_id', 'is', null).is('lineas_estado', null),
-    supabaseAdmin.from('facturas').select('id', { count: 'exact', head: true }).eq('lineas_estado', 'procesando'),
     supabaseAdmin.from('ingredientes').select('id', { count: 'exact', head: true }).eq('borrador', true),
     supabaseAdmin.from('alertas_precio').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
     supabaseAdmin.from('v_estructura_real_pct').select('*').maybeSingle(),
@@ -48,7 +45,6 @@ async function estado(res: VercelResponse) {
   ])
   return res.status(200).json({
     facturas_sin_lineas: pend.count ?? 0,
-    facturas_procesando: proc.count ?? 0,
     ingredientes_borrador: borr.count ?? 0,
     alertas_pendientes: alertas.count ?? 0,
     estructura_real: estr.data ?? null,
@@ -56,14 +52,13 @@ async function estado(res: VercelResponse) {
   })
 }
 
-/* ───────── Fase A · lanzar extracción (responde YA, trabaja detrás) ───────── */
-async function lanzarExtraccion(req: VercelRequest, res: VercelResponse) {
+/* ───────── Fase A · extraer UNA factura (síncrono, responde JSON) ───────── */
+async function extraerUnaFactura(req: VercelRequest, res: VercelResponse) {
   const body = (req.body || {}) as { factura_id?: string }
   const prefijos = await prefijosMateriaPrima()
 
-  // Comprobar Drive antes de prometer nada.
   const drive = await abrirDrive()
-  if (!drive.ok) return res.status(200).json({ lanzada: false, error: drive.error })
+  if (!drive.ok) return res.status(200).json({ ok: false, error: drive.error })
 
   let q = supabaseAdmin.from('facturas')
     .select('id, proveedor_nombre, total, pdf_drive_id, categoria_factura, fecha_factura')
@@ -77,28 +72,14 @@ async function lanzarExtraccion(req: VercelRequest, res: VercelResponse) {
       .limit(1)
   }
   const { data: facturas, error } = await q
-  if (error) return res.status(200).json({ lanzada: false, error: error.message })
-  if (!facturas?.length) return res.status(200).json({ lanzada: false, vacio: true })
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  if (!facturas?.length) return res.status(200).json({ ok: true, vacio: true })
 
   const f = facturas[0]
-  // Marcar 'procesando' de inmediato para que el estado lo refleje y no se re-coja.
-  await supabaseAdmin.from('facturas').update({ lineas_estado: 'procesando' }).eq('id', f.id)
-
-  // Lanzar SIN await: la respuesta sale ya; el trabajo sigue en segundo plano.
-  void procesarFacturaEnBackground(f, drive.client!).catch(err => {
-    console.error('[background]', f.id, err?.message || err)
-  })
-
-  return res.status(200).json({ lanzada: true, factura_id: f.id, proveedor: f.proveedor_nombre })
-}
-
-async function procesarFacturaEnBackground(
-  f: { id: string; proveedor_nombre: string | null; total: string | number | null; pdf_drive_id: string | null; fecha_factura: string | null },
-  drive: ReturnType<typeof google.drive>,
-) {
   let estadoF = 'error'
+  let nLineas = 0
   try {
-    const pdf = await drive.files.get({ fileId: f.pdf_drive_id as string, alt: 'media' }, { responseType: 'arraybuffer' })
+    const pdf = await drive.client!.files.get({ fileId: f.pdf_drive_id as string, alt: 'media' }, { responseType: 'arraybuffer' })
     const b64 = Buffer.from(pdf.data as ArrayBuffer).toString('base64')
     const lineas = await lineasDesdePdf(b64, Number(f.total || 0), f.proveedor_nombre || 'desconocido')
 
@@ -121,13 +102,15 @@ async function procesarFacturaEnBackground(
         const ins = await supabaseAdmin.from('facturas_lineas').insert(rows)
         if (ins.error) throw new Error(ins.error.message)
         estadoF = 'extraidas'
+        nLineas = rows.length
       }
     }
   } catch (err: any) {
-    console.error('[procesarFacturaEnBackground]', f.id, err?.message || err)
+    console.error('[extraerUnaFactura]', f.id, err?.message || err)
     estadoF = 'error'
   }
   await supabaseAdmin.from('facturas').update({ lineas_estado: estadoF }).eq('id', f.id)
+  return res.status(200).json({ ok: true, factura_id: f.id, proveedor: f.proveedor_nombre, estado: estadoF, lineas: nLineas })
 }
 
 async function abrirDrive(): Promise<{ ok: boolean; client?: ReturnType<typeof google.drive>; error?: string }> {
