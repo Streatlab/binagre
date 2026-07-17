@@ -3,6 +3,9 @@ name: Robot precios super (Mercadona + Alcampo)
 # BLOQUE 6 — semanal, lunes de madrugada, para estar cargado mucho antes de las
 # 12:00 Madrid. Cron a las 04:00 UTC cubre 06:00 verano / 05:00 invierno.
 # Job aparte de robot-ingesta-diaria.yml para no pisar los robots de plataformas.
+# BLOQUEO CERO (17-jul): el schedule corre en master pero el código vive en
+# trabajo → checkout con ref: trabajo hasta la fusión definitiva. Disparador
+# push quitado (los cambios de código ocurren en trabajo).
 on:
   workflow_dispatch:
     inputs:
@@ -14,11 +17,6 @@ on:
         description: "Límite de ingredientes a procesar (vacío = todos)"
         type: string
         default: ""
-  push:
-    branches: [master]
-    paths:
-      - "scripts/robot-precios-super/robot.ts"
-      - ".github/workflows/robot-precios-super.yml"
   schedule:
     - cron: "0 4 * * 1" # lunes 04:00 UTC
 
@@ -27,6 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: trabajo
 
       - uses: actions/setup-node@v4
         with:
