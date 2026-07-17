@@ -178,6 +178,21 @@ async function main() {
       if (!n) await volcar(`${P}_rapports_sin_export`, await page.content().catch(() => ''));   // mapa para la siguiente pasada
     }
 
+    // 17-jul (v3): los datos de /rapports viven detras de "See details" (drawers).
+    // Se abren hasta 6 y se intenta exportar dentro de cada uno.
+    const detalles = page.locator('button, a, [role="button"]').filter({ hasText: /see details|ver detalles/i });
+    const nDet = Math.min(await detalles.count().catch(() => 0), 6);
+    let deDrawers = 0;
+    for (let i = 0; i < nDet; i++) {
+      await detalles.nth(i).click({ timeout: 6000 }).catch(() => {});
+      await page.waitForTimeout(4000);
+      deDrawers += await bajarBloquesExportables(page, `${periodo}_detalle${i}`);
+      if (i === 0 && !deDrawers) await volcar(`${P}_drawer`, await page.content().catch(() => ''));
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(1200);
+    }
+    if (nDet) await log(P, deDrawers ? 'descarga' : 'sin_descarga', `"See details": ${deDrawers} fichero(s) de ${nDet} panel(es)`);
+
     // 17-jul (fix v2, DOM volcado de /rapports): la vista Reports es un panel de
     // KPIs SIN botones de exportar; los ficheros descargables viven en /vat
     // (VAT Reports) y /historicals. Se recorren ambas y se baja todo lo exportable.
