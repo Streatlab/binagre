@@ -11,13 +11,14 @@ import CabeceraEscandallo from './CabeceraEscandallo'
 
 interface Props { recetasList: Receta[]; busqueda?: string; onBuscar: (v: string) => void; onSelect: (r: Receta) => void; onNew?: () => void }
 
-/** Canales visibles en tabla: [clave calcNeto, campo pvp, etiqueta corta] */
+/** Canales visibles en tabla. Claves canónicas de calcNetoPorCanal
+ *  (normalizarCanalId: 'just_eat'→'je', 'directa'→'dir'). */
 const CANALES: Array<{ clave: string; campo: keyof Receta; label: string }> = [
   { clave: 'uber',    campo: 'pvp_uber',    label: 'UE' },
   { clave: 'glovo',   campo: 'pvp_glovo',   label: 'GL' },
-  { clave: 'justeat', campo: 'pvp_je',      label: 'JE' },
+  { clave: 'je',      campo: 'pvp_je',      label: 'JE' },
   { clave: 'web',     campo: 'pvp_web',     label: 'WEB' },
-  { clave: 'directa', campo: 'pvp_directa', label: 'DIR' },
+  { clave: 'dir',     campo: 'pvp_directa', label: 'DIR' },
 ]
 
 /** Margen% por canal a nivel plato vía calcNetoPorCanal central (modo 'plato').
