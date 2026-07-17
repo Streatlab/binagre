@@ -224,7 +224,19 @@ async function bajarDescargar(page: Page, paso: string): Promise<{ nombre: strin
  */
 async function bajarExportsBloques(page: Page, paso: string, tipo: string, periodo: string, cuenta: string): Promise<number> {
   await resolverCandado(page, paso);
-  const botones = page.locator('button[data-testid$="-report-export-button"]');
+  // 17-jul (captura de Ruben): los botones de export ahora pueden ser SOLO un
+  // icono de flecha, sin texto. Se aceptan por data-testid, aria-label, title
+  // o clase que huela a descarga/export.
+  const botones = page.locator([
+    'button[data-testid$="-report-export-button"]',
+    'button[data-testid*="export"]',
+    'button[data-testid*="download"]',
+    'button[aria-label*="escargar" i]',
+    'button[aria-label*="ownload" i]',
+    'button[aria-label*="xport" i]',
+    'button[title*="escargar" i]',
+    'button[class*="download" i]',
+  ].join(', '));
   const n = await botones.count().catch(() => 0);
   if (!n) return 0;
   let bajados = 0;
@@ -235,11 +247,24 @@ async function bajarExportsBloques(page: Page, paso: string, tipo: string, perio
     await btn.scrollIntoViewIfNeeded().catch(() => {});
     const f = await capturar(page, P, async () => {
       await btn.click({ timeout: 8000 }).catch(() => {});
-      await page.waitForTimeout(1200);
-      // Si al pulsar sale menu o modal de formato, elegir CSV y confirmar
-      const opcion = page.getByRole('menuitem', { name: /csv/i }).first()
-        .or(page.locator('[role="dialog"], [role="menu"], .modal, [class*="modal" i]').locator('li, button, label, [role="menuitem"]').filter({ hasText: /csv|descargar/i }).first());
-      if (await opcion.count().catch(() => 0)) await opcion.click({ timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(1500);
+      // 17-jul (captura de Ruben): el modal "Selecciona un formato para tu
+      // informe" pide DOS pasos: marcar el radio "Exportar en CSV" y despues
+      // pulsar el boton "Exportar informe". El clic final es el que descarga.
+      const dlg = page.locator('[role="dialog"], .modal, [class*="modal" i]').last();
+      if (await dlg.count().catch(() => 0) && await dlg.isVisible().catch(() => false)) {
+        const radio = dlg.locator('label, [role="radio"], input[type="radio"] + label')
+          .filter({ hasText: /csv/i }).first()
+          .or(dlg.getByText(/exportar en csv/i).first());
+        if (await radio.count().catch(() => 0)) await radio.click({ timeout: 4000 }).catch(() => {});
+        const confirmar = dlg.locator('button').filter({ hasText: /exportar|descargar|confirmar/i }).last();
+        if (await confirmar.count().catch(() => 0)) await confirmar.click({ timeout: 5000 }).catch(() => {});
+      } else {
+        // Menu antiguo de un solo paso, por si Glovo lo mantiene en alguna cuenta
+        const opcion = page.getByRole('menuitem', { name: /csv/i }).first()
+          .or(page.locator('[role="menu"]').locator('li, [role="menuitem"]').filter({ hasText: /csv/i }).first());
+        if (await opcion.count().catch(() => 0)) await opcion.click({ timeout: 5000 }).catch(() => {});
+      }
     }, 60);
     if (f) {
       await entregar({ fuente: P, tipo, nombre: `${cuenta}_${bloque}_${f.nombre}`, datos: f.datos, periodo, destino: 'ventas' });
