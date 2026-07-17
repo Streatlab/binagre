@@ -81,11 +81,12 @@ export default function TabRecetas({ recetasList, busqueda = '', onBuscar, onSel
         onBuscar={onBuscar}
         onNew={onNew}
         nuevoLabel="+ Nueva Receta"
-        pills={[
-          { label: 'Total', value: recetasList.length },
-          { label: 'Estructura', value: `${fmtES(estructura_pct, 1)}% ${estructura_fuente === 'running' ? '(Running real)' : '(manual)'}` },
-        ]}
+        pills={[{ label: 'Total', value: recetasList.length }]}
       />
+
+      <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '.5px', textTransform: 'uppercase', color: GRIS }}>
+        Coste de estructura aplicado: {fmtES(estructura_pct, 1)}% · {estructura_fuente === 'running' ? 'Running real (3 meses)' : 'manual (Configuración)'}
+      </div>
 
       {busqueda.trim() && (
         <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '.5px', textTransform: 'uppercase', color: GRIS }}>
