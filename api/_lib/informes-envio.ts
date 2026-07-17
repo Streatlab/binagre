@@ -1,14 +1,19 @@
 /**
- * Despachador de envíos — WhatsApp (WAHA) y Email (Resend).
+ * Despachador de envíos — WhatsApp (Green API) y Email (Resend).
  *
  * Toma destinatarios y contenido, envía por los canales activos,
  * y registra cada envío en notif_envios.
+ *
+ * NOTA (18 jul 2026): WhatsApp migrado de WAHA (requería servidor Railway de pago)
+ * a Green API plan Developer (gratis, HTTP directo, máx 3 chats/mes — suficiente:
+ * Rubén + Emilio). Los exports mantienen sus nombres (despacharInforme,
+ * comprobarWAHA) para no tocar puertas ni UI.
  */
 import { supabaseAdmin } from './supabase-admin.js'
 
-const WAHA_URL = process.env.WAHA_URL || ''
-const WAHA_API_KEY = process.env.WAHA_API_KEY || ''
-const WAHA_SESSION = process.env.WAHA_SESSION || 'default'
+const GREEN_API_URL = (process.env.GREEN_API_URL || 'https://api.green-api.com').replace(/\/$/, '')
+const GREEN_API_ID_INSTANCE = process.env.GREEN_API_ID_INSTANCE || ''
+const GREEN_API_TOKEN = process.env.GREEN_API_TOKEN || ''
 const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const RESEND_FROM = process.env.RESEND_FROM || 'Streat Lab <informes@streatlab.com>'
 
@@ -19,40 +24,45 @@ export interface EnvioResultado {
 }
 
 /**
- * Limpia número WhatsApp y devuelve formato chatId WAHA: 34647651051@c.us
+ * Limpia número WhatsApp y devuelve formato chatId: 34647651051@c.us
+ * (mismo formato que usa Green API).
  */
 function whatsappAChatId(numero: string): string {
   const limpio = numero.replace(/\D/g, '')
   return `${limpio}@c.us`
 }
 
+function greenApiBase(): string {
+  return `${GREEN_API_URL}/waInstance${GREEN_API_ID_INSTANCE}`
+}
+
 /**
- * Envía un mensaje de WhatsApp vía WAHA.
+ * Envía un mensaje de WhatsApp vía Green API.
  */
 async function enviarWhatsApp(numero: string, texto: string): Promise<{ ok: boolean; error?: string }> {
-  if (!WAHA_URL) {
-    return { ok: false, error: 'WAHA no configurado (falta WAHA_URL)' }
+  if (!GREEN_API_ID_INSTANCE || !GREEN_API_TOKEN) {
+    return { ok: false, error: 'Green API no configurado (faltan GREEN_API_ID_INSTANCE / GREEN_API_TOKEN)' }
   }
   try {
-    const res = await fetch(`${WAHA_URL}/api/sendText`, {
+    const res = await fetch(`${greenApiBase()}/sendMessage/${GREEN_API_TOKEN}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(WAHA_API_KEY ? { 'X-Api-Key': WAHA_API_KEY } : {}),
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        session: WAHA_SESSION,
         chatId: whatsappAChatId(numero),
-        text: texto,
+        message: texto,
       }),
     })
     if (!res.ok) {
       const txt = await res.text()
-      return { ok: false, error: `WAHA ${res.status}: ${txt.slice(0, 200)}` }
+      // 466 = cuota del plan Developer superada (más de 3 chats en el mes)
+      if (res.status === 466) {
+        return { ok: false, error: `Green API 466: cuota mensual de chats superada (plan Developer, máx 3 chats). ${txt.slice(0, 150)}` }
+      }
+      return { ok: false, error: `Green API ${res.status}: ${txt.slice(0, 200)}` }
     }
     return { ok: true }
   } catch (err) {
-    return { ok: false, error: 'WAHA fetch error: ' + (err as Error).message }
+    return { ok: false, error: 'Green API fetch error: ' + (err as Error).message }
   }
 }
 
@@ -198,18 +208,20 @@ export async function despacharInforme(
 }
 
 /**
- * Estado del WAHA — útil para mostrar OK/KO en UI configuración.
+ * Estado del canal WhatsApp (Green API) — útil para mostrar OK/KO en UI configuración.
+ * Mantiene el nombre comprobarWAHA para no tocar la puerta /api/informes/waha-status ni la UI.
  */
 export async function comprobarWAHA(): Promise<{ conectado: boolean; mensaje?: string }> {
-  if (!WAHA_URL) return { conectado: false, mensaje: 'WAHA_URL no configurado' }
+  if (!GREEN_API_ID_INSTANCE || !GREEN_API_TOKEN) {
+    return { conectado: false, mensaje: 'Green API no configurado (faltan GREEN_API_ID_INSTANCE / GREEN_API_TOKEN)' }
+  }
   try {
-    const res = await fetch(`${WAHA_URL}/api/sessions/${WAHA_SESSION}`, {
-      headers: WAHA_API_KEY ? { 'X-Api-Key': WAHA_API_KEY } : {},
-    })
-    if (!res.ok) return { conectado: false, mensaje: `WAHA ${res.status}` }
+    const res = await fetch(`${greenApiBase()}/getStateInstance/${GREEN_API_TOKEN}`)
+    if (!res.ok) return { conectado: false, mensaje: `Green API ${res.status}` }
     const json: any = await res.json()
-    const status = json.status || json.engine?.status || 'unknown'
-    return { conectado: status === 'WORKING' || status === 'CONNECTED', mensaje: status }
+    const estado = json.stateInstance || 'unknown'
+    // 'authorized' = instancia vinculada al WhatsApp del bar y lista para enviar
+    return { conectado: estado === 'authorized', mensaje: estado }
   } catch (err) {
     return { conectado: false, mensaje: (err as Error).message }
   }
