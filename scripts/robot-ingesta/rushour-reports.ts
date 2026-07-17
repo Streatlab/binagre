@@ -178,6 +178,19 @@ async function main() {
       if (!n) await volcar(`${P}_rapports_sin_export`, await page.content().catch(() => ''));   // mapa para la siguiente pasada
     }
 
+    // 17-jul (fix v2, DOM volcado de /rapports): la vista Reports es un panel de
+    // KPIs SIN botones de exportar; los ficheros descargables viven en /vat
+    // (VAT Reports) y /historicals. Se recorren ambas y se baja todo lo exportable.
+    for (const [ruta, etiqueta] of [['/vat', 'vat'], ['/historicals', 'historicals']] as const) {
+      await page.goto(`https://manager.rushour.io${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await page.waitForTimeout(8000);
+      await cerrarModales(page);
+      const nx = await bajarBloquesExportables(page, `${periodo}_${etiqueta}`);
+      await log(P, nx ? 'descarga' : 'sin_descarga', `${ruta}: ${nx} fichero(s)`);
+      if (!nx) await volcar(`${P}_${etiqueta}_sin_export`, await page.content().catch(() => ''));
+    }
+
     // /business: sin mapear en vivo — se vuelca el DOM para mapear a mano.
     await page.goto(RUSHOUR.businessUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForLoadState('networkidle').catch(() => {});
