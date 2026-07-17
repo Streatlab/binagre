@@ -3,7 +3,7 @@
 //    ingredientes pre-creados pendientes de completar, alertas de subida de precio.
 // C: inventario quincenal por foto (leer → confirmar) con confianza por línea.
 // D: coste real del periodo y varianza teórico vs real en €.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente } from './types'
 import { fmtES } from './types'
@@ -52,9 +52,9 @@ interface CosteReal { inicio: string; fin: string; inventario_inicial: number; i
 
 const API = '/api/papeleo/escandallo-auto'
 
-const card: React.CSSProperties = { background: 'var(--sl-card)', border: `4px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}`, padding: 16 }
-const h3: React.CSSProperties = { fontFamily: OSW, fontWeight: 700, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: GRANATE, margin: '0 0 10px' }
-const btn = (bg: string): React.CSSProperties => ({ fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', background: bg, color: INK, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, padding: '8px 14px', cursor: 'pointer' })
+const card: CSSProperties = { background: 'var(--sl-card)', border: `4px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}`, padding: 16 }
+const h3: CSSProperties = { fontFamily: OSW, fontWeight: 700, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: GRANATE, margin: '0 0 10px' }
+const btn = (bg: string): CSSProperties => ({ fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', background: bg, color: INK, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, padding: '8px 14px', cursor: 'pointer' })
 
 export default function TabAuto({ onOpenIngrediente }: Props) {
   const [estado, setEstado] = useState<Estado | null>(null)
