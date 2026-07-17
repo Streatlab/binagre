@@ -349,13 +349,17 @@ async function guardarFila(fecha: string, servicio: 'ALM' | 'CENAS', uber: any, 
   await log('ok', `guardada ${fecha} ${servicio} total=${total_bruto}€ / ${total_pedidos} ped`);
 }
 
-/** Recalcula SOLO Just Eat (comida→ALM, cena→CENAS) de un día ya guardado. */
-async function repararJustEat(page: Page, fecha: string) {
-  const je = await leerSinqro(page, fecha);
+/** Aplica una lectura Just Eat (comida→ALM, cena→CENAS) sobre filas ya guardadas.
+ * forzar=false (automático): solo corrige AL ALZA — nunca borra un JE ya guardado
+ * con una lectura peor. forzar=true (modo JE manual): pisa siempre. */
+async function aplicarJustEat(fecha: string, je: any, forzar = false) {
   for (const [servicio, dato] of [['ALM', je.comida], ['CENAS', je.cena]] as const) {
     const fila = await filaExistente(fecha, servicio);
-    if (!fila) { await log('aviso', `no hay fila ${servicio} de ${fecha}`); continue; }
+    if (!fila) { if (forzar) await log('aviso', `no hay fila ${servicio} de ${fecha}`); continue; }
     if (fila.canal !== 'plataformas') { await log('skip', `fila MANUAL ${fecha} ${servicio}: no la piso`); continue; }
+    // FIX 17-jul: la lectura de Sinqro en vivo (17:00) puede salir a 0 y dejar el
+    // ALM sin Just Eat; la lectura nocturna es la fiable y aquí lo repara.
+    if (!forzar && r2(dato.bruto) <= (Number(fila.je_bruto) || 0)) continue;
     const uber_b = Number(fila.uber_bruto) || 0, glovo_b = Number(fila.glovo_bruto) || 0;
     const uber_p = Number(fila.uber_pedidos) || 0, glovo_p = Number(fila.glovo_pedidos) || 0;
     const total_pedidos = uber_p + glovo_p + dato.pedidos;
@@ -367,6 +371,12 @@ async function repararJustEat(page: Page, fecha: string) {
     if (error) { await log('error', `JE ${fecha} ${servicio}: ${error.message}`); continue; }
     await log('ok', `JE ${fecha} ${servicio}: ${dato.pedidos} ped / ${dato.bruto}€ (total ${total_bruto}€)`);
   }
+}
+
+/** Recalcula SOLO Just Eat de un día ya guardado (modo JE manual: pisa siempre). */
+async function repararJustEat(page: Page, fecha: string) {
+  const je = await leerSinqro(page, fecha);
+  await aplicarJustEat(fecha, je, true);
 }
 
 /**
@@ -466,6 +476,9 @@ async function main() {
           resta(rush.ubereats, alm.uber_pedidos, Number(alm.uber_bruto)),
           resta(rush.glovo, alm.glovo_pedidos, Number(alm.glovo_bruto)),
           je.cena);
+        // FIX 17-jul: aunque el blindaje no pise la fila, el Just Eat leído de
+        // noche (el bueno) se aplica igualmente a ALM y CENAS, solo al alza.
+        await aplicarJustEat(fechaObj, je);
       } else {
         await log('aviso', `sin fila ALM de ${fechaObj}: guardo el día completo como ALM`);
         await guardarFila(fechaObj, 'ALM', rush.ubereats, rush.glovo, {
