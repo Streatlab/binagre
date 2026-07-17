@@ -189,10 +189,8 @@ async function seccionSimple(page: Page, ruta: string, tipo: string, periodo: st
 }
 
 /**
- * Resumen mensual POR MARCA en Pagos (/manager/payments). Sin selectores
- * confirmados en vivo (ver cabecera): busca un selector de marca/negocio con
- * patrones genéricos; si lo encuentra, baja el resumen de cada opción, si no,
- * un único intento. Siempre vuelca el DOM mientras el objetivo esté pendiente.
+ * Resumen mensual POR MARCA en Pagos (/manager/payments), con los selectores
+ * reales mapeados el 16-jul (uber_mapa_payments).
  */
 async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: string): Promise<{ bajadas: number; totalMarcas: number | null }> {
   // 16-jul (noche, fix con DOM volcado uber_mapa_payments): la pagina real de
@@ -268,14 +266,38 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
     return { bajadas: n, totalMarcas: null };
   }
 
+  // 17-jul (v3): al elegir una marca en el selector, Uber NAVEGA a la vista de esa
+  // marca y el toolbar con "Descargar" desaparece -> tras cada seleccion hay que
+  // VOLVER a /manager/payments, refijar el rango y entonces descargar.
+  totalMarcas = Math.min(totalMarcas, 12);
+  const refijarRango = async () => {
+    const cf = page.locator('input[aria-label="Select a date range."]').first();
+    if (await cf.count().catch(() => 0)) {
+      await cf.click({ timeout: 6000 }).catch(() => {});
+      await cf.fill(rangoTxt).catch(() => {});
+      await page.keyboard.press('Enter').catch(() => {});
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(3000);
+    }
+  };
   let bajadas = 0;
   for (let i = 0; i < totalMarcas; i++) {
-    if (i > 0) { await selectorMarca.click({ timeout: 6000 }).catch(() => {}); await page.waitForTimeout(1200); }
+    const sel = page.locator('[data-testid="location-selector-button-testid"], [data-testid*="location-selector" i]').first();
+    await sel.click({ timeout: 6000 }).catch(() => {});
+    await page.waitForTimeout(1500);
     const opt = opciones().nth(i);
-    const nombreMarca = (((await opt.textContent().catch(() => '')) || `marca_${i}`).trim()).slice(0, 60) || `marca_${i}`;
+    if (!(await opt.count().catch(() => 0))) { await page.keyboard.press('Escape').catch(() => {}); break; }
+    const crudo = ((await opt.textContent().catch(() => '')) || `marca_${i}`).trim();
+    const nombreMarca = (crudo.split(/calle|c\/|avda|avenida|[0-9a-f]{8}-/i)[0].trim() || `marca_${i}`).slice(0, 40);
     await opt.click({ timeout: 6000 }).catch(() => {});
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(4000);
+    await page.waitForTimeout(3000);
+    // volver a la vista de pagos de ESTA marca
+    await page.goto(`${RAIZ}/manager/payments`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(5000);
+    await quitarEstorbos(page);
+    await refijarRango();
     bajadas += await bajarActual(nombreMarca);
   }
   await log(P, 'descarga', `mensual_${cuenta}: ${bajadas}/${totalMarcas} marca(s) bajadas`);
