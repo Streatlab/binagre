@@ -75,7 +75,6 @@ const TicketMedio = React.lazy(() => import('@/pages/finanzas/TicketMedio'))
 
 const PanelGlobal = React.lazy(() => import('@/pages/PanelGlobal'))
 const PanelDireccion = React.lazy(() => import('@/pages/PanelDireccion'))
-const OcrConToast = React.lazy(() => import('@/pages/OcrConToast'))
 const Tareas = React.lazy(() => import('@/pages/Tareas'))
 const Carta = React.lazy(() => import('@/pages/Carta'))
 
