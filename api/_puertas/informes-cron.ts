@@ -1,13 +1,20 @@
 /**
  * GET /api/informes/cron
  *
- * Endpoint llamado por Vercel Cron cada hora.
- * Decide qué informes enviar según día/hora actual y los despacha.
+ * Endpoint llamado por Vercel Cron. Decide qué informes enviar según
+ * día/hora actual en Madrid y los despacha.
  *
- * Configuración en vercel.json:
- *   { "crons": [{ "path": "/api/informes/cron", "schedule": "*\/30 * * * *" }] }
+ * Los crons de vercel.json se programan en UTC. Para cubrir invierno (UTC+1)
+ * y verano (UTC+2) cada informe tiene DOS disparos UTC; la ventana horaria
+ * de Madrid de aquí abajo filtra y solo uno de los dos coincide.
  *
- * Ejecutándose cada 30 min, comprueba si toca algún informe ahora.
+ * Horarios Madrid:
+ *  - resumen_manana: todos los días 08:00 (email)
+ *  - cobros_lunes:   lunes 09:00
+ *  - cierre_mensual: día 1, 09:00
+ *  - pulso:          todos los días 16:30 (WhatsApp)
+ *  - cierre_diario:  lun-sáb 23:29 (WhatsApp)
+ *  - cierre_semanal: domingo 23:30
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { calcularInforme, type TipoInforme } from '../_lib/informes-calculo.js'
@@ -20,7 +27,7 @@ interface VentanaInforme {
   toca: (now: Date) => boolean
 }
 
-// España (Madrid) — ajuste manual UTC+1/+2 según DST
+// España (Madrid) — hora local real vía Intl (cubre DST automáticamente)
 function horaMadrid(d: Date): { dia: number; hora: number; minuto: number; diaMes: number } {
   const fmt = new Intl.DateTimeFormat('es-ES', {
     timeZone: 'Europe/Madrid',
@@ -40,12 +47,12 @@ function horaMadrid(d: Date): { dia: number; hora: number; minuto: number; diaMe
 }
 
 const VENTANAS: VentanaInforme[] = [
-  // Cierre diario: Lun-Sáb a las 23:30 (entre 23:30 y 23:59)
+  // Resumen de la mañana: todos los días, 08:00-08:29
   {
-    tipo: 'cierre_diario',
+    tipo: 'resumen_manana',
     toca: (n) => {
-      const { dia, hora, minuto } = horaMadrid(n)
-      return dia >= 1 && dia <= 6 && hora === 23 && minuto >= 30
+      const { hora, minuto } = horaMadrid(n)
+      return hora === 8 && minuto < 30
     },
   },
   // Cobros lunes: Lunes 09:00-09:29
@@ -56,20 +63,36 @@ const VENTANAS: VentanaInforme[] = [
       return dia === 1 && hora === 9 && minuto < 30
     },
   },
-  // Cierre semanal: Domingo 23:30-23:59
-  {
-    tipo: 'cierre_semanal',
-    toca: (n) => {
-      const { dia, hora, minuto } = horaMadrid(n)
-      return dia === 0 && hora === 23 && minuto >= 30
-    },
-  },
   // Cierre mensual: Día 1 del mes, 09:00-09:29
   {
     tipo: 'cierre_mensual',
     toca: (n) => {
       const { hora, minuto, diaMes } = horaMadrid(n)
       return diaMes === 1 && hora === 9 && minuto < 30
+    },
+  },
+  // Pulso de la tarde: todos los días, 16:30-16:59
+  {
+    tipo: 'pulso',
+    toca: (n) => {
+      const { hora, minuto } = horaMadrid(n)
+      return hora === 16 && minuto >= 30
+    },
+  },
+  // Cierre diario: Lun-Sáb 23:15-23:59 (disparo a las 23:29)
+  {
+    tipo: 'cierre_diario',
+    toca: (n) => {
+      const { dia, hora } = horaMadrid(n)
+      return dia >= 1 && dia <= 6 && hora === 23
+    },
+  },
+  // Cierre semanal: Domingo 23:00-23:59 (disparo a las 23:30)
+  {
+    tipo: 'cierre_semanal',
+    toca: (n) => {
+      const { dia, hora } = horaMadrid(n)
+      return dia === 0 && hora === 23
     },
   },
 ]
@@ -89,12 +112,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: true, ahora: ahora.toISOString(), mensaje: 'Ningún informe toca ahora' })
   }
 
-  // Filtrar solo los que están activos en config
+  // Filtrar solo los que están activos en config y que NO se hayan enviado ya hoy
+  // (protección anti-duplicados si el cron se ejecuta dos veces en la ventana)
   const { data: configs } = await supabaseAdmin
     .from('notif_config')
-    .select('tipo, activo')
+    .select('tipo, activo, ultima_ejecucion')
     .in('tipo', tocan)
-  const activos = (configs || []).filter(c => c.activo).map(c => c.tipo)
+  const activos = (configs || [])
+    .filter(c => c.activo)
+    .filter(c => {
+      if (!c.ultima_ejecucion) return true
+      const ult = new Date(c.ultima_ejecucion)
+      // Si el último envío fue hace menos de 2 horas, no repetir
+      return ahora.getTime() - ult.getTime() > 2 * 3600 * 1000
+    })
+    .map(c => c.tipo as TipoInforme)
 
   const resultados: any[] = []
   for (const tipo of activos) {
