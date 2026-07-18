@@ -11,17 +11,13 @@
  * comprueba por fecha real de Madrid qué hay pendiente y lo reintenta con
  * robot_objetivos, igual que Glovo/Just Eat con las quincenas:
  *   1) INFORMES SEMANALES (/manager/reports): resumen de ganancias + detalle
- *      por artículo de la semana cerrada (lunes-domingo anterior). Se pide y
- *      se espera a que Uber lo prepare (\"Disponible\"); si no da tiempo, la
- *      pasada siguiente ya lo encuentra listo.
+ *      por artículo de la semana cerrada (lunes-domingo anterior).
  *   2) FACTURAS (/manager/invoices): Uber las emite el domingo ~02:00: se
  *      intenta lunes y martes (reintento si el lunes no había nada nuevo).
  *   3) RESUMEN MENSUAL POR MARCA (/manager/payments): desde el día 3 del mes,
- *      intenta bajar el resumen de CADA marca del mes cerrado con los
- *      selectores reales mapeados el 16-jul (ver resumenMensualPorMarca).
+ *      intenta bajar el resumen de CADA marca del mes cerrado.
  *
- * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM, se
- * salta toda la lógica de robot_objetivos y baja el mes pedido a mano).
+ * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM).
  */
 import type { Page, BrowserContext } from 'playwright';
 import { entregar, log, volcar, hoyMadrid, latido, objetivoPendiente, registrarIntento, marcarConseguido } from './_lib/bandeja.js';
@@ -91,24 +87,13 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
 }
 
 /**
- * Baja TODAS las filas con estado Disponible de la página actual (hasta un
- * tope), no solo la primera — la semana cerrada suele traer más de un informe
- * listo a la vez (resumen de ganancias + detalle por artículo). Un solo
- * recorrido, sin recargar entre descargas (evita reprocesar la misma fila).
+ * Baja TODAS las filas con estado Disponible de la página actual (hasta un tope).
  */
 async function bajarFilasDisponibles(page: Page, tipo: string, periodo: string, destino: string, tope = 5): Promise<number> {
-  // 16-jul (noche, fix con DOM volcado): en el centro de informes "Disponible" es el
-  // nombre de la PESTANA, no aparece en las filas. Una fila lista para bajar se
-  // reconoce porque su columna Accion trae un boton/enlace "Descargar". Se filtra
-  // por eso; el filtro antiguo por "Disponible" queda de respaldo.
-  // 17-jul (v3): las "filas" del centro de informes son DIVs, no <tr>/[role=row],
-  // por eso ninguna pasada veia nada listo. Se pulsan directamente los botones
-  // "Descargar" que haya en la pagina (aria-label o texto), sin buscar filas.
   const directos = page.locator('button[aria-label="Descargar"], a[aria-label="Descargar"], button[aria-label="Download"]')
     .or(page.getByRole('button', { name: /^\s*descargar( archivo( csv)?)?\s*$/i }))
     .or(page.getByRole('link', { name: /^\s*descargar( archivo( csv)?)?\s*$/i }))
-    // 17-jul (captura de Ruben): en el centro de informes el boton final dice
-    // "Descargar archivo CSV" — hay que reconocerlo tambien.
+    // 17-jul (captura de Ruben): en el centro de informes el boton final dice "Descargar archivo CSV".
     .or(page.locator('button, a, [role="button"]').filter({ hasText: /descargar archivo csv/i }));
   const nd = Math.min(await directos.count().catch(() => 0), tope);
   let bajadas = 0;
@@ -146,20 +131,14 @@ async function bajarFilasDisponibles(page: Page, tipo: string, periodo: string, 
   return bajadas;
 }
 
-/** Baja la primera fila con estado Disponible (menú de acción → Descargar). */
 async function bajarFilaDisponible(page: Page, tipo: string, periodo: string, destino: string): Promise<boolean> {
   return (await bajarFilasDisponibles(page, tipo, periodo, destino, 1)) > 0;
 }
 
 /**
- * 17-jul (receta de Ruben, capturas): crear un reporte desde cero en
- * /manager/reports/create-report cuando no hay nada que re-solicitar.
- * 1. Marcar tipos "Resumen de ganancias" y "Detalles de las ganancias (nivel de
- *    articulo)". 2. "Una vez" ya viene elegido. 3. "Elegir restaurantes" ->
- *    marcar todas. 4. Intervalo de fechas -> preset de la semana pasada si
- *    existe. 5. Boton "Crear un reporte". Uber lo genera EN HORAS (toast verde
- *    "Generando reportes... te enviaremos un correo"): la descarga la hara otra
- *    pasada al ver el boton "Descargar archivo CSV".
+ * 17-jul (receta de Ruben): crear un reporte desde cero en /manager/reports/create-report
+ * cuando no hay nada que re-solicitar. Marca "Resumen de ganancias" y "Detalles de las
+ * ganancias (nivel de articulo)", todas las tiendas, semana pasada, y pulsa "Crear un reporte".
  */
 async function crearReporte(page: Page, periodo: string): Promise<boolean> {
   await page.goto(`${RAIZ}/manager/reports/create-report`, { waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -174,7 +153,6 @@ async function crearReporte(page: Page, periodo: string): Promise<boolean> {
   }
   if (!marcados) { await volcar('uber_crear_reporte', await page.content().catch(() => '')); return false; }
 
-  // Tiendas: abrir "Elegir restaurantes" y marcar todo (o cada opcion, tope 40)
   const tiendas = page.locator('button, [role="button"], [role="combobox"]').filter({ hasText: /elegir restaurantes|choose restaurants/i }).first();
   if (await tiendas.count().catch(() => 0)) {
     await tiendas.click({ timeout: 5000 }).catch(() => {});
@@ -191,7 +169,6 @@ async function crearReporte(page: Page, periodo: string): Promise<boolean> {
     await page.waitForTimeout(800);
   }
 
-  // Fechas: abrir el desplegable de intervalo y elegir un preset de semana pasada
   const fechas = page.locator('button, [role="button"], [role="combobox"], input').filter({ hasText: /intervalo de fechas|yyyy\/mm\/dd|date range/i }).first();
   if (await fechas.count().catch(() => 0)) {
     await fechas.click({ timeout: 5000 }).catch(() => {});
@@ -208,7 +185,7 @@ async function crearReporte(page: Page, periodo: string): Promise<boolean> {
   await crear.click({ timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(4000);
   const toast = await page.getByText(/generando reportes|te enviaremos un correo/i).count().catch(() => 0);
-  await log(P, toast ? 'solicitado' : 'aviso', `crear reporte (${periodo}): ${toast ? 'Uber confirmo la generacion (llegara en horas)' : 'sin confirmacion visible; DOM volcado'}`);
+  await log(P, toast ? 'solicitado' : 'aviso', `crear reporte (${periodo}): ${toast ? 'Uber confirmo la generacion' : 'sin confirmacion visible; DOM volcado'}`);
   if (!toast) await volcar('uber_crear_reporte_post', await page.content().catch(() => ''));
   await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForTimeout(5000);
@@ -224,9 +201,6 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
 
   if (await bajarFilaDisponible(page, 'uber_informe', periodo, 'ventas')) return true;
 
-  // Nada listo: pedir de nuevo los informes QUE INTERESAN (resumen/detalle de pagos,
-  // ganancias, historial de pedidos) y quedarse esperando en el MISMO run hasta 12
-  // minutos (orden de Rubén 16-jul: Uber tarda ~10 min como mucho; no salir sin bajar).
   const RE_INFORMES_UTILES = /detalles del pago|payment details|resumen de pagos|pagos|payment summary|ganancias|earnings|historial de pedidos|order history/i;
   const filasUtiles = page.locator('tr, [role="row"]').filter({ hasText: RE_INFORMES_UTILES });
   const nUtiles = Math.min(await filasUtiles.count().catch(() => 0), 3);
@@ -242,8 +216,6 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
       await rehacer.click({ timeout: 8000 }).catch(() => {});
       pedidos = 1;
     } else {
-      // 17-jul (receta de Ruben): si no hay filas que re-solicitar, se CREA el
-      // reporte desde cero en /manager/reports/create-report.
       if (!(await crearReporte(page, periodo))) {
         await volcar(`${P}_informes`, await page.content().catch(() => ''));
         await log(P, 'sin_descarga', 'informes: ni descarga, ni re-solicitar, ni pude crear el reporte (DOM volcado)');
@@ -252,18 +224,23 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
       pedidos = 1;
     }
   }
-  await log(P, 'aviso', `${pedidos} informe(s) solicitados; espero en este mismo run a que Uber los prepare (tope 12 min)`);
+  // 18-jul (Ruben: Uber tarda MINUTOS, no horas): reintentos cortos volviendo a
+  // la lista y descargando, en vez de una espera bloqueante que agota el runner.
+  // 8 vueltas x 45s = 6 min; si a los 6 min no esta, se deja pedido y la
+  // siguiente pasada lo baja (ya estara "Disponible").
+  await log(P, 'aviso', `${pedidos} informe(s) solicitados; reintento la descarga cada 45s durante ~6 min`);
 
   let bajadas = 0;
-  for (let vuelta = 0; vuelta < 12; vuelta++) {
-    await page.waitForTimeout(60000);
-    await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
-    await page.waitForTimeout(8000);
+  for (let vuelta = 0; vuelta < 8; vuelta++) {
+    await page.waitForTimeout(45000);
+    await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForTimeout(6000);
+    await quitarEstorbos(page);
     bajadas += await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas');
-    if (bajadas >= pedidos) return true;   // todos los pedidos bajados: no seguir esperando
+    if (bajadas >= pedidos) return true;
   }
   if (bajadas > 0) return true;
-  await log(P, 'aviso', 'el informe seguía preparándose tras 12 min; se bajará en la próxima pasada');
+  await log(P, 'aviso', 'el informe seguía preparándose tras ~6 min; se bajará en la próxima pasada (ya quedó pedido)');
   return false;
 }
 
@@ -278,26 +255,14 @@ async function seccionSimple(page: Page, ruta: string, tipo: string, periodo: st
   return 0;
 }
 
-/**
- * Resumen mensual POR MARCA en Pagos (/manager/payments), con los selectores
- * reales mapeados el 16-jul (uber_mapa_payments).
- */
+/** Resumen mensual POR MARCA en /manager/payments/statements. */
 async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: string): Promise<{ bajadas: number; totalMarcas: number | null }> {
-  // 16-jul (noche, fix con DOM volcado uber_mapa_payments): la pagina real de
-  // "Resumenes de pagos" tiene:
-  //   - selector de MARCA: [data-testid="location-selector-button-testid"] (p. ej. "Binagre")
-  //   - rango de fechas: input[aria-label="Select a date range."] (dd/mm/yyyy - dd/mm/yyyy, se puede teclear)
-  //   - descarga: un div[role="button"] con el texto "Descargar" (icono de nube), NO un <button>
-  // 17-jul (captura de Ruben): la pantalla simple es /manager/payments/statements
-  // ("Ganancias > Resumenes"): tabla mensual con boton "Descargar" por fila y
-  // selector de tienda arriba. Sin nube, sin rango que teclear.
   await page.goto(`${RAIZ}/manager/payments/statements`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(8000);
   await quitarEstorbos(page);
   await volcar('uber_mapa_payments', await page.content().catch(() => ''));
 
-  // Rango = mes cerrado (periodo AAAA-MM) tecleado en el date-picker
   const [anio, mes] = periodo.split('-').map(Number);
   const finMes = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
   const mm = String(mes).padStart(2, '0');
@@ -314,8 +279,7 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
     await log(P, 'aviso', `mensual_${cuenta}: no veo el campo de rango de fechas; bajo el rango que este puesto`);
   }
 
-  // 17-jul (captura de Ruben): en /statements hay UN boton "Descargar" por mes;
-  // el PRIMERO de la tabla es el mes cerrado mas reciente -> first(), no last().
+  // En /statements hay UN boton "Descargar" por mes; el PRIMERO es el mes cerrado mas reciente.
   const controlDescargar = () => page.getByRole('button', { name: /^\s*Descargar\s*$/ }).first()
     .or(page.getByText('Descargar', { exact: true }).first())
     .or(page.locator('[role="button"], button', { hasText: /^\s*Descargar\s*$/ }).first())
@@ -332,8 +296,6 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
     const f = await capturar(page, P, async () => {
       await ctrl.click({ timeout: 8000 }).catch(() => {});
       await page.waitForTimeout(1800);
-      // Si sale menu de formato (CSV/PDF), elegir la primera opcion
-      // OJO: "Descargar en el centro de informes" NAVEGA, no descarga -> excluirlo.
       const opcion = page.getByRole('menuitem', { name: /csv|pdf/i }).first()
         .or(page.locator('[data-baseweb="popover"], [role="menu"], [role="listbox"]').locator('li, [role="option"], [role="menuitem"], button')
           .filter({ hasText: /csv|pdf|descargar|exportar/i })
@@ -360,21 +322,14 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
     .locator('[role="option"], [role="menuitem"], li, label, [data-testid*="option" i], [data-testid*="location" i] button');
   let totalMarcas = Math.min(await opciones().count().catch(() => 0), 20);
   if (!totalMarcas) {
-    // volcar el desplegable abierto para mapearlo a mano en la siguiente pasada
     await volcar('uber_mapa_marcas', await page.content().catch(() => ''));
     await page.keyboard.press('Escape').catch(() => {});
     const n = await bajarActual(cuenta);
-    await log(P, 'aviso', `mensual_${cuenta}: selector sin opciones legibles; ${n} fichero(s) de la marca visible (DOM en uber_mapa_payments)`);
+    await log(P, 'aviso', `mensual_${cuenta}: selector sin opciones legibles; ${n} fichero(s) de la marca visible`);
     return { bajadas: n, totalMarcas: null };
   }
 
-  // 17-jul (v3): al elegir una marca en el selector, Uber NAVEGA a la vista de esa
-  // marca y el toolbar con "Descargar" desaparece -> tras cada seleccion hay que
-  // VOLVER a /manager/payments/statements, refijar el rango y entonces descargar.
   totalMarcas = Math.min(totalMarcas, 12);
-  // 17-jul (v4, run 19:58 "0/12 en 45s"): el desplegable quedaba ABIERTO tras contar
-  // las marcas; el primer click del bucle lo cerraba, la opcion 0 no aparecia y el
-  // bucle rompia a la primera. Cerrarlo aqui y reabrir con reintento dentro del bucle.
   await page.keyboard.press('Escape').catch(() => {});
   await page.waitForTimeout(800);
   const refijarRango = async () => {
@@ -394,7 +349,6 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
     await page.waitForTimeout(1500);
     let opt = opciones().nth(i);
     if (!(await opt.count().catch(() => 0))) {
-      // el click anterior pudo cerrar un desplegable ya abierto: reintentar una vez
       await sel.click({ timeout: 6000 }).catch(() => {});
       await page.waitForTimeout(1500);
       opt = opciones().nth(i);
@@ -405,11 +359,7 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
     await opt.click({ timeout: 6000 }).catch(() => {});
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(3000);
-    // volver a la vista de pagos de ESTA marca
-    // 17-jul (captura de Ruben): la pantalla simple es /manager/payments/statements
-  // ("Ganancias > Resumenes"): tabla mensual con boton "Descargar" por fila y
-  // selector de tienda arriba. Sin nube, sin rango que teclear.
-  await page.goto(`${RAIZ}/manager/payments/statements`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.goto(`${RAIZ}/manager/payments/statements`, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(5000);
     await quitarEstorbos(page);
@@ -426,14 +376,12 @@ async function trabajarCuenta(c: Cuenta) {
     if (!(await entrar(page, ctx, c))) return;
 
     if (MODO === 'backfill' && /^\d{4}-\d{2}$/.test(MES)) {
-      // Backfill explícito: baja todo lo del mes pedido, sin tocar robot_objetivos.
       await informes(page, MES);
       await seccionSimple(page, '/manager/payments/statements', 'uber_resumen_pagos', MES, 'ventas');
       await seccionSimple(page, '/manager/invoices', 'uber_factura', MES, 'facturas');
       return;
     }
 
-    // 1) Informes semanales (resumen + detalle de ganancias) de la semana cerrada.
     const sem = semanaCerrada();
     if (await objetivoPendiente(P, sem.periodo, 'informes_semanales')) {
       const huboDescarga = await informes(page, sem.periodo);
@@ -441,7 +389,6 @@ async function trabajarCuenta(c: Cuenta) {
       else await registrarIntento(P, sem.periodo, 'informes_semanales', `${c.cuenta}: aún sin "Disponible"`);
     }
 
-    // 2) Facturas: Uber las emite domingo ~02:00 → se intenta lunes y martes.
     const diaSem = diaSemanaMadrid();
     if ((diaSem === 1 || diaSem === 2) && await objetivoPendiente(P, sem.periodo, 'facturas')) {
       const n = await seccionSimple(page, '/manager/invoices', 'uber_factura', sem.periodo, 'facturas');
@@ -449,7 +396,6 @@ async function trabajarCuenta(c: Cuenta) {
       else await registrarIntento(P, sem.periodo, 'facturas', `${c.cuenta}: 0 ficheros nuevos (día ${diaSem})`);
     }
 
-    // 3) Resumen mensual por marca, desde el día 3 del mes cerrado.
     const mes = mesCerrado();
     if (diaMesMadrid() >= 3 && await objetivoPendiente(P, mes.periodo, 'facturas_mensual_marca')) {
       const { bajadas, totalMarcas } = await resumenMensualPorMarca(page, mes.periodo, c.cuenta);
