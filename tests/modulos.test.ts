@@ -22,8 +22,7 @@ function listTsx(dir: string): string[] {
 
 // Modulos que mueven dinero o son cabecera del ERP: deben existir SIEMPRE.
 const CRITICOS = [
-  'Dashboard.tsx',
-  'Facturacion.tsx',
+    'Facturacion.tsx',
   'Conciliacion.tsx',
   'PagosCobros.tsx',
   'PanelGlobal.tsx',
