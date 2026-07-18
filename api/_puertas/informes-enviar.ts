@@ -1,7 +1,7 @@
 /**
  * POST /api/informes/enviar
  *
- * Body: { tipo: 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual' }
+ * Body: { tipo: 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual' | 'resumen_manana' | 'pulso' }
  *
  * Calcula el informe del tipo indicado y lo envía a todos los destinatarios
  * activos por los canales configurados.
@@ -10,7 +10,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { calcularInforme, type TipoInforme } from '../_lib/informes-calculo.js'
 import { despacharInforme } from '../_lib/informes-envio.js'
 
-const TIPOS_VALIDOS: TipoInforme[] = ['cierre_diario', 'cobros_lunes', 'cierre_semanal', 'cierre_mensual']
+const TIPOS_VALIDOS: TipoInforme[] = ['cierre_diario', 'cobros_lunes', 'cierre_semanal', 'cierre_mensual', 'resumen_manana', 'pulso']
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
