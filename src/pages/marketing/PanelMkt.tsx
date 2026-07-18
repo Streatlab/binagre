@@ -24,7 +24,7 @@ const fmtEur = (n: number | null | undefined) =>
 const card: React.CSSProperties = {
   background: BLANCO,
   border: `3px solid ${INK}`,
-  boxShadow: `5px 5px 0 ${INK}`,
+  boxShadow: `3px 3px 0 ${INK}`,
   padding: '16px 18px',
 }
 
@@ -115,7 +115,7 @@ export default function PanelMkt() {
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1200 }}>
       {/* Hero */}
-      <div style={{ background: AMA, border: `3px solid ${INK}`, boxShadow: `6px 6px 0 ${INK}`, padding: '18px 22px', marginBottom: 24 }}>
+      <div style={{ background: AMA, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, padding: '18px 22px', marginBottom: 24 }}>
         <h1 style={{ fontFamily: FONT.heading, fontWeight: 800, fontSize: 28, textTransform: 'uppercase', letterSpacing: '0.02em', color: INK, margin: 0 }}>
           Panel MKT
         </h1>
