@@ -1,5 +1,5 @@
 /**
- * JUST EAT FACTURAS POR CORREO · justeat-mail.ts (18-jul-2026 · v3 blindaje total)
+ * JUST EAT FACTURAS POR CORREO · justeat-mail.ts (18-jul-2026 · v4)
  *
  * POR QUÉ EXISTE: el Partner Hub de Just Eat bloquea a los servidores de GitHub
  * (WAF Cloudflare). Pero Just Eat envía CADA factura por email a un buzón de
@@ -7,10 +7,12 @@
  * con la factura adjunta) — a menudo marcada como SPAM. Este robot lee el buzón
  * por IMAP y deja los adjuntos en la bandeja. El WAF deja de existir.
  *
- * v3: el fallo "Command failed" venía de que el bucle de lectura (fetch) de un
- * buzón NO estaba dentro de su propio try — un buzón malo tumbaba todo el robot.
- * Ahora: cada buzón 100% aislado, y si la conexión IMAP se rompe a mitad, se
- * reconecta y sigue con el siguiente buzón. Latido SIEMPRE, incluso con avisos.
+ * v3: cada buzón 100% aislado + reconexión si cae IMAP + latido siempre.
+ * v4: EL BUG REAL, visible gracias al aislamiento de v3 — "Invalid messageset".
+ *     El fetch de imapflow es fetch(rango, campos, opciones): el uid:true iba
+ *     dentro de "campos" (donde no pinta nada) y el rango iba como array de
+ *     UIDs interpretado como números de secuencia → set inválido. Ahora:
+ *     rango como "1,2,3" y { uid: true } en el TERCER argumento.
  *
  * Secretos: JE_MAIL_HOST · JE_MAIL_USER (admin@streatlab.com) · JE_MAIL_PASS
  * Idempotencia: Message-ID en mail_procesados + huella sha256 de entregar().
@@ -84,14 +86,18 @@ async function procesarBuzon(client: ImapFlow, ruta: string): Promise<[number, n
       try { uids = await client.search({ all: true }, { uid: true }) as number[]; }
       catch { return [0, 0]; }
     }
-    if (!uids || !uids.length) return [0, 0];
+    // v4: solo UIDs válidos, y como cadena "1,2,3" — un array aquí se leía como
+    // números de secuencia y daba "Invalid messageset".
+    uids = (uids || []).filter(n => Number.isInteger(n) && n > 0);
+    if (!uids.length) return [0, 0];
     // Solo los últimos 300 por buzón, por si acaso
     if (uids.length > 300) uids = uids.slice(-300);
+    const rango = uids.join(',');
 
-    // v3: el fetch entero en su propio try — un "Command failed" del servidor en
-    // este buzón deja aviso y pasa al siguiente, no mata el robot.
+    // v3: el fetch entero en su propio try — un fallo del servidor en este
+    // buzón deja aviso y pasa al siguiente, no mata el robot.
     try {
-      for await (const msg of client.fetch(uids, { uid: true, envelope: true, source: true })) {
+      for await (const msg of client.fetch(rango, { envelope: true, source: true }, { uid: true })) {
         try {
           const de = (msg.envelope?.from || []).map(f => `${f.address || ''}`).join(' ');
           const asunto = msg.envelope?.subject || '';
