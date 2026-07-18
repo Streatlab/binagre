@@ -15,6 +15,7 @@
  * GREEN_API_* siguen funcionando como override si existen.
  */
 import { supabaseAdmin } from './supabase-admin.js'
+import type { TipoInforme } from './informes-calculo.js'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const RESEND_FROM = process.env.RESEND_FROM || 'Streat Lab <informes@streatlab.com>'
@@ -162,18 +163,20 @@ async function enviarEmail(to: string, asunto: string, contenido: string): Promi
 /**
  * Devuelve el campo de la tabla destinatarios para saber si recibe X informe.
  */
-const FLAG_INFORME: Record<string, string> = {
+const FLAG_INFORME: Record<TipoInforme, string> = {
   cierre_diario: 'recibe_cierre_diario',
   cobros_lunes: 'recibe_cobros_lunes',
   cierre_semanal: 'recibe_cierre_semanal',
   cierre_mensual: 'recibe_cierre_mensual',
+  resumen_manana: 'recibe_resumen_manana',
+  pulso: 'recibe_pulso',
 }
 
 /**
  * Despacha un informe a todos los destinatarios activos que lo reciben.
  */
 export async function despacharInforme(
-  tipo: 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual',
+  tipo: TipoInforme,
   contenido: { asunto: string; contenido_whatsapp: string; contenido_email: string },
 ): Promise<EnvioResultado> {
   // Cargar config para saber qué canales están activos
