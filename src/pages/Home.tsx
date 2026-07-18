@@ -1,6 +1,6 @@
 /**
  * Home "HOY" — portada del ERP · kit oficial Neobrutal Alegre (18-jul-2026).
- * Fuentes reales: facturacion_diario (robots) + tareas_pendientes.
+ * Fuentes reales: v_facturacion_diario_unificada (robots + en vivo, misma fuente que Panel Global) + tareas_pendientes.
  * LEY-ANTIFALSOS-01: si falta un dato, se enseña el hueco, nunca se inventa.
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -43,7 +43,7 @@ export default function Home() {
     ;(async () => {
       try {
         const [ventas, pend] = await Promise.all([
-          supabase.from('facturacion_diario')
+          supabase.from('v_facturacion_diario_unificada')
             .select('fecha,total_bruto,uber_bruto,glovo_bruto,je_bruto,web_bruto,directa_bruto')
             .gte('fecha', diasAtras(15)).order('fecha', { ascending: false }),
           supabase.from('tareas_pendientes')

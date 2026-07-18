@@ -5,6 +5,10 @@
  * texto) apuntan a var(--sl-*) → se adaptan solos a modo claro/oscuro.
  * Los colores SEMÁNTICOS (semáforo), de CANAL y de DÍA siguen fijos: significan
  * lo mismo en ambos modos. NO improvisar hex nuevos: usar estas constantes.
+ *
+ * 18-jul-2026 · KIT NEOBRUTAL ALEGRE: estructuras (cards, tabs, barras,
+ * dropdowns, tags, editable) alineadas al kit oficial (src/styles/kit.ts):
+ * bordes 3px + sombra dura 3px, radius 0, Oswald en tabs, canales CORP.
  */
 
 import type { CSSProperties } from 'react'
@@ -29,7 +33,7 @@ export const COLORS = {
   sidebar: '#1e2233',
   modal: '#484f66',
   // Acción
-  accent: '#FF4757',
+  accent: '#FF2E63',
   // Semáforo
   ok: '#1D9E75',
   warn: '#f5a623',
@@ -37,11 +41,11 @@ export const COLORS = {
   // Canales
   uber: '#06C167',
   uberDark: '#0F6E56',
-  glovo: '#e8f442',
-  glovoDark: '#5a5500',
-  glovoText: '#3a3a00',
-  je: '#f5a623',
-  jeDark: '#854F0B',
+  glovo: '#FFC244',
+  glovoDark: '#8a5b00',
+  glovoText: 'var(--neo-ink)',
+  je: '#FF8000',
+  jeDark: '#a34e00',
   web: '#B01D23',
   webDark: '#791F1F',
   directa: '#66aaff',
@@ -66,7 +70,7 @@ export const COLORS = {
   ruben: '#F26B1F',
   emilio: '#1E5BCC',
   // Alias
-  glovoAccent: '#e8f442',
+  glovoAccent: '#FFC244',
 } as const
 
 /* ── FONT ─────────────────────────────────────────── */
@@ -100,64 +104,71 @@ export const SIZES = {
 export const CARDS = {
   big: {
     background: 'var(--sl-card)',
-    border: '0.5px solid var(--sl-border)',
-    borderRadius: 16,
+    border: '3px solid var(--neo-ink)',
+    boxShadow: '3px 3px 0 var(--neo-shadow-color)',
+    borderRadius: 0,
     padding: '24px 28px',
   } as CSSProperties,
   std: {
     background: 'var(--sl-card)',
-    border: '0.5px solid var(--sl-border)',
-    borderRadius: 14,
+    border: '3px solid var(--neo-ink)',
+    boxShadow: '3px 3px 0 var(--neo-shadow-color)',
+    borderRadius: 0,
     padding: 18,
   } as CSSProperties,
   filter: {
     background: 'var(--sl-card)',
-    border: '0.5px solid var(--sl-border)',
-    borderRadius: 12,
+    border: '2px solid var(--neo-ink)',
+    borderRadius: 0,
     padding: '14px 16px',
     cursor: 'pointer',
     transition: 'all 150ms',
     flex: 1,
   } as CSSProperties,
   filterActive: {
-    border: '1.5px solid #FF4757',
-    boxShadow: '0 0 0 3px #FF475715',
+    border: '3px solid var(--neo-ink)',
+    boxShadow: '3px 3px 0 var(--neo-shadow-color)',
+    background: '#FFF4CC',
   } as CSSProperties,
 } as const
 
 /* ── TABS PASTILLA ────────────────────────────────── */
 export const TABS_PILL = {
   container: {
-    background: 'var(--sl-card)',
-    border: '0.5px solid var(--sl-border)',
-    borderRadius: 10,
-    padding: '4px 6px',
+    background: 'transparent',
+    border: 'none',
+    borderRadius: 0,
+    padding: 0,
     marginBottom: 3,
     marginTop: 3,
     display: 'inline-flex',
-    gap: 4,
+    gap: 6,
   } as CSSProperties,
   active: {
-    padding: '5px 12px',
-    borderRadius: 5,
-    border: 'none',
-    background: '#FF4757',
+    padding: '5px 13px',
+    borderRadius: 0,
+    border: '2px solid var(--neo-ink)',
+    background: '#0FB86B',
     color: '#ffffff',
-    fontFamily: 'Lexend',
-    fontSize: 13,
-    fontWeight: 500,
+    fontFamily: "'Oswald', sans-serif",
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
+    boxShadow: '3px 3px 0 var(--neo-shadow-color)',
     cursor: 'pointer',
-    transition: 'background 150ms',
   } as CSSProperties,
   inactive: {
-    padding: '5px 12px',
-    borderRadius: 5,
-    border: '0.5px solid var(--sl-border)',
-    background: 'transparent',
-    color: 'var(--sl-text-secondary)',
-    fontFamily: 'Lexend',
-    fontSize: 13,
-    fontWeight: 500,
+    padding: '5px 13px',
+    borderRadius: 0,
+    border: '2px solid var(--neo-ink)',
+    background: 'var(--sl-card)',
+    color: 'var(--sl-text-muted)',
+    fontFamily: "'Oswald', sans-serif",
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
     cursor: 'pointer',
   } as CSSProperties,
 } as const
@@ -197,8 +208,8 @@ export const SUBTABS = {
 /* ── DROPDOWN_BTN ─────────────────────────────────── */
 export const DROPDOWN_BTN: CSSProperties = {
   padding: '6px 10px',
-  borderRadius: 8,
-  border: '0.5px solid var(--sl-border)',
+  borderRadius: 0,
+  border: '2px solid var(--neo-ink)',
   background: 'var(--sl-card)',
   fontSize: 13,
   fontFamily: 'Lexend',
@@ -209,22 +220,25 @@ export const DROPDOWN_BTN: CSSProperties = {
 /* ── BAR ──────────────────────────────────────────── */
 export const BAR = {
   track: {
-    height: 8,
-    borderRadius: 4,
+    height: 10,
+    borderRadius: 0,
+    border: '2px solid var(--neo-ink)',
     background: 'var(--sl-thead)',
     overflow: 'hidden',
     display: 'flex',
   } as CSSProperties,
   trackSm: {
-    height: 6,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 0,
+    border: '2px solid var(--neo-ink)',
     background: 'var(--sl-thead)',
     overflow: 'hidden',
     display: 'flex',
   } as CSSProperties,
   trackXs: {
-    height: 5,
-    borderRadius: 3,
+    height: 7,
+    borderRadius: 0,
+    border: '2px solid var(--neo-ink)',
     background: 'var(--sl-thead)',
     overflow: 'hidden',
     display: 'flex',
@@ -243,9 +257,9 @@ export const LAYOUT = {
 
 /* ── EDITABLE inline ──────────────────────────────── */
 export const EDITABLE: CSSProperties = {
-  borderBottom: '1px dashed var(--sl-border)',
+  borderBottom: '2px dashed #2D5BFF',
   cursor: 'text',
-  color: 'var(--sl-text-secondary)',
+  color: '#2D5BFF',
   padding: '0 2px',
 }
 
@@ -255,9 +269,10 @@ export const TAG: CSSProperties = {
   alignItems: 'center',
   gap: 4,
   padding: '2px 8px',
-  borderRadius: 10,
-  background: '#FF475715',
-  color: '#FF4757',
+  borderRadius: 0,
+  background: '#FFF4CC',
+  border: '2px solid #FFC400',
+  color: 'var(--neo-ink)',
   fontSize: 11,
   fontWeight: 500,
 }

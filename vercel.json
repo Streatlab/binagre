@@ -73,11 +73,7 @@
       "destination": "/api/operaciones/nominas/:ruta*"
     },
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ],
@@ -121,6 +117,30 @@
     {
       "path": "/api/ocr-cleanup",
       "schedule": "0 3 * * 0"
+    },
+    {
+      "path": "/api/informes/cron",
+      "schedule": "0 6,7 * * *"
+    },
+    {
+      "path": "/api/informes/cron",
+      "schedule": "0 7,8 * * 1"
+    },
+    {
+      "path": "/api/informes/cron",
+      "schedule": "0 7,8 1 * *"
+    },
+    {
+      "path": "/api/informes/cron",
+      "schedule": "30 14,15 * * *"
+    },
+    {
+      "path": "/api/informes/cron",
+      "schedule": "29 21,22 * * 1-6"
+    },
+    {
+      "path": "/api/informes/cron",
+      "schedule": "30 21,22 * * 0"
     }
   ],
   "functions": {

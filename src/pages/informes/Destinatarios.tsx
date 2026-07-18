@@ -13,6 +13,8 @@ interface Destinatario {
   nombre: string
   whatsapp: string | null
   email: string | null
+  recibe_resumen_manana: boolean
+  recibe_pulso: boolean
   recibe_cierre_diario: boolean
   recibe_cobros_lunes: boolean
   recibe_cierre_semanal: boolean
@@ -26,6 +28,8 @@ const NUEVO_VACIO: Omit<Destinatario, 'id'> = {
   nombre: '',
   whatsapp: '',
   email: '',
+  recibe_resumen_manana: true,
+  recibe_pulso: true,
   recibe_cierre_diario: true,
   recibe_cobros_lunes: true,
   recibe_cierre_semanal: true,
@@ -69,6 +73,8 @@ export default function Destinatarios() {
       nombre: d.nombre,
       whatsapp: d.whatsapp || null,
       email: d.email || null,
+      recibe_resumen_manana: d.recibe_resumen_manana,
+      recibe_pulso: d.recibe_pulso,
       recibe_cierre_diario: d.recibe_cierre_diario,
       recibe_cobros_lunes: d.recibe_cobros_lunes,
       recibe_cierre_semanal: d.recibe_cierre_semanal,
@@ -142,6 +148,8 @@ export default function Destinatarios() {
                   {d.email && <span>📧 {d.email}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {d.recibe_resumen_manana && <Pill T={T} label="☀️ Mañana" />}
+                  {d.recibe_pulso && <Pill T={T} label="⏱ Pulso" />}
                   {d.recibe_cierre_diario && <Pill T={T} label="📅 Diario" />}
                   {d.recibe_cobros_lunes && <Pill T={T} label="💰 Cobros" />}
                   {d.recibe_cierre_semanal && <Pill T={T} label="📊 Semanal" />}
@@ -249,7 +257,9 @@ function Modal({
         </Field>
 
         <div style={{ marginTop: 16, marginBottom: 12, color: T.sec, fontSize: 13, fontWeight: 600 }}>Recibe estos informes:</div>
-        <Check T={T} label="📅 Cierre diario (Lun-Sáb 23:30)" v={form.recibe_cierre_diario} on={v => set('recibe_cierre_diario', v)} />
+        <Check T={T} label="☀️ Resumen mañana (todos los días 08:00)" v={form.recibe_resumen_manana} on={v => set('recibe_resumen_manana', v)} />
+        <Check T={T} label="⏱ Pulso de la tarde (todos los días 16:30)" v={form.recibe_pulso} on={v => set('recibe_pulso', v)} />
+        <Check T={T} label="📅 Cierre diario (Lun-Sáb 23:29)" v={form.recibe_cierre_diario} on={v => set('recibe_cierre_diario', v)} />
         <Check T={T} label="💰 Cobros pendientes (Lun 09:00)" v={form.recibe_cobros_lunes} on={v => set('recibe_cobros_lunes', v)} />
         <Check T={T} label="📊 Cierre semanal (Dom 23:30)" v={form.recibe_cierre_semanal} on={v => set('recibe_cierre_semanal', v)} />
         <Check T={T} label="📈 Cierre mensual (Día 1, 09:00)" v={form.recibe_cierre_mensual} on={v => set('recibe_cierre_mensual', v)} />

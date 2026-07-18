@@ -1,5 +1,5 @@
 /**
- * JUST EAT FACTURAS POR CORREO · justeat-mail.ts (17-jul-2026)
+ * JUST EAT FACTURAS POR CORREO · justeat-mail.ts (18-jul-2026 · v4)
  *
  * POR QUÉ EXISTE: el Partner Hub de Just Eat bloquea a los servidores de GitHub
  * (WAF Cloudflare). Pero Just Eat envía CADA factura por email a un buzón de
@@ -7,11 +7,14 @@
  * con la factura adjunta) — a menudo marcada como SPAM. Este robot lee el buzón
  * por IMAP y deja los adjuntos en la bandeja. El WAF deja de existir.
  *
- * El buzón NO es Microsoft: es hosting propio. Secretos:
- *  - JE_MAIL_HOST → servidor IMAP (p. ej. mail.streatlab.com)
- *  - JE_MAIL_USER → admin@streatlab.com
- *  - JE_MAIL_PASS → contraseña normal del buzón
+ * v3: cada buzón 100% aislado + reconexión si cae IMAP + latido siempre.
+ * v4: EL BUG REAL, visible gracias al aislamiento de v3 — "Invalid messageset".
+ *     El fetch de imapflow es fetch(rango, campos, opciones): el uid:true iba
+ *     dentro de "campos" (donde no pinta nada) y el rango iba como array de
+ *     UIDs interpretado como números de secuencia → set inválido. Ahora:
+ *     rango como "1,2,3" y { uid: true } en el TERCER argumento.
  *
+ * Secretos: JE_MAIL_HOST · JE_MAIL_USER (admin@streatlab.com) · JE_MAIL_PASS
  * Idempotencia: Message-ID en mail_procesados + huella sha256 de entregar().
  */
 import { ImapFlow } from 'imapflow';
@@ -69,7 +72,7 @@ async function conectar(): Promise<ImapFlow | null> {
   return null;
 }
 
-/** Procesa UN buzón, aislado: un fallo aquí no tumba el resto. Devuelve [vistas, entregadas]. */
+/** Procesa UN buzón, 100% aislado: ni la búsqueda ni la lectura pueden tumbar el robot. */
 async function procesarBuzon(client: ImapFlow, ruta: string): Promise<[number, number]> {
   let vistas = 0, entregadas = 0;
   let lock;
@@ -83,33 +86,44 @@ async function procesarBuzon(client: ImapFlow, ruta: string): Promise<[number, n
       try { uids = await client.search({ all: true }, { uid: true }) as number[]; }
       catch { return [0, 0]; }
     }
-    if (!uids || !uids.length) return [0, 0];
+    // v4: solo UIDs válidos, y como cadena "1,2,3" — un array aquí se leía como
+    // números de secuencia y daba "Invalid messageset".
+    uids = (uids || []).filter(n => Number.isInteger(n) && n > 0);
+    if (!uids.length) return [0, 0];
     // Solo los últimos 300 por buzón, por si acaso
     if (uids.length > 300) uids = uids.slice(-300);
+    const rango = uids.join(',');
 
-    for await (const msg of client.fetch(uids, { uid: true, envelope: true, source: true })) {
-      try {
-        const de = (msg.envelope?.from || []).map(f => `${f.address || ''}`).join(' ');
-        const asunto = msg.envelope?.subject || '';
-        if (!REMITENTE.test(de) || !ASUNTO.test(asunto)) continue;
-        vistas++;
-        const mid = msg.envelope?.messageId || `${ruta}:${msg.uid}`;
-        if (await yaProcesado(mid)) continue;
+    // v3: el fetch entero en su propio try — un fallo del servidor en este
+    // buzón deja aviso y pasa al siguiente, no mata el robot.
+    try {
+      for await (const msg of client.fetch(rango, { envelope: true, source: true }, { uid: true })) {
+        try {
+          const de = (msg.envelope?.from || []).map(f => `${f.address || ''}`).join(' ');
+          const asunto = msg.envelope?.subject || '';
+          if (!REMITENTE.test(de) || !ASUNTO.test(asunto)) continue;
+          vistas++;
+          const mid = msg.envelope?.messageId || `${ruta}:${msg.uid}`;
+          if (await yaProcesado(mid)) continue;
 
-        const mail = await simpleParser(msg.source as Buffer);
-        const fecha = mail.date || new Date();
-        let algunaEntrega = false;
-        for (const adj of mail.attachments || []) {
-          if (!adj.content || !adj.content.length) continue;
-          const nombre = adj.filename || `justeat_factura_${(asunto.match(/\d{5,}/) || ['sin_numero'])[0]}.pdf`;
-          const ok = await entregar({ fuente: 'justeat', tipo: 'justeat_factura', nombre, datos: adj.content as Buffer, periodo: quincenaDe(fecha), destino: 'facturas' });
-          if (ok) { entregadas++; algunaEntrega = true; }
-        }
-        if (algunaEntrega || (mail.attachments || []).length === 0) await marcarProcesado(mid, asunto);
-        if (algunaEntrega) await marcarConseguido('justeat', quincenaDe(fecha), 'facturas_quincena', `vía correo: ${asunto}`);
-      } catch { /* un correo roto no detiene el buzón */ }
+          const mail = await simpleParser(msg.source as Buffer);
+          const fecha = mail.date || new Date();
+          let algunaEntrega = false;
+          for (const adj of mail.attachments || []) {
+            if (!adj.content || !adj.content.length) continue;
+            const nombre = adj.filename || `justeat_factura_${(asunto.match(/\d{5,}/) || ['sin_numero'])[0]}.pdf`;
+            const ok = await entregar({ fuente: 'justeat', tipo: 'justeat_factura', nombre, datos: adj.content as Buffer, periodo: quincenaDe(fecha), destino: 'facturas' });
+            if (ok) { entregadas++; algunaEntrega = true; }
+          }
+          if (algunaEntrega || (mail.attachments || []).length === 0) await marcarProcesado(mid, asunto);
+          if (algunaEntrega) await marcarConseguido('justeat', quincenaDe(fecha), 'facturas_quincena', `vía correo: ${asunto}`);
+        } catch { /* un correo roto no detiene el buzón */ }
+      }
+    } catch (e: any) {
+      const msg = String(e?.responseText || e?.message || e).slice(0, 100);
+      await log(P, 'aviso', `buzón ${ruta}: lectura interrumpida (${msg}); sigo con el resto`);
     }
-  } finally { lock?.release(); }
+  } finally { try { lock?.release(); } catch { /* noop */ } }
   return [vistas, entregadas];
 }
 
@@ -118,33 +132,40 @@ async function main() {
     await log(P, 'sin_credenciales', 'faltan los secretos JE_MAIL_USER / JE_MAIL_PASS');
     return;
   }
-  const client = await conectar();
+  let client = await conectar();
   if (!client) {
     await log(P, 'error', `no pude conectar a ningún servidor IMAP (probados: ${candidatosHost().join(', ') || 'ninguno'})`);
     await latido(P, new Date(), 'sin conexión IMAP');
     return;
   }
 
-  let vistas = 0, entregadas = 0;
-  try {
-    let buzones: { path: string }[] = [];
-    try { buzones = (await client.list()).map(b => ({ path: b.path })); }
-    catch { buzones = [{ path: 'INBOX' }]; }
-    // Asegura INBOX aunque list() no lo devuelva
-    if (!buzones.some(b => /^inbox$/i.test(b.path))) buzones.unshift({ path: 'INBOX' });
+  let vistas = 0, entregadas = 0, avisos = 0;
+  let buzones: { path: string }[] = [];
+  try { buzones = (await client.list()).map(b => ({ path: b.path })); }
+  catch { buzones = [{ path: 'INBOX' }]; }
+  // Asegura INBOX aunque list() no lo devuelva
+  if (!buzones.some(b => /^inbox$/i.test(b.path))) buzones.unshift({ path: 'INBOX' });
 
-    for (const bz of buzones) {
-      if (/deleted|borrad|papelera|trash/i.test(bz.path)) continue;
+  for (const bz of buzones) {
+    if (/deleted|borrad|papelera|trash/i.test(bz.path)) continue;
+    try {
+      // v3: si la conexión murió en el buzón anterior, reconecta y sigue.
+      if (!client || !(client as any).usable) {
+        try { await client?.logout(); } catch { /* noop */ }
+        client = await conectar();
+        if (!client) { await log(P, 'aviso', `conexión perdida y no recuperada; me quedo con lo leído hasta ${bz.path}`); break; }
+      }
       const [v, e] = await procesarBuzon(client, bz.path);
       vistas += v; entregadas += e;
+    } catch (e: any) {
+      avisos++;
+      const msg = String(e?.responseText || e?.message || e).slice(0, 100);
+      await log(P, 'aviso', `buzón ${bz.path}: ${msg}; sigo con el siguiente`);
     }
-    await log(P, 'ok', `correos JE vistos=${vistas} · facturas nuevas en bandeja=${entregadas}`);
-    await latido(P, new Date(), `vistas=${vistas} entregadas=${entregadas}`);
-  } catch (e: any) {
-    await log(P, 'error', `procesando: ${String(e?.responseText || e?.message || e).slice(0, 120)}`);
-    process.exitCode = 1;
-  } finally {
-    try { await client.logout(); } catch { /* noop */ }
   }
+
+  await log(P, 'ok', `correos JE vistos=${vistas} · facturas nuevas en bandeja=${entregadas}${avisos ? ` · buzones con aviso=${avisos}` : ''}`);
+  await latido(P, new Date(), `vistas=${vistas} entregadas=${entregadas}`);
+  try { await client?.logout(); } catch { /* noop */ }
 }
 main().catch((e) => { console.error(e); process.exit(1); });

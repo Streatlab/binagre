@@ -14,6 +14,7 @@ import {
   FileText,
   ClipboardList,
   Megaphone,
+  Compass,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -41,7 +42,6 @@ const SECTIONS: NavSection[] = [
   {
     key: 'finanzas', label: 'Finanzas', perfiles: ['admin'],
     items: [
-      { path: '/panel',                         label: 'Panel Global',         emoji: '🧭', perfiles: ['admin'] },
       { path: '/finanzas/documentacion',        label: 'Papeleo',        emoji: '📥', perfiles: ['admin'] },
       { path: '/facturacion',                   label: 'Facturación',          emoji: '🧾', perfiles: ['admin'] },
       { path: '/finanzas/ventas',               label: 'Ventas',               emoji: '💰', perfiles: ['admin'] },
@@ -353,6 +353,34 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 background: isActive ? INK : CREMA,
               })}>
               {({ isActive }) => <LayoutDashboard size={20} strokeWidth={2.4} color={isActive ? AMA : INK} />}
+            </NavLink>
+          )}
+
+          {/* Panel Global (directo, justo bajo Hoy) */}
+          {!collapsed && perfil === 'admin' && (
+            <NavLink to="/panel" onClick={onClose}
+              style={({ isActive }) => ({
+                fontFamily: FONT.heading, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 18,
+                padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 11,
+                borderBottom: `3px solid ${INK}`, cursor: 'pointer', textDecoration: 'none',
+                color: isActive ? AMA : INK, background: isActive ? INK : CREMA,
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <Compass size={20} strokeWidth={2.4} color={isActive ? AMA : INK} style={{ flexShrink: 0 }} />
+                  <span>Panel Global</span>
+                </>
+              )}
+            </NavLink>
+          )}
+          {collapsed && perfil === 'admin' && (
+            <NavLink to="/panel" onClick={() => { abrir20s(); onClose() }} title="Panel Global"
+              style={({ isActive }) => ({
+                width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', borderBottom: `3px solid ${INK}`,
+                background: isActive ? INK : CREMA,
+              })}>
+              {({ isActive }) => <Compass size={20} strokeWidth={2.4} color={isActive ? AMA : INK} />}
             </NavLink>
           )}
 

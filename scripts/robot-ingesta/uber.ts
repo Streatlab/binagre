@@ -17,6 +17,11 @@
  *   3) RESUMEN MENSUAL POR MARCA (/manager/payments): desde el día 3 del mes,
  *      intenta bajar el resumen de CADA marca del mes cerrado.
  *
+ * 18-jul: dos corridas pidieron el informe y a los ~6h la lista seguía sin
+ * ninguna fila reconocida como "Disponible" → el selector de la fila lista no
+ * casa con el DOM real. Ahora se vuelca SIEMPRE la lista (uber_lista_informes)
+ * cuando no se reconoce nada, para leer el DOM real y clavar el selector.
+ *
  * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM).
  */
 import type { Page, BrowserContext } from 'playwright';
@@ -201,6 +206,11 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
 
   if (await bajarFilaDisponible(page, 'uber_informe', periodo, 'ventas')) return true;
 
+  // 18-jul DIAGNÓSTICO: si llegamos aquí habiendo pedido el informe en pasadas
+  // anteriores, es que el selector de la fila lista no casa con el DOM real.
+  // Se vuelca la lista para leerla en robot_debug y clavar el selector.
+  await volcar('uber_lista_informes', await page.content().catch(() => ''));
+
   const RE_INFORMES_UTILES = /detalles del pago|payment details|resumen de pagos|pagos|payment summary|ganancias|earnings|historial de pedidos|order history/i;
   const filasUtiles = page.locator('tr, [role="row"]').filter({ hasText: RE_INFORMES_UTILES });
   const nUtiles = Math.min(await filasUtiles.count().catch(() => 0), 3);
@@ -240,6 +250,8 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
     if (bajadas >= pedidos) return true;
   }
   if (bajadas > 0) return true;
+  // 18-jul DIAGNÓSTICO: volcado también al agotar los reintentos, con la lista tal cual quedó.
+  await volcar('uber_lista_informes_fin', await page.content().catch(() => ''));
   await log(P, 'aviso', 'el informe seguía preparándose tras ~6 min; se bajará en la próxima pasada (ya quedó pedido)');
   return false;
 }
@@ -266,7 +278,7 @@ async function resumenMensualPorMarca(page: Page, periodo: string, cuenta: strin
   const [anio, mes] = periodo.split('-').map(Number);
   const finMes = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
   const mm = String(mes).padStart(2, '0');
-  const rangoTxt = `01/${mm}/${anio} \u2013 ${String(finMes).padStart(2, '0')}/${mm}/${anio}`;
+  const rangoTxt = `01/${mm}/${anio} – ${String(finMes).padStart(2, '0')}/${mm}/${anio}`;
   const campoFecha = page.locator('input[aria-label="Select a date range."]').first();
   if (await campoFecha.count().catch(() => 0)) {
     await campoFecha.click({ timeout: 6000 }).catch(() => {});

@@ -4,10 +4,21 @@
  *
  * Cada función devuelve { asunto, contenido } listos para enviar
  * por WhatsApp o email.
+ *
+ * FIX 18 jul 2026: alineado con el esquema real de Supabase
+ * (facturacion_diario.total_bruto/total_pedidos, objetivos_dia_semana.dia/importe,
+ * ingresos_mensuales tipo='neto', presupuestos_mensuales.tope).
+ * Nuevos: resumen_manana (08:00 email, cierre de ayer) y pulso (16:30 WhatsApp).
  */
 import { supabaseAdmin } from './supabase-admin.js'
 
-export type TipoInforme = 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual'
+export type TipoInforme =
+  | 'cierre_diario'
+  | 'cobros_lunes'
+  | 'cierre_semanal'
+  | 'cierre_mensual'
+  | 'resumen_manana'
+  | 'pulso'
 
 export interface InformeContenido {
   asunto: string
@@ -24,78 +35,145 @@ function semaforo(deltaPct: number): string {
   return '🔴'
 }
 
+function isoFecha(d: Date): string {
+  return d.toISOString().split('T')[0]
+}
+
+/** objetivos_dia_semana usa dia 1=lunes … 7=domingo */
+function diaIso(d: Date): number {
+  const g = d.getDay()
+  return g === 0 ? 7 : g
+}
+
+async function objetivoDelDia(d: Date): Promise<number> {
+  const { data } = await supabaseAdmin
+    .from('objetivos_dia_semana')
+    .select('importe')
+    .eq('dia', diaIso(d))
+    .maybeSingle()
+  return Number(data?.importe || 0)
+}
+
+interface DatosDia {
+  total: number
+  pedidos: number
+  porMarca: Map<string, number>
+}
+
+async function datosDia(fechaStr: string): Promise<DatosDia> {
+  const { data } = await supabaseAdmin
+    .from('facturacion_diario')
+    .select('total_bruto, total_pedidos, marca_id, marcas(nombre)')
+    .eq('fecha', fechaStr)
+
+  let total = 0
+  let pedidos = 0
+  const porMarca = new Map<string, number>()
+  for (const r of (data || []) as any[]) {
+    const bruto = Number(r.total_bruto || 0)
+    total += bruto
+    pedidos += Number(r.total_pedidos || 0)
+    const nombre = r.marcas?.nombre || 'Sin marca'
+    porMarca.set(nombre, (porMarca.get(nombre) || 0) + bruto)
+  }
+  return { total, pedidos, porMarca }
+}
+
+const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+
 /**
- * 1) CIERRE DIARIO — facturación del día por marca y plataforma
+ * 1) CIERRE DIARIO — facturación del día por marca vs objetivo y vs hace 7 días
  */
 export async function cierreDiario(fecha?: Date): Promise<InformeContenido> {
   const f = fecha ?? new Date()
-  const fechaStr = f.toISOString().split('T')[0]
-
-  // Día anterior comparable (mismo día semana anterior)
   const fAnt = new Date(f)
   fAnt.setDate(fAnt.getDate() - 7)
-  const fechaAntStr = fAnt.toISOString().split('T')[0]
 
-  // Datos del día y semana anterior
-  const { data: hoy } = await supabaseAdmin
-    .from('facturacion_diario')
-    .select('total, marca_id, marcas(nombre)')
-    .eq('fecha', fechaStr)
+  const [hoy, antes, objetivoDia] = await Promise.all([
+    datosDia(isoFecha(f)),
+    datosDia(isoFecha(fAnt)),
+    objetivoDelDia(f),
+  ])
 
-  const { data: antes } = await supabaseAdmin
-    .from('facturacion_diario')
-    .select('total, marca_id')
-    .eq('fecha', fechaAntStr)
+  const deltaPctVsAntes = antes.total > 0 ? ((hoy.total - antes.total) / antes.total) * 100 : 0
+  const deltaPctVsObj = objetivoDia > 0 ? ((hoy.total - objetivoDia) / objetivoDia) * 100 : 0
 
-  // Objetivo del día (de la tabla objetivos_dia_semana)
-  const diaSemana = f.getDay() // 0=domingo, 6=sábado
-  const { data: objetivos } = await supabaseAdmin
-    .from('objetivos_dia_semana')
-    .select('objetivo')
-    .eq('dia_semana', diaSemana)
-    .single()
+  const fechaLegible = `${DIAS[f.getDay()]} ${f.getDate()}/${f.getMonth() + 1}`
 
-  const totalHoy = (hoy || []).reduce((s, r: any) => s + Number(r.total || 0), 0)
-  const totalAntes = (antes || []).reduce((s, r: any) => s + Number(r.total || 0), 0)
-  const objetivoDia = Number(objetivos?.objetivo || 0)
-
-  const deltaPctVsAntes = totalAntes > 0 ? ((totalHoy - totalAntes) / totalAntes) * 100 : 0
-  const deltaPctVsObj = objetivoDia > 0 ? ((totalHoy - objetivoDia) / objetivoDia) * 100 : 0
-
-  // Por marca
-  const porMarca = new Map<string, { hoy: number; antes: number }>()
-  for (const r of hoy || []) {
-    const nombre = (r as any).marcas?.nombre || 'Sin marca'
-    const cur = porMarca.get(nombre) || { hoy: 0, antes: 0 }
-    cur.hoy += Number((r as any).total || 0)
-    porMarca.set(nombre, cur)
-  }
-
-  const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
-  const fechaLegible = `${dias[f.getDay()]} ${f.getDate()}/${f.getMonth() + 1}`
-
-  // WhatsApp (corto)
   const wa = [
     `🍴 *CIERRE ${fechaLegible}*`,
     `━━━━━━━━━━━━━━━━━`,
-    `💰 Total: *${fmtEur(totalHoy)}*`,
+    `💰 Total: *${fmtEur(hoy.total)}* · ${hoy.pedidos} pedidos`,
     objetivoDia > 0 ? `🎯 Objetivo: ${fmtEur(objetivoDia)} ${semaforo(deltaPctVsObj)} ${fmtPct(deltaPctVsObj)}` : '',
-    `📈 vs hace 7 días: ${fmtPct(deltaPctVsAntes)}`,
+    antes.total > 0 ? `📈 vs hace 7 días (${fmtEur(antes.total)}): ${semaforo(deltaPctVsAntes)} ${fmtPct(deltaPctVsAntes)}` : '',
     ``,
     `*Por marca:*`,
-    ...Array.from(porMarca.entries())
-      .sort(([, a], [, b]) => b.hoy - a.hoy)
-      .map(([nombre, v]) => `${semaforo(0)} ${nombre}: ${fmtEur(v.hoy)}`),
+    ...Array.from(hoy.porMarca.entries())
+      .sort(([, a], [, b]) => b - a)
+      .map(([nombre, v]) => {
+        const ant = antes.porMarca.get(nombre) || 0
+        const delta = ant > 0 ? ((v - ant) / ant) * 100 : 0
+        return `${ant > 0 ? semaforo(delta) : '⚪'} ${nombre}: ${fmtEur(v)}`
+      }),
     `━━━━━━━━━━━━━━━━━`,
   ].filter(Boolean).join('\n')
 
-  // Email (más completo, mismo cuerpo)
-  const email = wa
+  return {
+    asunto: `Cierre ${fechaLegible} · ${fmtEur(hoy.total)}`,
+    contenido_whatsapp: wa,
+    contenido_email: wa,
+  }
+}
+
+/**
+ * 5) RESUMEN DE LA MAÑANA — cierre completo de AYER, para el email de las 08:00
+ */
+export async function resumenManana(): Promise<InformeContenido> {
+  const ayer = new Date()
+  ayer.setDate(ayer.getDate() - 1)
+  const base = await cierreDiario(ayer)
+  return {
+    asunto: `☀️ Resumen de ayer · ${base.asunto.replace(/^Cierre /, '')}`,
+    contenido_whatsapp: base.contenido_whatsapp.replace('🍴 *CIERRE', '☀️ *AYER ·'),
+    contenido_email: base.contenido_email.replace('🍴 *CIERRE', '☀️ *AYER ·'),
+  }
+}
+
+/**
+ * 6) PULSO DE LA TARDE (16:30) — venta acumulada del día vs objetivo
+ * y referencia del mismo día de la semana pasada (día completo).
+ */
+export async function pulsoTarde(): Promise<InformeContenido> {
+  const f = new Date()
+  const fAnt = new Date(f)
+  fAnt.setDate(fAnt.getDate() - 7)
+
+  const [hoy, antesCompleto, objetivoDia] = await Promise.all([
+    datosDia(isoFecha(f)),
+    datosDia(isoFecha(fAnt)),
+    objetivoDelDia(f),
+  ])
+
+  const pctObjetivo = objetivoDia > 0 ? (hoy.total / objetivoDia) * 100 : 0
+  const fechaLegible = `${DIAS[f.getDay()]} ${f.getDate()}/${f.getMonth() + 1}`
+  const topMarcas = Array.from(hoy.porMarca.entries()).sort(([, a], [, b]) => b - a).slice(0, 3)
+
+  const wa = [
+    `⏱ *PULSO 16:30 · ${fechaLegible}*`,
+    `━━━━━━━━━━━━━━━━━`,
+    `💰 Llevamos: *${fmtEur(hoy.total)}* · ${hoy.pedidos} pedidos`,
+    objetivoDia > 0 ? `🎯 ${pctObjetivo.toFixed(0)}% del objetivo del día (${fmtEur(objetivoDia)})` : '',
+    antesCompleto.total > 0 ? `📌 El ${DIAS[fAnt.getDay()].toLowerCase()} pasado cerró en ${fmtEur(antesCompleto.total)}` : '',
+    topMarcas.length > 0 ? `` : '',
+    topMarcas.length > 0 ? `*Top marcas ahora:*` : '',
+    ...topMarcas.map(([n, v], i) => `${i + 1}. ${n}: ${fmtEur(v)}`),
+    `━━━━━━━━━━━━━━━━━`,
+  ].filter(Boolean).join('\n')
 
   return {
-    asunto: `Cierre ${fechaLegible} · ${fmtEur(totalHoy)}`,
+    asunto: `Pulso 16:30 · ${fmtEur(hoy.total)}${objetivoDia > 0 ? ` (${pctObjetivo.toFixed(0)}% obj.)` : ''}`,
     contenido_whatsapp: wa,
-    contenido_email: email,
+    contenido_email: wa,
   }
 }
 
@@ -163,8 +241,8 @@ export async function cierreSemanal(): Promise<InformeContenido> {
   const dia = hoy.getDay()
   const diff = dia === 0 ? 6 : dia - 1
   lunes.setDate(hoy.getDate() - diff)
-  const lunesStr = lunes.toISOString().split('T')[0]
-  const hoyStr = hoy.toISOString().split('T')[0]
+  const lunesStr = isoFecha(lunes)
+  const hoyStr = isoFecha(hoy)
 
   // Semana anterior
   const lunesAnt = new Date(lunes)
@@ -174,24 +252,24 @@ export async function cierreSemanal(): Promise<InformeContenido> {
 
   const { data: estaSem } = await supabaseAdmin
     .from('facturacion_diario')
-    .select('total, marca_id, marcas(nombre)')
+    .select('total_bruto, marca_id, marcas(nombre)')
     .gte('fecha', lunesStr)
     .lte('fecha', hoyStr)
 
   const { data: semAnt } = await supabaseAdmin
     .from('facturacion_diario')
-    .select('total')
-    .gte('fecha', lunesAnt.toISOString().split('T')[0])
-    .lte('fecha', domingoAnt.toISOString().split('T')[0])
+    .select('total_bruto')
+    .gte('fecha', isoFecha(lunesAnt))
+    .lte('fecha', isoFecha(domingoAnt))
 
-  const totalSem = (estaSem || []).reduce((s, r: any) => s + Number(r.total || 0), 0)
-  const totalSemAnt = (semAnt || []).reduce((s, r: any) => s + Number(r.total || 0), 0)
+  const totalSem = (estaSem || []).reduce((s, r: any) => s + Number(r.total_bruto || 0), 0)
+  const totalSemAnt = (semAnt || []).reduce((s, r: any) => s + Number(r.total_bruto || 0), 0)
   const delta = totalSemAnt > 0 ? ((totalSem - totalSemAnt) / totalSemAnt) * 100 : 0
 
   const porMarca = new Map<string, number>()
   for (const r of estaSem || []) {
     const nombre = (r as any).marcas?.nombre || 'Sin marca'
-    porMarca.set(nombre, (porMarca.get(nombre) || 0) + Number((r as any).total || 0))
+    porMarca.set(nombre, (porMarca.get(nombre) || 0) + Number((r as any).total_bruto || 0))
   }
 
   const ranking = Array.from(porMarca.entries()).sort(([, a], [, b]) => b - a)
@@ -202,12 +280,12 @@ export async function cierreSemanal(): Promise<InformeContenido> {
     `${fechaLegible}`,
     `━━━━━━━━━━━━━━━━━`,
     `Facturación: *${fmtEur(totalSem)}*`,
-    `vs sem anterior: ${semaforo(delta)} ${fmtPct(delta)}`,
+    totalSemAnt > 0 ? `vs sem anterior (${fmtEur(totalSemAnt)}): ${semaforo(delta)} ${fmtPct(delta)}` : '',
     ``,
     `*Top marcas:*`,
     ...ranking.slice(0, 5).map(([n, v], i) => `${i + 1}. ${n}: ${fmtEur(v)}`),
     `━━━━━━━━━━━━━━━━━`,
-  ].join('\n')
+  ].filter(Boolean).join('\n')
 
   return {
     asunto: `Cierre semanal · ${fmtEur(totalSem)}`,
@@ -217,38 +295,31 @@ export async function cierreSemanal(): Promise<InformeContenido> {
 }
 
 /**
- * 4) CIERRE MENSUAL — ingresos vs presupuesto, gastos, margen
+ * 4) CIERRE MENSUAL — netos por canal, gastos vs tope de presupuesto, margen
  */
 export async function cierreMensual(): Promise<InformeContenido> {
   const hoy = new Date()
   // Mes anterior (al ejecutarse el día 1)
   const mes = hoy.getMonth() === 0 ? 12 : hoy.getMonth()
   const anio = hoy.getMonth() === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear()
+  const mesPrev = mes === 1 ? 12 : mes - 1
+  const anioPrev = mes === 1 ? anio - 1 : anio
 
-  const { data: ingresos } = await supabaseAdmin
-    .from('ingresos_mensuales')
-    .select('importe')
-    .eq('anio', anio)
-    .eq('mes', mes)
-
-  const { data: gastos } = await supabaseAdmin
-    .from('gastos')
-    .select('importe')
-    .gte('fecha', `${anio}-${String(mes).padStart(2, '0')}-01`)
-    .lte('fecha', `${anio}-${String(mes).padStart(2, '0')}-31`)
-
-  const { data: presupuestos } = await supabaseAdmin
-    .from('presupuestos_mensuales')
-    .select('importe, tipo')
-    .eq('anio', anio)
-    .eq('mes', mes)
+  const [{ data: ingresos }, { data: ingresosPrev }, { data: gastos }, { data: presupuestos }] = await Promise.all([
+    supabaseAdmin.from('ingresos_mensuales').select('importe').eq('anio', anio).eq('mes', mes).eq('tipo', 'neto'),
+    supabaseAdmin.from('ingresos_mensuales').select('importe').eq('anio', anioPrev).eq('mes', mesPrev).eq('tipo', 'neto'),
+    supabaseAdmin.from('gastos').select('importe')
+      .gte('fecha', `${anio}-${String(mes).padStart(2, '0')}-01`)
+      .lte('fecha', `${anio}-${String(mes).padStart(2, '0')}-31`),
+    supabaseAdmin.from('presupuestos_mensuales').select('tope').eq('anio', anio).eq('mes', mes),
+  ])
 
   const totalIng = (ingresos || []).reduce((s, r: any) => s + Number(r.importe || 0), 0)
+  const totalIngPrev = (ingresosPrev || []).reduce((s, r: any) => s + Number(r.importe || 0), 0)
   const totalGas = (gastos || []).reduce((s, r: any) => s + Number(r.importe || 0), 0)
-  const presupIng = (presupuestos || []).filter((p: any) => p.tipo === 'ingreso').reduce((s, r: any) => s + Number(r.importe || 0), 0)
-  const presupGas = (presupuestos || []).filter((p: any) => p.tipo === 'gasto').reduce((s, r: any) => s + Number(r.importe || 0), 0)
+  const presupGas = (presupuestos || []).reduce((s, r: any) => s + Number(r.tope || 0), 0)
   const margen = totalIng - totalGas
-  const deltaIng = presupIng > 0 ? ((totalIng - presupIng) / presupIng) * 100 : 0
+  const deltaIng = totalIngPrev > 0 ? ((totalIng - totalIngPrev) / totalIngPrev) * 100 : 0
   const deltaGas = presupGas > 0 ? ((totalGas - presupGas) / presupGas) * 100 : 0
 
   const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
@@ -257,11 +328,11 @@ export async function cierreMensual(): Promise<InformeContenido> {
   const wa = [
     `📈 *CIERRE MENSUAL · ${mesLegible}*`,
     `━━━━━━━━━━━━━━━━━`,
-    `💰 Ingresos: ${fmtEur(totalIng)}`,
-    presupIng > 0 ? `   vs presup: ${semaforo(deltaIng)} ${fmtPct(deltaIng)}` : '',
+    `💰 Ingresos netos: ${fmtEur(totalIng)}`,
+    totalIngPrev > 0 ? `   vs mes anterior: ${semaforo(deltaIng)} ${fmtPct(deltaIng)}` : '',
     ``,
     `💸 Gastos: ${fmtEur(totalGas)}`,
-    presupGas > 0 ? `   vs presup: ${semaforo(-deltaGas)} ${fmtPct(deltaGas)}` : '',
+    presupGas > 0 ? `   vs presupuesto (${fmtEur(presupGas)}): ${semaforo(-deltaGas)} ${fmtPct(deltaGas)}` : '',
     ``,
     `📊 *Margen: ${fmtEur(margen)}*`,
     `━━━━━━━━━━━━━━━━━`,
@@ -283,5 +354,7 @@ export async function calcularInforme(tipo: TipoInforme): Promise<InformeConteni
     case 'cobros_lunes': return cobrosLunes()
     case 'cierre_semanal': return cierreSemanal()
     case 'cierre_mensual': return cierreMensual()
+    case 'resumen_manana': return resumenManana()
+    case 'pulso': return pulsoTarde()
   }
 }

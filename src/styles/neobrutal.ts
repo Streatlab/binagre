@@ -49,7 +49,15 @@ export const NEO = {
 } as const
 
 /* ── Estructura ──────────────────────────────────── */
-export const SHADOW      = `4px 4px 0 var(--neo-shadow-color)`  // sombra ÚNICA de todo el ERP
+export const SHADOW      = `3px 3px 0 var(--neo-shadow-color)`  // sombra ÚNICA de todo el ERP (kit Neobrutal Alegre 18-jul: 3px)
+export const SHADOW_MINI = `2px 2px 0 var(--neo-shadow-color)`
+export const BORDER_FINO = `2px solid ${INK}`
+
+/* ── Lavados suaves (kit Neobrutal Alegre) ── */
+export const VERDE_S = '#E2F7EC'
+export const AMA_S   = '#FFF4CC'
+export const AZUL_S  = '#E4EAFF'
+export const ROSA_S  = '#FFE4EC'
 export const PAD         = '40px'              // padding lateral de sección
 export const BORDER      = `4px solid ${INK}`  // contenedores y secciones
 export const BORDER_CARD = `3px solid ${INK}`  // cards y barras
@@ -121,3 +129,15 @@ export const P2 = (n: number) => fmtPct(n, 2)
 /** Variación con signo: null→"—", si no "+5,4%" / "−3,2%" */
 export const DELTA = (v: number | null) =>
   v == null ? '—' : fmtEur(v, { signed: true, showEuro: false, decimals: 1 }) + '%'
+
+/* ── Helpers del kit Neobrutal Alegre (18-jul-2026) ── */
+/** Tarjeta KPI con lavado de color. */
+export const cardWash = (bg: string): CSSProperties => ({ background: bg, border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 14px' })
+/** Cabecera de tarjeta con color (nunca negro). */
+export const cardHead = (bg: string): CSSProperties => ({ fontFamily: OSW, fontSize: 13, letterSpacing: '0.08em', background: bg, color: '#fff', padding: '7px 13px', borderBottom: BORDER_CARD, textTransform: 'uppercase', fontWeight: 600 })
+/** Píldora de estado suave: fondo lavado + borde 2px del color pleno. */
+export const pill = (wash: string, borde: string): CSSProperties => ({ background: wash, border: `2px solid ${borde}`, padding: '1px 8px', fontSize: 11.5, fontWeight: 700, display: 'inline-block' })
+/** Chip sólido (deltas). */
+export const chip = (bg: string, color = '#fff'): CSSProperties => ({ background: bg, color, border: BORDER_FINO, padding: '1px 8px', fontSize: 12, fontWeight: 700, display: 'inline-block' })
+/** Semántica de estados del kit. */
+export const ESTADO = { ok: { wash: VERDE_S, borde: VERDE }, revisar: { wash: AMA_S, borde: AMA }, pendiente: { wash: ROSA_S, borde: GRANATE } } as const
