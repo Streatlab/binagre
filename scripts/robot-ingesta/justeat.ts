@@ -82,6 +82,26 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
  *   2. El hub a veces carga con "An error occurred while loading Partner Hub"
  *      (la SPA no hidrata) -> hay que recargar, no rendirse.
  */
+// T2-ter (17-jul) · anti-WAF gratis: cada run de Actions sale con IP distinta, así que
+// no hay que pasar el muro siempre — basta UNA vez, guardar la sesión (ya se guarda en
+// Supabase Storage y se recarga en abrir()) y reutilizarla. Reglas: máximo 1 intento de
+// login por corrida (martillear quema la reputación de la IP) y esperar hasta 30s a que
+// el desafío JS de Cloudflare se resuelva solo (muchos son no interactivos).
+let intentosLoginRun = 0;
+
+/** Espera a que el desafío de Cloudflare ("Un momento…", turnstile) se resuelva solo.
+ *  Éxito = aparece el formulario de login o salimos del dominio de access. */
+async function esperarDesafioCloudflare(page: Page, segundos = 30): Promise<boolean> {
+  for (let i = 0; i < segundos; i++) {
+    if (!/access\.just-eat\.es/i.test(page.url())) return true;
+    if (await page.locator('input[type="password"], input[type="email"], input[name="username"]').count().catch(() => 0)) return true;
+    const html = await page.content().catch(() => '');
+    if (!/cf-turnstile|cf-chl|challenge-platform|Un momento/i.test(html)) return true;
+    await page.waitForTimeout(1000);
+  }
+  return false;
+}
+
 async function asegurarSesion(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boolean> {
   if (!/access\.just-eat\.es/i.test(page.url())) return true;
   await log(P, 'reauth', `puerta intermedia de login · url=${page.url()}`);
@@ -90,6 +110,16 @@ async function asegurarSesion(page: Page, ctx: BrowserContext, c: Cuenta): Promi
     if (!/access\.just-eat\.es/i.test(page.url())) return true;
     await page.waitForTimeout(1000);
   }
+  if (intentosLoginRun >= 1) {
+    await log(P, 'intento_waf', 'ya hubo 1 intento de login en esta corrida; no martilleo (la insistencia reintentará mañana con otra IP)');
+    return false;
+  }
+  intentosLoginRun++;
+  if (!(await esperarDesafioCloudflare(page))) {
+    await log(P, 'intento_waf', 'el desafío Cloudflare no se resolvió en 30s; salgo limpio, reintento en la próxima corrida con otra IP');
+    return false;
+  }
+  if (!/access\.just-eat\.es/i.test(page.url())) { await guardarSesion(P, c.cuenta, ctx); await log(P, 'sesion_capturada', 'SSO silencioso tras el desafío; sesión renovada'); return true; }
   const email = page.locator('input[type="email"], input[name="username"], input[name="email"], input[id*="user" i]').first();
   if (await email.count().catch(() => 0)) {
     await email.fill(c.usuario).catch(() => {});
@@ -108,15 +138,24 @@ async function asegurarSesion(page: Page, ctx: BrowserContext, c: Cuenta): Promi
     }
   }
   const ok = !/access\.just-eat\.es/i.test(page.url());
-  if (!ok && fallosDiag.some((f) => f.startsWith('http403: https://access.just-eat.es'))) {
+  if (!ok) {
     // 17-jul: causa raiz confirmada en justeat_diag — el WAF de Just Eat devuelve
     // 403 al endpoint de login (Keycloak) desde las IPs de GitHub Actions. No es
     // un problema de selectores: el portal bloquea el datacenter. Necesita correr
     // desde otra IP (residencial/proxy) o sesion con refresh valido. Decision de Ruben.
-    await log(P, 'waf_403', 'Just Eat bloquea el login (403 del WAF) desde la IP de GitHub Actions; facturas imposibles desde aqui sin proxy/IP residencial');
+    const con403 = fallosDiag.some((f) => f.startsWith('http403: https://access.just-eat.es'));
+    // 17-jul (tarde): segunda prueba en robot_debug (justeat_menu 29KB): la puerta de
+    // login sirve un desafio Cloudflare Turnstile ("Un momento…", input cf-turnstile-response)
+    // que un navegador de Actions no supera. Mismo bloqueo, otra cara.
+    const html = await page.content().catch(() => '');
+    const conTurnstile = /cf-turnstile|challenges\.cloudflare\.com|cf-chl-widget/i.test(html);
+    if (con403 || conTurnstile) {
+      const prueba = [con403 ? '403 del WAF al endpoint de login (Keycloak)' : '', conTurnstile ? 'desafio Cloudflare Turnstile en la puerta de login' : ''].filter(Boolean).join(' + ');
+      await log(P, 'bloqueo_waf', `Just Eat bloquea el login desde la IP de GitHub Actions (${prueba}); facturas imposibles desde Actions sin proxy/IP residencial · evidencia en justeat_diag y justeat_menu (robot_debug)`);
+    }
   }
   await log(P, ok ? 'reauth_ok' : 'reauth_ko', `url=${page.url()}`);
-  if (ok) await guardarSesion(P, c.cuenta, ctx);
+  if (ok) { await guardarSesion(P, c.cuenta, ctx); await log(P, 'sesion_capturada', 'login superado; sesión guardada para reutilizar en próximas corridas sin tocar el WAF'); }
   return ok;
 }
 
@@ -204,6 +243,9 @@ async function trabajarCuenta(c: Cuenta) {
   try {
     engancharDiagnostico(page);
     if (!(await entrar(page, ctx, c))) return;
+    // T2-ter: con sesión viva, renovarla en cada corrida (cookies frescas) para no
+    // volver a tocar el WAF de login en semanas.
+    await guardarSesion(P, c.cuenta, ctx);
     const esBackfill = MODO === 'backfill' && /^\d{4}-Q[1-4]$/i.test(TRIMESTRE);
 
     // plan-v2/T6: mismo mecanismo de insistencia por quincena que Glovo — Just

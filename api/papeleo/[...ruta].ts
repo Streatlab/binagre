@@ -16,6 +16,7 @@ import ocrCleanup from '../_puertas/ocr-cleanup.js'
 import titulares from '../_puertas/titulares.js'
 import conciliacionImportarEmilio from '../_puertas/conciliacion-importar-emilio.js'
 import importarPlataforma from '../_puertas/importar-plataforma.js'
+import escandalloAuto from '../_puertas/escandallo-auto.js'
 
 // Config unificada: el máximo que necesita cualquier handler de esta puerta
 // (facturas-index: uploads 20mb + reprocesados largos de hasta 300s).
@@ -46,6 +47,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (a === 'titulares') return titulares(req, res)
   if (a === 'conciliacion' && b === 'importar-emilio') return conciliacionImportarEmilio(req, res)
   if (a === 'importar' && b === 'plataforma') return importarPlataforma(req, res)
+  if (a === 'escandallo-auto') {
+    if (b) req.query.action = b
+    return escandalloAuto(req, res)
+  }
 
   return res.status(404).json({ error: `Ruta no encontrada en puerta papeleo: ${a || '(vacía)'}` })
 }

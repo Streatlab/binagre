@@ -1,27 +1,24 @@
 /**
- * SINQRO VIVO · pedidos Just Eat del día, cada 5 min durante servicio.
+ * SINQRO VIVO v2 · snapshot de pedidos Just Eat del día en curso, cada ~10 min
+ * durante servicio (11:00–01:00 Madrid).
  *
- * PANTALLA REAL (mapeada 16-jul con DOM volcado): app.sinqro.com/#/sp/6416/pos/services
- *   - Cada pedido activo = tarjeta `.posOrderBox`
- *   - Plataforma = icono `img[src*='..._icon']` dentro de la tarjeta
- *     (glovo_icon.jpg para Glovo; para Just Eat el src contiene 'just'/'justeat')
- *   - `.orderNumberBox`: "#88531591 (862 | 101715306442) | 20.00 €"
- *   - `.orderPreparationTimeBox`: "Preparación: 16/07 20:18"
- *
- * La pantalla solo enseña pedidos ACTIVOS (en preparación / en reparto), no el
- * acumulado del día → el total diario se construye ACUMULANDO: cada pasada
- * registra los números de pedido Just Eat vistos en `sinqro_pedidos_vivo`
- * (pk fecha+numero, idempotente) y el snapshot que se guarda es la SUMA del día.
- *
- * DEDUPE de plataformas: aquí SOLO Just Eat (Glovo y Uber se cuentan por
- * Rushour; regla canónica anti doble conteo).
- *
- * PRODUCCIÓN (16-jul noche, validado por Rubén): escribe en `ventas_vivo`.
- * El Panel lo integra: v_vivo_snapshot une el lote TOTAL de Rushour + la última
- * fila just_eat del día; v_vivo_hoy y "Por dónde entran" suman ambas fuentes.
- * Reglas que siguen vigentes del incidente del 16-jul:
- *   1. No guardar snapshots en 0 (se loguean como 'sin_actividad').
- *   2. SOLO fila plataforma=just_eat, jamás una fila TOTAL propia.
+ * HISTORIA:
+ *  - INCIDENTE 16-jul (mañana): una versión anterior escribió lecturas en 0 en
+ *    `ventas_vivo` y tumbó el Panel en vivo. Guardas desde entonces (se mantienen):
+ *      1. NUNCA se escribe una lectura en 0 pedidos/0€ (se descarta y se loguea).
+ *      2. SOLO se escribe la fila plataforma='just_eat' (jamás una fila TOTAL
+ *         propia que compita con la de Rushour, a la que el Panel ancla el vivo).
+ *  - AVERÍA 16-jul (tarde): el lector antiguo (ingestaSinqro de robot.ts) empezó
+ *    a devolver 0 intradía: la página carga y el login va bien, pero la búsqueda
+ *    sale "No se han encontrado" (verificado en robot_debug/sinqro_vivo_dom).
+ *    Causa: su marcado de filtros de tipo dejó de activar la búsqueda tras un
+ *    cambio de Sinqro. El lector de sync-facturacion (datepicker real + marcado
+ *    robusto de checkboxes + espera a que termine la búsqueda) SIGUE funcionando
+ *    (verificado: lectura nocturna del 16-jul leyó 12 tarjetas y 3 JE).
+ *  - v2 (17-jul): este robot deja de depender de robot.ts y usa el lector
+ *    probado, autocontenido aquí. Con las guardas 1 y 2 activas, escribe ya en
+ *    `ventas_vivo` (tabla real del Panel): una lectura buena suma, una mala se
+ *    descarta sin tocar nada.
  */
 import { chromium, Page } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
@@ -29,103 +26,125 @@ import { hoyMadrid, log, latido } from './_lib/bandeja.js';
 
 const P = 'sinqro_vivo';
 const TABLA_VIVO = 'ventas_vivo';
-const URL_POS = 'https://app.sinqro.com/#/sp/6416/pos/services';
 const sb = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '');
 
-const USER = process.env.SINQRO_USER || '';
-const PASS = process.env.SINQRO_PASS || '';
+const SINQRO = {
+  loginUrl: 'https://app.sinqro.com/',
+  ventasUrl: 'https://app.sinqro.com/#/sp/6416/online/orders',
+  user: process.env.SINQRO_USER || '', pass: process.env.SINQRO_PASS || '',
+  tipoChecks: ['#deliveryFilter', '#collectionFilter', '#insideFilter', '#insituFilter', '#reservationFilter'],
+  startDate: '#startDateFilter', endDate: '#endDateFilter',
+};
+const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
-function numES(s: string | null | undefined): number | null {
-  if (!s) return null;
-  const n = parseFloat(s.replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
+const r2 = (n: number) => Math.round(n * 100) / 100;
+function numES(s: string): number {
+  const m = (s || '').match(/-?\d[\d.,]*/);
+  if (!m) return 0;
+  let x = m[0];
+  const up = x.lastIndexOf('.'), uc = x.lastIndexOf(',');
+  if (uc > up) x = x.replace(/\./g, '').replace(',', '.'); else x = x.replace(/,/g, '');
+  return parseFloat(x) || 0;
 }
 
-async function volcarDom(page: Page, fuente: string, fecha: string) {
-  try {
-    const html = await page.content().catch(() => '');
-    if (html) await sb.from('robot_debug').insert([{ fuente, fecha, html }]);
-  } catch {}
-}
-
-async function login(page: Page) {
-  await page.goto('https://app.sinqro.com/', { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1500);
-  const email = page.locator('#login-email').first();
-  if (await email.count().catch(() => 0)) {
-    await email.fill(USER).catch(() => {});
-    await page.locator('#login-password').first().fill(PASS).catch(() => {});
-    await Promise.all([
-      page.waitForLoadState('networkidle').catch(() => {}),
-      page.locator('#loginButton').first().click().catch(() => {}),
-    ]);
-    await page.waitForTimeout(3000);
+/* ---------- LECTOR PROBADO (mismo método que sync-facturacion) ---------- */
+async function elegirFechaCalendario(page: Page, inputSel: string, fechaISO: string): Promise<boolean> {
+  const anioObj = Number(fechaISO.slice(0, 4)), mesObj = Number(fechaISO.slice(5, 7)), diaObj = Number(fechaISO.slice(8, 10));
+  await page.locator(inputSel).first().click({ timeout: 8000 }).catch(() => {});
+  const dp = page.locator('#ui-datepicker-div');
+  await dp.waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
+  if (!(await dp.isVisible().catch(() => false))) return false;
+  for (let i = 0; i < 60; i++) {
+    const mesTxt = ((await dp.locator('.ui-datepicker-month').first().textContent().catch(() => '')) || '').trim().toLowerCase();
+    const anioTxt = ((await dp.locator('.ui-datepicker-year').first().textContent().catch(() => '')) || '').trim();
+    const anioCur = parseInt(anioTxt, 10);
+    const mesCur = MESES_ES.findIndex((m) => mesTxt.startsWith(m.slice(0, 4))) + 1;
+    if (!Number.isFinite(anioCur) || mesCur <= 0) return false;
+    if (anioCur === anioObj && mesCur === mesObj) break;
+    const atras = anioCur > anioObj || (anioCur === anioObj && mesCur > mesObj);
+    await dp.locator(atras ? '.ui-datepicker-prev' : '.ui-datepicker-next').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(250);
   }
+  const celda = dp.locator(`td[data-month="${mesObj - 1}"][data-year="${anioObj}"] a`, { hasText: new RegExp(`^${diaObj}$`) }).first();
+  if (!(await celda.count().catch(() => 0))) return false;
+  await celda.click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  return true;
+}
+async function marcarTodosLosTipos(page: Page): Promise<number> {
+  let m = 0;
+  for (const sel of SINQRO.tipoChecks) {
+    const chk = page.locator(sel).first();
+    if (!(await chk.count().catch(() => 0))) continue;
+    if (!(await chk.isChecked().catch(() => false))) {
+      await chk.click({ force: true, timeout: 3000 }).catch(() => {});
+      if (!(await chk.isChecked().catch(() => false))) {
+        await page.locator(`label[for="${sel.replace('#', '')}"]`).first().click({ force: true, timeout: 3000 }).catch(() => {});
+      }
+      if (!(await chk.isChecked().catch(() => false))) {
+        await chk.dispatchEvent('click').catch(() => {});
+        await chk.dispatchEvent('change').catch(() => {});
+      }
+    }
+    if (await chk.isChecked().catch(() => false)) m++;
+    await page.waitForTimeout(200);
+  }
+  return m;
+}
+/** Just Eat del día: nº pedidos y bruto acumulado (todas las horas). */
+async function leerJustEatDia(page: Page, fecha: string): Promise<{ pedidos: number; bruto: number; tarjetas: number }> {
+  await page.goto(SINQRO.loginUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2500);
+  if (await page.locator('#login-email').first().count().catch(() => 0)) {
+    await page.fill('#login-email', SINQRO.user).catch(() => {});
+    await page.fill('#login-password', SINQRO.pass).catch(() => {});
+    await Promise.all([page.waitForLoadState('networkidle').catch(() => {}), page.click('#loginButton').catch(() => {})]);
+    await page.waitForTimeout(4000);
+  }
+  await page.goto(SINQRO.ventasUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(4000);
+
+  const ok1 = await elegirFechaCalendario(page, SINQRO.startDate, fecha);
+  const ok2 = await elegirFechaCalendario(page, SINQRO.endDate, fecha);
+  if (!ok1 || !ok2) { await log(P, 'error', `no pude fijar la fecha ${fecha} en el calendario`); return { pedidos: 0, bruto: 0, tarjetas: 0 }; }
+  const marcados = await marcarTodosLosTipos(page);
+  await page.getByRole('button', { name: /buscar/i }).first().click({ timeout: 5000 }).catch(() => {});
+  const sd = page.locator(SINQRO.startDate).first();
+  for (let i = 0; i < 40; i++) {
+    if (!(await sd.isDisabled().catch(() => false))) break;
+    await page.waitForTimeout(500);
+  }
+  await page.waitForTimeout(2500);
+
+  const texto = ((await page.locator('body').innerText().catch(() => '')) || '').replace(/\u00a0/g, ' ');
+  const tarjetas = texto.split(/Pedido\s*#/).slice(1);
+  let pedidos = 0, bruto = 0;
+  for (const t of tarjetas) {
+    if (!/just\s?eat/i.test(t)) continue;
+    const mE = t.match(/(\d[\d.,]*)\s*€/);
+    if (!mE) continue;
+    pedidos += 1;
+    bruto += r2(numES(mE[1]));
+  }
+  await log(P, 'lectura', `${fecha} tipos=${marcados} tarjetas=${tarjetas.length} JE=${pedidos} ped / ${r2(bruto)}€`);
+  return { pedidos, bruto: r2(bruto), tarjetas: tarjetas.length };
 }
 
 async function main() {
-  if (!USER || !PASS) { await log(P, 'error', 'sin credenciales SINQRO_USER/PASS'); return; }
   const fecha = hoyMadrid();
-  const hoyDDMM = fecha.slice(8, 10) + '/' + fecha.slice(5, 7); // '16/07'
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const ctx = await browser.newContext({ timezoneId: 'Europe/Madrid' });
+  const page = await ctx.newPage();
   try {
-    const page = await browser.newPage();
-    await login(page);
+    const { pedidos, bruto, tarjetas } = await leerJustEatDia(page, fecha);
 
-    await page.goto(URL_POS, { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(6000);
-
-    // Tarjetas de pedido activas
-    const tarjetas = page.locator('.posOrderBox');
-    const n = await tarjetas.count().catch(() => 0);
-    const nuevosJE: { numero: string; importe: number | null; hora: string | null }[] = [];
-    let vistosGlovo = 0;
-
-    for (let i = 0; i < n; i++) {
-      const t = tarjetas.nth(i);
-      const icono = (await t.locator('img').first().getAttribute('src').catch(() => '')) || '';
-      // 16-jul (noche, fix): el logo de Just Eat en Sinqro NO lleva 'just' en la URL
-      // (es un png con nombre hasheado en content.sinqro.com); el de Glovo SI lleva
-      // 'glovo_icon'. En esta pantalla solo entran Glovo y Just Eat, asi que la regla
-      // se invierte: tarjeta con icono que NO sea Glovo (ni Uber, por si acaso) = JE.
-      const esGlovo = /glovo/i.test(icono);
-      const esJE = !!icono && !esGlovo && !/uber|rushour/i.test(icono);
-      if (!esJE) { if (esGlovo) vistosGlovo++; continue; }
-
-      const numTxt = ((await t.locator('.orderNumberBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-      const numero = (numTxt.match(/#(\d+)/) || [])[1];
-      if (!numero) continue;
-      const importe = numES((numTxt.match(/(\d+[.,]\d{2})\s*€/) || [])[1] || null);
-      const prepTxt = ((await t.locator('.orderPreparationTimeBox').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-      const mPrep = prepTxt.match(/(\d{2}\/\d{2})\s+(\d{1,2}:\d{2})/);
-      // Solo pedidos preparados HOY (la pantalla podría arrastrar pedidos programados de otro día)
-      if (mPrep && mPrep[1] !== hoyDDMM) continue;
-      nuevosJE.push({ numero, importe, hora: mPrep ? mPrep[2] : null });
-    }
-
-    // Acumular: alta idempotente de cada pedido JE visto (pk fecha+numero)
-    if (nuevosJE.length) {
-      await sb.from('sinqro_pedidos_vivo').upsert(
-        nuevosJE.map((p) => ({ fecha, numero: p.numero, plataforma: 'just_eat', importe: p.importe, hora_prep: p.hora })),
-        { onConflict: 'fecha,numero', ignoreDuplicates: true },
-      );
-    }
-
-    // Total del día = SUMA del acumulador (no lo que haya activo ahora)
-    const { data: acum } = await sb
-      .from('sinqro_pedidos_vivo')
-      .select('numero, importe')
-      .eq('fecha', fecha).eq('plataforma', 'just_eat');
-    const pedidos = acum?.length || 0;
-    const bruto = Math.round(((acum || []).reduce((a, r: any) => a + (Number(r.importe) || 0), 0)) * 100) / 100;
-
-    if (pedidos === 0) {
-      // No es un fallo: puede que aún no haya habido JE hoy o no haya activos y
-      // el acumulador esté vacío. Se registra sin ensuciar la tabla del vivo.
-      await log(P, 'sin_actividad', `${fecha}: 0 JE acumulados (tarjetas activas: ${n}, glovo: ${vistosGlovo})`);
-      await latido(P, fecha, `0 JE acumulados · tarjetas activas ${n}`);
-      if (n === 0) await volcarDom(page, 'sinqro_pos_dom', fecha); // pantalla vacía del todo → volcar por si cambió
+    // GUARDA 1: una lectura en 0 no se escribe jamás (evita repetir el incidente
+    // del 16-jul). Distinguimos "sin pedidos aún" (hay tarjetas de otras
+    // plataformas o simplemente 0 JE reales) de un fallo de scrape: en ambos
+    // casos, con 0 no hay nada que guardar.
+    if (pedidos === 0 && bruto === 0) {
+      await log(P, tarjetas > 0 ? 'sin_je' : 'sospechoso', `${fecha}: 0 JE (tarjetas totales: ${tarjetas}) — no se guarda`);
+      await latido(P, fecha, `0 JE (tarjetas: ${tarjetas}), nada que guardar`);
       return;
     }
 
@@ -139,15 +158,15 @@ async function main() {
 
     const cambiado = !ultimo || Number(ultimo.pedidos) !== pedidos || Number(ultimo.facturacion) !== bruto;
     if (cambiado) {
+      // GUARDA 2: solo la fila plataforma='just_eat'; jamás una fila TOTAL.
       await sb.from(TABLA_VIVO).insert([{
         fecha, plataforma: 'just_eat', marca: 'Streat Lab',
-        pedidos, facturacion: bruto, por_horas: null,
-        crudo: { origen: 'pos/services', acumulados: pedidos },
+        pedidos, facturacion: bruto, por_horas: null, crudo: { origen: 'sinqro_vivo_v2' },
       }]);
     }
 
-    await log(P, 'ok', `${fecha} · JE acumulados=${pedidos} bruto=${bruto} · activos ahora=${nuevosJE.length} · ${cambiado ? 'guardado' : 'sin cambios'} · tabla=${TABLA_VIVO}`);
-    await latido(P, fecha, `JE=${pedidos} bruto=${bruto}`);
+    await log(P, 'ok', `${fecha} · pedidos=${pedidos} facturacion=${bruto} · ${cambiado ? 'guardado' : 'sin cambios'} · tabla=${TABLA_VIVO}`);
+    await latido(P, fecha, `pedidos=${pedidos} facturacion=${bruto} · tabla=${TABLA_VIVO}`);
   } catch (e: any) {
     await log(P, 'error', String(e?.message || e));
     process.exitCode = 1;

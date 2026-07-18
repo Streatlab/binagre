@@ -26,6 +26,10 @@ export interface AppConfig {
   canales: ConfigCanal[]
   proveedores: ConfigProveedor[]
   estructura_pct: number
+  /** 'running' = derivado del P&G real (v_estructura_real_pct), 'manual' = valor de Configuración */
+  estructura_fuente: 'running' | 'manual'
+  /** % real de estructura del Running (últimos 3 meses con ingresos), null si no calculable */
+  estructura_real_pct: number | null
   margen_deseado_pct: number
   categorias: string[]
   unidades: string[]
@@ -71,6 +75,8 @@ export function useConfig(): AppConfig {
   const [canales, setCanales] = useState<ConfigCanal[]>(DEFAULT_CANALES)
   const [proveedores, setProveedores] = useState<ConfigProveedor[]>(DEFAULT_PROVEEDORES)
   const [estructuraPct, setEstructuraPct] = useState(30)
+  const [estructuraFuente, setEstructuraFuente] = useState<'running' | 'manual'>('manual')
+  const [estructuraRealPct, setEstructuraRealPct] = useState<number | null>(null)
   const [margenPct, setMargenPct] = useState(15)
   const [categorias, setCategorias] = useState<string[]>(DEFAULT_CATS)
   const [unidades, setUnidades] = useState<string[]>(DEFAULT_UNS)
@@ -84,10 +90,11 @@ export function useConfig(): AppConfig {
     let cancelled = false
     ;(async () => {
       try {
-        const [canalRes, provRes, confRes] = await Promise.all([
+        const [canalRes, provRes, confRes, estrRes] = await Promise.all([
           supabase.from('config_canales').select('*').order('canal'),
           supabase.from('config_proveedores').select('*').order('abv'),
           supabase.from('configuracion').select('*'),
+          supabase.from('v_estructura_real_pct').select('*').maybeSingle(),
         ])
         if (cancelled) return
 
@@ -113,13 +120,25 @@ export function useConfig(): AppConfig {
           setProveedores(provRes.data as ConfigProveedor[])
         }
 
+        // Estructura real del Running (v_estructura_real_pct): NULL si no calculable
+        // o fuera de rango plausible (LEY-ANTIFALSOS: la vista ya la acota a 0-80%).
+        const estrReal = estrRes.data && (estrRes.data as any).estructura_pct_real != null
+          ? parseFloat(String((estrRes.data as any).estructura_pct_real))
+          : null
+        setEstructuraRealPct(estrReal)
+
+        let fuente: 'running' | 'manual' = 'manual'
+        let estrManual: number | null = null
+
         if (confRes.data) {
           const map = new Map<string, string>()
           for (const r of confRes.data as { clave: string; valor: string }[]) {
             map.set(r.clave, r.valor)
           }
           const e = map.get('estructura_pct')
-          if (e) setEstructuraPct(parseFloat(e))
+          if (e) estrManual = parseFloat(e)
+          const f = map.get('estructura_fuente')
+          if (f === 'running') fuente = 'running'
           const m = map.get('margen_deseado_pct')
           if (m) setMargenPct(parseFloat(m))
           try {
@@ -143,6 +162,15 @@ export function useConfig(): AppConfig {
             if (Array.isArray(fs) && fs.length) setFormatos(fs)
           } catch { /* ignore */ }
         }
+
+        // Prioridad: fuente 'running' con dato plausible → Running manda; si no, manual.
+        if (fuente === 'running' && estrReal != null) {
+          setEstructuraFuente('running')
+          setEstructuraPct(estrReal)
+        } else {
+          setEstructuraFuente('manual')
+          if (estrManual != null) setEstructuraPct(estrManual)
+        }
       } catch (err) {
         console.warn('useConfig: error cargando, usando defaults', err)
       } finally {
@@ -165,6 +193,8 @@ export function useConfig(): AppConfig {
     canales,
     proveedores,
     estructura_pct: estructuraPct,
+    estructura_fuente: estructuraFuente,
+    estructura_real_pct: estructuraRealPct,
     margen_deseado_pct: margenPct,
     categorias,
     unidades,

@@ -1,39 +1,68 @@
-/* Adaptación móvil de las pantallas REALES del ERP.
-   Regla de oro: en móvil no se pierde NI UN DATO. No se ocultan tarjetas,
-   ni columnas, ni pestañas. Solo se reordena a una columna y se permite
-   deslizar lo que sea más ancho que la pantalla.
-   Se aplica únicamente dentro de la app móvil (.movil-scope). */
+/* ─────────────────────────────────────────────────────────────
+   ADAPTACIÓN MÓVIL DE LAS PANTALLAS REALES DEL ERP
+   Regla de oro: no se pierde NI UN DATO. No se ocultan tarjetas,
+   columnas ni pestañas. Solo se reordena a una columna y se permite
+   deslizar lo que de verdad no quepa (tablas anchas).
+   Se aplica solo dentro de la app móvil (.movil-scope).
+   ───────────────────────────────────────────────────────────── */
 
+/* Caja global: nada puede ser más ancho que la pantalla */
+.movil-scope,
+.movil-scope * {
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
 .movil-scope {
   width: 100%;
-  max-width: 100%;
   overflow-x: hidden;
 }
 
-/* Fuera paddings, anchos y alturas de pantalla completa del layout de escritorio */
+/* Quitar anchos fijos y mínimos que vienen del diseño de escritorio */
+.movil-scope [style*="width:"],
+.movil-scope [style*="min-width:"] {
+  min-width: 0 !important;
+}
+/* Respetar solo anchos porcentuales de barras internas (las de progreso) */
+.movil-scope [style*="width: 100%"],
+.movil-scope [style*="width:100%"] { width: 100% !important; }
+
+/* Contenedor raíz de cada página: sin padding/alto/fondo de escritorio */
 .movil-scope > div {
   padding: 0 !important;
   min-height: 0 !important;
+  height: auto !important;
   background: transparent !important;
   width: 100% !important;
 }
 
-/* Todo lo que sea rejilla → una sola columna */
+/* TODA rejilla → una sola columna */
 .movil-scope [style*="display: grid"],
 .movil-scope [style*="display:grid"] {
+  display: grid !important;
   grid-template-columns: 1fr !important;
-  gap: 0.75rem !important;
+  gap: 0.7rem !important;
 }
 
-/* Cabecera y filtros: se apilan, nada se corta */
+/* Filas flex que no caben → se apilan */
+.movil-scope [style*="display: flex"],
+.movil-scope [style*="display:flex"] {
+  flex-wrap: wrap;
+}
+/* … salvo barras, tabs y controles marcados como no-envolver */
+.movil-scope .tabs-pastilla,
+.movil-scope .no-wrap-movil,
+.movil-scope [data-nowrap] {
+  flex-wrap: nowrap !important;
+}
+
+/* Cabeceras "space-between" (título + filtros): se apilan sin cortar */
 .movil-scope [style*="justify-content: space-between"] {
   flex-wrap: wrap;
-  row-gap: 0.6rem;
+  row-gap: 0.5rem;
 }
 
-/* Pestañas del panel: tira horizontal deslizable (no se pierde ninguna) */
+/* Pestañas del panel: tira deslizable, no se pierde ninguna */
 .movil-scope .tabs-pastilla {
-  flex-wrap: nowrap !important;
   overflow-x: auto;
   scrollbar-width: none;
   padding-bottom: 4px;
@@ -42,47 +71,80 @@
 }
 .movil-scope .tabs-pastilla::-webkit-scrollbar { display: none; }
 
-/* Tablas: se ven enteras deslizando en horizontal, nunca ensanchan la app */
+/* Tablas: enteras, deslizando en horizontal; nunca ensanchan la app */
+.movil-scope .tabla-wrap,
+.movil-scope [data-tabla] {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .movil-scope table {
   display: block;
   width: 100%;
   overflow-x: auto;
-  white-space: nowrap;
   -webkit-overflow-scrolling: touch;
+  border-collapse: collapse;
+}
+.movil-scope thead, .movil-scope tbody, .movil-scope tr { display: table; width: 100%; table-layout: fixed; }
+.movil-scope th, .movil-scope td {
+  word-break: break-word;
+  white-space: normal;
+  padding: 0.4rem 0.5rem !important;
+  font-size: 0.85rem !important;
 }
 
-/* Gráficos y contenedores con ancho fijo, al ancho del móvil */
+/* Texto que venía forzado a una línea: que pueda partir salvo cifras clave */
+.movil-scope p, .movil-scope span, .movil-scope div, .movil-scope li {
+  overflow-wrap: anywhere;
+}
+.movil-scope [style*="white-space: nowrap"] {
+  white-space: normal !important;
+}
+
+/* Gráficos responsivos al ancho del móvil */
 .movil-scope img,
 .movil-scope svg,
 .movil-scope canvas,
 .movil-scope .recharts-wrapper,
 .movil-scope .recharts-responsive-container {
   max-width: 100% !important;
+  height: auto;
 }
 
-/* Cifras enormes del escritorio: se recortan un poco para que no desborden */
+/* Cifras enormes del escritorio → tamaño legible en móvil, sin desbordar */
+.movil-scope [style*="font-size: 72px"],
 .movil-scope [style*="font-size: 64px"],
+.movil-scope [style*="font-size: 60px"],
 .movil-scope [style*="font-size: 56px"],
-.movil-scope [style*="font-size: 48px"],
+.movil-scope [style*="font-size: 52px"],
+.movil-scope [style*="font-size: 48px"] {
+  font-size: 2rem !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.02em !important;
+}
 .movil-scope [style*="font-size: 44px"],
 .movil-scope [style*="font-size: 42px"],
-.movil-scope [style*="font-size: 40px"] {
-  font-size: 34px !important;
+.movil-scope [style*="font-size: 40px"],
+.movil-scope [style*="font-size: 38px"],
+.movil-scope [style*="font-size: 36px"] {
+  font-size: 1.7rem !important;
   line-height: 1.05 !important;
 }
-.movil-scope [style*="font-size: 38px"],
-.movil-scope [style*="font-size: 36px"],
 .movil-scope [style*="font-size: 34px"],
-.movil-scope [style*="font-size: 32px"] {
-  font-size: 28px !important;
-  line-height: 1.05 !important;
+.movil-scope [style*="font-size: 32px"],
+.movil-scope [style*="font-size: 30px"],
+.movil-scope [style*="font-size: 28px"] {
+  font-size: 1.5rem !important;
+  line-height: 1.1 !important;
 }
 
-/* Nada puede pasarse del ancho de la pantalla */
-.movil-scope * {
-  max-width: 100%;
+/* Padding interno de tarjetas grandes: un pelín más compacto en móvil */
+.movil-scope [style*="padding: 24px"],
+.movil-scope [style*="padding:24px"],
+.movil-scope [style*="padding: 32px"],
+.movil-scope [style*="padding:32px"] {
+  padding: 0.9rem !important;
 }
-.movil-scope [style*="white-space: nowrap"] {
-  overflow-x: auto;
-  scrollbar-width: none;
-}
+
+/* Sombras neobrutal: se mantienen pero sin empujar el ancho */
+.movil-scope { overflow-x: hidden; }

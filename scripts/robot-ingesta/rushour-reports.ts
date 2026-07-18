@@ -184,19 +184,32 @@ async function main() {
     const nDet = Math.min(await detalles.count().catch(() => 0), 6);
     let deDrawers = 0;
     for (let i = 0; i < nDet; i++) {
+      const urlAntes = page.url();
       await detalles.nth(i).click({ timeout: 6000 }).catch(() => {});
+      await page.waitForLoadState('networkidle').catch(() => {});
       await page.waitForTimeout(4000);
       deDrawers += await bajarBloquesExportables(page, `${periodo}_detalle${i}`);
       if (i === 0 && !deDrawers) await volcar(`${P}_drawer`, await page.content().catch(() => ''));
-      await page.keyboard.press('Escape').catch(() => {});
-      await page.waitForTimeout(1200);
+      // 17-jul (captura de Ruben): "Ver detalles" NAVEGA a otra pantalla (p. ej.
+      // /products, con boton rojo "Exportar CSV"). Si cambio la URL, volver
+      // atras; si fue un drawer, Escape como antes.
+      if (page.url() !== urlAntes) {
+        await page.goBack().catch(() => {});
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await page.waitForTimeout(2500);
+      } else {
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.waitForTimeout(1200);
+      }
     }
     if (nDet) await log(P, deDrawers ? 'descarga' : 'sin_descarga', `"See details": ${deDrawers} fichero(s) de ${nDet} panel(es)`);
 
     // 17-jul (fix v2, DOM volcado de /rapports): la vista Reports es un panel de
     // KPIs SIN botones de exportar; los ficheros descargables viven en /vat
     // (VAT Reports) y /historicals. Se recorren ambas y se baja todo lo exportable.
-    for (const [ruta, etiqueta] of [['/vat', 'vat'], ['/historicals', 'historicals']] as const) {
+    // 17-jul (receta de Ruben): /products tiene "Exportar CSV" directo y los
+    // paneles de /business llevan boton de flecha de descarga.
+    for (const [ruta, etiqueta] of [['/vat', 'vat'], ['/historicals', 'historicals'], ['/products', 'products'], ['/business', 'business']] as const) {
       await page.goto(`https://manager.rushour.io${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
       await page.waitForLoadState('networkidle').catch(() => {});
       await page.waitForTimeout(8000);

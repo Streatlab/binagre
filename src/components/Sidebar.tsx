@@ -41,6 +41,7 @@ const SECTIONS: NavSection[] = [
   {
     key: 'finanzas', label: 'Finanzas', perfiles: ['admin'],
     items: [
+      { path: '/panel',                         label: 'Panel Global',         emoji: '🧭', perfiles: ['admin'] },
       { path: '/finanzas/documentacion',        label: 'Papeleo',        emoji: '📥', perfiles: ['admin'] },
       { path: '/facturacion',                   label: 'Facturación',          emoji: '🧾', perfiles: ['admin'] },
       { path: '/finanzas/ventas',               label: 'Ventas',               emoji: '💰', perfiles: ['admin'] },
@@ -49,21 +50,18 @@ const SECTIONS: NavSection[] = [
       { path: '/finanzas/running',              label: 'Running',              emoji: '📊', perfiles: ['admin'] },
       { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',       emoji: '💳', perfiles: ['admin'] },
       { path: '/finanzas/reservas',             label: 'Reservas',             emoji: '🏦', perfiles: ['admin'] },
-      { path: '/finanzas/verifactu',            label: 'Verifactu',            emoji: '✅', perfiles: ['admin'] },
       { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería', emoji: '🔮', perfiles: ['admin'] },
       { path: '/finanzas/tesoreria-13-semanas', label: 'Tesorería 13 Semanas', emoji: '📅', perfiles: ['admin'] },
       { path: '/finanzas/fondo-maniobra', label: 'Fondo de Maniobra', emoji: '⚙️', perfiles: ['admin'] },
       { path: '/finanzas/estados-financieros', label: 'Estados Financieros', emoji: '📑', perfiles: ['admin'] },
+      { path: '/finanzas/pyg', label: 'P&G', emoji: '📈', perfiles: ['admin'] },
+      { path: '/finanzas/rentabilidad-franja', label: 'Rentab. por Franja', emoji: '🕐', perfiles: ['admin'] },
       { path: '/finanzas/break-even', label: 'Break-even Marca/Canal', emoji: '📐', perfiles: ['admin'] },
       { path: '/finanzas/analisis-horizontal-vertical', label: 'Análisis Horiz./Vert.', emoji: '📉', perfiles: ['admin'] },
       { path: '/finanzas/panel-alertas', label: 'Panel de Alertas', emoji: '🚨', perfiles: ['admin'] },
       { path: '/finanzas/repeticion-clientes', label: 'Repetición Clientes', emoji: '🔁', perfiles: ['admin'] },
       { path: '/finanzas/roi-canal', label: 'ROI por Canal', emoji: '🏆', perfiles: ['admin'] },
       { path: '/finanzas/ticket-medio', label: 'Ticket Medio', emoji: '🎫', perfiles: ['admin'] },
-      // ── Auditoría jul-26 ──
-      { path: '/finanzas/lineas-factura',      label: 'Líneas de Factura',    emoji: '🧩', perfiles: ['admin'], pendiente: true },
-      { path: '/finanzas/rentabilidad-franja', label: 'Rentab. por Franja',   emoji: '🕐', perfiles: ['admin'], pendiente: true },
-      { path: '/finanzas/ventas-perdidas',     label: 'Ventas Perdidas',      emoji: '🕳️', perfiles: ['admin'], pendiente: true },
     ],
   },
   {
@@ -77,12 +75,6 @@ const SECTIONS: NavSection[] = [
       { path: '/cocina/recetario',           label: 'Recetario',           emoji: '📋', perfiles: ['admin', 'cocina'] },
       { path: '/cocina/produccion',          label: 'Producción',          emoji: '📋', perfiles: ['admin', 'cocina'] },
       { path: '/cocina/menu-familia',        label: 'Menú Familia',        emoji: '🥘', perfiles: ['admin', 'cocina'] },
-      // ── Auditoría jul-26 ──
-      { path: '/cocina/mapeo-platos',        label: 'Mapeo Plato → Receta', emoji: '🔗', perfiles: ['admin'], pendiente: true },
-      { path: '/cocina/duplicados-platos',   label: 'Platos Duplicados',    emoji: '👯', perfiles: ['admin'], pendiente: true },
-      { path: '/cocina/teorico-vs-real',     label: 'Teórico vs Real',      emoji: '🚦', perfiles: ['admin'], pendiente: true },
-      { path: '/cocina/alertas-precio',      label: 'Alertas de Precio',    emoji: '📈', perfiles: ['admin'], pendiente: true },
-      { path: '/cocina/produccion-prevista', label: 'Producción Prevista',  emoji: '🔮', perfiles: ['admin', 'cocina'], pendiente: true },
     ],
   },
   {
@@ -93,7 +85,6 @@ const SECTIONS: NavSection[] = [
       { path: '/ops/manuales',      label: 'Manuales',         emoji: '📚', perfiles: ['admin'] },
       { path: '/ops/reembolsos',    label: 'Reclamaciones',    emoji: '💸', perfiles: ['admin'] },
       { path: '/ops/pulso',         label: 'Pulso Cocina',     emoji: '📡', perfiles: ['admin'] },
-      { path: '/analytics/demanda', label: 'Pulso Operativa',  emoji: '⏱️', perfiles: ['admin'] },
       { path: '/ops/temperaturas',  label: 'Temperaturas',     emoji: '🌡️', perfiles: ['admin'] },
       { path: '/ops/bpm',           label: 'BPM / Calidad',    emoji: '✅', perfiles: ['admin'] },
       { path: '/ops/equipos',       label: 'Libro Equipos',    emoji: '🔧', perfiles: ['admin'] },
@@ -108,8 +99,17 @@ const SECTIONS: NavSection[] = [
     key: 'stock', label: 'Stock & Compras', perfiles: ['admin'],
     items: [
       { path: '/stock/inventario',  label: 'Inventario',  emoji: '📦', perfiles: ['admin'] },
-      { path: '/stock/compras',     label: 'Compras',     emoji: '🛒', perfiles: ['admin'] },
       { path: '/stock/proveedores', label: 'Proveedores', emoji: '🏢', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'analitica', label: 'Analítica', perfiles: ['admin'],
+    items: [
+      { path: '/analytics/margen',       label: 'Margen por Canal',   emoji: '📊', perfiles: ['admin'] },
+      { path: '/analytics/ventas-marca', label: 'Ventas por Marca',   emoji: '🏷️', perfiles: ['admin'] },
+      { path: '/analytics/pareto-ventas',label: 'Pareto Ventas',      emoji: '🏆', perfiles: ['admin'] },
+      { path: '/analytics/revenue',      label: 'Revenue & Ticket',   emoji: '🎫', perfiles: ['admin'] },
+      { path: '/analytics/demanda',      label: 'Predicción Demanda', emoji: '⏱️', perfiles: ['admin'] },
     ],
   },
   {
@@ -154,9 +154,7 @@ const SECTIONS: NavSection[] = [
       { path: '/configuracion/calendario',           label: 'Calendario operativo', emoji: '📅', perfiles: ['admin'] },
       { path: '/configuracion/aprendizajes',         label: 'Aprendizajes ERP',     emoji: '🧠', perfiles: ['admin'] },
       { path: '/configuracion/calcneto-aprendizaje', label: 'Ajuste calcNeto',      emoji: '⚖️', perfiles: ['admin'] },
-      // ── Auditoría jul-26 ──
-      { path: '/configuracion/mapeo-marcas',         label: 'Mapeo de Marcas',      emoji: '🏷️', perfiles: ['admin'], pendiente: true },
-      { path: '/integraciones/sync-carta',           label: 'Sync de Carta',        emoji: '🔄', perfiles: ['admin'], pendiente: true },
+      { path: '/configuracion/mapeo-marcas',         label: 'Mapeo de Marcas',      emoji: '🏷️', perfiles: ['admin'] },
     ],
   },
 ]
@@ -167,6 +165,7 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
   cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: '#0a0a0a' },
   operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: '#fff'  },
   stock:         { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: '#fff'  },
+  analitica:     { icon: TrendingUp,    headBg: '#7C3AED', headColor: '#fff'  },
   informes:      { icon: FileText,      headBg: '#B01D23', headColor: '#fff'  },
   equipo:        { icon: Users,         headBg: '#FF2E63', headColor: '#fff'  },
   mkt:           { icon: Megaphone,     headBg: '#1e2233', headColor: '#fff'  },
@@ -174,8 +173,17 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
 }
 
 const PROXIMAMENTE: { label: string; emoji: string }[] = [
-  { label: 'Revenue & Ticket',        emoji: '🎫' },
   { label: 'Tesorería',               emoji: '💳' },
+  { label: 'Verifactu',               emoji: '✅' },
+  { label: 'Compras',                 emoji: '🛒' },
+  { label: 'Líneas de Factura',       emoji: '🧩' },
+  { label: 'Ventas Perdidas',         emoji: '🕳️' },
+  { label: 'Mapeo Plato → Receta',    emoji: '🔗' },
+  { label: 'Platos Duplicados',       emoji: '👯' },
+  { label: 'Teórico vs Real',         emoji: '🚦' },
+  { label: 'Alertas de Precio',       emoji: '📈' },
+  { label: 'Producción Prevista',     emoji: '🔮' },
+  { label: 'Sync de Carta',           emoji: '🔄' },
   { label: 'BPM / Calidad',           emoji: '✅' },
   { label: 'Almacén',                 emoji: '🏭' },
   { label: 'Stock Mínimo Alertas',    emoji: '⚠️' },
@@ -320,7 +328,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         {/* ── NAV ── */}
         <nav className="flex-1 overflow-y-auto" style={{ overflowX: 'hidden', background: CREMA }}>
 
-          {/* Panel Global (directo) */}
+          {/* Hoy (portada, directo) */}
           {!collapsed && perfil && ['admin', 'cocina'].includes(perfil) && (
             <NavLink to="/" end onClick={onClose}
               style={({ isActive }) => ({
@@ -333,13 +341,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               {({ isActive }) => (
                 <>
                   <LayoutDashboard size={20} strokeWidth={2.4} color={isActive ? AMA : INK} style={{ flexShrink: 0 }} />
-                  <span>Panel Global</span>
+                  <span>Hoy</span>
                 </>
               )}
             </NavLink>
           )}
           {collapsed && perfil && ['admin', 'cocina'].includes(perfil) && (
-            <NavLink to="/" end onClick={() => { abrir20s(); onClose() }} title="Panel Global"
+            <NavLink to="/" end onClick={() => { abrir20s(); onClose() }} title="Hoy"
               style={({ isActive }) => ({
                 width: '100%', height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', borderBottom: `3px solid ${INK}`,
                 background: isActive ? INK : CREMA,

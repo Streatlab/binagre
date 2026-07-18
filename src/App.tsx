@@ -5,8 +5,12 @@ import { TitularProvider } from '@/contexts/TitularContext'
 import Layout from '@/components/Layout'
 import Login from '@/pages/Login'
 
-const Inicio = React.lazy(() => import('@/pages/InicioSkin'))
+const Home = React.lazy(() => import('@/pages/Home'))
 const Facturacion = React.lazy(() => import('@/pages/Facturacion'))
+const Reservas = React.lazy(() => import('@/pages/finanzas/Reservas'))
+const PyG = React.lazy(() => import('@/pages/finanzas/PyG'))
+const RentabilidadFranja = React.lazy(() => import('@/pages/analytics/RentabilidadFranja'))
+const Proveedores = React.lazy(() => import('@/pages/Proveedores'))
 const POS = React.lazy(() => import('@/pages/POS'))
 const Placeholder = React.lazy(() => import('@/pages/Placeholder'))
 const MarcasPage = React.lazy(() => import('@/pages/configuracion/marcas/MarcasPage'))
@@ -71,15 +75,12 @@ const TicketMedio = React.lazy(() => import('@/pages/finanzas/TicketMedio'))
 
 const PanelGlobal = React.lazy(() => import('@/pages/PanelGlobal'))
 const PanelDireccion = React.lazy(() => import('@/pages/PanelDireccion'))
-const OcrConToast = React.lazy(() => import('@/pages/OcrConToast'))
 const Tareas = React.lazy(() => import('@/pages/Tareas'))
 const Carta = React.lazy(() => import('@/pages/Carta'))
 
 const RevenueTicketMedio = React.lazy(() => import('@/pages/analytics/RevenueTicketMedio'))
-const CogsCosteMp = React.lazy(() => import('@/pages/analytics/CogsCosteMp'))
 const MargenCanal = React.lazy(() => import('@/pages/analytics/MargenCanal'))
 const VentasMarca = React.lazy(() => import('@/pages/analytics/VentasMarca'))
-const RankingProductos = React.lazy(() => import('@/pages/analytics/RankingProductos'))
 const PrediccionDemanda = React.lazy(() => import('@/pages/analytics/PrediccionDemanda'))
 const ParetoVentas = React.lazy(() => import('@/pages/analytics/ParetoVentas'))
 
@@ -113,15 +114,6 @@ const MarcasSimple = React.lazy(() => import('@/pages/Marcas'))
 const Inventario = React.lazy(() => import('@/pages/stock/Inventario'))
 
 const Equipo = React.lazy(() => import('@/pages/Equipo'))
-const FichasEmpleados = React.lazy(() => import('@/pages/equipo/FichasEmpleados'))
-const Evaluaciones = React.lazy(() => import('@/pages/equipo/Evaluaciones'))
-const LlamadosAtencion = React.lazy(() => import('@/pages/equipo/LlamadosAtencion'))
-const BeneficiosAntiguedad = React.lazy(() => import('@/pages/equipo/BeneficiosAntiguedad'))
-const Celebraciones = React.lazy(() => import('@/pages/equipo/Celebraciones'))
-const Dotacion = React.lazy(() => import('@/pages/equipo/Dotacion'))
-const OnboardingDigital = React.lazy(() => import('@/pages/equipo/OnboardingDigital'))
-const SgSst = React.lazy(() => import('@/pages/equipo/SgSst'))
-const MisVentasMetas = React.lazy(() => import('@/pages/equipo/MisVentasMetas'))
 const Horarios = React.lazy(() => import('@/pages/equipo/Horarios'))
 const ControlPresencia = React.lazy(() => import('@/pages/equipo/ControlPresencia'))
 const Organigrama = React.lazy(() => import('@/pages/equipo/Organigrama'))
@@ -167,7 +159,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={usuario ? <Navigate to="/" replace /> : <Login />} />
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route index element={<Inicio />} />
+          <Route index element={<Home />} />
           <Route path="escandallo" element={<EscandalloSwitch />} />
           <Route path="carta" element={<Carta />} />
           <Route path="facturacion" element={<ProtectedRoute solo={['admin']}><Facturacion /></ProtectedRoute>} />
@@ -238,6 +230,9 @@ function AppRoutes() {
           <Route path="finanzas/panel-alertas" element={<ProtectedRoute solo={['admin']}><PanelAlertas /></ProtectedRoute>} />
           <Route path="finanzas/repeticion-clientes" element={<ProtectedRoute solo={['admin']}><RepeticionClientes /></ProtectedRoute>} />
           <Route path="finanzas/roi-canal" element={<ProtectedRoute solo={['admin']}><RoiCanal /></ProtectedRoute>} />
+          <Route path="finanzas/reservas" element={<ProtectedRoute solo={['admin']}><Reservas /></ProtectedRoute>} />
+          <Route path="finanzas/pyg" element={<ProtectedRoute solo={['admin']}><PyG /></ProtectedRoute>} />
+          <Route path="finanzas/rentabilidad-franja" element={<ProtectedRoute solo={['admin']}><RentabilidadFranja /></ProtectedRoute>} />
           <Route path="finanzas/ticket-medio" element={<ProtectedRoute solo={['admin']}><TicketMedio /></ProtectedRoute>} />
 
           <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelSwitch /></ProtectedRoute>} />
@@ -254,10 +249,8 @@ function AppRoutes() {
           <Route path="informes/configuracion" element={<ProtectedRoute solo={['admin']}><ConfiguracionInformes /></ProtectedRoute>} />
 
           <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />
-          <Route path="analytics/cogs" element={<ProtectedRoute solo={['admin']}><CogsCosteMp /></ProtectedRoute>} />
           <Route path="analytics/margen" element={<ProtectedRoute solo={['admin']}><MargenCanal /></ProtectedRoute>} />
           <Route path="analytics/ventas-marca" element={<ProtectedRoute solo={['admin']}><VentasMarca /></ProtectedRoute>} />
-          <Route path="analytics/ranking" element={<ProtectedRoute solo={['admin']}><RankingProductos /></ProtectedRoute>} />
           <Route path="analytics/demanda" element={<ProtectedRoute solo={['admin']}><PrediccionDemanda /></ProtectedRoute>} />
           <Route path="analytics/pareto-ventas" element={<ProtectedRoute solo={['admin']}><ParetoVentas /></ProtectedRoute>} />
 
@@ -278,17 +271,8 @@ function AppRoutes() {
 
           <Route path="equipo" element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
           <Route path="equipo/organigrama" element={<ProtectedRoute solo={['admin']}><Organigrama /></ProtectedRoute>} />
-          <Route path="equipo/empleados" element={<ProtectedRoute solo={['admin']}><FichasEmpleados /></ProtectedRoute>} />
           <Route path="equipo/horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
           <Route path="equipo/presencia" element={<ProtectedRoute solo={['admin']}><ControlPresencia /></ProtectedRoute>} />
-          <Route path="equipo/evaluaciones" element={<ProtectedRoute solo={['admin']}><Evaluaciones /></ProtectedRoute>} />
-          <Route path="equipo/llamados" element={<ProtectedRoute solo={['admin']}><LlamadosAtencion /></ProtectedRoute>} />
-          <Route path="equipo/antiguedad" element={<ProtectedRoute solo={['admin']}><BeneficiosAntiguedad /></ProtectedRoute>} />
-          <Route path="equipo/celebraciones" element={<ProtectedRoute solo={['admin']}><Celebraciones /></ProtectedRoute>} />
-          <Route path="equipo/dotacion" element={<ProtectedRoute solo={['admin']}><Dotacion /></ProtectedRoute>} />
-          <Route path="equipo/onboarding" element={<ProtectedRoute solo={['admin']}><OnboardingDigital /></ProtectedRoute>} />
-          <Route path="equipo/sgsst" element={<ProtectedRoute solo={['admin']}><SgSst /></ProtectedRoute>} />
-          <Route path="equipo/metas" element={<ProtectedRoute solo={['admin']}><MisVentasMetas /></ProtectedRoute>} />
 
           <Route path="clientes/club" element={<ProtectedRoute solo={['admin']}><ClubFidelizacion /></ProtectedRoute>} />
           <Route path="clientes/crm" element={<ProtectedRoute solo={['admin']}><CrmTiendaPropia /></ProtectedRoute>} />
@@ -303,6 +287,7 @@ function AppRoutes() {
           <Route path="marketing/rendimiento-ads-promo" element={<ProtectedRoute solo={['admin']}><RendimientoAdsPromo /></ProtectedRoute>} />
           <Route path="marketing/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
 
+          <Route path="stock/proveedores" element={<ProtectedRoute solo={['admin']}><Proveedores /></ProtectedRoute>} />
           <Route path="stock/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
 
           <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><CocinaInventario /></ProtectedRoute>} />
