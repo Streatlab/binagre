@@ -8,12 +8,14 @@
  * a Green API plan Developer (gratis, HTTP directo, máx 3 chats/mes — suficiente:
  * Rubén + Emilio). Los exports mantienen sus nombres (despacharInforme,
  * comprobarWAHA) para no tocar puertas ni UI.
+ *
+ * NOTA 2 (18 jul 2026): credenciales Green API se leen de la tabla
+ * robot_credenciales (plataforma='green_api': usuario=idInstance,
+ * password=apiToken, url_base=apiUrl). Las variables de entorno
+ * GREEN_API_* siguen funcionando como override si existen.
  */
 import { supabaseAdmin } from './supabase-admin.js'
 
-const GREEN_API_URL = (process.env.GREEN_API_URL || 'https://api.green-api.com').replace(/\/$/, '')
-const GREEN_API_ID_INSTANCE = process.env.GREEN_API_ID_INSTANCE || ''
-const GREEN_API_TOKEN = process.env.GREEN_API_TOKEN || ''
 const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const RESEND_FROM = process.env.RESEND_FROM || 'Streat Lab <informes@streatlab.com>'
 
@@ -21,6 +23,47 @@ export interface EnvioResultado {
   enviados: number
   fallidos: number
   detalle: Array<{ destinatario: string; canal: string; ok: boolean; error?: string }>
+}
+
+interface GreenApiCfg {
+  url: string
+  idInstance: string
+  token: string
+}
+
+let greenCfgCache: GreenApiCfg | null = null
+
+/**
+ * Carga la config de Green API: primero variables de entorno, si faltan,
+ * tabla robot_credenciales (plataforma='green_api'). Cachea en memoria
+ * durante la vida de la función serverless.
+ */
+async function cargarGreenApi(): Promise<GreenApiCfg> {
+  if (greenCfgCache) return greenCfgCache
+
+  let url = (process.env.GREEN_API_URL || '').replace(/\/$/, '')
+  let idInstance = process.env.GREEN_API_ID_INSTANCE || ''
+  let token = process.env.GREEN_API_TOKEN || ''
+
+  if (!idInstance || !token || !url) {
+    const { data } = await supabaseAdmin
+      .from('robot_credenciales')
+      .select('usuario, password, url_base')
+      .eq('plataforma', 'green_api')
+      .eq('activo', true)
+      .order('actualizado_en', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (data) {
+      idInstance = idInstance || data.usuario || ''
+      token = token || data.password || ''
+      url = url || (data.url_base || '').replace(/\/$/, '')
+    }
+  }
+
+  if (!url) url = 'https://api.green-api.com'
+  greenCfgCache = { url, idInstance, token }
+  return greenCfgCache
 }
 
 /**
@@ -32,19 +75,16 @@ function whatsappAChatId(numero: string): string {
   return `${limpio}@c.us`
 }
 
-function greenApiBase(): string {
-  return `${GREEN_API_URL}/waInstance${GREEN_API_ID_INSTANCE}`
-}
-
 /**
  * Envía un mensaje de WhatsApp vía Green API.
  */
 async function enviarWhatsApp(numero: string, texto: string): Promise<{ ok: boolean; error?: string }> {
-  if (!GREEN_API_ID_INSTANCE || !GREEN_API_TOKEN) {
-    return { ok: false, error: 'Green API no configurado (faltan GREEN_API_ID_INSTANCE / GREEN_API_TOKEN)' }
+  const cfg = await cargarGreenApi()
+  if (!cfg.idInstance || !cfg.token) {
+    return { ok: false, error: 'Green API no configurado (sin credenciales en env ni robot_credenciales)' }
   }
   try {
-    const res = await fetch(`${greenApiBase()}/sendMessage/${GREEN_API_TOKEN}`, {
+    const res = await fetch(`${cfg.url}/waInstance${cfg.idInstance}/sendMessage/${cfg.token}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -212,11 +252,12 @@ export async function despacharInforme(
  * Mantiene el nombre comprobarWAHA para no tocar la puerta /api/informes/waha-status ni la UI.
  */
 export async function comprobarWAHA(): Promise<{ conectado: boolean; mensaje?: string }> {
-  if (!GREEN_API_ID_INSTANCE || !GREEN_API_TOKEN) {
-    return { conectado: false, mensaje: 'Green API no configurado (faltan GREEN_API_ID_INSTANCE / GREEN_API_TOKEN)' }
+  const cfg = await cargarGreenApi()
+  if (!cfg.idInstance || !cfg.token) {
+    return { conectado: false, mensaje: 'Green API no configurado (sin credenciales en env ni robot_credenciales)' }
   }
   try {
-    const res = await fetch(`${greenApiBase()}/getStateInstance/${GREEN_API_TOKEN}`)
+    const res = await fetch(`${cfg.url}/waInstance${cfg.idInstance}/getStateInstance/${cfg.token}`)
     if (!res.ok) return { conectado: false, mensaje: `Green API ${res.status}` }
     const json: any = await res.json()
     const estado = json.stateInstance || 'unknown'
