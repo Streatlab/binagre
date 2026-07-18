@@ -8,8 +8,7 @@
  * por IMAP y deja los adjuntos en la bandeja. El WAF deja de existir.
  *
  * El buzón NO es Microsoft: es hosting propio. Secretos:
- *  - JE_MAIL_HOST → servidor IMAP (p. ej. mail.streatlab.com). Si no se pasa,
- *    se prueban candidatos habituales derivados del dominio del usuario.
+ *  - JE_MAIL_HOST → servidor IMAP (p. ej. mail.streatlab.com)
  *  - JE_MAIL_USER → admin@streatlab.com
  *  - JE_MAIL_PASS → contraseña normal del buzón
  *
@@ -52,7 +51,6 @@ async function marcarProcesado(messageId: string, asunto: string) {
   } catch { /* noop */ }
 }
 
-/** Intenta conectar probando host×(secure 993 / starttls 143). Devuelve el cliente conectado o null. */
 async function conectar(): Promise<ImapFlow | null> {
   for (const host of candidatosHost()) {
     for (const [port, secure] of [[993, true], [143, false]] as const) {
@@ -71,6 +69,50 @@ async function conectar(): Promise<ImapFlow | null> {
   return null;
 }
 
+/** Procesa UN buzón, aislado: un fallo aquí no tumba el resto. Devuelve [vistas, entregadas]. */
+async function procesarBuzon(client: ImapFlow, ruta: string): Promise<[number, number]> {
+  let vistas = 0, entregadas = 0;
+  let lock;
+  try { lock = await client.getMailboxLock(ruta); } catch { return [0, 0]; }
+  try {
+    // Búsqueda robusta: primero por fecha; si el servidor la rechaza, todo el buzón.
+    let uids: number[] = [];
+    const desde = new Date(Date.now() - 60 * 86400000);
+    try { uids = await client.search({ since: desde }, { uid: true }) as number[]; }
+    catch {
+      try { uids = await client.search({ all: true }, { uid: true }) as number[]; }
+      catch { return [0, 0]; }
+    }
+    if (!uids || !uids.length) return [0, 0];
+    // Solo los últimos 300 por buzón, por si acaso
+    if (uids.length > 300) uids = uids.slice(-300);
+
+    for await (const msg of client.fetch(uids, { uid: true, envelope: true, source: true })) {
+      try {
+        const de = (msg.envelope?.from || []).map(f => `${f.address || ''}`).join(' ');
+        const asunto = msg.envelope?.subject || '';
+        if (!REMITENTE.test(de) || !ASUNTO.test(asunto)) continue;
+        vistas++;
+        const mid = msg.envelope?.messageId || `${ruta}:${msg.uid}`;
+        if (await yaProcesado(mid)) continue;
+
+        const mail = await simpleParser(msg.source as Buffer);
+        const fecha = mail.date || new Date();
+        let algunaEntrega = false;
+        for (const adj of mail.attachments || []) {
+          if (!adj.content || !adj.content.length) continue;
+          const nombre = adj.filename || `justeat_factura_${(asunto.match(/\d{5,}/) || ['sin_numero'])[0]}.pdf`;
+          const ok = await entregar({ fuente: 'justeat', tipo: 'justeat_factura', nombre, datos: adj.content as Buffer, periodo: quincenaDe(fecha), destino: 'facturas' });
+          if (ok) { entregadas++; algunaEntrega = true; }
+        }
+        if (algunaEntrega || (mail.attachments || []).length === 0) await marcarProcesado(mid, asunto);
+        if (algunaEntrega) await marcarConseguido('justeat', quincenaDe(fecha), 'facturas_quincena', `vía correo: ${asunto}`);
+      } catch { /* un correo roto no detiene el buzón */ }
+    }
+  } finally { lock?.release(); }
+  return [vistas, entregadas];
+}
+
 async function main() {
   if (!USER || !PASS) {
     await log(P, 'sin_credenciales', 'faltan los secretos JE_MAIL_USER / JE_MAIL_PASS');
@@ -78,49 +120,28 @@ async function main() {
   }
   const client = await conectar();
   if (!client) {
-    await log(P, 'error', `no pude conectar a ningún servidor IMAP (probados: ${candidatosHost().join(', ') || 'ninguno'}); revisa JE_MAIL_HOST/USER/PASS`);
+    await log(P, 'error', `no pude conectar a ningún servidor IMAP (probados: ${candidatosHost().join(', ') || 'ninguno'})`);
     await latido(P, new Date(), 'sin conexión IMAP');
     return;
   }
 
-  let entregadas = 0, vistas = 0;
+  let vistas = 0, entregadas = 0;
   try {
-    const buzones = await client.list();
+    let buzones: { path: string }[] = [];
+    try { buzones = (await client.list()).map(b => ({ path: b.path })); }
+    catch { buzones = [{ path: 'INBOX' }]; }
+    // Asegura INBOX aunque list() no lo devuelva
+    if (!buzones.some(b => /^inbox$/i.test(b.path))) buzones.unshift({ path: 'INBOX' });
+
     for (const bz of buzones) {
       if (/deleted|borrad|papelera|trash/i.test(bz.path)) continue;
-      let lock;
-      try { lock = await client.getMailboxLock(bz.path); } catch { continue; }
-      try {
-        const desde = new Date(Date.now() - 60 * 86400000);
-        let uids: number[] = [];
-        try { uids = await client.search({ since: desde }, { uid: true }) as number[]; } catch { uids = []; }
-        if (!uids || !uids.length) continue;
-        for await (const msg of client.fetch(uids, { uid: true, envelope: true, source: true })) {
-          const de = (msg.envelope?.from || []).map(f => `${f.address || ''}`).join(' ');
-          const asunto = msg.envelope?.subject || '';
-          if (!REMITENTE.test(de) || !ASUNTO.test(asunto)) continue;
-          vistas++;
-          const mid = msg.envelope?.messageId || `${bz.path}:${msg.uid}`;
-          if (await yaProcesado(mid)) continue;
-
-          const mail = await simpleParser(msg.source as Buffer);
-          const fecha = mail.date || new Date();
-          let algunaEntrega = false;
-          for (const adj of mail.attachments || []) {
-            if (!adj.content || !adj.content.length) continue;
-            const nombre = adj.filename || `justeat_factura_${(asunto.match(/\d{5,}/) || ['sin_numero'])[0]}.pdf`;
-            const ok = await entregar({ fuente: 'justeat', tipo: 'justeat_factura', nombre, datos: adj.content as Buffer, periodo: quincenaDe(fecha), destino: 'facturas' });
-            if (ok) { entregadas++; algunaEntrega = true; }
-          }
-          if (algunaEntrega || (mail.attachments || []).length === 0) await marcarProcesado(mid, asunto);
-          if (algunaEntrega) await marcarConseguido('justeat', quincenaDe(fecha), 'facturas_quincena', `vía correo: ${asunto}`);
-        }
-      } finally { lock?.release(); }
+      const [v, e] = await procesarBuzon(client, bz.path);
+      vistas += v; entregadas += e;
     }
     await log(P, 'ok', `correos JE vistos=${vistas} · facturas nuevas en bandeja=${entregadas}`);
     await latido(P, new Date(), `vistas=${vistas} entregadas=${entregadas}`);
   } catch (e: any) {
-    await log(P, 'error', `procesando: ${String(e?.message || e).slice(0, 120)}`);
+    await log(P, 'error', `procesando: ${String(e?.responseText || e?.message || e).slice(0, 120)}`);
     process.exitCode = 1;
   } finally {
     try { await client.logout(); } catch { /* noop */ }
