@@ -1,14 +1,14 @@
 /**
  * Módulo Informes — Configuración técnica
  *
- * Permite configurar conexión WAHA (WhatsApp) y Resend (email),
- * activar/pausar cada informe, ajustar canales preferidos.
+ * Estado de las conexiones (WhatsApp Green API + email Resend),
+ * activar/pausar cada informe, ajustar canales.
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 
-type TipoInforme = 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual'
+type TipoInforme = 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual' | 'resumen_manana' | 'pulso'
 
 interface Config {
   id: string
@@ -21,15 +21,18 @@ interface Config {
   enviar_email: boolean
 }
 
+const ORDEN_TIPOS: string[] = ['resumen_manana', 'cobros_lunes', 'cierre_mensual', 'pulso', 'cierre_diario', 'cierre_semanal']
+
 export default function ConfiguracionInformes() {
   const { T } = useTheme()
   const [configs, setConfigs] = useState<Config[]>([])
   const [loading, setLoading] = useState(true)
-  const [estadoWAHA, setEstadoWAHA] = useState<'conectado' | 'desconectado' | 'desconocido'>('desconocido')
+  const [estadoWA, setEstadoWA] = useState<'conectado' | 'desconectado' | 'desconocido'>('desconocido')
+  const [mensajeWA, setMensajeWA] = useState<string>('')
 
   useEffect(() => {
     cargar()
-    comprobarWAHA()
+    comprobarWhatsApp()
   }, [])
 
   async function cargar() {
@@ -37,22 +40,27 @@ export default function ConfiguracionInformes() {
     const { data } = await supabase
       .from('notif_config')
       .select('*')
-      .order('tipo')
-    setConfigs(data || [])
+    const ordenadas = (data || []).sort((a: Config, b: Config) => {
+      const ia = ORDEN_TIPOS.indexOf(a.tipo)
+      const ib = ORDEN_TIPOS.indexOf(b.tipo)
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+    })
+    setConfigs(ordenadas)
     setLoading(false)
   }
 
-  async function comprobarWAHA() {
+  async function comprobarWhatsApp() {
     try {
       const res = await fetch('/api/informes/waha-status')
       if (!res.ok) {
-        setEstadoWAHA('desconocido')
+        setEstadoWA('desconocido')
         return
       }
       const json = await res.json()
-      setEstadoWAHA(json.conectado ? 'conectado' : 'desconectado')
+      setEstadoWA(json.conectado ? 'conectado' : 'desconectado')
+      setMensajeWA(json.mensaje || '')
     } catch {
-      setEstadoWAHA('desconocido')
+      setEstadoWA('desconocido')
     }
   }
 
@@ -78,13 +86,13 @@ export default function ConfiguracionInformes() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
           <div style={cardStyle(T)}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <strong style={{ color: T.pri }}>💬 WhatsApp (WAHA)</strong>
-              <Estado v={estadoWAHA} />
+              <strong style={{ color: T.pri }}>💬 WhatsApp (Green API)</strong>
+              <Estado v={estadoWA} />
             </div>
             <div style={{ fontSize: 12, color: T.mut, lineHeight: 1.5 }}>
-              Servidor WAHA self-hosted en Railway.
-              {estadoWAHA === 'desconectado' && ' Pendiente de configurar y escanear QR desde el WhatsApp del bar (623036634).'}
-              {estadoWAHA === 'desconocido' && ' Aún no se ha configurado. Pendiente de despliegue Railway.'}
+              Envía desde el WhatsApp del bar (623036634) vía Green API.
+              {estadoWA === 'desconectado' && ` Estado: ${mensajeWA || 'sin autorizar'}. Escanea el QR en console.green-api.com con el móvil del bar.`}
+              {estadoWA === 'conectado' && ' Instancia autorizada y lista para enviar.'}
             </div>
           </div>
           <div style={cardStyle(T)}>
@@ -94,7 +102,6 @@ export default function ConfiguracionInformes() {
             </div>
             <div style={{ fontSize: 12, color: T.mut, lineHeight: 1.5 }}>
               3.000 emails/mes gratis.
-              Remitente: informes@streatlab.com
             </div>
           </div>
         </div>
@@ -113,7 +120,7 @@ export default function ConfiguracionInformes() {
                     {c.nombre}
                   </h3>
                   <div style={{ fontSize: 12, color: T.mut, marginBottom: 6 }}>
-                    Cron: <code style={{ background: T.group, padding: '1px 6px', borderRadius: 3 }}>{c.cron_schedule}</code>
+                    Horario: <code style={{ background: T.group, padding: '1px 6px', borderRadius: 3 }}>{c.cron_schedule}</code>
                   </div>
                   <div style={{ fontSize: 13, color: T.sec, marginBottom: 12 }}>{c.descripcion}</div>
 
@@ -126,22 +133,6 @@ export default function ConfiguracionInformes() {
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* Variables de entorno necesarias */}
-      <section style={{ marginTop: 32 }}>
-        <h2 style={subtitle(T)}>🔑 Variables de entorno (Vercel)</h2>
-        <div style={cardStyle(T)}>
-          <div style={{ fontSize: 13, color: T.sec, lineHeight: 1.7 }}>
-            Para que los envíos funcionen, deben estar configuradas en Vercel:
-            <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-              <li><code style={codeStyle(T)}>WAHA_URL</code> — URL del servidor WAHA en Railway</li>
-              <li><code style={codeStyle(T)}>WAHA_API_KEY</code> — API key de WAHA</li>
-              <li><code style={codeStyle(T)}>RESEND_API_KEY</code> — API key de Resend para emails</li>
-              <li><code style={codeStyle(T)}>SUPABASE_SERVICE_ROLE_KEY</code> — ya configurada</li>
-            </ul>
-          </div>
         </div>
       </section>
     </div>
@@ -176,8 +167,4 @@ function subtitle(T: ReturnType<typeof useTheme>['T']): React.CSSProperties {
 
 function cardStyle(T: ReturnType<typeof useTheme>['T']): React.CSSProperties {
   return { background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, padding: 16 }
-}
-
-function codeStyle(T: ReturnType<typeof useTheme>['T']): React.CSSProperties {
-  return { background: T.group, padding: '1px 6px', borderRadius: 3, fontSize: 12, color: T.pri }
 }
