@@ -79,7 +79,7 @@ const VENTANAS: VentanaInforme[] = [
       return hora === 16 && minuto >= 30
     },
   },
-  // Cierre diario: Lun-Sáb 23:15-23:59 (disparo a las 23:29)
+  // Cierre diario: Lun-Sáb 23:00-23:59 (disparo a las 23:29)
   {
     tipo: 'cierre_diario',
     toca: (n) => {
