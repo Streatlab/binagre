@@ -1,16 +1,16 @@
 /**
  * Módulo Informes — Panel principal
  *
- * Estado de los 4 informes automáticos: cierre diario, cobros lunes,
- * cierre semanal, cierre mensual. Permite enviar manualmente y ver
- * historial reciente.
+ * Estado de los informes automáticos: resumen mañana, pulso tarde,
+ * cierre diario, cobros lunes, cierre semanal, cierre mensual.
+ * Permite enviar manualmente y ver historial reciente.
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 
-type TipoInforme = 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual'
+type TipoInforme = 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual' | 'resumen_manana' | 'pulso'
 
 interface InformeConfig {
   id: string
@@ -36,19 +36,26 @@ interface EnvioReciente {
   created_at: string
 }
 
-const ICONOS: Record<TipoInforme, string> = {
+const ICONOS: Record<string, string> = {
+  resumen_manana: '☀️',
+  pulso: '⏱',
   cierre_diario: '📅',
   cobros_lunes: '💰',
   cierre_semanal: '📊',
   cierre_mensual: '📈',
 }
 
-const HORARIOS_LEGIBLES: Record<TipoInforme, string> = {
-  cierre_diario: 'Lun-Sáb · 23:30',
+const HORARIOS_LEGIBLES: Record<string, string> = {
+  resumen_manana: 'Todos los días · 08:00',
+  pulso: 'Todos los días · 16:30',
+  cierre_diario: 'Lun-Sáb · 23:29',
   cobros_lunes: 'Lunes · 09:00',
   cierre_semanal: 'Domingo · 23:30',
   cierre_mensual: 'Día 1 · 09:00',
 }
+
+// Orden de presentación: cronológico dentro del día
+const ORDEN_TIPOS: string[] = ['resumen_manana', 'cobros_lunes', 'cierre_mensual', 'pulso', 'cierre_diario', 'cierre_semanal']
 
 export default function InformesPanel() {
   const { T } = useTheme()
@@ -67,13 +74,17 @@ export default function InformesPanel() {
     const { data: c } = await supabase
       .from('notif_config')
       .select('*')
-      .order('tipo')
+    const ordenadas = (c || []).sort((a: InformeConfig, b: InformeConfig) => {
+      const ia = ORDEN_TIPOS.indexOf(a.tipo)
+      const ib = ORDEN_TIPOS.indexOf(b.tipo)
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+    })
     const { data: e } = await supabase
       .from('notif_envios')
       .select('id, tipo, destinatario_nombre, canal, destino, estado, enviado_at, created_at')
       .order('created_at', { ascending: false })
       .limit(20)
-    setConfigs(c || [])
+    setConfigs(ordenadas)
     setEnvios(e || [])
     setLoading(false)
   }
@@ -117,7 +128,7 @@ export default function InformesPanel() {
         </p>
       </header>
 
-      {/* Cards de los 4 informes */}
+      {/* Cards de informes */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16, marginBottom: 32 }}>
         {loading && <div style={{ color: T.mut }}>Cargando...</div>}
         {configs.map(c => (
@@ -135,11 +146,11 @@ export default function InformesPanel() {
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 22, marginBottom: 4 }}>{ICONOS[c.tipo]}</div>
+                <div style={{ fontSize: 22, marginBottom: 4 }}>{ICONOS[c.tipo] || '📄'}</div>
                 <h3 style={{ fontFamily: FONT.heading, fontSize: 16, color: T.pri, margin: 0, marginBottom: 4 }}>
                   {c.nombre}
                 </h3>
-                <div style={{ fontSize: 12, color: T.mut }}>{HORARIOS_LEGIBLES[c.tipo]}</div>
+                <div style={{ fontSize: 12, color: T.mut }}>{HORARIOS_LEGIBLES[c.tipo] || c.cron_schedule}</div>
               </div>
               <button
                 onClick={() => toggleActivo(c.id, c.activo)}
@@ -257,7 +268,7 @@ export default function InformesPanel() {
                       {new Date(e.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td style={{ padding: 10, color: T.pri }}>
-                      {ICONOS[e.tipo]} {e.tipo.replace('_', ' ')}
+                      {ICONOS[e.tipo] || '📄'} {e.tipo.replace(/_/g, ' ')}
                     </td>
                     <td style={{ padding: 10, color: T.pri }}>{e.destinatario_nombre || '—'}</td>
                     <td style={{ padding: 10, color: T.sec }}>
