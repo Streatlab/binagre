@@ -1,0 +1,48 @@
+name: Just Eat facturas por correo (diario 04:30 Madrid)
+
+# Las facturas de JE llegan por email a admin@streatlab.com (a menudo a spam).
+# Este robot lee el buzón por IMAP y deja los PDF en la bandeja. Sin navegador,
+# sin WAF. Doble cron verano/invierno con candado por hora real de Madrid.
+# 17-jul: el buzón NO es Microsoft (hosting propio) → JE_MAIL_HOST configurable.
+on:
+  schedule:
+    - cron: "30 2 * * *"   # 04:30 Madrid (verano)
+    - cron: "30 3 * * *"   # 04:30 Madrid (invierno)
+  workflow_dispatch:
+
+jobs:
+  facturas-mail:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Candado horario (solo 04:xx Madrid en cron)
+        id: candado
+        run: |
+          H=$(TZ=Europe/Madrid date +%H)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$H" = "04" ]; then
+            echo "seguir=1" >> $GITHUB_OUTPUT
+          else
+            echo "seguir=0" >> $GITHUB_OUTPUT
+            echo "En Madrid son las $H, no toca."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.candado.outputs.seguir == '1'
+        with:
+          ref: trabajo
+      - uses: actions/setup-node@v4
+        if: steps.candado.outputs.seguir == '1'
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Instalar dependencias
+        if: steps.candado.outputs.seguir == '1'
+        run: npm install --no-audit --no-fund
+      - name: Leer buzón y entregar facturas a la bandeja
+        if: steps.candado.outputs.seguir == '1'
+        env:
+          JE_MAIL_HOST: ${{ secrets.JE_MAIL_HOST }}
+          JE_MAIL_USER: ${{ secrets.JE_MAIL_USER }}
+          JE_MAIL_PASS: ${{ secrets.JE_MAIL_PASS }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/justeat-mail.ts
