@@ -17,8 +17,26 @@
 import { supabaseAdmin } from './supabase-admin.js'
 import type { TipoInforme } from './informes-calculo.js'
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
-const RESEND_FROM = process.env.RESEND_FROM || 'Streat Lab <informes@streatlab.com>'
+// streatlab.com NO está verificado en Resend (el DNS actual no admite los
+// registros TXT/DKIM). Con el remitente onboarding@resend.dev, Resend solo
+// entrega a la dirección dueña de la cuenta (ruben@streatlab.com) — decisión
+// 18-jul-2026: el email es solo para Rubén; Emilio recibe por WhatsApp.
+// Si algún día se verifica el dominio: poner RESEND_FROM en Vercel y listo.
+const RESEND_FROM = process.env.RESEND_FROM || 'Streat Lab <onboarding@resend.dev>'
+
+let resendKeyCache: string | null = null
+
+/** API key de Resend: env var si existe, si no, del vault de Supabase (fn_secreto_resend). */
+async function cargarResendKey(): Promise<string> {
+  if (resendKeyCache) return resendKeyCache
+  let key = process.env.RESEND_API_KEY || ''
+  if (!key) {
+    const { data } = await supabaseAdmin.rpc('fn_secreto_resend')
+    key = (data as string | null) || ''
+  }
+  resendKeyCache = key
+  return key
+}
 
 export interface EnvioResultado {
   enviados: number
@@ -111,8 +129,9 @@ async function enviarWhatsApp(numero: string, texto: string): Promise<{ ok: bool
  * Envía un email vía Resend.
  */
 async function enviarEmail(to: string, asunto: string, contenido: string): Promise<{ ok: boolean; error?: string }> {
-  if (!RESEND_API_KEY) {
-    return { ok: false, error: 'Resend no configurado (falta RESEND_API_KEY)' }
+  const apiKey = await cargarResendKey()
+  if (!apiKey) {
+    return { ok: false, error: 'Resend no configurado (sin key en env ni en vault)' }
   }
   try {
     // Convertir saltos de línea a HTML manteniendo el formato
@@ -140,7 +159,7 @@ async function enviarEmail(to: string, asunto: string, contenido: string): Promi
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         from: RESEND_FROM,
@@ -267,6 +286,6 @@ export async function comprobarWAHA(): Promise<{ conectado: boolean; mensaje?: s
     // 'authorized' = instancia vinculada al WhatsApp del bar y lista para enviar
     return { conectado: estado === 'authorized', mensaje: estado }
   } catch (err) {
-    return { conectado: false, mensaje: (err as Error).message }
+    return { ok: false, conectado: false, mensaje: (err as Error).message } as any
   }
 }
