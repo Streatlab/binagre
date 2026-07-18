@@ -2,8 +2,10 @@ name: Just Eat facturas por correo (diario 04:30 Madrid)
 
 # Las facturas de JE llegan por email a admin@streatlab.com (a menudo a spam).
 # Este robot lee el buzón por IMAP y deja los PDF en la bandeja. Sin navegador,
-# sin WAF. Doble cron verano/invierno con candado por hora real de Madrid.
-# 17-jul: el buzón NO es Microsoft (hosting propio) → JE_MAIL_HOST configurable.
+# sin WAF. BLOQUEO CERO: checkout de trabajo. Doble cron verano/invierno con
+# candado por hora real de Madrid.
+# 17-jul: el buzón NO es Microsoft (hosting propio) → JE_MAIL_HOST configurable
+# (p. ej. mail.streatlab.com) y contraseña normal del buzón, sin app password.
 on:
   schedule:
     - cron: "30 2 * * *"   # 04:30 Madrid (verano)
