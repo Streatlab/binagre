@@ -286,6 +286,6 @@ export async function comprobarWAHA(): Promise<{ conectado: boolean; mensaje?: s
     // 'authorized' = instancia vinculada al WhatsApp del bar y lista para enviar
     return { conectado: estado === 'authorized', mensaje: estado }
   } catch (err) {
-    return { ok: false, conectado: false, mensaje: (err as Error).message } as any
+    return { conectado: false, mensaje: (err as Error).message }
   }
 }
