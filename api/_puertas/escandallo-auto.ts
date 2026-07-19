@@ -1,9 +1,5 @@
 // escandallo-auto — ESCANDALLO 2.0 (Fases A y C)
 // A) Extracción de líneas de UNA factura de materia prima desde el PDF en Drive.
-//    Procesado SÍNCRONO de 1 sola factura: baja el PDF, lo manda a visión,
-//    valida ±0,05€ e inserta líneas (el trigger de BBDD vincula/pre-crea
-//    ingredientes, actualiza precios y recalcula escandallos). Con 1 factura
-//    cabe de sobra en el tiempo de la función; SIEMPRE responde JSON.
 // C) Lectura por foto del conteo de inventario quincenal → inventario_lineas.
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { google } from 'googleapis'
@@ -49,6 +45,11 @@ async function estado(res: VercelResponse) {
     alertas_pendientes: alertas.count ?? 0,
     estructura_real: estr.data ?? null,
     drive_conectado: (drive.count ?? 0) > 0,
+    env: {
+      client_id: !!process.env.GOOGLE_OAUTH_CLIENT_ID,
+      client_secret: !!process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+      anthropic: !!process.env.ANTHROPIC_API_KEY,
+    },
   })
 }
 
