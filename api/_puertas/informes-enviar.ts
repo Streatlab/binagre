@@ -20,8 +20,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const body = (req.body || {}) as { tipo?: string; canales?: { whatsapp?: boolean; email?: boolean } }
+  const body = (req.body || {}) as { tipo?: string; canales?: { whatsapp?: boolean; email?: boolean }; destinatarioIds?: string[] }
   const tipo = body.tipo as TipoInforme | undefined
+  const destinatarioIds = Array.isArray(body.destinatarioIds) ? body.destinatarioIds : undefined
 
   if (!tipo || !TIPOS_VALIDOS.includes(tipo)) {
     return res.status(400).json({ error: 'Tipo de informe inválido', validos: TIPOS_VALIDOS })
@@ -38,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const contenido = await calcularInforme(tipo)
-    const resultado = await despacharInforme(tipo, contenido, canales)
+    const resultado = await despacharInforme(tipo, contenido, canales, destinatarioIds)
     return res.status(200).json({
       tipo,
       enviados: resultado.enviados,
