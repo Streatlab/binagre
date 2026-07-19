@@ -14,11 +14,13 @@
  *        (parsers Uber/Glovo/JustEat/Sinqro/Rushour → ventas_plataforma,
  *         uber_liquidaciones, pedidos_operativa, productos vendidos, ...)
  *   3. Marca la fila: estado='procesado' (+destino_id si hay factura) o
- *      estado='sin_parser' si el ERP no reconoce el formato (LEY-ANTIFALSOS:
- *      mejor hueco visible que dato inventado; se revisa a mano).
+ *      estado='pendiente_revision' si el ERP no reconoce el formato
+ *      (LEY-ANTIFALSOS: mejor hueco visible que dato inventado; se revisa a
+ *      mano y se amplían parsers). OJO: el check de imports_log solo admite
+ *      pendiente | procesado | pendiente_revision | error.
  *
  * Idempotente: solo toca filas estado='pendiente'. Reintentos: las filas
- * 'error' de red se quedan en 'pendiente' (detalle.intentos++) hasta 5.
+ * con error de red se quedan en 'pendiente' (detalle.intentos_enchufe++) hasta 5.
  *
  * env: ERP_URL (por defecto producción), LOTE (máx filas por pasada).
  */
@@ -103,7 +105,7 @@ async function procesarFactura(fila: Fila, buffer: Buffer): Promise<'ok' | 'sin_
     await log(P, 'ok', `${fila.archivo_nombre} → facturas (${estado}${facturaId ? ` · ${facturaId.slice(0, 8)}` : ''})`);
     return 'ok';
   }
-  await marcar(fila, 'sin_parser', 'facturas', null, json);
+  await marcar(fila, 'pendiente_revision', 'facturas', null, json);
   await log(P, 'sin_parser', `${fila.archivo_nombre} → motor facturas no lo aceptó (${estado || status})`);
   return 'sin_parser';
 }
@@ -123,7 +125,7 @@ async function procesarInforme(fila: Fila, buffer: Buffer): Promise<'ok' | 'sin_
     return 'ok';
   }
   // El ERP respondió pero no reconoce el formato → se deja visible para revisión.
-  await marcar(fila, 'sin_parser', fila.destino_modulo || 'ventas', null, {
+  await marcar(fila, 'pendiente_revision', fila.destino_modulo || 'ventas', null, {
     plataforma: json.plataforma || null, mensaje: json.mensaje || null,
   });
   await log(P, 'sin_parser', `${fila.archivo_nombre}: ${String(json.mensaje || 'formato no reconocido').slice(0, 140)}`);
