@@ -46,7 +46,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (a === 'ocr-cleanup') return ocrCleanup(req, res)
   if (a === 'titulares') return titulares(req, res)
   if (a === 'conciliacion' && b === 'importar-emilio') return conciliacionImportarEmilio(req, res)
-  if (a === 'importar' && b === 'plataforma') return importarPlataforma(req, res)
+  // 19-jul: el catch-all de este proyecto no captura el 2º segmento en algunos
+  // deployments (mismo bug que escandallo-auto) → alias de 1 segmento:
+  // POST /api/papeleo/importar equivale a /api/papeleo/importar/plataforma.
+  if (a === 'importar' && (b === 'plataforma' || !b)) return importarPlataforma(req, res)
   if (a === 'escandallo-auto') {
     if (b) req.query.action = b
     return escandalloAuto(req, res)
