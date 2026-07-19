@@ -220,11 +220,15 @@ const FLAG_INFORME: Record<TipoInforme, string> = {
  * canalesForzados (opcional): si se pasa desde el envío manual, ignora la
  * config guardada y usa exactamente los canales elegidos por el usuario
  * (p.ej. { whatsapp: true, email: false } al pulsar "Enviar ahora · WhatsApp").
+ *
+ * destinatarioIds (opcional): si se pasa desde el modal de envío manual,
+ * limita el envío a esos destinatarios concretos.
  */
 export async function despacharInforme(
   tipo: TipoInforme,
   contenido: { asunto: string; contenido_whatsapp: string; contenido_email: string },
   canalesForzados?: { whatsapp?: boolean; email?: boolean },
+  destinatarioIds?: string[],
 ): Promise<EnvioResultado> {
   // Cargar config para saber qué canales están activos
   const { data: config } = await supabaseAdmin
@@ -238,11 +242,16 @@ export async function despacharInforme(
 
   // Cargar destinatarios activos que reciben este tipo de informe
   const flag = FLAG_INFORME[tipo]
-  const { data: destinatarios } = await supabaseAdmin
+  let q = supabaseAdmin
     .from('notif_destinatarios')
     .select('id, nombre, whatsapp, email, canal_whatsapp, canal_email')
     .eq('activo', true)
     .eq(flag, true)
+  // Envío manual con selección: limitar a los destinatarios elegidos en el modal
+  if (destinatarioIds && destinatarioIds.length > 0) {
+    q = q.in('id', destinatarioIds)
+  }
+  const { data: destinatarios } = await q
 
   const detalle: EnvioResultado['detalle'] = []
   let enviados = 0
