@@ -27,6 +27,10 @@
  * CSV") y el de re-pedir es "Solicitar de nuevo". La lista tiene 3 páginas.
  * Se corrigen los selectores para que reconozcan el DOM real.
  *
+ * 19-jul (2): la semana debe cerrar con LOS DOS informes con nombre (Resumen de
+ * ganancias + Detalles a nivel de artículo): se bajan todas las disponibles y
+ * el objetivo solo se da por hecho con >= 2 descargas.
+ *
  * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM).
  */
 import type { Page, BrowserContext } from 'playwright';
@@ -206,14 +210,18 @@ async function crearReporte(page: Page, periodo: string): Promise<boolean> {
   return true;
 }
 
-/** INFORMES: pedir y volver cuando Uber los tenga listos. Devuelve si bajó algo. */
+/** INFORMES: pedir y volver cuando Uber los tenga listos. Devuelve si bajó lo esperado. */
 async function informes(page: Page, periodo: string): Promise<boolean> {
   await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(8000);
   await quitarEstorbos(page);
 
-  if (await bajarFilaDisponible(page, 'uber_informe', periodo, 'ventas')) return true;
+  // 19-jul (Ruben): deben bajar LOS DOS informes de la semana (Resumen de
+  // ganancias + Detalles a nivel de articulo). Se bajan TODAS las disponibles;
+  // con menos de 2 se sigue y se piden de nuevo (repetir peticion es inofensivo).
+  let bajadas = await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas', 5);
+  if (bajadas >= 2) return true;
 
   // 18-jul DIAGNÓSTICO: si llegamos aquí habiendo pedido el informe en pasadas
   // anteriores, es que el selector de la fila lista no casa con el DOM real.
@@ -240,7 +248,7 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
         await log(P, 'sin_descarga', 'informes: ni descarga, ni re-solicitar, ni pude crear el reporte (DOM volcado)');
         return false;
       }
-      pedidos = 1;
+      pedidos = 2; // crearReporte marca DOS informes (resumen + nivel articulo)
     }
   }
   // 18-jul (Ruben: Uber tarda MINUTOS, no horas): reintentos cortos volviendo a
@@ -249,14 +257,13 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
   // siguiente pasada lo baja (ya estara "Disponible").
   await log(P, 'aviso', `${pedidos} informe(s) solicitados; reintento la descarga cada 45s durante ~6 min`);
 
-  let bajadas = 0;
   for (let vuelta = 0; vuelta < 8; vuelta++) {
     await page.waitForTimeout(45000);
     await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForTimeout(6000);
     await quitarEstorbos(page);
     bajadas += await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas');
-    if (bajadas >= pedidos) return true;
+    if (bajadas >= Math.max(pedidos, 2)) return true;
   }
   if (bajadas > 0) return true;
   // 18-jul DIAGNÓSTICO: volcado también al agotar los reintentos, con la lista tal cual quedó.

@@ -1,0 +1,39 @@
+name: Procesar bandeja (imports_log → módulos ERP)
+
+# El enchufe: recoge lo que los robots dejan en la bandeja y lo mete en sus
+# módulos (facturas → motor OCR; informes → parsers de plataformas).
+# En trabajo se dispara al tocar ESTE yml (palanca de prueba sin dispatch);
+# el horario definitivo vive en master (BLOQUEO CERO: yml en master, código en trabajo).
+# palanca: 3
+
+on:
+  workflow_dispatch:
+    inputs:
+      lote:
+        description: "Máx filas por pasada"
+        type: string
+        default: "40"
+  push:
+    branches: [trabajo]
+    paths:
+      - ".github/workflows/procesar-bandeja.yml"
+
+jobs:
+  enchufe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: trabajo
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Procesar bandeja
+        env:
+          LOTE: ${{ github.event.inputs.lote || '40' }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/procesar-bandeja.ts

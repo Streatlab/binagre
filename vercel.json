@@ -49,6 +49,10 @@
       "destination": "/api/papeleo/titulares"
     },
     {
+      "source": "/api/papeleo/escandallo-auto/:accion",
+      "destination": "/api/papeleo/escandallo-auto?action=:accion"
+    },
+    {
       "source": "/api/conciliacion/:ruta*",
       "destination": "/api/papeleo/conciliacion/:ruta*"
     },
@@ -112,11 +116,7 @@
     },
     {
       "path": "/api/informes/cron",
-      "schedule": "29 21 * * 1-6"
-    },
-    {
-      "path": "/api/informes/cron",
-      "schedule": "30 21 * * 0"
+      "schedule": "29 21 * * *"
     }
   ],
   "functions": {
