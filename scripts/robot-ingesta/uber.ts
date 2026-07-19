@@ -28,13 +28,15 @@
  * Se corrigen los selectores para que reconozcan el DOM real.
  *
  * 19-jul (2): la semana debe cerrar con LOS DOS informes con nombre (Resumen de
- * ganancias + Detalles a nivel de artículo): se bajan todas las disponibles y
- * el objetivo solo se da por hecho con >= 2 descargas.
+ * ganancias + Detalles a nivel de artículo). El éxito se mide contra la BANDEJA
+ * (>= 2 uber_informe DISTINTOS del periodo en imports_log), no contra clics:
+ * un duplicado re-descargado contaba doble y daba un "conseguido" falso.
+ * Para pedir, se usa SIEMPRE "Crear un reporte" con los dos tipos marcados.
  *
  * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM).
  */
 import type { Page, BrowserContext } from 'playwright';
-import { entregar, log, volcar, hoyMadrid, latido, objetivoPendiente, registrarIntento, marcarConseguido } from './_lib/bandeja.js';
+import { sb, entregar, log, volcar, hoyMadrid, latido, objetivoPendiente, registrarIntento, marcarConseguido } from './_lib/bandeja.js';
 import { cuentasDe, esperarCodigo, guardarSesion, type Cuenta } from './_lib/portal.js';
 import { abrir, quitarEstorbos, capturar, descargarDeLaPagina } from './_lib/navegador.js';
 import { semanaCerrada, mesCerrado, diaSemanaMadrid, diaMesMadrid } from './_lib/periodos.js';
@@ -106,6 +108,7 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
 
 /**
  * Baja TODAS las filas con estado Disponible de la página actual (hasta un tope).
+ * Devuelve solo las entregas NUEVAS en bandeja (los duplicados no cuentan).
  */
 async function bajarFilasDisponibles(page: Page, tipo: string, periodo: string, destino: string, tope = 5): Promise<number> {
   const directos = page.locator('button[aria-label="Descarga CSV"], button[aria-label="Descargar"], a[aria-label="Descargar"], button[aria-label="Download"]')
@@ -114,16 +117,17 @@ async function bajarFilasDisponibles(page: Page, tipo: string, periodo: string, 
     // 19-jul (DOM real): el boton final dice "Descarga CSV"; se mantiene "Descargar archivo CSV" por compatibilidad.
     .or(page.locator('button, a, [role="button"]').filter({ hasText: /descarga\s*csv|descargar archivo csv/i }));
   const nd = Math.min(await directos.count().catch(() => 0), tope);
-  let bajadas = 0;
+  let bajadas = 0;      // solo entregas NUEVAS en bandeja (19-jul: el duplicado contaba doble)
+  let capturadas = 0;   // ficheros bajados aunque fuesen duplicados
   for (let i = 0; i < nd; i++) {
     const f = await capturar(page, P, async () => { await directos.nth(i).click({ timeout: 6000 }).catch(() => {}); }, 90);
     if (f) {
-      await entregar({ fuente: P, tipo, nombre: f.nombre, datos: f.datos, periodo, destino });
-      await log(P, 'descarga', `${tipo}: ${f.nombre} (${f.datos.length} bytes)`);
-      bajadas++;
+      capturadas++;
+      const nuevo = await entregar({ fuente: P, tipo, nombre: f.nombre, datos: f.datos, periodo, destino });
+      if (nuevo) { await log(P, 'descarga', `${tipo}: ${f.nombre} (${f.datos.length} bytes)`); bajadas++; }
     }
   }
-  if (bajadas > 0) return bajadas;
+  if (capturadas > 0) return bajadas;
 
   let filas = page.locator('tr, [role="row"]').filter({ has: page.locator('button, a, [role="button"]').filter({ hasText: RE_DESCARGAR }) });
   if (!(await filas.count().catch(() => 0))) filas = page.locator('tr, [role="row"]').filter({ hasText: RE_DISPONIBLE });
@@ -141,12 +145,22 @@ async function bajarFilasDisponibles(page: Page, tipo: string, periodo: string, 
       if (await desc.count().catch(() => 0)) await desc.click({ timeout: 6000 }).catch(() => {});
     }, 90);
     if (f) {
-      await entregar({ fuente: P, tipo, nombre: f.nombre, datos: f.datos, periodo, destino });
-      await log(P, 'descarga', `${tipo}: ${f.nombre} (${f.datos.length} bytes)`);
-      bajadas++;
+      const nuevo = await entregar({ fuente: P, tipo, nombre: f.nombre, datos: f.datos, periodo, destino });
+      if (nuevo) { await log(P, 'descarga', `${tipo}: ${f.nombre} (${f.datos.length} bytes)`); bajadas++; }
     }
   }
   return bajadas;
+}
+
+/** ¿Cuántos uber_informe de este periodo hay YA en la bandeja? (verdad = bandeja, no clics) */
+async function informesEnBandeja(periodo: string): Promise<number> {
+  try {
+    const { count } = await sb.from('imports_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('tipo_detectado', 'uber_informe')
+      .filter('detalle->>periodo', 'eq', periodo);
+    return count || 0;
+  } catch { return 0; }
 }
 
 async function bajarFilaDisponible(page: Page, tipo: string, periodo: string, destino: string): Promise<boolean> {
@@ -210,7 +224,7 @@ async function crearReporte(page: Page, periodo: string): Promise<boolean> {
   return true;
 }
 
-/** INFORMES: pedir y volver cuando Uber los tenga listos. Devuelve si bajó lo esperado. */
+/** INFORMES: pedir y volver cuando Uber los tenga listos. Éxito = >=2 informes del periodo en la bandeja. */
 async function informes(page: Page, periodo: string): Promise<boolean> {
   await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
@@ -220,52 +234,43 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
   // 19-jul (Ruben): deben bajar LOS DOS informes de la semana (Resumen de
   // ganancias + Detalles a nivel de articulo). Se bajan TODAS las disponibles;
   // con menos de 2 se sigue y se piden de nuevo (repetir peticion es inofensivo).
-  let bajadas = await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas', 5);
-  if (bajadas >= 2) return true;
+  await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas', 5);
+  if ((await informesEnBandeja(periodo)) >= 2) return true;
 
   // 18-jul DIAGNÓSTICO: si llegamos aquí habiendo pedido el informe en pasadas
   // anteriores, es que el selector de la fila lista no casa con el DOM real.
   // Se vuelca la lista para leerla en robot_debug y clavar el selector.
   await volcar('uber_lista_informes', await page.content().catch(() => ''));
 
-  const RE_INFORMES_UTILES = /detalles del pago|payment details|resumen de pagos|pagos|payment summary|ganancias|earnings|historial de pedidos|order history/i;
-  const filasUtiles = page.locator('tr, [role="row"]').filter({ hasText: RE_INFORMES_UTILES });
-  const nUtiles = Math.min(await filasUtiles.count().catch(() => 0), 3);
-  let pedidos = 0;
-  for (let i = 0; i < nUtiles; i++) {
-    const b = filasUtiles.nth(i).locator('button[aria-label="Solicitar de nuevo"], button, [role="button"]').filter({ hasText: RE_RESOLICITAR }).first();
-    if (await b.count().catch(() => 0)) { await b.click({ timeout: 8000 }).catch(() => {}); pedidos++; await page.waitForTimeout(1500); }
-  }
-  if (!pedidos) {
+  // 19-jul: para la semana se piden SIEMPRE los dos informes con nombre via
+  // "Crear un reporte" (Resumen de ganancias + Detalles nivel articulo, semana
+  // pasada, todas las tiendas). "Solicitar de nuevo" queda solo de emergencia:
+  // re-pide informes viejos con otros rangos y no garantiza los dos de la semana.
+  if (!(await crearReporte(page, periodo))) {
     const rehacer = page.getByRole('button', { name: RE_RESOLICITAR }).first()
       .or(page.locator('button[aria-label="Solicitar de nuevo"], button, [role="button"]').filter({ hasText: RE_RESOLICITAR }).first());
-    if (await rehacer.count().catch(() => 0)) {
-      await rehacer.click({ timeout: 8000 }).catch(() => {});
-      pedidos = 1;
-    } else {
-      if (!(await crearReporte(page, periodo))) {
-        await volcar(`${P}_informes`, await page.content().catch(() => ''));
-        await log(P, 'sin_descarga', 'informes: ni descarga, ni re-solicitar, ni pude crear el reporte (DOM volcado)');
-        return false;
-      }
-      pedidos = 2; // crearReporte marca DOS informes (resumen + nivel articulo)
+    if (await rehacer.count().catch(() => 0)) await rehacer.click({ timeout: 8000 }).catch(() => {});
+    else {
+      await volcar(`${P}_informes`, await page.content().catch(() => ''));
+      await log(P, 'sin_descarga', 'informes: ni crear reporte ni re-solicitar (DOM volcado)');
+      return false;
     }
   }
   // 18-jul (Ruben: Uber tarda MINUTOS, no horas): reintentos cortos volviendo a
   // la lista y descargando, en vez de una espera bloqueante que agota el runner.
   // 8 vueltas x 45s = 6 min; si a los 6 min no esta, se deja pedido y la
   // siguiente pasada lo baja (ya estara "Disponible").
-  await log(P, 'aviso', `${pedidos} informe(s) solicitados; reintento la descarga cada 45s durante ~6 min`);
+  await log(P, 'aviso', 'informes de la semana solicitados; reintento la descarga cada 45s durante ~6 min');
 
   for (let vuelta = 0; vuelta < 8; vuelta++) {
     await page.waitForTimeout(45000);
     await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForTimeout(6000);
     await quitarEstorbos(page);
-    bajadas += await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas');
-    if (bajadas >= Math.max(pedidos, 2)) return true;
+    await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas');
+    if ((await informesEnBandeja(periodo)) >= 2) return true;
   }
-  if (bajadas > 0) return true;
+  if ((await informesEnBandeja(periodo)) >= 2) return true;
   // 18-jul DIAGNÓSTICO: volcado también al agotar los reintentos, con la lista tal cual quedó.
   await volcar('uber_lista_informes_fin', await page.content().catch(() => ''));
   await log(P, 'aviso', 'el informe seguía preparándose tras ~6 min; se bajará en la próxima pasada (ya quedó pedido)');
@@ -413,8 +418,8 @@ async function trabajarCuenta(c: Cuenta) {
     const sem = semanaCerrada();
     if (await objetivoPendiente(P, sem.periodo, 'informes_semanales')) {
       const huboDescarga = await informes(page, sem.periodo);
-      if (huboDescarga) await marcarConseguido(P, sem.periodo, 'informes_semanales', `${c.cuenta}: descargado`);
-      else await registrarIntento(P, sem.periodo, 'informes_semanales', `${c.cuenta}: aún sin "Disponible"`);
+      if (huboDescarga) await marcarConseguido(P, sem.periodo, 'informes_semanales', `${c.cuenta}: los 2 informes en bandeja`);
+      else await registrarIntento(P, sem.periodo, 'informes_semanales', `${c.cuenta}: aún sin los 2 informes`);
     }
 
     const diaSem = diaSemanaMadrid();
