@@ -244,20 +244,20 @@ export default function Documentacion() {
           <span style={eyebrow(CLARO)}>Finanzas · Documentos</span>
           <h2 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '8px 0 0 0' }}>PAPELEO</h2>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
-          <SelectorFechaUniversal
-            nombreModulo="documentacion"
-            defaultOpcion="este_mes"
-            onChange={(dd, h) => { setDesde(dd); setHasta(h) }}
-          />
-          <ResolverPendientes onDone={() => setReloadTick(x => x + 1)} />
-        </div>
+        <SelectorFechaUniversal
+          nombreModulo="documentacion"
+          defaultOpcion="este_mes"
+          onChange={(dd, h) => { setDesde(dd); setHasta(h) }}
+        />
       </div>
 
       <FraseCabecera kpi={kpi} />
       <CardsPapeleo kpi={kpi} pendienteTi={pendienteTi} enProceso={enProceso} onIrAPendientes={() => cambiar('bandeja')} />
 
-      <TabsNeo tab={tab} onChange={cambiar} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
+        <TabsNeo tab={tab} onChange={cambiar} />
+        <ResolverPendientes onDone={() => setReloadTick(x => x + 1)} />
+      </div>
 
       <Suspense fallback={<div style={{ padding: 24, color: GRIS, fontFamily: LEX }}>Cargando…</div>}>
         {tab === 'bandeja' && <BandejaEntrada desde={desdeStr} hasta={hastaStr} onProcesado={() => setReloadTick(x => x + 1)} />}
