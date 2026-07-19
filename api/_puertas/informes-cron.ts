@@ -4,17 +4,17 @@
  * Endpoint llamado por Vercel Cron. Decide qué informes enviar según
  * día/hora actual en Madrid y los despacha.
  *
- * Los crons de vercel.json se programan en UTC. Para cubrir invierno (UTC+1)
- * y verano (UTC+2) cada informe tiene DOS disparos UTC; la ventana horaria
- * de Madrid de aquí abajo filtra y solo uno de los dos coincide.
- *
- * Horarios Madrid:
- *  - resumen_manana: todos los días 08:00 (email)
- *  - cobros_lunes:   lunes 09:00
- *  - cierre_mensual: día 1, 09:00
+ * Consolidado (jul 2026):
+ *  - resumen_manana: todos los días 08:00 (email). Los LUNES incluye además los
+ *    cobros de la semana, y el DÍA 1 de mes incluye el cierre mensual — todo en
+ *    el mismo correo, sin envíos extra a las 09:00.
  *  - pulso:          todos los días 16:30 (WhatsApp)
  *  - cierre_diario:  lun-sáb 23:29 (WhatsApp)
- *  - cierre_semanal: domingo 23:30
+ *  - cierre_semanal: domingo 23:30 — lleva el cierre del propio domingo + la semana
+ *
+ * Los crons de vercel.json se programan en UTC, ajustados a hora de VERANO. En el
+ * cambio de hora se desplazan 1h: por eso, la VÍSPERA del cambio, este endpoint
+ * añade a los informes un aviso para reajustar (ver esVisperaCambioHora).
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { calcularInforme, type TipoInforme } from '../_lib/informes-calculo.js'
@@ -46,29 +46,43 @@ function horaMadrid(d: Date): { dia: number; hora: number; minuto: number; diaMe
   return { dia: localDay, hora: hh, minuto: mm, diaMes }
 }
 
+// ── Aviso de cambio de hora ────────────────────────────────────────────────
+// Devuelve la fecha (Madrid) de un Date como {y,m,day}
+function madridYMD(d: Date): { y: number; m: number; day: number } {
+  const s = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d)
+  const [y, m, day] = s.split('-').map(Number)
+  return { y, m, day }
+}
+// Día (1-31) del último domingo del mes m (1-12) del año y
+function ultimoDomingo(y: number, m: number): number {
+  const ultDia = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  const dowUlt = new Date(Date.UTC(y, m - 1, ultDia)).getUTCDay() // 0=domingo
+  return ultDia - dowUlt
+}
+// ¿Mañana (Madrid) es el último domingo de marzo o de octubre? = cambio de hora en la UE
+function esVisperaCambioHora(ahora: Date): boolean {
+  const manana = new Date(ahora.getTime() + 24 * 3600 * 1000)
+  const { y, m, day } = madridYMD(manana)
+  if (m !== 3 && m !== 10) return false
+  return day === ultimoDomingo(y, m)
+}
+const LINEA_AVISO_DST = [
+  '',
+  '━━━━━━━━━━━━━━━━━',
+  '⏰ *OJO: mañana cambia la hora en España.*',
+  'Los informes están fijados a hora de verano; avisa a Claude para',
+  'reajustar los horarios (o pasar a Vercel Pro y dejarlo clavado todo el año).',
+].join('\n')
+
 const VENTANAS: VentanaInforme[] = [
-  // Resumen de la mañana: todos los días, 08:00-08:29
+  // Resumen de la mañana: todos los días, 08:00-08:29 (los lunes lleva cobros; el día 1, cierre mensual)
   {
     tipo: 'resumen_manana',
     toca: (n) => {
       const { hora, minuto } = horaMadrid(n)
       return hora === 8 && minuto < 30
-    },
-  },
-  // Cobros lunes: Lunes 09:00-09:29
-  {
-    tipo: 'cobros_lunes',
-    toca: (n) => {
-      const { dia, hora, minuto } = horaMadrid(n)
-      return dia === 1 && hora === 9 && minuto < 30
-    },
-  },
-  // Cierre mensual: Día 1 del mes, 09:00-09:29
-  {
-    tipo: 'cierre_mensual',
-    toca: (n) => {
-      const { hora, minuto, diaMes } = horaMadrid(n)
-      return diaMes === 1 && hora === 9 && minuto < 30
     },
   },
   // Pulso de la tarde: todos los días, 16:30-16:59
@@ -87,7 +101,7 @@ const VENTANAS: VentanaInforme[] = [
       return dia >= 1 && dia <= 6 && hora === 23
     },
   },
-  // Cierre semanal: Domingo 23:00-23:59 (disparo a las 23:30)
+  // Cierre semanal: Domingo 23:00-23:59 (disparo a las 23:30) — incluye el cierre del domingo
   {
     tipo: 'cierre_semanal',
     toca: (n) => {
@@ -128,10 +142,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
     .map(c => c.tipo as TipoInforme)
 
+  const avisoDST = esVisperaCambioHora(ahora)
+
   const resultados: any[] = []
   for (const tipo of activos) {
     try {
       const contenido = await calcularInforme(tipo)
+      if (avisoDST) {
+        contenido.contenido_whatsapp += `\n${LINEA_AVISO_DST}`
+        contenido.contenido_email += `\n${LINEA_AVISO_DST}`
+      }
       const r = await despacharInforme(tipo, contenido)
       resultados.push({ tipo, ...r })
     } catch (err) {
@@ -139,5 +159,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  return res.status(200).json({ ok: true, ahora: ahora.toISOString(), tocan, activos, resultados })
+  return res.status(200).json({ ok: true, ahora: ahora.toISOString(), tocan, activos, aviso_cambio_hora: avisoDST, resultados })
 }
