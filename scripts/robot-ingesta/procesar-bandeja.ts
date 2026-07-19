@@ -68,25 +68,32 @@ async function reintentoOtroDia(fila: Fila, motivo: string) {
   }).eq('id', fila.id);
 }
 
-async function post(ruta: string, body: unknown): Promise<{ status: number; json: Record<string, unknown> | null }> {
-  const r = await fetch(`${ERP}${ruta}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  let json: Record<string, unknown> | null = null;
-  try { json = await r.json() as Record<string, unknown>; } catch { /* respuesta no-JSON */ }
-  return { status: r.status, json };
+async function post(ruta: string, body: unknown): Promise<{ status: number; json: Record<string, unknown> | null; texto: string }> {
+  // 19-jul: hasta 3 intentos con espera (la primera pasada cayó en 39/40 con
+  // respuesta no-JSON: rate limit / challenge). Se guarda status+cuerpo para diagnosticar.
+  for (let intento = 1; ; intento++) {
+    const r = await fetch(`${ERP}${ruta}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const texto = await r.text().catch(() => '');
+    let json: Record<string, unknown> | null = null;
+    try { json = JSON.parse(texto) as Record<string, unknown>; } catch { /* respuesta no-JSON */ }
+    const transitorio = r.status === 429 || r.status >= 500 || json === null;
+    if (!transitorio || intento >= 3) return { status: r.status, json, texto: texto.slice(0, 160) };
+    await new Promise((ok) => setTimeout(ok, 4000 * intento));
+  }
 }
 
 async function procesarFactura(fila: Fila, buffer: Buffer): Promise<'ok' | 'sin_parser' | 'red'> {
-  const { status, json } = await post('/api/papeleo/facturas?action=upload', {
+  const { status, json, texto } = await post('/api/papeleo/facturas?action=upload', {
     nombre: fila.archivo_nombre,
     base64: buffer.toString('base64'),
     mimeType: mimeDe(fila.archivo_nombre),
     sesionId: `bandeja-${fila.id.slice(0, 8)}`,
   });
-  if (status >= 500 || json === null) return 'red';
+  if (status >= 500 || status === 429 || json === null) { await reintentoOtroDia(fila, `HTTP ${status}: ${texto}`); return 'red'; }
   const estado = String(json.estado || '');
   const facturaId = (json.factura_id as string)
     || ((json.factura_existente as Record<string, unknown> | undefined)?.id as string)
@@ -102,12 +109,12 @@ async function procesarFactura(fila: Fila, buffer: Buffer): Promise<'ok' | 'sin_
 }
 
 async function procesarInforme(fila: Fila, buffer: Buffer): Promise<'ok' | 'sin_parser' | 'red'> {
-  const { status, json } = await post('/api/papeleo/importar/plataforma', {
+  const { status, json, texto } = await post('/api/papeleo/importar/plataforma', {
     nombre: fila.archivo_nombre,
     base64: buffer.toString('base64'),
     mimeType: mimeDe(fila.archivo_nombre),
   });
-  if (status >= 500 || json === null) return 'red';
+  if (status >= 500 || status === 429 || json === null) { await reintentoOtroDia(fila, `HTTP ${status}: ${texto}`); return 'red'; }
   if (json.ok === true) {
     await marcar(fila, 'procesado', 'ventas', null, {
       tipo: json.tipo_detectado || null, plataforma: json.plataforma || null, mensaje: json.mensaje || null,
@@ -145,6 +152,7 @@ async function main() {
 
   let ok = 0, sinParser = 0, red = 0;
   for (const fila of filas) {
+    await new Promise((okk) => setTimeout(okk, 1200));
     const buffer = await bajarDelBucket(fila.archivo_url);
     if (!buffer) { await reintentoOtroDia(fila, 'no pude bajar el fichero del bucket'); red++; continue; }
     try {
@@ -153,7 +161,7 @@ async function main() {
         : await procesarInforme(fila, buffer);
       if (r === 'ok') ok++;
       else if (r === 'sin_parser') sinParser++;
-      else { await reintentoOtroDia(fila, 'error de red/5xx del ERP'); red++; }
+      else { red++; }
     } catch (e) {
       await reintentoOtroDia(fila, e instanceof Error ? e.message : String(e));
       red++;
