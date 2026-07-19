@@ -112,11 +112,7 @@
     },
     {
       "path": "/api/informes/cron",
-      "schedule": "29 21 * * 1-6"
-    },
-    {
-      "path": "/api/informes/cron",
-      "schedule": "30 21 * * 0"
+      "schedule": "29 21 * * *"
     }
   ],
   "functions": {
