@@ -22,6 +22,11 @@
  * casa con el DOM real. Ahora se vuelca SIEMPRE la lista (uber_lista_informes)
  * cuando no se reconoce nada, para leer el DOM real y clavar el selector.
  *
+ * 19-jul: leído el DOM real (robot_debug/uber_lista_informes). El botón de
+ * descarga de Uber es aria-label/texto "Descarga CSV" (no "Descargar archivo
+ * CSV") y el de re-pedir es "Solicitar de nuevo". La lista tiene 3 páginas.
+ * Se corrigen los selectores para que reconozcan el DOM real.
+ *
  * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM).
  */
 import type { Page, BrowserContext } from 'playwright';
@@ -40,6 +45,10 @@ const RE_CORREO = /correo electr[oó]nico|email|e-mail/i;
 const RE_SEGUIR = /^(continuar|siguiente|continue|next|acceder|iniciar sesi[oó]n|verificar)$/i;
 const RE_DESCARGAR = /descargar|download/i;
 const RE_DISPONIBLE = /disponible|available|listo|ready/i;
+// 19-jul: el boton real de Uber es "Descarga CSV" (aria-label y texto).
+const RE_DESC_CSV = /descarga(r)?\s*(archivo\s*)?csv|^\s*descargar\s*$/i;
+// 19-jul: el boton real de re-pedir es "Solicitar de nuevo".
+const RE_RESOLICITAR = /solicitar de nuevo|volver a solicitar|request again/i;
 
 async function dentro(page: Page): Promise<boolean> {
   const u = page.url();
@@ -95,11 +104,11 @@ async function entrar(page: Page, ctx: BrowserContext, c: Cuenta): Promise<boole
  * Baja TODAS las filas con estado Disponible de la página actual (hasta un tope).
  */
 async function bajarFilasDisponibles(page: Page, tipo: string, periodo: string, destino: string, tope = 5): Promise<number> {
-  const directos = page.locator('button[aria-label="Descargar"], a[aria-label="Descargar"], button[aria-label="Download"]')
-    .or(page.getByRole('button', { name: /^\s*descargar( archivo( csv)?)?\s*$/i }))
-    .or(page.getByRole('link', { name: /^\s*descargar( archivo( csv)?)?\s*$/i }))
-    // 17-jul (captura de Ruben): en el centro de informes el boton final dice "Descargar archivo CSV".
-    .or(page.locator('button, a, [role="button"]').filter({ hasText: /descargar archivo csv/i }));
+  const directos = page.locator('button[aria-label="Descarga CSV"], button[aria-label="Descargar"], a[aria-label="Descargar"], button[aria-label="Download"]')
+    .or(page.getByRole('button', { name: RE_DESC_CSV }))
+    .or(page.getByRole('link', { name: RE_DESC_CSV }))
+    // 19-jul (DOM real): el boton final dice "Descarga CSV"; se mantiene "Descargar archivo CSV" por compatibilidad.
+    .or(page.locator('button, a, [role="button"]').filter({ hasText: /descarga\s*csv|descargar archivo csv/i }));
   const nd = Math.min(await directos.count().catch(() => 0), tope);
   let bajadas = 0;
   for (let i = 0; i < nd; i++) {
@@ -216,12 +225,12 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
   const nUtiles = Math.min(await filasUtiles.count().catch(() => 0), 3);
   let pedidos = 0;
   for (let i = 0; i < nUtiles; i++) {
-    const b = filasUtiles.nth(i).locator('button[aria-label="Solicitar de nuevo"], button, [role="button"]').filter({ hasText: /volver a solicitar|solicitar de nuevo|request again/i }).first();
+    const b = filasUtiles.nth(i).locator('button[aria-label="Solicitar de nuevo"], button, [role="button"]').filter({ hasText: RE_RESOLICITAR }).first();
     if (await b.count().catch(() => 0)) { await b.click({ timeout: 8000 }).catch(() => {}); pedidos++; await page.waitForTimeout(1500); }
   }
   if (!pedidos) {
-    const rehacer = page.getByRole('button', { name: /volver a solicitar|solicitar de nuevo|request again/i }).first()
-      .or(page.locator('button, [role="button"]').filter({ hasText: /volver a solicitar|solicitar de nuevo/i }).first());
+    const rehacer = page.getByRole('button', { name: RE_RESOLICITAR }).first()
+      .or(page.locator('button[aria-label="Solicitar de nuevo"], button, [role="button"]').filter({ hasText: RE_RESOLICITAR }).first());
     if (await rehacer.count().catch(() => 0)) {
       await rehacer.click({ timeout: 8000 }).catch(() => {});
       pedidos = 1;
