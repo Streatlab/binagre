@@ -4,7 +4,7 @@ name: Procesar bandeja (imports_log → módulos ERP)
 # módulos (facturas → motor OCR; informes → parsers de plataformas).
 # En trabajo se dispara al tocar ESTE yml (palanca de prueba sin dispatch);
 # el horario definitivo vive en master (BLOQUEO CERO: yml en master, código en trabajo).
-# palanca: 3
+# palanca: 3 (alias /api/papeleo/importar ya vivo en producción → procesar informes)
 
 on:
   workflow_dispatch:
@@ -29,11 +29,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
       - name: Instalar dependencias
         run: npm install --no-audit --no-fund
       - name: Procesar bandeja
         env:
-          LOTE: ${{ github.event.inputs.lote || '40' }}
+          LOTE: ${{ github.event.inputs.lote || '60' }}
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/robot-ingesta/procesar-bandeja.ts
