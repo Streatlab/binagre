@@ -1,15 +1,11 @@
-name: Sync Facturación (CENAS 01:00 Madrid, consolidación única del día)
+name: Sync Facturación — DESACTIVADO (cron)
 
-# plan-v2/T4: se quitan los crons de ALM 17:00 — el corte de las 16:30 ya lo
-# hace la fórmula (plan-v2/T3, fn_corte_turno). Solo queda la consolidación
-# de madrugada del día completo anterior. Dos crons para cubrir verano e
-# invierno (GitHub programa en UTC y no sabe de horario de verano).
-# BLOQUEO CERO (17-jul): el schedule corre en master pero el código vive en
-# trabajo → checkout con ref: trabajo hasta la fusión definitiva.
+# 19-jul: cron APAGADO por decisión de Rubén. El corte de turno del ERP
+# (fn_corte_turno) ya escribe ALM 16:30 y CENAS 23:30 desde el vivo, con lo que
+# haya en ese momento (aunque haya pedidos pendientes de cerrar). La garantía es
+# que los robots en vivo (rushour-vivo + sinqro-vivo) no fallen. Se deja SOLO en
+# manual por si hiciera falta reconstruir un día concreto.
 on:
-  schedule:
-    - cron: "0 23 * * *"   # 01:00 Madrid (verano) → día anterior completo
-    - cron: "0 0 * * *"    # 01:00 Madrid (invierno) → día anterior completo
   workflow_dispatch:
     inputs:
       servicio:
