@@ -126,17 +126,38 @@ export async function cierreDiario(fecha?: Date): Promise<InformeContenido> {
 }
 
 /**
- * 5) RESUMEN DE LA MAÑANA — cierre completo de AYER, para el email de las 08:00
+ * 5) RESUMEN DE LA MAÑANA — cierre completo de AYER, para el email de las 08:00.
+ * Consolidado (jul 2026): los lunes incluye además los COBROS de la semana, y el
+ * día 1 de cada mes incluye el CIERRE MENSUAL. Así todo llega en un solo correo y
+ * se evita un segundo envío a las 09:00.
  */
 export async function resumenManana(): Promise<InformeContenido> {
-  const ayer = new Date()
+  const ahora = new Date()
+  const ayer = new Date(ahora)
   ayer.setDate(ayer.getDate() - 1)
   const base = await cierreDiario(ayer)
-  return {
-    asunto: `☀️ Resumen de ayer · ${base.asunto.replace(/^Cierre /, '')}`,
-    contenido_whatsapp: base.contenido_whatsapp.replace('🍴 *CIERRE', '☀️ *AYER ·'),
-    contenido_email: base.contenido_email.replace('🍴 *CIERRE', '☀️ *AYER ·'),
+
+  let wa = base.contenido_whatsapp.replace('🍴 *CIERRE', '☀️ *AYER ·')
+  let em = base.contenido_email.replace('🍴 *CIERRE', '☀️ *AYER ·')
+  let asunto = `☀️ Resumen de ayer · ${base.asunto.replace(/^Cierre /, '')}`
+
+  // Lunes → añadir los cobros de la semana en el mismo correo
+  if (ahora.getDay() === 1) {
+    const c = await cobrosLunes()
+    wa += `\n\n${c.contenido_whatsapp}`
+    em += `\n\n${c.contenido_email}`
+    asunto += ' + cobros semana'
   }
+
+  // Día 1 del mes → añadir el cierre del mes anterior en el mismo correo
+  if (ahora.getDate() === 1) {
+    const m = await cierreMensual()
+    wa += `\n\n${m.contenido_whatsapp}`
+    em += `\n\n${m.contenido_email}`
+    asunto += ' + cierre mes'
+  }
+
+  return { asunto, contenido_whatsapp: wa, contenido_email: em }
 }
 
 /**
@@ -233,7 +254,10 @@ export async function cobrosLunes(): Promise<InformeContenido> {
 }
 
 /**
- * 3) CIERRE SEMANAL — resumen completo lunes a domingo
+ * 3) CIERRE SEMANAL — resumen completo lunes a domingo.
+ * Consolidado (jul 2026): al enviarse el domingo por la noche, incluye ARRIBA el
+ * cierre del propio domingo (el cierre diario no se manda los domingos), así en un
+ * solo WhatsApp va el día + la semana.
  */
 export async function cierreSemanal(): Promise<InformeContenido> {
   const hoy = new Date()
@@ -275,7 +299,7 @@ export async function cierreSemanal(): Promise<InformeContenido> {
   const ranking = Array.from(porMarca.entries()).sort(([, a], [, b]) => b - a)
   const fechaLegible = `${lunes.getDate()}/${lunes.getMonth() + 1} - ${hoy.getDate()}/${hoy.getMonth() + 1}`
 
-  const wa = [
+  const semanaWa = [
     `📊 *CIERRE SEMANAL*`,
     `${fechaLegible}`,
     `━━━━━━━━━━━━━━━━━`,
@@ -287,8 +311,12 @@ export async function cierreSemanal(): Promise<InformeContenido> {
     `━━━━━━━━━━━━━━━━━`,
   ].filter(Boolean).join('\n')
 
+  // Cierre del propio domingo arriba (los domingos no se manda cierre diario suelto)
+  const cierreHoy = await cierreDiario(hoy)
+  const wa = `${cierreHoy.contenido_whatsapp}\n\n${semanaWa}`
+
   return {
-    asunto: `Cierre semanal · ${fmtEur(totalSem)}`,
+    asunto: `Cierre domingo + semana · ${fmtEur(totalSem)}`,
     contenido_whatsapp: wa,
     contenido_email: wa,
   }
