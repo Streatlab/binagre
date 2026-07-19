@@ -49,6 +49,10 @@
       "destination": "/api/papeleo/titulares"
     },
     {
+      "source": "/api/papeleo/escandallo-auto/:accion",
+      "destination": "/api/papeleo/escandallo-auto?action=:accion"
+    },
+    {
       "source": "/api/conciliacion/:ruta*",
       "destination": "/api/papeleo/conciliacion/:ruta*"
     },
