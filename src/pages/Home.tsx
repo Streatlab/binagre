@@ -63,7 +63,25 @@ export default function Home() {
     return () => { off = true }
   }, [])
 
-  const porFecha = useMemo(() => Object.fromEntries(dias.map(d => [d.fecha, d])), [dias])
+  // La vista trae VARIAS filas por día (facturación se parte por titular Rubén/Emilio,
+  // más la fila "en vivo"). Sumamos todas las filas de la misma fecha; antes se cogía
+  // una sola y el total del día salía corto (p. ej. ayer 702 € en vez de 890 €).
+  const porFecha = useMemo(() => {
+    const acc: Record<string, Dia> = {}
+    const suma = (a: number | null, b: number | null) =>
+      a == null && b == null ? null : (a ?? 0) + (b ?? 0)
+    for (const d of dias) {
+      const e = acc[d.fecha]
+      if (!e) { acc[d.fecha] = { ...d }; continue }
+      e.total_bruto   = suma(e.total_bruto, d.total_bruto)
+      e.uber_bruto    = suma(e.uber_bruto, d.uber_bruto)
+      e.glovo_bruto   = suma(e.glovo_bruto, d.glovo_bruto)
+      e.je_bruto      = suma(e.je_bruto, d.je_bruto)
+      e.web_bruto     = suma(e.web_bruto, d.web_bruto)
+      e.directa_bruto = suma(e.directa_bruto, d.directa_bruto)
+    }
+    return acc
+  }, [dias])
   const hoy = porFecha[hoyISO()]
   const ayer = porFecha[diasAtras(1)]
   const suma = (desde: number, hasta: number) => {
