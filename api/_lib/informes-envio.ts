@@ -4,10 +4,8 @@
  * Toma destinatarios y contenido, envía por los canales activos,
  * y registra cada envío en notif_envios.
  *
- * NOTA (18 jul 2026): WhatsApp migrado de WAHA (requería servidor Railway de pago)
- * a Green API plan Developer (gratis, HTTP directo, máx 3 chats/mes — suficiente:
- * Rubén + Emilio). Los exports mantienen sus nombres (despacharInforme,
- * comprobarWAHA) para no tocar puertas ni UI.
+ * NOTA (18 jul 2026): WhatsApp vía Green API plan Developer (gratis, HTTP directo,
+ * máx 3 chats/mes — suficiente: Rubén + Emilio).
  *
  * NOTA 2 (18 jul 2026): credenciales Green API se leen de la tabla
  * robot_credenciales (plataforma='green_api': usuario=idInstance,
@@ -308,9 +306,8 @@ export async function despacharInforme(
 
 /**
  * Estado del canal WhatsApp (Green API) — útil para mostrar OK/KO en UI configuración.
- * Mantiene el nombre comprobarWAHA para no tocar la puerta /api/informes/waha-status ni la UI.
  */
-export async function comprobarWAHA(): Promise<{ conectado: boolean; mensaje?: string }> {
+export async function comprobarWhatsApp(): Promise<{ conectado: boolean; mensaje?: string }> {
   const cfg = await cargarGreenApi()
   if (!cfg.idInstance || !cfg.token) {
     return { conectado: false, mensaje: 'Green API no configurado (sin credenciales en env ni robot_credenciales)' }
