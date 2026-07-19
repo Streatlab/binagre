@@ -25,12 +25,20 @@
       "destination": "/api/oauth/google?action=callback"
     },
     {
+      "source": "/api/facturas",
+      "destination": "/api/papeleo/facturas"
+    },
+    {
       "source": "/api/facturas/:ruta*",
       "destination": "/api/papeleo/facturas/:ruta*"
     },
     {
       "source": "/api/bootstrap-ocr",
       "destination": "/api/papeleo/bootstrap-ocr"
+    },
+    {
+      "source": "/api/checklists",
+      "destination": "/api/papeleo/checklists"
     },
     {
       "source": "/api/checklists/:ruta*",
@@ -53,24 +61,48 @@
       "destination": "/api/papeleo/escandallo-auto?action=:accion"
     },
     {
+      "source": "/api/conciliacion",
+      "destination": "/api/papeleo/conciliacion"
+    },
+    {
       "source": "/api/conciliacion/:ruta*",
       "destination": "/api/papeleo/conciliacion/:ruta*"
+    },
+    {
+      "source": "/api/importar",
+      "destination": "/api/papeleo/importar"
     },
     {
       "source": "/api/importar/:ruta*",
       "destination": "/api/papeleo/importar/:ruta*"
     },
     {
+      "source": "/api/pe",
+      "destination": "/api/operaciones/pe"
+    },
+    {
       "source": "/api/pe/:ruta*",
       "destination": "/api/operaciones/pe/:ruta*"
+    },
+    {
+      "source": "/api/pos",
+      "destination": "/api/operaciones/pos"
     },
     {
       "source": "/api/pos/:ruta*",
       "destination": "/api/operaciones/pos/:ruta*"
     },
     {
+      "source": "/api/equipo",
+      "destination": "/api/operaciones/equipo"
+    },
+    {
       "source": "/api/equipo/:ruta*",
       "destination": "/api/operaciones/equipo/:ruta*"
+    },
+    {
+      "source": "/api/nominas",
+      "destination": "/api/operaciones/nominas"
     },
     {
       "source": "/api/nominas/:ruta*",
