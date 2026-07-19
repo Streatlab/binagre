@@ -120,27 +120,27 @@
     },
     {
       "path": "/api/informes/cron",
-      "schedule": "0 6,7 * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/informes/cron",
-      "schedule": "0 7,8 * * 1"
+      "schedule": "0 7 * * 1"
     },
     {
       "path": "/api/informes/cron",
-      "schedule": "0 7,8 1 * *"
+      "schedule": "0 7 1 * *"
     },
     {
       "path": "/api/informes/cron",
-      "schedule": "30 14,15 * * *"
+      "schedule": "30 14 * * *"
     },
     {
       "path": "/api/informes/cron",
-      "schedule": "29 21,22 * * 1-6"
+      "schedule": "29 21 * * 1-6"
     },
     {
       "path": "/api/informes/cron",
-      "schedule": "30 21,22 * * 0"
+      "schedule": "30 21 * * 0"
     }
   ],
   "functions": {
