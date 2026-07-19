@@ -7,6 +7,7 @@ import {
   SHADOW, BORDER, BORDER_CARD, d, eyebrow,
 } from '@/styles/neobrutal'
 import BandejaEntrada from '@/components/documentacion/BandejaEntrada'
+import ResolverPendientes from '@/components/documentacion/ResolverPendientes'
 
 // Monta los módulos EXISTENTES sin tocar su lógica (solo se reubican como pestañas).
 // La antigua pestaña "Ventas" (importador CSV) se eliminó: toda subida entra por
@@ -243,11 +244,14 @@ export default function Documentacion() {
           <span style={eyebrow(CLARO)}>Finanzas · Documentos</span>
           <h2 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '8px 0 0 0' }}>PAPELEO</h2>
         </div>
-        <SelectorFechaUniversal
-          nombreModulo="documentacion"
-          defaultOpcion="este_mes"
-          onChange={(dd, h) => { setDesde(dd); setHasta(h) }}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
+          <SelectorFechaUniversal
+            nombreModulo="documentacion"
+            defaultOpcion="este_mes"
+            onChange={(dd, h) => { setDesde(dd); setHasta(h) }}
+          />
+          <ResolverPendientes onDone={() => setReloadTick(x => x + 1)} />
+        </div>
       </div>
 
       <FraseCabecera kpi={kpi} />
