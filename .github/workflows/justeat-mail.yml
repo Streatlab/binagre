@@ -1,11 +1,11 @@
 name: Just Eat facturas por correo (diario 04:30 Madrid)
 
 # Las facturas de JE llegan por email a admin@streatlab.com (a menudo a spam).
-# Este robot lee el buzón por IMAP y deja los PDF en la bandeja. Sin navegador,
-# sin WAF. BLOQUEO CERO: checkout de trabajo. Doble cron verano/invierno con
-# candado por hora real de Madrid.
-# 17-jul: el buzón NO es Microsoft (hosting propio) → JE_MAIL_HOST configurable
-# (p. ej. mail.streatlab.com) y contraseña normal del buzón, sin app password.
+# Este robot lee el buzón por IMAP y deja la factura en la bandeja. Just Eat NO
+# adjunta archivo: la factura es el CUERPO del correo → el robot genera un PDF de
+# ese cuerpo con Chromium (v5), por eso ahora se instala Playwright.
+# BLOQUEO CERO: checkout de trabajo. Doble cron verano/invierno con candado por
+# hora real de Madrid.
 on:
   schedule:
     - cron: "30 2 * * *"   # 04:30 Madrid (verano)
@@ -15,7 +15,7 @@ on:
 jobs:
   facturas-mail:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Candado horario (solo 04:xx Madrid en cron)
         id: candado
@@ -39,7 +39,20 @@ jobs:
       - name: Instalar dependencias
         if: steps.candado.outputs.seguir == '1'
         run: npm install --no-audit --no-fund
-      - name: Leer buzón y entregar facturas a la bandeja
+      - name: Cache navegador Playwright
+        id: cache-playwright
+        if: steps.candado.outputs.seguir == '1'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Instalar navegador Playwright
+        if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Instalar deps de sistema de Playwright (con caché)
+        if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Leer buzón, generar PDF de la factura y entregarla a la bandeja
         if: steps.candado.outputs.seguir == '1'
         env:
           JE_MAIL_HOST: ${{ secrets.JE_MAIL_HOST }}
