@@ -57,6 +57,19 @@ const HORARIOS_LEGIBLES: Record<string, string> = {
 // Orden de presentación: cronológico dentro del día
 const ORDEN_TIPOS: string[] = ['resumen_manana', 'cobros_lunes', 'cierre_mensual', 'pulso', 'cierre_diario', 'cierre_semanal']
 
+// Columna de notif_destinatarios que indica si recibe cada informe
+const FLAG_INFORME: Record<TipoInforme, string> = {
+  cierre_diario: 'recibe_cierre_diario',
+  cobros_lunes: 'recibe_cobros_lunes',
+  cierre_semanal: 'recibe_cierre_semanal',
+  cierre_mensual: 'recibe_cierre_mensual',
+  resumen_manana: 'recibe_resumen_manana',
+  pulso: 'recibe_pulso',
+}
+
+interface DestinatarioWA { id: string; nombre: string; whatsapp: string }
+interface ModalWA { tipo: TipoInforme; cargando: boolean; lista: DestinatarioWA[]; seleccion: Set<string> }
+
 export default function InformesPanel() {
   const { T } = useTheme()
   const navigate = useNavigate()
@@ -64,6 +77,7 @@ export default function InformesPanel() {
   const [envios, setEnvios] = useState<EnvioReciente[]>([])
   const [enviando, setEnviando] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [modalWA, setModalWA] = useState<ModalWA | null>(null)
 
   useEffect(() => {
     cargar()
@@ -89,7 +103,7 @@ export default function InformesPanel() {
     setLoading(false)
   }
 
-  async function enviarManual(tipo: TipoInforme, canales: { whatsapp?: boolean; email?: boolean }) {
+  async function enviarManual(tipo: TipoInforme, canales: { whatsapp?: boolean; email?: boolean }, destinatarioIds?: string[]) {
     if (enviando) return
     const key = `${tipo}:${canales.whatsapp ? 'wa' : ''}${canales.email ? 'em' : ''}`
     setEnviando(key)
@@ -97,7 +111,7 @@ export default function InformesPanel() {
       const res = await fetch('/api/informes/enviar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo, canales }),
+        body: JSON.stringify({ tipo, canales, destinatarioIds }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -112,7 +126,7 @@ export default function InformesPanel() {
         alert(`Enviados: ${json.enviados || 0}  ·  Fallidos: ${json.fallidos || 0}\n\nMotivo:\n${motivos}`)
         cargar()
       } else {
-        alert(`✅ Enviado correctamente a ${json.enviados || 0} destinatario(s).`)
+        // Envío correcto: sin aviso, solo refrescamos el historial de "Últimos envíos"
         cargar()
       }
     } catch (err) {
@@ -120,6 +134,48 @@ export default function InformesPanel() {
     } finally {
       setEnviando(null)
     }
+  }
+
+  // Modal de selección de destinatarios (solo WhatsApp)
+  async function abrirModalWhatsApp(tipo: TipoInforme) {
+    if (enviando) return
+    setModalWA({ tipo, cargando: true, lista: [], seleccion: new Set() })
+    const flag = FLAG_INFORME[tipo]
+    let q = supabase
+      .from('notif_destinatarios')
+      .select('id, nombre, whatsapp')
+      .eq('activo', true)
+      .eq('canal_whatsapp', true)
+      .eq(flag, true)
+    const { data } = await q
+    const lista = (data || []).filter((d: any) => d.whatsapp) as DestinatarioWA[]
+    setModalWA({ tipo, cargando: false, lista, seleccion: new Set(lista.map(d => d.id)) })
+  }
+
+  function toggleSeleccion(id: string) {
+    setModalWA(prev => {
+      if (!prev) return prev
+      const s = new Set(prev.seleccion)
+      s.has(id) ? s.delete(id) : s.add(id)
+      return { ...prev, seleccion: s }
+    })
+  }
+
+  function toggleTodos() {
+    setModalWA(prev => {
+      if (!prev) return prev
+      const todos = prev.seleccion.size === prev.lista.length
+      return { ...prev, seleccion: todos ? new Set() : new Set(prev.lista.map(d => d.id)) }
+    })
+  }
+
+  async function confirmarEnvioWhatsApp() {
+    if (!modalWA) return
+    const ids = Array.from(modalWA.seleccion)
+    const tipo = modalWA.tipo
+    setModalWA(null)
+    if (ids.length === 0) return
+    await enviarManual(tipo, { whatsapp: true }, ids)
   }
 
   async function toggleActivo(id: string, activo: boolean) {
@@ -201,7 +257,7 @@ export default function InformesPanel() {
               <div style={{ fontSize: 11, color: T.mut }}>Enviar ahora por:</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  onClick={() => enviarManual(c.tipo, { whatsapp: true })}
+                  onClick={() => abrirModalWhatsApp(c.tipo)}
                   disabled={!!enviando}
                   style={{
                     flex: 1,
@@ -325,6 +381,93 @@ export default function InformesPanel() {
           </div>
         )}
       </section>
+
+      {/* Modal: elegir destinatarios de WhatsApp */}
+      {modalWA && (
+        <div
+          onClick={() => setModalWA(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: T.card, border: `1px solid ${T.brd}`, borderRadius: 14,
+              width: '100%', maxWidth: 420, maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
+            }}
+          >
+            <div style={{ padding: '18px 20px', borderBottom: `1px solid ${T.brd}` }}>
+              <h3 style={{ fontFamily: FONT.heading, fontSize: 17, color: T.pri, margin: 0 }}>
+                💬 Enviar por WhatsApp
+              </h3>
+              <p style={{ color: T.sec, fontSize: 13, margin: '6px 0 0' }}>
+                Elige a quién enviar este informe.
+              </p>
+            </div>
+
+            <div style={{ padding: '8px 20px', overflowY: 'auto', flex: 1 }}>
+              {modalWA.cargando ? (
+                <div style={{ color: T.mut, padding: '16px 0' }}>Cargando destinatarios…</div>
+              ) : modalWA.lista.length === 0 ? (
+                <div style={{ color: T.mut, padding: '16px 0' }}>
+                  No hay destinatarios con WhatsApp activo para este informe.
+                </div>
+              ) : (
+                <>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', cursor: 'pointer', borderBottom: `1px solid ${T.brd}` }}>
+                    <input
+                      type="checkbox"
+                      checked={modalWA.seleccion.size === modalWA.lista.length && modalWA.lista.length > 0}
+                      onChange={toggleTodos}
+                      style={{ width: 18, height: 18, cursor: 'pointer' }}
+                    />
+                    <span style={{ fontWeight: 600, color: T.pri, fontSize: 14 }}>Todos</span>
+                  </label>
+                  {modalWA.lista.map(d => (
+                    <label key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={modalWA.seleccion.has(d.id)}
+                        onChange={() => toggleSeleccion(d.id)}
+                        style={{ width: 18, height: 18, cursor: 'pointer' }}
+                      />
+                      <span style={{ flex: 1, minWidth: 0, color: T.pri, fontSize: 14 }}>{d.nombre}</span>
+                      <span style={{ color: T.mut, fontSize: 12 }}>{d.whatsapp}</span>
+                    </label>
+                  ))}
+                </>
+              )}
+            </div>
+
+            <div style={{ padding: '14px 20px', borderTop: `1px solid ${T.brd}`, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setModalWA(null)}
+                style={{
+                  background: T.card, border: `1px solid ${T.brd}`, borderRadius: 8,
+                  padding: '10px 16px', cursor: 'pointer', color: T.sec, fontSize: 14,
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarEnvioWhatsApp}
+                disabled={modalWA.cargando || modalWA.seleccion.size === 0}
+                style={{
+                  background: modalWA.seleccion.size === 0 ? T.mut : '#06C167',
+                  color: '#fff', border: 'none', borderRadius: 8,
+                  padding: '10px 18px', cursor: modalWA.seleccion.size === 0 ? 'not-allowed' : 'pointer',
+                  fontSize: 14, fontWeight: 600, fontFamily: FONT.heading,
+                }}
+              >
+                Enviar ({modalWA.seleccion.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
