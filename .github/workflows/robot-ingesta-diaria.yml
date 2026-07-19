@@ -1,17 +1,12 @@
-name: Robot ingesta diaria (Rushour + Sinqro)
+name: Robot ingesta diaria (Rushour + Sinqro) — DESACTIVADO (cron)
 
-# Dos tomas al día (comida ~16:30 Madrid, cena/cierre ~23:30 Madrid, MISMO día).
-# La cena corre ANTES de medianoche a propósito: se comprobó en producción que
-# el contador en vivo de Rushour se reinicia pasada la medianoche local, así
-# que leer después de las 00:00 devuelve el total del día que empieza (huevo:
-# turnover=0) en vez del que cierra, y la resta comida→cena sale negativa.
-# Los 4 crons cubren verano+invierno porque GitHub Actions programa en UTC y no
-# sabe de horario de verano; el propio robot.ts decide comida/cena por la hora
-# real de Madrid al arrancar, así que el disparo "de más" que cae fuera de
-# temporada no rompe el reparto (ver tomaPorHoraMadrid en robot.ts).
-# BLOQUEO CERO (17-jul): el schedule corre en master pero el código vive en
-# trabajo → checkout con ref: trabajo hasta la fusión definitiva. Disparador
-# push quitado (los cambios de código ocurren en trabajo).
+# 19-jul: cron APAGADO. La ingesta en vivo (rushour-vivo + sinqro-vivo cada 5 min)
+# ya llena ventas_vivo, y el propio ERP hace el corte de turno desde ahí:
+#   fn_corte_turno() → comida 16:30 y cena en el cierre 00:35 (pg_cron), y escribe
+#   facturación ALM/CENAS. Este robot leía Rushour por fecha con retraso (la comida
+#   caía a las 17:30-18:39 y la cena pasada medianoche, con Rushour ya a cero) y su
+#   lector de Just Eat estaba roto (siempre 0). Se deja SOLO en manual por si hiciera
+#   falta una toma puntual.
 on:
   workflow_dispatch:
     inputs:
@@ -28,11 +23,6 @@ on:
         description: "Fecha a procesar YYYY-MM-DD (vacío = hoy)"
         type: string
         default: ""
-  schedule:
-    - cron: "30 14 * * *" # comida 16:30 Madrid (verano, UTC+2)
-    - cron: "30 15 * * *" # comida 16:30 Madrid (invierno, UTC+1)
-    - cron: "30 21 * * *" # cena 23:30 Madrid, mismo día (verano, UTC+2)
-    - cron: "30 22 * * *" # cena 23:30 Madrid, mismo día (invierno, UTC+1)
 
 jobs:
   ingesta:
