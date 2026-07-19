@@ -4,18 +4,33 @@
  * Toma destinatarios y contenido, envía por los canales activos,
  * y registra cada envío en notif_envios.
  *
- * NOTA (18 jul 2026): WhatsApp migrado de WAHA (requería servidor Railway de pago)
- * a Green API plan Developer (gratis, HTTP directo, máx 3 chats/mes — suficiente:
- * Rubén + Emilio). Los exports mantienen sus nombres (despacharInforme,
- * comprobarWAHA) para no tocar puertas ni UI.
+ * NOTA (18 jul 2026): WhatsApp vía Green API plan Developer (gratis, HTTP directo,
+ * máx 3 chats/mes — suficiente: Rubén + Emilio).
  *
  * NOTA 2 (18 jul 2026): credenciales Green API se leen de la tabla
  * robot_credenciales (plataforma='green_api': usuario=idInstance,
  * password=apiToken, url_base=apiUrl). Las variables de entorno
  * GREEN_API_* siguen funcionando como override si existen.
+ *
+ * FIX (19 jul 2026): timeout duro (12s) en cada llamada a Green API y Resend.
+ * Antes, si un canal se colgaba (instancia no vinculada, red), la función agotaba
+ * su límite de 60s y Vercel devolvía respuesta vacía → la UI mostraba
+ * "Error de red: Unexpected end of JSON input". Ahora cada canal falla limpio,
+ * se registra el motivo real en notif_envios y el endpoint siempre responde JSON.
  */
 import { supabaseAdmin } from './supabase-admin.js'
 import type { TipoInforme } from './informes-calculo.js'
+
+/** fetch con timeout duro: un canal colgado no puede agotar la función (60s) ni vaciar la respuesta. */
+async function fetchTimeout(url: string, opts: RequestInit = {}, ms = 12000): Promise<Response> {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), ms)
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal })
+  } finally {
+    clearTimeout(t)
+  }
+}
 
 // streatlab.com NO está verificado en Resend (el DNS actual no admite los
 // registros TXT/DKIM). Con el remitente onboarding@resend.dev, Resend solo
@@ -103,7 +118,7 @@ async function enviarWhatsApp(numero: string, texto: string): Promise<{ ok: bool
     return { ok: false, error: 'Green API no configurado (sin credenciales en env ni robot_credenciales)' }
   }
   try {
-    const res = await fetch(`${cfg.url}/waInstance${cfg.idInstance}/sendMessage/${cfg.token}`, {
+    const res = await fetchTimeout(`${cfg.url}/waInstance${cfg.idInstance}/sendMessage/${cfg.token}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -121,7 +136,11 @@ async function enviarWhatsApp(numero: string, texto: string): Promise<{ ok: bool
     }
     return { ok: true }
   } catch (err) {
-    return { ok: false, error: 'Green API fetch error: ' + (err as Error).message }
+    const e = err as Error
+    const msg = e.name === 'AbortError'
+      ? 'Green API sin respuesta en 12s — probablemente la instancia no está vinculada al WhatsApp del bar'
+      : e.message
+    return { ok: false, error: 'Green API: ' + msg }
   }
 }
 
@@ -155,7 +174,7 @@ async function enviarEmail(to: string, asunto: string, contenido: string): Promi
         </div>
       </div>
     `
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetchTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -175,7 +194,9 @@ async function enviarEmail(to: string, asunto: string, contenido: string): Promi
     }
     return { ok: true }
   } catch (err) {
-    return { ok: false, error: 'Resend fetch error: ' + (err as Error).message }
+    const e = err as Error
+    const msg = e.name === 'AbortError' ? 'Resend sin respuesta en 12s' : e.message
+    return { ok: false, error: 'Resend: ' + msg }
   }
 }
 
@@ -193,10 +214,19 @@ const FLAG_INFORME: Record<TipoInforme, string> = {
 
 /**
  * Despacha un informe a todos los destinatarios activos que lo reciben.
+ *
+ * canalesForzados (opcional): si se pasa desde el envío manual, ignora la
+ * config guardada y usa exactamente los canales elegidos por el usuario
+ * (p.ej. { whatsapp: true, email: false } al pulsar "Enviar ahora · WhatsApp").
+ *
+ * destinatarioIds (opcional): si se pasa desde el modal de envío manual,
+ * limita el envío a esos destinatarios concretos.
  */
 export async function despacharInforme(
   tipo: TipoInforme,
   contenido: { asunto: string; contenido_whatsapp: string; contenido_email: string },
+  canalesForzados?: { whatsapp?: boolean; email?: boolean },
+  destinatarioIds?: string[],
 ): Promise<EnvioResultado> {
   // Cargar config para saber qué canales están activos
   const { data: config } = await supabaseAdmin
@@ -205,16 +235,21 @@ export async function despacharInforme(
     .eq('tipo', tipo)
     .single()
 
-  const enviarWA = config?.enviar_whatsapp ?? true
-  const enviarMail = config?.enviar_email ?? true
+  const enviarWA = canalesForzados?.whatsapp ?? config?.enviar_whatsapp ?? true
+  const enviarMail = canalesForzados?.email ?? config?.enviar_email ?? true
 
   // Cargar destinatarios activos que reciben este tipo de informe
   const flag = FLAG_INFORME[tipo]
-  const { data: destinatarios } = await supabaseAdmin
+  let q = supabaseAdmin
     .from('notif_destinatarios')
     .select('id, nombre, whatsapp, email, canal_whatsapp, canal_email')
     .eq('activo', true)
     .eq(flag, true)
+  // Envío manual con selección: limitar a los destinatarios elegidos en el modal
+  if (destinatarioIds && destinatarioIds.length > 0) {
+    q = q.in('id', destinatarioIds)
+  }
+  const { data: destinatarios } = await q
 
   const detalle: EnvioResultado['detalle'] = []
   let enviados = 0
@@ -271,21 +306,22 @@ export async function despacharInforme(
 
 /**
  * Estado del canal WhatsApp (Green API) — útil para mostrar OK/KO en UI configuración.
- * Mantiene el nombre comprobarWAHA para no tocar la puerta /api/informes/waha-status ni la UI.
  */
-export async function comprobarWAHA(): Promise<{ conectado: boolean; mensaje?: string }> {
+export async function comprobarWhatsApp(): Promise<{ conectado: boolean; mensaje?: string }> {
   const cfg = await cargarGreenApi()
   if (!cfg.idInstance || !cfg.token) {
     return { conectado: false, mensaje: 'Green API no configurado (sin credenciales en env ni robot_credenciales)' }
   }
   try {
-    const res = await fetch(`${cfg.url}/waInstance${cfg.idInstance}/getStateInstance/${cfg.token}`)
+    const res = await fetchTimeout(`${cfg.url}/waInstance${cfg.idInstance}/getStateInstance/${cfg.token}`)
     if (!res.ok) return { conectado: false, mensaje: `Green API ${res.status}` }
     const json: any = await res.json()
     const estado = json.stateInstance || 'unknown'
     // 'authorized' = instancia vinculada al WhatsApp del bar y lista para enviar
     return { conectado: estado === 'authorized', mensaje: estado }
   } catch (err) {
-    return { conectado: false, mensaje: (err as Error).message }
+    const e = err as Error
+    const msg = e.name === 'AbortError' ? 'Green API sin respuesta en 12s' : e.message
+    return { conectado: false, mensaje: msg }
   }
 }

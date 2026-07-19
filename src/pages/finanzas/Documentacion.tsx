@@ -7,6 +7,7 @@ import {
   SHADOW, BORDER, BORDER_CARD, d, eyebrow,
 } from '@/styles/neobrutal'
 import BandejaEntrada from '@/components/documentacion/BandejaEntrada'
+import ResolverPendientes from '@/components/documentacion/ResolverPendientes'
 
 // Monta los módulos EXISTENTES sin tocar su lógica (solo se reubican como pestañas).
 // La antigua pestaña "Ventas" (importador CSV) se eliminó: toda subida entra por
@@ -253,7 +254,10 @@ export default function Documentacion() {
       <FraseCabecera kpi={kpi} />
       <CardsPapeleo kpi={kpi} pendienteTi={pendienteTi} enProceso={enProceso} onIrAPendientes={() => cambiar('bandeja')} />
 
-      <TabsNeo tab={tab} onChange={cambiar} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
+        <TabsNeo tab={tab} onChange={cambiar} />
+        <ResolverPendientes onDone={() => setReloadTick(x => x + 1)} />
+      </div>
 
       <Suspense fallback={<div style={{ padding: 24, color: GRIS, fontFamily: LEX }}>Cargando…</div>}>
         {tab === 'bandeja' && <BandejaEntrada desde={desdeStr} hasta={hastaStr} onProcesado={() => setReloadTick(x => x + 1)} />}

@@ -51,7 +51,7 @@ export default function ConfiguracionInformes() {
 
   async function comprobarWhatsApp() {
     try {
-      const res = await fetch('/api/informes/waha-status')
+      const res = await fetch('/api/informes/whatsapp-status')
       if (!res.ok) {
         setEstadoWA('desconocido')
         return

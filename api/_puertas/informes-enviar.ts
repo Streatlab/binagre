@@ -1,10 +1,13 @@
 /**
  * POST /api/informes/enviar
  *
- * Body: { tipo: 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual' | 'resumen_manana' | 'pulso' }
+ * Body: {
+ *   tipo: 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual' | 'resumen_manana' | 'pulso',
+ *   canales?: { whatsapp?: boolean, email?: boolean }   // opcional: fuerza los canales del envío manual
+ * }
  *
  * Calcula el informe del tipo indicado y lo envía a todos los destinatarios
- * activos por los canales configurados.
+ * activos por los canales elegidos (o los configurados si no se pasa 'canales').
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { calcularInforme, type TipoInforme } from '../_lib/informes-calculo.js'
@@ -17,16 +20,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const body = (req.body || {}) as { tipo?: string }
+  const body = (req.body || {}) as { tipo?: string; canales?: { whatsapp?: boolean; email?: boolean }; destinatarioIds?: string[] }
   const tipo = body.tipo as TipoInforme | undefined
+  const destinatarioIds = Array.isArray(body.destinatarioIds) ? body.destinatarioIds : undefined
 
   if (!tipo || !TIPOS_VALIDOS.includes(tipo)) {
     return res.status(400).json({ error: 'Tipo de informe inválido', validos: TIPOS_VALIDOS })
   }
 
+  // Si el usuario elige canales en la UI, se respetan exactamente; si no, se usan los de la config.
+  let canales: { whatsapp?: boolean; email?: boolean } | undefined
+  if (body.canales && (typeof body.canales.whatsapp === 'boolean' || typeof body.canales.email === 'boolean')) {
+    canales = {
+      whatsapp: body.canales.whatsapp ?? false,
+      email: body.canales.email ?? false,
+    }
+  }
+
   try {
     const contenido = await calcularInforme(tipo)
-    const resultado = await despacharInforme(tipo, contenido)
+    const resultado = await despacharInforme(tipo, contenido, canales, destinatarioIds)
     return res.status(200).json({
       tipo,
       enviados: resultado.enviados,

@@ -5,10 +5,12 @@
  * Cada función devuelve { asunto, contenido } listos para enviar
  * por WhatsApp o email.
  *
- * FIX 18 jul 2026: alineado con el esquema real de Supabase
- * (facturacion_diario.total_bruto/total_pedidos, objetivos_dia_semana.dia/importe,
- * ingresos_mensuales tipo='neto', presupuestos_mensuales.tope).
- * Nuevos: resumen_manana (08:00 email, cierre de ayer) y pulso (16:30 WhatsApp).
+ * FIX 19 jul 2026: cierre con formato "STREAT LAB" (plataformas + ⭐, TM,
+ * objetivo "faltan X", semana, top marcas, top platos EN VIVO desde
+ * ventas_vivo con complementos/bebidas excluidos). Pulso con proyección
+ * de cierre del día ("a este paso").
+ * Consolidado: resumen_manana lleva cobros (lunes) y cierre mensual (día 1);
+ * cierre_semanal (domingo) incluye arriba el cierre del propio domingo.
  */
 import { supabaseAdmin } from './supabase-admin.js'
 
@@ -27,6 +29,8 @@ export interface InformeContenido {
 }
 
 const fmtEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
+const fmtEur2 = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+const fmtNum2 = (n: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 const fmtPct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`
 
 function semaforo(deltaPct: number): string {
@@ -54,133 +58,214 @@ async function objetivoDelDia(d: Date): Promise<number> {
   return Number(data?.importe || 0)
 }
 
+interface Plataforma { nombre: string; euros: number; pedidos: number }
 interface DatosDia {
   total: number
   pedidos: number
   porMarca: Map<string, number>
+  plataformas: Plataforma[]
 }
 
 async function datosDia(fechaStr: string): Promise<DatosDia> {
   const { data } = await supabaseAdmin
     .from('facturacion_diario')
-    .select('total_bruto, total_pedidos, marca_id, marcas(nombre)')
+    .select('total_bruto, total_pedidos, uber_bruto, uber_pedidos, glovo_bruto, glovo_pedidos, je_bruto, je_pedidos, web_bruto, web_pedidos, directa_bruto, directa_pedidos, marca_id, marcas(nombre)')
     .eq('fecha', fechaStr)
 
   let total = 0
   let pedidos = 0
   const porMarca = new Map<string, number>()
+  const acc = { uberE: 0, uberP: 0, glovoE: 0, glovoP: 0, jeE: 0, jeP: 0, webE: 0, webP: 0 }
   for (const r of (data || []) as any[]) {
     const bruto = Number(r.total_bruto || 0)
     total += bruto
     pedidos += Number(r.total_pedidos || 0)
     const nombre = r.marcas?.nombre || 'Sin marca'
     porMarca.set(nombre, (porMarca.get(nombre) || 0) + bruto)
+    acc.uberE += Number(r.uber_bruto || 0);  acc.uberP += Number(r.uber_pedidos || 0)
+    acc.glovoE += Number(r.glovo_bruto || 0); acc.glovoP += Number(r.glovo_pedidos || 0)
+    acc.jeE += Number(r.je_bruto || 0);       acc.jeP += Number(r.je_pedidos || 0)
+    acc.webE += Number(r.web_bruto || 0) + Number(r.directa_bruto || 0)
+    acc.webP += Number(r.web_pedidos || 0) + Number(r.directa_pedidos || 0)
   }
-  return { total, pedidos, porMarca }
+  const plataformas: Plataforma[] = [
+    { nombre: 'Uber', euros: acc.uberE, pedidos: acc.uberP },
+    { nombre: 'Glovo', euros: acc.glovoE, pedidos: acc.glovoP },
+    { nombre: 'Just Eat', euros: acc.jeE, pedidos: acc.jeP },
+    { nombre: 'Web', euros: acc.webE, pedidos: acc.webP },
+  ].filter(p => p.euros > 0 || p.pedidos > 0)
+  return { total, pedidos, porMarca, plataformas }
+}
+
+/** Suma facturación bruta del lunes de la semana de f hasta f incluido */
+async function semanaHasta(f: Date): Promise<number> {
+  const lunes = new Date(f)
+  const dia = f.getDay()
+  lunes.setDate(f.getDate() - (dia === 0 ? 6 : dia - 1))
+  const { data } = await supabaseAdmin
+    .from('facturacion_diario')
+    .select('total_bruto')
+    .gte('fecha', isoFecha(lunes))
+    .lte('fecha', isoFecha(f))
+  return (data || []).reduce((s, r: any) => s + Number(r.total_bruto || 0), 0)
+}
+
+/** Top platos del día EN VIVO (ventas_vivo), excluidos bebidas/salsas/extras */
+async function topPlatosVivo(fechaStr: string, limite = 5): Promise<Array<{ plato: string; uds: number }>> {
+  const { data, error } = await supabaseAdmin.rpc('fn_top_platos_dia', { p_fecha: fechaStr, p_limit: limite })
+  if (error || !data) return []
+  return (data as any[]).map(r => ({ plato: r.plato, uds: Number(r.uds || 0) }))
 }
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 
 /**
- * 1) CIERRE DIARIO — facturación del día por marca vs objetivo y vs hace 7 días
+ * 1) CIERRE DIARIO — formato STREAT LAB, en vivo
  */
 export async function cierreDiario(fecha?: Date): Promise<InformeContenido> {
   const f = fecha ?? new Date()
   const fAnt = new Date(f)
   fAnt.setDate(fAnt.getDate() - 7)
+  const fechaStr = isoFecha(f)
 
-  const [hoy, antes, objetivoDia] = await Promise.all([
-    datosDia(isoFecha(f)),
+  const [hoy, antes, objetivoDia, semana, platos] = await Promise.all([
+    datosDia(fechaStr),
     datosDia(isoFecha(fAnt)),
     objetivoDelDia(f),
+    semanaHasta(f),
+    topPlatosVivo(fechaStr, 5),
   ])
 
-  const deltaPctVsAntes = antes.total > 0 ? ((hoy.total - antes.total) / antes.total) * 100 : 0
-  const deltaPctVsObj = objetivoDia > 0 ? ((hoy.total - objetivoDia) / objetivoDia) * 100 : 0
-
-  const fechaLegible = `${DIAS[f.getDay()]} ${f.getDate()}/${f.getMonth() + 1}`
+  const deltaVsAntes = antes.total > 0 ? ((hoy.total - antes.total) / antes.total) * 100 : 0
+  const flecha = deltaVsAntes >= 0 ? '▲' : '▼'
+  const pctInt = Math.round(deltaVsAntes)
+  const tm = hoy.pedidos > 0 ? hoy.total / hoy.pedidos : 0
+  const fechaLarga = `${f.getDate()} de ${MESES[f.getMonth()]}`
+  const lider = hoy.plataformas.reduce((a, b) => (b.euros > a.euros ? b : a), { euros: -1 } as Plataforma)
 
   const wa = [
-    `🍴 *CIERRE ${fechaLegible}*`,
-    `━━━━━━━━━━━━━━━━━`,
-    `💰 Total: *${fmtEur(hoy.total)}* · ${hoy.pedidos} pedidos`,
-    objetivoDia > 0 ? `🎯 Objetivo: ${fmtEur(objetivoDia)} ${semaforo(deltaPctVsObj)} ${fmtPct(deltaPctVsObj)}` : '',
-    antes.total > 0 ? `📈 vs hace 7 días (${fmtEur(antes.total)}): ${semaforo(deltaPctVsAntes)} ${fmtPct(deltaPctVsAntes)}` : '',
+    `📊 *STREAT LAB · Facturación ${fechaLarga}*`,
+    `*${fmtEur2(hoy.total)}*`,
+    antes.total > 0 ? `${flecha} ${pctInt >= 0 ? '+' : ''}${pctInt}% vs semana pasada` : '',
     ``,
-    `*Por marca:*`,
+    ...hoy.plataformas.map(p =>
+      `🛵 ${p.nombre} — ${fmtEur2(p.euros)} · ${p.pedidos} ped${p.nombre === lider.nombre ? ' ⭐' : ''}`),
+    `📦 ${hoy.pedidos} pedidos · TM ${fmtNum2(tm)}`,
+    objetivoDia > 0
+      ? (hoy.total >= objetivoDia
+          ? `🎯 Objetivo ${fmtEur2(objetivoDia)}: superado +${fmtEur2(hoy.total - objetivoDia)} ✅`
+          : `🎯 Objetivo ${fmtEur2(objetivoDia)}: faltan ${fmtEur2(objetivoDia - hoy.total)} ❌`)
+      : '',
+    semana > 0 ? `📅 Semana: ${fmtEur2(semana)}` : '',
+    ``,
+    `🏆 *Top marcas:*`,
     ...Array.from(hoy.porMarca.entries())
       .sort(([, a], [, b]) => b - a)
-      .map(([nombre, v]) => {
-        const ant = antes.porMarca.get(nombre) || 0
-        const delta = ant > 0 ? ((v - ant) / ant) * 100 : 0
-        return `${ant > 0 ? semaforo(delta) : '⚪'} ${nombre}: ${fmtEur(v)}`
-      }),
-    `━━━━━━━━━━━━━━━━━`,
+      .slice(0, 3)
+      .map(([n, v], i) => `${i + 1}. ${n} — ${fmtNum2(v)}`),
+    ...(platos.length > 0
+      ? [``, `🍽️ *Top platos:*`, ...platos.map((p, i) => `${i + 1}. ${p.plato} (${p.uds}u)`)]
+      : []),
   ].filter(Boolean).join('\n')
 
   return {
-    asunto: `Cierre ${fechaLegible} · ${fmtEur(hoy.total)}`,
+    asunto: `Cierre ${fechaLarga} · ${fmtEur2(hoy.total)}`,
     contenido_whatsapp: wa,
     contenido_email: wa,
   }
 }
 
 /**
- * 5) RESUMEN DE LA MAÑANA — cierre completo de AYER, para el email de las 08:00
+ * 5) RESUMEN DE LA MAÑANA — cierre completo de AYER (email 08:00).
+ * Consolidado: los LUNES añade los cobros de la semana y el DÍA 1 el cierre
+ * del mes anterior, todo en el mismo correo (sin envíos extra a las 09:00).
  */
 export async function resumenManana(): Promise<InformeContenido> {
-  const ayer = new Date()
+  const ahora = new Date()
+  const ayer = new Date(ahora)
   ayer.setDate(ayer.getDate() - 1)
   const base = await cierreDiario(ayer)
-  return {
-    asunto: `☀️ Resumen de ayer · ${base.asunto.replace(/^Cierre /, '')}`,
-    contenido_whatsapp: base.contenido_whatsapp.replace('🍴 *CIERRE', '☀️ *AYER ·'),
-    contenido_email: base.contenido_email.replace('🍴 *CIERRE', '☀️ *AYER ·'),
+  let wa = base.contenido_whatsapp.replace('📊 *STREAT LAB · Facturación', '☀️ *AYER · Facturación')
+  let asunto = `☀️ Resumen de ayer · ${base.asunto.replace(/^Cierre /, '')}`
+
+  // Lunes → cobros de la semana en el mismo correo
+  if (ahora.getDay() === 1) {
+    const c = await cobrosLunes()
+    wa += `\n\n${c.contenido_whatsapp}`
+    asunto += ' + cobros semana'
   }
+  // Día 1 → cierre del mes anterior en el mismo correo
+  if (ahora.getDate() === 1) {
+    const m = await cierreMensual()
+    wa += `\n\n${m.contenido_whatsapp}`
+    asunto += ' + cierre mes'
+  }
+
+  return { asunto, contenido_whatsapp: wa, contenido_email: wa }
 }
 
 /**
- * 6) PULSO DE LA TARDE (16:30) — venta acumulada del día vs objetivo
- * y referencia del mismo día de la semana pasada (día completo).
+ * 6) PULSO DE LA TARDE (16:30) — venta acumulada EN VIVO vs objetivo,
+ * proyección de cierre del día y referencia del mismo día pasado.
  */
 export async function pulsoTarde(): Promise<InformeContenido> {
   const f = new Date()
   const fAnt = new Date(f)
   fAnt.setDate(fAnt.getDate() - 7)
+  const fechaStr = isoFecha(f)
 
-  const [hoy, antesCompleto, objetivoDia] = await Promise.all([
-    datosDia(isoFecha(f)),
+  // Acumulado del día EN VIVO (snapshot TOTAL de ventas_vivo)
+  const { data: vivo } = await supabaseAdmin
+    .from('ventas_vivo')
+    .select('facturacion, pedidos')
+    .eq('fecha', fechaStr)
+    .eq('plataforma', 'TOTAL')
+    .order('momento', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const acum = Number((vivo as any)?.facturacion || 0)
+  const pedidos = Number((vivo as any)?.pedidos || 0)
+
+  const [antes, objetivoDia, platos] = await Promise.all([
     datosDia(isoFecha(fAnt)),
     objetivoDelDia(f),
+    topPlatosVivo(fechaStr, 3),
   ])
 
-  const pctObjetivo = objetivoDia > 0 ? (hoy.total / objetivoDia) * 100 : 0
+  const pctObjetivo = objetivoDia > 0 ? (acum / objetivoDia) * 100 : 0
+
+  // Proyección "a este paso": jornada de venta 12:00–24:00 (Madrid)
+  const ahoraMadrid = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Madrid' }))
+  const horaDec = ahoraMadrid.getHours() + ahoraMadrid.getMinutes() / 60
+  const frac = Math.min(1, Math.max(0.08, (horaDec - 12) / 12))
+  const proyeccion = frac > 0 ? acum / frac : acum
+
   const fechaLegible = `${DIAS[f.getDay()]} ${f.getDate()}/${f.getMonth() + 1}`
-  const topMarcas = Array.from(hoy.porMarca.entries()).sort(([, a], [, b]) => b - a).slice(0, 3)
 
   const wa = [
     `⏱ *PULSO 16:30 · ${fechaLegible}*`,
     `━━━━━━━━━━━━━━━━━`,
-    `💰 Llevamos: *${fmtEur(hoy.total)}* · ${hoy.pedidos} pedidos`,
-    objetivoDia > 0 ? `🎯 ${pctObjetivo.toFixed(0)}% del objetivo del día (${fmtEur(objetivoDia)})` : '',
-    antesCompleto.total > 0 ? `📌 El ${DIAS[fAnt.getDay()].toLowerCase()} pasado cerró en ${fmtEur(antesCompleto.total)}` : '',
-    topMarcas.length > 0 ? `` : '',
-    topMarcas.length > 0 ? `*Top marcas ahora:*` : '',
-    ...topMarcas.map(([n, v], i) => `${i + 1}. ${n}: ${fmtEur(v)}`),
+    `💰 Llevamos: *${fmtEur2(acum)}* · ${pedidos} pedidos`,
+    objetivoDia > 0 ? `🎯 ${pctObjetivo.toFixed(0)}% del objetivo del día (${fmtEur2(objetivoDia)})` : '',
+    acum > 0 ? `🔮 A este paso, cerramos el día en ~${fmtEur2(proyeccion)}` : '',
+    antes.total > 0 ? `📌 El ${DIAS[fAnt.getDay()].toLowerCase()} pasado cerró en ${fmtEur2(antes.total)}` : '',
+    ...(platos.length > 0
+      ? [``, `🍽️ *Top platos ahora:*`, ...platos.map((p, i) => `${i + 1}. ${p.plato} (${p.uds}u)`)]
+      : []),
     `━━━━━━━━━━━━━━━━━`,
   ].filter(Boolean).join('\n')
 
   return {
-    asunto: `Pulso 16:30 · ${fmtEur(hoy.total)}${objetivoDia > 0 ? ` (${pctObjetivo.toFixed(0)}% obj.)` : ''}`,
+    asunto: `Pulso 16:30 · ${fmtEur2(acum)}${objetivoDia > 0 ? ` (${pctObjetivo.toFixed(0)}% obj.)` : ''}`,
     contenido_whatsapp: wa,
     contenido_email: wa,
   }
 }
 
 /**
- * 2) COBROS PENDIENTES SEMANALES — qué nos tienen que ingresar las plataformas.
- * Expande las reglas de facturas_esperadas (frecuencia + días) a fechas
- * concretas de los próximos 7 días.
+ * 2) COBROS PENDIENTES SEMANALES
  */
 export async function cobrosLunes(): Promise<InformeContenido> {
   const hoy = new Date()
@@ -190,7 +275,6 @@ export async function cobrosLunes(): Promise<InformeContenido> {
     .select('proveedor_nombre, frecuencia, dia_semana, dia_mes_1, dia_mes_2, importe_estimado')
     .eq('activo', true)
 
-  // Expandir ocurrencias de los próximos 7 días según frecuencia
   const proximos: Array<{ fecha: Date; nombre: string; importe: number | null }> = []
   for (let i = 0; i < 7; i++) {
     const d = new Date(hoy)
@@ -233,7 +317,8 @@ export async function cobrosLunes(): Promise<InformeContenido> {
 }
 
 /**
- * 3) CIERRE SEMANAL — resumen completo lunes a domingo
+ * 3) CIERRE SEMANAL — al enviarse el domingo por la noche incluye ARRIBA el
+ * cierre del propio domingo (que no se manda suelto los domingos).
  */
 export async function cierreSemanal(): Promise<InformeContenido> {
   const hoy = new Date()
@@ -244,7 +329,6 @@ export async function cierreSemanal(): Promise<InformeContenido> {
   const lunesStr = isoFecha(lunes)
   const hoyStr = isoFecha(hoy)
 
-  // Semana anterior
   const lunesAnt = new Date(lunes)
   lunesAnt.setDate(lunes.getDate() - 7)
   const domingoAnt = new Date(lunesAnt)
@@ -275,7 +359,7 @@ export async function cierreSemanal(): Promise<InformeContenido> {
   const ranking = Array.from(porMarca.entries()).sort(([, a], [, b]) => b - a)
   const fechaLegible = `${lunes.getDate()}/${lunes.getMonth() + 1} - ${hoy.getDate()}/${hoy.getMonth() + 1}`
 
-  const wa = [
+  const semanaWa = [
     `📊 *CIERRE SEMANAL*`,
     `${fechaLegible}`,
     `━━━━━━━━━━━━━━━━━`,
@@ -287,19 +371,22 @@ export async function cierreSemanal(): Promise<InformeContenido> {
     `━━━━━━━━━━━━━━━━━`,
   ].filter(Boolean).join('\n')
 
+  // Cierre del propio domingo arriba
+  const cierreHoy = await cierreDiario(hoy)
+  const wa = `${cierreHoy.contenido_whatsapp}\n\n${semanaWa}`
+
   return {
-    asunto: `Cierre semanal · ${fmtEur(totalSem)}`,
+    asunto: `Cierre domingo + semana · ${fmtEur(totalSem)}`,
     contenido_whatsapp: wa,
     contenido_email: wa,
   }
 }
 
 /**
- * 4) CIERRE MENSUAL — netos por canal, gastos vs tope de presupuesto, margen
+ * 4) CIERRE MENSUAL
  */
 export async function cierreMensual(): Promise<InformeContenido> {
   const hoy = new Date()
-  // Mes anterior (al ejecutarse el día 1)
   const mes = hoy.getMonth() === 0 ? 12 : hoy.getMonth()
   const anio = hoy.getMonth() === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear()
   const mesPrev = mes === 1 ? 12 : mes - 1
@@ -322,8 +409,8 @@ export async function cierreMensual(): Promise<InformeContenido> {
   const deltaIng = totalIngPrev > 0 ? ((totalIng - totalIngPrev) / totalIngPrev) * 100 : 0
   const deltaGas = presupGas > 0 ? ((totalGas - presupGas) / presupGas) * 100 : 0
 
-  const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-  const mesLegible = `${meses[mes - 1]} ${anio}`
+  const mesesAbbr = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+  const mesLegible = `${mesesAbbr[mes - 1]} ${anio}`
 
   const wa = [
     `📈 *CIERRE MENSUAL · ${mesLegible}*`,
@@ -346,7 +433,7 @@ export async function cierreMensual(): Promise<InformeContenido> {
 }
 
 /**
- * Dispatcher principal — escoge la calculadora correcta
+ * Dispatcher principal
  */
 export async function calcularInforme(tipo: TipoInforme): Promise<InformeContenido> {
   switch (tipo) {
