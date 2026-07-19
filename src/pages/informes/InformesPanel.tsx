@@ -3,7 +3,7 @@
  *
  * Estado de los informes automáticos: resumen mañana, pulso tarde,
  * cierre diario, cobros lunes, cierre semanal, cierre mensual.
- * Permite enviar manualmente y ver historial reciente.
+ * Permite enviar manualmente (eligiendo WhatsApp o Email) y ver historial reciente.
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -62,7 +62,7 @@ export default function InformesPanel() {
   const navigate = useNavigate()
   const [configs, setConfigs] = useState<InformeConfig[]>([])
   const [envios, setEnvios] = useState<EnvioReciente[]>([])
-  const [enviando, setEnviando] = useState<TipoInforme | null>(null)
+  const [enviando, setEnviando] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -89,20 +89,30 @@ export default function InformesPanel() {
     setLoading(false)
   }
 
-  async function enviarManual(tipo: TipoInforme) {
+  async function enviarManual(tipo: TipoInforme, canales: { whatsapp?: boolean; email?: boolean }) {
     if (enviando) return
-    setEnviando(tipo)
+    const key = `${tipo}:${canales.whatsapp ? 'wa' : ''}${canales.email ? 'em' : ''}`
+    setEnviando(key)
     try {
       const res = await fetch('/api/informes/enviar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo }),
+        body: JSON.stringify({ tipo, canales }),
       })
       const json = await res.json()
       if (!res.ok) {
         alert('Error: ' + (json.error || 'desconocido'))
+      } else if ((json.enviados || 0) === 0 && (json.fallidos || 0) === 0) {
+        alert('No se envió a nadie. Revisa que haya destinatarios con ese canal activado para este informe.')
+      } else if ((json.fallidos || 0) > 0) {
+        const motivos = (json.detalle || [])
+          .filter((d: any) => !d.ok)
+          .map((d: any) => `• ${d.destinatario} (${d.canal}): ${d.error || 'error'}`)
+          .join('\n')
+        alert(`Enviados: ${json.enviados || 0}  ·  Fallidos: ${json.fallidos || 0}\n\nMotivo:\n${motivos}`)
+        cargar()
       } else {
-        alert(`✅ Enviado: ${json.enviados || 0} OK · ${json.fallidos || 0} KO`)
+        alert(`✅ Enviado correctamente a ${json.enviados || 0} destinatario(s).`)
         cargar()
       }
     } catch (err) {
@@ -186,25 +196,50 @@ export default function InformesPanel() {
                 : <>Sin ejecutar aún</>}
             </div>
 
-            <button
-              onClick={() => enviarManual(c.tipo)}
-              disabled={!!enviando}
-              style={{
-                marginTop: 'auto',
-                background: enviando === c.tipo ? T.mut : '#B01D23',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 8,
-                padding: '10px 14px',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: enviando ? 'wait' : 'pointer',
-                fontFamily: FONT.heading,
-                letterSpacing: '0.05em',
-              }}
-            >
-              {enviando === c.tipo ? 'Enviando...' : 'Enviar ahora'}
-            </button>
+            {/* Enviar ahora — el usuario elige canal por informe */}
+            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 11, color: T.mut }}>Enviar ahora por:</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => enviarManual(c.tipo, { whatsapp: true })}
+                  disabled={!!enviando}
+                  style={{
+                    flex: 1,
+                    background: enviando === `${c.tipo}:wa` ? T.mut : '#06C167',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '10px 8px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: enviando ? 'wait' : 'pointer',
+                    fontFamily: FONT.heading,
+                    letterSpacing: '0.03em',
+                  }}
+                >
+                  {enviando === `${c.tipo}:wa` ? 'Enviando…' : '💬 WhatsApp'}
+                </button>
+                <button
+                  onClick={() => enviarManual(c.tipo, { email: true })}
+                  disabled={!!enviando}
+                  style={{
+                    flex: 1,
+                    background: enviando === `${c.tipo}:em` ? T.mut : '#B01D23',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '10px 8px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: enviando ? 'wait' : 'pointer',
+                    fontFamily: FONT.heading,
+                    letterSpacing: '0.03em',
+                  }}
+                >
+                  {enviando === `${c.tipo}:em` ? 'Enviando…' : '📧 Email'}
+                </button>
+              </div>
+            </div>
           </div>
         ))}
       </div>
