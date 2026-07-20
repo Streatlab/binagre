@@ -48,6 +48,23 @@ export async function logRobot(fuente: string, estado: string, detalle: string) 
   } catch {}
 }
 
+/**
+ * 20-jul: este robot terminaba bien pero nunca tocaba robot_salud, así que el
+ * vigilante lo veía como "sin latido" y avisaba en falso cada mañana. Se llama
+ * al final de main() (éxito y error) igual que hacen uber.ts/glovo.ts/etc.
+ */
+export async function latido(fuente: string, detalle: string) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  try {
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const ahora = new Date().toISOString();
+    await sb.from('robot_salud').upsert(
+      [{ fuente, ultima_ejecucion: ahora, ultimo_dato: ahora, estado: 'ok', detalle }],
+      { onConflict: 'fuente' },
+    );
+  } catch {}
+}
+
 async function sniffInputs(page: Page, limite = 15): Promise<string> {
   const inputs = page.locator('input');
   const total = await inputs.count().catch(() => 0);
@@ -636,6 +653,7 @@ async function main() {
   const pct = intentados ? ((conPrecioFresco / intentados) * 100).toFixed(1) : '0.0';
   const detalle = `objetivo=${objetivos.length} intentados=${intentados} cargados=${total.cargado} sin_cambio=${total.sin_cambio_precio} dudoso=${total.dudoso} sin_match=${total.sin_match} fallidos=${total.fallido} (${pct}% con precio fresco)`;
   await logRobot('precios_super', 'resumen', detalle);
+  await latido('precios_super', detalle);
   console.log(detalle);
 }
 
@@ -643,7 +661,9 @@ const esEntryPoint = !!process.argv[1] && fileURLToPath(import.meta.url) === pro
 if (esEntryPoint) {
   main().catch(async (e) => {
     console.error(e);
-    await logRobot('precios_super', 'error', `fallo fatal: ${String(e?.message || e)}`);
+    const msg = `fallo fatal: ${String(e?.message || e)}`;
+    await logRobot('precios_super', 'error', msg);
+    await latido('precios_super', msg);
     process.exit(1);
   });
 }
