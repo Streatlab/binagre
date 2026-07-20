@@ -14,6 +14,12 @@ export interface LineaExtraidaFactura {
   precio_unitario: number | null
   total_linea: number | null
   iva_pct: number | null
+  /** Envase (Bolsa/Caja/Bandeja/Bote/Lata/Botella/Paquete/Unidad...). Solo lo rellena la vía PDF de escandallo-auto. */
+  formato?: string | null
+  /** Contenido del envase (ej. 2 en "MALLA 2 KG"). Solo lo rellena la vía PDF de escandallo-auto. */
+  contenido_valor?: number | null
+  /** Unidad del contenido: kg|g|l|ml|ud. Solo lo rellena la vía PDF de escandallo-auto. */
+  contenido_unidad?: string | null
 }
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'

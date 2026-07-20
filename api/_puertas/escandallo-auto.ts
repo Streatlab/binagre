@@ -20,6 +20,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST' && action === 'extraer-lineas') return await extraerUnaFactura(req, res)
     if (req.method === 'POST' && action === 'leer-conteo') return await leerConteo(req, res)
     if (req.method === 'POST' && action === 'confirmar-conteo') return await confirmarConteo(req, res)
+    if (req.method === 'POST' && action === 'fusionar-borrador') return await fusionarBorrador(req, res)
+    if (action === 'sugerir-fusiones') return await sugerirFusiones(req, res)
+    if (action === 'completar-borradores') return await completarBorradores(req, res)
+    if (action === 'procesar-lote') return await procesarLote(req, res)
     return res.status(200).json({ error: `Acción desconocida: ${action || '(vacía)'}` })
   } catch (err: any) {
     console.error('[escandallo-auto]', err?.message || err)
@@ -56,16 +60,24 @@ async function estado(res: VercelResponse) {
 /* ───────── Fase A · extraer UNA factura (síncrono, responde JSON) ───────── */
 async function extraerUnaFactura(req: VercelRequest, res: VercelResponse) {
   const body = (req.body || {}) as { factura_id?: string }
-  const prefijos = await prefijosMateriaPrima()
-
   const drive = await abrirDrive()
   if (!drive.ok) return res.status(200).json({ ok: false, error: drive.error })
+
+  const r = await procesarUnaFactura(drive.client!, body.factura_id)
+  return res.status(200).json(r)
+}
+
+type ResultadoFactura = { ok: boolean; vacio?: boolean; error?: string; factura_id?: string; proveedor?: string; estado?: string; lineas?: number }
+
+/** Procesa UNA factura de materia prima (la indicada, o si no la más antigua pendiente). Sin tocar `res`: la usan tanto extraer-lineas (1 factura) como procesar-lote (n seguidas). */
+async function procesarUnaFactura(driveClient: ReturnType<typeof google.drive>, facturaId?: string): Promise<ResultadoFactura> {
+  const prefijos = await prefijosMateriaPrima()
 
   let q = supabaseAdmin.from('facturas')
     .select('id, proveedor_nombre, total, pdf_drive_id, categoria_factura, fecha_factura')
     .not('pdf_drive_id', 'is', null)
-  if (body.factura_id) {
-    q = q.eq('id', body.factura_id)
+  if (facturaId) {
+    q = q.eq('id', facturaId)
   } else {
     q = q.or(prefijos.map(p => `categoria_factura.like.${p}%`).join(','))
       .is('lineas_estado', null)
@@ -73,14 +85,14 @@ async function extraerUnaFactura(req: VercelRequest, res: VercelResponse) {
       .limit(1)
   }
   const { data: facturas, error } = await q
-  if (error) return res.status(200).json({ ok: false, error: error.message })
-  if (!facturas?.length) return res.status(200).json({ ok: true, vacio: true })
+  if (error) return { ok: false, error: error.message }
+  if (!facturas?.length) return { ok: true, vacio: true }
 
   const f = facturas[0]
   let estadoF = 'error'
   let nLineas = 0
   try {
-    const pdf = await drive.client!.files.get({ fileId: f.pdf_drive_id as string, alt: 'media' }, { responseType: 'arraybuffer' })
+    const pdf = await driveClient.files.get({ fileId: f.pdf_drive_id as string, alt: 'media' }, { responseType: 'arraybuffer' })
     const b64 = Buffer.from(pdf.data as ArrayBuffer).toString('base64')
     const lineas = await lineasDesdePdf(b64, Number(f.total || 0), f.proveedor_nombre || 'desconocido')
 
@@ -99,6 +111,7 @@ async function extraerUnaFactura(req: VercelRequest, res: VercelResponse) {
           factura_id: f.id, descripcion: l.descripcion, cantidad: l.cantidad, unidad: l.unidad,
           precio_unitario: l.precio_unitario, total_linea: l.total_linea, iva_pct: l.iva_pct,
           proveedor_nombre: f.proveedor_nombre, fecha: f.fecha_factura, origen: 'ocr_reproceso',
+          formato: l.formato ?? null, contenido_valor: l.contenido_valor ?? null, contenido_unidad: l.contenido_unidad ?? null,
         }))
         const ins = await supabaseAdmin.from('facturas_lineas').insert(rows)
         if (ins.error) throw new Error(ins.error.message)
@@ -107,11 +120,44 @@ async function extraerUnaFactura(req: VercelRequest, res: VercelResponse) {
       }
     }
   } catch (err: any) {
-    console.error('[extraerUnaFactura]', f.id, err?.message || err)
+    console.error('[procesarUnaFactura]', f.id, err?.message || err)
     estadoF = 'error'
   }
   await supabaseAdmin.from('facturas').update({ lineas_estado: estadoF }).eq('id', f.id)
-  return res.status(200).json({ ok: true, factura_id: f.id, proveedor: f.proveedor_nombre, estado: estadoF, lineas: nLineas })
+  return { ok: true, factura_id: f.id, proveedor: f.proveedor_nombre, estado: estadoF, lineas: nLineas }
+}
+
+/* ───────── Fase E · procesar-lote (T5): n facturas seguidas en 1 invocación ───────── */
+const LOTE_MAX_N = 10
+const LOTE_PRESUPUESTO_MS = 260000 // deja margen bajo maxDuration=300s de la función
+
+async function procesarLote(req: VercelRequest, res: VercelResponse) {
+  if (!autorizadoCron(req)) return res.status(200).json({ ok: false, error: 'no autorizado' })
+  const n = Math.max(1, Math.min(LOTE_MAX_N, num((req.query.n as string) ?? (req.body as any)?.n) ?? LOTE_MAX_N))
+
+  const drive = await abrirDrive()
+  if (!drive.ok) return res.status(200).json({ ok: false, error: drive.error })
+
+  const inicio = Date.now()
+  const resultados: ResultadoFactura[] = []
+  for (let i = 0; i < n; i++) {
+    if (Date.now() - inicio > LOTE_PRESUPUESTO_MS) break
+    const r = await procesarUnaFactura(drive.client!)
+    resultados.push(r)
+    if (!r.ok || r.vacio) break
+  }
+  const procesadas = resultados.filter(r => r.ok && !r.vacio)
+  const vacio = resultados.length > 0 && !!resultados[resultados.length - 1].vacio
+  return res.status(200).json({ ok: true, procesadas: procesadas.length, vacio, resultados })
+}
+
+/** Cron interno (pg_cron/GitHub Actions) o llamada desde la propia app: exige clave compartida solo si llega por GET (cron), nunca para el POST de la pestaña Auto. */
+function autorizadoCron(req: VercelRequest): boolean {
+  if (req.method === 'POST') return true
+  const secreto = process.env.ESCANDALLO_CRON_SECRET
+  if (!secreto) return true // sin secreto configurado, no bloqueamos (entorno de desarrollo)
+  const clave = String(req.query.llave || req.headers['x-escandallo-clave'] || '')
+  return clave === secreto
 }
 
 async function abrirDrive(): Promise<{ ok: boolean; client?: ReturnType<typeof google.drive>; error?: string }> {
@@ -127,8 +173,9 @@ async function lineasDesdePdf(pdfB64: string, total: number, proveedor: string):
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return null
   const prompt = `Extrae las líneas de artículos de esta factura española del proveedor "${proveedor}" (total con IVA: ${total.toFixed(2)}€).
-Devuelve SOLO un array JSON: [{"descripcion":string,"cantidad":number,"unidad":string|null,"precio_unitario":number|null,"total_linea":number,"iva_pct":number|null}]
-Reglas: una entrada por artículo real; "total_linea" es la base SIN IVA de la línea; cantidad 1 si no se desglosa; NO inventes nada; si no hay desglose de artículos devuelve []. No incluyas totales, bases ni IVA como artículos. Sé conciso: usa números sin decimales innecesarios.`
+Devuelve SOLO un array JSON: [{"descripcion":string,"cantidad":number,"unidad":string|null,"precio_unitario":number|null,"total_linea":number,"iva_pct":number|null,"formato":string|null,"contenido_valor":number|null,"contenido_unidad":string|null}]
+Reglas: una entrada por artículo real; "total_linea" es la base SIN IVA de la línea; cantidad 1 si no se desglosa; NO inventes nada; si no hay desglose de artículos devuelve []. No incluyas totales, bases ni IVA como artículos. Sé conciso: usa números sin decimales innecesarios.
+Además, SOLO si el texto de la línea lo indica literalmente: "formato" es el tipo de envase (Bolsa, Caja, Bandeja, Bote, Lata, Botella, Paquete, Malla, Unidad...); "contenido_valor" es el número de contenido del envase y "contenido_unidad" su unidad (kg, g, l, ml o ud) — ej. "CEBOLLA MALLA 2 KG" → formato "Malla", contenido_valor 2, contenido_unidad "kg". Si la línea no indica envase/contenido, los tres van a null. NUNCA los inventes ni los deduzcas del nombre del producto si no aparecen escritos.`
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_VISION_MS)
   try {
@@ -170,6 +217,9 @@ Reglas: una entrada por artículo real; "total_linea" es la base SIN IVA de la l
         precio_unitario: num(o.precio_unitario),
         total_linea: num(o.total_linea),
         iva_pct: num(o.iva_pct),
+        formato: o.formato ? String(o.formato).trim() : null,
+        contenido_valor: num(o.contenido_valor),
+        contenido_unidad: o.contenido_unidad ? String(o.contenido_unidad).trim().toLowerCase() : null,
       }))
   } catch (err: any) {
     console.error('[lineasDesdePdf] fallo:', err?.message || err)
@@ -264,6 +314,170 @@ async function confirmarConteo(req: VercelRequest, res: VercelResponse) {
     .update({ estado: 'confirmado', confirmado_at: new Date().toISOString() }).eq('id', inventario_id)
   if (upd.error) return res.status(200).json({ error: upd.error.message })
   return res.status(200).json({ ok: true, lineas_sin_vincular_ignoradas: sinVincular ?? 0 })
+}
+
+/* ───────── Fase T3 · fusionar-borrador: "es el mismo que…" (1 clic, Rubén confirma) ───────── */
+async function fusionarBorrador(req: VercelRequest, res: VercelResponse) {
+  const { borrador_id, ingrediente_id } = (req.body || {}) as { borrador_id?: string; ingrediente_id?: string }
+  if (!borrador_id || !ingrediente_id) return res.status(200).json({ ok: false, error: 'Faltan borrador_id o ingrediente_id' })
+  const { data, error } = await supabaseAdmin.rpc('fn_fusionar_borrador', { p_borrador_id: borrador_id, p_ingrediente_id: ingrediente_id })
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json(data)
+}
+
+/* ───────── Fase T3 · sugerir-fusiones: SOLO propone, nunca fusiona ───────── */
+async function sugerirFusiones(req: VercelRequest, res: VercelResponse) {
+  const umbral = num(req.query.umbral as string) ?? 0.4
+  const { data, error } = await supabaseAdmin.rpc('fn_sugerir_fusiones', { p_umbral: umbral })
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, sugerencias: data ?? [] })
+}
+
+/* ───────── Fase T4 · completar-borradores: robot rellena formato/contenido/precio de
+   borradores Mercadona vía la API pública JSON (Alcampo necesita Playwright, no cabe en
+   una función serverless de Vercel — lo cubre la extensión del robot GitHub Actions,
+   ver scripts/robot-precios-super/robot.ts función completarBorradoresAlcampo). ───────── */
+async function completarBorradores(req: VercelRequest, res: VercelResponse) {
+  if (!autorizadoCron(req)) return res.status(200).json({ ok: false, error: 'no autorizado' })
+
+  const { data: borradores, error } = await supabaseAdmin
+    .from('ingredientes')
+    .select('id, nombre, nombre_super, proveedor_principal, marca')
+    .eq('borrador', true)
+    .is('formato', null)
+    .in('proveedor_principal', ['Mercadona', 'Alcampo'])
+    .limit(30)
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  const objetivos = (borradores ?? []).filter(b => b.proveedor_principal === 'Mercadona')
+  if (!objetivos.length) return res.status(200).json({ ok: true, procesados: 0, rellenados: 0, detalle: [] })
+
+  let cookie = ''
+  try {
+    cookie = await fijarCpMercadona()
+  } catch (err: any) {
+    return res.status(200).json({ ok: false, error: `No se pudo fijar CP Mercadona: ${err?.message || err}` })
+  }
+  const catalogo = await crawlCatalogoMercadona(cookie)
+
+  const detalle: Array<{ ingrediente_id: string; nombre: string; resultado: string }> = []
+  let rellenados = 0
+  for (const b of objetivos) {
+    const consulta = b.nombre_super || b.nombre
+    const match = mejorProductoMercadona(consulta, catalogo)
+    if (!match) { detalle.push({ ingrediente_id: b.id, nombre: b.nombre, resultado: 'sin_match' }); continue }
+    const parsed = parsearFormatoYContenido(match.nombre)
+    if (!parsed || match.precio == null) { detalle.push({ ingrediente_id: b.id, nombre: b.nombre, resultado: 'sin_formato_legible' }); continue }
+
+    const { std, min, uds } = normalizarContenido(parsed.valor, parsed.unidad)
+    if (!std || !uds) { detalle.push({ ingrediente_id: b.id, nombre: b.nombre, resultado: 'unidad_no_reconocida' }); continue }
+    const eurStd = match.precio / uds
+    const eurMin = min === std ? eurStd : eurStd / (min === 'g.' || min === 'ml.' ? 1000 : 1)
+
+    await supabaseAdmin.from('ingredientes').update({
+      formato: parsed.formato, uds, ud_std: std, ud_min: min,
+      precio_total: match.precio, eur_std: eurStd, eur_min: eurMin,
+      precio1: match.precio, ultimo_precio: match.precio, precio_activo: match.precio,
+    }).eq('id', b.id)
+
+    await supabaseAdmin.from('tareas_erp')
+      .update({ descripcion: `Completado por robot (Mercadona): ${parsed.formato} ${parsed.valor}${parsed.unidad}, ${match.precio}€. Revisa la merma antes de usarlo en recetas.`, updated_at: new Date().toISOString() })
+      .eq('ingrediente_id', b.id).neq('columna', 'hecho')
+
+    rellenados++
+    detalle.push({ ingrediente_id: b.id, nombre: b.nombre, resultado: 'completado' })
+  }
+  return res.status(200).json({ ok: true, procesados: objetivos.length, rellenados, detalle })
+}
+
+/* ── Mercadona API pública (misma lógica que scripts/robot-precios-super/robot.ts, sin Playwright) ── */
+const MERCADONA_API = 'https://tienda.mercadona.es/api'
+const MERCADONA_CP = '28038'
+
+async function fijarCpMercadona(): Promise<string> {
+  const r = await fetch(`${MERCADONA_API}/postal-codes/actions/change-pc/`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_postal_code: MERCADONA_CP }),
+  })
+  if (!r.ok) throw new Error(`HTTP ${r.status} fijando CP`)
+  const setCookie = typeof (r.headers as any).getSetCookie === 'function' ? (r.headers as any).getSetCookie() : []
+  return (setCookie as string[]).map(c => c.split(';')[0]).join('; ')
+}
+
+type ProductoMercadona = { id: string; nombre: string; precio: number | null }
+
+async function fetchJsonMercadona(url: string, cookie: string): Promise<any> {
+  const r = await fetch(url, { headers: cookie ? { Cookie: cookie } : {} })
+  if (!r.ok) throw new Error(`HTTP ${r.status} en ${url}`)
+  return r.json()
+}
+
+function extraerPrecioMercadona(p: any): number | null {
+  const candidatos = [p?.price_instructions?.unit_price, p?.price_instructions?.bulk_price, p?.price_instructions?.reference_price]
+  for (const c of candidatos) { if (c == null) continue; const n = typeof c === 'number' ? c : num(String(c)); if (n != null && n > 0) return n }
+  return null
+}
+
+async function crawlCatalogoMercadona(cookie: string): Promise<ProductoMercadona[]> {
+  const raiz = await fetchJsonMercadona(`${MERCADONA_API}/categories/`, cookie)
+  const categoriasRaiz: any[] = raiz?.results ?? raiz?.categories ?? []
+  const productos: ProductoMercadona[] = []
+  for (const cat of categoriasRaiz) {
+    for (const sub of (cat?.categories ?? [])) {
+      if (sub?.id == null) continue
+      try {
+        const det = await fetchJsonMercadona(`${MERCADONA_API}/categories/${sub.id}/`, cookie)
+        const listas: any[][] = []
+        if (Array.isArray(det?.products)) listas.push(det.products)
+        for (const s of det?.categories ?? []) if (Array.isArray(s?.products)) listas.push(s.products)
+        for (const lista of listas) for (const p of lista) {
+          const nombre = p?.display_name || p?.name || ''
+          if (nombre) productos.push({ id: String(p.id), nombre, precio: extraerPrecioMercadona(p) })
+        }
+      } catch { /* subcategoría no legible, se ignora */ }
+    }
+  }
+  return productos
+}
+
+function normalizarTexto(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/** Coincidencia por subcadena exacta del nombre normalizado, quedándonos con el resultado más corto (menos ambiguo). Igual de estricto que el robot semanal: si no hay UNA ganadora clara, no se adivina. */
+function mejorProductoMercadona(consulta: string, catalogo: ProductoMercadona[]): ProductoMercadona | null {
+  const c = normalizarTexto(consulta)
+  const porSubcadena = catalogo.filter(p => normalizarTexto(p.nombre).includes(c))
+  if (!porSubcadena.length) return null
+  porSubcadena.sort((a, b) => a.nombre.length - b.nombre.length)
+  const largoMinimo = porSubcadena[0].nombre.length
+  const empatados = porSubcadena.filter(p => p.nombre.length === largoMinimo)
+  return empatados.length === 1 ? empatados[0] : null
+}
+
+/** Extrae formato+contenido del nombre del producto TAL COMO lo da la web (ej. "Cebolla malla 2 kg"). Nunca inventa: si no hay patrón numérico+unidad reconocible, devuelve null. */
+function parsearFormatoYContenido(nombreWeb: string): { formato: string; valor: number; unidad: string } | null {
+  const m = nombreWeb.match(/([\d]+(?:[.,]\d+)?)\s*(kg|g|gr|l|ml|ud|uds|unidad(?:es)?)\b/i)
+  if (!m) return null
+  const valor = parseFloat(m[1].replace(',', '.'))
+  if (!isFinite(valor) || valor <= 0) return null
+  let unidad = m[2].toLowerCase()
+  if (unidad === 'gr') unidad = 'g'
+  if (unidad.startsWith('ud')) unidad = 'ud'
+  if (unidad.startsWith('unidad')) unidad = 'ud'
+  const formatoMatch = nombreWeb.match(/^(bolsa|caja|bandeja|bote|lata|botella|paquete|malla|tarrina|garrafa)/i)
+  const formato = formatoMatch ? formatoMatch[1][0].toUpperCase() + formatoMatch[1].slice(1).toLowerCase() : 'Unidad'
+  return { formato, valor, unidad }
+}
+
+/** Misma conversión a unidad estándar/mínima que fn_procesar_linea_factura en BD (T1). */
+function normalizarContenido(valor: number, unidad: string): { std: string | null; min: string | null; uds: number | null } {
+  switch (unidad) {
+    case 'kg': return { std: 'Kg.', min: 'g.', uds: valor }
+    case 'g': return { std: 'Kg.', min: 'g.', uds: valor / 1000 }
+    case 'l': return { std: 'L.', min: 'ml.', uds: valor }
+    case 'ml': return { std: 'L.', min: 'ml.', uds: valor / 1000 }
+    case 'ud': return { std: 'Ud.', min: 'Ud.', uds: valor }
+    default: return { std: null, min: null, uds: null }
+  }
 }
 
 /* ───────────── helpers ───────────── */
