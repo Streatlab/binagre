@@ -79,6 +79,10 @@ function stripHtml(html: string): string {
     .replace(/&euro;/gi, '€')
     .replace(/&amp;/gi, '&')
     .replace(/&aacute;/gi, 'á').replace(/&iacute;/gi, 'í').replace(/&oacute;/gi, 'ó')
+    // Entidades numéricas (p.ej. algunos envíos usan &#8364; en vez de € literal).
+    // Sin esto el texto se queda con "&#8364;" y las regex que buscan "€" no casan.
+    .replace(/&#(\d+);/g, (_m, d: string) => String.fromCharCode(Number(d)))
+    .replace(/&#x([0-9a-f]+);/gi, (_m, h: string) => String.fromCharCode(parseInt(h, 16)))
     .replace(/\s+/g, ' ')
     .trim()
 }
