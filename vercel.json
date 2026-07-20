@@ -65,11 +65,19 @@
       "destination": "/api/papeleo/conciliacion"
     },
     {
+      "source": "/api/conciliacion/importar-emilio",
+      "destination": "/api/papeleo/conciliacion?ruta2=importar-emilio"
+    },
+    {
       "source": "/api/conciliacion/:ruta*",
       "destination": "/api/papeleo/conciliacion/:ruta*"
     },
     {
       "source": "/api/importar",
+      "destination": "/api/papeleo/importar"
+    },
+    {
+      "source": "/api/importar/plataforma",
       "destination": "/api/papeleo/importar"
     },
     {
