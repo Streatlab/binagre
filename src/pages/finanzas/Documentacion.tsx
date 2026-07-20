@@ -1,9 +1,9 @@
-import { useState, useEffect, Suspense, lazy, type CSSProperties } from 'react'
+import { useState, useEffect, Suspense, lazy } from 'react'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { supabase } from '@/lib/supabase'
 import { fechaLocalStr } from '@/utils/fechaLocal'
 import {
-  OSW, LEX, INK, CREMA, CLARO, VERDE, NAR, ROJO, AMA, AZUL, GRANATE, GRIS,
+  OSW, LEX, INK, CREMA, CLARO, VERDE, NAR, ROJO, AMA, GRANATE, GRIS,
   SHADOW, BORDER, BORDER_CARD, d, eyebrow,
 } from '@/styles/neobrutal'
 import BandejaEntrada from '@/components/documentacion/BandejaEntrada'
@@ -12,6 +12,9 @@ import ResolverPendientes from '@/components/documentacion/ResolverPendientes'
 // Monta los módulos EXISTENTES sin tocar su lógica (solo se reubican como pestañas).
 // La antigua pestaña "Ventas" (importador CSV) se eliminó: toda subida entra por
 // la Bandeja de entrada y las ventas viven en Finanzas → Ventas.
+// 20-jul: fuera las 3 cards blancas (Pendiente/En proceso/Conciliado) — repetían
+// lo que ya dicen el hero y el panel de Avisos con números distintos. Una sola
+// fuente de verdad: hero (conciliado) + Avisos (pendientes).
 const OcrConToast = lazy(() => import('@/pages/OcrConToast'))
 const Conciliacion = lazy(() => import('@/pages/Conciliacion'))
 const GestionFacturas = lazy(() => import('@/pages/finanzas/GestionFacturas'))
@@ -38,74 +41,10 @@ interface KpiRow {
   facturas_aviso_aritmetica: number
 }
 
-interface PendienteTiRow {
-  duplicados: number
-  sinCategoria: number
-  titularDudoso: number
-  lecturaManual: number
-  avisosAbiertos: number
-}
-interface EnProcesoRow {
-  pendienteRevision: number
-  releerOcr: number
-  drivePendiente: number
-}
-
 const nf0 = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping: true })
 
-// ── 3 cards grandes (estilo neobrutal Food-Pop) ──────────────────────────────
-// Sustituyen las 6 mini-cards anteriores: 1 número por bloque de responsabilidad
-// (qué necesita a Rubén, qué resuelve el sistema solo, qué ya está cerrado).
-function CardsPapeleo({
-  kpi, pendienteTi, enProceso, onIrAPendientes,
-}: {
-  kpi: KpiRow | null
-  pendienteTi: PendienteTiRow | null
-  enProceso: EnProcesoRow | null
-  onIrAPendientes: () => void
-}) {
-  if (!kpi) return null
-  const pct = Number(kpi.pct_cobertura ?? 0)
-  const pctColor = pct >= 80 ? VERDE : pct >= 50 ? NAR : ROJO
-
-  const totalPendiente = pendienteTi
-    ? pendienteTi.duplicados + pendienteTi.sinCategoria + pendienteTi.titularDudoso + pendienteTi.lecturaManual + pendienteTi.avisosAbiertos
-    : 0
-  const totalProceso = enProceso ? enProceso.pendienteRevision + enProceso.releerOcr + enProceso.drivePendiente : 0
-  const colorPendiente = totalPendiente > 0 ? (totalPendiente > 20 ? ROJO : NAR) : VERDE
-
-  const cardBase: CSSProperties = { background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px' }
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 16 }}>
-      {/* ── PENDIENTE DE TI: lleva a la Bandeja, donde AvisosBandeja resuelve de 1 clic ── */}
-      <button onClick={onIrAPendientes} style={{ ...cardBase, textAlign: 'left', cursor: 'pointer' }}>
-        <div style={eyebrow(colorPendiente, colorPendiente === VERDE ? INK : '#fff')}>Pendiente de ti</div>
-        <div style={{ ...d('40px', colorPendiente), marginTop: 10 }}>{nf0(totalPendiente)}</div>
-        <div style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS, marginTop: 6 }}>
-          {totalPendiente > 0 ? 'ver y resolver de un clic ↓' : 'nada esperando tu decisión'}
-        </div>
-      </button>
-
-      {/* ── EN PROCESO ── */}
-      <div style={cardBase}>
-        <div style={eyebrow(AZUL, '#fff')}>En proceso</div>
-        <div style={{ ...d('40px', AZUL), marginTop: 10 }}>{nf0(totalProceso)}</div>
-        <div style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS, marginTop: 6 }}>el sistema lo resuelve solo, no hace falta nada</div>
-      </div>
-
-      {/* ── CONCILIADO ── */}
-      <div style={cardBase}>
-        <div style={eyebrow(pctColor, pctColor === VERDE ? INK : '#fff')}>Conciliado</div>
-        <div style={{ ...d('40px', pctColor), marginTop: 10 }}>{pct.toFixed(0)}%</div>
-        <div style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS, marginTop: 6 }}>{nf0(kpi.movimientos_con_factura)} de {nf0(kpi.movimientos_total)} movimientos con factura</div>
-      </div>
-    </div>
-  )
-}
-
 // ── Frase-cabecera (hero neobrutal: titular gigante + 2 frases semáforo) ──
-function FraseCabecera({ kpi }: { kpi: KpiRow | null }) {
+function FraseCabecera({ kpi, avisos }: { kpi: KpiRow | null; avisos: number }) {
   if (!kpi) return null
   const pct = Number(kpi.pct_cobertura ?? 0)
   const pctColor = pct >= 80 ? VERDE : pct >= 50 ? NAR : ROJO
@@ -118,17 +57,17 @@ function FraseCabecera({ kpi }: { kpi: KpiRow | null }) {
 
   let pequena: string
   let pequenaColor: string
-  if (kpi.facturas_sin_categoria > 0) {
-    pequena = `${kpi.facturas_sin_categoria} sin categoría por clasificar para que el P&L cuadre.`
+  if (avisos > 0) {
+    pequena = `${nf0(avisos)} aviso${avisos > 1 ? 's' : ''} esperando tu decisión — abajo, de un clic.`
     pequenaColor = NAR
-  } else if (kpi.facturas_posible_duplicado > 0) {
-    pequena = `${kpi.facturas_posible_duplicado} posible${kpi.facturas_posible_duplicado > 1 ? 's' : ''} duplicado${kpi.facturas_posible_duplicado > 1 ? 's' : ''} esperando que los revises.`
+  } else if (kpi.facturas_sin_categoria > 0) {
+    pequena = `${nf0(kpi.facturas_sin_categoria)} movimiento${kpi.facturas_sin_categoria > 1 ? 's' : ''} de banco sin categoría (transferencias sin destinatario).`
     pequenaColor = NAR
   } else if (kpi.facturas_aviso_aritmetica > 0) {
     pequena = `${kpi.facturas_aviso_aritmetica} con aviso de IVA por revisar.`
     pequenaColor = ROJO
   } else {
-    pequena = 'Sin nada pendiente: ni sin categoría, ni duplicados, ni avisos.'
+    pequena = 'Sin nada pendiente: ni avisos, ni duplicados, ni sin categoría.'
     pequenaColor = VERDE
   }
 
@@ -186,8 +125,7 @@ export default function Documentacion() {
   const [hasta, setHasta] = useState<Date>(new Date())
 
   const [kpi, setKpi] = useState<KpiRow | null>(null)
-  const [pendienteTi, setPendienteTi] = useState<PendienteTiRow | null>(null)
-  const [enProceso, setEnProceso] = useState<EnProcesoRow | null>(null)
+  const [avisos, setAvisos] = useState(0)
   const [reloadTick, setReloadTick] = useState(0)
   useEffect(() => {
     let alive = true
@@ -196,38 +134,11 @@ export default function Documentacion() {
         .from('v_kpi_cobertura_conciliacion')
         .select('*')
         .then(({ data }) => { if (alive && data && data.length > 0) setKpi(data[0] as KpiRow) })
-
-      // "Pendiente de ti": duplicados + sin categoría + titular dudoso + lectura manual + avisos abiertos.
-      Promise.all([
-        supabase.from('facturas').select('id', { count: 'exact', head: true }).eq('posible_duplicado', true),
-        supabase.from('facturas').select('id', { count: 'exact', head: true }).is('categoria_factura', null).neq('no_conciliable', true),
-        supabase.from('facturas').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente_titular_manual'),
-        supabase.from('facturas').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente_lectura_manual'),
-        supabase.from('avisos_papeleo').select('id', { count: 'exact', head: true }).eq('estado', 'abierto'),
-      ]).then(([duplicados, sinCategoria, titularDudoso, lecturaManual, avisosAbiertos]) => {
-        if (!alive) return
-        setPendienteTi({
-          duplicados: duplicados.count ?? 0,
-          sinCategoria: sinCategoria.count ?? 0,
-          titularDudoso: titularDudoso.count ?? 0,
-          lecturaManual: lecturaManual.count ?? 0,
-          avisosAbiertos: avisosAbiertos.count ?? 0,
-        })
-      })
-
-      // "En proceso": lo que el sistema resuelve solo, sin pedir nada.
-      Promise.all([
-        supabase.from('facturas').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente_revision'),
-        supabase.from('facturas').select('id', { count: 'exact', head: true }).eq('pendiente_releer_ocr', true),
-        supabase.from('facturas').select('id', { count: 'exact', head: true }).eq('estado', 'drive_pendiente'),
-      ]).then(([pendienteRevision, releerOcr, drivePendiente]) => {
-        if (!alive) return
-        setEnProceso({
-          pendienteRevision: pendienteRevision.count ?? 0,
-          releerOcr: releerOcr.count ?? 0,
-          drivePendiente: drivePendiente.count ?? 0,
-        })
-      })
+      supabase
+        .from('avisos_papeleo')
+        .select('id', { count: 'exact', head: true })
+        .eq('estado', 'abierto')
+        .then(({ count }) => { if (alive) setAvisos(count ?? 0) })
     }
     cargar()
     const t = setInterval(cargar, 30_000)
@@ -251,8 +162,7 @@ export default function Documentacion() {
         />
       </div>
 
-      <FraseCabecera kpi={kpi} />
-      <CardsPapeleo kpi={kpi} pendienteTi={pendienteTi} enProceso={enProceso} onIrAPendientes={() => cambiar('bandeja')} />
+      <FraseCabecera kpi={kpi} avisos={avisos} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
         <TabsNeo tab={tab} onChange={cambiar} />
