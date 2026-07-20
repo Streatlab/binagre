@@ -128,7 +128,7 @@ async function lineasDesdePdf(pdfB64: string, total: number, proveedor: string):
   if (!apiKey) return null
   const prompt = `Extrae las líneas de artículos de esta factura española del proveedor "${proveedor}" (total con IVA: ${total.toFixed(2)}€).
 Devuelve SOLO un array JSON: [{"descripcion":string,"cantidad":number,"unidad":string|null,"precio_unitario":number|null,"total_linea":number,"iva_pct":number|null}]
-Reglas: una entrada por artículo real; "total_linea" es la base SIN IVA de la línea; cantidad 1 si no se desglosa; NO inventes nada; si no hay desglose de artículos devuelve []. No incluyas totales, bases ni IVA como artículos.`
+Reglas: una entrada por artículo real; "total_linea" es la base SIN IVA de la línea; cantidad 1 si no se desglosa; NO inventes nada; si no hay desglose de artículos devuelve []. No incluyas totales, bases ni IVA como artículos. Sé conciso: usa números sin decimales innecesarios.`
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_VISION_MS)
   try {
@@ -136,7 +136,7 @@ Reglas: una entrada por artículo real; "total_linea" es la base SIN IVA de la l
       method: 'POST',
       headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: MODEL_LINEAS, max_tokens: 4000,
+        model: MODEL_LINEAS, max_tokens: 8000,
         messages: [{ role: 'user', content: [
           { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfB64 } },
           { type: 'text', text: prompt },
@@ -145,9 +145,21 @@ Reglas: una entrada por artículo real; "total_linea" es la base SIN IVA de la l
       signal: ctrl.signal,
     })
     if (!resp.ok) { console.error('[lineasDesdePdf] HTTP', resp.status); return null }
-    const data = await resp.json() as { content?: Array<{ text?: string }> }
+    const data = await resp.json() as { content?: Array<{ text?: string }>; stop_reason?: string }
     const raw = (data.content || []).map(c => c.text || '').join('').replace(/```json|```/g, '').trim()
-    const arr = JSON.parse(raw)
+    let arr: any
+    try {
+      arr = JSON.parse(raw)
+    } catch {
+      // Respuesta cortada por max_tokens (factura con muchas líneas, p.ej. Mercadona):
+      // recuperar solo los objetos completos hasta el último "}" cerrado.
+      // LEY-ANTIFALSOS: mejor menos líneas correctas que inventar o descartar la factura entera.
+      const corte = raw.lastIndexOf('}')
+      if (corte === -1) return null
+      const reparado = raw.slice(0, corte + 1).replace(/,\s*$/, '') + ']'
+      try { arr = JSON.parse(reparado) } catch { return null }
+      console.warn('[lineasDesdePdf] JSON truncado (stop_reason=' + data.stop_reason + '); recuperados', Array.isArray(arr) ? arr.length : 0, 'objetos')
+    }
     if (!Array.isArray(arr)) return null
     return arr
       .filter((o: any) => o && typeof o === 'object' && String(o.descripcion || '').trim())
