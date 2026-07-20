@@ -4,7 +4,7 @@ name: Procesar bandeja (imports_log → módulos ERP)
 # módulos (facturas → motor OCR; informes → parsers de plataformas).
 # En trabajo se dispara al tocar ESTE yml (palanca de prueba sin dispatch);
 # el horario definitivo vive en master (BLOQUEO CERO: yml en master, código en trabajo).
-# palanca: 4 (barrido completo de la bandeja: lote 140)
+# palanca: 5 (barrido completo con marcado pendiente_revision para desatascar el bucle de 10)
 
 on:
   workflow_dispatch:
