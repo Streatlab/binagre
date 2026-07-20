@@ -8,6 +8,7 @@ import Login from '@/pages/Login'
 const Home = React.lazy(() => import('@/pages/Home'))
 const Facturacion = React.lazy(() => import('@/pages/Facturacion'))
 const Reservas = React.lazy(() => import('@/pages/finanzas/Reservas'))
+const TesoreriaFijosReserva = React.lazy(() => import('@/pages/finanzas/TesoreriaFijosReserva'))
 const PyG = React.lazy(() => import('@/pages/finanzas/PyG'))
 const RentabilidadFranja = React.lazy(() => import('@/pages/analytics/RentabilidadFranja'))
 const Proveedores = React.lazy(() => import('@/pages/Proveedores'))
@@ -231,6 +232,7 @@ function AppRoutes() {
           <Route path="finanzas/repeticion-clientes" element={<ProtectedRoute solo={['admin']}><RepeticionClientes /></ProtectedRoute>} />
           <Route path="finanzas/roi-canal" element={<ProtectedRoute solo={['admin']}><RoiCanal /></ProtectedRoute>} />
           <Route path="finanzas/reservas" element={<ProtectedRoute solo={['admin']}><Reservas /></ProtectedRoute>} />
+          <Route path="finanzas/fijos-reserva" element={<ProtectedRoute solo={['admin']}><TesoreriaFijosReserva /></ProtectedRoute>} />
           <Route path="finanzas/pyg" element={<ProtectedRoute solo={['admin']}><PyG /></ProtectedRoute>} />
           <Route path="finanzas/rentabilidad-franja" element={<ProtectedRoute solo={['admin']}><RentabilidadFranja /></ProtectedRoute>} />
           <Route path="finanzas/ticket-medio" element={<ProtectedRoute solo={['admin']}><TicketMedio /></ProtectedRoute>} />
