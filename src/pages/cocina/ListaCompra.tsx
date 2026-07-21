@@ -5,6 +5,7 @@ import { useTheme, FONT, pageTitleStyle, groupStyle } from '@/styles/tokens'
 import type { TokenSet } from '@/styles/tokens'
 import { Printer, Download, ShoppingCart, Search, X, Plus, Minus, Save, FolderOpen, AlertTriangle, TrendingUp, ChevronDown, ChevronRight, Link } from 'lucide-react'
 import * as M from '@/lib/marcoDoc'
+import HojaDoc from '@/components/marco/HojaDoc'
 
 /* ═══ TYPES ═══ */
 
@@ -328,11 +329,7 @@ export default function ListaCompra() {
       </div>
 
       {/* Tabla */}
-      <div className="ficha-card">
-        <div className="ficha-head">
-          <span className="ficha-title">Lista de Compra</span>
-          <span className="ficha-week">{hoy}{enLista > 0 ? ` · ${enLista} prod. · ${eur(totalGen)}` : ''}</span>
-        </div>
+      <HojaDoc area="cocina" docNombre="Lista de Compra" meta={`${hoy}${enLista > 0 ? ` · ${enLista} prod. · ${eur(totalGen)}` : ''}`}>
         <div className="ficha-section">
           {grupos.length === 0 ? (
             <div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Sin ingredientes</div>
@@ -392,7 +389,7 @@ export default function ListaCompra() {
             </div>
           )}
         </div>
-      </div>
+      </HojaDoc>
 
       {/* Modal guardar */}
       {modalGuardar && (
@@ -453,10 +450,10 @@ const CSS = `
 .prod-table-wrap{overflow-x:auto}
 .prod-table{width:100%;border-collapse:separate;border-spacing:0;font-family:'Lexend',sans-serif;font-size:13px}
 .prod-table th,.prod-table td{border-right:1px solid var(--sl-border-strong);border-bottom:1px solid var(--sl-border-strong)}
-.th-partida{font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;text-align:left;padding:6px 8px;background:#B01D23;color:#fff;min-width:160px}
+.th-partida{font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;text-align:left;padding:6px 8px;background:var(--m-acento);color:#fff;min-width:160px}
 .th-partida-ini{position:sticky;left:0;z-index:2}
-.th-dia{font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;text-align:center;padding:5px 8px;background:#B01D23;color:#fff;white-space:nowrap}
-.td-seccion{font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#B01D23;padding:5px 8px;background:rgba(176,29,35,.07)}
+.th-dia{font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;text-align:center;padding:5px 8px;background:var(--m-acento);color:#fff;white-space:nowrap}
+.td-seccion{font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--m-acento);padding:5px 8px;background:var(--m-soft2)}
 .td-partida{font-family:'Lexend',sans-serif;font-size:13.5px;color:var(--text-primary);padding:4px 8px;white-space:nowrap;background:var(--bg-card)}
 .td-partida-ini{position:sticky;left:0;z-index:1}
 .td-celda{padding:3px 8px;font-size:12px;color:var(--text-secondary);text-align:center;background:var(--bg-card)}
@@ -467,17 +464,17 @@ const CSS = `
 .td-cantidad{padding:2px 4px}
 .fila-activa .td-partida{font-weight:600}
 .fila-activa .td-celda{background:rgba(29,158,117,.04)}
-.fila-stock .td-partida{border-left:3px solid #B01D23}
+.fila-stock .td-partida{border-left:3px solid var(--m-acento)}
 .qty-wrap{display:flex;align-items:center;justify-content:center;gap:2px}
 .qty-btn{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;border:1px solid var(--sl-border);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;padding:0;transition:background 120ms}
-.qty-btn:hover{background:rgba(176,29,35,.08);color:#B01D23}
+.qty-btn:hover{background:var(--m-soft2,rgba(176,29,35,.08));color:var(--m-acento,#B01D23)}
 .qty-btn:disabled{opacity:.3;cursor:not-allowed}
-.qty-btn-plus{background:rgba(176,29,35,.06);border-color:rgba(176,29,35,.2);color:#B01D23}
-.qty-btn-plus:hover{background:rgba(176,29,35,.14)}
+.qty-btn-plus{background:var(--m-soft2,rgba(176,29,35,.06));border-color:var(--m-soft,rgba(176,29,35,.2));color:var(--m-acento,#B01D23)}
+.qty-btn-plus:hover{background:var(--m-soft,rgba(176,29,35,.14))}
 .celda-input{width:44px;min-width:36px;background:transparent;border:1px solid var(--sl-border);border-radius:4px;outline:none;font-family:'Lexend',sans-serif;font-size:14px;font-weight:600;color:var(--text-primary);padding:2px 2px;text-align:center}
 .celda-input::-webkit-inner-spin-button,.celda-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .celda-input[type=number]{-moz-appearance:textfield}
-.badge-stock{display:inline-block;margin-left:6px;font-size:10px;color:#B01D23;vertical-align:middle}
+.badge-stock{display:inline-block;margin-left:6px;font-size:10px;color:var(--m-acento);vertical-align:middle}
 .badge-precio{display:inline-block;margin-left:6px;font-size:9px;padding:0 4px;border-radius:3px;vertical-align:middle;font-family:'Oswald',sans-serif;letter-spacing:.5px}
 .badge-sube{background:rgba(245,166,35,.15);color:#c47600}
 .badge-baja{background:rgba(29,158,117,.12);color:#1D9E75}

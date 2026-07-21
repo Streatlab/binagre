@@ -97,6 +97,36 @@ Notas por documento:
 - **Lista de Compra**: conserva columnas (proveedor, producto, formato, ud, cantidad, precio,
   total).
 
+## Vista en pantalla = papel
+
+La superficie del documento en pantalla replica el mismo marco que el PDF:
+espina lateral de área a la izquierda, cabecera (docNombre en acento del área a la
+izquierda · tituloCentrado centrado en grande · logo Streat Lab a la derecha),
+regla horizontal de acento y cuerpo del documento.
+
+**Componente canónico:** `src/components/marco/HojaDoc.tsx` (BLINDADO).
+Props: `area`, `docNombre`, `meta?`, `tituloCentrado?`, `children`.
+
+**Tokens CSS** exportados desde `marcoDoc.ts` como `marcoCSSVars(area)`:
+
+| Variable | Valor (cocina) | Descripción |
+|---|---|---|
+| `--m-acento` | `#a8524e` | Color de acento del área |
+| `--m-soft` | `#ecdad9` | Tint suave (fondos de cabecera, pills) |
+| `--m-soft2` | `#f7efee` | Tint muy suave (fondos de filas) |
+| `--m-tinta` | `#232323` | Tinta oscura común |
+| `--m-linea` | `#cfcfcf` | Gris de líneas/bordes neutros |
+| `--m-espina` | `#b46a67` | Color de la espina (86% acento + 14% blanco) |
+| `--m-radio` | `6px` | Radio único de todas las esquinas |
+
+Los tokens se aplican como inline style en el contenedor `HojaDoc` y son heredados
+por todos los descendientes. El toggle Color/B–N afecta SOLO al PDF; en pantalla el
+color es siempre el del área.
+
+**Regla de aislamiento:** solo cambian las superficies que representan el documento
+(hoja/ficha/tarjeta, tablas, cabeceras, badges de documento). El resto del ERP
+(sidebar, navegación, botones de acción, modales de gestión) mantiene `#B01D23`.
+
 ## Áreas futuras
 
 El marco soporta **Finanzas** y **Equipo** por el parámetro `area`, listo para documentos

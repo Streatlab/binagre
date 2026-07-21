@@ -276,3 +276,24 @@ export function abrirImprimir(doc: jsPDF) {
 }
 
 export function descargar(doc: jsPDF, tipo: string) { doc.save(nombreArchivo(tipo)) }
+
+// ─── CSS VARS PARA PANTALLA ──────────────────────────────────────────────────
+function toHex(rgb: RGB): string {
+  return '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('')
+}
+
+/** Tokens del marco como CSS custom properties para pantalla.
+ *  Aplica en el contenedor del documento (style prop) para que los hijos
+ *  hereden los colores del area via var(--m-acento), var(--m-soft), etc. */
+export function marcoCSSVars(area: Area): Record<string, string> {
+  const pal = PALETAS[area]
+  return {
+    '--m-acento': toHex(pal.acento),
+    '--m-soft':   toHex(pal.soft),
+    '--m-soft2':  toHex(pal.soft2),
+    '--m-tinta':  toHex(TINTA),
+    '--m-linea':  toHex(LINEA),
+    '--m-espina': toHex(espinaColor(area)),
+    '--m-radio':  '6px',
+  }
+}

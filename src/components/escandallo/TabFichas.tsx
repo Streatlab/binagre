@@ -5,6 +5,7 @@ import { Printer, Pencil, AlertTriangle, Link2, Box } from 'lucide-react'
 import ModalEditarFicha from './ModalEditarFicha'
 import { fmtEur, fmtNum } from '@/lib/format'
 import * as M from '@/lib/marcoDoc'
+import HojaDoc from '@/components/marco/HojaDoc'
 
 interface Match { iding: string; nombre: string; precio: number; prov: string }
 interface IngLinea { cant: string; ud: string; ingrediente: string; equivalencia: string; grupo?: number; match: Match | null }
@@ -473,12 +474,8 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
         </div>
       )}
 
-      <div className="print-ficha ficha-card">
-
-        <div className="ficha-head">
-          <span className="ficha-id">{f.codigo}</span>
-          <span className="ficha-title">{(f.nombre ?? '').replace(/\.\s*$/, '')}</span>
-        </div>
+      <div className="print-ficha">
+      <HojaDoc area="cocina" docNombre={f.codigo ?? ''} tituloCentrado={(f.nombre ?? '').replace(/\.\s*$/, '')}>
 
         <div className="ficha-meta">
           <div className="cell"><div className="lbl">Prep.</div><div className="val">{f.tiempo_prep ?? '—'}</div></div>
@@ -551,7 +548,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
           <div style={{ flex: 1 }}>
             <div style={{ position: 'relative' }}>
               <div className="ficha-seclabel"><AlertTriangle size={12} style={{ verticalAlign: -2, marginRight: 4 }} />Alérgenos</div>
-              <button className="no-print" onClick={() => editAlerg ? guardarAlerg() : setEditAlerg(true)} style={{ position: 'absolute', top: -2, right: 0, background: 'none', border: 'none', color: '#B01D23', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <button className="no-print" onClick={() => editAlerg ? guardarAlerg() : setEditAlerg(true)} style={{ position: 'absolute', top: -2, right: 0, background: 'none', border: 'none', color: 'var(--m-acento)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Pencil size={11} /> {editAlerg ? 'Guardar' : 'Editar'}
               </button>
             </div>
@@ -561,18 +558,26 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
                   const on = alergManual.includes(a)
                   return (
                     <button key={a} onClick={() => setAlergManual(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a])}
-                      style={{ padding: '4px 9px', borderRadius: 99, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? '#B01D23' : 'transparent', color: on ? '#fff' : 'var(--sl-text-secondary)' }}>
+                      style={{ padding: '4px 9px', borderRadius: 99, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? 'var(--m-acento)' : 'transparent', color: on ? '#fff' : 'var(--sl-text-secondary)' }}>
                       {a}
                     </button>
                   )
                 })}
               </div>
             ) : (
-              <div className="ficha-alerg-val">{alergAuto.length === 0 ? 'Ninguno' : alergAuto.join(', ')}</div>
+              {alergAuto.length === 0
+                ? <div className="ficha-alerg-val">Ninguno</div>
+                : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, paddingTop: 2 }}>
+                    {alergAuto.map(a => (
+                      <span key={a} style={{ padding: '3px 9px', borderRadius: 99, fontSize: 11, fontFamily: "'Oswald', sans-serif", background: 'var(--m-soft)', color: 'var(--m-acento)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{a}</span>
+                    ))}
+                  </div>
+              }
             )}
           </div>
         </div>
 
+      </HojaDoc>
       </div>
 
       <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>

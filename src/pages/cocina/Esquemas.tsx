@@ -12,6 +12,7 @@ import { LayoutGrid, Mic, Printer, Plus, Trash2, X, Check, Pencil, Tags, Archive
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, tituloPaginaStyle } from '@/styles/tokens'
 import * as M from '@/lib/marcoDoc'
+import HojaDoc from '@/components/marco/HojaDoc'
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
@@ -264,7 +265,7 @@ export default function Esquemas() {
 
       {/* ÁREA DE IMPRESIÓN */}
       {imprimiendoTodo ? (
-        <div className="print-area">
+        <div className="print-area" style={M.marcoCSSVars('cocina') as React.CSSProperties}>
           {todasGamasVigentes.map(({ g, platos }, gi) => (
             <div key={g.id} style={{ breakBefore: gi > 0 ? 'page' : 'auto' }}>
               <div className="print-gama">{g.nombre}</div>
@@ -275,16 +276,16 @@ export default function Esquemas() {
           ))}
         </div>
       ) : (
-        <div className="print-area">
+        <HojaDoc area="cocina" docNombre="Esquemas" tituloCentrado={gamaActiva}>
           <div className="solo-print" style={{ display: 'none' }}>
             <div className="print-gama">{gamaActiva}{verHistorico ? ' · Histórico' : ''}</div>
           </div>
-          <div className="print-grid esquemas-masonry">
+          <div className="print-grid esquemas-masonry" style={{ padding: '14px 18px' }}>
             {visibles.length === 0
               ? <div className="no-print" style={{ padding: 30, color: T.mut, fontFamily: FONT.body, fontSize: 14 }}>Sin platos {verHistorico ? 'en histórico' : 'vigentes'} en esta gama.</div>
               : visibles.map(e => <TarjetaEsquema key={e.id} esquema={e} T={T} isDark={isDark} onEdit={() => setEditando(e)} onChange={cargar} />)}
           </div>
-        </div>
+        </HojaDoc>
       )}
 
       {editando && (
@@ -317,25 +318,25 @@ function TarjetaEsquema({ esquema: e, T, isDark, onEdit, onChange }: { esquema: 
   const archivado = e.estado !== 'vigente'
 
   return (
-    <div className="print-card esquema-card" style={{ background: T.card, border: `2px solid ${isDark ? T.brd : '#1a1a1a'}`, borderRadius: 9, overflow: 'hidden', position: 'relative', opacity: archivado ? 0.7 : 1 }}>
+    <div className="print-card esquema-card" style={{ background: T.card, border: '2px solid var(--m-acento)', borderRadius: 9, overflow: 'hidden', position: 'relative', opacity: archivado ? 0.7 : 1 }}>
       <div className="no-print" style={{ position: 'absolute', top: 3, right: 3, display: 'flex', gap: 2 }}>
         {!archivado && <button onClick={onEdit} style={iconBtn(T)} title="Editar"><Pencil size={12} /></button>}
         {!archivado
           ? <button onClick={descatalogar} style={iconBtn(T)} title="Descatalogar"><Archive size={12} /></button>
           : <button onClick={restaurar} style={iconBtn(T)} title="Restaurar"><Check size={12} /></button>}
       </div>
-      <div className="print-head" style={{ background: isDark ? '#1e2233' : '#e2e2e2', color: isDark ? T.pri : '#1a1a1a', fontFamily: "'Oswald',sans-serif", fontSize: 30, fontWeight: 400, lineHeight: 1, textAlign: 'center', padding: '6px 8px 5px', letterSpacing: '0.5px', borderBottom: `2px solid #1a1a1a` }}>{e.nombre}</div>
+      <div className="print-head" style={{ background: 'var(--m-soft)', color: 'var(--m-tinta)', fontFamily: "'Oswald',sans-serif", fontSize: 30, fontWeight: 400, lineHeight: 1, textAlign: 'center', padding: '6px 8px 5px', letterSpacing: '0.5px', borderBottom: '2px solid var(--m-acento)' }}>{e.nombre}</div>
       <div style={{ padding: '5px 9px 6px' }}>
         {e.lineas.map((l, i) => {
           if (l.tipo !== 'accion') {
-            return <div key={i} className="print-ing" style={{ fontFamily: "'Barlow Semi Condensed','Oswald',sans-serif", fontWeight: 600, fontSize: 16, lineHeight: 1.1, textAlign: 'center', padding: '0', color: isDark ? T.pri : '#1a1a1a' }}>{l.texto}</div>
+            return <div key={i} className="print-ing" style={{ fontFamily: "'Barlow Semi Condensed','Oswald',sans-serif", fontWeight: 600, fontSize: 16, lineHeight: 1.1, textAlign: 'center', padding: '0', color: 'var(--m-tinta)' }}>{l.texto}</div>
           }
           const prevAccion = i > 0 && e.lineas[i - 1].tipo === 'accion'
           const nextAccion = i < e.lineas.length - 1 && e.lineas[i + 1].tipo === 'accion'
-          const brd = `2px solid ${isDark ? T.brd : '#1a1a1a'}`
+          const brd = '2px solid var(--m-acento)'
           return (
             <div key={i} className="print-act" style={{
-              background: 'transparent', color: isDark ? T.pri : '#1a1a1a', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, textAlign: 'center',
+              background: 'transparent', color: 'var(--m-tinta)', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, textAlign: 'center',
               borderTop: prevAccion ? 'none' : brd,
               borderBottom: nextAccion ? 'none' : brd,
               padding: '2px 0',
