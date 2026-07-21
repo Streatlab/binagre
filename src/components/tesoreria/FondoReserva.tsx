@@ -133,6 +133,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
     let ultimoCub = ''
     let faltaSiguiente = 0
     let nPagados = 0, importePagado = 0, importePendiente = 0
+    let proxDesc: { concepto: string; dia: string } | null = null
     const rows = fijosMes.map(fj => {
       // Ya cargado en banco este mes → fuera del cálculo, el fondo no lo cubre.
       if (fj.estado_pago === 'pagado') {
@@ -147,11 +148,33 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
         estado = acc <= conPendiente + 0.001 ? 'bar' : 'desc'
         if (estado === 'bar') nBar++
         if (faltaSiguiente === 0) faltaSiguiente = acc - saldo // primer pendiente no cubierto por el saldo
+        if (estado === 'desc' && !proxDesc) proxDesc = { concepto: fj.concepto, dia: fj.dia }
       }
       return { ...fj, estado }
     })
-    return { rows, nCub, nBar, ultimoCub, faltaSiguiente, total: fijosMes.length, nPagados, importePagado, nPend: fijosMes.length - nPagados, importePendiente }
+    return { rows, nCub, nBar, ultimoCub, faltaSiguiente, total: fijosMes.length, nPagados, importePagado, nPend: fijosMes.length - nPagados, importePendiente, proxDesc: proxDesc as { concepto: string; dia: string } | null }
   }, [fijosMes, saldo, agenda])
+
+  async function copiarResumen() {
+    const mesNombre = new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+    const faltaTot = Math.max(alcance.importePendiente - saldo, 0)
+    const lineas = [
+      `📊 TESORERÍA · ${mesNombre}`,
+      `💰 Fondo de reserva: ${E2(saldo)} €`,
+      `🎯 Fijos del mes: ${E2(objetivo)} €`,
+      alcance.nPagados > 0 ? `✅ Ya pagados: ${E2(alcance.importePagado)} € (${alcance.nPagados})` : null,
+      `🧾 Queda por pagar: ${E2(alcance.importePendiente)} € (${alcance.nPend})`,
+      `📌 El fondo cubre ${alcance.nCub} de ${alcance.nPend} pendientes`,
+      faltaTot > 0 ? `⚠️ Faltan ${E2(faltaTot)} € para cubrirlo todo` : `👍 El fondo cubre todo lo pendiente`,
+      alcance.proxDesc ? `🔴 Próximo al descubierto: ${alcance.proxDesc.concepto} (${alcance.proxDesc.dia.slice(8, 10)}/${alcance.proxDesc.dia.slice(5, 7)})` : null,
+    ].filter(Boolean)
+    try {
+      await navigator.clipboard.writeText(lineas.join('\n'))
+      setMsg('Resumen copiado · pégalo en WhatsApp')
+    } catch {
+      setMsg('No se pudo copiar automáticamente')
+    }
+  }
 
   const diasMasAntigua = useMemo(() => {
     if (pendientes.length === 0) return 0
@@ -469,7 +492,12 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       {/* ══ HASTA DONDE LLEGA EL FONDO ══ */}
       {alcance.total > 0 && (
         <div style={{ ...card, marginBottom: 18 }}>
-          <span style={eyebrow(AZUL, '#fff')}>Hasta dónde llega el fondo</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={eyebrow(AZUL, '#fff')}>Hasta dónde llega el fondo</span>
+            <button onClick={copiarResumen} title="Copiar resumen para WhatsApp" style={{ ...btnMini, background: '#fff', color: INK }}>
+              📋 Copiar resumen
+            </button>
+          </div>
           <p style={{ fontFamily: LEX, fontSize: 12, color: GRIS, margin: '12px 0 4px', lineHeight: 1.5 }}>
             Tus fijos del mes ordenados por fecha, rellenados con el saldo de hoy
             (<strong style={{ color: VERDE }}>{E2(saldo)} €</strong>)
