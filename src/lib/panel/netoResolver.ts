@@ -24,11 +24,37 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
   calcNetoPorCanal,
+  loadConfigCanales,
   type NetoResult,
   type OpcionesCalcNeto,
   type CanalConfig,
   type MarcasPorCanal,
 } from '@/lib/panel/calcNetoPlataforma'
+
+/* ── LEY-NETO v2 · ratio_neto_real por canal (config_canales, calibrado sobre
+ *   bruto real). Se aplica sobre la facturación real: neto = facturación × ratio.
+ *   NUNCA sobre el bruto inflado. ─────────────────────────────────────────── */
+let cacheRatioNetoReal: Record<string, number> | null = null
+function keyConfigCanal(canal: string): string {
+  const v = (canal || '').toLowerCase()
+  if (v.includes('uber')) return 'uber'
+  if (v.includes('glovo')) return 'glovo'
+  if (v.includes('just') || v.includes('eat')) return 'je'
+  if (v.includes('web')) return 'web'
+  if (v.includes('direct')) return 'dir'
+  return v.trim()
+}
+async function loadRatioNetoReal(): Promise<Record<string, number>> {
+  if (cacheRatioNetoReal) return cacheRatioNetoReal
+  const cfg = await loadConfigCanales()
+  const out: Record<string, number> = {}
+  for (const c of Object.values(cfg)) {
+    const r = (c as CanalConfig).ratio_neto_real
+    if (r != null && r > 0 && r <= 1) out[keyConfigCanal(c.canal)] = r
+  }
+  cacheRatioNetoReal = out
+  return out
+}
 
 /* ── Config de calibración ──────────────────────────────────────────────── */
 // Muestra mínima antes de fiarse del ratio empírico de un canal para el estimado.
@@ -149,6 +175,7 @@ export async function loadVentasReales(): Promise<LiqReal[]> {
   }
   cacheLiq = out
   cacheRatios = null
+  await loadRatioNetoReal()
   return cacheLiq
 }
 
@@ -213,6 +240,7 @@ export async function loadRatiosCalibrados(): Promise<Record<string, RatioCanal>
 export function invalidarCacheVentasReales() {
   cacheLiq = null
   cacheRatios = null
+  cacheRatioNetoReal = null
 }
 
 /* ── Hooks ──────────────────────────────────────────────────────────────── */
@@ -306,8 +334,14 @@ export function resolverNetoCanal(
   let usadoCalibrado = false
   if (brutoEstimado > 0) {
     const c = normCanal(canalId)
+    const ratioReal = cacheRatioNetoReal?.[c]
     const ratio = cacheRatios?.[c]
-    if (ratio && ratio.fiable && ratio.ratio > 0) {
+    if (ratioReal && ratioReal > 0) {
+      // LEY-NETO v2: neto = facturación_real × ratio_neto_real (calibrado sobre
+      // bruto real). La facturación (brutoEstimado) ya es real, no inflada.
+      netoEstimado = brutoEstimado * ratioReal
+      usadoCalibrado = true
+    } else if (ratio && ratio.fiable && ratio.ratio > 0) {
       // Estimado afinado con histórico real del canal (recencia ponderada)
       netoEstimado = brutoEstimado * ratio.ratio
       usadoCalibrado = true
