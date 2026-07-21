@@ -24,6 +24,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'sugerir-fusiones') return await sugerirFusiones(req, res)
     if (action === 'radar-ahorro') return await radarAhorro(res)
     if (action === 'platos-sangran') return await platosSangran(req, res)
+    if (action === 'precios-sospechosos') return await preciosSospechosos(res)
+    if (action === 'inflacion') return await inflacion(res)
+    if (action === 'pareto-compras') return await paretoCompras(res)
     if (action === 'completar-borradores') return await completarBorradores(req, res)
     if (action === 'procesar-lote') return await procesarLote(req, res)
     // Motor superpersistente (patrón OCR: trabajo en servidor, cron empujador, UI solo pinta)
@@ -473,6 +476,41 @@ async function platosSangran(req: VercelRequest, res: VercelResponse) {
   const { data, error } = await supabaseAdmin.rpc('fn_escandallo_platos_sangran', { p_target: target })
   if (error) return res.status(200).json({ ok: false, error: error.message })
   return res.status(200).json({ ok: true, objetivo_pct: Math.round(target * 100), platos: data ?? [] })
+}
+
+/* ───────── GUARDIÁN ANTI-ERROR DE LECTURA · precios que se disparan ×4 o caen a ¼ ───────── */
+async function preciosSospechosos(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_precios_sospechosos')
+    .select('ingrediente_id, nombre, ultimo, tipico, ratio, fecha').limit(40)
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, sospechosos: data ?? [] })
+}
+
+/* ───────── TERMÓMETRO DE INFLACIÓN · titular (variación mediana) + top movers ───────── */
+async function inflacion(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_inflacion')
+    .select('ingrediente_id, nombre, antes, ahora, var_pct')
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  const filas = (data ?? []) as Array<{ var_pct: number }>
+  let mediana: number | null = null
+  if (filas.length) {
+    const ord = filas.map(f => Number(f.var_pct)).sort((a, b) => a - b)
+    const m = Math.floor(ord.length / 2)
+    mediana = ord.length % 2 ? ord[m] : Math.round(((ord[m - 1] + ord[m]) / 2) * 10) / 10
+  }
+  const movers = [...filas].sort((a, b) => Math.abs(Number(b.var_pct)) - Math.abs(Number(a.var_pct))).slice(0, 12)
+  return res.status(200).json({ ok: true, mediana_var_pct: mediana, n: filas.length, movers })
+}
+
+/* ───────── PARETO DE COMPRAS · dónde se va el dinero de materia prima (90 días) ───────── */
+async function paretoCompras(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_pareto_compras')
+    .select('item, gasto, pct, pct_acumulado').limit(15)
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, pareto: data ?? [] })
 }
 
 /* ───────── Fase T4 · completar-borradores: robot rellena formato/contenido/precio de

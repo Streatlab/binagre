@@ -71,7 +71,13 @@ interface PlatoSangra {
   food_cost_pct: number
   objetivo_pct: number
   sangria_eur: number
+  pvp_actual: number
+  pvp_objetivo: number
+  subida_eur: number
 }
+interface Sospechoso { ingrediente_id: string; nombre: string; ultimo: number; tipico: number; ratio: number; fecha: string }
+interface Mover { ingrediente_id: string; nombre: string; antes: number; ahora: number; var_pct: number }
+interface ParetoItem { item: string; gasto: number; pct: number; pct_acumulado: number }
 interface Motor {
   activo: boolean
   procesadas: number
@@ -105,9 +111,13 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const [radar, setRadar] = useState<RadarAhorro[]>([])
   const [sangran, setSangran] = useState<PlatoSangra[]>([])
   const [objetivoFood, setObjetivoFood] = useState(35)
+  const [sospechosos, setSospechosos] = useState<Sospechoso[]>([])
+  const [movers, setMovers] = useState<Mover[]>([])
+  const [inflMediana, setInflMediana] = useState<number | null>(null)
+  const [pareto, setPareto] = useState<ParetoItem[]>([])
 
   const cargar = useCallback(async () => {
-    const [est, al, bo, inv, vza, cr, rad, san] = await Promise.all([
+    const [est, al, bo, inv, vza, cr, rad, san, sos, infl, par] = await Promise.all([
       fetch(`${API}/estado`).then(r => r.ok ? r.json() : null).catch(() => null),
       supabase.from('alertas_precio').select('*, ingredientes(nombre)').eq('estado', 'pendiente').order('created_at', { ascending: false }).limit(30),
       supabase.from('ingredientes').select('*').eq('borrador', true).order('created_at', { ascending: false }).limit(50),
@@ -116,6 +126,9 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
       supabase.from('v_coste_real_periodo').select('*').order('fin', { ascending: false }).limit(1).maybeSingle(),
       fetch(`${API}/radar-ahorro`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${API}/platos-sangran`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/precios-sospechosos`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/inflacion`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/pareto-compras`).then(r => r.ok ? r.json() : null).catch(() => null),
     ])
     setEstado(est)
     setAlertas((al.data as Alerta[]) ?? [])
@@ -123,6 +136,10 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
     setRadar((rad?.radar as RadarAhorro[]) ?? [])
     setSangran((san?.platos as PlatoSangra[]) ?? [])
     if (san?.objetivo_pct != null) setObjetivoFood(san.objetivo_pct)
+    setSospechosos((sos?.sospechosos as Sospechoso[]) ?? [])
+    setMovers((infl?.movers as Mover[]) ?? [])
+    setInflMediana(infl?.mediana_var_pct ?? null)
+    setPareto((par?.pareto as ParetoItem[]) ?? [])
     setInventario((inv.data as Inventario) ?? null)
     const ultimo = ((vza.data as Varianza[]) ?? [])
     const ultFin = ultimo.length ? ultimo.reduce((mx, v) => v.fin > mx ? v.fin : mx, ultimo[0].fin) : null
@@ -379,6 +396,32 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
         </div>
       )}
 
+      {/* Guardián anti-error de lectura · precios que se disparan o se desploman */}
+      {!!sospechosos.length && (
+        <div style={{ ...card, borderColor: ROJO, boxShadow: `6px 6px 0 ${ROJO}` }}>
+          <h3 style={{ ...h3, color: ROJO }}>⚠ Precios sospechosos · revisa antes de fiarte (posible error de lectura)</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            El último precio se dispara ×4 o cae a ¼ frente a lo habitual. Suele ser una coma mal leída en la factura. Ábrelo y corrígelo si está mal, para que no contamine el escandallo.
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>INGREDIENTE</th><th style={thR}>PRECIO LEÍDO</th><th style={thR}>HABITUAL</th><th style={thR}>×</th><th style={th} /></tr></thead>
+            <tbody>
+              {sospechosos.map((s, i) => (
+                <tr key={s.ingrediente_id} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{s.nombre}</td>
+                  <td style={{ ...tdNum, color: ROJO, fontWeight: 700 }}>{fmtES(s.ultimo, 2)} €</td>
+                  <td style={tdNum}>{fmtES(s.tipico, 2)} €</td>
+                  <td style={{ ...tdNum, color: ROJO }}>{fmtES(s.ratio, 2)}</td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    <button style={btn(AMA)} onClick={() => onOpenIngrediente({ id: s.ingrediente_id, nombre: s.nombre } as Ingrediente)}>Revisar</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* Platos que sangran · food cost real por encima del objetivo × ventas reales */}
       {!!sangran.length && (
         <div style={card}>
@@ -387,7 +430,7 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
             Con el food cost real (que la ingesta mantiene al día) y las unidades vendidas del último mes: cuánto dinero de más te cuesta la materia prima de cada plato. Súbele el precio o abarata el escandallo.
           </p>
           <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-            <thead><tr><th style={th}>PLATO</th><th style={th}>MARCA</th><th style={thR}>UDS/MES</th><th style={thR}>FOOD COST</th><th style={thR}>PIERDES/MES</th></tr></thead>
+            <thead><tr><th style={th}>PLATO</th><th style={th}>MARCA</th><th style={thR}>UDS/MES</th><th style={thR}>FOOD COST</th><th style={thR}>PIERDES/MES</th><th style={thR}>PVP AHORA</th><th style={thR}>SÚBELO A</th></tr></thead>
             <tbody>
               {sangran.map((p, i) => (
                 <tr key={`${p.plato}-${p.marca}-${i}`} style={{ background: zebra(i) }}>
@@ -396,6 +439,54 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
                   <td style={tdNum}>{p.unidades}</td>
                   <td style={{ ...tdNum, color: ROJO, fontWeight: 700 }}>{fmtES(p.food_cost_pct, 0)}%</td>
                   <td style={{ ...tdNum, color: ROJO, fontWeight: 700 }}>{fmtES(p.sangria_eur, 2)} €</td>
+                  <td style={{ ...tdNum, color: GRIS }}>{fmtES(p.pvp_actual, 2)} €</td>
+                  <td style={{ ...tdNum, color: VERDE, fontWeight: 700 }}>{fmtES(p.pvp_objetivo, 2)} € <span style={{ color: GRIS, fontWeight: 400 }}>(+{fmtES(p.subida_eur, 2)})</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Termómetro de inflación de la despensa */}
+      {!!movers.length && (
+        <div style={card}>
+          <h3 style={h3}>Termómetro de la despensa · {inflMediana != null ? `${inflMediana > 0 ? '+' : ''}${fmtES(inflMediana, 1)}% (mediana 45d)` : 'sin dato'}</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Variación del precio medio de cada ingrediente (últimos 45 días vs los 45-135 anteriores). Indicativo. Los que más se mueven:
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>INGREDIENTE</th><th style={thR}>ANTES</th><th style={thR}>AHORA</th><th style={thR}>VAR %</th></tr></thead>
+            <tbody>
+              {movers.map((m, i) => (
+                <tr key={m.ingrediente_id} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{m.nombre}</td>
+                  <td style={tdNum}>{fmtES(m.antes, 2)} €</td>
+                  <td style={tdNum}>{fmtES(m.ahora, 2)} €</td>
+                  <td style={{ ...tdNum, color: m.var_pct > 0 ? ROJO : VERDE, fontWeight: 700 }}>{m.var_pct > 0 ? '+' : ''}{fmtES(m.var_pct, 1)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pareto de compras · dónde se va el dinero de materia prima (90 días) */}
+      {!!pareto.length && (
+        <div style={card}>
+          <h3 style={h3}>Dónde se va el dinero · compras últimos 90 días</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Tus mayores partidas de compra. En estas es donde más pesa pelear precio (mira el Radar de ahorro).
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>PARTIDA</th><th style={thR}>GASTO</th><th style={thR}>% DEL TOTAL</th><th style={thR}>% ACUM.</th></tr></thead>
+            <tbody>
+              {pareto.map((p, i) => (
+                <tr key={`${p.item}-${i}`} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{p.item}</td>
+                  <td style={{ ...tdNum, fontWeight: 700 }}>{fmtES(p.gasto, 2)} €</td>
+                  <td style={tdNum}>{fmtES(p.pct, 1)}%</td>
+                  <td style={{ ...tdNum, color: GRIS }}>{fmtES(p.pct_acumulado, 0)}%</td>
                 </tr>
               ))}
             </tbody>
