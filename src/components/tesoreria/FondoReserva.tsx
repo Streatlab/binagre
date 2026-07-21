@@ -155,6 +155,17 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
     return { rows, nCub, nBar, ultimoCub, faltaSiguiente, total: fijosMes.length, nPagados, importePagado, nPend: fijosMes.length - nPagados, importePendiente, proxDesc: proxDesc as { concepto: string; dia: string } | null }
   }, [fijosMes, saldo, agenda])
 
+  // "Foto del mes": reparte el total de fijos en pagado (banco) / cubierto por el
+  // fondo / cubrible barriendo lo pendiente / al descubierto.
+  const foto = useMemo(() => {
+    const pagado = alcance.importePagado
+    const pend = alcance.importePendiente
+    const cubierto = Math.min(saldo, pend)
+    const barrido = Math.min(Math.max(agenda?.total ?? 0, 0), pend - cubierto)
+    const descubierto = Math.max(pend - cubierto - barrido, 0)
+    return { pagado, cubierto, barrido, descubierto, total: pagado + pend }
+  }, [alcance, saldo, agenda])
+
   async function copiarResumen() {
     const mesNombre = new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
     const faltaTot = Math.max(alcance.importePendiente - saldo, 0)
@@ -488,6 +499,37 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
           )}
         </div>
       </div>
+
+      {/* ══ FOTO DEL MES (barra segmentada) ══ */}
+      {foto.total > 0 && (() => {
+        const segs = [
+          { k: 'pag', v: foto.pagado, c: GRIS, label: 'Pagado' },
+          { k: 'cub', v: foto.cubierto, c: VERDE, label: 'Cubre el fondo' },
+          { k: 'bar', v: foto.barrido, c: NAR, label: 'Con barrido' },
+          { k: 'desc', v: foto.descubierto, c: ROJO, label: 'Al descubierto' },
+        ].filter(s => s.v > 0.005)
+        return (
+          <div style={{ ...card, marginBottom: 18 }}>
+            <span style={eyebrow(INK, AMA)}>Foto del mes</span>
+            <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, margin: '10px 0 12px' }}>
+              Reparto de los <strong style={{ color: INK }}>{E2(foto.total)} €</strong> de fijos del mes.
+            </div>
+            <div style={{ display: 'flex', height: 28, border: `2px solid ${INK}`, overflow: 'hidden', background: '#fff' }}>
+              {segs.map(s => (
+                <div key={s.k} style={{ width: `${(s.v / foto.total) * 100}%`, background: s.c }} title={`${s.label}: ${E2(s.v)} €`} />
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
+              {segs.map(s => (
+                <span key={s.k} style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
+                  <span style={{ width: 12, height: 12, background: s.c, border: `1.5px solid ${INK}`, display: 'inline-block' }} />
+                  {s.label} <strong style={{ fontFamily: OSW, color: INK }}>{E2(s.v)} €</strong>
+                </span>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ══ HASTA DONDE LLEGA EL FONDO ══ */}
       {alcance.total > 0 && (
