@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { RefreshCw, AlertTriangle, Pause, Play, X as XIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { toast } from '@/lib/toastStore'
 import { OSW, LEX, INK, VERDE, NAR, ROJO, AMA, GRIS, SHADOW, BORDER_CARD } from '@/styles/neobrutal'
 
 interface Inventario {
@@ -120,7 +121,10 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
   // en programada/en_curso/pausada), avisa a la página para refrescar sus datos.
   const tareasPrevias = useRef(0)
   useEffect(() => {
-    if (tareasPrevias.current > 0 && tareas.length === 0) onDone?.()
+    if (tareasPrevias.current > 0 && tareas.length === 0) {
+      toast.success('Pendientes resueltos.')
+      onDone?.()
+    }
     tareasPrevias.current = tareas.length
   }, [tareas, onDone])
 

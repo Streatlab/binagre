@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react'
 
-export type ToastStatus = 'loading' | 'success' | 'error'
+export type ToastStatus = 'loading' | 'success' | 'aviso' | 'error' | 'info'
 
 export interface ToastAction {
   label: string
@@ -26,8 +26,8 @@ interface ShowOpts {
 }
 
 const STORAGE_KEY = 'binagre_toasts_v1'
-const MAX_LIFETIME_MS = 5 * 60 * 1000  // 5 minutos: tope duro para error (no para success)
-const DEFAULT_SUCCESS_MS = 20 * 1000   // success se autocierra en 20s por defecto
+const MAX_LIFETIME_MS = 5 * 60 * 1000  // tope duro si alguien pide una duración mayor
+const DEFAULT_AUTOCIERRE_MS = 6 * 1000 // success/aviso/error/info: 6s por defecto (kit v5-B)
 
 let items: ToastItem[] = []
 const listeners = new Set<() => void>()
@@ -88,17 +88,12 @@ function show(status: ToastStatus, message: string, opts: ShowOpts = {}): string
   const now = Date.now()
 
   // Calcular expiresAt:
-  // - loading: nunca expira (lo cierra el éxito/error que lo reemplaza)
-  // - success: se autocierra en 20s (o el duration que pase, si lo pasan)
-  // - error: persiste hasta 5 min (o el duration que pase, si menor)
+  // - loading: nunca expira (lo cierra el éxito/error que lo reemplaza, o un progreso persistente)
+  // - success/aviso/error/info: autocierre a los 6s por defecto (o el duration que pase, si lo pasan)
   let expiresAt: number | undefined
-  if (status === 'success') {
-    const ms = opts.duration ?? DEFAULT_SUCCESS_MS
+  if (status !== 'loading') {
+    const ms = opts.duration ?? DEFAULT_AUTOCIERRE_MS
     if (Number.isFinite(ms)) expiresAt = now + Math.min(ms, MAX_LIFETIME_MS)
-  } else if (status === 'error') {
-    const ms = opts.duration ?? MAX_LIFETIME_MS
-    const finalMs = Math.min(ms, MAX_LIFETIME_MS)
-    if (Number.isFinite(finalMs)) expiresAt = now + finalMs
   }
 
   const item: ToastItem = {
@@ -123,7 +118,9 @@ function show(status: ToastStatus, message: string, opts: ShowOpts = {}): string
 export const toast = {
   loading: (message: string, opts?: ShowOpts) => show('loading', message, opts),
   success: (message: string, opts?: ShowOpts) => show('success', message, opts),
+  aviso:   (message: string, opts?: ShowOpts) => show('aviso', message, opts),
   error:   (message: string, opts?: ShowOpts) => show('error', message, opts),
+  info:    (message: string, opts?: ShowOpts) => show('info', message, opts),
   dismiss,
 }
 

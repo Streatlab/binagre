@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import ToastHost from '@/components/ui/ToastHost'
+import ToastSL from '@/components/ui/ToastSL'
 import ResponsiveTables from '@/components/ResponsiveTables'
 import OcrCompletadoGlobal from '@/components/ocr/OcrCompletadoGlobal'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
@@ -325,7 +325,7 @@ export default function ShellMovil() {
         </div>
       </nav>
 
-      <ToastHost />
+      <ToastSL />
       <ResponsiveTables />
       <OcrUploadToast />
       <OcrCompletadoGlobal />
