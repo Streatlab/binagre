@@ -17,6 +17,8 @@
  *   GET  /api/facturas?action=extraer-lineas     → detalle de líneas por factura (lote + presupuesto de tiempo)
  *   POST /api/facturas?action=upload            → subir/procesar archivo
  *   POST /api/facturas?action=limpieza          → borrar facturas zombie
+ *   GET  /api/facturas?action=resolver-inventario → contadores reales de pendientes (botón Resolver)
+ *   GET  /api/facturas?action=agenda-tick        → motor de tareas: procesa la más antigua elegible de papeleo_tareas
  *
  * Vive en _puertas: se sirve a través de la puerta /api/papeleo (límite de
  * Serverless Functions del plan). Cada archivo suelto en api/ es una función.
@@ -70,6 +72,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'archivar-pendientes') return archivarPendientes(req, res)
   if (action === 'encolar-reproc')     return encolarReproc(res)
   if (action === 'extraer-lineas')     return extraerLineasBatch(req, res)
+  if (action === 'resolver-inventario') return resolverInventario(res)
+  if (action === 'agenda-tick')        return agendaTick(req, res)
 
   // ── GET sin action → lista de facturas ───────────────────────────────────
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
@@ -595,7 +599,21 @@ async function reconciliarPendientes(req: VercelRequest, res: VercelResponse) {
 const LOTE_DB = 4
 const PRESUPUESTO_MS = 250_000
 
+interface ResultadoReproc {
+  ok: boolean; job: string; ok_tanda: number; errores_tanda: number
+  procesadas: number; terminado: boolean; motivo_fin: string; modo: string
+}
+
 async function reproc(req: VercelRequest, res: VercelResponse) {
+  try {
+    const resultado = await reprocInterno()
+    return res.status(200).json(resultado)
+  } catch (e) {
+    return res.status(500).json({ error: e instanceof Error ? e.message : String(e) })
+  }
+}
+
+async function reprocInterno(): Promise<ResultadoReproc> {
   const arranque = Date.now()
 
   const { data: job } = await supabaseAdmin
@@ -606,7 +624,7 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
     .limit(1)
     .maybeSingle()
 
-  if (!job) return res.status(200).json({ ok: true, mensaje: 'Sin jobs activos' })
+  if (!job) return { ok: true, job: '', ok_tanda: 0, errores_tanda: 0, procesadas: 0, terminado: true, motivo_fin: 'sin_jobs_activos', modo: 'ninguno' }
 
   const soloSinLeer = !!job.solo_sin_leer
   const soloLM = !!job.solo_lectura_manual
@@ -641,7 +659,7 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
     if (job.hasta) q = q.lte('fecha_factura', job.hasta as string)
 
     const { data: facturas, error } = await q
-    if (error) return res.status(500).json({ error: error.message })
+    if (error) throw new Error(error.message)
 
     if (!facturas || facturas.length === 0) { agotadas = true; break }
 
@@ -749,13 +767,13 @@ async function reproc(req: VercelRequest, res: VercelResponse) {
     activo: !terminado, ultimo_run: new Date().toISOString(),
   }).eq('id', job.id as string)
 
-  return res.status(200).json({
-    ok: true, job: job.id,
+  return {
+    ok: true, job: job.id as string,
     ok_tanda: okTanda, errores_tanda: errTanda,
     procesadas: procesadasAcum, terminado,
     motivo_fin: terminado ? (agotadas ? 'agotadas' : sinProgreso ? 'sin_progreso' : 'objetivo') : 'tiempo',
     modo: soloLM ? 'solo_lectura_manual' : soloSinLeer ? 'solo_sin_leer' : 'completo',
-  })
+  }
 }
 
 // ── Handler: upload / procesar archivo ───────────────────────────────────
@@ -903,20 +921,20 @@ async function recuperarPapelera(req: VercelRequest, res: VercelResponse) {
 }
 
 // ── Handler: repesca — sube a Drive lo que aún no esté ─────────────────────
-async function archivarPendientes(req: VercelRequest, res: VercelResponse) {
-  const lote = Math.min(Math.max(Number(req.query.lote) || 10, 1), 30)
+interface ResultadoArchivarPendientes { terminado: boolean; subidas: number; errores: number; restantes: number }
 
+async function archivarPendientesInterno(lote: number): Promise<ResultadoArchivarPendientes> {
   const { data: filas, error } = await supabaseAdmin
     .from('archivo_respaldo')
     .select('id, hash, storage_path')
     .is('drive_id', null)
     .order('creado', { ascending: true })
     .limit(lote)
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) throw new Error(error.message)
 
   const pendientes = filas || []
   if (pendientes.length === 0) {
-    return res.status(200).json({ terminado: true, subidas: 0, errores: 0, restantes: 0 })
+    return { terminado: true, subidas: 0, errores: 0, restantes: 0 }
   }
 
   let subidas = 0, errores = 0
@@ -951,7 +969,20 @@ async function archivarPendientes(req: VercelRequest, res: VercelResponse) {
     .is('drive_id', null)
   const restantes = count ?? 0
 
-  if (restantes > 0 && subidas > 0) {
+  return { terminado: restantes === 0, subidas, errores, restantes }
+}
+
+async function archivarPendientes(req: VercelRequest, res: VercelResponse) {
+  const lote = Math.min(Math.max(Number(req.query.lote) || 10, 1), 30)
+
+  let resultado: ResultadoArchivarPendientes
+  try {
+    resultado = await archivarPendientesInterno(lote)
+  } catch (e) {
+    return res.status(500).json({ error: e instanceof Error ? e.message : String(e) })
+  }
+
+  if (resultado.restantes > 0 && resultado.subidas > 0) {
     const host = req.headers.host
     const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
     if (host) {
@@ -959,14 +990,23 @@ async function archivarPendientes(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  return res.status(200).json({ terminado: restantes === 0, subidas, errores, restantes })
+  return res.status(200).json(resultado)
 }
 
 // ── Handler: encolar reprocesado de facturas pendientes ───────────────────
-async function encolarReproc(res: VercelResponse) {
+async function encolarReprocInterno(): Promise<number> {
   const { data, error } = await supabaseAdmin.rpc('fn_encolar_reproc_pendientes')
-  if (error) return res.status(500).json({ error: error.message })
-  return res.json({ encoladas: data })
+  if (error) throw new Error(error.message)
+  return Number(data) || 0
+}
+
+async function encolarReproc(res: VercelResponse) {
+  try {
+    const encoladas = await encolarReprocInterno()
+    return res.json({ encoladas })
+  } catch (e) {
+    return res.status(500).json({ error: e instanceof Error ? e.message : String(e) })
+  }
 }
 
 // ── Handler: extraer líneas de detalle de facturas de proveedor ───────────
@@ -1097,4 +1137,293 @@ async function extraerLineasBatch(req: VercelRequest, res: VercelResponse) {
     .gt('total', 0)
 
   return res.status(200).json({ procesadas, ok, sin_detalle_lineas: sinDetalle, errores, restantes: restantes ?? 0, detalle })
+}
+
+// ── Motor de tareas de papeleo_tareas (Fase 1 · PROMPT MAESTRO PAPELEO) ────
+// Único punto de entrada del trabajo pesado: el botón "Resolver pendientes"
+// crea filas en papeleo_tareas; este tick (llamado cada 5 min por el cron
+// papeleo-agenda-tick, SOLO cuando hay algo programada/en_curso cortada) toma
+// la más antigua elegible y avanza un presupuesto de tiempo. Nunca se lanza
+// solo — sin tareas, el cron ni siquiera llama a este endpoint (WHERE EXISTS).
+const PRESUPUESTO_TICK_MS = 250_000
+const LOTE_CONCILIAR = 50
+
+function getExtManifiesto(nombre: string): string {
+  return nombre.split('.').pop()?.toLowerCase() ?? ''
+}
+
+function getMimeTypeManifiesto(ext: string): string {
+  const map: Record<string, string> = {
+    pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    webp: 'image/webp', heic: 'image/heic', heif: 'image/heif', tif: 'image/tiff',
+    tiff: 'image/tiff', gif: 'image/gif', bmp: 'image/bmp', csv: 'text/csv',
+    txt: 'text/plain', rar: 'application/x-rar-compressed', '7z': 'application/x-7z-compressed',
+    zip: 'application/zip', eml: 'message/rfc822', msg: 'application/vnd.ms-outlook',
+  }
+  return map[ext] ?? 'application/octet-stream'
+}
+
+interface ResultadoTick {
+  procesados: number; ok: number; errores: number; terminado: boolean
+  cursor: Record<string, unknown>; detalle: string | null
+}
+
+// ── Handler: contadores reales de pendientes (botón "Resolver pendientes") ─
+async function resolverInventario(res: VercelResponse) {
+  const [enStorage, relectura, archivoDrive, zombie] = await Promise.all([
+    supabaseAdmin.from('ocr_manifiesto').select('id', { count: 'exact', head: true }).eq('estado', 'en_storage'),
+    supabaseAdmin.from('facturas').select('id', { count: 'exact', head: true })
+      .or('total.is.null,total.eq.0').not('pdf_drive_id', 'is', null)
+      .not('estado', 'in', '(conciliada,asociada,pendiente_lectura_manual)'),
+    supabaseAdmin.from('archivo_respaldo').select('id', { count: 'exact', head: true }).is('drive_id', null),
+    supabaseAdmin.from('facturas').select('id', { count: 'exact', head: true })
+      .eq('proveedor_nombre', 'Procesando...').lt('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString()),
+  ])
+
+  const en_storage = enStorage.count ?? 0
+  const releer_ocr = relectura.count ?? 0
+  const archivar_drive = archivoDrive.count ?? 0
+  const limpieza_zombies = zombie.count ?? 0
+
+  return res.status(200).json({
+    en_storage,
+    releer_ocr,
+    archivar_drive,
+    limpieza: limpieza_zombies,
+    total: en_storage + releer_ocr + archivar_drive + limpieza_zombies,
+  })
+}
+
+// ── Handler: tick del motor (llamado por el cron papeleo-agenda-tick) ──────
+async function agendaTick(req: VercelRequest, res: VercelResponse) {
+  const ahora = new Date().toISOString()
+  const latidoLimite = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+
+  const { data: tarea, error: errSel } = await supabaseAdmin
+    .from('papeleo_tareas')
+    .select('*')
+    .or(`and(estado.eq.programada,programada_para.lte.${ahora}),and(estado.eq.en_curso,ultimo_latido.lt.${latidoLimite})`)
+    .order('programada_para', { ascending: true, nullsFirst: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (errSel) return res.status(500).json({ error: errSel.message })
+  if (!tarea) return res.status(200).json({ ok: true, mensaje: 'sin tareas pendientes' })
+
+  await supabaseAdmin.from('papeleo_tareas')
+    .update({ estado: 'en_curso', ultimo_latido: ahora, updated_at: ahora })
+    .eq('id', tarea.id as string)
+
+  const arranque = Date.now()
+  let resultado: ResultadoTick
+
+  try {
+    switch (tarea.tipo as string) {
+      case 'despertar_dormidos': resultado = await tickDespertarDormidos(tarea, arranque); break
+      case 'releer_ocr':         resultado = await tickReleerOcr(tarea); break
+      case 'archivar_drive':     resultado = await tickArchivarDrive(tarea, arranque); break
+      case 'limpieza':           resultado = await tickLimpieza(req); break
+      case 'conciliar':          resultado = await tickConciliar(tarea, arranque); break
+      default:
+        resultado = { procesados: 0, ok: 0, errores: 0, terminado: true, cursor: (tarea.cursor as Record<string, unknown>) || {}, detalle: `tipo desconocido: ${String(tarea.tipo)}` }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    await supabaseAdmin.from('papeleo_tareas')
+      .update({ estado: 'error', detalle: msg, ultimo_latido: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', tarea.id as string)
+    return res.status(200).json({ ok: false, tarea: tarea.id, tipo: tarea.tipo, error: msg })
+  }
+
+  const nuevoEstado = resultado.terminado ? 'completada' : 'en_curso'
+  await supabaseAdmin.from('papeleo_tareas').update({
+    estado: nuevoEstado,
+    procesados: (Number(tarea.procesados) || 0) + resultado.procesados,
+    ok: (Number(tarea.ok) || 0) + resultado.ok,
+    errores: (Number(tarea.errores) || 0) + resultado.errores,
+    cursor: resultado.cursor,
+    detalle: resultado.detalle ?? (tarea.detalle as string | null),
+    ultimo_latido: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }).eq('id', tarea.id as string)
+
+  if (resultado.terminado && tarea.tipo !== 'conciliar') {
+    const { data: yaHayConciliar } = await supabaseAdmin
+      .from('papeleo_tareas').select('id')
+      .eq('tipo', 'conciliar').in('estado', ['pendiente', 'programada', 'en_curso'])
+      .limit(1).maybeSingle()
+    if (!yaHayConciliar) {
+      await supabaseAdmin.from('papeleo_tareas').insert({
+        tipo: 'conciliar', estado: 'programada', programada_para: new Date().toISOString(),
+        cursor: { desde: tarea.created_at },
+      })
+    }
+  }
+
+  return res.status(200).json({
+    ok: true, tarea: tarea.id, tipo: tarea.tipo, terminado: resultado.terminado,
+    procesados: resultado.procesados, ok_tick: resultado.ok, errores: resultado.errores,
+  })
+}
+
+// tipo despertar_dormidos: ocr_manifiesto en_storage huérfanos (sesión original
+// perdida, p.ej. por el barrido horario limpiar_ocr_sesiones_viejas) → se
+// reconstruyen en tandas de ≤200 archivos como ocr_sessions nuevas y se deja
+// que el worker Edge ocr-procesar-sesion las procese. Cursor por id (orden
+// estable, no hace falta que sea cronológico) para no repetir ni saltar filas.
+async function tickDespertarDormidos(tarea: Record<string, unknown>, arranque: number): Promise<ResultadoTick> {
+  const lote = Math.min(Math.max(Number(tarea.lote_tamano) || 30, 1), 200)
+  const cursor = (tarea.cursor as { ultimo_id?: string }) || {}
+  let ultimoId = cursor.ultimo_id ?? null
+
+  let procesados = 0, ok = 0, errores = 0
+  let terminado = false
+
+  while (Date.now() - arranque < PRESUPUESTO_TICK_MS) {
+    let q = supabaseAdmin
+      .from('ocr_manifiesto')
+      .select('id, nombre, storage_path')
+      .eq('estado', 'en_storage')
+      .order('id', { ascending: true })
+      .limit(lote)
+    if (ultimoId) q = q.gt('id', ultimoId)
+
+    const { data: filas, error } = await q
+    if (error) throw new Error(error.message)
+    if (!filas || filas.length === 0) { terminado = true; break }
+
+    const archivos: { name: string; type: string; storagePath: string; esComprimido: boolean }[] = []
+    for (const f of filas) {
+      const storagePath = f.storage_path as string | null
+      const nombre = f.nombre as string
+      let existe = false
+
+      if (storagePath) {
+        const partes = storagePath.split('/')
+        const filename = partes.pop() as string
+        const carpeta = partes.join('/')
+        try {
+          const { data: listado } = await supabaseAdmin.storage.from('ocr-uploads').list(carpeta, { search: filename, limit: 1 })
+          existe = !!listado?.some((o) => o.name === filename)
+        } catch { existe = false }
+      }
+
+      if (!storagePath || !existe) {
+        await supabaseAdmin.from('ocr_manifiesto')
+          .update({ estado: 'error', detalle: 'objeto ausente en storage', actualizado: new Date().toISOString() })
+          .eq('id', f.id as string)
+        errores++
+      } else {
+        const ext = getExtManifiesto(nombre)
+        archivos.push({ name: nombre, type: getMimeTypeManifiesto(ext), storagePath, esComprimido: ['zip', 'rar', '7z'].includes(ext) })
+        ok++
+      }
+      procesados++
+      ultimoId = f.id as string
+    }
+
+    if (archivos.length > 0) {
+      const sesionId = `despertar_${tarea.id}_${ultimoId}`
+      await supabaseAdmin.from('ocr_sessions').insert({
+        id: sesionId, total: archivos.length, enviados: 0, ok: 0, pendientes: 0, duplicados: 0,
+        ignorados: 0, errores: 0, achtung: 0, cancelados: 0, achtung_mensaje: null, achtung_tipo: null,
+        log: [], archivos_pendientes: archivos, estado: 'procesando', fn_name: 'ocr-procesar-factura',
+        titular_id: null, visible: true, cancelar_solicitado: false, estado_cola: 'en_espera',
+        grupo_id: `despertar_${tarea.id}`, subidos_storage: archivos.length, total_storage: archivos.length,
+        pausar_solicitado: false,
+      })
+      try { await supabaseAdmin.functions.invoke('ocr-procesar-sesion', { body: {} }) } catch { /* red de seguridad ocr-worker-trigger ya existente lo reintenta */ }
+    }
+
+    if (filas.length < lote) { terminado = true; break }
+  }
+
+  return { procesados, ok, errores, terminado, cursor: { ultimo_id: ultimoId }, detalle: null }
+}
+
+// tipo releer_ocr: exactamente el flujo actual encolar-reproc + reproc, sin
+// duplicar lógica (llama a las mismas funciones internas que usan las
+// actions HTTP existentes).
+async function tickReleerOcr(tarea: Record<string, unknown>): Promise<ResultadoTick> {
+  const cursor = (tarea.cursor as { encolado?: boolean }) || {}
+  if (!cursor.encolado) await encolarReprocInterno()
+
+  const resultado = await reprocInterno()
+  return {
+    procesados: resultado.procesadas, ok: resultado.ok_tanda, errores: resultado.errores_tanda,
+    terminado: resultado.terminado, cursor: { encolado: true }, detalle: resultado.motivo_fin,
+  }
+}
+
+// tipo archivar_drive: handler archivarPendientes existente, en bucle por presupuesto.
+async function tickArchivarDrive(tarea: Record<string, unknown>, arranque: number): Promise<ResultadoTick> {
+  const lote = Math.min(Math.max(Number(tarea.lote_tamano) || 10, 1), 30)
+  let subidasAcum = 0, erroresAcum = 0, terminado = false
+
+  while (Date.now() - arranque < PRESUPUESTO_TICK_MS) {
+    const r = await archivarPendientesInterno(lote)
+    subidasAcum += r.subidas
+    erroresAcum += r.errores
+    if (r.terminado) { terminado = true; break }
+    if (r.subidas === 0 && r.errores === 0) break
+  }
+
+  return { procesados: subidasAcum + erroresAcum, ok: subidasAcum, errores: erroresAcum, terminado, cursor: (tarea.cursor as Record<string, unknown>) || {}, detalle: null }
+}
+
+// tipo limpieza: handler ocr-cleanup existente (archivo propio bajo la
+// puerta), un único disparo interno que ya recorre todo el storage huérfano.
+async function tickLimpieza(req: VercelRequest): Promise<ResultadoTick> {
+  const host = req.headers.host
+  const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
+  if (!host) return { procesados: 0, ok: 0, errores: 0, terminado: true, cursor: {}, detalle: 'sin host en la petición' }
+
+  const r = await fetch(`${proto}://${host}/api/ocr-cleanup`, { method: 'GET' })
+  const j = (await r.json().catch(() => ({}))) as { borrados?: number; errores?: number }
+  const borrados = Number(j.borrados) || 0
+  const errores = Number(j.errores) || 0
+  return { procesados: borrados + errores, ok: borrados, errores, terminado: true, cursor: {}, detalle: null }
+}
+
+// tipo conciliar: auto_match_factura fila a fila (LEY-MATCH-04, nunca UPDATE
+// masivo). cursor.intentados acumula los ids ya intentados en esta tarea para
+// no reintentar en bucle las que nunca conciliarán dentro de un mismo tick.
+async function tickConciliar(tarea: Record<string, unknown>, arranque: number): Promise<ResultadoTick> {
+  const cursor = (tarea.cursor as { desde?: string; intentados?: string[] }) || {}
+  const desde = cursor.desde || (tarea.created_at as string)
+  const intentados = [...(cursor.intentados || [])]
+
+  let procesados = 0, ok = 0, errores = 0, terminado = false
+
+  while (Date.now() - arranque < PRESUPUESTO_TICK_MS) {
+    let q = supabaseAdmin
+      .from('facturas')
+      .select('id')
+      .in('estado', ['sin_match', 'pendiente_revision'])
+      .or('no_conciliable.is.null,no_conciliable.eq.false')
+      .gt('created_at', desde)
+      .order('created_at', { ascending: true })
+      .limit(LOTE_CONCILIAR)
+    if (intentados.length > 0) q = q.not('id', 'in', `(${intentados.join(',')})`)
+
+    const { data: filas, error } = await q
+    if (error) throw new Error(error.message)
+    if (!filas || filas.length === 0) { terminado = true; break }
+
+    for (const f of filas) {
+      const id = f.id as string
+      try {
+        const { data: matched } = await supabaseAdmin.rpc('auto_match_factura', { p_factura_id: id })
+        if (matched) ok++
+      } catch {
+        errores++
+      }
+      procesados++
+      intentados.push(id)
+    }
+
+    if (filas.length < LOTE_CONCILIAR) { terminado = true; break }
+  }
+
+  return { procesados, ok, errores, terminado, cursor: { desde, intentados }, detalle: null }
 }
