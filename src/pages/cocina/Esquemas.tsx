@@ -11,7 +11,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { LayoutGrid, Mic, Printer, Plus, Trash2, X, Check, Pencil, Tags, Archive, History } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, tituloPaginaStyle } from '@/styles/tokens'
-import { jsPDF } from 'jspdf'
+import * as M from '@/lib/marcoDoc'
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
@@ -63,41 +63,8 @@ function trocearIngredientes(texto: string): Linea[] {
 
 // ─── IMPRESIÓN PDF (A4 vertical · cabecera de gama por página + contador X/Y de gama + contador general grande + tarjetas redondeadas) ──
 
-const GREY_BG: [number, number, number] = [226, 226, 226]
-const INK_C: [number, number, number] = [26, 26, 26]
-const CARD_R = 2.2 // radio de esquina de las tarjetas (mm) — mismo look redondeado que la vista en pantalla
-
-// Fuentes reales de la foto (Oswald Bold titulos/gama/nubes, Barlow Semi Condensed ingredientes).
-// Se cargan bajo demanda al imprimir y se cachean; si fallan, el PDF cae a Helvetica.
-const FUENTES_ESQUEMAS_URLS: Record<string, string> = {
-  oswald: 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/oswald@0.4.2/700Bold/Oswald_700Bold.ttf',
-  barlow: 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/barlow-semi-condensed@0.4.1/600SemiBold/BarlowSemiCondensed_600SemiBold.ttf',
-}
-let _fuentesEsquemasCache: Record<string, string> | null = null
-async function cargarFuentesEsquemas(): Promise<Record<string, string> | null> {
-  if (_fuentesEsquemasCache) return _fuentesEsquemasCache
-  try {
-    const pares = await Promise.all(Object.entries(FUENTES_ESQUEMAS_URLS).map(async ([k, u]) => {
-      const r = await fetch(u)
-      if (!r.ok) throw new Error('font ' + k)
-      const bytes = new Uint8Array(await r.arrayBuffer())
-      let bin = ''
-      const CH = 0x8000
-      for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CH)))
-      return [k, btoa(bin)] as const
-    }))
-    _fuentesEsquemasCache = Object.fromEntries(pares)
-    return _fuentesEsquemasCache
-  } catch { return null }
-}
-function registrarFuentesEsquemas(doc: jsPDF, fonts: Record<string, string> | null): boolean {
-  if (!fonts) return false
-  try {
-    doc.addFileToVFS('OswaldEsq.ttf', fonts.oswald); doc.addFont('OswaldEsq.ttf', 'Oswald', 'normal'); doc.addFont('OswaldEsq.ttf', 'Oswald', 'bold')
-    doc.addFileToVFS('BarlowEsq.ttf', fonts.barlow); doc.addFont('BarlowEsq.ttf', 'BarlowSC', 'normal')
-    return true
-  } catch { return false }
-}
+const AREA: M.Area = 'cocina'
+const CARD_R = M.R // radio único del marco
 
 function alturaCard(e: Esquema): number {
   let cuerpo = 0
@@ -114,17 +81,16 @@ function alturaCard(e: Esquema): number {
   return 9 + 1.4 + cuerpo + 2.5
 }
 
-function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[], fonts: Record<string, string> | null) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const emb = registrarFuentesEsquemas(doc, fonts)
-  const PW = doc.internal.pageSize.getWidth()
-  const PH = doc.internal.pageSize.getHeight()
-  const M = 8, bandH = 12, footerH = 14
-  const usableW = PW - M * 2
+function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[], rec: M.Recursos, bn = false) {
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+  const footerH = 8
   const nCols = 3, colGap = 5
-  const colW = (usableW - colGap * (nCols - 1)) / nCols
-  const topY = M + bandH + 3
-  const availH = (PH - footerH - 4) - topY
+  const colW = (cb.w - colGap * (nCols - 1)) / nCols
+  const topY = 30 // Y de continuación estable de la cabecera del marco (docNombre + gama centrada + logo)
+  const availH = (cb.bottom - footerH) - topY
 
   type Page = { gama: string; cols: { e: Esquema; y: number }[][]; gp: number; gt: number }
   const pages: Page[] = []
@@ -148,46 +114,43 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[], f
   const total = pages.length
   pages.forEach((pg, pi) => {
     if (pi > 0) doc.addPage()
-    // banda de gama (en cada página de la gama), nombre centrado
-    doc.setFillColor(...INK_C); doc.roundedRect(M, M, usableW, bandH, 2, 2, 'F')
-    doc.setFont(emb ? 'Oswald' : 'helvetica', 'bold'); doc.setTextColor(255, 255, 255)
-    let fs = 20; doc.setFontSize(fs)
-    while (fs > 11 && doc.getTextWidth(pg.gama.toUpperCase()) > usableW - 32) { fs -= 1; doc.setFontSize(fs) }
-    doc.text(pg.gama.toUpperCase(), PW / 2, M + bandH - 3.6, { align: 'center', charSpace: emb ? 0.6 : 0 })
-    doc.setFontSize(15)
-    doc.text(`${pg.gp}/${pg.gt}`, PW - M - 4, M + bandH - 3.6, { align: 'right' })
+    // Marco: espina + cabecera con nombre de la gama GRANDE y centrado
+    M.pintarEspina(doc, AREA, ctx, bn)
+    const yTop = M.pintarCabecera(doc, ctx, { docNombre: 'Esquemas de cocina', meta: pg.gt > 1 ? `Gama ${pg.gp}/${pg.gt}` : undefined, tituloCentrado: pg.gama, area: AREA, bn })
 
     pg.cols.forEach((col, ci) => {
-      const x = M + ci * (colW + colGap)
+      const x = cb.x0 + ci * (colW + colGap)
       col.forEach(({ e, y }) => {
-        const cy = topY + y
+        const cy = yTop + y
         const h = alturaCard(e)
-        // tarjeta redondeada (mismo look que la vista en pantalla)
-        doc.setDrawColor(...INK_C); doc.setLineWidth(0.4); doc.roundedRect(x, cy, colW, h, CARD_R, CARD_R, 'S')
-        doc.setFillColor(...GREY_BG); doc.roundedRect(x, cy, colW, 9, CARD_R, CARD_R, 'F')
-        doc.setFillColor(...GREY_BG); doc.rect(x, cy + 4.5, colW, 4.5, 'F') // tapa el redondeo inferior de la cabecera para que case con la raya
-        doc.setDrawColor(...INK_C); doc.line(x, cy + 9, x + colW, cy + 9)
-        doc.setFont(emb ? 'Oswald' : 'helvetica', 'bold'); doc.setTextColor(...INK_C)
+        // tarjeta redondeada (radio único, borde de acento)
+        doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.4); doc.roundedRect(x, cy, colW, h, CARD_R, CARD_R, 'S')
+        // cabecera soft con nombre en Oswald
+        doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.roundedRect(x, cy, colW, 9, CARD_R, CARD_R, 'F')
+        doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.rect(x, cy + 4.5, colW, 4.5, 'F')
+        doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.4); doc.line(x, cy + 9, x + colW, cy + 9)
+        M.fTitulo(doc, ctx, true); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
         let tf = 16; doc.setFontSize(tf)
         while (tf > 10 && doc.getTextWidth(e.nombre) > colW - 4) { tf -= 0.5; doc.setFontSize(tf) }
         doc.text(e.nombre, x + colW / 2, cy + 6.6, { align: 'center' })
-        let ly = cy + 9 + 1.4 // aire entre el titulo y el primer ingrediente
+        let ly = cy + 9 + 1.4
         let li = 0
         while (li < e.lineas.length) {
           if (e.lineas[li].tipo === 'accion') {
-            // nube: agrupa acciones consecutivas en un bloque con aire entre texto y rayas
+            // nube: bloque delimitado por línea de acento arriba y abajo
             let k = 0
             while (li + k < e.lineas.length && e.lineas[li + k].tipo === 'accion') k++
-            doc.setDrawColor(...INK_C); doc.setLineWidth(0.4)
+            doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.4)
             doc.line(x + 4, ly + 1.3, x + colW - 4, ly + 1.3)
-            doc.setFont(emb ? 'Oswald' : 'helvetica', 'bold'); doc.setFontSize(10.5)
+            M.fTitulo(doc, ctx, true); doc.setTextColor(...M.TINTA); doc.setFontSize(10.5)
             for (let a = 0; a < k; a++) doc.text(e.lineas[li + a].texto.toUpperCase(), x + colW / 2, ly + 5.6 + a * 3.9, { align: 'center' })
             const ultima = ly + 5.6 + (k - 1) * 3.9
             doc.line(x + 4, ultima + 1.6, x + colW - 4, ultima + 1.6)
             ly += 8.5 + (k - 1) * 3.9
             li += k
           } else {
-            doc.setFont(emb ? 'BarlowSC' : 'helvetica', 'normal'); let lf = 10.5; doc.setFontSize(lf)
+            // ingredientes en Barlow, centrados
+            M.fDato(doc, ctx, false); doc.setTextColor(...M.TINTA); let lf = 10.5; doc.setFontSize(lf)
             while (lf > 7 && doc.getTextWidth(e.lineas[li].texto) > colW - 3) { lf -= 0.5; doc.setFontSize(lf) }
             doc.text(e.lineas[li].texto, x + colW / 2, ly + 3.4, { align: 'center' })
             ly += 4.6
@@ -197,14 +160,10 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[], f
       })
     })
 
-    // contador general GRANDE, centrado abajo
-    doc.setFont(emb ? 'BarlowSC' : 'helvetica', 'bold'); doc.setTextColor(...INK_C); doc.setFontSize(24)
-    doc.text(`${pi + 1} / ${total}`, PW / 2, PH - 5, { align: 'center' })
+    M.pintarPaginado(doc, pi + 1, total, ctx)
   })
 
-  const url = doc.output('bloburl')
-  const win = window.open(url as unknown as string, '_blank')
-  if (win) win.addEventListener('load', () => { try { win.focus(); win.print() } catch { /* imprime desde el visor */ } })
+  M.abrirImprimir(doc)
 }
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
@@ -220,6 +179,7 @@ export default function Esquemas() {
   const [editando, setEditando] = useState<Esquema | 'nuevo' | null>(null)
   const [gestorGamas, setGestorGamas] = useState(false)
   const [imprimiendoTodo, setImprimiendoTodo] = useState(false)
+  const [bn, setBn] = useState(false)
 
   useEffect(() => { cargar() }, [])
 
@@ -255,8 +215,8 @@ export default function Esquemas() {
   async function imprimir() {
     const platos = esquemas.filter(e => e.gama === gamaActiva && e.estado === 'vigente')
     if (!platos.length) return
-    const fonts = await cargarFuentesEsquemas()
-    construirEsquemasPDF([{ nombre: gamaActiva, platos }], fonts)
+    const rec = await M.cargarRecursos()
+    construirEsquemasPDF([{ nombre: gamaActiva, platos }], rec, bn)
   }
   async function imprimirTodo() {
     const orden = ['Asiática', 'Casera', 'Raciones', 'Binagre', 'Italiana', 'Green', 'French Tacos']
@@ -265,8 +225,8 @@ export default function Esquemas() {
       .map(n => ({ nombre: n, platos: esquemas.filter(e => e.gama === n && e.estado === 'vigente') }))
       .filter(x => x.platos.length > 0)
     if (!grupos.length) return
-    const fonts = await cargarFuentesEsquemas()
-    construirEsquemasPDF(grupos, fonts)
+    const rec = await M.cargarRecursos()
+    construirEsquemasPDF(grupos, rec, bn)
   }
 
   if (loading) return <div style={{ padding: 32, color: T.sec, fontFamily: FONT.body }}>Cargando esquemas…</div>
@@ -289,6 +249,7 @@ export default function Esquemas() {
           <button onClick={() => setEditando('nuevo')} style={btnPrimary}><Plus size={16} /> Nuevo plato</button>
           <button onClick={() => setGestorGamas(true)} style={btnGhost(T)}><Tags size={16} /> Gamas</button>
           <button onClick={() => setVerHistorico(v => !v)} style={verHistorico ? btnPrimary : btnGhost(T)}><History size={16} /> {verHistorico ? 'Ver vigentes' : 'Histórico'}</button>
+          <button onClick={() => setBn(v => !v)} style={{ ...btnGhost(T), background: bn ? '#e7e7e7' : 'transparent', color: bn ? '#111' : T.sec }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
           <button onClick={imprimir} style={btnGhost(T)}><Printer size={16} /> Imprimir / PDF</button>
           <button onClick={imprimirTodo} style={btnPrimary}><Printer size={16} /> Imprimir todo (PDF)</button>
         </div>

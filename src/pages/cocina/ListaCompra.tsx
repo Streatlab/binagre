@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle } from '@/styles/tokens'
 import type { TokenSet } from '@/styles/tokens'
 import { Printer, Download, ShoppingCart, Search, X, Plus, Minus, Save, FolderOpen, AlertTriangle, TrendingUp, ChevronDown, ChevronRight, Link } from 'lucide-react'
-import { jsPDF } from 'jspdf'
+import * as M from '@/lib/marcoDoc'
 
 /* ═══ TYPES ═══ */
 
@@ -35,49 +35,53 @@ function alertaPrecio(i: Ing): { pct: number; subida: boolean } | null {
   return { pct: Math.round(pct), subida: pct > 0 }
 }
 
-/* ═══ PDF ═══ */
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) ═══ */
 
-const RD: [number, number, number] = [138, 26, 34]
-const RS: [number, number, number] = [240, 216, 218]
-const GR: [number, number, number] = [201, 201, 201]
+const AREA: M.Area = 'cocina'
 
-function crearPDF(grupos: [string, Ing[]][], provMap: Record<string, Prov>, cantidades: Record<string, number>) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const PW = doc.internal.pageSize.getWidth(); const M = 14; const W = PW - M * 2
-  let y = M
+function crearPDF(grupos: [string, Ing[]][], provMap: Record<string, Prov>, cantidades: Record<string, number>, rec: M.Recursos, bn = false) {
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
   const hoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(...RD)
-  doc.text('LISTA DE COMPRA', M, y + 5)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90)
-  doc.text(hoy, PW - M, y + 5, { align: 'right' })
-  y += 9; doc.setDrawColor(...RD); doc.setLineWidth(0.5); doc.line(M, y, PW - M, y); y += 6
+  // columnas (x relativas a la caja de contenido)
+  const xProd = cb.x0 + 1.5, xFmt = cb.x0 + cb.w * 0.44, xUd = cb.x0 + cb.w * 0.58, xCant = cb.x0 + cb.w * 0.68, xPrec = cb.x0 + cb.w * 0.80, xTot = cb.x1 - 1.5
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Lista de Compra', meta: hoy, area: AREA, bn })
+  }
+  let y = nuevaPagina()
 
   for (const [a, items] of grupos) {
     const con = items.filter(i => (cantidades[i.id] || 0) > 0)
     if (con.length === 0) continue
-    if (y > 260) { doc.addPage(); y = M }
-    doc.setFillColor(...RS); doc.rect(M, y, W, 7, 'F')
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...RD)
-    doc.text(`${(provMap[a]?.nombre ?? a).toUpperCase()}  (${con.length})`, M + 3, y + 5); y += 7
-    doc.setFillColor(250, 242, 243); doc.rect(M, y, W, 5, 'F')
-    doc.setFontSize(8)
-    doc.text('Producto', M + 2, y + 3.5); doc.text('Fmt', M + 80, y + 3.5); doc.text('Ud.', M + 105, y + 3.5)
-    doc.text('Cant.', M + 122, y + 3.5); doc.text('Precio', M + 140, y + 3.5); doc.text('Total', W + M - 2, y + 3.5, { align: 'right' }); y += 5
+    if (y > cb.bottom - 24) { doc.addPage(); y = nuevaPagina() }
+    doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.roundedRect(cb.x0, y, cb.w, 7, M.R, M.R, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(11); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(`${(provMap[a]?.nombre ?? a).toUpperCase()}  (${con.length})`, cb.x0 + 3, y + 5); y += 8
+    doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 5, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(8); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text('Producto', xProd, y + 3.5); doc.text('Fmt', xFmt, y + 3.5); doc.text('Ud.', xUd, y + 3.5)
+    doc.text('Cant.', xCant, y + 3.5); doc.text('Precio', xPrec, y + 3.5); doc.text('Total', xTot, y + 3.5, { align: 'right' }); y += 5
     let tp = 0
     for (const ing of con) {
-      if (y > 270) { doc.addPage(); y = M }
+      if (y > cb.bottom - 8) { doc.addPage(); y = nuevaPagina() }
       const q = cantidades[ing.id] || 0; const t = q * (ing.precio_activo || 0); tp += t
-      doc.setDrawColor(...GR); doc.setLineWidth(0.1); doc.line(M, y + 4.5, M + W, y + 4.5)
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(30)
-      doc.text(limpio(ing.nombre), M + 2, y + 3.5)
-      doc.setTextColor(90); doc.text(ing.formato ?? '', M + 80, y + 3.5); doc.text(ing.ud_std ?? '', M + 105, y + 3.5)
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(30); doc.text(q.toString(), M + 124, y + 3.5)
-      doc.setFont('helvetica', 'normal'); doc.setTextColor(90); doc.text(ing.precio_activo ? eur(ing.precio_activo) : '', M + 137, y + 3.5)
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(...RD); doc.text(eur(t), W + M - 2, y + 3.5, { align: 'right' }); y += 5
+      doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.5, cb.x1, y + 4.5)
+      M.fDato(doc, ctx, false); doc.setFontSize(9); doc.setTextColor(...M.TINTA)
+      doc.text(limpio(ing.nombre), xProd, y + 3.5)
+      doc.setTextColor(...M.GRIS); doc.text(ing.formato ?? '', xFmt, y + 3.5); doc.text(ing.ud_std ?? '', xUd, y + 3.5)
+      M.fDato(doc, ctx, true); doc.setTextColor(...M.TINTA); doc.text(q.toString(), xCant, y + 3.5)
+      M.fDato(doc, ctx, false); doc.setTextColor(...M.GRIS); doc.text(ing.precio_activo ? eur(ing.precio_activo) : '', xPrec, y + 3.5)
+      M.fDato(doc, ctx, true); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.text(eur(t), xTot, y + 3.5, { align: 'right' }); y += 5
     }
-    doc.setDrawColor(...[176, 29, 35] as [number, number, number]); doc.setLineWidth(0.3); doc.line(M + 120, y, M + W, y)
-    doc.setFontSize(10); doc.text(`Total: ${eur(tp)}`, W + M - 2, y + 4, { align: 'right' }); y += 10
+    doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.3); doc.line(xCant, y, cb.x1, y)
+    M.fTitulo(doc, ctx, true); doc.setFontSize(10); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(`Total: ${eur(tp)}`, xTot, y + 4, { align: 'right' }); y += 11
   }
+  M.pintarPaginado(doc, 1, 1, ctx)
   return doc
 }
 
@@ -102,6 +106,7 @@ export default function ListaCompra() {
   const [modalGuardar, setModalGuardar] = useState(false)
   const [modalCargar, setModalCargar] = useState(false)
   const [nombreLista, setNombreLista] = useState('')
+  const [bn, setBn] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -221,8 +226,8 @@ export default function ListaCompra() {
     setListas(prev => prev.filter(l => l.id !== id))
   }
 
-  const handlePrint = () => { const d = crearPDF(grupos, provMap, cantidades); const u = d.output('bloburl'); const w = window.open(u as unknown as string, '_blank'); if (w) w.addEventListener('load', () => { try { w.focus(); w.print() } catch {} }) }
-  const handlePDF = () => { crearPDF(grupos, provMap, cantidades).save(`lista-compra-${new Date().toISOString().slice(0, 10)}.pdf`) }
+  const handlePrint = async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(crearPDF(grupos, provMap, cantidades, rec, bn)) }
+  const handlePDF = async () => { const rec = await M.cargarRecursos(); M.descargar(crearPDF(grupos, provMap, cantidades, rec, bn), `lista-compra-${new Date().toISOString().slice(0, 10)}`) }
 
   if (loading) return <div style={{ ...groupStyle(T), width: '100%' }}><h1 style={pageTitleStyle(T)}>Lista de Compra</h1><div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div></div>
 
@@ -251,6 +256,7 @@ export default function ListaCompra() {
           <button onClick={() => setModalGuardar(true)} style={btnGhost}><Save size={14} /> Guardar</button>
           <button onClick={() => setModalCargar(true)} style={btnGhost}><FolderOpen size={14} /> Cargar</button>
           {enLista > 0 && <button onClick={() => setCantidades({})} style={btnGhost}><X size={14} /> Limpiar</button>}
+          <button onClick={() => setBn(v => !v)} style={{ ...btnGhost, background: bn ? '#e7e7e7' : 'transparent', color: bn ? '#111' : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
           <button onClick={handlePrint} style={btnGhost}><Printer size={14} /> Imprimir</button>
           <button onClick={handlePDF} style={btnPrimary}><Download size={14} /> PDF</button>
         </div>

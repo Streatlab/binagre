@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
 import { ClipboardList, Printer, Download, Plus, Trash2, X, Check, Pencil, FileDown } from 'lucide-react'
 import { jsPDF } from 'jspdf'
+import * as M from '@/lib/marcoDoc'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 import Esquemas from '@/pages/cocina/Esquemas'
@@ -106,168 +107,134 @@ function agruparInventario(items: InvItem[]): InvUbi[] {
   return ubis
 }
 
-// ─── GENERACIÓN DE PDF REAL (descarga directa, sin diálogo de impresión) ───────
+// ─── GENERACIÓN DE PDF REAL — MARCO ÚNICO (src/lib/marcoDoc.ts) ────────────────
+// Todos los documentos usan la misma espina + cabecera + logo + paginado + paleta + radio.
 
-const RED: [number, number, number] = [176, 29, 35]
-const RED_DARK: [number, number, number] = [138, 26, 34]
-const RED_SOFT: [number, number, number] = [240, 216, 218]
-const RED_SOFT2: [number, number, number] = [245, 226, 227]
-const GREY_LINE: [number, number, number] = [201, 201, 201]
-const WRITE_LINE: [number, number, number] = [201, 201, 210]
+const AREA: M.Area = 'cocina'
 
-function safe(name: string) {
-  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
-}
-
-// Abre el PDF generado en una pestaña nueva y lanza el diálogo de impresión desde el visor
-// (evita la cola colgada de la impresora WiFi al imprimir directo desde la web)
-function imprimirDesdePDF(doc: jsPDF) {
-  const url = doc.output('bloburl')
-  const win = window.open(url as unknown as string, '_blank')
-  if (win) {
-    win.addEventListener('load', () => { try { win.focus(); win.print() } catch { /* el usuario imprime desde el visor */ } })
-  }
-}
-
-// Reduce el cuerpo de letra solo si el texto no cabe en el ancho dado (evita salto de linea/pagina)
-function fitFont(doc: jsPDF, text: string, maxWidth: number, base: number, min: number): number {
-  let fs = base
-  doc.setFontSize(fs)
-  while (fs > min && doc.getTextWidth(text) > maxWidth) { fs -= 0.5; doc.setFontSize(fs) }
-  return fs
-}
-
-function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): jsPDF {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  const PW = doc.internal.pageSize.getWidth()
-  const M = 12
-  const usableW = PW - M * 2
+function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string, rec: M.Recursos, bn = false): jsPDF {
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  const cb = M.contentBox(doc)
+  const pal = M.paleta(AREA, bn)
   const rowH = 5.2
-  // Columna Producto ajustada al nombre más largo (no ocupa todo el sobrante);
-  // el resto del ancho se reparte entre las casillas HOY/SSP.
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(11)
+  // Columna Producto ajustada al nombre más largo; el resto se reparte entre HOY/SSP.
+  M.fDato(doc, ctx, false); doc.setFontSize(11)
   let maxNombreW = 0
   paginas.forEach(bloques => bloques.forEach(b => b.parts.forEach(p => {
     const w = doc.getTextWidth(p.nombre)
     if (w > maxNombreW) maxNombreW = w
   })))
-  const wProd = Math.min(Math.max(maxNombreW + 5, 28), 60)
-  const wCelda = (usableW - wProd * 2) / 14
-  const xProdDer = M + wProd + wCelda * 14
+  const wProd = Math.min(Math.max(maxNombreW + 5, 26), 56)
+  const wCelda = (cb.w - wProd * 2) / 14
+  const xProdDer = cb.x0 + wProd + wCelda * 14
 
   paginas.forEach((bloques, pi) => {
     if (pi > 0) doc.addPage()
-    let y = M
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...RED_DARK)
-    doc.text('LISTA DE PRODUCCIÓN', M, y + 4)
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90)
-    doc.text(semanaLabel, M + 70, y + 4)
-    doc.text(`Página ${pi + 1} de ${paginas.length}`, PW - M, y + 4, { align: 'right' })
-    y += 7
-    doc.setDrawColor(...RED_DARK); doc.setLineWidth(0.4); doc.line(M, y, PW - M, y)
-    y += 3
+    M.pintarEspina(doc, AREA, ctx, bn)
+    let y = M.pintarCabecera(doc, ctx, { docNombre: 'Lista de Producción', meta: semanaLabel, area: AREA, bn })
 
     bloques.forEach(b => {
       const filas = conBiberones(b.parts)
       const tituloSec = `${b.sec.nombre}${b.cont ? '  ·  (CONTINÚA)' : ''}`
-      doc.setFillColor(...RED_SOFT); doc.rect(M, y, usableW, 6, 'F')
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...RED_DARK)
-      doc.text(tituloSec, M + 2, y + 4)
+      doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+      doc.text(tituloSec, cb.x0 + 2, y + 4)
       doc.text(tituloSec, xProdDer + 2, y + 4)
       y += 6
-      doc.setFillColor(...RED_SOFT2); doc.rect(M, y, usableW, 5, 'F')
-      doc.setFontSize(7); doc.setTextColor(...RED_DARK)
-      doc.text('Producto', M + 1.5, y + 3.3)
-      let x = M + wProd
+      doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 5, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(7); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+      doc.text('Producto', cb.x0 + 1.5, y + 3.3)
+      let x = cb.x0 + wProd
       DIAS.forEach(dia => { doc.text(DIAS_LABEL[dia], x + wCelda, y + 3.3, { align: 'center' }); x += wCelda * 2 })
       doc.text('Producto', xProdDer + 1.5, y + 3.3)
       y += 5
-      doc.setFillColor(...RED_SOFT2); doc.rect(M, y, usableW, 3.6, 'F')
+      doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 3.6, 'F')
       doc.setFontSize(5.5)
-      x = M + wProd
+      x = cb.x0 + wProd
       DIAS.forEach(() => { doc.text('HOY', x + wCelda / 2, y + 2.6, { align: 'center' }); doc.text('SSP', x + wCelda + wCelda / 2, y + 2.6, { align: 'center' }); x += wCelda * 2 })
       y += 3.6
 
-      doc.setFont('helvetica', 'normal')
+      M.fDato(doc, ctx, false)
       let prevBib = false
       filas.forEach(f => {
         if (f.kind === 'sub') {
-          doc.setFillColor(247, 238, 239); doc.rect(M, y, usableW, rowH, 'F')
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...RED_DARK)
-          doc.text(f.label.toUpperCase(), M + 6, y + 3.7)
+          doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, rowH, 'F')
+          M.fTitulo(doc, ctx, true); doc.setFontSize(8); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+          doc.text(f.label.toUpperCase(), cb.x0 + 6, y + 3.7)
           doc.text(f.label.toUpperCase(), xProdDer + 6, y + 3.7)
-          doc.setFont('helvetica', 'normal')
-          drawColsLines(doc, M, y, rowH, wProd, wCelda)
+          M.fDato(doc, ctx, false)
+          drawColsLines(doc, cb.x0, y, rowH, wProd, wCelda, pal)
           y += rowH
           prevBib = false
           return
         }
-        // franja roja de separación al terminar los biberones
+        // franja de acento suave al terminar los biberones
         if (prevBib && !f.part.biberon) {
-          doc.setFillColor(...RED_SOFT); doc.rect(M, y, usableW, 2.6, 'F')
+          doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.rect(cb.x0, y, cb.w, 2.6, 'F')
           y += 2.6
         }
         prevBib = !!f.part.biberon
-        x = M + wProd
-        DIAS.forEach(() => { doc.setFillColor(247, 238, 239); doc.rect(x + wCelda, y, wCelda, rowH, 'F'); x += wCelda * 2 })
-        doc.setTextColor(20)
-        fitFont(doc, f.part.nombre, wProd - 2.5, 11, 7)
-        doc.text(f.part.nombre, M + 1.5, y + 3.7)
+        x = cb.x0 + wProd
+        DIAS.forEach(() => { doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(x + wCelda, y, wCelda, rowH, 'F'); x += wCelda * 2 })
+        doc.setTextColor(...M.TINTA)
+        M.fitFont(doc, f.part.nombre, wProd - 2.5, 11, 7)
+        doc.text(f.part.nombre, cb.x0 + 1.5, y + 3.7)
         doc.text(f.part.nombre, xProdDer + 1.5, y + 3.7)
         doc.setFontSize(11)
-        drawColsLines(doc, M, y, rowH, wProd, wCelda)
+        drawColsLines(doc, cb.x0, y, rowH, wProd, wCelda, pal)
         y += rowH
       })
       y += 3
     })
+    M.pintarPaginado(doc, pi + 1, paginas.length, ctx)
   })
   return doc
 }
 
-function descargarListaPDF(paginas: BloqueImpresion[][], semanaLabel: string) {
-  construirListaPDF(paginas, semanaLabel).save(`lista-produccion-${safe(semanaLabel)}.pdf`)
-}
-
-function drawColsLines(doc: jsPDF, M: number, y: number, rowH: number, wProd: number, wCelda: number) {
-  doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1)
+// Líneas de columnas: día enmarcado (borde de acento entre días) + separador fino HOY|SSP.
+function drawColsLines(doc: jsPDF, x0: number, y: number, rowH: number, wProd: number, wCelda: number, pal: M.Paleta) {
   const totalW = wProd * 2 + wCelda * 14
-  doc.line(M, y + rowH, M + totalW, y + rowH)
-  let x = M
+  doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1)
+  doc.line(x0, y + rowH, x0 + totalW, y + rowH)
+  let x = x0
   doc.line(x, y, x, y + rowH); x += wProd
   for (let i = 0; i < 14; i++) {
-    if (i % 2 === 0) { doc.setDrawColor(207, 123, 129); doc.setLineWidth(0.5) }
-    else { doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1) }
+    if (i % 2 === 0) { doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.5) } // borde de día
+    else { doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1) }                                             // separador HOY|SSP
     doc.line(x, y, x, y + rowH)
     x += wCelda
   }
-  doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1)
+  doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.5)
   doc.line(x, y, x, y + rowH); x += wProd
+  doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1)
   doc.line(x, y, x, y + rowH)
 }
 
-// Carteles de cámara: una sola columna por balda, con el cuerpo de letra MÁS GRANDE posible
-// que entre en una hoja sin saltos de línea (tamaño uniforme dentro de cada balda).
-function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[]): jsPDF {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  const PW = doc.internal.pageSize.getWidth()
-  const PH = doc.internal.pageSize.getHeight()
-  const M = 10
+function descargarListaPDF(paginas: BloqueImpresion[][], semanaLabel: string, rec: M.Recursos, bn = false) {
+  M.descargar(construirListaPDF(paginas, semanaLabel, rec, bn), `lista-produccion-${semanaLabel}`)
+}
+
+// Carteles de cámara: una columna por balda, letra lo más grande posible sin saltos de línea.
+function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[], rec: M.Recursos, bn = false): jsPDF {
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
 
   grupos.forEach((g, gi) => {
     if (gi > 0) doc.addPage()
-    doc.setFillColor(...RED_SOFT); doc.rect(M, M, PW - M * 2, 16, 'F')
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(26); doc.setTextColor(...RED_DARK)
-    doc.text(g.titulo, M + 6, M + 11)
-    const top = M + 16
-    const colW = (PW - M * 2) / g.secs.length
-    const colH = PH - top - M
+    M.pintarEspina(doc, AREA, ctx, bn)
+    const top = M.pintarCabecera(doc, ctx, { docNombre: 'Ordenación de Cámara', tituloCentrado: g.titulo, area: AREA, bn })
+    const cb = M.contentBox(doc)
+    const colW = cb.w / g.secs.length
+    const colH = cb.bottom - top
 
     g.secs.forEach((sec, ci) => {
-      const x0 = M + ci * colW
+      const x0 = cb.x0 + ci * colW
       const parts = partidas.filter(p => p.seccion_id === sec.id)
-      if (ci > 0) { doc.setDrawColor(...RED).setLineWidth(0.4); doc.line(x0, top, x0, top + colH) }
-      doc.setFillColor(250, 240, 241); doc.rect(x0, top, colW, 9, 'F')
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...RED_DARK)
+      if (ci > 0) { doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.5); doc.line(x0, top, x0, top + colH) }
+      doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.roundedRect(x0 + 1, top, colW - 2, 9, M.R, M.R, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(13); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
       doc.text(sec.nombre, x0 + 4, top + 6)
 
       const filas = conBiberones(parts)
@@ -275,8 +242,7 @@ function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
       const innerTop = top + 12
       const innerH = colH - 12
       const maxTextW = colW - 8
-      // tamaño de letra uniforme = el mayor que cabe en alto (nº filas) y en ancho (texto más largo)
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(10)
+      M.fDato(doc, ctx, true); doc.setFontSize(10)
       let wMax10 = 1
       for (const f of filas) {
         const t = f.kind === 'sub' ? f.label : f.part.nombre
@@ -291,61 +257,48 @@ function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
       let prevBib = false
       for (const f of filas) {
         if (f.kind === 'sub') {
-          doc.setFont('helvetica', 'bold'); doc.setTextColor(...RED_DARK); doc.setFontSize(fs)
+          M.fTitulo(doc, ctx, true); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setFontSize(fs)
           doc.text(f.label, x0 + 4, fy)
-          doc.setFont('helvetica', 'normal')
           fy += lh
           continue
         }
         if (prevBib && !f.part.biberon) {
-          doc.setDrawColor(...RED); doc.setLineWidth(0.8)
+          doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.8)
           doc.line(x0 + 4, fy - lh * 0.6, x0 + colW - 4, fy - lh * 0.6)
         }
         prevBib = !!f.part.biberon
-        doc.setTextColor(20); doc.setFontSize(fs)
+        M.fDato(doc, ctx, false); doc.setTextColor(...M.TINTA); doc.setFontSize(fs)
         doc.text(f.part.nombre, x0 + 4, fy)
         fy += lh
       }
     })
-    doc.setDrawColor(...RED).setLineWidth(0.8); doc.rect(M, M, PW - M * 2, PH - M * 2)
+    M.pintarPaginado(doc, gi + 1, grupos.length, ctx)
   })
   return doc
 }
 
-function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[]) {
-  construirCamaraPDF(grupos, partidas).save('ordenacion-camara.pdf')
+function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[], rec: M.Recursos, bn = false) {
+  M.descargar(construirCamaraPDF(grupos, partidas, rec, bn), 'ordenacion-camara')
 }
 
-// Inventario: UNA sola hoja A4 apaisada por ubicación. 2 columnas equilibradas, filas compactas,
-// stock mínimo entre paréntesis pegado al nombre (en rojo) y línea continua a la derecha para anotar.
-function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
-  const PW = doc.internal.pageSize.getWidth()
-  const PH = doc.internal.pageSize.getHeight()
-  const M = 10
-  const usableW = PW - M * 2
+// Inventario: una hoja A4 apaisada por ubicación. 2 columnas, stock mínimo entre paréntesis,
+// línea continua a la derecha para anotar.
+function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi, ctx: M.Ctx, bn: boolean) {
+  const pal = M.paleta(AREA, bn)
+  const yTop = M.pintarCabecera(doc, ctx, { docNombre: 'Inventario Permanente', meta: 'FECHA: ___ / ___ / ______', tituloCentrado: ubi.nombre, area: AREA, bn })
+  const cb = M.contentBox(doc)
+  const usableW = cb.w
 
-  // cabecera de la hoja
-  doc.setFillColor(...RED_SOFT); doc.rect(M, M, usableW, 14, 'F')
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(19); doc.setTextColor(...RED_DARK)
-  doc.text(ubi.nombre, M + 5, M + 9.3)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5)
-  doc.text('INVENTARIO PERMANENTE     FECHA: ___ / ___ / ______', PW - M - 4, M + 9.3, { align: 'right' })
-  doc.setDrawColor(...RED).setLineWidth(0.6); doc.rect(M, M, usableW, PH - M * 2)
-
-  const top = M + 17
-  const bottom = PH - M - 3
+  const top = yTop
+  const bottom = cb.bottom
   const alturaDisp = bottom - top
   const headH = 6.5
   const gap = 1.4
 
-  // 2 columnas fijas, con margen interior para no pisar el borde rojo
   const nCols = 2
   const colGap = 5
-  const innerPad = 4
-  const contentW = usableW - innerPad * 2
-  const colW = (contentW - colGap) / nCols
-  const x0c = M + innerPad
-  const xCol = [x0c, x0c + colW + colGap]
+  const colW = (usableW - colGap) / nCols
+  const xCol = [cb.x0, cb.x0 + colW + colGap]
 
   // reparto equilibrado de categorías enteras entre las 2 columnas
   const cols: InvCat[][] = [[], []]
@@ -356,7 +309,6 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
     carga[ci] += cat.items.length + 0.8
   }
 
-  // altura de fila: que la columna más cargada llene la hoja, pero COMPACTA (tope 10mm)
   let maxItems = 1, catsEnMax = 1, peor = -1
   for (let k = 0; k < nCols; k++) {
     const its = cols[k].reduce((a, c) => a + c.items.length, 0)
@@ -369,34 +321,30 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
     const x = xCol[k]
     let y = top
     for (const cat of cols[k]) {
-      // cabecera de categoría
-      doc.setFillColor(26, 26, 26); doc.rect(x, y, colW, headH, 'F')
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255, 255, 255)
+      // cabecera de categoría (acento, radio único)
+      doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.roundedRect(x, y, colW, headH, M.R, M.R, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(11); doc.setTextColor(255, 255, 255)
       doc.text(cat.nombre.toUpperCase(), x + 3, y + headH - 2.1)
       y += headH
 
       for (const it of cat.items) {
-        // nombre + stock mínimo entre paréntesis, pegado al nombre, en rojo
         const sufijo = it.min_seguridad != null ? `  (${it.min_seguridad})` : ''
-        // letra lo más grande posible que llene ~90% de la altura de la fila,
-        // reduciéndose solo si no cabe en el ancho (deja sitio para la raya)
         const fsAltura = Math.min(16, itemH * 2.7)
-        const fs = fitFont(doc, it.nombre + sufijo, colW * 0.7, fsAltura, 7)
+        const fs = M.fitFont(doc, it.nombre + sufijo, colW * 0.7, fsAltura, 7)
         const baseY = y + itemH * 0.5 + fs * 0.13
-        doc.setFont('helvetica', 'normal'); doc.setTextColor(35); doc.setFontSize(fs)
+        M.fDato(doc, ctx, false); doc.setTextColor(...M.TINTA); doc.setFontSize(fs)
         doc.text(it.nombre, x + 2.5, baseY)
         let endX = x + 2.5 + doc.getTextWidth(it.nombre)
         if (it.min_seguridad != null) {
-          doc.setFont('helvetica', 'bold'); doc.setTextColor(...RED)
+          M.fTitulo(doc, ctx, true); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setFontSize(fs)
           doc.text(`  (${it.min_seguridad})`, endX, baseY)
           endX += doc.getTextWidth(`  (${it.min_seguridad})`)
-          doc.setFont('helvetica', 'normal')
         }
-        // línea continua de anotación justo tras el stock (sin puntos ni hueco)
-        doc.setDrawColor(...WRITE_LINE); doc.setLineWidth(0.3)
+        // línea continua de anotación
+        doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.3)
         doc.line(endX + 3, y + itemH - 1.4, x + colW - 2, y + itemH - 1.4)
-        // separador inferior de la fila
-        doc.setDrawColor(236, 236, 240); doc.setLineWidth(0.15)
+        // separador inferior
+        doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.12)
         doc.line(x, y + itemH, x + colW, y + itemH)
         y += itemH
       }
@@ -405,24 +353,33 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   }
 }
 
-function construirInventarioPDF(ubi: InvUbi): jsPDF {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  pintarInventarioUbi(doc, ubi)
+function construirInventarioPDF(ubi: InvUbi, rec: M.Recursos, bn = false): jsPDF {
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  M.pintarEspina(doc, AREA, ctx, bn)
+  pintarInventarioUbi(doc, ubi, ctx, bn)
+  M.pintarPaginado(doc, 1, 1, ctx)
   return doc
 }
 
-function construirInventarioTodosPDF(ubis: InvUbi[]): jsPDF {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  ubis.forEach((u, i) => { if (i > 0) doc.addPage(); pintarInventarioUbi(doc, u) })
+function construirInventarioTodosPDF(ubis: InvUbi[], rec: M.Recursos, bn = false): jsPDF {
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  ubis.forEach((u, i) => {
+    if (i > 0) doc.addPage()
+    M.pintarEspina(doc, AREA, ctx, bn)
+    pintarInventarioUbi(doc, u, ctx, bn)
+    M.pintarPaginado(doc, i + 1, ubis.length, ctx)
+  })
   return doc
 }
 
-function descargarInventarioPDF(ubi: InvUbi) {
-  construirInventarioPDF(ubi).save(`inventario-${safe(ubi.nombre)}.pdf`)
+function descargarInventarioPDF(ubi: InvUbi, rec: M.Recursos, bn = false) {
+  M.descargar(construirInventarioPDF(ubi, rec, bn), `inventario-${ubi.nombre}`)
 }
 
-function descargarInventarioTodosPDF(ubis: InvUbi[]) {
-  construirInventarioTodosPDF(ubis).save('inventario-completo.pdf')
+function descargarInventarioTodosPDF(ubis: InvUbi[], rec: M.Recursos, bn = false) {
+  M.descargar(construirInventarioTodosPDF(ubis, rec, bn), 'inventario-completo')
 }
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
@@ -495,6 +452,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
   const [entradas, setEntradas] = useState<EntradaProduccion[]>([])
   const [modalSecciones, setModalSecciones] = useState(false)
   const [modalPartidas, setModalPartidas] = useState(false)
+  const [bn, setBn] = useState(false)
   const semana = useMemo(() => getSemanaISO(new Date()), [])
 
   const partidasLista = useMemo(() => partidas.filter(p => !p.solo_camara), [partidas])
@@ -589,8 +547,9 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => setModalSecciones(true)} style={btnGhost}><Plus size={15} /> Secciones</button>
           <button onClick={() => setModalPartidas(true)} style={btnGhost}><Plus size={15} /> Partidas</button>
-          <button onClick={() => imprimirDesdePDF(construirListaPDF(paginas, semLabel))} style={btnGhost}><Printer size={15} /> Imprimir</button>
-          <button onClick={() => descargarListaPDF(paginas, semLabel)} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
+          <BnToggle bn={bn} setBn={setBn} />
+          <button onClick={async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(construirListaPDF(paginas, semLabel, rec, bn)) }} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <button onClick={async () => { const rec = await M.cargarRecursos(); descargarListaPDF(paginas, semLabel, rec, bn) }} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
 
@@ -664,6 +623,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
 
 function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof useTheme>['T']; secciones: Seccion[]; partidas: Partida[] }) {
   const grupos = useMemo(() => agruparLados(secciones), [secciones])
+  const [bn, setBn] = useState(false)
 
   return (
     <>
@@ -672,8 +632,9 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
           Una hoja A4 por lado de la cámara (izquierda / derecha), con todas sus baldas y los productos en grande para pegar en la puerta.
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => imprimirDesdePDF(construirCamaraPDF(grupos, partidas))} style={btnGhost}><Printer size={15} /> Imprimir</button>
-          <button onClick={() => descargarCamaraPDF(grupos, partidas)} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
+          <BnToggle bn={bn} setBn={setBn} />
+          <button onClick={async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(construirCamaraPDF(grupos, partidas, rec, bn)) }} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <button onClick={async () => { const rec = await M.cargarRecursos(); descargarCamaraPDF(grupos, partidas, rec, bn) }} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
 
@@ -717,6 +678,7 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
 function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTheme>['T']; inventario: InvItem[] }) {
   const ubis = useMemo(() => agruparInventario(inventario), [inventario])
   const [activa, setActiva] = useState(0)
+  const [bn, setBn] = useState(false)
 
   if (!ubis.length) {
     return <div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Sin inventario todavía.</div>
@@ -732,9 +694,10 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
           ))}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => imprimirDesdePDF(construirInventarioPDF(ubi))} style={btnGhost}><Printer size={15} /> Imprimir</button>
-          <button onClick={() => descargarInventarioPDF(ubi)} style={btnGhost}><Download size={15} /> Esta ubicación</button>
-          <button onClick={() => descargarInventarioTodosPDF(ubis)} style={btnPrimary}><FileDown size={15} /> Descargar todo</button>
+          <BnToggle bn={bn} setBn={setBn} />
+          <button onClick={async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(construirInventarioPDF(ubi, rec, bn)) }} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <button onClick={async () => { const rec = await M.cargarRecursos(); descargarInventarioPDF(ubi, rec, bn) }} style={btnGhost}><Download size={15} /> Esta ubicación</button>
+          <button onClick={async () => { const rec = await M.cargarRecursos(); descargarInventarioTodosPDF(ubis, rec, bn) }} style={btnPrimary}><FileDown size={15} /> Descargar todo</button>
         </div>
       </div>
 
@@ -853,6 +816,16 @@ function ModalGestionPartidas({ T, secciones, partidas, onClose, onSaved }: { T:
         ))}
       </div>
     </div>
+  )
+}
+
+// ─── TOGGLE BLANCO/NEGRO (impresión) ───────────────────────────────────────────
+
+function BnToggle({ bn, setBn }: { bn: boolean; setBn: (v: boolean) => void }) {
+  return (
+    <button onClick={() => setBn(!bn)} style={{ ...btnGhost, background: bn ? '#e7e7e7' : 'transparent', color: bn ? '#111' : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">
+      {bn ? 'B/N' : 'Color'}
+    </button>
   )
 }
 
