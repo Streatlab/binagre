@@ -29,6 +29,7 @@ interface Agenda {
   hoy: number; hoy_n: number; semana: number; semana_n: number
   total: number; total_n: number; barrido_mes: number; objetivo_mes: number
 }
+interface FijoMes { concepto: string; importe: number; dia: string; estimado: boolean }
 
 const DESTINOS = ['NOMINAS', 'SS', 'ALQUILER', 'SUMINISTROS', 'PRESTAMO', 'IMPUESTOS', 'OTRO']
 const AUTORIZADOS = ['NOMINAS', 'SS', 'ALQUILER', 'SUMINISTROS', 'PRESTAMO', 'IMPUESTOS']
@@ -56,6 +57,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const [fijosMedia, setFijosMedia] = useState(0)
   const [objetivoReal, setObjetivoReal] = useState(0)
   const [saldoTeorico, setSaldoTeorico] = useState(0)
+  const [fijosMes, setFijosMes] = useState<FijoMes[]>([])
   const [agenda, setAgenda] = useState<Agenda | null>(null)
   const [loading, setLoading] = useState(true)
   const [ocupado, setOcupado] = useState(false)
@@ -65,14 +67,16 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function cargar() {
-    const [c, o, m, f, a, p] = await Promise.all([
+    const [c, o, m, f, a, p, fm] = await Promise.all([
       supabase.from('reserva_config').select('*').eq('id', 1).single(),
       supabase.from('reserva_ordenes').select('*').order('fecha_cobro', { ascending: false }).limit(300),
       supabase.from('reserva_movimientos').select('*').order('fecha', { ascending: false }).limit(100),
       supabase.from('v_reserva_fijos_mes').select('fijos_mes').single(),
       supabase.from('v_reserva_agenda').select('*').single(),
       supabase.from('v_reserva_panel').select('saldo_teorico').single(),
+      supabase.from('v_tesoreria_fijos_mes').select('concepto,importe,dia,estimado').order('dia', { ascending: true }).order('concepto', { ascending: true }),
     ])
+    setFijosMes(((fm.data ?? []) as FijoMes[]).map(r => ({ ...r, importe: Number(r.importe) })))
     if (c.data) {
       const cd = c.data as Config
       setCfg(cd); setPctEdit(Number(cd.pct)); setObjetivoReal(Number(cd.objetivo_fijos_mes ?? 0))
@@ -105,6 +109,29 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const objetivo = objetivoReal > 0 ? objetivoReal : fijosMedia
   const cobertura = objetivo > 0 ? (saldo / objetivo) * 100 : 0
   const colorCob = cobertura >= 100 ? VERDE : cobertura >= 60 ? AMA : ROJO
+
+  // "Hasta dónde llega el fondo": rellena los fijos del mes (ordenados por fecha)
+  // con el saldo actual y con el saldo + lo pendiente de barrer. Marca cada fijo
+  // como cubierto ya / cubierto si barres lo pendiente / al descubierto.
+  const alcance = useMemo(() => {
+    const conPendiente = saldo + (agenda?.total ?? 0)
+    let acc = 0
+    let nCub = 0, nBar = 0
+    let ultimoCub = ''
+    let faltaSiguiente = 0
+    const rows = fijosMes.map(fj => {
+      acc += fj.importe
+      let estado: 'cub' | 'bar' | 'desc'
+      if (acc <= saldo + 0.001) { estado = 'cub'; nCub++; ultimoCub = fj.concepto }
+      else {
+        estado = acc <= conPendiente + 0.001 ? 'bar' : 'desc'
+        if (estado === 'bar') nBar++
+        if (faltaSiguiente === 0) faltaSiguiente = acc - saldo // primer fijo no cubierto por el saldo
+      }
+      return { ...fj, estado }
+    })
+    return { rows, nCub, nBar, ultimoCub, faltaSiguiente, total: fijosMes.length }
+  }, [fijosMes, saldo, agenda])
 
   const diasMasAntigua = useMemo(() => {
     if (pendientes.length === 0) return 0
@@ -418,6 +445,58 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
           )}
         </div>
       </div>
+
+      {/* ══ HASTA DONDE LLEGA EL FONDO ══ */}
+      {alcance.total > 0 && (
+        <div style={{ ...card, marginBottom: 18 }}>
+          <span style={eyebrow(AZUL, '#fff')}>Hasta dónde llega el fondo</span>
+          <p style={{ fontFamily: LEX, fontSize: 12, color: GRIS, margin: '12px 0 4px', lineHeight: 1.5 }}>
+            Tus fijos del mes ordenados por fecha, rellenados con el saldo de hoy
+            (<strong style={{ color: VERDE }}>{E2(saldo)} €</strong>)
+            {(agenda?.total ?? 0) > 0 && <> y con lo pendiente de barrer (<strong style={{ color: NAR }}>{E2(agenda?.total ?? 0)} €</strong>)</>}.
+          </p>
+          <div style={{ ...d('22px'), margin: '10px 0 4px' }}>
+            {alcance.nCub === alcance.total
+              ? <>El fondo cubre <span style={{ color: VERDE }}>los {alcance.total} fijos</span> ✓</>
+              : <>El fondo cubre <span style={{ color: alcance.nCub > 0 ? VERDE : ROJO }}>{alcance.nCub} de {alcance.total}</span> fijos</>}
+          </div>
+          {alcance.nCub > 0 && alcance.nCub < alcance.total && (
+            <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 4 }}>
+              Llegas hasta <strong style={{ color: INK }}>{alcance.ultimoCub}</strong>
+              {alcance.faltaSiguiente > 0 && <> · te faltan <strong style={{ color: ROJO }}>{E2(alcance.faltaSiguiente)} €</strong> para el siguiente</>}
+            </div>
+          )}
+
+          <div style={{ marginTop: 12, border: `2px solid ${INK}` }}>
+            {alcance.rows.map((r, i) => {
+              const est = r.estado === 'cub'
+                ? { bg: VERDE, txt: '#fff', label: 'Cubierto', wash: '#E2F7EC' }
+                : r.estado === 'bar'
+                ? { bg: NAR, txt: '#fff', label: 'Con barrido', wash: '#FFF1E6' }
+                : { bg: ROJO, txt: '#fff', label: 'Descubierto', wash: '#FFE8E9' }
+              return (
+                <div key={i} style={{
+                  display: 'grid', gridTemplateColumns: '54px 1fr 110px 130px', alignItems: 'center', gap: 10,
+                  padding: '8px 12px', background: est.wash,
+                  borderBottom: i < alcance.rows.length - 1 ? `1px solid ${INK}` : 'none',
+                }}>
+                  <span style={{ fontFamily: LEX, fontSize: 12, color: INK }}>{r.dia.slice(8, 10)}/{r.dia.slice(5, 7)}</span>
+                  <span style={{ fontFamily: LEX, fontSize: 12.5, color: INK }}>
+                    {r.concepto}
+                    {r.estimado && <span style={{ fontFamily: OSW, fontSize: 9.5, color: '#aabc00', marginLeft: 6, letterSpacing: 0.5 }}>🟡 EST</span>}
+                  </span>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, color: INK, textAlign: 'right' }}>{E2(r.importe)} €</span>
+                  <span style={{
+                    justifySelf: 'end', fontFamily: OSW, fontWeight: 700, fontSize: 10.5, letterSpacing: 0.5,
+                    textTransform: 'uppercase', padding: '3px 8px', border: `2px solid ${INK}`,
+                    background: est.bg, color: est.txt,
+                  }}>{est.label}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ══ ORDENES POR DIA ══ */}
       {porDia.length > 0 && (
