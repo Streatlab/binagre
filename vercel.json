@@ -162,6 +162,10 @@
   "functions": {
     "api/**/*.ts": {
       "includeFiles": "node_modules/pdfjs-dist/legacy/build/**"
+    },
+    "api/_puertas/escandallo-auto.ts": {
+      "includeFiles": "node_modules/pdfjs-dist/legacy/build/**",
+      "maxDuration": 300
     }
   }
 }

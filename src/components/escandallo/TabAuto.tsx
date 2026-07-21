@@ -3,7 +3,7 @@
 //    ingredientes pre-creados pendientes de completar, alertas de subida de precio.
 // C: inventario quincenal por foto (leer → confirmar) con confianza por línea.
 // D: coste real del periodo y varianza teórico vs real en €.
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente } from './types'
 import { fmtES } from './types'
@@ -50,6 +50,8 @@ interface Varianza {
   desviacion_eur: number
 }
 interface CosteReal { inicio: string; fin: string; inventario_inicial: number; inventario_final: number; compras_periodo: number; coste_real: number }
+interface Sugerencia { borrador_id: string; borrador_nombre: string; ingrediente_id: string; ingrediente_nombre: string; similitud: number }
+interface IngLite { id: string; nombre: string }
 
 const API = '/api/papeleo/escandallo-auto'
 
@@ -67,6 +69,12 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const [costeReal, setCosteReal] = useState<CosteReal | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [sugerencias, setSugerencias] = useState<Sugerencia[] | null>(null)
+  const [fusionAbierta, setFusionAbierta] = useState<string | null>(null)
+  const [catalogoIngs, setCatalogoIngs] = useState<IngLite[]>([])
+  const [busquedaFusion, setBusquedaFusion] = useState('')
+  const [lote, setLote] = useState<{ activo: boolean; hechas: number } | null>(null)
+  const pararLoteRef = useRef(false)
 
   const cargar = useCallback(async () => {
     const [est, al, bo, inv, vza, cr] = await Promise.all([
@@ -95,23 +103,86 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
 
   useEffect(() => { cargar() }, [cargar])
 
-  /* ── Fase A: procesa 1 factura (síncrono) y muestra el resultado ── */
-  const procesarLote = async () => {
+  const TRAD_ESTADO: Record<string, string> = {
+    extraidas: 'líneas extraídas y cruzadas',
+    sin_detalle_lineas: 'la factura no desglosa artículos, o no cuadra al céntimo',
+    fallo_lectura: 'no se pudo leer el PDF',
+    error: 'error al procesar',
+  }
+
+  /* ── Fase A: procesa 1 factura (síncrona) y muestra el resultado ── */
+  const procesarUna = async () => {
     setBusy('lote'); setMsg('Procesando factura… (puede tardar hasta un minuto, no cierres la pestaña)')
     try {
       const r = await fetch(`${API}/extraer-lineas`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}) })
       const j = await r.json()
       if (j.error) throw new Error(j.error)
       if (j.vacio) { setMsg('No quedan facturas de materia prima pendientes.'); await cargar(); return }
-      const trad: Record<string, string> = {
-        extraidas: `líneas extraídas y cruzadas (${j.lineas} líneas)`,
-        sin_detalle_lineas: 'la factura no desglosa artículos, o no cuadra al céntimo',
-        fallo_lectura: 'no se pudo leer el PDF',
-        error: 'error al procesar',
-      }
-      setMsg(`Factura de ${j.proveedor ?? '—'}: ${trad[j.estado] ?? j.estado}. Revisa abajo y pulsa otra vez para la siguiente.`)
+      setMsg(`Factura de ${j.proveedor ?? '—'}: ${TRAD_ESTADO[j.estado] ?? j.estado} (${j.lineas} líneas). Revisa abajo y pulsa otra vez para la siguiente.`)
       await cargar()
     } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
+  }
+
+  /* ── T5.3: procesa TODAS las pendientes en tandas, desde el navegador, hasta agotarlas o que Rubén pare ── */
+  const procesarTandas = async () => {
+    pararLoteRef.current = false
+    setLote({ activo: true, hechas: 0 })
+    let hechas = 0
+    try {
+      while (!pararLoteRef.current) {
+        const r = await fetch(`${API}/procesar-lote`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ n: 1 }) })
+        const j = await r.json()
+        if (j.error) { setMsg(`Error: ${j.error}`); break }
+        if (j.vacio || !j.procesadas) { setMsg(`Tanda terminada: ${hechas} factura(s) procesadas, no quedan más pendientes.`); break }
+        const res = j.resultados?.[0]
+        hechas++
+        setLote({ activo: true, hechas })
+        if (res) setMsg(`(${hechas}) Factura de ${res.proveedor ?? '—'}: ${TRAD_ESTADO[res.estado] ?? res.estado} (${res.lineas ?? 0} líneas).`)
+        await cargar()
+      }
+      if (pararLoteRef.current) setMsg(`Parado: ${hechas} factura(s) procesadas.`)
+    } catch (e: any) {
+      setMsg(`Error: ${e.message}`)
+    } finally {
+      setLote(l => l ? { ...l, activo: false } : null)
+    }
+  }
+  const pararTandas = () => { pararLoteRef.current = true }
+
+  /* ── T3.3: sugerencias de fusión (solo propone) ── */
+  const cargarSugerencias = async () => {
+    setBusy('sugerencias')
+    try {
+      const r = await fetch(`${API}/sugerir-fusiones`)
+      const j = await r.json()
+      if (j.error) throw new Error(j.error)
+      setSugerencias((j.sugerencias as Sugerencia[]) ?? [])
+    } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
+  }
+
+  /* ── T3.2: fusionar-borrador (1 clic, con confirmación) ── */
+  const fusionar = async (borradorId: string, ingredienteId: string, nombreDestino: string) => {
+    if (!confirm(`¿Fusionar este borrador con "${nombreDestino}"? El borrador desaparecerá; su histórico y alias pasan a "${nombreDestino}".`)) return
+    setBusy(`fusion-${borradorId}`)
+    try {
+      const r = await fetch(`${API}/fusionar-borrador`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ borrador_id: borradorId, ingrediente_id: ingredienteId }) })
+      const j = await r.json()
+      if (!j.ok) throw new Error(j.motivo || j.error || 'no se pudo fusionar')
+      setMsg(`Fusionado con "${j.nombre_destino ?? nombreDestino}".`)
+      setSugerencias(s => s?.filter(x => x.borrador_id !== borradorId) ?? null)
+      setFusionAbierta(null)
+      await cargar()
+    } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
+  }
+
+  const abrirBuscadorFusion = async (borradorId: string) => {
+    if (fusionAbierta === borradorId) { setFusionAbierta(null); return }
+    setFusionAbierta(borradorId)
+    setBusquedaFusion('')
+    if (!catalogoIngs.length) {
+      const { data } = await supabase.from('ingredientes').select('id, nombre').eq('borrador', false).order('nombre').limit(2000)
+      setCatalogoIngs((data as IngLite[]) ?? [])
+    }
   }
 
   const marcarAlerta = async (id: string) => {
@@ -204,9 +275,21 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
             Drive no está conectado. Ve a Configuración → Integraciones → Drive y conéctalo primero.
           </p>
         )}
-        <button style={btn(AMA)} disabled={busy === 'lote' || driveOff} onClick={procesarLote}>
-          {busy === 'lote' ? 'Procesando…' : 'Procesar 1 factura'}
-        </button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button style={btn(AMA)} disabled={busy === 'lote' || driveOff || !!lote?.activo} onClick={procesarUna}>
+            {busy === 'lote' ? 'Procesando…' : 'Procesar 1 factura'}
+          </button>
+          {!lote?.activo ? (
+            <button style={btn(CREMA)} disabled={driveOff || busy === 'lote'} onClick={procesarTandas}>
+              Procesar todas (en tandas)
+            </button>
+          ) : (
+            <>
+              <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12, color: GRANATE }}>Procesando… {lote.hechas} hecha(s)</span>
+              <button style={btn(ROJO)} onClick={pararTandas}>Parar</button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Alertas de precio */}
@@ -237,10 +320,63 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
           <h3 style={h3}>Ingredientes pre-creados · dicta lo que falta y quedan automatizados</h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {borradores.map(b => (
-              <button key={b.id} style={btn(CREMA)} onClick={() => onOpenIngrediente(b)}>
-                {b.nombre} {b.precio_activo != null ? `· ${fmtES(b.precio_activo, 2)}€` : ''}
-              </button>
+              <div key={b.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button style={btn(CREMA)} onClick={() => onOpenIngrediente(b)}>
+                    {b.nombre} {b.precio_activo != null ? `· ${fmtES(b.precio_activo, 2)}€` : ''}
+                  </button>
+                  <button style={btn('var(--sl-card)')} onClick={() => abrirBuscadorFusion(b.id)}>
+                    {fusionAbierta === b.id ? 'Cancelar' : 'Es el mismo que…'}
+                  </button>
+                </div>
+                {fusionAbierta === b.id && (
+                  <div style={{ background: 'var(--sl-card)', border: `2px solid ${INK}`, padding: 8, minWidth: 260 }}>
+                    <input
+                      autoFocus
+                      placeholder="Buscar ingrediente ya existente…"
+                      value={busquedaFusion}
+                      onChange={e => setBusquedaFusion(e.target.value)}
+                      style={{ width: '100%', fontFamily: LEX, fontSize: 13, padding: '6px 8px', border: `2px solid ${INK}`, marginBottom: 6 }}
+                    />
+                    <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {catalogoIngs
+                        .filter(i => busquedaFusion.trim().length > 1 && i.nombre.toLowerCase().includes(busquedaFusion.trim().toLowerCase()))
+                        .slice(0, 20)
+                        .map(i => (
+                          <button key={i.id} style={{ ...btn('var(--sl-card)'), textAlign: 'left', fontSize: 11 }}
+                            disabled={busy === `fusion-${b.id}`}
+                            onClick={() => fusionar(b.id, i.id, i.nombre)}>
+                            {i.nombre}
+                          </button>
+                        ))}
+                      {busquedaFusion.trim().length > 1 && !catalogoIngs.some(i => i.nombre.toLowerCase().includes(busquedaFusion.trim().toLowerCase())) && (
+                        <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Sin resultados.</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             ))}
+          </div>
+
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: `2px solid ${INK}` }}>
+            <button style={btn(CREMA)} disabled={busy === 'sugerencias'} onClick={cargarSugerencias}>
+              {busy === 'sugerencias' ? 'Buscando…' : 'Sugerir fusiones (por nombre parecido)'}
+            </button>
+            {sugerencias && (
+              sugerencias.length ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+                  {sugerencias.map(s => (
+                    <div key={`${s.borrador_id}-${s.ingrediente_id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: LEX, fontSize: 13 }}>
+                      <span><b>{s.borrador_nombre}</b> ≈ <b>{s.ingrediente_nombre}</b> ({fmtES(s.similitud * 100, 0)}% parecido)</span>
+                      <button style={btn(AMA)} disabled={busy === `fusion-${s.borrador_id}`} onClick={() => fusionar(s.borrador_id, s.ingrediente_id, s.ingrediente_nombre)}>
+                        Fusionar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : <p style={{ fontFamily: LEX, fontSize: 13, color: GRIS, margin: '10px 0 0' }}>Sin candidatos parecidos por ahora.</p>
+            )}
           </div>
         </div>
       )}
