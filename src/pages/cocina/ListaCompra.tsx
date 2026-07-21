@@ -3,13 +3,15 @@ import React from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle } from '@/styles/tokens'
 import type { TokenSet } from '@/styles/tokens'
-import { Printer, Download, ShoppingCart, Search, Trash2, RotateCcw, Share2, ListChecks } from 'lucide-react'
+import { Printer, Download, ShoppingCart, Search, Trash2, RotateCcw, Share2, ListChecks, Scale, ChevronDown, ChevronRight } from 'lucide-react'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
 import {
-  PROVEEDOR_LABEL, construirBloques, metaSemana, semanaISO, eur,
+  PROVEEDOR_LABEL, construirBloques, compararSupers, metaSemana, semanaISO, eur,
 } from '@/lib/listaCompra'
 import type { IngredienteLC, CategoriaLC, ProductoLC, ProveedorBloque } from '@/lib/listaCompra'
+
+const fmtPct = (n: number) => `${n.toLocaleString('es-ES', { maximumFractionDigits: 0 })}%`
 
 /* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — LANDSCAPE ═══ */
 
@@ -93,6 +95,7 @@ export default function ListaCompra() {
   const [busq, setBusq] = useState('')
   const [vista, setVista] = useState<'lista' | 'papelera'>('lista')
   const [bn, setBn] = useState(false)
+  const [cmpOpen, setCmpOpen] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -141,6 +144,11 @@ export default function ListaCompra() {
   )
 
   const totalRefs = useMemo(() => bloques.reduce((s, b) => s + b.total, 0), [bloques])
+
+  const comparativa = useMemo(
+    () => compararSupers(ingredientes, productos, excluidos),
+    [ingredientes, productos, excluidos],
+  )
 
   const papeleraItems = useMemo(() => {
     const catMap = new Map(categorias.map(c => [c.id, c.nombre]))
@@ -212,6 +220,66 @@ export default function ListaCompra() {
             <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
             <input value={busq} onChange={e => setBusq(e.target.value)} placeholder="Buscar ingrediente…" style={{ ...inputSt(T), width: '100%', paddingLeft: 30 }} />
           </div>
+        </div>
+      )}
+
+      {/* Comparador Mercadona vs Alcampo — ahorro potencial (solo pantalla) */}
+      {vista === 'lista' && comparativa.nComparables > 0 && (
+        <div className="no-print" style={{ border: `1px solid ${T.brd}`, borderRadius: 12, background: T.card, marginBottom: 16, overflow: 'hidden' }}>
+          <button
+            onClick={() => setCmpOpen(o => !o)}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <Scale size={18} color="#B01D23" />
+            <span style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.pri }}>
+              Comparador Mercadona vs Alcampo
+            </span>
+            <span style={{ fontFamily: FONT.body, fontSize: 12.5, color: T.mut, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span><b style={{ color: T.pri }}>{comparativa.nComparables}</b> comparables</span>
+              <span>Mercadona gana en <b style={{ color: VERDE }}>{comparativa.nMercadona}</b></span>
+              <span>Alcampo en <b style={{ color: VERDE }}>{comparativa.nAlcampo}</b></span>
+              {comparativa.nEmpate > 0 && <span>· {comparativa.nEmpate} empate</span>}
+              <span>· dif. media <b style={{ color: '#B01D23' }}>{fmtPct(comparativa.ahorroMedioPct)}</b></span>
+            </span>
+            <span style={{ marginLeft: 'auto', color: T.mut }}>{cmpOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
+          </button>
+
+          {cmpOpen && (
+            <div style={{ borderTop: `1px solid ${T.brd}`, maxHeight: 340, overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body }}>
+                <thead>
+                  <tr style={{ background: T.group, position: 'sticky', top: 0 }}>
+                    <th style={thCmp(T)}>Ingrediente</th>
+                    <th style={{ ...thCmp(T), textAlign: 'right' }}>Mercadona</th>
+                    <th style={{ ...thCmp(T), textAlign: 'right' }}>Alcampo</th>
+                    <th style={{ ...thCmp(T), textAlign: 'right' }}>Más barato</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparativa.items.map(it => {
+                    const merGana = it.cheaper === 'mercadona'
+                    const alcGana = it.cheaper === 'alcampo'
+                    return (
+                      <tr key={it.ingId} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
+                        <td style={{ ...tdCmp(T), color: T.pri }}>{it.nombre} <span style={{ color: T.mut, fontSize: 11 }}>/{it.unidad}</span></td>
+                        <td style={{ ...tdCmp(T), textAlign: 'right', fontWeight: merGana ? 700 : 400, color: merGana ? VERDE : T.mut }}>{eur(it.mercadona)}</td>
+                        <td style={{ ...tdCmp(T), textAlign: 'right', fontWeight: alcGana ? 700 : 400, color: alcGana ? VERDE : T.mut }}>{eur(it.alcampo)}</td>
+                        <td style={{ ...tdCmp(T), textAlign: 'right' }}>
+                          {it.cheaper === 'empate' ? (
+                            <span style={{ color: T.mut, fontSize: 12 }}>igual</span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#1D9E7518', color: VERDE, borderRadius: 6, padding: '2px 8px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '0.04em' }}>
+                              {merGana ? 'Mercadona' : 'Alcampo'} · −{fmtPct(it.ahorroPct)}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -306,6 +374,10 @@ const btnGhost: React.CSSProperties = { display: 'flex', alignItems: 'center', g
 const inputSt = (T: TokenSet): React.CSSProperties => ({ background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', outline: 'none' })
 const thPap = (T: TokenSet): React.CSSProperties => ({ padding: '10px 14px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', color: T.mut, fontWeight: 400, textAlign: 'left' })
 const tdPap = (T: TokenSet): React.CSSProperties => ({ padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri })
+
+const VERDE = '#1D9E75'
+const thCmp = (T: TokenSet): React.CSSProperties => ({ padding: '8px 14px', fontFamily: FONT.heading, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '1.5px', color: T.mut, fontWeight: 400, textAlign: 'left', whiteSpace: 'nowrap' })
+const tdCmp = (T: TokenSet): React.CSSProperties => ({ padding: '7px 14px', fontFamily: FONT.body, fontSize: 12.5, whiteSpace: 'nowrap' })
 
 const CSS = `
 .ficha-section{padding:0}

@@ -99,6 +99,92 @@ export interface LineaLC {
 export interface CategoriaBloque { catId: string; catNombre: string; orden: number; items: LineaLC[] }
 export interface ProveedorBloque { prov: Proveedor; categorias: CategoriaBloque[]; total: number }
 
+/* ─── Comparador Mercadona vs Alcampo (ahorro potencial) ─── */
+
+export interface ComparativaItem {
+  ingId: string
+  nombre: string
+  unidad: string
+  mercadona: number
+  alcampo: number
+  cheaper: 'mercadona' | 'alcampo' | 'empate'
+  ahorroPct: number
+}
+
+export interface Comparativa {
+  items: ComparativaItem[]        // ordenados por mayor diferencia %
+  nComparables: number            // ingredientes con precio de robot en AMBOS súper
+  nMercadona: number              // en cuántos gana Mercadona
+  nAlcampo: number                // en cuántos gana Alcampo
+  nEmpate: number
+  ahorroMedioPct: number          // media de la diferencia % entre súper
+}
+
+/**
+ * Compara el mismo ingrediente "común" entre Mercadona y Alcampo agrupando por NOMBRE BASE
+ * (los ingredientes están partidos por proveedor con sufijo `_MER`/`_ALC`, así que
+ * "Cebolla blanca_MER" y "Cebolla blanca_ALC" son la misma cosa en dos súper).
+ * Precio por súper = mejor `precio_robot` del diccionario para ese súper; si no hay,
+ * cae al precio de escandallo (`precio_activo`) del ingrediente de ese súper.
+ * Solo entra en la comparativa lo que tiene precio en AMBOS súper.
+ */
+export function compararSupers(
+  ingredientes: IngredienteLC[],
+  productos: ProductoLC[],
+  excluidos: Set<string>,
+): Comparativa {
+  // Mejor precio_robot del diccionario por (ingrediente_id, súper).
+  const dictMin = new Map<string, { mercadona?: number; alcampo?: number }>()
+  for (const p of productos) {
+    if (p.precio_robot == null || p.precio_robot <= 0) continue
+    if (p.proveedor !== 'mercadona' && p.proveedor !== 'alcampo') continue
+    const e = dictMin.get(p.ingrediente_id) ?? {}
+    const cur = e[p.proveedor as 'mercadona' | 'alcampo']
+    if (cur == null || p.precio_robot < cur) e[p.proveedor as 'mercadona' | 'alcampo'] = p.precio_robot
+    dictMin.set(p.ingrediente_id, e)
+  }
+
+  // Agrupa por nombre base; mejor precio por súper (robot preferido, escandallo de reserva).
+  interface Acc { nombre: string; unidad: string; mercadona?: number; alcampo?: number }
+  const grupos = new Map<string, Acc>()
+  const anota = (g: Acc, prov: 'mercadona' | 'alcampo', precio: number | null | undefined) => {
+    if (precio == null || precio <= 0) return
+    if (g[prov] == null || precio < g[prov]!) g[prov] = precio
+  }
+
+  for (const ing of ingredientes) {
+    if (excluidos.has(ing.id)) continue
+    const nombre = nombreMostrar(ing.nombre_base, ing.nombre)
+    const clave = nombre.toLowerCase()
+    const g = grupos.get(clave) ?? { nombre, unidad: ing.ud_min || ing.ud_std || '' }
+    const dm = dictMin.get(ing.id)
+    // Mercadona: robot del diccionario, o escandallo si el ingrediente es de Mercadona.
+    anota(g, 'mercadona', dm?.mercadona ?? (proveedorPorAbv(ing.abv) === 'mercadona' ? ing.precio_activo : null))
+    anota(g, 'alcampo', dm?.alcampo ?? (proveedorPorAbv(ing.abv) === 'alcampo' ? ing.precio_activo : null))
+    grupos.set(clave, g)
+  }
+
+  const items: ComparativaItem[] = []
+  for (const g of grupos.values()) {
+    if (g.mercadona == null || g.alcampo == null) continue
+    const mer = g.mercadona, alc = g.alcampo
+    const cheaper = mer < alc ? 'mercadona' : alc < mer ? 'alcampo' : 'empate'
+    const base = Math.max(mer, alc)
+    const ahorroPct = base > 0 ? (Math.abs(mer - alc) / base) * 100 : 0
+    items.push({ ingId: g.nombre, nombre: g.nombre, unidad: g.unidad, mercadona: mer, alcampo: alc, cheaper, ahorroPct })
+  }
+  items.sort((a, b) => b.ahorroPct - a.ahorroPct || a.nombre.localeCompare(b.nombre, 'es'))
+
+  return {
+    items,
+    nComparables: items.length,
+    nMercadona: items.filter(i => i.cheaper === 'mercadona').length,
+    nAlcampo: items.filter(i => i.cheaper === 'alcampo').length,
+    nEmpate: items.filter(i => i.cheaper === 'empate').length,
+    ahorroMedioPct: items.length ? items.reduce((s, i) => s + i.ahorroPct, 0) / items.length : 0,
+  }
+}
+
 const CAT_SIN_CLASIFICAR: CategoriaLC = { id: '__sin_clasificar__', nombre: 'Sin clasificar', orden: 999 }
 
 /**
