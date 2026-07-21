@@ -889,7 +889,7 @@ const FICHA_CSS = `
 .inv-cats { column-count: 2; column-gap: 0; }
 .inv-cat { break-inside: avoid; border-right: 1px solid var(--sl-border); }
 .inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 15px; color: #fff; background: var(--m-acento); padding: 7px 14px; border-bottom: 2px solid var(--m-espina); }
-.inv-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--sl-border); min-height: 38px; }
+.inv-row { display: flex; align-items: stretch; min-height: 38px; }
 .inv-name { flex: 0 0 auto; display: flex; align-items: center; white-space: nowrap; padding: 1px 12px; font-family: 'Lexend', sans-serif; font-size: 24px; font-weight: 500; color: var(--text-primary); }
 .inv-min-inline { margin-left: 8px; color: var(--m-acento); font-family: 'Oswald', sans-serif; font-weight: 700; }
 .inv-write { flex: 1 1 auto; align-self: flex-end; border-bottom: 1.5px solid var(--sl-border); margin: 0 12px 8px 6px; }
