@@ -29,7 +29,20 @@ interface Agenda {
   hoy: number; hoy_n: number; semana: number; semana_n: number
   total: number; total_n: number; barrido_mes: number; objetivo_mes: number
 }
-interface FijoMes { concepto: string; importe: number; dia: string; estimado: boolean }
+interface FijoMes { concepto: string; importe: number; dia: string; estimado: boolean; categoria: string | null }
+
+/** Mapea la categoría contable de un fijo al destino de retirada del fondo.
+ *  'OTRO' = el fondo no está pensado para ese gasto (p.ej. software) → sin botón. */
+function destinoDeCategoria(cat: string | null): string {
+  const c = cat ?? ''
+  if (c.startsWith('2.31')) return 'ALQUILER'
+  if (c.startsWith('2.44')) return 'SUMINISTROS'
+  if (c.startsWith('2.21.1')) return 'SS'
+  if (c.startsWith('2.21.2') || c.startsWith('2.21.4')) return 'NOMINAS'
+  if (c.startsWith('4.2')) return 'PRESTAMO'
+  if (c.startsWith('2.5') || c.startsWith('2.6')) return 'IMPUESTOS'
+  return 'OTRO'
+}
 
 const DESTINOS = ['NOMINAS', 'SS', 'ALQUILER', 'SUMINISTROS', 'PRESTAMO', 'IMPUESTOS', 'OTRO']
 const AUTORIZADOS = ['NOMINAS', 'SS', 'ALQUILER', 'SUMINISTROS', 'PRESTAMO', 'IMPUESTOS']
@@ -74,7 +87,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       supabase.from('v_reserva_fijos_mes').select('fijos_mes').single(),
       supabase.from('v_reserva_agenda').select('*').single(),
       supabase.from('v_reserva_panel').select('saldo_teorico').single(),
-      supabase.from('v_tesoreria_fijos_mes').select('concepto,importe,dia,estimado').order('dia', { ascending: true }).order('concepto', { ascending: true }),
+      supabase.from('v_tesoreria_fijos_mes').select('concepto,importe,dia,estimado,categoria').order('dia', { ascending: true }).order('concepto', { ascending: true }),
     ])
     setFijosMes(((fm.data ?? []) as FijoMes[]).map(r => ({ ...r, importe: Number(r.importe) })))
     if (c.data) {
@@ -474,9 +487,11 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
                 : r.estado === 'bar'
                 ? { bg: NAR, txt: '#fff', label: 'Con barrido', wash: '#FFF1E6' }
                 : { bg: ROJO, txt: '#fff', label: 'Descubierto', wash: '#FFE8E9' }
+              const destino = destinoDeCategoria(r.categoria)
+              const pagable = destino !== 'OTRO'
               return (
                 <div key={i} style={{
-                  display: 'grid', gridTemplateColumns: '54px 1fr 110px 130px', alignItems: 'center', gap: 10,
+                  display: 'grid', gridTemplateColumns: '48px 1fr 92px 116px 96px', alignItems: 'center', gap: 8,
                   padding: '8px 12px', background: est.wash,
                   borderBottom: i < alcance.rows.length - 1 ? `1px solid ${INK}` : 'none',
                 }}>
@@ -491,6 +506,16 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
                     textTransform: 'uppercase', padding: '3px 8px', border: `2px solid ${INK}`,
                     background: est.bg, color: est.txt,
                   }}>{est.label}</span>
+                  {pagable ? (
+                    <button
+                      title={`Cargar retirada: ${r.concepto} → ${destino}`}
+                      onClick={() => {
+                        setRetImporte(r.importe); setRetDestino(destino)
+                        setMsg(`Cargado para pagar: ${r.concepto} · ${E2(r.importe)} € → ${destino}. Revisa y pulsa "Registrar retirada".`)
+                      }}
+                      style={{ ...btnMini, justifySelf: 'end', background: '#fff', color: GRANATE, borderColor: GRANATE, fontSize: 10.5, padding: '5px 8px' }}
+                    >Pagar</button>
+                  ) : <span />}
                 </div>
               )
             })}
