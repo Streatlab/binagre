@@ -25,11 +25,19 @@ interface TareaFila {
   tipo: string
   estado: string
   programada_para: string | null
+  ultimo_latido: string | null
   procesados: number
   ok: number
   errores: number
   created_at: string
 }
+
+// El cron papeleo-agenda-tick late cada 5 min. Si una tarea en_curso lleva más
+// de esto sin latido, o una programada vencida sigue esperando, el motor de
+// servidor no está avanzando (cron caído, endpoint roto tras un deploy…): el
+// cliente lo espolea con un tick y lo dice en claro. Umbral = 2+ ticks perdidos.
+const MOTOR_ATASCADO_MS = 12 * 60 * 1000
+const NUDGE_THROTTLE_MS = 60 * 1000
 
 const UMBRAL_LOTES = 300
 
@@ -144,16 +152,33 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
     onDone?.()
   }, [onDone, reintentarErroradas])
 
+  const ultimoNudge = useRef(0)
+
   const cargarTareas = useCallback(async () => {
     const { data } = await supabase
       .from('papeleo_tareas')
-      .select('id, tipo, estado, programada_para, procesados, ok, errores, created_at')
+      .select('id, tipo, estado, programada_para, ultimo_latido, procesados, ok, errores, created_at')
       .in('estado', ['programada', 'en_curso', 'pausada'])
       .order('created_at', { ascending: false })
       .limit(20)
     const activas = (data as TareaFila[] | null) || []
     activas.forEach((t) => vigiladas.current.add(t.id))
     setTareas(activas)
+
+    // Watchdog + autocuración: si el motor de servidor lleva rato sin avanzar
+    // (cron caído / endpoint roto), lo espoleamos desde aquí. Nudge idempotente
+    // (el claim es atómico) y con throttle para no martillear.
+    const ahora = Date.now()
+    const atascado = activas.some((t) => {
+      if (t.estado === 'en_curso') return !t.ultimo_latido || (ahora - new Date(t.ultimo_latido).getTime()) > MOTOR_ATASCADO_MS
+      if (t.estado === 'programada' && t.programada_para) return (ahora - new Date(t.programada_para).getTime()) > MOTOR_ATASCADO_MS
+      return false
+    })
+    if (atascado && ahora - ultimoNudge.current > NUDGE_THROTTLE_MS) {
+      ultimoNudge.current = ahora
+      jget('/api/facturas?action=agenda-tick').catch(() => {})
+    }
+
     if (tareasPrevias.current > 0 && activas.length === 0) await cierreHonesto()
     tareasPrevias.current = activas.length
   }, [cierreHonesto])
@@ -258,6 +283,10 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
   const hayEnCurso = tareas.some((t) => t.estado === 'en_curso')
   const hayProgramadas = tareas.some((t) => t.estado === 'programada')
   const hayPausadas = tareas.some((t) => t.estado === 'pausada')
+  const motorAtascado = tareas.some((t) => {
+    const ref = t.estado === 'en_curso' ? t.ultimo_latido : t.estado === 'programada' ? t.programada_para : null
+    return !!ref && (Date.now() - new Date(ref).getTime()) > MOTOR_ATASCADO_MS
+  }) && !hayPausadas
   const procesadosTotal = tareas.reduce((a, t) => a + num(t.procesados), 0)
   const proximaHora = (() => {
     const prox = tareas.find((t) => t.estado === 'programada' && t.programada_para)
@@ -288,21 +317,25 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
           minWidth: 280, maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {hayEnCurso
-              ? <RefreshCw size={16} strokeWidth={2.6} color={NAR} style={{ animation: 'sl-spin 1s linear infinite', flexShrink: 0 }} />
-              : hayPausadas
-                ? <Pause size={16} strokeWidth={2.6} color={GRIS} style={{ flexShrink: 0 }} />
-                : <RefreshCw size={16} strokeWidth={2.6} color={AMA} style={{ flexShrink: 0 }} />}
+            {motorAtascado
+              ? <AlertTriangle size={16} strokeWidth={2.6} color={AMA} style={{ flexShrink: 0 }} />
+              : hayEnCurso
+                ? <RefreshCw size={16} strokeWidth={2.6} color={NAR} style={{ animation: 'sl-spin 1s linear infinite', flexShrink: 0 }} />
+                : hayPausadas
+                  ? <Pause size={16} strokeWidth={2.6} color={GRIS} style={{ flexShrink: 0 }} />
+                  : <RefreshCw size={16} strokeWidth={2.6} color={AMA} style={{ flexShrink: 0 }} />}
             <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12.5, letterSpacing: '0.5px', color: INK, textTransform: 'uppercase' }}>
-              {hayPausadas && !hayEnCurso ? 'Pausado' : hayEnCurso ? 'Resolviendo pendientes' : 'Programado'}
+              {motorAtascado ? 'Reanudando' : hayPausadas && !hayEnCurso ? 'Pausado' : hayEnCurso ? 'Resolviendo pendientes' : 'Programado'}
             </span>
           </div>
           <span style={{ fontFamily: LEX, fontSize: 12.5, color: INK }}>
-            {hayEnCurso || hayPausadas
-              ? `Tarea ${tareas.filter((t) => t.estado === 'completada').length + 1} de ${tareas.length} · ${procesadosTotal} procesados · reanuda solo si se corta`
-              : hayProgramadas && proximaHora
-                ? `Programado para las ${proximaHora}`
-                : 'En cola'}
+            {motorAtascado
+              ? 'Tardó en responder; reanudando solo. No hace falta que hagas nada.'
+              : hayEnCurso || hayPausadas
+                ? `Tarea ${tareas.filter((t) => t.estado === 'completada').length + 1} de ${tareas.length} · ${procesadosTotal} procesados · reanuda solo si se corta`
+                : hayProgramadas && proximaHora
+                  ? `Programado para las ${proximaHora}`
+                  : 'En cola'}
           </span>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {hayPausadas
