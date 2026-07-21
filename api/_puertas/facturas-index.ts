@@ -1196,24 +1196,21 @@ async function resolverInventario(res: VercelResponse) {
 
 // ── Handler: tick del motor (llamado por el cron papeleo-agenda-tick) ──────
 async function agendaTick(req: VercelRequest, res: VercelResponse) {
-  const ahora = new Date().toISOString()
-  const latidoLimite = new Date(Date.now() - 10 * 60 * 1000).toISOString()
-
+  // Claim atómico (FOR UPDATE SKIP LOCKED en el RPC): el tick inmediato del
+  // botón y el del cron pueden solaparse; el claim garantiza que dos
+  // invocaciones concurrentes nunca cogen la misma tarea. Devuelve la tarea ya
+  // marcada en_curso, o null si no hay ninguna elegible / otra la tomó primero.
   const { data: tarea, error: errSel } = await supabaseAdmin
-    .from('papeleo_tareas')
-    .select('*')
-    .or(`and(estado.eq.programada,programada_para.lte.${ahora}),and(estado.eq.en_curso,ultimo_latido.lt.${latidoLimite})`)
-    .order('programada_para', { ascending: true, nullsFirst: true })
-    .limit(1)
-    .maybeSingle()
+    .rpc('fn_papeleo_claim_tarea')
+    .maybeSingle<Record<string, unknown>>()
 
   if (errSel) return res.status(500).json({ error: errSel.message })
-  if (!tarea) return res.status(200).json({ ok: true, mensaje: 'sin tareas pendientes' })
+  if (!tarea || !tarea.id) return res.status(200).json({ ok: true, mensaje: 'sin tareas pendientes' })
 
-  // FIX guardarraíl: despertar_dormidos nunca compite con una subida real en
-  // curso por el worker OCR. Si hay una sesión viva que NO es de despertar_
-  // (grupo_id propio de una subida real de Rubén), se pospone 15 min sin
-  // marcarla error. El resto de tipos no necesita esta espera.
+  // Guardarraíl: despertar_dormidos nunca compite con una subida real en curso
+  // por el worker OCR. Si hay una sesión viva que NO es de despertar_ (grupo_id
+  // propio de una subida real de Rubén), se pospone 15 min sin marcarla error
+  // (vuelve a 'programada', liberando el claim). El resto de tipos no espera.
   if (tarea.tipo === 'despertar_dormidos') {
     const { count: subidaViva } = await supabaseAdmin
       .from('ocr_sessions')
@@ -1228,10 +1225,6 @@ async function agendaTick(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ ok: true, pospuesta: true, tarea: tarea.id, motivo: 'subida en curso', programada_para: pospuestaPara })
     }
   }
-
-  await supabaseAdmin.from('papeleo_tareas')
-    .update({ estado: 'en_curso', ultimo_latido: ahora, updated_at: ahora })
-    .eq('id', tarea.id as string)
 
   const arranque = Date.now()
   let resultado: ResultadoTick
@@ -1405,25 +1398,31 @@ async function tickLimpieza(req: VercelRequest): Promise<ResultadoTick> {
 }
 
 // tipo conciliar: auto_match_factura fila a fila (LEY-MATCH-04, nunca UPDATE
-// masivo). cursor.intentados acumula los ids ya intentados en esta tarea para
-// no reintentar en bucle las que nunca conciliarán dentro de un mismo tick.
+// masivo). Paginación por keyset (created_at, id): el cursor avanza monótono y
+// cada factura se intenta exactamente una vez por tarea, sin acumular una lista
+// de ids en el cursor ni un IN (...) que crezca sin techo. `desde` es el suelo
+// (arranque de la tarea madre); `pos` es la posición de avance dentro de él.
 async function tickConciliar(tarea: Record<string, unknown>, arranque: number): Promise<ResultadoTick> {
-  const cursor = (tarea.cursor as { desde?: string; intentados?: string[] }) || {}
+  const cursor = (tarea.cursor as { desde?: string; pos_ca?: string; pos_id?: string }) || {}
   const desde = cursor.desde || (tarea.created_at as string)
-  const intentados = [...(cursor.intentados || [])]
+  let posCa = cursor.pos_ca ?? null
+  let posId = cursor.pos_id ?? null
 
   let procesados = 0, ok = 0, errores = 0, terminado = false
 
   while (Date.now() - arranque < PRESUPUESTO_TICK_MS) {
     let q = supabaseAdmin
       .from('facturas')
-      .select('id')
+      .select('id, created_at')
       .in('estado', ['sin_match', 'pendiente_revision'])
       .or('no_conciliable.is.null,no_conciliable.eq.false')
-      .gt('created_at', desde)
       .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
       .limit(LOTE_CONCILIAR)
-    if (intentados.length > 0) q = q.not('id', 'in', `(${intentados.join(',')})`)
+    // Keyset: created_at > pos_ca OR (created_at = pos_ca AND id > pos_id).
+    // Sin posición previa, el suelo es `desde` (arranque de la tarea madre).
+    if (posCa) q = q.or(`created_at.gt.${posCa},and(created_at.eq.${posCa},id.gt.${posId})`)
+    else q = q.gt('created_at', desde)
 
     const { data: filas, error } = await q
     if (error) throw new Error(error.message)
@@ -1438,11 +1437,12 @@ async function tickConciliar(tarea: Record<string, unknown>, arranque: number): 
         errores++
       }
       procesados++
-      intentados.push(id)
+      posCa = f.created_at as string
+      posId = id
     }
 
     if (filas.length < LOTE_CONCILIAR) { terminado = true; break }
   }
 
-  return { procesados, ok, errores, terminado, cursor: { desde, intentados }, detalle: null }
+  return { procesados, ok, errores, terminado, cursor: { desde, pos_ca: posCa, pos_id: posId }, detalle: null }
 }
