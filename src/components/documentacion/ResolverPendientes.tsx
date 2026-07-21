@@ -100,6 +100,49 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
   const [tareas, setTareas] = useState<TareaFila[]>([])
   const [accionando, setAccionando] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Ids de todas las tareas que hemos visto activas en esta tanda: al vaciarse
+  // las activas, consultamos su estado FINAL real para no cantar "resuelto"
+  // cuando alguna acabó en error (fallo silencioso = justo lo que se veta).
+  const vigiladas = useRef<Set<string>>(new Set())
+  const tareasPrevias = useRef(0)
+
+  // Reintenta solo las tareas que terminaron en error: vuelven a 'programada'
+  // conservando su cursor (retoman donde murieron) y se dispara un tick.
+  const reintentarErroradas = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return
+    await supabase.from('papeleo_tareas')
+      .update({ estado: 'programada', programada_para: new Date().toISOString(), detalle: null })
+      .in('id', ids)
+    ids.forEach((id) => vigiladas.current.add(id))
+    jget('/api/facturas?action=agenda-tick').catch(() => {})
+    cargarTareasRef.current?.()
+  }, [])
+
+  // Cierre honesto: cuando ya no queda ninguna activa, mira cómo acabaron de
+  // verdad las que vigilábamos. Si todas completaron → éxito; si alguna erró →
+  // aviso con el número y botón «Reintentar» (un aviso sin acción no puede
+  // existir). Nunca un "resuelto" que oculte un fallo.
+  const cierreHonesto = useCallback(async () => {
+    const ids = [...vigiladas.current]
+    vigiladas.current.clear()
+    if (ids.length === 0) { onDone?.(); return }
+    const { data } = await supabase
+      .from('papeleo_tareas')
+      .select('id, estado, errores')
+      .in('id', ids)
+    const filas = (data as { id: string; estado: string; errores: number }[] | null) || []
+    const conError = filas.filter((f) => f.estado === 'error')
+    if (conError.length > 0) {
+      const ids2 = conError.map((f) => f.id)
+      toast.aviso(
+        `${conError.length} tarea${conError.length === 1 ? '' : 's'} no pudo terminar. Puedes reintentarlo.`,
+        { duration: 60000, action: { label: 'Reintentar', onClick: () => reintentarErroradas(ids2) } },
+      )
+    } else {
+      toast.success('Pendientes resueltos.')
+    }
+    onDone?.()
+  }, [onDone, reintentarErroradas])
 
   const cargarTareas = useCallback(async () => {
     const { data } = await supabase
@@ -108,25 +151,21 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
       .in('estado', ['programada', 'en_curso', 'pausada'])
       .order('created_at', { ascending: false })
       .limit(20)
-    setTareas((data as TareaFila[] | null) || [])
-  }, [])
+    const activas = (data as TareaFila[] | null) || []
+    activas.forEach((t) => vigiladas.current.add(t.id))
+    setTareas(activas)
+    if (tareasPrevias.current > 0 && activas.length === 0) await cierreHonesto()
+    tareasPrevias.current = activas.length
+  }, [cierreHonesto])
+
+  const cargarTareasRef = useRef<(() => void) | null>(null)
+  cargarTareasRef.current = cargarTareas
 
   useEffect(() => {
     cargarTareas()
     pollRef.current = setInterval(cargarTareas, 15000)
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [cargarTareas])
-
-  // Si la última tanda activa acaba de completarse del todo (ya no queda ninguna
-  // en programada/en_curso/pausada), avisa a la página para refrescar sus datos.
-  const tareasPrevias = useRef(0)
-  useEffect(() => {
-    if (tareasPrevias.current > 0 && tareas.length === 0) {
-      toast.success('Pendientes resueltos.')
-      onDone?.()
-    }
-    tareasPrevias.current = tareas.length
-  }, [tareas, onDone])
 
   async function comprobarInventario() {
     if (comprobando) return
