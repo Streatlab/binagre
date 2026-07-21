@@ -52,6 +52,16 @@ interface Varianza {
 interface CosteReal { inicio: string; fin: string; inventario_inicial: number; inventario_final: number; compras_periodo: number; coste_real: number }
 interface Sugerencia { borrador_id: string; borrador_nombre: string; ingrediente_id: string; ingrediente_nombre: string; similitud: number }
 interface IngLite { id: string; nombre: string }
+interface RadarAhorro {
+  base_key: string
+  ud_std: string
+  proveedor_barato: string
+  eur_std_barato: number
+  proveedor_caro: string
+  eur_std_caro: number
+  ahorro_eur_ud_std: number
+  ahorro_pct: number
+}
 interface Motor {
   activo: boolean
   procesadas: number
@@ -82,19 +92,22 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const [busquedaFusion, setBusquedaFusion] = useState('')
   const [motor, setMotor] = useState<Motor | null>(null)
   const [pendientes, setPendientes] = useState<number | null>(null)
+  const [radar, setRadar] = useState<RadarAhorro[]>([])
 
   const cargar = useCallback(async () => {
-    const [est, al, bo, inv, vza, cr] = await Promise.all([
+    const [est, al, bo, inv, vza, cr, rad] = await Promise.all([
       fetch(`${API}/estado`).then(r => r.ok ? r.json() : null).catch(() => null),
       supabase.from('alertas_precio').select('*, ingredientes(nombre)').eq('estado', 'pendiente').order('created_at', { ascending: false }).limit(30),
       supabase.from('ingredientes').select('*').eq('borrador', true).order('created_at', { ascending: false }).limit(50),
       supabase.from('inventarios').select('id, fecha, estado, origen').neq('estado', 'confirmado').order('fecha', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('v_varianza_ingrediente_periodo').select('*').order('desviacion_eur', { ascending: false }).limit(200),
       supabase.from('v_coste_real_periodo').select('*').order('fin', { ascending: false }).limit(1).maybeSingle(),
+      fetch(`${API}/radar-ahorro`).then(r => r.ok ? r.json() : null).catch(() => null),
     ])
     setEstado(est)
     setAlertas((al.data as Alerta[]) ?? [])
     setBorradores((bo.data as Ingrediente[]) ?? [])
+    setRadar((rad?.radar as RadarAhorro[]) ?? [])
     setInventario((inv.data as Inventario) ?? null)
     const ultimo = ((vza.data as Varianza[]) ?? [])
     const ultFin = ultimo.length ? ultimo.reduce((mx, v) => v.fin > mx ? v.fin : mx, ultimo[0].fin) : null
@@ -325,6 +338,31 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
           </div>
         )}
       </div>
+
+      {/* Radar de ahorro · mismo producto, proveedor más barato por unidad estándar */}
+      {!!radar.length && (
+        <div style={card}>
+          <h3 style={h3}>Radar de ahorro · mismo producto, súper más barato</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Comparado por precio por unidad estándar (sin merma). Estos productos te salen más baratos cambiando de proveedor.
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>PRODUCTO</th><th style={th}>COMPRA EN</th><th style={thR}>PRECIO/UD</th><th style={th}>EN VEZ DE</th><th style={thR}>PRECIO/UD</th><th style={thR}>AHORRO</th></tr></thead>
+            <tbody>
+              {radar.map((r, i) => (
+                <tr key={`${r.base_key}-${r.ud_std}`} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700, textTransform: 'capitalize' }}>{r.base_key}</td>
+                  <td style={{ ...td, color: VERDE, fontWeight: 700 }}>{r.proveedor_barato}</td>
+                  <td style={tdNum}>{fmtES(r.eur_std_barato, 2)} €/{r.ud_std}</td>
+                  <td style={{ ...td, color: GRIS }}>{r.proveedor_caro}</td>
+                  <td style={{ ...tdNum, color: GRIS }}>{fmtES(r.eur_std_caro, 2)} €/{r.ud_std}</td>
+                  <td style={{ ...tdNum, color: VERDE, fontWeight: 700 }}>−{fmtES(r.ahorro_pct, 0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Alertas de precio */}
       {!!alertas.length && (

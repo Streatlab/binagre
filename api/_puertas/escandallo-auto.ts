@@ -22,6 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST' && action === 'confirmar-conteo') return await confirmarConteo(req, res)
     if (req.method === 'POST' && action === 'fusionar-borrador') return await fusionarBorrador(req, res)
     if (action === 'sugerir-fusiones') return await sugerirFusiones(req, res)
+    if (action === 'radar-ahorro') return await radarAhorro(res)
     if (action === 'completar-borradores') return await completarBorradores(req, res)
     if (action === 'procesar-lote') return await procesarLote(req, res)
     // Motor superpersistente (patrón OCR: trabajo en servidor, cron empujador, UI solo pinta)
@@ -450,6 +451,17 @@ async function sugerirFusiones(req: VercelRequest, res: VercelResponse) {
   const { data, error } = await supabaseAdmin.rpc('fn_sugerir_fusiones', { p_umbral: umbral })
   if (error) return res.status(200).json({ ok: false, error: error.message })
   return res.status(200).json({ ok: true, sugerencias: data ?? [] })
+}
+
+/* ───────── RADAR DE AHORRO · mismo producto, proveedor más barato por ud estándar ───────── */
+async function radarAhorro(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_radar_ahorro')
+    .select('base_key, ud_std, proveedor_barato, eur_std_barato, proveedor_caro, eur_std_caro, ahorro_eur_ud_std, ahorro_pct')
+    .order('ahorro_pct', { ascending: false })
+    .limit(40)
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, radar: data ?? [] })
 }
 
 /* ───────── Fase T4 · completar-borradores: robot rellena formato/contenido/precio de
