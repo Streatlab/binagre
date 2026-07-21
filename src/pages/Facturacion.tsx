@@ -246,6 +246,11 @@ export default function Facturacion() {
   const mediadiaria = dias>0?totals.total_bruto/dias:0
   const mediaDiariaNeta = dias>0?netoEstimado/dias:0
 
+  const ultimoDiaConDatos = useMemo(()=>{
+    if(allData.length===0) return null
+    return allData.reduce((max,r)=>r.fecha>max?r.fecha:max, allData[0].fecha)
+  },[allData])
+
   const toggleCanal=(id: CanalId)=>{
     setCanalesVisibles(prev=>{
       if(prev.includes(id)){ const next=prev.filter(x=>x!==id); return next.length===0?prev:next }
@@ -261,6 +266,11 @@ export default function Facturacion() {
           <div style={{ fontFamily:FONT.body, fontSize:13, color:COLORS.mut, marginTop:2 }}>
             {fmtFechaCorta(toLocalDateStr(periodoDesde))} — {fmtFechaCorta(toLocalDateStr(periodoHasta))}
           </div>
+          {ultimoDiaConDatos && (
+            <div style={{ fontFamily:FONT.body, fontSize:11, color:COLORS.mut, marginTop:2 }}>
+              Último día con datos: {fmtFechaCorta(ultimoDiaConDatos)}
+            </div>
+          )}
         </div>
         <SelectorFechaUniversal nombreModulo="facturacion" defaultOpcion="mes_en_curso" onChange={(desde,hasta)=>{ setPeriodoDesde(desde); setPeriodoHasta(hasta) }} />
       </div>
