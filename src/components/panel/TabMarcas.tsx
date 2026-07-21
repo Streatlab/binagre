@@ -7,8 +7,8 @@ import { supabase } from '@/lib/supabase'
 import { COLORS, FONT, CARDS, BAR, lbl, kpiMid, kpiSm } from '@/components/panel/resumen/tokens'
 import { fmtEur, fmtNum } from '@/utils/format'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
-import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
-import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
+import { resolverNeto } from '@/lib/panel/netoResolver'
+import { useNetoContext } from '@/lib/panel/useNetoContext'
 
 // RowFacturacion extended with optional servicio
 type RowConServicio = RowFacturacion & { servicio?: string | null }
@@ -42,19 +42,12 @@ const MARCA_COLORS = [
 
 export default function TabMarcas({ rows, fechaDesde, fechaHasta }: Props) {
   const [marcasDisp, setMarcasDisp] = useState<Marca[]>([])
-  const [config, setConfig] = useState<Record<string, CanalConfig>>({})
-  const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+  const { configCanales: config, marcasPorCanal } = useNetoContext()
 
   useEffect(() => {
     supabase.from('marcas').select('id, nombre').eq('activa', true).then(({ data }) => {
       if (data) setMarcasDisp(data as Marca[])
     })
-    loadConfigCanales().then(setConfig)
-    loadVentasReales().then(() => loadRatiosCalibrados())
-    loadMarcasPorCanal().then(setMarcasPorCanal)
-    const on = () => { recargarConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal) }
-    window.addEventListener('config_canales:changed', on)
-    return () => window.removeEventListener('config_canales:changed', on)
   }, [])
 
   if (!rows.length) {
@@ -106,32 +99,36 @@ export default function TabMarcas({ rows, fechaDesde, fechaHasta }: Props) {
     )
   }
 
-  // Aggregate by servicio (bruto/pedidos por canal → neto vía resolverNeto)
+  // Neto por canal AGREGADO del periodo (resolverNeto una vez por canal, como
+  // Finanzas/Resumen → el total cuadra). Después se prorratea el neto de cada
+  // canal entre las franjas según su cuota de bruto en ese canal (sin
+  // sobre-atribuir la liquidación real de canal a cada franja).
   const nDias = new Set(rows.filter(r => r.total_bruto > 0).map(r => r.fecha)).size || 1
-  const marcaMap: Record<string, { pedidos: number; bruto: number; canal: Record<string, { b: number; p: number }> }> = {}
+  const netoRatioCanal: Record<string, number> = {}
+  for (const c of CANALES) {
+    const bruto = rows.reduce((s, r) => s + ((r as unknown as Record<string, number>)[c.bk] ?? 0), 0)
+    const pedidos = rows.reduce((s, r) => s + ((r as unknown as Record<string, number>)[c.pk] ?? 0), 0)
+    const { neto } = resolverNeto(c.id, bruto, pedidos, {
+      modo: 'agregado_canal', marcasPorCanal, fechaDesde, fechaHasta,
+      configCanales: config, diasConDatos: nDias,
+    })
+    netoRatioCanal[c.id] = bruto > 0 ? neto / bruto : 0
+  }
+
+  const marcaMap: Record<string, { pedidos: number; bruto: number; neto: number }> = {}
   rows.forEach(r => {
     const key = r.servicio ?? 'Sin marca'
-    const e = (marcaMap[key] ??= { pedidos: 0, bruto: 0, canal: {} })
+    const e = (marcaMap[key] ??= { pedidos: 0, bruto: 0, neto: 0 })
     e.pedidos += r.total_pedidos
     e.bruto += r.total_bruto
     for (const c of CANALES) {
-      const cc = (e.canal[c.id] ??= { b: 0, p: 0 })
-      cc.b += (r as unknown as Record<string, number>)[c.bk] ?? 0
-      cc.p += (r as unknown as Record<string, number>)[c.pk] ?? 0
+      const b = (r as unknown as Record<string, number>)[c.bk] ?? 0
+      e.neto += b * netoRatioCanal[c.id]
     }
   })
 
   const marcaList = Object.entries(marcaMap)
-    .map(([nombre, s]) => {
-      const neto = CANALES.reduce((acc, c) => {
-        const cc = s.canal[c.id] ?? { b: 0, p: 0 }
-        return acc + resolverNeto(c.id, cc.b, cc.p, {
-          modo: 'agregado_canal', marcasPorCanal, fechaDesde, fechaHasta,
-          configCanales: config, diasConDatos: nDias,
-        }).neto
-      }, 0)
-      return { nombre, pedidos: s.pedidos, bruto: s.bruto, neto }
-    })
+    .map(([nombre, s]) => ({ nombre, pedidos: s.pedidos, bruto: s.bruto, neto: s.neto }))
     .sort((a, b) => b.bruto - a.bruto)
 
   const totalBruto = marcaList.reduce((s, m) => s + m.bruto, 0)

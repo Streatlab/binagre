@@ -2,12 +2,12 @@
  * TabFinanzas — Panel Global · pestaña Finanzas (estilo neobrutal Food-Pop)
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { INK, CREMA, OSW, LEX, VERDE, ROJO, NAR, GRIS, CORP, BORDER_CARD, SHADOW, d, eyebrow } from '@/styles/neobrutal'
 import { tablaNeo, theadNeo, thNeo, thNeoR, tdNeo, tdNeoR, filaAlt, dotNeo, totalRow, tdTotal, tdTotalR, vacioNeo } from '@/styles/tablaNeo'
 import { fmtEur } from '@/utils/format'
-import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
-import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
+import { resolverNeto } from '@/lib/panel/netoResolver'
+import { useNetoContext } from '@/lib/panel/useNetoContext'
 
 interface Row {
   fecha: string
@@ -44,17 +44,7 @@ function kpiCard(label: string, value: string, sub?: string) {
 const tituloSec: React.CSSProperties = { marginBottom: 12 }
 
 export default function TabFinanzas({ rows, fechaDesde, fechaHasta }: Props) {
-  const [config, setConfig] = useState<Record<string, CanalConfig>>({})
-  const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
-
-  useEffect(() => {
-    loadConfigCanales().then(setConfig)
-    loadVentasReales().then(() => loadRatiosCalibrados())
-    loadMarcasPorCanal().then(setMarcasPorCanal)
-    const on = () => { recargarConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal) }
-    window.addEventListener('config_canales:changed', on)
-    return () => window.removeEventListener('config_canales:changed', on)
-  }, [])
+  const { configCanales: config, marcasPorCanal, ventasListas } = useNetoContext()
 
   const totalBruto = useMemo(() => rows.reduce((s, r) => s + r.total_bruto, 0), [rows])
 
@@ -72,7 +62,7 @@ export default function TabFinanzas({ rows, fechaDesde, fechaHasta }: Props) {
       const pct = totalBruto > 0 ? (bruto / totalBruto) * 100 : 0
       return { ...c, bruto, comision, neto, pct }
     })
-  }, [rows, config, marcasPorCanal, fechaDesde, fechaHasta, totalBruto])
+  }, [rows, config, marcasPorCanal, fechaDesde, fechaHasta, totalBruto, ventasListas])
 
   const totalComision = canalStats.reduce((s, c) => s + c.comision, 0)
   const totalNeto     = totalBruto - totalComision
@@ -103,7 +93,7 @@ export default function TabFinanzas({ rows, fechaDesde, fechaHasta }: Props) {
       map[k] = { bruto, neto }
     }
     return { meses: keys, mesMap: map }
-  }, [rows, config, marcasPorCanal])
+  }, [rows, config, marcasPorCanal, ventasListas])
 
   const mostrarEvolucion = meses.length > 1
 
