@@ -32,6 +32,33 @@ const CANALES = [
 
 const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
+// Número → texto Excel español (coma decimal, sin separador de miles).
+const numES = (n: number) => (Number(n) || 0).toFixed(2).replace('.', ',')
+
+// Exporta la facturación diaria del periodo a CSV (delimitador ; para Excel es).
+function exportarCSV(rows: Row[], fechaDesde: Date, fechaHasta: Date) {
+  const cab = ['Fecha']
+  for (const c of CANALES) { cab.push(`${c.label} bruto`, `${c.label} pedidos`) }
+  cab.push('Total bruto', 'Total pedidos')
+  const lineas = [cab.join(';')]
+  for (const r of [...rows].sort((a, b) => (a.fecha < b.fecha ? -1 : 1))) {
+    const celdas = [r.fecha]
+    for (const c of CANALES) {
+      celdas.push(numES(r[c.bk] as number), String((r[c.pk] as number) ?? 0))
+    }
+    celdas.push(numES(r.total_bruto), String(r.total_pedidos ?? 0))
+    lineas.push(celdas.join(';'))
+  }
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const csv = '﻿' + lineas.join('\r\n')  // BOM para acentos en Excel
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `facturacion_${iso(fechaDesde)}_${iso(fechaHasta)}.csv`
+  document.body.appendChild(a); a.click(); a.remove()
+  URL.revokeObjectURL(url)
+}
+
 function deltaChip(delta: number | null) {
   if (delta == null || !Number.isFinite(delta)) return null
   const up = delta >= 0
@@ -166,6 +193,17 @@ export default function TabFinanzas({ rows, rowsAll, fechaDesde, fechaHasta }: P
 
   return (
     <div style={{ paddingTop: 12 }}>
+
+      {/* Barra de acciones */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button
+          onClick={() => exportarCSV(rows, fechaDesde, fechaHasta)}
+          title="Descarga la facturación diaria del periodo en CSV (Excel español) para la gestoría"
+          style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, background: CORP.glovo, border: BORDER_CARD, boxShadow: SHADOW, padding: '8px 14px', cursor: 'pointer' }}
+        >
+          ↓ Exportar CSV
+        </button>
+      </div>
 
       {/* Resumen inteligente */}
       {topBruto && (
