@@ -55,6 +55,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const [movs, setMovs] = useState<Movimiento[]>([])
   const [fijosMedia, setFijosMedia] = useState(0)
   const [objetivoReal, setObjetivoReal] = useState(0)
+  const [saldoTeorico, setSaldoTeorico] = useState(0)
   const [agenda, setAgenda] = useState<Agenda | null>(null)
   const [loading, setLoading] = useState(true)
   const [ocupado, setOcupado] = useState(false)
@@ -64,17 +65,19 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function cargar() {
-    const [c, o, m, f, a] = await Promise.all([
+    const [c, o, m, f, a, p] = await Promise.all([
       supabase.from('reserva_config').select('*').eq('id', 1).single(),
       supabase.from('reserva_ordenes').select('*').order('fecha_cobro', { ascending: false }).limit(300),
       supabase.from('reserva_movimientos').select('*').order('fecha', { ascending: false }).limit(100),
       supabase.from('v_reserva_fijos_mes').select('fijos_mes').single(),
       supabase.from('v_reserva_agenda').select('*').single(),
+      supabase.from('v_reserva_panel').select('saldo_teorico').single(),
     ])
     if (c.data) {
       const cd = c.data as Config
       setCfg(cd); setPctEdit(Number(cd.pct)); setObjetivoReal(Number(cd.objetivo_fijos_mes ?? 0))
     }
+    setSaldoTeorico(Number((p.data as { saldo_teorico?: number } | null)?.saldo_teorico ?? 0))
     setOrdenes((o.data ?? []) as Orden[])
     setMovs((m.data ?? []) as Movimiento[])
     setFijosMedia(Number((f.data as { fijos_mes?: number } | null)?.fijos_mes ?? 0))
@@ -95,7 +98,8 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const totalPendiente = agenda?.total ?? 0
   const dotado = useMemo(() => movs.filter(m => m.tipo === 'DOTACION').reduce((a, m) => a + Number(m.importe), 0), [movs])
   const retirado = useMemo(() => movs.filter(m => m.tipo === 'RETIRADA').reduce((a, m) => a + Number(m.importe), 0), [movs])
-  const saldo = dotado - retirado
+  // Saldo real desde el servidor (v_reserva_panel), no la suma de los últimos 100 movimientos.
+  const saldo = saldoTeorico
   const fugas = useMemo(() => movs.filter(m => m.tipo === 'RETIRADA' && !m.autorizado), [movs])
   // Cobertura contra el objetivo REAL de fijos del mes (no la media historica).
   const objetivo = objetivoReal > 0 ? objetivoReal : fijosMedia
@@ -151,17 +155,14 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   async function cumplirLote(lista: Orden[], etiqueta: string) {
     if (lista.length === 0) return
     setOcupado(true)
-    const hoyIso = new Date().toISOString().slice(0, 10)
     const total = lista.reduce((a, o) => a + Number(o.importe_reservar), 0)
-    // Insertar la dotacion capturando su id para VINCULAR las ordenes (permite deshacer).
-    const { data: mov } = await supabase.from('reserva_movimientos').insert({
-      fecha: hoyIso, tipo: 'DOTACION', importe: Math.round(total * 100) / 100,
-      nota: `${etiqueta} · ${lista.length} cobro${lista.length === 1 ? '' : 's'}`,
-    }).select('id').single()
-    await supabase.from('reserva_ordenes')
-      .update({ estado: 'CUMPLIDA', fecha_cumplida: hoyIso, movimiento_traspaso_id: (mov as { id?: string } | null)?.id ?? null })
-      .in('id', lista.map(o => o.id))
-    setMsg(`Ingresado en el fondo: ${E2(total)} € (${etiqueta.toLowerCase()})`)
+    // Barrido atómico en servidor: inserta la dotación y vincula las órdenes en
+    // una sola transacción (movimiento_traspaso_id) para poder deshacer.
+    const { error } = await supabase.rpc('fn_reserva_cumplir_lote', {
+      p_orden_ids: lista.map(o => o.id),
+      p_nota: `${etiqueta} · ${lista.length} cobro${lista.length === 1 ? '' : 's'}`,
+    })
+    setMsg(error ? `No se pudo ingresar: ${error.message}` : `Ingresado en el fondo: ${E2(total)} € (${etiqueta.toLowerCase()})`)
     setOcupado(false)
     cargar()
   }
