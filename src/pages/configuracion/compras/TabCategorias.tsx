@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { InlineEdit } from '@/components/configuracion/InlineEdit'
+import EditorCategoriasIngredientes from '@/components/escandallo/EditorCategoriasIngredientes'
 
 interface Cat { id: string; nombre: string; orden: number }
 
@@ -128,19 +129,13 @@ function Lista({ titulo, items, onAdd, onDel, onRen, placeholder }: ListaProps) 
 export default function TabCategorias() {
   const { T } = useTheme()
   const [recetas, setRecetas] = useState<Cat[]>([])
-  const [ingredientes, setIngredientes] = useState<Cat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   async function refetch() {
-    const [r, i] = await Promise.all([
-      supabase.from('categorias_recetas').select('*').order('orden'),
-      supabase.from('categorias_ingredientes_config').select('*').order('orden'),
-    ])
+    const r = await supabase.from('categorias_recetas').select('*').order('orden')
     if (r.error) throw r.error
-    if (i.error) throw i.error
     setRecetas((r.data ?? []) as Cat[])
-    setIngredientes((i.data ?? []) as Cat[])
   }
 
   useEffect(() => {
@@ -170,25 +165,6 @@ export default function TabCategorias() {
     await refetch()
   }
 
-  async function addIng(n: string) {
-    if (!n.trim()) return
-    const maxOrden = ingredientes.reduce((m, c) => Math.max(m, c.orden ?? 0), 0)
-    const { error } = await supabase.from('categorias_ingredientes_config').insert({ nombre: n.trim(), orden: maxOrden + 1 })
-    if (error) { setError(error.message); return }
-    await refetch()
-  }
-  async function delIng(id: string) {
-    if (!confirm('Eliminar?')) return
-    const { error } = await supabase.from('categorias_ingredientes_config').delete().eq('id', id)
-    if (error) { setError(error.message); return }
-    await refetch()
-  }
-  async function renIng(id: string, n: string) {
-    const { error } = await supabase.from('categorias_ingredientes_config').update({ nombre: n.trim() }).eq('id', id)
-    if (error) { setError(error.message); return }
-    await refetch()
-  }
-
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
   if (error) {
     return (
@@ -201,7 +177,7 @@ export default function TabCategorias() {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
       <Lista titulo="Categorías de recetas" items={recetas} onAdd={addRec} onDel={delRec} onRen={renRec} placeholder="Nueva categoría de receta..." />
-      <Lista titulo="Categorías de ingredientes" items={ingredientes} onAdd={addIng} onDel={delIng} onRen={renIng} placeholder="Nueva categoría de ingrediente..." />
+      <EditorCategoriasIngredientes />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { useEffect, useState } from 'react'
-import { INK, AMA, CREMA, GRANATE, NAR, AZUL, GRIS, OSW, LEX } from '@/styles/neobrutal'
+import { useEffect, useRef, useState } from 'react'
+import { INK, AMA, CREMA, GRANATE, NAR, AZUL, VERDE, GRIS, OSW, LEX } from '@/styles/neobrutal'
 
 const btnSaveStyle: CSSProperties = {
   backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '1px',
@@ -28,6 +28,7 @@ function Block({ tag, bg, fg = INK, children, style }: { tag: string; bg: string
 import { supabase } from '@/lib/supabase'
 import { fmtNum } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
+import { InlineEdit } from '@/components/configuracion/InlineEdit'
 import { MARCA_MAP } from './types'
 import type { Ingrediente, Merma } from './types'
 
@@ -48,6 +49,27 @@ const ALERGENOS_14 = [
   'Cacahuetes', 'Soja', 'Apio', 'Mostaza', 'Sésamo', 'Sulfitos', 'Altramuces',
 ]
 
+/* ── Bloque 2: diccionario ingrediente↔producto por proveedor (ingrediente_productos) ── */
+
+interface ProductoProveedor {
+  id: string
+  ingrediente_id: string
+  proveedor: 'mercadona' | 'alcampo' | 'otros'
+  producto_nombre: string
+  unidad_minima_txt: string | null
+  unidad_minima_num: number | null
+  unidad: string | null
+  precio_robot: number | null
+  merma_pct: number | null
+  activo: boolean
+}
+
+const GRUPOS_PROVEEDOR: { key: ProductoProveedor['proveedor']; label: string }[] = [
+  { key: 'mercadona', label: 'Mercadona' },
+  { key: 'alcampo', label: 'Alcampo' },
+  { key: 'otros', label: 'Otros (especialista)' },
+]
+
 interface Props {
   ingrediente: Ingrediente | null
   initialNombre?: string
@@ -63,6 +85,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
   const [f, setF] = useState({
     iding: ingrediente?.iding ?? '',
     categoria: ingrediente?.categoria ?? '',
+    categoria_id: ingrediente?.categoria_id ?? '',
     nombre_base: ingrediente?.nombre_base ?? initialNombre ?? '',
     abv: ingrediente?.abv ?? '',
     nombre: ingrediente?.nombre ?? '',
@@ -90,6 +113,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
   const [err, setErr] = useState<string | null>(null)
   const [confirmEliminar, setConfirmEliminar] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [categoriasOpts, setCategoriasOpts] = useState<{ id: string; nombre: string }[]>([])
 
   const toggleAlergeno = (a: string) =>
     setAlergenos(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a])
@@ -145,6 +169,30 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [onClose])
+
+  // Fuente única de categorías (tabla categorias_ingredientes, compartida con Config).
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('categorias_ingredientes').select('id,nombre').eq('activa', true).order('orden').order('nombre')
+      setCategoriasOpts((data ?? []) as { id: string; nombre: string }[])
+    })()
+  }, [])
+
+  // Preselección: si el ingrediente ya trae categoria_id lo respeta; si no, intenta casar
+  // por el texto legado `categoria`; si tampoco hay match, cae a "SIN CLASIFICAR" (nunca vacío).
+  useEffect(() => {
+    if (!categoriasOpts.length) return
+    setF(p => {
+      if (p.categoria_id) return p
+      const porTexto = p.categoria
+        ? categoriasOpts.find(c => c.nombre.trim().toLowerCase() === p.categoria.trim().toLowerCase())
+        : undefined
+      if (porTexto) return { ...p, categoria_id: porTexto.id, categoria: porTexto.nombre }
+      const sinClasificar = categoriasOpts.find(c => c.nombre.trim().toUpperCase() === 'SIN CLASIFICAR')
+      if (sinClasificar) return { ...p, categoria_id: sinClasificar.id, categoria: sinClasificar.nombre }
+      return p
+    })
+  }, [categoriasOpts])
 
   const set = (k: string, val: string | boolean | number | null) => setF(p => ({ ...p, [k]: val }))
 
@@ -204,9 +252,20 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
       const baseTrim = f.nombre_base.trim()
       const abvTrim = (f.abv || '').toUpperCase().trim()
       const nombreConcat = abvTrim ? `${baseTrim}_${abvTrim}` : baseTrim
+
+      // Categoría: nunca vacía. Si por lo que sea no hay categoria_id seleccionado
+      // (categorías aún no cargadas), cae a "SIN CLASIFICAR" antes de guardar.
+      let categoriaIdFinal = f.categoria_id
+      let categoriaNombreFinal = f.categoria
+      if (!categoriaIdFinal) {
+        const sinClasificar = categoriasOpts.find(c => c.nombre.trim().toUpperCase() === 'SIN CLASIFICAR')
+        if (sinClasificar) { categoriaIdFinal = sinClasificar.id; categoriaNombreFinal = sinClasificar.nombre }
+      }
+
       const payload = {
         iding: idingFinal || null,
-        categoria: f.categoria || null,
+        categoria_id: categoriaIdFinal || null,
+        categoria: categoriaNombreFinal || null,
         nombre_base: baseTrim,
         abv: abvTrim || null,
         nombre: f.nombre.trim() || nombreConcat,
@@ -309,8 +368,17 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
               </div>
               <div>
                 <label style={labelStyle}>Categoría</label>
-                <select value={f.categoria} onChange={e => set('categoria', e.target.value)} className={inputCls} style={{ fontFamily: LEX }}>
-                  {cfg.categorias.map(o => <option key={o} value={o}>{o}</option>)}
+                <select
+                  value={f.categoria_id}
+                  onChange={e => {
+                    const id = e.target.value
+                    const cat = categoriasOpts.find(c => c.id === id)
+                    setF(p => ({ ...p, categoria_id: id, categoria: cat?.nombre ?? p.categoria }))
+                  }}
+                  className={inputCls}
+                  style={{ fontFamily: LEX }}
+                >
+                  {categoriasOpts.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
               </div>
               <div>
@@ -453,6 +521,17 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
             </Block>
           </div>
 
+          {/* PRODUCTOS POR PROVEEDOR (diccionario ingrediente_productos) — solo si el ingrediente ya existe */}
+          <Block tag="Productos por proveedor" bg={VERDE} fg="#fff">
+            {isEdit && ingrediente ? (
+              <SeccionProductos ingredienteId={ingrediente.id} />
+            ) : (
+              <p style={{ fontFamily: LEX, fontSize: 13, color: GRIS, margin: 0 }}>
+                Guarda primero el ingrediente para poder añadir productos por proveedor.
+              </p>
+            )}
+          </Block>
+
           {err && <p style={{ color: '#FF1E27', fontFamily: LEX, fontSize: 14, fontWeight: 600 }}>{err}</p>}
         </div>
 
@@ -478,6 +557,169 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ── Bloque 2: sección "Productos por proveedor" (ingrediente_productos) ── */
+
+function SeccionProductos({ ingredienteId }: { ingredienteId: string }) {
+  const [productos, setProductos] = useState<ProductoProveedor[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  async function cargar() {
+    setLoading(true)
+    const { data, error } = await supabase.from('ingrediente_productos').select('*').eq('ingrediente_id', ingredienteId)
+    if (error) setError(error.message)
+    else setProductos((data ?? []) as ProductoProveedor[])
+    setLoading(false)
+  }
+
+  useEffect(() => { cargar() }, [ingredienteId])
+
+  function mensajeError(e: any): string {
+    // 23505 = unique_violation → UNIQUE(ingrediente_id, proveedor, producto_nombre)
+    if (e?.code === '23505') return 'Ese producto ya está en la lista para este proveedor.'
+    return e?.message ?? 'Error al guardar'
+  }
+
+  async function añadir(proveedor: ProductoProveedor['proveedor'], data: { producto_nombre: string; unidad_minima_txt: string; unidad: string }): Promise<string | void> {
+    const { data: nuevo, error } = await supabase
+      .from('ingrediente_productos')
+      .insert({
+        ingrediente_id: ingredienteId,
+        proveedor,
+        producto_nombre: data.producto_nombre,
+        unidad_minima_txt: data.unidad_minima_txt || null,
+        unidad: data.unidad || null,
+        activo: true,
+      })
+      .select('*')
+      .single()
+    if (error) return mensajeError(error)
+    setProductos(prev => [...prev, nuevo as ProductoProveedor])
+  }
+
+  async function editarNombre(id: string, nombre: string) {
+    const prev = productos
+    setProductos(p => p.map(x => (x.id === id ? { ...x, producto_nombre: nombre } : x)))
+    const { error } = await supabase.from('ingrediente_productos').update({ producto_nombre: nombre }).eq('id', id)
+    if (error) { setProductos(prev); setError(mensajeError(error)) }
+  }
+
+  async function editarUnidadTxt(id: string, txt: string) {
+    const prev = productos
+    setProductos(p => p.map(x => (x.id === id ? { ...x, unidad_minima_txt: txt || null } : x)))
+    const { error } = await supabase.from('ingrediente_productos').update({ unidad_minima_txt: txt || null }).eq('id', id)
+    if (error) { setProductos(prev); setError(error.message) }
+  }
+
+  async function eliminar(id: string) {
+    const prev = productos
+    setProductos(p => p.filter(x => x.id !== id))
+    const { error } = await supabase.from('ingrediente_productos').delete().eq('id', id)
+    if (error) { setProductos(prev); setError(error.message) }
+  }
+
+  if (loading) return <div style={{ fontFamily: LEX, fontSize: 13, color: '#fff' }}>Cargando…</div>
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {error && <p style={{ color: '#fff', background: GRANATE, padding: '6px 10px', fontFamily: LEX, fontSize: 12 }}>{error}</p>}
+      {GRUPOS_PROVEEDOR.map(g => {
+        const items = productos.filter(p => p.proveedor === g.key)
+        return (
+          <div key={g.key} style={{ background: '#fff', border: `2px solid ${INK}`, padding: '10px 12px' }}>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', color: INK, marginBottom: 6 }}>
+              {g.label} <span style={{ color: GRIS, fontWeight: 400 }}>({items.length})</span>
+            </div>
+            {items.length === 0 ? (
+              <p style={{ fontFamily: LEX, fontSize: 12, color: GRIS, margin: '0 0 4px' }}>Sin productos.</p>
+            ) : items.map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #e5ddc8' }}>
+                <div style={{ flex: 2, minWidth: 140 }}>
+                  <InlineEdit value={p.producto_nombre} type="text" onSubmit={(v) => editarNombre(p.id, String(v))} />
+                </div>
+                <div style={{ flex: 1, minWidth: 100 }}>
+                  <InlineEdit value={p.unidad_minima_txt ?? ''} type="text" placeholder="unidad mínima" onSubmit={(v) => editarUnidadTxt(p.id, String(v))} />
+                </div>
+                <div style={{ width: 56, fontFamily: LEX, fontSize: 12, color: GRIS }}>{p.unidad ?? '—'}</div>
+                <div style={{ width: 90, fontFamily: OSW, fontSize: 12, color: GRIS, textAlign: 'right' }}>
+                  {p.precio_robot != null ? `${fmtNum(p.precio_robot)} €` : '—'}
+                </div>
+                <button onClick={() => eliminar(p.id)} title="Eliminar" style={{ background: 'transparent', border: 'none', color: GRANATE, cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '0 4px' }}>×</button>
+              </div>
+            ))}
+            <AddRowProducto onAdd={(data) => añadir(g.key, data)} />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function AddRowProducto({ onAdd }: { onAdd: (data: { producto_nombre: string; unidad_minima_txt: string; unidad: string }) => Promise<string | void> }) {
+  const [nombre, setNombre] = useState('')
+  const [unidadTxt, setUnidadTxt] = useState('')
+  const [unidad, setUnidad] = useState('')
+  const [escuchando, setEscuchando] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const recRef = useRef<any>(null)
+
+  // Dictado por voz: MISMO patrón que src/pages/cocina/Esquemas.tsx (toggleVoz).
+  // Si el navegador no soporta SpeechRecognition, NO bloquea: el teclado sigue funcionando.
+  function toggleVoz() {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SR) { alert('Tu navegador no soporta dictado por voz. Escribe el producto a mano.'); return }
+    if (escuchando) { recRef.current?.stop(); setEscuchando(false); return }
+    const rec = new SR()
+    rec.lang = 'es-ES'; rec.continuous = true; rec.interimResults = true
+    rec.onresult = (ev: any) => {
+      let full = ''
+      for (let i = 0; i < ev.results.length; i++) full += ev.results[i][0].transcript + ' '
+      setNombre(full.trim())
+    }
+    rec.onend = () => setEscuchando(false)
+    rec.start(); recRef.current = rec; setEscuchando(true)
+  }
+
+  async function handleAdd() {
+    if (!nombre.trim()) return
+    setErr(null)
+    const res = await onAdd({ producto_nombre: nombre.trim(), unidad_minima_txt: unidadTxt.trim(), unidad: unidad.trim() })
+    if (res) { setErr(res); return }
+    setNombre(''); setUnidadTxt(''); setUnidad('')
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${INK}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <input
+          value={nombre} onChange={(e) => setNombre(e.target.value)}
+          placeholder="Producto (tal cual la web del súper)"
+          className={inputCls} style={{ fontFamily: LEX, flex: 2, minWidth: 180 }}
+        />
+        <input
+          value={unidadTxt} onChange={(e) => setUnidadTxt(e.target.value)}
+          placeholder="Unidad mínima (ej: bandeja 400 gr.)"
+          className={inputCls} style={{ fontFamily: LEX, flex: 1, minWidth: 140 }}
+        />
+        <input
+          value={unidad} onChange={(e) => setUnidad(e.target.value)}
+          placeholder="Ud."
+          className={inputCls} style={{ fontFamily: LEX, width: 70 }}
+        />
+        <button
+          type="button" onClick={toggleVoz}
+          style={{ background: escuchando ? GRANATE : '#fff', color: escuchando ? '#fff' : INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '9px 11px', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: 11, minHeight: 40 }}
+        >{escuchando ? '● GRABANDO' : '🎤'}</button>
+        <button
+          type="button" onClick={handleAdd}
+          style={{ background: '#e8f442', color: '#111111', border: `2px solid ${INK}`, borderRadius: 0, padding: '9px 14px', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', minHeight: 40 }}
+        >+ Añadir</button>
+      </div>
+      {err && <span style={{ fontSize: 11, color: '#fff', background: GRANATE, padding: '3px 8px', display: 'inline-block', fontFamily: LEX }}>{err}</span>}
     </div>
   )
 }

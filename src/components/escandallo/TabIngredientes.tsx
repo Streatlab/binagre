@@ -6,7 +6,7 @@ import { fmtNum } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import { INK, CREMA, CLARO, OSW, VERDE, ROJO, NAR, GRANATE, GRIS } from '@/styles/neobrutal'
 import { th, thR, thC, td, tdNum, tdSub, tdCod, zebra, bandUsos, BAND } from './estilosTabla'
-import CabeceraEscandallo from './CabeceraEscandallo'
+import CabeceraEscandallo, { btnSecundarioEsc } from './CabeceraEscandallo'
 
 interface Props {
   ingredientes: Ingrediente[]
@@ -14,6 +14,8 @@ interface Props {
   onBuscar: (v: string) => void
   onSelect?: (i: Ingrediente) => void
   onNew?: () => void
+  /** Abre el editor de categorías de ingredientes (fuente única, compartida con Config). */
+  onOpenCategorias?: () => void
 }
 
 type Filter = 'todos' | 'enuso' | 'sinuso'
@@ -22,7 +24,7 @@ const colorUsos = (usos: number) => bandUsos(usos)
 const esUltimo = (sel?: string | null) => !/media/i.test(sel ?? 'Último')
 const labelSelector = (sel?: string | null) => (esUltimo(sel) ? 'Último' : 'Media')
 
-export default function TabIngredientes({ ingredientes, busqueda = '', onBuscar, onSelect, onNew }: Props) {
+export default function TabIngredientes({ ingredientes, busqueda = '', onBuscar, onSelect, onNew, onOpenCategorias }: Props) {
   const [filter, setFilter] = useState<Filter>('todos')
   const [usosMap, setUsosMap] = useState<Record<string, number>>({})
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -88,6 +90,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onBuscar,
         onNew={onNew}
         nuevoLabel="+ Nuevo"
         scroll={{ onInicio: () => irExtremo(false), onLeft: () => desplazar(-620), onRight: () => desplazar(620), onFin: () => irExtremo(true) }}
+        extra={onOpenCategorias && <button onClick={onOpenCategorias} style={btnSecundarioEsc}>Categorías</button>}
         pills={[
           { label: 'Total', value: total, active: filter === 'todos', onClick: () => setFilter('todos') },
           { label: 'En uso', value: enUso, color: VERDE, active: filter === 'enuso', onClick: () => toggle('enuso') },

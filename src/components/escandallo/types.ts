@@ -8,6 +8,8 @@ export interface Ingrediente {
   abv?: string
   nombre: string
   categoria?: string
+  /** FK -> categorias_ingredientes(id). Fuente única de categoría (Config y Escandallo comparten tabla). */
+  categoria_id?: string | null
   marca?: string
   formato?: string
   uds?: number
