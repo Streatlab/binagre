@@ -565,14 +565,13 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
                 })}
               </div>
             ) : (
-              {alergAuto.length === 0
+              alergAuto.length === 0
                 ? <div className="ficha-alerg-val">Ninguno</div>
                 : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, paddingTop: 2 }}>
                     {alergAuto.map(a => (
                       <span key={a} style={{ padding: '3px 9px', borderRadius: 99, fontSize: 11, fontFamily: "'Oswald', sans-serif", background: 'var(--m-soft)', color: 'var(--m-acento)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{a}</span>
                     ))}
                   </div>
-              }
             )}
           </div>
         </div>
