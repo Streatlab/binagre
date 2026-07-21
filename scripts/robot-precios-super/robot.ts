@@ -602,6 +602,101 @@ async function procesarLoteMercadona(sb: SupabaseClient, objetivos: Objetivo[], 
   return contadores;
 }
 
+// ---------- ESCANDALLO 2.0 · T4: completar-borradores Alcampo ----------
+// Playwright no cabe en una función serverless de Vercel (binario de navegador +
+// límites de tiempo/tamaño); por eso la mitad Alcampo de "completar-borradores"
+// vive aquí, en el mismo robot semanal de GitHub Actions que ya tiene Chromium
+// instalado y sesión logueada. La mitad Mercadona (API JSON, sin navegador) sí
+// corre en Vercel: ver acción `completar-borradores` en escandallo-auto.ts,
+// llamada aparte por pg_cron los domingos. DECISIÓN AUTÓNOMA (ESCANDALLO 2.0 T4.3):
+// en vez de un cron nuevo domingo 05:00 Madrid solo para Alcampo, se aprovecha
+// este job semanal ya existente (lunes 04:00 UTC) — mismo resultado (barrido
+// semanal), sin duplicar infraestructura de navegador headless.
+type BorradorAlcampo = { id: string; nombre: string; nombre_super: string | null };
+
+function parsearFormatoYContenido(nombreWeb: string): { formato: string; valor: number; unidad: string } | null {
+  const m = nombreWeb.match(/([\d]+(?:[.,]\d+)?)\s*(kg|g|gr|l|ml|ud|uds|unidad(?:es)?)\b/i);
+  if (!m) return null;
+  const valor = parseFloat(m[1].replace(',', '.'));
+  if (!Number.isFinite(valor) || valor <= 0) return null;
+  let unidad = m[2].toLowerCase();
+  if (unidad === 'gr') unidad = 'g';
+  if (unidad.startsWith('ud') || unidad.startsWith('unidad')) unidad = 'ud';
+  const formatoMatch = nombreWeb.match(/^(bolsa|caja|bandeja|bote|lata|botella|paquete|malla|tarrina|garrafa)/i);
+  const formato = formatoMatch ? formatoMatch[1][0].toUpperCase() + formatoMatch[1].slice(1).toLowerCase() : 'Unidad';
+  return { formato, valor, unidad };
+}
+
+function normalizarContenido(valor: number, unidad: string): { std: string | null; min: string | null; uds: number | null } {
+  switch (unidad) {
+    case 'kg': return { std: 'Kg.', min: 'g.', uds: valor };
+    case 'g': return { std: 'Kg.', min: 'g.', uds: valor / 1000 };
+    case 'l': return { std: 'L.', min: 'ml.', uds: valor };
+    case 'ml': return { std: 'L.', min: 'ml.', uds: valor / 1000 };
+    case 'ud': return { std: 'Ud.', min: 'Ud.', uds: valor };
+    default: return { std: null, min: null, uds: null };
+  }
+}
+
+async function completarBorradoresAlcampo(browser: Browser, sb: SupabaseClient, cred: Credencial | undefined): Promise<{ procesados: number; rellenados: number }> {
+  const { data: borradores, error } = await sb
+    .from('ingredientes')
+    .select('id, nombre, nombre_super')
+    .eq('borrador', true)
+    .is('formato', null)
+    .eq('proveedor_principal', 'Alcampo')
+    .limit(20);
+  if (error) { await logRobot('precios_super', 'error', `completar-borradores alcampo: ${error.message}`); return { procesados: 0, rellenados: 0 }; }
+  const items = (borradores || []) as BorradorAlcampo[];
+  if (!items.length) return { procesados: 0, rellenados: 0 };
+  if (!cred) { await logRobot('precios_super', 'error', `completar-borradores alcampo: sin credenciales, se salta (${items.length} borradores)`); return { procesados: items.length, rellenados: 0 }; }
+
+  const page = await browser.newPage();
+  let rellenados = 0;
+  try {
+    await fijarCpAlcampo(page);
+    const logueado = await loginAlcampo(page, cred);
+    if (!logueado) {
+      await logRobot('precios_super', 'error', `completar-borradores alcampo: login no confirmado, se aborta (${items.length} borradores)`);
+      return { procesados: items.length, rellenados: 0 };
+    }
+    for (const b of items) {
+      const consulta = b.nombre_super || b.nombre;
+      const res = await buscarEnAlcampo(page, consulta);
+      if (!res.confianzaAlta || res.precio == null || !res.nombreWeb) {
+        await logRobot('precios_super', 'aviso', `completar-borradores alcampo: "${consulta}" sin match/confianza alta`);
+        await sleepAleatorio(1500, 3000);
+        continue;
+      }
+      const parsed = parsearFormatoYContenido(res.nombreWeb);
+      if (!parsed) {
+        await logRobot('precios_super', 'aviso', `completar-borradores alcampo: "${res.nombreWeb}" sin formato/contenido legible en el nombre`);
+        await sleepAleatorio(1500, 3000);
+        continue;
+      }
+      const { std, min, uds } = normalizarContenido(parsed.valor, parsed.unidad);
+      if (!std || !uds) { await sleepAleatorio(1500, 3000); continue; }
+      const eurStd = res.precio / uds;
+      const eurMin = min === std ? eurStd : eurStd / 1000;
+
+      await sb.from('ingredientes').update({
+        formato: parsed.formato, uds, ud_std: std, ud_min: min,
+        precio_total: res.precio, eur_std: eurStd, eur_min: eurMin,
+        precio1: res.precio, ultimo_precio: res.precio, precio_activo: res.precio,
+      }).eq('id', b.id);
+      await sb.from('tareas_erp')
+        .update({ descripcion: `Completado por robot (Alcampo): ${parsed.formato} ${parsed.valor}${parsed.unidad}, ${res.precio}€. Revisa la merma antes de usarlo en recetas.` })
+        .eq('ingrediente_id', b.id).neq('columna', 'hecho');
+      rellenados++;
+      await logRobot('precios_super', 'ok', `completar-borradores alcampo: ${b.nombre} → ${parsed.formato} ${parsed.valor}${parsed.unidad} ${res.precio}€`);
+      await sleepAleatorio(1500, 3000);
+    }
+  } finally {
+    await page.close();
+  }
+  return { procesados: items.length, rellenados };
+}
+
 async function main() {
   if (!SUPABASE_URL || !SUPABASE_KEY) { console.error('Faltan SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY'); process.exit(1); }
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -615,13 +710,18 @@ async function main() {
 
   const alcItems = objetivos.filter((o) => o.proveedor === 'Alcampo').length;
   let alc: Record<Resultado, number> = { cargado: 0, sin_cambio_precio: 0, dudoso: 0, sin_match: 0, fallido: 0 };
+  let completados = { procesados: 0, rellenados: 0 };
   if (alcItems > 0) {
     const browser = await chromium.launch({ headless: process.env.HEADFUL !== '1', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
     try {
       alc = await procesarLoteAlcampo(browser, sb, objetivos, mapeos, credenciales.get('alcampo'));
+      completados = await completarBorradoresAlcampo(browser, sb, credenciales.get('alcampo'));
     } finally {
       await browser.close();
     }
+  }
+  if (completados.procesados) {
+    await logRobot('precios_super', 'resumen', `completar-borradores alcampo: ${completados.rellenados}/${completados.procesados} rellenados`);
   }
 
   const total: Record<Resultado, number> = {
