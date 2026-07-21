@@ -24,6 +24,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'sugerir-fusiones') return await sugerirFusiones(req, res)
     if (action === 'completar-borradores') return await completarBorradores(req, res)
     if (action === 'procesar-lote') return await procesarLote(req, res)
+    // Motor superpersistente (patrón OCR: trabajo en servidor, cron empujador, UI solo pinta)
+    if (action === 'motor-estado') return await motorEstado(res)
+    if (req.method === 'POST' && action === 'motor-arrancar') return await motorArrancar(res)
+    if (req.method === 'POST' && action === 'motor-parar') return await motorParar(res)
+    if (action === 'motor-tick') return await motorTick(req, res)
     return res.status(200).json({ error: `Acción desconocida: ${action || '(vacía)'}` })
   } catch (err: any) {
     console.error('[escandallo-auto]', err?.message || err)
@@ -151,13 +156,111 @@ async function procesarLote(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ ok: true, procesadas: procesadas.length, vacio, resultados })
 }
 
-/** Cron interno (pg_cron/GitHub Actions) o llamada desde la propia app: exige clave compartida solo si llega por GET (cron), nunca para el POST de la pestaña Auto. */
+/** Cron interno (pg_cron/GitHub Actions) o llamada desde la propia app: exige clave
+ * compartida solo si llega por GET (cron), nunca para el POST de la pestaña Auto.
+ * Acepta la llave literal del proyecto (misma convención que sl-vivo-2026 / enchufe-sl-19jul,
+ * hardcodeada para que coincida siempre con el pg_cron sin depender de env vars) o, si está
+ * configurado, el secreto de entorno ESCANDALLO_CRON_SECRET. */
+const CRON_LLAVE = 'escandallo-motor-2026'
 function autorizadoCron(req: VercelRequest): boolean {
   if (req.method === 'POST') return true
-  const secreto = process.env.ESCANDALLO_CRON_SECRET
-  if (!secreto) return true // sin secreto configurado, no bloqueamos (entorno de desarrollo)
   const clave = String(req.query.llave || req.headers['x-escandallo-clave'] || '')
+  if (clave === CRON_LLAVE) return true
+  const secreto = process.env.ESCANDALLO_CRON_SECRET
+  if (!secreto) return true // sin secreto configurado y sin llave literal: no bloqueamos (desarrollo)
   return clave === secreto
+}
+
+/* ───────── SUPERPERSISTENCIA · motor de servidor (patrón OCR) ───────── */
+
+async function contarFacturasMpPendientes(): Promise<number> {
+  const prefijos = await prefijosMateriaPrima()
+  const orCat = prefijos.map(p => `categoria_factura.like.${p}%`).join(',')
+  const { count } = await supabaseAdmin.from('facturas')
+    .select('id', { count: 'exact', head: true })
+    .or(orCat).not('pdf_drive_id', 'is', null).is('lineas_estado', null)
+  return count ?? 0
+}
+
+/** motor-estado: la UI lo pinta. Siempre disponible, sin Drive. */
+async function motorEstado(res: VercelResponse) {
+  const { data } = await supabaseAdmin.from('escandallo_motor').select('*').eq('id', 1).maybeSingle()
+  const pendientes = await contarFacturasMpPendientes()
+  return res.status(200).json({ ok: true, motor: data ?? null, pendientes })
+}
+
+/** motor-arrancar: enciende el motor. total_al_iniciar = facturas MP pendientes ahora mismo. */
+async function motorArrancar(res: VercelResponse) {
+  const total = await contarFacturasMpPendientes()
+  const { data, error } = await supabaseAdmin.from('escandallo_motor').update({
+    activo: true, procesadas: 0, total_al_iniciar: total,
+    ultimo_latido: null, ultimo_mensaje: total > 0 ? `En marcha: ${total} factura(s) pendientes.` : 'No hay facturas pendientes.',
+    iniciado_at: new Date().toISOString(), parado_at: null,
+  }).eq('id', 1).select().maybeSingle()
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  // Si no hay nada que hacer, se apaga solo (no dejamos el motor encendido en vano).
+  if (total === 0) {
+    await supabaseAdmin.from('escandallo_motor').update({ activo: false, parado_at: new Date().toISOString() }).eq('id', 1)
+  }
+  return res.status(200).json({ ok: true, motor: data ?? null, pendientes: total })
+}
+
+/** motor-parar: apaga el motor. El tick en curso termina su factura y no coge más. */
+async function motorParar(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin.from('escandallo_motor').update({
+    activo: false, parado_at: new Date().toISOString(), ultimo_mensaje: 'Parado por el usuario.',
+  }).eq('id', 1).select().maybeSingle()
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, motor: data ?? null })
+}
+
+/** motor-tick: lo llama el cron por-minuto. Reclama el turno (un worker a la vez),
+ * y drena facturas dentro de un presupuesto de tiempo, refrescando el latido tras cada
+ * una. Al vaciarse la cola, apaga el motor con "completado". */
+async function motorTick(req: VercelRequest, res: VercelResponse) {
+  if (!autorizadoCron(req)) return res.status(200).json({ ok: false, error: 'no autorizado' })
+
+  // Claim atómico: si otro worker está vivo (latido reciente) o el motor no está activo, salimos.
+  const { data: claim } = await supabaseAdmin.rpc('fn_escandallo_motor_claim')
+  if (!claim) return res.status(200).json({ ok: true, saltado: true })
+
+  const drive = await abrirDrive()
+  if (!drive.ok) {
+    await supabaseAdmin.from('escandallo_motor').update({
+      ultimo_latido: new Date().toISOString(), ultimo_mensaje: `Drive no conectado, reintentando: ${drive.error}`,
+    }).eq('id', 1)
+    return res.status(200).json({ ok: false, error: drive.error })
+  }
+
+  const inicio = Date.now()
+  let procesadasTick = 0
+  while (Date.now() - inicio < LOTE_PRESUPUESTO_MS) {
+    // Si Rubén ha parado el motor mientras tanto, cortamos limpio.
+    const { data: m } = await supabaseAdmin.from('escandallo_motor').select('activo').eq('id', 1).maybeSingle()
+    if (!m?.activo) break
+
+    const r = await procesarUnaFactura(drive.client!)
+    if (r.vacio) {
+      await supabaseAdmin.from('escandallo_motor').update({
+        activo: false, parado_at: new Date().toISOString(),
+        ultimo_latido: new Date().toISOString(), ultimo_mensaje: 'Completado: no quedan facturas pendientes.',
+      }).eq('id', 1)
+      return res.status(200).json({ ok: true, procesadas_tick: procesadasTick, completado: true })
+    }
+    procesadasTick++
+    const msg = r.ok
+      ? `Factura de ${r.proveedor ?? '—'}: ${TRAD_ESTADO_MOTOR[r.estado ?? ''] ?? r.estado} (${r.lineas ?? 0} líneas).`
+      : `Error en una factura: ${r.error ?? 'desconocido'}`
+    await supabaseAdmin.rpc('fn_escandallo_motor_avanzar', { p_mensaje: msg })
+  }
+  return res.status(200).json({ ok: true, procesadas_tick: procesadasTick })
+}
+
+const TRAD_ESTADO_MOTOR: Record<string, string> = {
+  extraidas: 'líneas extraídas y cruzadas',
+  sin_detalle_lineas: 'no desglosa artículos o no cuadra al céntimo',
+  fallo_lectura: 'no se pudo leer el PDF',
+  error: 'error al procesar',
 }
 
 async function abrirDrive(): Promise<{ ok: boolean; client?: ReturnType<typeof google.drive>; error?: string }> {

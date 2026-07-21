@@ -3,7 +3,7 @@
 //    ingredientes pre-creados pendientes de completar, alertas de subida de precio.
 // C: inventario quincenal por foto (leer → confirmar) con confianza por línea.
 // D: coste real del periodo y varianza teórico vs real en €.
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente } from './types'
 import { fmtES } from './types'
@@ -52,6 +52,13 @@ interface Varianza {
 interface CosteReal { inicio: string; fin: string; inventario_inicial: number; inventario_final: number; compras_periodo: number; coste_real: number }
 interface Sugerencia { borrador_id: string; borrador_nombre: string; ingrediente_id: string; ingrediente_nombre: string; similitud: number }
 interface IngLite { id: string; nombre: string }
+interface Motor {
+  activo: boolean
+  procesadas: number
+  total_al_iniciar: number
+  ultimo_latido: string | null
+  ultimo_mensaje: string | null
+}
 
 const API = '/api/papeleo/escandallo-auto'
 
@@ -73,8 +80,8 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const [fusionAbierta, setFusionAbierta] = useState<string | null>(null)
   const [catalogoIngs, setCatalogoIngs] = useState<IngLite[]>([])
   const [busquedaFusion, setBusquedaFusion] = useState('')
-  const [lote, setLote] = useState<{ activo: boolean; hechas: number } | null>(null)
-  const pararLoteRef = useRef(false)
+  const [motor, setMotor] = useState<Motor | null>(null)
+  const [pendientes, setPendientes] = useState<number | null>(null)
 
   const cargar = useCallback(async () => {
     const [est, al, bo, inv, vza, cr] = await Promise.all([
@@ -123,31 +130,45 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
     } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
   }
 
-  /* ── T5.3: procesa TODAS las pendientes en tandas, desde el navegador, hasta agotarlas o que Rubén pare ── */
-  const procesarTandas = async () => {
-    pararLoteRef.current = false
-    setLote({ activo: true, hechas: 0 })
-    let hechas = 0
+  /* ── SUPERPERSISTENCIA: el trabajo corre en el servidor (cron empujador). La UI solo
+     lo pinta con polling a motor-estado; sobrevive a F5, cambio de módulo y cierre. ── */
+  const leerMotor = useCallback(async () => {
     try {
-      while (!pararLoteRef.current) {
-        const r = await fetch(`${API}/procesar-lote`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ n: 1 }) })
-        const j = await r.json()
-        if (j.error) { setMsg(`Error: ${j.error}`); break }
-        if (j.vacio || !j.procesadas) { setMsg(`Tanda terminada: ${hechas} factura(s) procesadas, no quedan más pendientes.`); break }
-        const res = j.resultados?.[0]
-        hechas++
-        setLote({ activo: true, hechas })
-        if (res) setMsg(`(${hechas}) Factura de ${res.proveedor ?? '—'}: ${TRAD_ESTADO[res.estado] ?? res.estado} (${res.lineas ?? 0} líneas).`)
-        await cargar()
-      }
-      if (pararLoteRef.current) setMsg(`Parado: ${hechas} factura(s) procesadas.`)
-    } catch (e: any) {
-      setMsg(`Error: ${e.message}`)
-    } finally {
-      setLote(l => l ? { ...l, activo: false } : null)
-    }
+      const r = await fetch(`${API}/motor-estado`)
+      const j = await r.json()
+      if (j.ok) { setMotor(j.motor as Motor); setPendientes(j.pendientes ?? null) }
+    } catch { /* silencioso: reintenta al siguiente ciclo */ }
+  }, [])
+
+  useEffect(() => {
+    leerMotor()
+    const id = setInterval(leerMotor, 5000)
+    return () => clearInterval(id)
+  }, [leerMotor])
+
+  // Cuando el motor pasa de activo a apagado, refrescamos la bandeja (borradores, alertas…).
+  const motorActivo = !!motor?.activo
+  useEffect(() => { if (!motorActivo) cargar() }, [motorActivo, cargar])
+
+  const arrancarMotor = async () => {
+    setBusy('motor')
+    try {
+      const r = await fetch(`${API}/motor-arrancar`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      const j = await r.json()
+      if (!j.ok) throw new Error(j.error || 'no se pudo arrancar')
+      setMotor(j.motor as Motor)
+      setMsg(j.pendientes > 0 ? 'Procesando en 2º plano. Puedes cerrar esta pestaña, el proceso sigue solo.' : 'No hay facturas pendientes.')
+    } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
   }
-  const pararTandas = () => { pararLoteRef.current = true }
+  const pararMotor = async () => {
+    setBusy('motor')
+    try {
+      const r = await fetch(`${API}/motor-parar`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      const j = await r.json()
+      if (!j.ok) throw new Error(j.error || 'no se pudo parar')
+      setMotor(j.motor as Motor)
+    } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
+  }
 
   /* ── T3.3: sugerencias de fusión (solo propone) ── */
   const cargarSugerencias = async () => {
@@ -264,32 +285,45 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
         ))}
       </div>
 
-      {/* Fase A · procesar facturas */}
+      {/* Fase A · procesar facturas (motor superpersistente) */}
       <div style={card}>
         <h3 style={h3}>Facturas de materia prima → ingredientes y precios (automático)</h3>
         <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
-          Lee 1 factura (PDF de Drive), extrae sus líneas y las cruza solas: producto conocido → actualiza precio y recalcula escandallos; producto nuevo → lo pre-crea y deja tarea. Coste: céntimos por factura, se gasta solo al pulsar. Vuelve a pulsar para la siguiente.
+          Lee las facturas (PDF de Drive), extrae sus líneas y las cruza solas: producto conocido → actualiza precio y recalcula escandallos; producto nuevo → lo pre-crea y deja tarea. Coste: céntimos por factura.
         </p>
         {driveOff && (
           <p style={{ fontFamily: LEX, fontSize: 13, color: ROJO, fontWeight: 700, margin: '0 0 10px' }}>
             Drive no está conectado. Ve a Configuración → Integraciones → Drive y conéctalo primero.
           </p>
         )}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button style={btn(AMA)} disabled={busy === 'lote' || driveOff || !!lote?.activo} onClick={procesarUna}>
-            {busy === 'lote' ? 'Procesando…' : 'Procesar 1 factura'}
-          </button>
-          {!lote?.activo ? (
-            <button style={btn(CREMA)} disabled={driveOff || busy === 'lote'} onClick={procesarTandas}>
-              Procesar todas (en tandas)
+
+        {motorActivo ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, color: GRANATE }}>
+              Procesando en 2º plano… {motor?.procesadas ?? 0} / {motor?.total_al_iniciar ?? 0}
+            </div>
+            <div style={{ background: 'var(--sl-card)', border: `2px solid ${INK}`, height: 16, width: '100%', maxWidth: 420 }}>
+              <div style={{ background: VERDE, height: '100%', width: `${motor && motor.total_al_iniciar > 0 ? Math.min(100, Math.round((motor.procesadas / motor.total_al_iniciar) * 100)) : 0}%`, transition: 'width .4s' }} />
+            </div>
+            {motor?.ultimo_mensaje && <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{motor.ultimo_mensaje}</div>}
+            <div style={{ fontFamily: LEX, fontSize: 12, color: INK, fontWeight: 600 }}>Puedes cerrar esta pestaña, el proceso sigue solo.</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button style={btn(ROJO)} disabled={busy === 'motor'} onClick={pararMotor}>Parar</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button style={btn(AMA)} disabled={busy === 'motor' || driveOff || (pendientes ?? 0) === 0} onClick={arrancarMotor}>
+              Procesar todo (en 2º plano){pendientes != null ? ` · ${pendientes} pendiente(s)` : ''}
             </button>
-          ) : (
-            <>
-              <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12, color: GRANATE }}>Procesando… {lote.hechas} hecha(s)</span>
-              <button style={btn(ROJO)} onClick={pararTandas}>Parar</button>
-            </>
-          )}
-        </div>
+            <button style={btn('var(--sl-card)')} disabled={busy === 'lote' || driveOff} onClick={procesarUna}>
+              {busy === 'lote' ? 'Procesando…' : 'Procesar 1 factura'}
+            </button>
+            {motor?.ultimo_mensaje && !motorActivo && (
+              <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{motor.ultimo_mensaje}</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Alertas de precio */}
