@@ -158,8 +158,27 @@ export default function TabFinanzas({ rows, rowsAll, fechaDesde, fechaHasta }: P
     return <div style={{ ...vacioNeo, marginTop: 12 }}>Sin datos para el período seleccionado</div>
   }
 
+  // Resumen inteligente del periodo (canal líder, mejor margen, coste plataformas)
+  const conVentas = canalStats.filter(c => c.bruto > 0)
+  const topBruto = conVentas.length ? conVentas.reduce((a, c) => (c.bruto > a.bruto ? c : a)) : null
+  const bestMargen = conVentas.length ? conVentas.reduce((a, c) => ((c.neto / c.bruto) > (a.neto / a.bruto) ? c : a)) : null
+  const margenBest = bestMargen ? (bestMargen.neto / bestMargen.bruto) * 100 : 0
+
   return (
     <div style={{ paddingTop: 12 }}>
+
+      {/* Resumen inteligente */}
+      {topBruto && (
+        <div style={{ background: INK, color: CREMA, border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 18, fontFamily: LEX, fontSize: 14, lineHeight: 1.55 }}>
+          <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: CORP.glovo, marginRight: 8 }}>Lectura rápida</span>
+          {deltaBruto != null && (
+            <>Facturación <b style={{ color: deltaBruto >= 0 ? VERDE : ROJO }}>{deltaBruto >= 0 ? 'al alza' : 'a la baja'} {Math.abs(deltaBruto).toFixed(0)}%</b> vs el periodo anterior. </>
+          )}
+          <b>{topBruto.label}</b> lidera con <b>{fmtEur(topBruto.bruto)}</b> ({topBruto.pct.toFixed(0)}% del total).{' '}
+          {bestMargen && <>Mejor margen: <b>{bestMargen.label}</b> ({margenBest.toFixed(0)}%).{' '}</>}
+          {plat.brutoPlat > 0 && <>Las plataformas se llevaron <b style={{ color: ROJO }}>{fmtEur(plat.comPlat)}</b> ({plat.pctPlat.toFixed(0)}% de su bruto).</>}
+        </div>
+      )}
 
       {/* KPI cards */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 24 }}>
