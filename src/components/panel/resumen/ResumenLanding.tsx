@@ -639,6 +639,19 @@ export default function ResumenLanding(p: Props) {
           </div>
           <div title="Saldo real del banco · suma de movimientos de v_caja_mensual (mismo dato que Cashflow)" style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.85, marginTop: 16, cursor: 'help' }}>Saldo banco</div>
           <div style={d('clamp(28px,3.4vw,42px)', '#fff')}>{p.saldoBanco != null ? E(p.saldoBanco) : '—'}</div>
+          {p.saldoBanco != null && (() => {
+            const proj = p.saldoBanco + p.saldo.cobros30d - p.saldo.pagos30d
+            const delta = proj - p.saldoBanco
+            return (
+              <div title="Proyección de caja: saldo banco + cobros − pagos estimados de los próximos 30 días" style={{ background: '#ffffff1f', border: `3px solid ${INK}`, padding: '10px 12px', marginTop: 14, cursor: 'help' }}>
+                <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.9 }}>En 30 días tendrás ≈<Est light /></div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={d('clamp(24px,3vw,38px)', proj >= 0 ? '#fff' : '#ffd6d6')}>{E(proj)}</span>
+                  <span style={{ fontFamily: LEX, fontSize: 13, fontWeight: 700, color: delta >= 0 ? '#d6ffe0' : '#ffd6d6' }}>{delta >= 0 ? '▲' : '▼'} {ES(delta)}</span>
+                </div>
+              </div>
+            )
+          })()}
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.7, marginTop: 14 }}>Cobros y pagos<Est light /></div>
           <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, lineHeight: 1.95, marginTop: 4 }}>
             <div>Cobros 7 d · <b>{E(p.saldo.cobros7d)}</b></div>
