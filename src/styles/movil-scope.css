@@ -22,7 +22,6 @@
 .movil-scope [style*="min-width:"] {
   min-width: 0 !important;
 }
-/* Respetar solo anchos porcentuales de barras internas (las de progreso) */
 .movil-scope [style*="width: 100%"],
 .movil-scope [style*="width:100%"] { width: 100% !important; }
 
@@ -48,7 +47,6 @@
 .movil-scope [style*="display:flex"] {
   flex-wrap: wrap;
 }
-/* … salvo barras, tabs y controles marcados como no-envolver */
 .movil-scope .tabs-pastilla,
 .movil-scope .no-wrap-movil,
 .movil-scope [data-nowrap] {
@@ -93,7 +91,7 @@
   font-size: 0.85rem !important;
 }
 
-/* Texto que venía forzado a una línea: que pueda partir salvo cifras clave */
+/* Texto que venía forzado a una línea: que pueda partir */
 .movil-scope p, .movil-scope span, .movil-scope div, .movil-scope li {
   overflow-wrap: anywhere;
 }
@@ -146,5 +144,32 @@
   padding: 0.9rem !important;
 }
 
-/* Sombras neobrutal: se mantienen pero sin empujar el ancho */
 .movil-scope { overflow-x: hidden; }
+
+/* ─────────────────────────────────────────────────────────────
+   EXCEPCIÓN · MARCO DE DOCUMENTOS (hojas imprimibles)
+   La "hoja" (HojaDoc) tiene estilo blindado propio: NO se
+   neobrutaliza ni se fuerza a una columna. Se muestra tal cual,
+   solo deslizable en horizontal si no cabe. Fuente: marcoDoc.ts.
+   ───────────────────────────────────────────────────────────── */
+.movil-scope .hoja-doc {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.movil-scope .hoja-doc [style*="display: grid"],
+.movil-scope .hoja-doc [style*="display:grid"] {
+  grid-template-columns: unset !important;
+}
+.movil-scope .hoja-doc *,
+.movil-scope .hoja-doc [style*="white-space: nowrap"] {
+  white-space: revert !important;
+  overflow-wrap: normal;
+}
+.movil-scope .hoja-doc [style*="font-size"] {
+  font-size: revert !important;
+}
+.movil-scope .hoja-doc,
+.movil-scope .hoja-doc-main,
+.movil-scope .hoja-doc-cab {
+  flex-wrap: nowrap !important;
+}
