@@ -134,11 +134,12 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
     let faltaSiguiente = 0
     let nPagados = 0, importePagado = 0, importePendiente = 0
     let proxDesc: { concepto: string; dia: string } | null = null
+    let diaD: { concepto: string; dia: string; acum: number } | null = null
     const rows = fijosMes.map(fj => {
       // Ya cargado en banco este mes → fuera del cálculo, el fondo no lo cubre.
       if (fj.estado_pago === 'pagado') {
         nPagados++; importePagado += fj.importe
-        return { ...fj, estado: 'pag' as const }
+        return { ...fj, estado: 'pag' as const, acum: 0 }
       }
       importePendiente += fj.importe
       acc += fj.importe
@@ -148,11 +149,12 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
         estado = acc <= conPendiente + 0.001 ? 'bar' : 'desc'
         if (estado === 'bar') nBar++
         if (faltaSiguiente === 0) faltaSiguiente = acc - saldo // primer pendiente no cubierto por el saldo
+        if (!diaD) diaD = { concepto: fj.concepto, dia: fj.dia, acum: acc } // primer vencimiento que el fondo no cubre
         if (estado === 'desc' && !proxDesc) proxDesc = { concepto: fj.concepto, dia: fj.dia }
       }
-      return { ...fj, estado }
+      return { ...fj, estado, acum: acc }
     })
-    return { rows, nCub, nBar, ultimoCub, faltaSiguiente, total: fijosMes.length, nPagados, importePagado, nPend: fijosMes.length - nPagados, importePendiente, proxDesc: proxDesc as { concepto: string; dia: string } | null }
+    return { rows, nCub, nBar, ultimoCub, faltaSiguiente, total: fijosMes.length, nPagados, importePagado, nPend: fijosMes.length - nPagados, importePendiente, proxDesc: proxDesc as { concepto: string; dia: string } | null, diaD: diaD as { concepto: string; dia: string; acum: number } | null }
   }, [fijosMes, saldo, agenda])
 
   // "Foto del mes": reparte el total de fijos en pagado (banco) / cubierto por el
@@ -271,6 +273,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
 
   const [retImporte, setRetImporte] = useState(0)
   const [retDestino, setRetDestino] = useState('NOMINAS')
+  const [simExtra, setSimExtra] = useState(0)
   async function registrarRetirada() {
     if (retImporte <= 0 || retImporte > saldo) {
       setMsg(retImporte > saldo ? 'No puedes sacar más de lo que hay en el fondo' : 'Pon un importe')
@@ -296,6 +299,19 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const ordenesHoy = pendientes.filter(o => o.fecha_cobro === new Date().toISOString().slice(0, 10))
   const semanaIni = (() => { const dt = new Date(); const day = (dt.getDay() + 6) % 7; dt.setDate(dt.getDate() - day); return dt.toISOString().slice(0, 10) })()
   const ordenesSemana = pendientes.filter(o => o.fecha_cobro >= semanaIni)
+
+  // Recomendación "aparta X €/día hasta fin de mes" para cubrir lo pendiente.
+  const hoyD = new Date()
+  const finMes = new Date(hoyD.getFullYear(), hoyD.getMonth() + 1, 0)
+  const diasRestantes = Math.max(1, Math.ceil((finMes.getTime() - hoyD.getTime()) / 86400000))
+  const faltaPend = Math.max(alcance.importePendiente - saldo, 0)
+  const apartarDia = faltaPend / diasRestantes
+
+  // Simulador: cuántos pendientes cubrirías con saldo + lo que ingreses.
+  const simDisponible = saldo + (simExtra || 0)
+  const simPend = alcance.rows.filter(r => r.estado !== 'pag')
+  const simCubre = simPend.filter(r => r.acum <= simDisponible + 0.001).length
+  const simUltimo = simPend.filter(r => r.acum <= simDisponible + 0.001).slice(-1)[0]?.concepto ?? ''
 
   return (
     <div style={wrap}>
@@ -500,6 +516,26 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
         </div>
       </div>
 
+      {/* ══ ALERTA DÍA D + RITMO DE AHORRO ══ */}
+      {alcance.nPend > 0 && (
+        alcance.diaD ? (
+          <div style={{ background: ROJO, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '16px 20px', marginBottom: 18 }}>
+            <span style={eyebrow('#fff', ROJO)}>Día D</span>
+            <div style={{ ...d('26px', '#fff'), margin: '10px 0 6px' }}>
+              El {alcance.diaD.dia.slice(8, 10)}/{alcance.diaD.dia.slice(5, 7)} dejas de llegar
+            </div>
+            <div style={{ fontFamily: LEX, fontSize: 13, lineHeight: 1.5 }}>
+              Al vencer <strong>{alcance.diaD.concepto}</strong> el acumulado del mes ({E2(alcance.diaD.acum)} €) supera tu fondo ({E2(saldo)} €).
+              {faltaPend > 0 && <> Para cubrir lo pendiente antes de fin de mes, aparta <strong>~{E2(apartarDia)} €/día</strong> ({diasRestantes} días).</>}
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: VERDE, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 20px', marginBottom: 18, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            ✓ Tu fondo cubre todos los vencimientos pendientes del mes
+          </div>
+        )
+      )}
+
       {/* ══ FOTO DEL MES (barra segmentada) ══ */}
       {foto.total > 0 && (() => {
         const segs = [
@@ -563,6 +599,21 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
               {alcance.faltaSiguiente > 0 && <> · te faltan <strong style={{ color: ROJO }}>{E2(alcance.faltaSiguiente)} €</strong> para el siguiente</>}
             </div>
           )}
+
+          {/* Simulador: ¿y si ingreso X €? */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12, padding: '10px 12px', background: CLARO, border: `2px solid ${INK}` }}>
+            <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: 0.5, textTransform: 'uppercase', color: INK }}>Simular · si ingreso</span>
+            <input type="number" min={0} step={50} value={simExtra || ''} placeholder="0"
+              onChange={e => setSimExtra(parseFloat(e.target.value) || 0)}
+              style={{ width: 110, padding: '7px 10px', border: `2px solid ${AZUL}`, background: '#fff', fontFamily: OSW, fontWeight: 700, fontSize: 14, textAlign: 'right', outline: 'none', color: INK }} />
+            <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12, color: INK }}>€</span>
+            {simExtra > 0 && (
+              <span style={{ fontFamily: LEX, fontSize: 12.5, color: GRIS }}>
+                → cubrirías <strong style={{ color: simCubre > alcance.nCub ? VERDE : INK }}>{simCubre} de {alcance.nPend}</strong> pendientes
+                {simUltimo && <> (hasta <strong style={{ color: INK }}>{simUltimo}</strong>)</>}
+              </span>
+            )}
+          </div>
 
           <div style={{ marginTop: 12, border: `2px solid ${INK}` }}>
             {alcance.rows.map((r, i) => {

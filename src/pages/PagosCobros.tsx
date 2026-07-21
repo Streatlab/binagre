@@ -229,7 +229,22 @@ export default function PagosCobros() {
     const q = new URLSearchParams(window.location.search).get('tab')
     return (q && VALID_TABS.includes(q as TabId)) ? (q as TabId) : 'calendario'
   })
+  const [ordPend, setOrdPend] = useState(0)
   const isMobile = useIsMobile()
+
+  // Nº de barridos pendientes (para avisar desde cualquier pestaña).
+  useEffect(() => {
+    supabase.from('v_reserva_panel').select('ordenes_pendientes').single()
+      .then(({ data }) => setOrdPend(Number((data as { ordenes_pendientes?: number } | null)?.ordenes_pendientes ?? 0)))
+  }, [])
+
+  // Deep-link: la pestaña activa queda reflejada en la URL (refresh y botón atrás).
+  function selectTab(id: TabId) {
+    setTab(id)
+    const url = new URL(window.location.href)
+    url.searchParams.set('tab', id)
+    window.history.replaceState({}, '', url)
+  }
 
   return (
     <div style={{ padding: isMobile ? '18px 12px' : '28px 28px', fontFamily: 'Lexend, sans-serif', color: 'var(--sl-text-primary)', minHeight: '100vh', backgroundColor: 'var(--neo-bg)' }}>
@@ -246,8 +261,11 @@ export default function PagosCobros() {
         {TABS.map(t => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => selectTab(t.id)}
             style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
               fontFamily: 'Oswald, sans-serif',
               fontSize: 13,
               fontWeight: 600,
@@ -265,6 +283,14 @@ export default function PagosCobros() {
             }}
           >
             {t.label}
+            {t.id === 'reserva' && ordPend > 0 && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: 20, height: 20, padding: '0 5px', borderRadius: 0,
+                border: `2px solid ${NEO_INK}`, backgroundColor: '#B01D23', color: '#fff',
+                fontSize: 11, fontWeight: 700, lineHeight: 1,
+              }}>{ordPend}</span>
+            )}
           </button>
         ))}
       </div>
