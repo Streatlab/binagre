@@ -1171,7 +1171,7 @@ interface ResultadoTick {
 // ── Handler: contadores reales de pendientes (botón "Resolver pendientes") ─
 async function resolverInventario(res: VercelResponse) {
   const [enStorage, relectura, archivoDrive, zombie] = await Promise.all([
-    supabaseAdmin.from('ocr_manifiesto').select('id', { count: 'exact', head: true }).eq('estado', 'en_storage'),
+    supabaseAdmin.from('v_ocr_dormidos_reales').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('facturas').select('id', { count: 'exact', head: true })
       .or('total.is.null,total.eq.0').not('pdf_drive_id', 'is', null)
       .not('estado', 'in', '(conciliada,asociada,pendiente_lectura_manual)'),
@@ -1209,6 +1209,25 @@ async function agendaTick(req: VercelRequest, res: VercelResponse) {
 
   if (errSel) return res.status(500).json({ error: errSel.message })
   if (!tarea) return res.status(200).json({ ok: true, mensaje: 'sin tareas pendientes' })
+
+  // FIX guardarraíl: despertar_dormidos nunca compite con una subida real en
+  // curso por el worker OCR. Si hay una sesión viva que NO es de despertar_
+  // (grupo_id propio de una subida real de Rubén), se pospone 15 min sin
+  // marcarla error. El resto de tipos no necesita esta espera.
+  if (tarea.tipo === 'despertar_dormidos') {
+    const { count: subidaViva } = await supabaseAdmin
+      .from('ocr_sessions')
+      .select('id', { count: 'exact', head: true })
+      .in('estado_cola', ['en_espera', 'procesando'])
+      .not('grupo_id', 'like', 'despertar_%')
+    if ((subidaViva ?? 0) > 0) {
+      const pospuestaPara = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      await supabaseAdmin.from('papeleo_tareas')
+        .update({ estado: 'programada', programada_para: pospuestaPara, ultimo_latido: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', tarea.id as string)
+      return res.status(200).json({ ok: true, pospuesta: true, tarea: tarea.id, motivo: 'subida en curso', programada_para: pospuestaPara })
+    }
+  }
 
   await supabaseAdmin.from('papeleo_tareas')
     .update({ estado: 'en_curso', ultimo_latido: ahora, updated_at: ahora })
@@ -1266,11 +1285,12 @@ async function agendaTick(req: VercelRequest, res: VercelResponse) {
   })
 }
 
-// tipo despertar_dormidos: ocr_manifiesto en_storage huérfanos (sesión original
-// perdida, p.ej. por el barrido horario limpiar_ocr_sesiones_viejas) → se
-// reconstruyen en tandas de ≤200 archivos como ocr_sessions nuevas y se deja
-// que el worker Edge ocr-procesar-sesion las procese. Cursor por id (orden
-// estable, no hace falta que sea cronológico) para no repetir ni saltar filas.
+// tipo despertar_dormidos: huérfanos DE VERDAD (v_ocr_dormidos_reales — excluye
+// cualquier storage_path que ya esté en la cola de una sesión de subida viva,
+// FIX 21-jul) → se reconstruyen en tandas de ≤200 archivos como ocr_sessions
+// nuevas y se deja que el worker Edge ocr-procesar-sesion las procese. Cursor
+// por id (orden estable, no hace falta que sea cronológico) para no repetir
+// ni saltar filas.
 async function tickDespertarDormidos(tarea: Record<string, unknown>, arranque: number): Promise<ResultadoTick> {
   const lote = Math.min(Math.max(Number(tarea.lote_tamano) || 30, 1), 200)
   const cursor = (tarea.cursor as { ultimo_id?: string }) || {}
@@ -1281,9 +1301,8 @@ async function tickDespertarDormidos(tarea: Record<string, unknown>, arranque: n
 
   while (Date.now() - arranque < PRESUPUESTO_TICK_MS) {
     let q = supabaseAdmin
-      .from('ocr_manifiesto')
+      .from('v_ocr_dormidos_reales')
       .select('id, nombre, storage_path')
-      .eq('estado', 'en_storage')
       .order('id', { ascending: true })
       .limit(lote)
     if (ultimoId) q = q.gt('id', ultimoId)
