@@ -60,14 +60,22 @@ export default function TabOperaciones({ rows }: Props) {
     return { ...c, pedidos, pct }
   })
 
-  // Pedidos por día de semana (0=domingo en JS, reordenamos a lunes=0)
-  const porDiaSem = [0, 0, 0, 0, 0, 0, 0]
+  // Pedidos por día de semana → MEDIA por día (comparación justa: descuenta
+  // cuántas veces sale cada día en el periodo). 0=domingo en JS → lunes=0.
+  const sumDiaSem = [0, 0, 0, 0, 0, 0, 0]
+  const cntDiaSem = [0, 0, 0, 0, 0, 0, 0]
   rows.forEach(r => {
     const d = new Date(r.fecha + 'T12:00:00')
     const dow = (d.getDay() + 6) % 7 // lunes=0 … domingo=6
-    porDiaSem[dow] += r.total_pedidos
+    sumDiaSem[dow] += r.total_pedidos
+    cntDiaSem[dow] += 1
   })
-  const maxDiaSem = Math.max(...porDiaSem, 1)
+  const mediaDiaSem = sumDiaSem.map((s, i) => (cntDiaSem[i] > 0 ? s / cntDiaSem[i] : 0))
+  const maxDiaSem = Math.max(...mediaDiaSem, 1)
+  // Día fuerte / flojo por media (solo días con presencia en el periodo)
+  const conPresencia = mediaDiaSem.map((m, i) => ({ i, m })).filter(x => cntDiaSem[x.i] > 0)
+  const diaFuerte = conPresencia.length ? conPresencia.reduce((a, x) => (x.m > a.m ? x : a)) : null
+  const diaFlojo  = conPresencia.length ? conPresencia.reduce((a, x) => (x.m < a.m ? x : a)) : null
 
   // Top 5 días por pedidos
   const top5 = [...rows]
@@ -132,30 +140,37 @@ export default function TabOperaciones({ rows }: Props) {
           </div>
         </div>
 
-        {/* Pedidos por día de semana */}
+        {/* Pedidos por día de semana (media) */}
         <div style={CARDS.std}>
-          <div style={{ ...lbl, marginBottom: 14 }}>Pedidos por día de semana</div>
+          <div style={{ ...lbl, marginBottom: 14 }}>Pedidos por día de semana · media/día</div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 100 }}>
-            {porDiaSem.map((v, i) => {
+            {mediaDiaSem.map((v, i) => {
               const h = maxDiaSem > 0 ? Math.max(4, (v / maxDiaSem) * 88) : 4
+              const esFuerte = diaFuerte?.i === i && v > 0
               return (
                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 10, color: COLORS.mut }}>
-                    {fmtNum(v)}
+                  <span style={{ fontFamily: FONT.body, fontSize: 10, color: esFuerte ? COLORS.pri : COLORS.mut }}>
+                    {cntDiaSem[i] > 0 ? fmtNum(Math.round(v)) : '—'}
                   </span>
                   <div style={{
                     width: '100%',
                     height: h,
-                    background: COLORS.redSL,
+                    background: esFuerte ? COLORS.warn : COLORS.redSL,
                     borderRadius: '3px 3px 0 0',
                   }} />
-                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: COLORS.mut, textTransform: 'uppercase', letterSpacing: 1 }}>
+                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: esFuerte ? COLORS.pri : COLORS.mut, textTransform: 'uppercase', letterSpacing: 1 }}>
                     {DIAS_SEM[i]}
                   </span>
                 </div>
               )
             })}
           </div>
+          {diaFuerte && diaFlojo && diaFuerte.i !== diaFlojo.i && (
+            <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.sec, marginTop: 12, lineHeight: 1.5 }}>
+              Día fuerte: <b style={{ color: COLORS.pri }}>{DIAS_SEM[diaFuerte.i]}</b> ({fmtNum(Math.round(diaFuerte.m))} ped/día).{' '}
+              Más flojo: <b style={{ color: COLORS.pri }}>{DIAS_SEM[diaFlojo.i]}</b> ({fmtNum(Math.round(diaFlojo.m))} ped/día).
+            </div>
+          )}
         </div>
 
       </div>
