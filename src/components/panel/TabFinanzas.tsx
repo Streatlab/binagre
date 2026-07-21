@@ -68,6 +68,20 @@ export default function TabFinanzas({ rows, fechaDesde, fechaHasta }: Props) {
   const totalNeto     = totalBruto - totalComision
   const margenPct     = totalBruto > 0 ? (totalNeto / totalBruto) * 100 : 0
 
+  // Coste de las plataformas: cuánto se llevan Uber/Glovo/JE (comisión real vía
+  // resolverNeto) y a qué ritmo anual, para dimensionar la dependencia.
+  const plat = useMemo(() => {
+    const platIds = new Set(['uber', 'glovo', 'je'])
+    const plataformas = canalStats.filter(c => platIds.has(c.id) && c.bruto > 0)
+    const brutoPlat = plataformas.reduce((s, c) => s + c.bruto, 0)
+    const comPlat = plataformas.reduce((s, c) => s + c.comision, 0)
+    const pctPlat = brutoPlat > 0 ? (comPlat / brutoPlat) * 100 : 0
+    const nDiasDatos = new Set(rows.filter(r => r.total_bruto > 0).map(r => r.fecha)).size || 1
+    const comAnual = (comPlat / nDiasDatos) * 365
+    const comMax = plataformas.reduce((m, c) => Math.max(m, c.comision), 0) || 1
+    return { plataformas, brutoPlat, comPlat, pctPlat, comAnual, comMax, nDiasDatos }
+  }, [canalStats, rows])
+
   // Evolución mensual (neto por canal y mes vía resolverNeto)
   const { meses, mesMap } = useMemo(() => {
     const rowsPorMes: Record<string, Row[]> = {}
@@ -149,6 +163,51 @@ export default function TabFinanzas({ rows, fechaDesde, fechaHasta }: Props) {
           </tbody>
         </table>
       </div>
+
+      {/* Coste de las plataformas — cuánto se llevan Uber/Glovo/JE */}
+      {plat.brutoPlat > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={tituloSec}><span style={eyebrow(CREMA)}>Coste de las plataformas</span></div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', background: CREMA, border: BORDER_CARD, boxShadow: SHADOW, padding: '18px 20px' }}>
+            {/* Bloque cifra */}
+            <div style={{ flex: '1 1 220px', minWidth: 220 }}>
+              <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Se han llevado las plataformas</div>
+              <div style={{ ...d('40px'), color: ROJO, marginTop: 6 }}>{fmtEur(plat.comPlat)}</div>
+              <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 4 }}>
+                {plat.pctPlat.toFixed(1)}% del bruto de plataforma ({fmtEur(plat.brutoPlat)})
+              </div>
+              <div style={{ marginTop: 12, display: 'inline-block', background: INK, color: CREMA, fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '6px 10px' }}>
+                A este ritmo · {fmtEur(plat.comAnual)}/año est.
+              </div>
+              <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 8, maxWidth: 320 }}>
+                Es lo que recuperarías moviendo esos pedidos a tu canal directo.
+              </div>
+            </div>
+            {/* Barras por plataforma */}
+            <div style={{ flex: '2 1 320px', minWidth: 260, display: 'flex', flexDirection: 'column', gap: 12, justifyContent: 'center' }}>
+              {plat.plataformas.map(c => {
+                const w = (c.comision / plat.comMax) * 100
+                const pctCanal = c.bruto > 0 ? (c.comision / c.bruto) * 100 : 0
+                return (
+                  <div key={c.id}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                      <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK }}>
+                        <span style={dotNeo(c.color)} />{c.label}
+                      </span>
+                      <span style={{ fontFamily: LEX, fontSize: 13, color: ROJO, fontWeight: 600 }}>
+                        {fmtEur(c.comision)} <span style={{ color: GRIS, fontWeight: 400 }}>({pctCanal.toFixed(0)}%)</span>
+                      </span>
+                    </div>
+                    <div style={{ height: 14, background: '#ffffff', border: `2px solid ${INK}` }}>
+                      <div style={{ width: `${w}%`, height: '100%', background: c.color }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Evolución mensual — solo si hay más de 1 mes */}
       {mostrarEvolucion && (
