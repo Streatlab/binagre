@@ -58,6 +58,12 @@ Se coloca **arriba a la derecha** de la cabecera. Si no se encuentra, *fallback*
   Devuelve la **Y de continuación**.
 - `pintarPaginado(doc, actual, total, ctx)` → "actual / total" abajo centrado.
 - `tarjeta(...)`, `tablaWrap(...)`, `pill(...)` → helpers con el radio único y la paleta.
+- `lineaRelleno(doc, x0, x1, y)` → **única** línea permitida para "espacio a rellenar a mano"
+  (anotar cantidad, marcar check, etc.). Dibuja una sola línea. Ningún documento debe pintar
+  una segunda línea de separador de fila pegada a esta — eso duplica el trazo visualmente
+  (bug corregido en Inventario Permanente: línea de anotación + separador de fila 1,4mm
+  por debajo se veían como dos líneas juntas). Cualquier documento con línea de continuidad
+  para escribir a mano usa este helper, no un `doc.line` propio.
 - `fTitulo` / `fDato` → seleccionan la fuente correcta (embebida o fallback).
 - `descargar(doc, tipo)` / `abrirImprimir(doc)` → salida.
 

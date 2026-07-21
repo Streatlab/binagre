@@ -240,6 +240,17 @@ export function tablaWrap(doc: jsPDF, x: number, y: number, w: number, h: number
   doc.roundedRect(x, y, w, h, R, R, 'S')
 }
 
+/**
+ * Linea de relleno a mano (continuidad tras un dato para anotar cantidad, check, etc.).
+ * UNICA linea permitida para este uso en todo el marco: nunca dibujar una segunda
+ * linea de separador de fila pegada a esta (bug corregido: Inventario Permanente
+ * dibujaba esta linea + un separador de fila 1,4mm por debajo -> se veian dos lineas juntas).
+ */
+export function lineaRelleno(doc: jsPDF, x0: number, x1: number, y: number) {
+  doc.setDrawColor(...LINEA); doc.setLineWidth(0.3)
+  doc.line(x0, y, x1, y)
+}
+
 /** Pastilla (pill) con relleno soft y texto en acento. Devuelve el ancho ocupado. */
 export function pill(doc: jsPDF, x: number, y: number, text: string, area: Area, ctx: Ctx, opts: { bn?: boolean; fontSize?: number } = {}): number {
   const pal = paleta(area, opts.bn)

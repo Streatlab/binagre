@@ -341,12 +341,8 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi, ctx: M.Ctx, bn: boolean) {
           doc.text(`  (${it.min_seguridad})`, endX, baseY)
           endX += doc.getTextWidth(`  (${it.min_seguridad})`)
         }
-        // línea continua de anotación
-        doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.3)
-        doc.line(endX + 3, y + itemH - 1.4, x + colW - 2, y + itemH - 1.4)
-        // separador inferior
-        doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.12)
-        doc.line(x, y + itemH, x + colW, y + itemH)
+        // línea continua de anotación (única línea del marco para este uso, ver M.lineaRelleno)
+        M.lineaRelleno(doc, endX + 3, x + colW - 2, y + itemH - 1.4)
         y += itemH
       }
       y += gap
