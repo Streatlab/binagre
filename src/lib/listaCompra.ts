@@ -99,6 +99,34 @@ export interface LineaLC {
 export interface CategoriaBloque { catId: string; catNombre: string; orden: number; items: LineaLC[] }
 export interface ProveedorBloque { prov: Proveedor; categorias: CategoriaBloque[]; total: number }
 
+/* ─── Cobertura de precios del robot (avance hacia el 100%) ─── */
+
+export interface CoberturaGap { prov: Proveedor; nombre: string; unidad: string; origen: 'escandallo' | 'sin' }
+export interface Cobertura {
+  total: number
+  robot: number        // líneas con precio de robot
+  escandallo: number   // líneas que caen a precio de escandallo (el robot aún no las casó)
+  sin: number          // líneas sin ningún precio
+  pctRobot: number
+  gaps: CoberturaGap[] // lo que falta por casar (sin precio primero, luego escandallo)
+}
+
+/** Mide, sobre lo que se ve en el documento, cuánto precio viene del robot y qué falta por casar. */
+export function coberturaPrecios(bloques: ProveedorBloque[]): Cobertura {
+  let robot = 0, escandallo = 0, sin = 0
+  const gaps: CoberturaGap[] = []
+  for (const b of bloques) for (const c of b.categorias) for (const li of c.items) {
+    if (li.origenPrecio === 'robot') { robot++; continue }
+    const origen: 'escandallo' | 'sin' = li.origenPrecio === 'escandallo' ? 'escandallo' : 'sin'
+    if (origen === 'escandallo') escandallo++; else sin++
+    gaps.push({ prov: b.prov, nombre: li.nombreMostrar, unidad: li.unidad, origen })
+  }
+  const total = robot + escandallo + sin
+  gaps.sort((a, b) =>
+    (a.origen === b.origen ? 0 : a.origen === 'sin' ? -1 : 1) || a.nombre.localeCompare(b.nombre, 'es'))
+  return { total, robot, escandallo, sin, pctRobot: total ? (robot / total) * 100 : 0, gaps }
+}
+
 /* ─── Comparador Mercadona vs Alcampo (ahorro potencial) ─── */
 
 export interface ComparativaItem {

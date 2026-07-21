@@ -3,11 +3,11 @@ import React from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle } from '@/styles/tokens'
 import type { TokenSet } from '@/styles/tokens'
-import { Printer, Download, ShoppingCart, Search, Trash2, RotateCcw, Share2, ListChecks, Scale, ChevronDown, ChevronRight } from 'lucide-react'
+import { Printer, Download, ShoppingCart, Search, Trash2, RotateCcw, Share2, ListChecks, Scale, Gauge, ChevronDown, ChevronRight } from 'lucide-react'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
 import {
-  PROVEEDOR_LABEL, construirBloques, compararSupers, metaSemana, semanaISO, eur,
+  PROVEEDOR_LABEL, construirBloques, compararSupers, coberturaPrecios, metaSemana, semanaISO, eur,
 } from '@/lib/listaCompra'
 import type { IngredienteLC, CategoriaLC, ProductoLC, ProveedorBloque } from '@/lib/listaCompra'
 
@@ -96,6 +96,7 @@ export default function ListaCompra() {
   const [vista, setVista] = useState<'lista' | 'papelera'>('lista')
   const [bn, setBn] = useState(false)
   const [cmpOpen, setCmpOpen] = useState(false)
+  const [cobOpen, setCobOpen] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -149,6 +150,8 @@ export default function ListaCompra() {
     () => compararSupers(ingredientes, productos, excluidos),
     [ingredientes, productos, excluidos],
   )
+
+  const cobertura = useMemo(() => coberturaPrecios(bloques), [bloques])
 
   const papeleraItems = useMemo(() => {
     const catMap = new Map(categorias.map(c => [c.id, c.nombre]))
@@ -220,6 +223,57 @@ export default function ListaCompra() {
             <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
             <input value={busq} onChange={e => setBusq(e.target.value)} placeholder="Buscar ingrediente…" style={{ ...inputSt(T), width: '100%', paddingLeft: 30 }} />
           </div>
+        </div>
+      )}
+
+      {/* Cobertura de precios del robot (solo pantalla) */}
+      {vista === 'lista' && cobertura.total > 0 && (
+        <div className="no-print" style={{ border: `1px solid ${T.brd}`, borderRadius: 12, background: T.card, marginBottom: 12, overflow: 'hidden' }}>
+          <button
+            onClick={() => setCobOpen(o => !o)}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <Gauge size={18} color="#B01D23" />
+            <span style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.pri }}>
+              Cobertura del robot
+            </span>
+            <span style={{ fontFamily: FONT.body, fontSize: 12.5, color: T.mut, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span><b style={{ color: cobertura.pctRobot >= 80 ? VERDE : cobertura.pctRobot >= 50 ? '#c47600' : '#B01D23' }}>{fmtPct(cobertura.pctRobot)}</b> con precio de robot</span>
+              {cobertura.escandallo > 0 && <span>· <b style={{ color: '#c47600' }}>{cobertura.escandallo}</b> de escandallo</span>}
+              {cobertura.sin > 0 && <span>· <b style={{ color: '#B01D23' }}>{cobertura.sin}</b> sin precio</span>}
+            </span>
+            <span style={{ marginLeft: 'auto', color: T.mut }}>{cobOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
+          </button>
+
+          {/* barra de cobertura */}
+          <div style={{ height: 6, background: T.group, display: 'flex' }}>
+            <div style={{ width: `${cobertura.total ? (cobertura.robot / cobertura.total) * 100 : 0}%`, background: VERDE }} />
+            <div style={{ width: `${cobertura.total ? (cobertura.escandallo / cobertura.total) * 100 : 0}%`, background: '#e0a53a' }} />
+            <div style={{ width: `${cobertura.total ? (cobertura.sin / cobertura.total) * 100 : 0}%`, background: '#B01D23' }} />
+          </div>
+
+          {cobOpen && cobertura.gaps.length > 0 && (
+            <div style={{ borderTop: `1px solid ${T.brd}`, maxHeight: 300, overflowY: 'auto' }}>
+              <div style={{ padding: '8px 16px', fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
+                Pendiente de casar por el robot ({cobertura.gaps.length}):
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body }}>
+                <tbody>
+                  {cobertura.gaps.map((g, i) => (
+                    <tr key={`${g.prov}-${g.nombre}-${i}`} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
+                      <td style={{ ...tdCmp(T), color: T.pri }}>{g.nombre} <span style={{ color: T.mut, fontSize: 11 }}>/{g.unidad}</span></td>
+                      <td style={{ ...tdCmp(T), color: T.mut }}>{PROVEEDOR_LABEL[g.prov]}</td>
+                      <td style={{ ...tdCmp(T), textAlign: 'right' }}>
+                        <span style={{ background: g.origen === 'sin' ? '#B01D2318' : '#c4760018', color: g.origen === 'sin' ? '#B01D23' : '#c47600', borderRadius: 6, padding: '2px 8px', fontFamily: FONT.heading, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                          {g.origen === 'sin' ? 'sin precio' : 'escandallo'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
