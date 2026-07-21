@@ -62,6 +62,16 @@ interface RadarAhorro {
   ahorro_eur_ud_std: number
   ahorro_pct: number
 }
+interface PlatoSangra {
+  plato: string
+  marca: string
+  receta_id: string | null
+  unidades: number
+  ingresos: number
+  food_cost_pct: number
+  objetivo_pct: number
+  sangria_eur: number
+}
 interface Motor {
   activo: boolean
   procesadas: number
@@ -93,9 +103,11 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const [motor, setMotor] = useState<Motor | null>(null)
   const [pendientes, setPendientes] = useState<number | null>(null)
   const [radar, setRadar] = useState<RadarAhorro[]>([])
+  const [sangran, setSangran] = useState<PlatoSangra[]>([])
+  const [objetivoFood, setObjetivoFood] = useState(35)
 
   const cargar = useCallback(async () => {
-    const [est, al, bo, inv, vza, cr, rad] = await Promise.all([
+    const [est, al, bo, inv, vza, cr, rad, san] = await Promise.all([
       fetch(`${API}/estado`).then(r => r.ok ? r.json() : null).catch(() => null),
       supabase.from('alertas_precio').select('*, ingredientes(nombre)').eq('estado', 'pendiente').order('created_at', { ascending: false }).limit(30),
       supabase.from('ingredientes').select('*').eq('borrador', true).order('created_at', { ascending: false }).limit(50),
@@ -103,11 +115,14 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
       supabase.from('v_varianza_ingrediente_periodo').select('*').order('desviacion_eur', { ascending: false }).limit(200),
       supabase.from('v_coste_real_periodo').select('*').order('fin', { ascending: false }).limit(1).maybeSingle(),
       fetch(`${API}/radar-ahorro`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/platos-sangran`).then(r => r.ok ? r.json() : null).catch(() => null),
     ])
     setEstado(est)
     setAlertas((al.data as Alerta[]) ?? [])
     setBorradores((bo.data as Ingrediente[]) ?? [])
     setRadar((rad?.radar as RadarAhorro[]) ?? [])
+    setSangran((san?.platos as PlatoSangra[]) ?? [])
+    if (san?.objetivo_pct != null) setObjetivoFood(san.objetivo_pct)
     setInventario((inv.data as Inventario) ?? null)
     const ultimo = ((vza.data as Varianza[]) ?? [])
     const ultFin = ultimo.length ? ultimo.reduce((mx, v) => v.fin > mx ? v.fin : mx, ultimo[0].fin) : null
@@ -357,6 +372,30 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
                   <td style={{ ...td, color: GRIS }}>{r.proveedor_caro}</td>
                   <td style={{ ...tdNum, color: GRIS }}>{fmtES(r.eur_std_caro, 2)} €/{r.ud_std}</td>
                   <td style={{ ...tdNum, color: VERDE, fontWeight: 700 }}>−{fmtES(r.ahorro_pct, 0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Platos que sangran · food cost real por encima del objetivo × ventas reales */}
+      {!!sangran.length && (
+        <div style={card}>
+          <h3 style={h3}>Platos que sangran · coste por encima del objetivo ({objetivoFood}%)</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Con el food cost real (que la ingesta mantiene al día) y las unidades vendidas del último mes: cuánto dinero de más te cuesta la materia prima de cada plato. Súbele el precio o abarata el escandallo.
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>PLATO</th><th style={th}>MARCA</th><th style={thR}>UDS/MES</th><th style={thR}>FOOD COST</th><th style={thR}>PIERDES/MES</th></tr></thead>
+            <tbody>
+              {sangran.map((p, i) => (
+                <tr key={`${p.plato}-${p.marca}-${i}`} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{p.plato}</td>
+                  <td style={{ ...td, fontSize: 12, color: GRIS }}>{p.marca}</td>
+                  <td style={tdNum}>{p.unidades}</td>
+                  <td style={{ ...tdNum, color: ROJO, fontWeight: 700 }}>{fmtES(p.food_cost_pct, 0)}%</td>
+                  <td style={{ ...tdNum, color: ROJO, fontWeight: 700 }}>{fmtES(p.sangria_eur, 2)} €</td>
                 </tr>
               ))}
             </tbody>

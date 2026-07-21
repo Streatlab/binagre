@@ -23,6 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST' && action === 'fusionar-borrador') return await fusionarBorrador(req, res)
     if (action === 'sugerir-fusiones') return await sugerirFusiones(req, res)
     if (action === 'radar-ahorro') return await radarAhorro(res)
+    if (action === 'platos-sangran') return await platosSangran(req, res)
     if (action === 'completar-borradores') return await completarBorradores(req, res)
     if (action === 'procesar-lote') return await procesarLote(req, res)
     // Motor superpersistente (patrón OCR: trabajo en servidor, cron empujador, UI solo pinta)
@@ -462,6 +463,16 @@ async function radarAhorro(res: VercelResponse) {
     .limit(40)
   if (error) return res.status(200).json({ ok: false, error: error.message })
   return res.status(200).json({ ok: true, radar: data ?? [] })
+}
+
+/* ───────── PLATOS QUE SANGRAN · food cost real por encima del objetivo × ventas reales ─────────
+   Cierra el bucle: la ingesta actualiza el coste del escandallo → aquí se ve en cuánto dinero
+   real/mes se traduce por plato. Objetivo de food cost configurable (?target=0.35 por defecto). */
+async function platosSangran(req: VercelRequest, res: VercelResponse) {
+  const target = num(req.query.target as string) ?? 0.35
+  const { data, error } = await supabaseAdmin.rpc('fn_escandallo_platos_sangran', { p_target: target })
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, objetivo_pct: Math.round(target * 100), platos: data ?? [] })
 }
 
 /* ───────── Fase T4 · completar-borradores: robot rellena formato/contenido/precio de
