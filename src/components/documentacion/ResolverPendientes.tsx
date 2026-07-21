@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { RefreshCw, AlertTriangle, Pause, Play, X as XIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
+import { HORAS_FIJAS, bandaQueChoca, proximaOcurrencia } from '@/lib/papeleoHoras'
 import { OSW, LEX, INK, VERDE, NAR, ROJO, AMA, GRIS, SHADOW, BORDER_CARD } from '@/styles/neobrutal'
 
 interface Inventario {
@@ -40,40 +41,6 @@ const MOTOR_ATASCADO_MS = 12 * 60 * 1000
 const NUDGE_THROTTLE_MS = 60 * 1000
 
 const UMBRAL_LOTES = 300
-
-const HORAS_FIJAS = ['03:00', '11:00', '13:00', '23:30']
-
-// Bandas horarias intocables (hora local = hora Madrid, app de un solo usuario en España).
-const BANDAS_PROHIBIDAS = [
-  { desde: '01:50', hasta: '02:10', motivo: 'verificación nocturna' },
-  { desde: '04:00', hasta: '07:15', motivo: 'robots, cartero e informes' },
-  { desde: '14:15', hasta: '15:45', motivo: 'corte de turno' },
-  { desde: '21:15', hasta: '22:45', motivo: 'corte de turno y WhatsApp' },
-]
-
-function aMinutos(hhmm: string): number {
-  const [h, m] = hhmm.split(':').map((n) => Number(n) || 0)
-  return h * 60 + m
-}
-
-function bandaQueChoca(hhmm: string): string | null {
-  if (!/^\d{2}:\d{2}$/.test(hhmm)) return 'formato de hora inválido'
-  const t = aMinutos(hhmm)
-  for (const b of BANDAS_PROHIBIDAS) {
-    if (t >= aMinutos(b.desde) && t <= aMinutos(b.hasta)) return b.motivo
-  }
-  return null
-}
-
-// Próxima ocurrencia de esa hora (hoy si aún no ha pasado, si no mañana).
-// Usa la hora local del navegador: herramienta de un solo usuario operando desde España.
-function proximaOcurrencia(hhmm: string): Date {
-  const [h, m] = hhmm.split(':').map(Number)
-  const ahora = new Date()
-  const objetivo = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), h, m, 0, 0)
-  if (objetivo.getTime() <= ahora.getTime()) objetivo.setDate(objetivo.getDate() + 1)
-  return objetivo
-}
 
 const TIPOS_INVENTARIO: { tipo: string; campo: keyof Inventario }[] = [
   { tipo: 'despertar_dormidos', campo: 'en_storage' },
