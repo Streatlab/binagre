@@ -3,13 +3,14 @@ import React from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle } from '@/styles/tokens'
 import type { TokenSet } from '@/styles/tokens'
-import { Printer, Download, ShoppingCart, Search, Trash2, RotateCcw, Share2, ListChecks, Scale, Gauge, ChevronDown, ChevronRight } from 'lucide-react'
+import { Printer, Download, ShoppingCart, Search, Trash2, RotateCcw, Share2, ListChecks, Scale, Gauge, ChevronDown, ChevronRight, FileSpreadsheet, Copy, Check, Sparkles } from 'lucide-react'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
 import {
-  PROVEEDOR_LABEL, construirBloques, compararSupers, coberturaPrecios, metaSemana, semanaISO, eur,
+  PROVEEDOR_LABEL, PROVEEDOR_ORDEN, construirBloques, compararSupers, coberturaPrecios,
+  filtrarBloques, listaCompraCSV, listaCompraTexto, metaSemana, semanaISO, eur,
 } from '@/lib/listaCompra'
-import type { IngredienteLC, CategoriaLC, ProductoLC, ProveedorBloque } from '@/lib/listaCompra'
+import type { IngredienteLC, CategoriaLC, ProductoLC, ProveedorBloque, Proveedor, FiltroCobertura } from '@/lib/listaCompra'
 
 const fmtPct = (n: number) => `${n.toLocaleString('es-ES', { maximumFractionDigits: 0 })}%`
 
@@ -97,6 +98,9 @@ export default function ListaCompra() {
   const [bn, setBn] = useState(false)
   const [cmpOpen, setCmpOpen] = useState(false)
   const [cobOpen, setCobOpen] = useState(false)
+  const [filtroProv, setFiltroProv] = useState<Proveedor | 'todos'>('todos')
+  const [filtroCob, setFiltroCob] = useState<FiltroCobertura>('todos')
+  const [copiado, setCopiado] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -144,7 +148,12 @@ export default function ListaCompra() {
     [ingredientesFiltrados, categorias, productos, excluidos],
   )
 
-  const totalRefs = useMemo(() => bloques.reduce((s, b) => s + b.total, 0), [bloques])
+  const bloquesVista = useMemo(
+    () => filtrarBloques(bloques, filtroProv, filtroCob),
+    [bloques, filtroProv, filtroCob],
+  )
+
+  const totalRefs = useMemo(() => bloquesVista.reduce((s, b) => s + b.total, 0), [bloquesVista])
 
   const comparativa = useMemo(
     () => compararSupers(ingredientes, productos, excluidos),
@@ -173,11 +182,27 @@ export default function ListaCompra() {
     if (error) setExcluidos(prev => new Set(prev).add(id))
   }, [])
 
-  const handlePrint = async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(crearPDF(bloques, metaTexto, rec, bn)) }
-  const handlePDF = async () => { const rec = await M.cargarRecursos(); M.descargar(crearPDF(bloques, metaTexto, rec, bn), `lista-compra-semana-${semanaN}`) }
+  const handlePrint = async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(crearPDF(bloquesVista, metaTexto, rec, bn)) }
+  const handlePDF = async () => { const rec = await M.cargarRecursos(); M.descargar(crearPDF(bloquesVista, metaTexto, rec, bn), `lista-compra-semana-${semanaN}`) }
+
+  const handleCSV = () => {
+    const csv = listaCompraCSV(bloquesVista)
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url; a.download = `lista-compra-semana-${semanaN}.csv`
+    a.click(); URL.revokeObjectURL(url)
+  }
+
+  const handleCopiar = async () => {
+    try {
+      await navigator.clipboard.writeText(listaCompraTexto(bloquesVista, metaTexto))
+      setCopiado(true); setTimeout(() => setCopiado(false), 1800)
+    } catch { /* clipboard no disponible */ }
+  }
+
   const handleShare = async () => {
     const rec = await M.cargarRecursos()
-    const doc = crearPDF(bloques, metaTexto, rec, bn)
+    const doc = crearPDF(bloquesVista, metaTexto, rec, bn)
     const blob = doc.output('blob')
     const nombre = `lista-compra-semana-${semanaN}.pdf`
     const file = new File([blob], nombre, { type: 'application/pdf' })
@@ -210,19 +235,48 @@ export default function ListaCompra() {
             {vista === 'lista' ? `Papelera (${papeleraItems.length})` : 'Volver a la lista'}
           </button>
           <button onClick={() => setBn(v => !v)} style={{ ...btnGhost, background: bn ? '#e7e7e7' : 'transparent', color: bn ? '#111' : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
+          <button onClick={handleCopiar} style={btnGhost} title="Copiar resumen (WhatsApp)">{copiado ? <Check size={14} color={VERDE} /> : <Copy size={14} />} {copiado ? 'Copiado' : 'Copiar'}</button>
+          <button onClick={handleCSV} style={btnGhost} title="Exportar a CSV (Excel)"><FileSpreadsheet size={14} /> CSV</button>
           <button onClick={handlePrint} style={btnGhost}><Printer size={14} /> Imprimir</button>
           <button onClick={handleShare} style={btnGhost}><Share2 size={14} /> Compartir</button>
           <button onClick={handlePDF} style={btnPrimary}><Download size={14} /> PDF</button>
         </div>
       </div>
 
-      {/* Filtro */}
+      {/* Filtros */}
       {vista === 'lista' && (
-        <div className="no-print" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-          <div style={{ position: 'relative', flex: '1 1 220px', maxWidth: 360 }}>
+        <div className="no-print" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ position: 'relative', flex: '1 1 220px', maxWidth: 320 }}>
             <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.mut }} />
             <input value={busq} onChange={e => setBusq(e.target.value)} placeholder="Buscar ingrediente…" style={{ ...inputSt(T), width: '100%', paddingLeft: 30 }} />
           </div>
+
+          {/* Chips de proveedor */}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['todos', ...PROVEEDOR_ORDEN] as const).map(p => (
+              <button key={p} onClick={() => setFiltroProv(p)} style={chip(T, filtroProv === p)}>
+                {p === 'todos' ? 'Todos' : PROVEEDOR_LABEL[p]}
+              </button>
+            ))}
+          </div>
+
+          {/* Segmentado de cobertura */}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {([['todos', 'Todo'], ['robot', 'Con robot'], ['gaps', 'Gaps']] as const).map(([k, lbl]) => (
+              <button key={k} onClick={() => setFiltroCob(k)} style={chip(T, filtroCob === k)}>{lbl}</button>
+            ))}
+          </div>
+
+          {/* KPI de ahorro (abre el comparador) */}
+          {comparativa.items.length > 0 && (
+            <button
+              onClick={() => setCmpOpen(true)}
+              title="Ver comparador Mercadona vs Alcampo"
+              style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: '#1D9E7514', color: VERDE, border: 'none', borderRadius: 999, padding: '6px 12px', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '0.03em', cursor: 'pointer' }}
+            >
+              <Sparkles size={13} /> Ahorra hasta {fmtPct(comparativa.items[0].ahorroPct)} comparando súper
+            </button>
+          )}
         </div>
       )}
 
@@ -353,7 +407,7 @@ export default function ListaCompra() {
                     <th className="th-dia" style={{ minWidth: 60 }}>Quitar</th>
                   </tr></thead>
                   <tbody>
-                    {bloques.map(bloque => bloque.total === 0 ? null : (
+                    {bloquesVista.map(bloque => bloque.total === 0 ? null : (
                       <React.Fragment key={bloque.prov}>
                         <tr className="fila-proveedor"><td colSpan={4} className="td-proveedor">
                           {PROVEEDOR_LABEL[bloque.prov]} <span style={{ fontWeight: 400, fontSize: 11 }}>{bloque.total} ref.</span>
@@ -426,6 +480,7 @@ export default function ListaCompra() {
 const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }
 const btnGhost: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '8px 14px', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer', letterSpacing: '0.04em' }
 const inputSt = (T: TokenSet): React.CSSProperties => ({ background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', outline: 'none' })
+const chip = (T: TokenSet, active: boolean): React.CSSProperties => ({ background: active ? '#B01D23' : 'transparent', color: active ? '#fff' : 'var(--sl-text-secondary)', border: `0.5px solid ${active ? '#B01D23' : 'var(--sl-border)'}`, borderRadius: 999, padding: '6px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '0.04em', cursor: 'pointer', whiteSpace: 'nowrap' })
 const thPap = (T: TokenSet): React.CSSProperties => ({ padding: '10px 14px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', color: T.mut, fontWeight: 400, textAlign: 'left' })
 const tdPap = (T: TokenSet): React.CSSProperties => ({ padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri })
 

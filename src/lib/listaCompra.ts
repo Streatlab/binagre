@@ -299,3 +299,58 @@ export function construirBloques(
     return { prov, categorias: catBloques, total }
   })
 }
+
+/* ─── Filtros de vista (proveedor + cobertura) ─── */
+
+export type FiltroCobertura = 'todos' | 'robot' | 'gaps'
+
+/** Devuelve nuevos bloques filtrados por proveedor y por cobertura de precio, recalculando totales. */
+export function filtrarBloques(
+  bloques: ProveedorBloque[],
+  prov: Proveedor | 'todos',
+  cob: FiltroCobertura,
+): ProveedorBloque[] {
+  return bloques
+    .filter(b => prov === 'todos' || b.prov === prov)
+    .map(b => {
+      const categorias = b.categorias
+        .map(c => ({
+          ...c,
+          items: c.items.filter(li =>
+            cob === 'todos' ? true : cob === 'robot' ? li.origenPrecio === 'robot' : li.origenPrecio !== 'robot'),
+        }))
+        .filter(c => c.items.length > 0)
+      return { ...b, categorias, total: categorias.reduce((s, c) => s + c.items.length, 0) }
+    })
+}
+
+/* ─── Exportaciones (CSV Excel-ES + texto para WhatsApp) ─── */
+
+/** CSV compatible con Excel español: separador `;`, decimales con coma, BOM UTF-8. */
+export function listaCompraCSV(bloques: ProveedorBloque[]): string {
+  const esc = (s: string) => `"${(s ?? '').replace(/"/g, '""')}"`
+  const precio = (n: number | null) => (n != null ? n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '')
+  const filas = ['Proveedor;Categoría;Producto;Ud. mínima;Precio (€);Origen']
+  for (const b of bloques) for (const c of b.categorias) for (const li of c.items) {
+    filas.push([
+      PROVEEDOR_LABEL[b.prov], c.catNombre, li.nombreMostrar, li.unidad,
+      precio(li.precio), li.origenPrecio ?? 'sin',
+    ].map(x => esc(String(x))).join(';'))
+  }
+  return '﻿' + filas.join('\r\n')
+}
+
+/** Resumen en texto plano (WhatsApp/portapapeles) agrupado por proveedor y categoría. */
+export function listaCompraTexto(bloques: ProveedorBloque[], meta: string): string {
+  const out: string[] = ['🛒 LISTA DE COMPRA', meta, '']
+  for (const b of bloques) {
+    if (b.total === 0) continue
+    out.push(`*${PROVEEDOR_LABEL[b.prov].toUpperCase()}* (${b.total})`)
+    for (const c of b.categorias) {
+      out.push(`_${c.catNombre}_`)
+      for (const li of c.items) out.push(`• ${li.nombreMostrar} — ${li.precio != null ? eur(li.precio) : '—'}/${li.unidad}`)
+    }
+    out.push('')
+  }
+  return out.join('\n').trim()
+}
