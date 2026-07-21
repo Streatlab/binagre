@@ -1,12 +1,13 @@
 /**
- * RESERVAS — Fondo de maniobra. Neobrutal Food-Pop (tokens canonicos).
+ * FondoReserva — Fondo de maniobra. Neobrutal Food-Pop (tokens canonicos).
  *
- * HERO accionable: "ingresa hoy X / esta semana Y" con un solo gesto.
- * Cada cobro de plataforma desde la fecha de arranque genera una orden de barrido
- * (% del cobro neto -> traspaso a la cuenta de reserva).
- * Dotar la reserva NO es gasto -> no computa en P&G. Es tesoreria.
+ * Extraido de la antigua pagina Reservas para poder vivir como pestaña dentro
+ * de Pagos y Cobros. Incluye:
+ *  - Barrido de cobros de plataforma al fondo (DOTACION vinculada, reversible).
+ *  - Boton "Deshacer" por dotacion (doble confirmacion) via RPC transaccional.
+ *  - Cobertura contra el objetivo REAL de fijos (reserva_config.objetivo_fijos_mes).
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
@@ -15,7 +16,7 @@ import {
 } from '@/styles/neobrutal'
 import { fmtEur } from '@/lib/format'
 
-interface Config { id: number; pct: number; activo: boolean; fecha_inicio: string }
+interface Config { id: number; pct: number; activo: boolean; fecha_inicio: string; objetivo_fijos_mes: number }
 interface Orden {
   id: string; fecha_cobro: string; plataforma: string
   importe_cobro: number; pct_aplicado: number; importe_reservar: number; estado: string
@@ -48,16 +49,19 @@ function fechaBonita(iso: string): string {
   return dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })
 }
 
-export default function Reservas() {
+export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const [cfg, setCfg] = useState<Config | null>(null)
   const [ordenes, setOrdenes] = useState<Orden[]>([])
   const [movs, setMovs] = useState<Movimiento[]>([])
-  const [fijosMes, setFijosMes] = useState(0)
+  const [fijosMedia, setFijosMedia] = useState(0)
+  const [objetivoReal, setObjetivoReal] = useState(0)
   const [agenda, setAgenda] = useState<Agenda | null>(null)
   const [loading, setLoading] = useState(true)
   const [ocupado, setOcupado] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [pctEdit, setPctEdit] = useState(5)
+  const [confirmDeshacer, setConfirmDeshacer] = useState<string | null>(null)
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function cargar() {
     const [c, o, m, f, a] = await Promise.all([
@@ -67,10 +71,13 @@ export default function Reservas() {
       supabase.from('v_reserva_fijos_mes').select('fijos_mes').single(),
       supabase.from('v_reserva_agenda').select('*').single(),
     ])
-    if (c.data) { setCfg(c.data as Config); setPctEdit(Number((c.data as Config).pct)) }
+    if (c.data) {
+      const cd = c.data as Config
+      setCfg(cd); setPctEdit(Number(cd.pct)); setObjetivoReal(Number(cd.objetivo_fijos_mes ?? 0))
+    }
     setOrdenes((o.data ?? []) as Orden[])
     setMovs((m.data ?? []) as Movimiento[])
-    setFijosMes(Number((f.data as { fijos_mes?: number } | null)?.fijos_mes ?? 0))
+    setFijosMedia(Number((f.data as { fijos_mes?: number } | null)?.fijos_mes ?? 0))
     if (a.data) {
       const raw = a.data as Record<string, unknown>
       setAgenda({
@@ -82,7 +89,7 @@ export default function Reservas() {
     }
     setLoading(false)
   }
-  useEffect(() => { cargar() }, [])
+  useEffect(() => { cargar(); return () => { if (confirmTimer.current) clearTimeout(confirmTimer.current) } }, [])
 
   const pendientes = useMemo(() => ordenes.filter(o => o.estado === 'PENDIENTE'), [ordenes])
   const totalPendiente = agenda?.total ?? 0
@@ -90,8 +97,10 @@ export default function Reservas() {
   const retirado = useMemo(() => movs.filter(m => m.tipo === 'RETIRADA').reduce((a, m) => a + Number(m.importe), 0), [movs])
   const saldo = dotado - retirado
   const fugas = useMemo(() => movs.filter(m => m.tipo === 'RETIRADA' && !m.autorizado), [movs])
-  const cobertura = fijosMes > 0 ? (saldo / fijosMes) * 100 : 0
-  const colorCob = cobertura >= 100 ? VERDE : cobertura >= 50 ? AMA : ROJO
+  // Cobertura contra el objetivo REAL de fijos del mes (no la media historica).
+  const objetivo = objetivoReal > 0 ? objetivoReal : fijosMedia
+  const cobertura = objetivo > 0 ? (saldo / objetivo) * 100 : 0
+  const colorCob = cobertura >= 100 ? VERDE : cobertura >= 60 ? AMA : ROJO
 
   const diasMasAntigua = useMemo(() => {
     if (pendientes.length === 0) return 0
@@ -101,7 +110,6 @@ export default function Reservas() {
   const nivel: 'ok' | 'aviso' | 'rojo' | 'bloqueo' =
     pendientes.length === 0 ? 'ok' : diasMasAntigua >= 5 ? 'bloqueo' : diasMasAntigua >= 2 ? 'rojo' : 'aviso'
 
-  // Mix por plataforma del total pendiente (para la barra del hero)
   const mixCanal = useMemo(() => {
     const acc: Record<string, number> = {}
     for (const o of pendientes) {
@@ -124,13 +132,11 @@ export default function Reservas() {
     const p = Math.min(35, Math.max(0, pctEdit))
     setOcupado(true)
     await supabase.from('reserva_config').update({ pct: p, updated_at: new Date().toISOString() }).eq('id', 1)
-    const ids = pendientes.map(o => o.id)
     for (const o of pendientes) {
       await supabase.from('reserva_ordenes')
         .update({ pct_aplicado: p, importe_reservar: Math.round(Number(o.importe_cobro) * p) / 100 })
         .in('id', [o.id])
     }
-    void ids
     setMsg(`Porcentaje guardado: ${p}% · órdenes pendientes recalculadas`)
     setOcupado(false)
     cargar()
@@ -147,14 +153,31 @@ export default function Reservas() {
     setOcupado(true)
     const hoyIso = new Date().toISOString().slice(0, 10)
     const total = lista.reduce((a, o) => a + Number(o.importe_reservar), 0)
-    await supabase.from('reserva_ordenes')
-      .update({ estado: 'CUMPLIDA', fecha_cumplida: hoyIso })
-      .in('id', lista.map(o => o.id))
-    await supabase.from('reserva_movimientos').insert({
+    // Insertar la dotacion capturando su id para VINCULAR las ordenes (permite deshacer).
+    const { data: mov } = await supabase.from('reserva_movimientos').insert({
       fecha: hoyIso, tipo: 'DOTACION', importe: Math.round(total * 100) / 100,
       nota: `${etiqueta} · ${lista.length} cobro${lista.length === 1 ? '' : 's'}`,
-    })
+    }).select('id').single()
+    await supabase.from('reserva_ordenes')
+      .update({ estado: 'CUMPLIDA', fecha_cumplida: hoyIso, movimiento_traspaso_id: (mov as { id?: string } | null)?.id ?? null })
+      .in('id', lista.map(o => o.id))
     setMsg(`Ingresado en el fondo: ${E2(total)} € (${etiqueta.toLowerCase()})`)
+    setOcupado(false)
+    cargar()
+  }
+
+  function pedirDeshacer(id: string) {
+    if (confirmDeshacer === id) { ejecutarDeshacer(id); return }
+    if (confirmTimer.current) clearTimeout(confirmTimer.current)
+    setConfirmDeshacer(id)
+    confirmTimer.current = setTimeout(() => setConfirmDeshacer(null), 4000)
+  }
+  async function ejecutarDeshacer(id: string) {
+    if (confirmTimer.current) clearTimeout(confirmTimer.current)
+    setConfirmDeshacer(null)
+    setOcupado(true)
+    await supabase.rpc('fn_reserva_deshacer_dotacion', { p_mov_id: id })
+    setMsg('Dotación deshecha · reabiertas las órdenes')
     setOcupado(false)
     cargar()
   }
@@ -180,8 +203,12 @@ export default function Reservas() {
     cargar()
   }
 
+  const wrap: CSSProperties = embedded
+    ? { padding: 0 }
+    : { background: CREMA, minHeight: '100vh', padding: '28px 32px' }
+
   if (loading) {
-    return <div style={{ background: CREMA, minHeight: '100vh', padding: 40, ...d('20px'), color: GRIS }}>Cargando reservas…</div>
+    return <div style={{ ...(embedded ? {} : { background: CREMA, minHeight: '100vh' }), padding: embedded ? 8 : 40, ...d('20px'), color: GRIS }}>Cargando fondo…</div>
   }
 
   const ordenesHoy = pendientes.filter(o => o.fecha_cobro === new Date().toISOString().slice(0, 10))
@@ -189,25 +216,37 @@ export default function Reservas() {
   const ordenesSemana = pendientes.filter(o => o.fecha_cobro >= semanaIni)
 
   return (
-    <div style={{ background: CREMA, minHeight: '100vh', padding: '28px 32px' }}>
+    <div style={wrap}>
 
-      {/* CABECERA */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
-        <div>
-          <span style={eyebrow(AMA)}>Tesorería · desde {cfg?.fecha_inicio ?? ''}</span>
-          <h1 style={{ ...d('42px'), margin: '10px 0 0' }}>Reservas</h1>
+      {/* CABECERA (solo en modo pagina completa) */}
+      {!embedded && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
+          <div>
+            <span style={eyebrow(AMA)}>Tesorería · desde {cfg?.fecha_inicio ?? ''}</span>
+            <h1 style={{ ...d('42px'), margin: '10px 0 0' }}>Reservas</h1>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Barrido</span>
+            <button onClick={toggleActivo} style={{
+              ...btn, padding: '8px 14px',
+              background: cfg?.activo ? VERDE : '#fff', color: cfg?.activo ? '#fff' : GRIS,
+            }}>{cfg?.activo ? 'Activo' : 'Apagado'}</button>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Barrido</span>
+      )}
+
+      {embedded && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Barrido {cfg?.fecha_inicio ? `· desde ${cfg.fecha_inicio}` : ''}</span>
           <button onClick={toggleActivo} style={{
             ...btn, padding: '8px 14px',
             background: cfg?.activo ? VERDE : '#fff', color: cfg?.activo ? '#fff' : GRIS,
           }}>{cfg?.activo ? 'Activo' : 'Apagado'}</button>
         </div>
-      </div>
+      )}
 
       {msg && (
-        <div style={{ background: VERDE, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase' }}>
+        <div onClick={() => setMsg(null)} style={{ background: VERDE, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase', cursor: 'pointer' }}>
           {msg}
         </div>
       )}
@@ -250,7 +289,6 @@ export default function Reservas() {
                 </button>
               </div>
             </div>
-            {/* Mix por plataforma */}
             <div style={{ display: 'flex', height: 14, border: `2px solid ${INK}`, marginTop: 18, overflow: 'hidden', background: '#fff' }}>
               {(['uber', 'glovo', 'je'] as const).map(k => {
                 const v = mixCanal[k] ?? 0
@@ -298,12 +336,12 @@ export default function Reservas() {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8 }}>
             <span style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
-              de los <strong>{EUR(fijosMes)}</strong> de fijos al mes
+              de los <strong>{EUR(objetivo)}</strong> de fijos reales del mes
             </span>
             <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, color: colorCob }}>{P0(cobertura)}</span>
           </div>
           <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 6 }}>
-            Nóminas, Seguridad Social, alquiler, suministros y servicios (media 3 meses).
+            Objetivo real = suma de gastos fijos activos del mes. Media 3 meses: <strong>{EUR(fijosMedia)}</strong>.
           </div>
         </div>
 
@@ -367,7 +405,7 @@ export default function Reservas() {
           </div>
           <button onClick={registrarRetirada} disabled={saldo <= 0}
             style={{ ...btn, background: saldo > 0 ? GRANATE : CLARO, color: saldo > 0 ? '#fff' : GRIS, width: '100%', marginTop: 10, cursor: saldo > 0 ? 'pointer' : 'not-allowed' }}>
-            Registrar pago
+            Registrar retirada
           </button>
           {saldo <= 0 && (
             <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 8 }}>El fondo está a cero: primero ingresa.</div>
@@ -436,26 +474,38 @@ export default function Reservas() {
             Sin movimientos todavía. El primero aparecerá cuando marques un barrido como ingresado.
           </div>
         )}
-        {movs.map((m, i) => (
-          <div key={m.id} style={{
-            display: 'grid', gridTemplateColumns: '105px 82px 1fr 130px', alignItems: 'center', gap: 12,
-            padding: '10px 0', borderBottom: i < movs.length - 1 ? '1px solid var(--neo-track)' : 'none',
-          }}>
-            <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{m.fecha}</span>
-            <span style={{
-              fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: 1, textAlign: 'center',
-              padding: '4px 6px', border: `2px solid ${INK}`, textTransform: 'uppercase',
-              background: m.tipo === 'DOTACION' ? VERDE : m.autorizado ? CLARO : ROJO,
-              color: m.tipo === 'DOTACION' ? '#fff' : m.autorizado ? INK : '#fff',
+        {movs.map((m, i) => {
+          const esConfirm = confirmDeshacer === m.id
+          return (
+            <div key={m.id} style={{
+              display: 'grid', gridTemplateColumns: '105px 82px 1fr 130px 130px', alignItems: 'center', gap: 12,
+              padding: '10px 0', borderBottom: i < movs.length - 1 ? '1px solid var(--neo-track)' : 'none',
             }}>
-              {m.tipo === 'DOTACION' ? 'Entra' : m.autorizado ? 'Sale' : 'Fuga'}
-            </span>
-            <span style={{ fontFamily: LEX, fontSize: 12.5, color: GRIS }}>{m.destino ?? m.nota ?? '—'}</span>
-            <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 17, textAlign: 'right', color: m.tipo === 'DOTACION' ? VERDE : ROJO }}>
-              {fmtEur(m.tipo === 'DOTACION' ? Number(m.importe) : -Number(m.importe), { decimals: 2, signed: true })}
-            </span>
-          </div>
-        ))}
+              <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{m.fecha}</span>
+              <span style={{
+                fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: 1, textAlign: 'center',
+                padding: '4px 6px', border: `2px solid ${INK}`, textTransform: 'uppercase',
+                background: m.tipo === 'DOTACION' ? VERDE : m.autorizado ? CLARO : ROJO,
+                color: m.tipo === 'DOTACION' ? '#fff' : m.autorizado ? INK : '#fff',
+              }}>
+                {m.tipo === 'DOTACION' ? 'Entra' : m.autorizado ? 'Sale' : 'Fuga'}
+              </span>
+              <span style={{ fontFamily: LEX, fontSize: 12.5, color: GRIS }}>{m.destino ?? m.nota ?? '—'}</span>
+              <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 17, textAlign: 'right', color: m.tipo === 'DOTACION' ? VERDE : ROJO }}>
+                {fmtEur(m.tipo === 'DOTACION' ? Number(m.importe) : -Number(m.importe), { decimals: 2, signed: true })}
+              </span>
+              {m.tipo === 'DOTACION' ? (
+                <button disabled={ocupado} onClick={() => pedirDeshacer(m.id)} style={{
+                  ...btnMini, justifySelf: 'end',
+                  background: esConfirm ? ROJO : '#fff', color: esConfirm ? '#fff' : GRIS,
+                  borderColor: esConfirm ? ROJO : INK,
+                }}>
+                  {esConfirm ? '¿Seguro?' : 'Deshacer'}
+                </button>
+              ) : <span />}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -479,3 +529,5 @@ const pill: CSSProperties = {
 const miniLbl: CSSProperties = {
   fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginTop: 4,
 }
+
+export default FondoReserva
