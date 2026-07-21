@@ -53,10 +53,28 @@ siguiente tick reclama el turno y continúa donde se quedó.
 
 ## Crons
 
-- **Nuevo:** `escandallo_motor_tick` (`* * * * *`, condicionado a `activo=true`).
+- **`escandallo_motor_tick`** (`* * * * *`, condicionado a `activo=true`) — el empujador.
+- **`escandallo_motor_arranque_diario`** (`30 3 * * *` = 05:30 Madrid verano) — enciende
+  el motor cada día SOLO si no está ya en marcha (`where not exists (… activo is true)`),
+  así vuelve a ser automático y desatendido sin resetear un motor en curso. `motor-arrancar`
+  se apaga solo si no hay pendientes.
 - **Eliminados:** `escandallo_procesar_lote_diario` y
-  `escandallo_completar_borradores_semanal` (Rubén no quiere el semanal; el diario
-  lo sustituye el motor). `completar-borradores` se lanza a mano desde su botón.
+  `escandallo_completar_borradores_semanal` (Rubén no quiere el semanal).
+  `completar-borradores` se lanza a mano desde su botón.
+
+## Mejoras posteriores (segunda iteración)
+
+1. **Auto-arranque diario** — cron `escandallo_motor_arranque_diario` (ver arriba): la
+   ingesta vuelve a ser desatendida; el motor se enciende solo cada mañana y drena la cola.
+2. **Formato honesto (LEY-ANTIFALSOS)** — `completar-borradores` (Mercadona y Alcampo)
+   deja `formato = null` cuando el envase no aparece escrito en el nombre del súper, en vez
+   de inventar `'Unidad'`. El filtro de "necesita completar" pasa de `formato IS NULL` a
+   `uds IS NULL` (el contenido normalizado es el verdadero sentinel), para no reprocesar en
+   bucle un borrador con contenido pero sin formato conocido.
+3. **Autoapagado si Drive cae** — columna `escandallo_motor.fallos_drive`: `motor-tick`
+   cuenta ticks seguidos con Drive caído y, tras 5, apaga el motor con un mensaje claro en
+   vez de reintentar cada minuto para siempre. Se resetea a 0 en cuanto un tick lee Drive
+   bien y al arrancar el motor.
 
 ## Llave del cron
 

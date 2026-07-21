@@ -135,6 +135,7 @@ async function procesarUnaFactura(driveClient: ReturnType<typeof google.drive>, 
 /* ───────── Fase E · procesar-lote (T5): n facturas seguidas en 1 invocación ───────── */
 const LOTE_MAX_N = 10
 const LOTE_PRESUPUESTO_MS = 260000 // deja margen bajo maxDuration=300s de la función
+const MAX_FALLOS_DRIVE = 5 // ticks seguidos con Drive caído antes de apagar el motor
 
 async function procesarLote(req: VercelRequest, res: VercelResponse) {
   if (!autorizadoCron(req)) return res.status(200).json({ ok: false, error: 'no autorizado' })
@@ -193,7 +194,7 @@ async function motorEstado(res: VercelResponse) {
 async function motorArrancar(res: VercelResponse) {
   const total = await contarFacturasMpPendientes()
   const { data, error } = await supabaseAdmin.from('escandallo_motor').update({
-    activo: true, procesadas: 0, total_al_iniciar: total,
+    activo: true, procesadas: 0, total_al_iniciar: total, fallos_drive: 0,
     ultimo_latido: null, ultimo_mensaje: total > 0 ? `En marcha: ${total} factura(s) pendientes.` : 'No hay facturas pendientes.',
     iniciado_at: new Date().toISOString(), parado_at: null,
   }).eq('id', 1).select().maybeSingle()
@@ -226,11 +227,26 @@ async function motorTick(req: VercelRequest, res: VercelResponse) {
 
   const drive = await abrirDrive()
   if (!drive.ok) {
+    // Drive caído: contamos fallos seguidos y, pasado el tope, apagamos el motor para
+    // no girar en vano gastando un tick por minuto para siempre.
+    const { data: prev } = await supabaseAdmin.from('escandallo_motor').select('fallos_drive').eq('id', 1).maybeSingle()
+    const fallos = (prev?.fallos_drive ?? 0) + 1
+    if (fallos >= MAX_FALLOS_DRIVE) {
+      await supabaseAdmin.from('escandallo_motor').update({
+        activo: false, parado_at: new Date().toISOString(), fallos_drive: fallos,
+        ultimo_latido: new Date().toISOString(),
+        ultimo_mensaje: `Motor detenido: Drive no conectado tras ${fallos} intentos. Reconéctalo en Configuración → Integraciones y vuelve a arrancar.`,
+      }).eq('id', 1)
+      return res.status(200).json({ ok: false, error: drive.error, detenido: true })
+    }
     await supabaseAdmin.from('escandallo_motor').update({
-      ultimo_latido: new Date().toISOString(), ultimo_mensaje: `Drive no conectado, reintentando: ${drive.error}`,
+      fallos_drive: fallos, ultimo_latido: new Date().toISOString(),
+      ultimo_mensaje: `Drive no conectado, reintentando (${fallos}/${MAX_FALLOS_DRIVE}): ${drive.error}`,
     }).eq('id', 1)
     return res.status(200).json({ ok: false, error: drive.error })
   }
+  // Drive va bien: reseteamos el contador de fallos.
+  await supabaseAdmin.from('escandallo_motor').update({ fallos_drive: 0 }).eq('id', 1)
 
   const inicio = Date.now()
   let procesadasTick = 0
@@ -443,11 +459,13 @@ async function sugerirFusiones(req: VercelRequest, res: VercelResponse) {
 async function completarBorradores(req: VercelRequest, res: VercelResponse) {
   if (!autorizadoCron(req)) return res.status(200).json({ ok: false, error: 'no autorizado' })
 
+  // "Necesita completar" = sin contenido normalizado (uds null), no sin formato: el
+  // formato puede quedar null legítimamente (LEY-ANTIFALSOS) y no debe reprocesarse en bucle.
   const { data: borradores, error } = await supabaseAdmin
     .from('ingredientes')
     .select('id, nombre, nombre_super, proveedor_principal, marca')
     .eq('borrador', true)
-    .is('formato', null)
+    .is('uds', null)
     .in('proveedor_principal', ['Mercadona', 'Alcampo'])
     .limit(30)
   if (error) return res.status(200).json({ ok: false, error: error.message })
@@ -483,7 +501,7 @@ async function completarBorradores(req: VercelRequest, res: VercelResponse) {
     }).eq('id', b.id)
 
     await supabaseAdmin.from('tareas_erp')
-      .update({ descripcion: `Completado por robot (Mercadona): ${parsed.formato} ${parsed.valor}${parsed.unidad}, ${match.precio}€. Revisa la merma antes de usarlo en recetas.`, updated_at: new Date().toISOString() })
+      .update({ descripcion: `Completado por robot (Mercadona): ${parsed.formato ? parsed.formato + ' ' : ''}${parsed.valor}${parsed.unidad}, ${match.precio}€. Revisa la merma antes de usarlo en recetas.`, updated_at: new Date().toISOString() })
       .eq('ingrediente_id', b.id).neq('columna', 'hecho')
 
     rellenados++
@@ -557,7 +575,7 @@ function mejorProductoMercadona(consulta: string, catalogo: ProductoMercadona[])
 }
 
 /** Extrae formato+contenido del nombre del producto TAL COMO lo da la web (ej. "Cebolla malla 2 kg"). Nunca inventa: si no hay patrón numérico+unidad reconocible, devuelve null. */
-function parsearFormatoYContenido(nombreWeb: string): { formato: string; valor: number; unidad: string } | null {
+function parsearFormatoYContenido(nombreWeb: string): { formato: string | null; valor: number; unidad: string } | null {
   const m = nombreWeb.match(/([\d]+(?:[.,]\d+)?)\s*(kg|g|gr|l|ml|ud|uds|unidad(?:es)?)\b/i)
   if (!m) return null
   const valor = parseFloat(m[1].replace(',', '.'))
@@ -566,8 +584,10 @@ function parsearFormatoYContenido(nombreWeb: string): { formato: string; valor: 
   if (unidad === 'gr') unidad = 'g'
   if (unidad.startsWith('ud')) unidad = 'ud'
   if (unidad.startsWith('unidad')) unidad = 'ud'
+  // LEY-ANTIFALSOS: el envase solo se rellena si aparece escrito en el nombre. Si no,
+  // formato queda null (dato desconocido), NUNCA un valor por defecto inventado.
   const formatoMatch = nombreWeb.match(/^(bolsa|caja|bandeja|bote|lata|botella|paquete|malla|tarrina|garrafa)/i)
-  const formato = formatoMatch ? formatoMatch[1][0].toUpperCase() + formatoMatch[1].slice(1).toLowerCase() : 'Unidad'
+  const formato = formatoMatch ? formatoMatch[1][0].toUpperCase() + formatoMatch[1].slice(1).toLowerCase() : null
   return { formato, valor, unidad }
 }
 
