@@ -2,9 +2,12 @@
  * TabFinanzas — Panel Global · pestaña Finanzas (estilo neobrutal Food-Pop)
  */
 
+import { useEffect, useMemo, useState } from 'react'
 import { INK, CREMA, OSW, LEX, VERDE, ROJO, NAR, GRIS, CORP, BORDER_CARD, SHADOW, d, eyebrow } from '@/styles/neobrutal'
 import { tablaNeo, theadNeo, thNeo, thNeoR, tdNeo, tdNeoR, filaAlt, dotNeo, totalRow, tdTotal, tdTotalR, vacioNeo } from '@/styles/tablaNeo'
 import { fmtEur } from '@/utils/format'
+import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
+import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 
 interface Row {
   fecha: string
@@ -16,23 +19,14 @@ interface Row {
   total_bruto: number; total_pedidos: number
 }
 
-interface Props { rows: Row[] }
-
-// Comisiones por canal según WATERFALL canónico
-const COMISIONES: Record<string, number> = {
-  uber: 0.30,
-  glovo: 0.30,
-  je: 0.30,
-  web: 0.07,
-  directa: 0.00,
-}
+interface Props { rows: Row[]; fechaDesde: Date; fechaHasta: Date }
 
 const CANALES = [
-  { id: 'uber',    label: 'Uber Eats', color: CORP.uber },
-  { id: 'glovo',   label: 'Glovo',     color: CORP.glovo },
-  { id: 'je',      label: 'Just Eat',  color: CORP.je },
-  { id: 'web',     label: 'Web',       color: CORP.web },
-  { id: 'directa', label: 'Directa',   color: CORP.dir },
+  { id: 'uber',  label: 'Uber Eats', color: CORP.uber,  bk: 'uber_bruto',    pk: 'uber_pedidos' },
+  { id: 'glovo', label: 'Glovo',     color: CORP.glovo, bk: 'glovo_bruto',   pk: 'glovo_pedidos' },
+  { id: 'je',    label: 'Just Eat',  color: CORP.je,    bk: 'je_bruto',      pk: 'je_pedidos' },
+  { id: 'web',   label: 'Web',       color: CORP.web,   bk: 'web_bruto',     pk: 'web_pedidos' },
+  { id: 'dir',   label: 'Directa',   color: CORP.dir,   bk: 'directa_bruto', pk: 'directa_pedidos' },
 ] as const
 
 const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -49,41 +43,73 @@ function kpiCard(label: string, value: string, sub?: string) {
 
 const tituloSec: React.CSSProperties = { marginBottom: 12 }
 
-export default function TabFinanzas({ rows }: Props) {
-  if (!rows.length) {
-    return <div style={{ ...vacioNeo, marginTop: 12 }}>Sin datos para el período seleccionado</div>
-  }
+export default function TabFinanzas({ rows, fechaDesde, fechaHasta }: Props) {
+  const [config, setConfig] = useState<Record<string, CanalConfig>>({})
+  const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
 
-  // Totales globales
-  const totalBruto = rows.reduce((s, r) => s + r.total_bruto, 0)
+  useEffect(() => {
+    loadConfigCanales().then(setConfig)
+    loadVentasReales().then(() => loadRatiosCalibrados())
+    loadMarcasPorCanal().then(setMarcasPorCanal)
+    const on = () => { recargarConfigCanales().then(setConfig); loadMarcasPorCanal().then(setMarcasPorCanal) }
+    window.addEventListener('config_canales:changed', on)
+    return () => window.removeEventListener('config_canales:changed', on)
+  }, [])
 
-  // Comisiones y neto por canal
-  const canalStats = CANALES.map(c => {
-    const bruto = rows.reduce((s, r) => s + (r[`${c.id}_bruto` as keyof Row] as number), 0)
-    const comision = bruto * COMISIONES[c.id]
-    const neto = bruto - comision
-    const pct = totalBruto > 0 ? (bruto / totalBruto) * 100 : 0
-    return { ...c, bruto, comision, neto, pct }
-  })
+  const totalBruto = useMemo(() => rows.reduce((s, r) => s + r.total_bruto, 0), [rows])
+
+  // Comisiones y neto por canal (LEY-NETO-01: resolverNeto es la única fuente)
+  const canalStats = useMemo(() => {
+    const nDias = new Set(rows.filter(r => r.total_bruto > 0).map(r => r.fecha)).size || 1
+    return CANALES.map(c => {
+      const bruto = rows.reduce((s, r) => s + (r[c.bk] as number), 0)
+      const pedidos = rows.reduce((s, r) => s + (r[c.pk] as number), 0)
+      const { neto } = resolverNeto(c.id, bruto, pedidos, {
+        modo: 'agregado_canal', marcasPorCanal, fechaDesde, fechaHasta,
+        configCanales: config, diasConDatos: nDias,
+      })
+      const comision = bruto - neto
+      const pct = totalBruto > 0 ? (bruto / totalBruto) * 100 : 0
+      return { ...c, bruto, comision, neto, pct }
+    })
+  }, [rows, config, marcasPorCanal, fechaDesde, fechaHasta, totalBruto])
 
   const totalComision = canalStats.reduce((s, c) => s + c.comision, 0)
   const totalNeto     = totalBruto - totalComision
   const margenPct     = totalBruto > 0 ? (totalNeto / totalBruto) * 100 : 0
 
-  // Evolución mensual
-  const mesMap: Record<string, { bruto: number; neto: number }> = {}
-  rows.forEach(r => {
-    const key = r.fecha.slice(0, 7) // YYYY-MM
-    if (!mesMap[key]) mesMap[key] = { bruto: 0, neto: 0 }
-    const comCanales = CANALES.reduce((s, c) => {
-      const b = r[`${c.id}_bruto` as keyof Row] as number
-      return s + b * COMISIONES[c.id]
-    }, 0)
-    mesMap[key].bruto += r.total_bruto
-    mesMap[key].neto  += r.total_bruto - comCanales
-  })
-  const meses = Object.keys(mesMap).sort()
+  // Evolución mensual (neto por canal y mes vía resolverNeto)
+  const { meses, mesMap } = useMemo(() => {
+    const rowsPorMes: Record<string, Row[]> = {}
+    rows.forEach(r => { (rowsPorMes[r.fecha.slice(0, 7)] ??= []).push(r) })
+    const keys = Object.keys(rowsPorMes).sort()
+    const map: Record<string, { bruto: number; neto: number }> = {}
+    for (const k of keys) {
+      const rs = rowsPorMes[k]
+      const [y, m] = k.split('-').map(Number)
+      const mDesde = new Date(y, m - 1, 1)
+      const mHasta = new Date(y, m, 0)
+      const nD = new Set(rs.filter(r => r.total_bruto > 0).map(r => r.fecha)).size || 1
+      let bruto = 0, neto = 0
+      for (const c of CANALES) {
+        const b = rs.reduce((s, r) => s + (r[c.bk] as number), 0)
+        const p = rs.reduce((s, r) => s + (r[c.pk] as number), 0)
+        bruto += b
+        neto += resolverNeto(c.id, b, p, {
+          modo: 'agregado_canal', marcasPorCanal, fechaDesde: mDesde, fechaHasta: mHasta,
+          configCanales: config, diasConDatos: nD,
+        }).neto
+      }
+      map[k] = { bruto, neto }
+    }
+    return { meses: keys, mesMap: map }
+  }, [rows, config, marcasPorCanal])
+
   const mostrarEvolucion = meses.length > 1
+
+  if (!rows.length) {
+    return <div style={{ ...vacioNeo, marginTop: 12 }}>Sin datos para el período seleccionado</div>
+  }
 
   return (
     <div style={{ paddingTop: 12 }}>
@@ -91,7 +117,7 @@ export default function TabFinanzas({ rows }: Props) {
       {/* KPI cards */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 24 }}>
         {kpiCard('Ingresos brutos', fmtEur(totalBruto))}
-        {kpiCard('Comisiones est.', fmtEur(totalComision), `${(totalComision / totalBruto * 100).toFixed(1)}% del bruto`)}
+        {kpiCard('Comisiones est.', fmtEur(totalComision), totalBruto > 0 ? `${(totalComision / totalBruto * 100).toFixed(1)}% del bruto` : undefined)}
         {kpiCard('Ingresos netos est.', fmtEur(totalNeto))}
         {kpiCard('Margen est.', `${margenPct.toFixed(1)}%`, 'neto / bruto')}
       </div>

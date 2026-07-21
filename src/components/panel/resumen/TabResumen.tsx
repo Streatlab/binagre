@@ -141,6 +141,7 @@ export default function TabResumen({
   const [frontera, setFrontera] = useState<Record<string, string>>({})
   const [ventasMarca, setVentasMarca] = useState<Array<{ marca: string; neto: number; bruto: number; pedidos: number; fecha: string }>>([])
   const [marcasActivas, setMarcasActivas] = useState<string[]>([])
+  const [saldoBanco, setSaldoBanco] = useState<number | null>(null)
 
   /* ── state UI ──────────────────────────────── */
   const [topTab, setTopTab] = useState<'productos' | 'modificadores'>('productos')
@@ -166,6 +167,14 @@ export default function TabResumen({
     }
     window.addEventListener('config_canales:changed', onChange)
     return () => window.removeEventListener('config_canales:changed', onChange)
+  }, [])
+
+  /* ── saldo REAL de banco (v_caja_mensual, igual que Cashflow) ── */
+  useEffect(() => {
+    supabase.from('v_caja_mensual').select('saldo_mes').then(({ data }) => {
+      const rows = (data ?? []) as { saldo_mes: number | null }[]
+      setSaldoBanco(rows.length ? rows.reduce((s, r) => s + (Number(r.saldo_mes) || 0), 0) : null)
+    })
   }, [])
 
   /* ── festivos + frontera de cobro del banco (para deuda de plataformas) ── */
@@ -871,6 +880,7 @@ export default function TabResumen({
         diasPico={diasPico}
         mediaDiariaPico={mediaDiariaPico}
         saldo={saldoData}
+        saldoBanco={saldoBanco}
         ratioActual={ratioActual}
         objetivoRatio={objetivoRatio}
         gastosFijosMes={gastosFijosMes}
