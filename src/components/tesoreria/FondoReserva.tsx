@@ -29,7 +29,7 @@ interface Agenda {
   hoy: number; hoy_n: number; semana: number; semana_n: number
   total: number; total_n: number; barrido_mes: number; objetivo_mes: number
 }
-interface FijoMes { concepto: string; importe: number; dia: string; estimado: boolean; categoria: string | null }
+interface FijoMes { concepto: string; importe: number; dia: string; estimado: boolean; categoria: string | null; estado_pago: string }
 
 /** Mapea la categoría contable de un fijo al destino de retirada del fondo.
  *  'OTRO' = el fondo no está pensado para ese gasto (p.ej. software) → sin botón. */
@@ -87,7 +87,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       supabase.from('v_reserva_fijos_mes').select('fijos_mes').single(),
       supabase.from('v_reserva_agenda').select('*').single(),
       supabase.from('v_reserva_panel').select('saldo_teorico').single(),
-      supabase.from('v_tesoreria_fijos_mes').select('concepto,importe,dia,estimado,categoria').order('dia', { ascending: true }).order('concepto', { ascending: true }),
+      supabase.from('v_tesoreria_fijos_mes').select('concepto,importe,dia,estimado,categoria,estado_pago').order('dia', { ascending: true }).order('concepto', { ascending: true }),
     ])
     setFijosMes(((fm.data ?? []) as FijoMes[]).map(r => ({ ...r, importe: Number(r.importe) })))
     if (c.data) {
@@ -132,18 +132,25 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
     let nCub = 0, nBar = 0
     let ultimoCub = ''
     let faltaSiguiente = 0
+    let nPagados = 0, importePagado = 0, importePendiente = 0
     const rows = fijosMes.map(fj => {
+      // Ya cargado en banco este mes → fuera del cálculo, el fondo no lo cubre.
+      if (fj.estado_pago === 'pagado') {
+        nPagados++; importePagado += fj.importe
+        return { ...fj, estado: 'pag' as const }
+      }
+      importePendiente += fj.importe
       acc += fj.importe
       let estado: 'cub' | 'bar' | 'desc'
       if (acc <= saldo + 0.001) { estado = 'cub'; nCub++; ultimoCub = fj.concepto }
       else {
         estado = acc <= conPendiente + 0.001 ? 'bar' : 'desc'
         if (estado === 'bar') nBar++
-        if (faltaSiguiente === 0) faltaSiguiente = acc - saldo // primer fijo no cubierto por el saldo
+        if (faltaSiguiente === 0) faltaSiguiente = acc - saldo // primer pendiente no cubierto por el saldo
       }
       return { ...fj, estado }
     })
-    return { rows, nCub, nBar, ultimoCub, faltaSiguiente, total: fijosMes.length }
+    return { rows, nCub, nBar, ultimoCub, faltaSiguiente, total: fijosMes.length, nPagados, importePagado, nPend: fijosMes.length - nPagados, importePendiente }
   }, [fijosMes, saldo, agenda])
 
   const diasMasAntigua = useMemo(() => {
@@ -469,11 +476,18 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             {(agenda?.total ?? 0) > 0 && <> y con lo pendiente de barrer (<strong style={{ color: NAR }}>{E2(agenda?.total ?? 0)} €</strong>)</>}.
           </p>
           <div style={{ ...d('22px'), margin: '10px 0 4px' }}>
-            {alcance.nCub === alcance.total
-              ? <>El fondo cubre <span style={{ color: VERDE }}>los {alcance.total} fijos</span> ✓</>
-              : <>El fondo cubre <span style={{ color: alcance.nCub > 0 ? VERDE : ROJO }}>{alcance.nCub} de {alcance.total}</span> fijos</>}
+            {alcance.nPend === 0
+              ? <>Todos los fijos del mes <span style={{ color: VERDE }}>ya pagados</span> ✓</>
+              : alcance.nCub === alcance.nPend
+              ? <>El fondo cubre <span style={{ color: VERDE }}>los {alcance.nPend} pendientes</span> ✓</>
+              : <>El fondo cubre <span style={{ color: alcance.nCub > 0 ? VERDE : ROJO }}>{alcance.nCub} de {alcance.nPend}</span> pendientes</>}
           </div>
-          {alcance.nCub > 0 && alcance.nCub < alcance.total && (
+          {alcance.nPagados > 0 && (
+            <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 2 }}>
+              Ya pagados este mes: <strong style={{ color: VERDE }}>{alcance.nPagados}</strong> ({E2(alcance.importePagado)} €, detectados en banco) · queda por pagar <strong style={{ color: INK }}>{E2(alcance.importePendiente)} €</strong>
+            </div>
+          )}
+          {alcance.nCub > 0 && alcance.nCub < alcance.nPend && (
             <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 4 }}>
               Llegas hasta <strong style={{ color: INK }}>{alcance.ultimoCub}</strong>
               {alcance.faltaSiguiente > 0 && <> · te faltan <strong style={{ color: ROJO }}>{E2(alcance.faltaSiguiente)} €</strong> para el siguiente</>}
@@ -482,25 +496,28 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
 
           <div style={{ marginTop: 12, border: `2px solid ${INK}` }}>
             {alcance.rows.map((r, i) => {
-              const est = r.estado === 'cub'
+              const est = r.estado === 'pag'
+                ? { bg: GRIS, txt: '#fff', label: '✓ Pagado', wash: 'transparent' }
+                : r.estado === 'cub'
                 ? { bg: VERDE, txt: '#fff', label: 'Cubierto', wash: '#E2F7EC' }
                 : r.estado === 'bar'
                 ? { bg: NAR, txt: '#fff', label: 'Con barrido', wash: '#FFF1E6' }
                 : { bg: ROJO, txt: '#fff', label: 'Descubierto', wash: '#FFE8E9' }
+              const muted = r.estado === 'pag'
               const destino = destinoDeCategoria(r.categoria)
-              const pagable = destino !== 'OTRO'
+              const pagable = destino !== 'OTRO' && !muted
               return (
                 <div key={i} style={{
                   display: 'grid', gridTemplateColumns: '48px 1fr 92px 116px 96px', alignItems: 'center', gap: 8,
                   padding: '8px 12px', background: est.wash,
                   borderBottom: i < alcance.rows.length - 1 ? `1px solid ${INK}` : 'none',
                 }}>
-                  <span style={{ fontFamily: LEX, fontSize: 12, color: INK }}>{r.dia.slice(8, 10)}/{r.dia.slice(5, 7)}</span>
-                  <span style={{ fontFamily: LEX, fontSize: 12.5, color: INK }}>
+                  <span style={{ fontFamily: LEX, fontSize: 12, color: muted ? GRIS : INK }}>{r.dia.slice(8, 10)}/{r.dia.slice(5, 7)}</span>
+                  <span style={{ fontFamily: LEX, fontSize: 12.5, color: muted ? GRIS : INK, textDecoration: muted ? 'line-through' : 'none' }}>
                     {r.concepto}
                     {r.estimado && <span style={{ fontFamily: OSW, fontSize: 9.5, color: '#aabc00', marginLeft: 6, letterSpacing: 0.5 }}>🟡 EST</span>}
                   </span>
-                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, color: INK, textAlign: 'right' }}>{E2(r.importe)} €</span>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, color: muted ? GRIS : INK, textAlign: 'right' }}>{E2(r.importe)} €</span>
                   <span style={{
                     justifySelf: 'end', fontFamily: OSW, fontWeight: 700, fontSize: 10.5, letterSpacing: 0.5,
                     textTransform: 'uppercase', padding: '3px 8px', border: `2px solid ${INK}`,
