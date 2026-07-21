@@ -1304,34 +1304,55 @@ async function tickDespertarDormidos(tarea: Record<string, unknown>, arranque: n
     if (error) throw new Error(error.message)
     if (!filas || filas.length === 0) { terminado = true; break }
 
+    // Comprobación de existencia por LOTE, no por archivo: listamos cada carpeta
+    // implicada UNA vez (paginando) y comprobamos pertenencia en memoria. Con el
+    // bucket vacío (objetos ya purgados) esto es 1 llamada por carpeta en vez de
+    // una por archivo. El presupuesto de tiempo del tick acota el paginado.
+    const carpetas = new Set<string>()
+    for (const f of filas) {
+      const sp = f.storage_path as string | null
+      if (sp) carpetas.add(sp.split('/').slice(0, -1).join('/'))
+    }
+    const existentes = new Set<string>()
+    for (const carpeta of carpetas) {
+      let offset = 0
+      const PAG = 1000
+      for (let pagina = 0; pagina < 50; pagina++) {
+        let listado: { name: string }[] | null = null
+        try {
+          const r = await supabaseAdmin.storage.from('ocr-uploads').list(carpeta, { limit: PAG, offset })
+          listado = r.data as { name: string }[] | null
+        } catch { listado = null }
+        if (!listado || listado.length === 0) break
+        for (const o of listado) existentes.add(`${carpeta}/${o.name}`)
+        if (listado.length < PAG) break
+        offset += PAG
+      }
+    }
+
     const archivos: { name: string; type: string; storagePath: string; esComprimido: boolean }[] = []
+    const ausentes: string[] = []
     for (const f of filas) {
       const storagePath = f.storage_path as string | null
       const nombre = f.nombre as string
-      let existe = false
+      const existe = !!storagePath && existentes.has(storagePath)
 
-      if (storagePath) {
-        const partes = storagePath.split('/')
-        const filename = partes.pop() as string
-        const carpeta = partes.join('/')
-        try {
-          const { data: listado } = await supabaseAdmin.storage.from('ocr-uploads').list(carpeta, { search: filename, limit: 1 })
-          existe = !!listado?.some((o) => o.name === filename)
-        } catch { existe = false }
-      }
-
-      if (!storagePath || !existe) {
-        await supabaseAdmin.from('ocr_manifiesto')
-          .update({ estado: 'error', detalle: 'objeto ausente en storage', actualizado: new Date().toISOString() })
-          .eq('id', f.id as string)
+      if (!existe) {
+        ausentes.push(f.id as string)
         errores++
       } else {
         const ext = getExtManifiesto(nombre)
-        archivos.push({ name: nombre, type: getMimeTypeManifiesto(ext), storagePath, esComprimido: ['zip', 'rar', '7z'].includes(ext) })
+        archivos.push({ name: nombre, type: getMimeTypeManifiesto(ext), storagePath: storagePath as string, esComprimido: ['zip', 'rar', '7z'].includes(ext) })
         ok++
       }
       procesados++
       ultimoId = f.id as string
+    }
+
+    if (ausentes.length > 0) {
+      await supabaseAdmin.from('ocr_manifiesto')
+        .update({ estado: 'error', detalle: 'objeto ausente en storage', actualizado: new Date().toISOString() })
+        .in('id', ausentes)
     }
 
     if (archivos.length > 0) {
