@@ -8,6 +8,7 @@ import { tablaNeo, theadNeo, thNeo, thNeoR, tdNeo, tdNeoR, filaAlt, dotNeo, tota
 import { fmtEur } from '@/utils/format'
 import { resolverNeto } from '@/lib/panel/netoResolver'
 import { useNetoContext } from '@/lib/panel/useNetoContext'
+import { toLocalDateStr } from '@/lib/dateRange'
 
 interface Row {
   fecha: string
@@ -19,7 +20,7 @@ interface Row {
   total_bruto: number; total_pedidos: number
 }
 
-interface Props { rows: Row[]; fechaDesde: Date; fechaHasta: Date }
+interface Props { rows: Row[]; rowsAll?: Row[]; fechaDesde: Date; fechaHasta: Date }
 
 const CANALES = [
   { id: 'uber',  label: 'Uber Eats', color: CORP.uber,  bk: 'uber_bruto',    pk: 'uber_pedidos' },
@@ -31,11 +32,24 @@ const CANALES = [
 
 const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
-function kpiCard(label: string, value: string, sub?: string) {
+function deltaChip(delta: number | null) {
+  if (delta == null || !Number.isFinite(delta)) return null
+  const up = delta >= 0
+  return (
+    <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '0.5px', color: up ? VERDE : ROJO, marginLeft: 8, whiteSpace: 'nowrap' }}>
+      {up ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%
+    </span>
+  )
+}
+
+function kpiCard(label: string, value: string, sub?: string, delta?: number | null) {
   return (
     <div style={{ flex: 1, minWidth: 160, background: CREMA, border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 16px' }}>
       <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>{label}</div>
-      <div style={{ ...d('30px'), marginTop: 8 }}>{value}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', marginTop: 8 }}>
+        <span style={d('30px')}>{value}</span>
+        {deltaChip(delta ?? null)}
+      </div>
       {sub && <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 4 }}>{sub}</div>}
     </div>
   )
@@ -43,7 +57,7 @@ function kpiCard(label: string, value: string, sub?: string) {
 
 const tituloSec: React.CSSProperties = { marginBottom: 12 }
 
-export default function TabFinanzas({ rows, fechaDesde, fechaHasta }: Props) {
+export default function TabFinanzas({ rows, rowsAll, fechaDesde, fechaHasta }: Props) {
   const { configCanales: config, marcasPorCanal, ventasListas } = useNetoContext()
 
   const totalBruto = useMemo(() => rows.reduce((s, r) => s + r.total_bruto, 0), [rows])
@@ -67,6 +81,35 @@ export default function TabFinanzas({ rows, fechaDesde, fechaHasta }: Props) {
   const totalComision = canalStats.reduce((s, c) => s + c.comision, 0)
   const totalNeto     = totalBruto - totalComision
   const margenPct     = totalBruto > 0 ? (totalNeto / totalBruto) * 100 : 0
+
+  // Periodo anterior de la misma duración → deltas de tendencia en las KPI.
+  const prev = useMemo(() => {
+    if (!rowsAll || !rowsAll.length) return null
+    const unDia = 86400000
+    const largoMs = fechaHasta.getTime() - fechaDesde.getTime()
+    const prevHasta = new Date(fechaDesde.getTime() - unDia)
+    const prevDesde = new Date(prevHasta.getTime() - largoMs)
+    const a = toLocalDateStr(prevDesde), b = toLocalDateStr(prevHasta)
+    const rs = rowsAll.filter(r => r.fecha >= a && r.fecha <= b)
+    if (!rs.length) return null
+    const bruto = rs.reduce((s, r) => s + r.total_bruto, 0)
+    const nD = new Set(rs.filter(r => r.total_bruto > 0).map(r => r.fecha)).size || 1
+    let neto = 0
+    for (const c of CANALES) {
+      const bk = rs.reduce((s, r) => s + (r[c.bk] as number), 0)
+      const pk = rs.reduce((s, r) => s + (r[c.pk] as number), 0)
+      neto += resolverNeto(c.id, bk, pk, {
+        modo: 'agregado_canal', marcasPorCanal, fechaDesde: prevDesde, fechaHasta: prevHasta,
+        configCanales: config, diasConDatos: nD,
+      }).neto
+    }
+    return { bruto, neto }
+  }, [rowsAll, fechaDesde, fechaHasta, config, marcasPorCanal, ventasListas])
+
+  const deltaPct = (actual: number, previo: number): number | null =>
+    previo > 0 ? ((actual - previo) / previo) * 100 : null
+  const deltaBruto = prev ? deltaPct(totalBruto, prev.bruto) : null
+  const deltaNeto  = prev ? deltaPct(totalNeto, prev.neto) : null
 
   // Coste de las plataformas: cuánto se llevan Uber/Glovo/JE (comisión real vía
   // resolverNeto) y a qué ritmo anual, para dimensionar la dependencia.
@@ -120,9 +163,9 @@ export default function TabFinanzas({ rows, fechaDesde, fechaHasta }: Props) {
 
       {/* KPI cards */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 24 }}>
-        {kpiCard('Ingresos brutos', fmtEur(totalBruto))}
+        {kpiCard('Ingresos brutos', fmtEur(totalBruto), prev ? 'vs periodo anterior' : undefined, deltaBruto)}
         {kpiCard('Comisiones est.', fmtEur(totalComision), totalBruto > 0 ? `${(totalComision / totalBruto * 100).toFixed(1)}% del bruto` : undefined)}
-        {kpiCard('Ingresos netos est.', fmtEur(totalNeto))}
+        {kpiCard('Ingresos netos est.', fmtEur(totalNeto), prev ? 'vs periodo anterior' : undefined, deltaNeto)}
         {kpiCard('Margen est.', `${margenPct.toFixed(1)}%`, 'neto / bruto')}
       </div>
 
