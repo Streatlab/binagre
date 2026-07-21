@@ -78,8 +78,15 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const [pctEdit, setPctEdit] = useState(5)
   const [confirmDeshacer, setConfirmDeshacer] = useState<string | null>(null)
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [fugaArmada, setFugaArmada] = useState(false)
+  const msgTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fugaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function cargar() {
+    try {
+    setError(null)
     const [c, o, m, f, a, p, fm] = await Promise.all([
       supabase.from('reserva_config').select('*').eq('id', 1).single(),
       supabase.from('reserva_ordenes').select('*').order('fecha_cobro', { ascending: false }).limit(300),
@@ -107,9 +114,22 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
         barrido_mes: Number(raw.barrido_mes ?? 0), objetivo_mes: Number(raw.objetivo_mes ?? 0),
       })
     }
-    setLoading(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudieron cargar los datos')
+    } finally {
+      setLoading(false); setRefreshing(false)
+    }
   }
+  async function refrescar() { setRefreshing(true); await cargar() }
   useEffect(() => { cargar(); return () => { if (confirmTimer.current) clearTimeout(confirmTimer.current) } }, [])
+
+  // El aviso (toast) se cierra solo a los 4,5 s.
+  useEffect(() => {
+    if (!msg) return
+    if (msgTimer.current) clearTimeout(msgTimer.current)
+    msgTimer.current = setTimeout(() => setMsg(null), 4500)
+    return () => { if (msgTimer.current) clearTimeout(msgTimer.current) }
+  }, [msg])
 
   const pendientes = useMemo(() => ordenes.filter(o => o.estado === 'PENDIENTE'), [ordenes])
   const totalPendiente = agenda?.total ?? 0
@@ -122,6 +142,8 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const objetivo = objetivoReal > 0 ? objetivoReal : fijosMedia
   const cobertura = objetivo > 0 ? (saldo / objetivo) * 100 : 0
   const colorCob = cobertura >= 100 ? VERDE : cobertura >= 60 ? AMA : ROJO
+  // Colchón: cuántos días de gastos fijos aguanta el fondo (mes = 30 días).
+  const diasColchon = objetivo > 0 ? Math.round((saldo * 30) / objetivo) : 0
 
   // "Hasta dónde llega el fondo": rellena los fijos del mes (ordenados por fecha)
   // con el saldo actual y con el saldo + lo pendiente de barrer. Marca cada fijo
@@ -159,6 +181,11 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
 
   // "Foto del mes": reparte el total de fijos en pagado (banco) / cubierto por el
   // fondo / cubrible barriendo lo pendiente / al descubierto.
+  const estim = useMemo(() => {
+    const list = fijosMes.filter(f => f.estimado)
+    return { n: list.length, importe: list.reduce((a, f) => a + f.importe, 0) }
+  }, [fijosMes])
+
   const foto = useMemo(() => {
     const pagado = alcance.importePagado
     const pend = alcance.importePendiente
@@ -279,11 +306,21 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       setMsg(retImporte > saldo ? 'No puedes sacar más de lo que hay en el fondo' : 'Pon un importe')
       return
     }
+    // Destino no autorizado = fuga del fondo: pedir confirmación explícita.
+    if (!AUTORIZADOS.includes(retDestino) && !fugaArmada) {
+      setFugaArmada(true)
+      setMsg(`«${retDestino}» no es un destino autorizado: se marcará como FUGA. Pulsa otra vez para confirmar.`)
+      if (fugaTimer.current) clearTimeout(fugaTimer.current)
+      fugaTimer.current = setTimeout(() => setFugaArmada(false), 4000)
+      return
+    }
     await supabase.from('reserva_movimientos').insert({
       fecha: new Date().toISOString().slice(0, 10),
       tipo: 'RETIRADA', importe: retImporte, destino: retDestino,
       autorizado: AUTORIZADOS.includes(retDestino),
     })
+    if (fugaTimer.current) clearTimeout(fugaTimer.current)
+    setFugaArmada(false)
     setRetImporte(0)
     cargar()
   }
@@ -324,6 +361,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             <h1 style={{ ...d('42px'), margin: '10px 0 0' }}>Reservas</h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: '#fff', color: INK }}>{refreshing ? 'Actualizando…' : '↻ Actualizar'}</button>
             <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Barrido</span>
             <button onClick={toggleActivo} style={{
               ...btn, padding: '8px 14px',
@@ -335,6 +373,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
 
       {embedded && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: '#fff', color: INK }}>{refreshing ? 'Actualizando…' : '↻ Actualizar'}</button>
           <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Barrido {cfg?.fecha_inicio ? `· desde ${cfg.fecha_inicio}` : ''}</span>
           <button onClick={toggleActivo} style={{
             ...btn, padding: '8px 14px',
@@ -344,8 +383,15 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       )}
 
       {msg && (
-        <div onClick={() => setMsg(null)} style={{ background: VERDE, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase', cursor: 'pointer' }}>
+        <div onClick={() => setMsg(null)} style={{ background: fugaArmada ? ROJO : VERDE, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase', cursor: 'pointer' }}>
           {msg}
+        </div>
+      )}
+
+      {error && (
+        <div style={{ background: ROJO, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: 0.5, textTransform: 'uppercase' }}>Error al cargar: {error}</span>
+          <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: '#fff', color: ROJO }}>Reintentar</button>
         </div>
       )}
 
@@ -441,6 +487,9 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
           <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 6 }}>
             Objetivo real = suma de gastos fijos activos del mes. Media 3 meses: <strong>{EUR(fijosMedia)}</strong>.
           </div>
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `2px solid ${INK}`, fontFamily: LEX, fontSize: 12, color: GRIS }}>
+            El fondo aguanta <strong style={{ fontFamily: OSW, fontSize: 16, color: colorCob }}>{diasColchon}</strong> día{diasColchon === 1 ? '' : 's'} de gastos fijos.
+          </div>
         </div>
 
         {/* MES EN CURSO */}
@@ -502,8 +551,8 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             </select>
           </div>
           <button onClick={registrarRetirada} disabled={saldo <= 0}
-            style={{ ...btn, background: saldo > 0 ? GRANATE : CLARO, color: saldo > 0 ? '#fff' : GRIS, width: '100%', marginTop: 10, cursor: saldo > 0 ? 'pointer' : 'not-allowed' }}>
-            Registrar retirada
+            style={{ ...btn, background: saldo <= 0 ? CLARO : fugaArmada ? ROJO : GRANATE, color: saldo > 0 ? '#fff' : GRIS, width: '100%', marginTop: 10, cursor: saldo > 0 ? 'pointer' : 'not-allowed' }}>
+            {fugaArmada ? '¿Confirmar fuga?' : 'Registrar retirada'}
           </button>
           {saldo <= 0 && (
             <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 8 }}>El fondo está a cero: primero ingresa.</div>
@@ -597,6 +646,12 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 4 }}>
               Llegas hasta <strong style={{ color: INK }}>{alcance.ultimoCub}</strong>
               {alcance.faltaSiguiente > 0 && <> · te faltan <strong style={{ color: ROJO }}>{E2(alcance.faltaSiguiente)} €</strong> para el siguiente</>}
+            </div>
+          )}
+
+          {estim.n > 0 && (
+            <div style={{ marginTop: 8, padding: '8px 12px', background: '#FFF4CC', border: `2px solid ${AMA}`, fontFamily: LEX, fontSize: 12, color: INK }}>
+              🟡 {estim.n} importe{estim.n === 1 ? '' : 's'} aún estimado{estim.n === 1 ? '' : 's'} (<strong>{E2(estim.importe)} €</strong>) — confírmalos al llegar la factura para que el objetivo sea exacto.
             </div>
           )}
 
