@@ -71,13 +71,39 @@ Deno.serve(async (req: Request) => {
     let totPedidos = 0;
     let totFact = 0;
 
+    let totRealizados = 0;
+    let totEnCurso = 0;
+    let totCancelPago = 0;
+
     for (const [clave, v] of Object.entries<any>(plataformas)) {
       const { marca, plataforma } = trocea(clave);
+
+      // Realizados: completed (fallback a delivery si no existe completed), sin duplicar.
       const c = v?.completed ?? v?.delivery ?? {};
-      const pedidos = Number(c.volumeOfOrders ?? 0);
-      const facturacion = Number(c.revenue ?? 0) / 100; // Rushour manda céntimos
+      const pedidosRealizados = Number(c.volumeOfOrders ?? 0);
+      const factRealizados = Number(c.revenue ?? 0) / 100;
+
+      // En curso: pedidos aceptados/en preparación (ready) o en reparto (in transit), ya pagados, aún no entregados.
+      const ready = v?.ready ?? {};
+      const enReparto = v?.['in transit'] ?? {};
+      const pedidosEnCurso = Number(ready.volumeOfOrders ?? 0) + Number(enReparto.volumeOfOrders ?? 0);
+      const factEnCurso = (Number(ready.revenue ?? 0) + Number(enReparto.revenue ?? 0)) / 100;
+
+      // Cancelados con pago: solo si generaron cobro (revenue > 0).
+      const cancel = v?.canceled ?? {};
+      const cancelRevenue = Number(cancel.revenue ?? 0);
+      const pedidosCancelPago = cancelRevenue > 0 ? Number(cancel.volumeOfOrders ?? 0) : 0;
+      const factCancelPago = cancelRevenue > 0 ? cancelRevenue / 100 : 0;
+
+      const pedidos = pedidosRealizados + pedidosEnCurso + pedidosCancelPago;
+      const facturacion = factRealizados + factEnCurso + factCancelPago;
+
       totPedidos += pedidos;
       totFact += facturacion;
+      totRealizados += pedidosRealizados;
+      totEnCurso += pedidosEnCurso;
+      totCancelPago += pedidosCancelPago;
+
       filas.push({
         fecha,
         plataforma,
@@ -112,7 +138,7 @@ Deno.serve(async (req: Request) => {
     const cambiado = !ultimo || Number(ultimo.pedidos) !== totPedidos || Number(ultimo.facturacion) !== Number(totFact.toFixed(2));
     if (cambiado) await sb.from('ventas_vivo').insert(filas);
 
-    await log('ok', `${fecha} · pedidos=${totPedidos} facturacion=${totFact.toFixed(2)} · ${cambiado ? 'guardado' : 'sin cambios'}`);
+    await log('ok', `${fecha} · pedidos=${totPedidos} (${totRealizados} realizados +${totEnCurso} en_curso +${totCancelPago} cancelados_pago) facturacion=${totFact.toFixed(2)} · ${cambiado ? 'guardado' : 'sin cambios'}`);
     await latido(fecha, `pedidos=${totPedidos} facturacion=${totFact.toFixed(2)}`);
     return new Response(JSON.stringify({ fecha, pedidos: totPedidos, facturacion: Number(totFact.toFixed(2)), guardado: cambiado }), {
       headers: { 'Content-Type': 'application/json' },
