@@ -69,6 +69,13 @@ function slugMarca(marca: string): string {
     .toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
+// Colapsa cualquier whitespace (incluidos saltos de línea del texto plano, que
+// el cliente de correo envuelve dentro del nombre de marca cuando es largo) a
+// un único espacio.
+function limpiarEspacios(s: string): string {
+  return s.replace(/\s+/g, ' ').trim()
+}
+
 // HTML → texto plano simple (conserva labels y números).
 function stripHtml(html: string): string {
   return html
@@ -110,7 +117,7 @@ function parseUber(texto: string, asunto: string): LiquidacionPlataforma | null 
   const esResumenUber = /uber\s*eats/i.test(texto) && /resumen de pagos?/i.test(texto) && /pago total/i.test(texto)
   if (!esResumenUber) return null
 
-  const marca =
+  const marcaRaw =
     buscar(texto, /Hola\s+([^,]+?)\s*,/i) ||
     buscar(asunto, /Resumen de pagos de Uber Eats de\s+(.+?)\s+del\s+\d/i)
   const inicioStr = buscar(texto, /Resumen de pagos para\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i)
@@ -118,7 +125,8 @@ function parseUber(texto: string, asunto: string): LiquidacionPlataforma | null 
   const pedidosStr = buscar(texto, /Ventas totales\s+Pedidos\s+(\d+)/i)
   const pagoNetoStr = buscar(texto, /Pago total\s+([\d.,]+)\s*€/i)
 
-  if (!marca || !inicioStr || !finStr || !pedidosStr || !pagoNetoStr) return null
+  if (!marcaRaw || !inicioStr || !finStr || !pedidosStr || !pagoNetoStr) return null
+  const marca = limpiarEspacios(marcaRaw)
 
   const fechaInicio = fechaUS(inicioStr)
   const fechaFin = fechaUS(finStr)
@@ -143,7 +151,7 @@ function parseUber(texto: string, asunto: string): LiquidacionPlataforma | null 
   return {
     plataforma: 'uber',
     tabla: 'uber_liquidaciones',
-    marca: marca.trim(),
+    marca,
     referencia_pago: `uber_${slugMarca(marca)}_${fechaInicio}_${fechaFin}`,
     fecha_deposito: fechaDeposito,
     fecha_inicio_periodo: fechaInicio,
