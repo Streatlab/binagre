@@ -53,12 +53,19 @@ export default function TabOperaciones({ rows }: Props) {
   const pedidoMasAlto = Math.max(...rows.map(r => r.total_pedidos))
   const diaMasPedidos = rows.reduce((best, r) => r.total_pedidos > best.total_pedidos ? r : best, rows[0])
 
-  // Mix de canales (pedidos)
+  // Mix de canales (pedidos + ticket medio por canal)
   const mixCanales = CANALES.map(c => {
     const pedidos = rows.reduce((s, r) => s + (r[`${c.id}_pedidos` as keyof Row] as number), 0)
+    const bruto = rows.reduce((s, r) => s + (r[`${c.id}_bruto` as keyof Row] as number), 0)
     const pct = totalPedidos > 0 ? (pedidos / totalPedidos) * 100 : 0
-    return { ...c, pedidos, pct }
+    const ticket = pedidos > 0 ? bruto / pedidos : 0
+    return { ...c, pedidos, bruto, pct, ticket }
   })
+  const canalesConTicket = mixCanales.filter(c => c.pedidos > 0)
+  const mejorTicketCanal = canalesConTicket.length
+    ? canalesConTicket.reduce((a, c) => (c.ticket > a.ticket ? c : a))
+    : null
+  const maxTicket = canalesConTicket.reduce((m, c) => Math.max(m, c.ticket), 0) || 1
 
   // Pedidos por día de semana → MEDIA por día (comparación justa: descuenta
   // cuántas veces sale cada día en el periodo). 0=domingo en JS → lunes=0.
@@ -173,6 +180,30 @@ export default function TabOperaciones({ rows }: Props) {
           )}
         </div>
 
+      </div>
+
+      {/* Ticket medio por canal */}
+      <div style={{ ...CARDS.std, marginTop: 14 }}>
+        <div style={{ ...lbl, marginBottom: 14 }}>Ticket medio por canal</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {canalesConTicket.map(c => {
+            const w = (c.ticket / maxTicket) * 100
+            const best = mejorTicketCanal?.id === c.id
+            return (
+              <div key={c.id}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.sec }}>{c.label}</span>
+                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: best ? COLORS.warn : COLORS.pri }}>
+                    {fmtEur(c.ticket)}{best && <span style={{ fontSize: 11, marginLeft: 6 }}>★ mejor</span>}
+                  </span>
+                </div>
+                <div style={BAR.track}>
+                  <div style={{ width: `${w}%`, height: '100%', background: best ? COLORS.warn : c.color, borderRadius: 4, transition: 'width 400ms ease' }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Top 5 días */}

@@ -323,20 +323,24 @@ export default function TabFinanzas({ rows, rowsAll, fechaDesde, fechaHasta }: P
               </tr>
             </thead>
             <tbody>
-              {meses.map((key, i) => {
-                const { bruto, neto } = mesMap[key]
-                const margen = bruto > 0 ? (neto / bruto) * 100 : 0
-                const [y, m] = key.split('-')
-                const label = `${MESES_ES[parseInt(m, 10) - 1]} ${y}`
-                return (
-                  <tr key={key} style={filaAlt(i)}>
-                    <td style={tdNeo}>{label}</td>
-                    <td style={tdNeoR}>{fmtEur(bruto)}</td>
-                    <td style={{ ...tdNeoR, color: VERDE }}>{fmtEur(neto)}</td>
-                    <td style={{ ...tdNeoR, color: margen >= 70 ? VERDE : NAR }}>{margen.toFixed(1)}%</td>
-                  </tr>
-                )
-              })}
+              {(() => {
+                const mejorMes = meses.reduce((best, k) => (mesMap[k].neto > mesMap[best].neto ? k : best), meses[0])
+                return meses.map((key, i) => {
+                  const { bruto, neto } = mesMap[key]
+                  const margen = bruto > 0 ? (neto / bruto) * 100 : 0
+                  const [y, m] = key.split('-')
+                  const label = `${MESES_ES[parseInt(m, 10) - 1]} ${y}`
+                  const esMejor = key === mejorMes && meses.length > 1
+                  return (
+                    <tr key={key} style={esMejor ? { ...filaAlt(i), boxShadow: `inset 3px 0 0 ${VERDE}` } : filaAlt(i)}>
+                      <td style={tdNeo}>{label}{esMejor && <span style={{ fontFamily: OSW, fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', color: VERDE, marginLeft: 8 }}>★ MEJOR</span>}</td>
+                      <td style={tdNeoR}>{fmtEur(bruto)}</td>
+                      <td style={{ ...tdNeoR, color: VERDE }}>{fmtEur(neto)}</td>
+                      <td style={{ ...tdNeoR, color: margen >= 70 ? VERDE : NAR }}>{margen.toFixed(1)}%</td>
+                    </tr>
+                  )
+                })
+              })()}
             </tbody>
           </table>
         </div>

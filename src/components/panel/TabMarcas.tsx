@@ -212,12 +212,14 @@ export default function TabMarcas({ rows, fechaDesde, fechaHasta }: Props) {
               <th style={{ ...thStyle, textAlign: 'right' }}>Pedidos</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>Bruto</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>Neto est.</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Margen est.</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>% total</th>
             </tr>
           </thead>
           <tbody>
             {marcaList.map((m, i) => {
               const pct = totalBruto > 0 ? (m.bruto / totalBruto) * 100 : 0
+              const margen = m.bruto > 0 ? (m.neto / m.bruto) * 100 : 0
               const color = MARCA_COLORS[i % MARCA_COLORS.length]
               return (
                 <tr key={m.nombre}>
@@ -234,21 +236,29 @@ export default function TabMarcas({ rows, fechaDesde, fechaHasta }: Props) {
                   </td>
                   <td style={tdR}>{fmtEur(m.bruto)}</td>
                   <td style={{ ...tdR, color: COLORS.ok }}>{fmtEur(m.neto)}</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontSize: 12, color: margen >= 70 ? COLORS.ok : COLORS.warn }}>
+                    {margen.toFixed(0)}%
+                  </td>
                   <td style={tdR}>
                     <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12 }}>{pct.toFixed(1)}%</span>
                   </td>
                 </tr>
               )
             })}
-            <tr style={{ background: COLORS.group }}>
-              <td style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>TOTAL</td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{fmtNum(totalPedidos)}</td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{fmtEur(totalBruto)}</td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.ok }}>
-                {fmtEur(marcaList.reduce((s, m) => s + m.neto, 0))}
-              </td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600 }}>100%</td>
-            </tr>
+            {(() => {
+              const netoTot = marcaList.reduce((s, m) => s + m.neto, 0)
+              const margenTot = totalBruto > 0 ? (netoTot / totalBruto) * 100 : 0
+              return (
+                <tr style={{ background: COLORS.group }}>
+                  <td style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>TOTAL</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{fmtNum(totalPedidos)}</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{fmtEur(totalBruto)}</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.ok }}>{fmtEur(netoTot)}</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{margenTot.toFixed(0)}%</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600 }}>100%</td>
+                </tr>
+              )
+            })()}
           </tbody>
         </table>
       </div>

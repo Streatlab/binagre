@@ -652,6 +652,14 @@ export default function ResumenLanding(p: Props) {
               </div>
             )
           })()}
+          {p.saldoBanco != null && p.gastosFijosMes > 0 && (() => {
+            const meses = p.saldoBanco / p.gastosFijosMes
+            return (
+              <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, marginTop: 12, opacity: 0.95 }}>
+                Con esta caja aguantas <b style={{ color: meses >= 3 ? '#d6ffe0' : '#ffd6d6' }}>{meses.toFixed(1)} meses</b> de gastos fijos
+              </div>
+            )
+          })()}
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.7, marginTop: 14 }}>Cobros y pagos<Est light /></div>
           <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, lineHeight: 1.95, marginTop: 4 }}>
             <div>Cobros 7 d · <b>{E(p.saldo.cobros7d)}</b></div>
