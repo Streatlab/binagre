@@ -95,3 +95,13 @@ export const VENTASMARCA_CHART_EXTRA = ['#e8617a', '#3aa8c1', '#c17d3a', '#5a5a5
 /** ParetoVentas · caja de aviso amarilla (tono propio, distinto de AMA_S del kit). */
 export const PARETO_WARN_BG = '#fff8e6'
 export const PARETO_WARN_TXT = '#8a6d1f'
+
+/** Toggle "Imprimir en blanco y negro" (Cocina): gris fijo de vista previa de
+ * impresión, deliberadamente ajeno al tema claro/oscuro de la app. */
+export const PRINT_BN_BG = '#e7e7e7'
+export const PRINT_BN_TXT = '#111'
+
+/** Lista de Compra · cobertura de precio (verde/naranja de dato, no semántico kit). */
+export const COBERTURA_VERDE = '#1D9E75'
+export const COBERTURA_NARANJA = '#c47600'
+export const COBERTURA_NARANJA_CLARO = '#e0a53a'

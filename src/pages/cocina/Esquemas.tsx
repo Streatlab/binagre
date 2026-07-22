@@ -11,6 +11,8 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { LayoutGrid, Mic, Printer, Plus, Trash2, X, Check, Pencil, Tags, Archive, History } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, tituloPaginaStyle } from '@/styles/tokens'
+import { GRANATE, BLANCO, INK } from '@/styles/neobrutal'
+import { PRINT_BN_BG, PRINT_BN_TXT } from '@/styles/palettes'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
 
@@ -231,7 +233,7 @@ export default function Esquemas() {
   }
 
   if (loading) return <div style={{ padding: 32, color: T.sec, fontFamily: FONT.body }}>Cargando esquemas…</div>
-  if (error) return <div style={{ padding: 32, color: '#B01D23', fontFamily: FONT.body }}>{error}</div>
+  if (error) return <div style={{ padding: 32, color: GRANATE, fontFamily: FONT.body }}>{error}</div>
 
   const todasGamasVigentes = gamas
     .map(g => ({ g, platos: esquemas.filter(e => e.gama === g.nombre && e.estado === 'vigente') }))
@@ -243,14 +245,14 @@ export default function Esquemas() {
 
       {/* HEADER */}
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <LayoutGrid size={24} color="#B01D23" />
+        <LayoutGrid size={24} color={GRANATE} />
         <div style={tituloPaginaStyle(T)}>Esquemas de cocina</div>
         <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>Orden de montaje del tapper · arriba → abajo</div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => setEditando('nuevo')} style={btnPrimary}><Plus size={16} /> Nuevo plato</button>
           <button onClick={() => setGestorGamas(true)} style={btnGhost(T)}><Tags size={16} /> Gamas</button>
           <button onClick={() => setVerHistorico(v => !v)} style={verHistorico ? btnPrimary : btnGhost(T)}><History size={16} /> {verHistorico ? 'Ver vigentes' : 'Histórico'}</button>
-          <button onClick={() => setBn(v => !v)} style={{ ...btnGhost(T), background: bn ? '#e7e7e7' : 'transparent', color: bn ? '#111' : T.sec }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
+          <button onClick={() => setBn(v => !v)} style={{ ...btnGhost(T), background: bn ? PRINT_BN_BG : 'transparent', color: bn ? PRINT_BN_TXT : T.sec }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
           <button onClick={imprimir} style={btnGhost(T)}><Printer size={16} /> Imprimir / PDF</button>
           <button onClick={imprimirTodo} style={btnPrimary}><Printer size={16} /> Imprimir todo (PDF)</button>
         </div>
@@ -422,7 +424,7 @@ function ModalFicha({ T, esquema, gamaDefault, gamas, onClose, onSaved }: { T: R
     <div style={overlay} onClick={onClose}>
       <div onClick={ev => ev.stopPropagation()} style={{ ...modalBox, background: T.card, border: `0.5px solid ${T.brd}` }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 18, color: '#B01D23', letterSpacing: '1px', textTransform: 'uppercase' }}>{edicion ? 'Editar plato' : 'Nuevo plato'}</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 18, color: GRANATE, letterSpacing: '1px', textTransform: 'uppercase' }}>{edicion ? 'Editar plato' : 'Nuevo plato'}</div>
           <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: T.mut }}><X size={20} /></button>
         </div>
 
@@ -454,10 +456,10 @@ function ModalFicha({ T, esquema, gamaDefault, gamas, onClose, onSaved }: { T: R
               <input value={l.texto} onChange={ev => editarLinea(i, ev.target.value)}
                 style={{ ...inputStyle(T), flex: 1, fontWeight: l.tipo === 'accion' ? 700 : 400 }} />
               <button onClick={() => toggleTipo(i)} title="Ingrediente / Acción"
-                style={{ ...miniBtn(T), background: l.tipo === 'accion' ? '#1a1a1a' : 'transparent', color: l.tipo === 'accion' ? '#fff' : T.sec, padding: '4px 8px', width: 'auto', fontSize: 11 }}>
+                style={{ ...miniBtn(T), background: l.tipo === 'accion' ? INK : 'transparent', color: l.tipo === 'accion' ? BLANCO : T.sec, padding: '4px 8px', width: 'auto', fontSize: 11 }}>
                 {l.tipo === 'accion' ? 'Nube' : 'Ingr.'}
               </button>
-              <button onClick={() => borrarLinea(i)} style={{ ...miniBtn(T), color: '#B01D23' }}><Trash2 size={13} /></button>
+              <button onClick={() => borrarLinea(i)} style={{ ...miniBtn(T), color: GRANATE }}><Trash2 size={13} /></button>
             </div>
           ))}
         </div>
@@ -520,7 +522,7 @@ function ModalGamas({ T, gamas, onClose, onSaved }: { T: ReturnType<typeof useTh
     <div style={overlay} onClick={onClose}>
       <div onClick={ev => ev.stopPropagation()} style={{ ...modalBox, width: 460, background: T.card, border: `0.5px solid ${T.brd}` }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 18, color: '#B01D23', letterSpacing: '1px', textTransform: 'uppercase' }}>Gamas</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 18, color: GRANATE, letterSpacing: '1px', textTransform: 'uppercase' }}>Gamas</div>
           <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: T.mut }}><X size={20} /></button>
         </div>
 
@@ -541,7 +543,7 @@ function ModalGamas({ T, gamas, onClose, onSaved }: { T: ReturnType<typeof useTh
               <>
                 <div style={{ flex: 1, fontFamily: FONT.body, fontSize: 14, color: T.pri }}>{g.nombre}</div>
                 <button onClick={() => { setEditId(g.id); setEditNombre(g.nombre) }} style={iconBtn(T)} title="Renombrar"><Pencil size={13} /></button>
-                <button onClick={() => eliminar(g)} style={{ ...iconBtn(T), color: '#B01D23' }} title="Eliminar"><Trash2 size={13} /></button>
+                <button onClick={() => eliminar(g)} style={{ ...iconBtn(T), color: GRANATE }} title="Eliminar"><Trash2 size={13} /></button>
               </>
             )}
           </div>
@@ -553,9 +555,9 @@ function ModalGamas({ T, gamas, onClose, onSaved }: { T: ReturnType<typeof useTh
 
 // ─── ESTILOS ──────────────────────────────────────────────────────────────────
 
-const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }
+const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }
 const btnGhost = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: T.sec, border: `0.5px solid ${T.brd}`, borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' })
-const tabStyle = (active: boolean, T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ padding: '6px 14px', borderRadius: 99, border: active ? 'none' : `0.5px solid ${T.brd}`, background: active ? '#B01D23' : 'transparent', color: active ? '#fff' : T.sec, fontFamily: FONT.body, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' })
+const tabStyle = (active: boolean, T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ padding: '6px 14px', borderRadius: 99, border: active ? 'none' : `0.5px solid ${T.brd}`, background: active ? GRANATE : 'transparent', color: active ? BLANCO : T.sec, fontFamily: FONT.body, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' })
 const lblStyle = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ display: 'block', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 5 })
 const inputStyle = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ width: '100%', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' })
 const miniBtn = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', fontSize: 10, lineHeight: 1, padding: '2px 5px', width: 24 })

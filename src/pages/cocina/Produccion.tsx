@@ -6,6 +6,8 @@ import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
+import { GRANATE, BLANCO } from '@/styles/neobrutal'
+import { PRINT_BN_BG, PRINT_BN_TXT } from '@/styles/palettes'
 import Esquemas from '@/pages/cocina/Esquemas'
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
@@ -415,7 +417,7 @@ export default function Produccion() {
       <style>{FICHA_CSS}</style>
 
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-        <ClipboardList size={24} color="#B01D23" />
+        <ClipboardList size={24} color={GRANATE} />
         <h1 style={{ ...pageTitleStyle(T), margin: 0 }}>PRODUCCIÓN</h1>
       </div>
 
@@ -728,7 +730,7 @@ function ModalGestionSecciones({ T, secciones, onClose, onSaved }: { T: ReturnTy
     <div style={overlay} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{ ...modalBox, background: T.card, border: `0.5px solid ${T.brd}` }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 18, color: '#B01D23', letterSpacing: '1px', textTransform: 'uppercase' }}>Secciones</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 18, color: GRANATE, letterSpacing: '1px', textTransform: 'uppercase' }}>Secciones</div>
           <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: T.mut }}><X size={20} /></button>
         </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -747,7 +749,7 @@ function ModalGestionSecciones({ T, secciones, onClose, onSaved }: { T: ReturnTy
               <>
                 <div style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{s.nombre}</div>
                 <button onClick={() => { setEditId(s.id); setEditNombre(s.nombre) }} style={iconBtn(T)}><Pencil size={13} /></button>
-                <button onClick={() => eliminar(s)} style={{ ...iconBtn(T), color: '#B01D23' }}><Trash2 size={13} /></button>
+                <button onClick={() => eliminar(s)} style={{ ...iconBtn(T), color: GRANATE }}><Trash2 size={13} /></button>
               </>
             )}
           </div>
@@ -772,7 +774,7 @@ function ModalGestionPartidas({ T, secciones, partidas, onClose, onSaved }: { T:
     <div style={overlay} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{ ...modalBox, background: T.card, border: `0.5px solid ${T.brd}`, width: 560 }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 18, color: '#B01D23', letterSpacing: '1px', textTransform: 'uppercase' }}>Partidas</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 18, color: GRANATE, letterSpacing: '1px', textTransform: 'uppercase' }}>Partidas</div>
           <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: T.mut }}><X size={20} /></button>
         </div>
         <div style={{ marginBottom: 14 }}>
@@ -799,7 +801,7 @@ function ModalGestionPartidas({ T, secciones, partidas, onClose, onSaved }: { T:
               <>
                 <div style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{p.nombre}{p.biberon ? ' · biberón' : ''}{p.solo_camara ? ' · solo cámara' : ''}</div>
                 <button onClick={() => { setEditId(p.id); setEditNombre(p.nombre) }} style={iconBtn(T)}><Pencil size={13} /></button>
-                <button onClick={() => eliminar(p)} style={{ ...iconBtn(T), color: '#B01D23' }}><Trash2 size={13} /></button>
+                <button onClick={() => eliminar(p)} style={{ ...iconBtn(T), color: GRANATE }}><Trash2 size={13} /></button>
               </>
             )}
           </div>
@@ -813,7 +815,7 @@ function ModalGestionPartidas({ T, secciones, partidas, onClose, onSaved }: { T:
 
 function BnToggle({ bn, setBn }: { bn: boolean; setBn: (v: boolean) => void }) {
   return (
-    <button onClick={() => setBn(!bn)} style={{ ...btnGhost, background: bn ? '#e7e7e7' : 'transparent', color: bn ? '#111' : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">
+    <button onClick={() => setBn(!bn)} style={{ ...btnGhost, background: bn ? PRINT_BN_BG : 'transparent', color: bn ? PRINT_BN_TXT : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">
       {bn ? 'B/N' : 'Color'}
     </button>
   )
@@ -821,7 +823,7 @@ function BnToggle({ bn, setBn }: { bn: boolean; setBn: (v: boolean) => void }) {
 
 // ─── ESTILOS BOTONES / MODALES ─────────────────────────────────────────────────
 
-const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }
+const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }
 const btnGhost: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '8px 14px', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer', letterSpacing: '0.04em' }
 const inputStyle = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ width: '100%', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' })
 const lblStyle = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ display: 'block', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 5 })
