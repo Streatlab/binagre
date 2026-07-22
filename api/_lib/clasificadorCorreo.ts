@@ -20,8 +20,10 @@ export interface ClasificacionCorreo {
 }
 
 const RE_NOMINA = /(?<![a-záéíóúü])n[oó]minas?(?![a-záéíóúü])|recibo\s+de\s+salarios?|l[ií]quido\s+a\s+percibir|devengos?\s+y\s+deducciones/i
-const RE_RESUMEN_NOMINAS = /resumen\s+de\s+n[oó]minas|listado\s+de\s+n[oó]minas/i
-const RE_SEG_SOCIAL = /seguridad\s+social|tesorer[ií]a\s+general|\bTGSS\b|\bRLC\b|\bTC1\b|\bTC2\b|cotizaci[oó]n(?:es)?\s+sociales/i
+// "Resumen de Nómina" (singular) y "Resumen de Nóminas" (plural) son ambos
+// títulos reales usados por la gestoría — la 's' final es opcional.
+const RE_RESUMEN_NOMINAS = /resumen\s+de\s+n[oó]minas?|listado\s+de\s+n[oó]minas?/i
+const RE_SEG_SOCIAL = /seguridad\s+social|tesorer[ií]a\s+general|\bTGSS\b|\bRLC\b|\bTC1\b|\bTC2\b|cotizaci[oó]n(?:es)?\s+sociales|recibo\s+de\s+liquidaci[oó]n\s+de\s+cotizaciones/i
 const RE_RNT = /\bRNT\b|relaci[oó]n\s+nominal\s+de\s+trabajadores/i
 
 // Clasifica un adjunto por su nombre + texto. Devuelve 'factura' si no reconoce

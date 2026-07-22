@@ -17,7 +17,7 @@ import { extraerSegSocialAnthropicTexto } from './extraerSegSocialResumen.js'
 import { extraerResumenNominasTexto, type FilaResumenNomina } from './extraerResumenNominas.js'
 import { extraerRntTexto, type FilaRnt } from './extraerRnt.js'
 import { extraerAutonomoCuotaTexto } from './extraerAutonomoCuota.js'
-import { cargarCandidatosEmpleados, resolverEmpleado } from './matchEmpleado.js'
+import { cargarCandidatosEmpleados, cargarEmpleadores, resolverEmpleado } from './matchEmpleado.js'
 
 export interface ResultadoProceso {
   status: number
@@ -165,8 +165,11 @@ export async function procesarResumenNominas(
   if (resultado.estado === 'error') {
     return { status: 500, body: { error: resultado.motivo } }
   }
-  if (resultado.filas.length === 0) {
-    return { status: 422, body: { error: resultado.motivo, estado: resultado.estado } }
+  // Validación de suma(NETO)=TOTAL EMPRESA fallida, o sin tabla reconocible: no se
+  // guarda NADA (mejor sin datos que con datos falsos). Un único aviso para todo
+  // el documento, no uno por fila.
+  if (resultado.filas.length === 0 || resultado.estado === 'revisar') {
+    return { status: 422, body: { error: resultado.motivo, estado: resultado.estado, filas_leidas: resultado.filas } }
   }
 
   const mesFinal = mesBody ?? resultado.mes
@@ -189,20 +192,33 @@ export async function procesarResumenNominas(
   const niveles = ['EQUIPO', 'RESUMEN_NOMINAS', String(anioFinal)]
   const archivado = await archivarEquipo(buffer, nombreArchivo, niveles, ext)
 
-  const candidatos = await cargarCandidatosEmpleados(supabaseAdmin)
+  const [candidatos, empleadores] = await Promise.all([
+    cargarCandidatosEmpleados(supabaseAdmin),
+    cargarEmpleadores(supabaseAdmin),
+  ])
 
   const insertadas: unknown[] = []
-  const yaExistia: unknown[] = []
+  const actualizadas: unknown[] = []
   const revisarIdentidad: unknown[] = []
+  let descartadasEmpleador = 0
 
   for (const fila of resultado.filas as FilaResumenNomina[]) {
+    // El empleador/titular (Rubén) nunca genera nómina NI aviso: se descarta en
+    // silencio si el modelo lo devolvió como fila pese a la instrucción del prompt.
+    if (resolverEmpleado(fila.trabajador, null, empleadores)) {
+      descartadasEmpleador++
+      continue
+    }
+
     const resolucion = resolverEmpleado(fila.trabajador, null, candidatos)
+    const ssTrabajador = fila.ss_total != null && fila.ss_empresa != null ? Math.round((fila.ss_total - fila.ss_empresa) * 100) / 100 : null
     const filaOut = {
       trabajador: fila.trabajador,
       bruto: fila.bruto,
+      ss_empresa: fila.ss_empresa,
       neto: fila.neto,
-      irpf: fila.irpf,
       ss_total: fila.ss_total,
+      irpf: fila.irpf,
       coste_empresa: fila.coste_empresa,
     }
 
@@ -235,8 +251,8 @@ export async function procesarResumenNominas(
         estado: 'pendiente',
         payload: {
           origen: 'resumen_nominas',
-          bruto: fila.bruto, neto: fila.neto, irpf: fila.irpf,
-          ss_total: fila.ss_total, coste_empresa: fila.coste_empresa,
+          bruto: fila.bruto, ss_empresa: fila.ss_empresa, neto: fila.neto,
+          ss_total: fila.ss_total, irpf: fila.irpf, coste_empresa: fila.coste_empresa,
           drive_url: archivado.driveUrl,
           drive_pendiente: archivado.drivePendiente,
         },
@@ -249,30 +265,13 @@ export async function procesarResumenNominas(
       continue
     }
 
-    const { data: existente } = await supabaseAdmin
-      .from('nominas')
-      .select('id')
-      .eq('empleado_id', resolucion.empleado_id)
-      .eq('mes', mesFinal)
-      .eq('anio', anioFinal)
-      .maybeSingle()
-
-    if (existente) {
-      yaExistia.push(filaOut)
-      continue
-    }
-
-    const camposCompletos = [fila.bruto, fila.neto, fila.irpf, fila.ss_total, fila.coste_empresa].every(v => v != null)
-
-    const { error: errInsert } = await supabaseAdmin.from('nominas').insert({
-      empleado_id: resolucion.empleado_id,
-      mes: mesFinal,
-      anio: anioFinal,
+    const camposCompletos = [fila.bruto, fila.neto, fila.ss_total, fila.coste_empresa].every(v => v != null)
+    const datosNomina = {
       importe_bruto: fila.bruto,
       importe_neto: fila.neto,
       irpf_retenido: fila.irpf,
-      ss_trabajador: null,
-      ss_empresa: fila.ss_total,
+      ss_trabajador: ssTrabajador,
+      ss_empresa: fila.ss_empresa,
       coste_empresa: fila.coste_empresa,
       estado: camposCompletos ? 'ok' : 'revisar',
       pdf_url: archivado.driveUrl,
@@ -282,14 +281,29 @@ export async function procesarResumenNominas(
       drive_niveles: archivado.niveles,
       drive_nombre_archivo: archivado.nombreArchivo,
       pdf_storage_path: archivado.storagePath,
-    })
+    }
 
-    if (errInsert) {
-      await aRevisionConPayload(`La nómina de "${fila.trabajador}" (${mesFinal}/${anioFinal}) no se pudo guardar: ${errInsert.message}. Asigna el empleado para reintentarlo desde aquí.`)
-      revisarIdentidad.push({ ...filaOut, trabajador: `${fila.trabajador} (error al guardar: ${errInsert.message})` })
+    // Reproceso limpio: mismo empleado/mes/año ACTUALIZA (no se queda bloqueado
+    // ni duplica si se vuelve a subir el mismo resumen corregido).
+    const { data: existente } = await supabaseAdmin
+      .from('nominas')
+      .select('id')
+      .eq('empleado_id', resolucion.empleado_id)
+      .eq('mes', mesFinal)
+      .eq('anio', anioFinal)
+      .maybeSingle()
+
+    const { error: errUpsert } = existente
+      ? await supabaseAdmin.from('nominas').update(datosNomina).eq('id', existente.id as string)
+      : await supabaseAdmin.from('nominas').insert({ empleado_id: resolucion.empleado_id, mes: mesFinal, anio: anioFinal, ...datosNomina })
+
+    if (errUpsert) {
+      await aRevisionConPayload(`La nómina de "${fila.trabajador}" (${mesFinal}/${anioFinal}) no se pudo guardar: ${errUpsert.message}. Asigna el empleado para reintentarlo desde aquí.`)
+      revisarIdentidad.push({ ...filaOut, trabajador: `${fila.trabajador} (error al guardar: ${errUpsert.message})` })
       continue
     }
-    insertadas.push(filaOut)
+    if (existente) actualizadas.push(filaOut)
+    else insertadas.push(filaOut)
   }
 
   return {
@@ -301,7 +315,8 @@ export async function procesarResumenNominas(
       drive_url: archivado.driveUrl,
       drive_pendiente: archivado.drivePendiente,
       insertadas,
-      ya_existia: yaExistia,
+      actualizadas,
+      descartadas_empleador: descartadasEmpleador,
       revisar_identidad: revisarIdentidad,
     },
   }
@@ -337,7 +352,10 @@ export async function procesarSegSocialResumen(
   const niveles = ['EQUIPO', 'SEGURIDAD_SOCIAL', String(anioFinal)]
   const archivado = await archivarEquipo(buffer, nombreArchivo, niveles, ext)
 
-  const estadoResumen: 'ok' | 'revisar' = resultado.estado === 'ok' ? 'ok' : 'revisar'
+  // El RLC es un documento oficial ya liquidado: cuando se lee completo, su
+  // estado es 'confirmado' (no una estimación) — es la cifra que debe prevalecer
+  // sobre la Seguridad Social calculada desde las nóminas (ver trg_ss_resumen_a_gastos_fijos).
+  const estadoResumen: 'confirmado' | 'revisar' = resultado.estado === 'ok' ? 'confirmado' : 'revisar'
 
   const { data: fila, error: errUpsert } = await supabaseAdmin
     .from('seguridad_social_resumen')

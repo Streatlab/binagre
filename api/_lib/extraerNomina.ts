@@ -51,15 +51,15 @@ const PROMPT = `Eres un extractor de datos de nóminas españolas (Recibo de Sal
   "ss_empresa": number|null,
   "coste_empresa": number|null
 }
-Reglas:
-- "importe_bruto": "Total devengado" / "Total a percibir" / suma de devengos. NO es lo mismo que el líquido a percibir.
-- "importe_neto": "Líquido a percibir" / "Neto a percibir" (lo que realmente cobra el trabajador).
+Reglas — etiquetas literales reales de este tipo de documento, verificadas contra PDF reales (úsalas tal cual, no busques sinónimos si el literal aparece):
+- "importe_neto": la etiqueta literal es "LIQUIDO A PERCIBIR" (lo que realmente cobra el trabajador).
+- "importe_bruto": la etiqueta literal es "REM. TOTAL" (remuneración total, suma de devengos). NO es lo mismo que el líquido a percibir.
 - "irpf_retenido": busca "IRPF", "Retención IRPF", "% IRPF" — el IMPORTE retenido en euros, NUNCA el porcentaje.
-- "ss_trabajador": cotización de Seguridad Social a cargo del TRABAJADOR — busca "Total aportación trabajador", "Cuotas obrero", "Contingencias comunes" dentro del bloque de DESCUENTOS/deducciones (este importe SÍ se resta del bruto para llegar al neto).
-- "ss_empresa": cotización de Seguridad Social a cargo de la EMPRESA — busca "Total aportación empresa", "Cotización empresa", normalmente en un bloque aparte al pie del documento ("Resumen de bases y tipos de cotización", "Cotizaciones empresa"). Este importe NO se descuenta del bruto: es un coste adicional para la empresa, no lo paga el trabajador.
-- "coste_empresa": bruto + ss_empresa, SOLO si ambos están disponibles; si falta alguno, devuelve null (no lo calcules tú si falta un dato, el código lo hace).
-- "mes" y "anio": del periodo de liquidación de la nómina (ej. "Periodo de liquidación: 01/06/2026-30/06/2026" → mes=6, anio=2026). mes es un entero 1-12.
-- "empleado_nombre_detectado": el nombre del trabajador tal cual aparece (no el de la empresa).
+- "ss_trabajador": cotización de Seguridad Social a cargo del TRABAJADOR. La etiqueta "T. A DEDUCIR" (total a deducir) es el conjunto de TODAS las deducciones del trabajador — puede incluir, además de la Seguridad Social, otros conceptos como un anticipo salarial (ej. línea "791 Anticipo Salarial"). Si el documento desglosa la Seguridad Social por separado dentro de "T. A DEDUCIR", usa solo esa parte; si "T. A DEDUCIR" es un único importe sin desglose y no hay ningún anticipo/otro concepto visible, puedes usarlo directamente. Nunca metas un anticipo salarial dentro de ss_trabajador.
+- "ss_empresa": cotización de Seguridad Social a cargo de la EMPRESA — es la suma de la tabla "DETERMINACIÓN DE LAS BASES..." (bases y tipos de cotización de la empresa). Este importe NO se descuenta del bruto: es un coste adicional para la empresa, no lo paga el trabajador.
+- "coste_empresa": busca literalmente "COSTE EMPRESA:" en el bloque de Observaciones del documento — si aparece, usa ese valor directo. Si no aparece, y SOLO si bruto y ss_empresa están ambos disponibles, puedes usar bruto + ss_empresa; si falta algún dato, devuelve null.
+- "mes" y "anio": del periodo de liquidación de la nómina, formato "01 JUN 2026 A 30 JUN 2026" (admite tramos parciales del mes, ej. "01 JUN 2026 A 16 JUN 2026" — el mes/año sigue siendo el de ese tramo).
+- "empleado_nombre_detectado": el nombre del trabajador, que aparece en la línea bajo la cabecera "TRABAJADOR/A CATEGORIA..." — NUNCA la línea "EMPRESA DOMICILIO Nº INS. S.S." (esa es la empresa/empleador, no el trabajador), y nunca la propia cabecera de la tabla ("TRABAJADOR/A CATEGORIA Nº MATRIC...") como si fuera el nombre.
 - Si un campo no aparece con claridad en el documento, o el documento no es una nómina reconocible, devuélvelo null. NUNCA inventes un número ni lo deduzcas de fuera del texto.
 Responde SOLO el JSON.`
 

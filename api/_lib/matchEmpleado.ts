@@ -79,6 +79,19 @@ export async function cargarCandidatosEmpleados(supabase: SupabaseClient): Promi
   }))
 }
 
+/** Carga los marcados `es_empleador=true` (el titular/autónomo, p.ej. Rubén). Se usa
+ *  para DESCARTAR EN SILENCIO una fila que el parser haya leído como si fuera un
+ *  trabajador (p.ej. su nombre sin el prefijo "CENTRO:"): nunca debe generar ni
+ *  una nómina ni un aviso de revisión, a diferencia de un nombre desconocido de
+ *  verdad, que sí va a revisión. Dato explícito, no nombre a fuego. */
+export async function cargarEmpleadores(supabase: SupabaseClient): Promise<CandidatoEmpleado[]> {
+  const { data: empleados } = await supabase
+    .from('empleados').select('id, nombre, nombre_oficial, nif, aliases').eq('es_empleador', true)
+  return ((empleados ?? []) as { id: string; nombre: string; nombre_oficial: string | null; nif: string | null; aliases: string[] | null }[]).map(e => ({
+    id: e.id, nombre: e.nombre, nombre_oficial: e.nombre_oficial, nif: e.nif, aliases: (e.aliases ?? []) as string[],
+  }))
+}
+
 /**
  * Resuelve un nombre/NIF libre contra la lista de candidatos ya cargada.
  * Orden de prioridad: NIF exacto > nombre/nombre_oficial/alias exacto (cualquier

@@ -23,6 +23,10 @@ function normalizar(texto: string): string {
   return texto
     .toUpperCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    // Los marcadores literales ("LIQUIDO A PERCIBIR"...) a veces quedan partidos
+    // en dos lineas por la extraccion de texto del PDF; un salto de linea cuenta
+    // como espacio para que el marcador siga casando en una sola linea logica.
+    .replace(/[\r\n]+/g, ' ')
     .replace(/[ \t]+/g, ' ')
 }
 
@@ -39,17 +43,39 @@ function nifsPersona(textoNorm: string): string[] {
   return [...vistos]
 }
 
+// Cabecera de tabla ("TRABAJADOR/A CATEGORIA N MATRIC ANTIGUEDAD D.N.I...."), nunca
+// un nombre real: si el patron de abajo la captura por contener la palabra
+// "trabajador", se descarta y se sigue buscando en las lineas siguientes.
+const RE_CABECERA_TABLA = /CATEGORIA|MATRIC|ANTIGUEDAD|ANTIG.EDAD|D\.?N\.?I\.?|N\.?A\.?F\.?|N.?\s*AFIL/i
+// La linea de la empresa/empleador nunca es el trabajador: "EMPRESA DOMICILIO
+// N INS. S.S." (nomina individual) o "CENTRO:"/"Empresa:" (resumen mensual).
+const RE_LINEA_EMPRESA = /^\s*(centro\s*:|empresa\s*:|empresa\s+domicilio)/i
+
+function pareceNombrePersona(s: string): boolean {
+  const t = s.trim()
+  if (t.length < 4) return false
+  if (RE_CABECERA_TABLA.test(t)) return false
+  if (RE_LINEA_EMPRESA.test(t)) return false
+  return true
+}
+
 function extraerNombreTrabajador(textoOriginal: string): string | null {
   const lineas = textoOriginal.split(/\n+/)
   const patrones = [
     /(?:apellidos\s+y\s+nombre|nombre\s+del\s+trabajador|trabajador|empleado)\s*[:\-]?\s*(.+)/i,
   ]
-  for (const linea of lineas) {
+  for (let i = 0; i < lineas.length; i++) {
+    if (RE_LINEA_EMPRESA.test(lineas[i])) continue
     for (const re of patrones) {
-      const m = linea.match(re)
-      if (m && m[1] && m[1].trim().length >= 4) {
-        return m[1].trim().replace(/\s{2,}/g, ' ').slice(0, 80)
-      }
+      const m = lineas[i].match(re)
+      if (!m || !m[1]) continue
+      const candidato = m[1].trim().replace(/\s{2,}/g, ' ').slice(0, 80)
+      if (candidato.length < 4) continue
+      if (pareceNombrePersona(candidato)) return candidato
+      // La linea matcheada era la cabecera de la tabla ("TRABAJADOR/A CATEGORIA...");
+      // el dato real suele venir en la siguiente linea, sin la palabra clave.
+      const siguiente = (lineas[i + 1] || '').trim()
+      if (siguiente && pareceNombrePersona(siguiente)) return siguiente.replace(/\s{2,}/g, ' ').slice(0, 80)
     }
   }
   return null
