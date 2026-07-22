@@ -10,6 +10,7 @@ import { fmtEur } from '@/utils/format'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import { COLORS, FONT, CARDS, fmtDec } from '@/components/panel/resumen/tokens'
 import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
+import { normPlato } from '@/utils/normPlato'
 
 /**
  * MENU ENGINEERING · Binagre ERP
@@ -105,6 +106,11 @@ function pctTramos(precios: number[], nTramos: number): { rango: [number, number
   return out
 }
 
+// Fix popularidad (Tanda 8): ventas_plato.plato vs recetas.nombre se cruzaban con `===`
+// exacto y la mayoria de platos salian con 0 unidades aunque si tuvieran ventas reales
+// (mayusculas/acentos/espacios distintos). normPlato() replica norm_plato() de Postgres
+// (la misma que usa v_margen_plato/mapeo_plato_receta) -- ver src/utils/normPlato.ts.
+
 /* ── Estilos base (tokens Panel Global) ─────────────── */
 const cardBig = CARDS.big
 const card = CARDS.std
@@ -165,14 +171,16 @@ export default function MenuEngineering() {
   /* ── Dataset base (real) ── */
   const dishes = useMemo<Dish[]>(() => {
     if (!recetas.length) return []
-    // unidades por plato (filtrado por canal y mes)
+    // unidades por plato (filtrado por canal y mes) — cruce por nombre normalizado
+    // (Tanda 8: antes era `v.plato` exacto, ver normPlato() más arriba)
     const uds = new Map<string, number>()
     const est = new Map<string, boolean>()
     for (const v of ventas) {
       if (!canalesSel.includes(v.canal)) continue
       if (mesSel !== 'todos' && v.mes !== mesSel) continue
-      uds.set(v.plato, (uds.get(v.plato) ?? 0) + Number(v.unidades || 0))
-      if (v.estimado) est.set(v.plato, true)
+      const k = normPlato(v.plato)
+      uds.set(k, (uds.get(k) ?? 0) + Number(v.unidades || 0))
+      if (v.estimado) est.set(k, true)
     }
     const raw: Dish[] = []
     for (const r of recetas) {
@@ -193,8 +201,8 @@ export default function MenuEngineering() {
         id: r.id, nombre: r.nombre, coste, precioCarta, netoMedio,
         margen, margenPct: precioCarta > 0 ? margen / precioCarta : 0,
         foodCostPct: precioCarta > 0 ? coste / precioCarta : 0,
-        unidades: uds.get(r.nombre) ?? 0, mix: 0,
-        estimado: est.get(r.nombre) ?? false,
+        unidades: uds.get(normPlato(r.nombre)) ?? 0, mix: 0,
+        estimado: est.get(normPlato(r.nombre)) ?? false,
       })
     }
     const totalUds = raw.reduce((s, d) => s + d.unidades, 0) || 1

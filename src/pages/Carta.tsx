@@ -10,6 +10,11 @@ import { useTheme, FONT, pageTitleStyle, tabActiveStyle, tabInactiveStyle } from
 import { marginPorTodosCanales, type MargenPorCanal } from '@/lib/marcas/foodCostPorCanal'
 import { fmtEur } from '@/utils/format'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { similitudPlato } from '@/utils/normPlato'
+
+/** Umbral mínimo para sugerir un enlace automático (Tanda 8) — por debajo, mejor no
+ *  sugerir nada que sugerir mal; el usuario sigue teniendo el selector manual del form. */
+const UMBRAL_SUGERENCIA = 0.5
 
 /* ─── Types ─── */
 
@@ -142,7 +147,7 @@ export default function Carta() {
 
       {!loading && tab === 'platos' && (
         <TabPlatos
-          platos={platos} recetaMap={recetaMap} T={T} thStyle={thStyle} tdStyle={tdStyle}
+          platos={platos} recetas={recetas} recetaMap={recetaMap} T={T} thStyle={thStyle} tdStyle={tdStyle}
           onEdit={id => { setEditId(id); setShowForm(true) }}
           onToggle={async (id, activo) => {
             await supabase.from('carta_platos').update({ activo: !activo }).eq('id', id)
@@ -150,6 +155,10 @@ export default function Carta() {
           }}
           onDelete={async id => {
             await supabase.from('carta_platos').delete().eq('id', id)
+            setRefreshKey(k => k + 1)
+          }}
+          onVincular={async (id, recetaId) => {
+            await supabase.from('carta_platos').update({ receta_id: recetaId }).eq('id', id)
             setRefreshKey(k => k + 1)
           }}
         />
@@ -174,12 +183,24 @@ export default function Carta() {
 
 /* ─── Tab Platos ─── */
 
-function TabPlatos({ platos, recetaMap, T, thStyle, tdStyle, onEdit, onToggle, onDelete }: {
-  platos: Plato[]; recetaMap: Record<string, Receta>; T: ReturnType<typeof useTheme>['T']
+/** Tanda 8 · enlace asistido: mejor receta candidata por similitud de nombre (nunca
+ *  autovincula — solo sugiere; el usuario confirma con un clic o usa el selector manual). */
+function mejorSugerencia(nombrePlato: string, recetas: Receta[]): { receta: Receta; score: number } | null {
+  let mejor: { receta: Receta; score: number } | null = null
+  for (const r of recetas) {
+    const score = similitudPlato(nombrePlato, r.nombre)
+    if (score >= UMBRAL_SUGERENCIA && (!mejor || score > mejor.score)) mejor = { receta: r, score }
+  }
+  return mejor
+}
+
+function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, onToggle, onDelete, onVincular }: {
+  platos: Plato[]; recetas: Receta[]; recetaMap: Record<string, Receta>; T: ReturnType<typeof useTheme>['T']
   thStyle: CSSProperties; tdStyle: CSSProperties
   onEdit: (id: string) => void
   onToggle: (id: string, activo: boolean) => void
   onDelete: (id: string) => void
+  onVincular: (id: string, recetaId: string) => void
 }) {
   return (
     <div style={{ ...NEO_CARD, overflowX: 'auto' }}>
@@ -203,6 +224,7 @@ function TabPlatos({ platos, recetaMap, T, thStyle, tdStyle, onEdit, onToggle, o
             const margen = foodCost != null ? p.pvp - foodCost : null
             const fcPct = foodCost != null && p.pvp > 0 ? (foodCost / p.pvp) * 100 : null
             const fcOver = fcPct != null && fcPct > 32
+            const sugerencia = !receta ? mejorSugerencia(p.nombre, recetas) : null
 
             return (
               <tr key={p.id}>
@@ -210,7 +232,19 @@ function TabPlatos({ platos, recetaMap, T, thStyle, tdStyle, onEdit, onToggle, o
                 <td style={{ ...tdStyle, color: T.sec }}>{p.marca}</td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtEur(p.pvp)}</td>
                 <td style={{ ...tdStyle, color: receta ? T.pri : T.mut, fontStyle: receta ? 'normal' : 'italic' }}>
-                  {receta ? receta.nombre : (
+                  {receta ? receta.nombre : sugerencia ? (
+                    <button
+                      onClick={() => onVincular(p.id, sugerencia.receta.id)}
+                      title={`Similitud ${Math.round(sugerencia.score * 100)}%`}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 4,
+                        fontSize: 11, fontFamily: FONT.body, fontStyle: 'normal', cursor: 'pointer',
+                        background: `${COLOR_AMARILLO}22`, color: COLOR_AMARILLO, border: `1px solid ${COLOR_AMARILLO}55`,
+                      }}
+                    >
+                      ¿{sugerencia.receta.nombre}? · Vincular
+                    </button>
+                  ) : (
                     <span style={{
                       display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 10,
                       fontFamily: FONT.heading, letterSpacing: '0.5px', textTransform: 'uppercase',
