@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { cargarCandidatosEmpleados, resolverEmpleado } from '@/lib/equipo/matchEmpleado'
 import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, AZUL, GRIS, BLANCO } from '@/styles/neobrutal'
 
 interface FilaRevision {
@@ -27,6 +28,17 @@ interface FilaRevision {
 interface Empleado { id: string; nombre: string }
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+
+// Titular de la card: el NOMBRE DEL EMPLEADO que el OCR sacó del documento, no el
+// nombre del archivo (que suele llevar el del titular de la empresa). Si lo que
+// sacó el OCR es basura de cabecera de tabla ("CATEGORIA Nº MATRIC D.N.I…"), se
+// cae al nombre de archivo para no enseñar ruido.
+const RUIDO_CABECERA = /(CATEGORIA|MATRIC|ANTIGUEDAD|D\.?N\.?I|COTIZACION|DEVENGO)/i
+function tituloFila(f: FilaRevision): string {
+  const n = (f.empleado_nombre || '').trim()
+  if (n && n.length <= 60 && !RUIDO_CABECERA.test(n)) return n
+  return f.nombre_archivo
+}
 
 const LABEL_TIPO: Record<string, string> = {
   nomina: 'Nómina',
@@ -53,13 +65,20 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
     const data = (r.data ?? []) as FilaRevision[]
     setFilas(data)
     setEmpleados((e.data ?? []) as Empleado[])
+    // Preasignación automática: el nombre que el OCR sacó del documento se resuelve
+    // contra la plantilla (mismo matcher que el servidor). Si casa, el empleado
+    // viene ya elegido y reprocesar es UN clic — nada de rellenar a mano.
+    const candidatos = await cargarCandidatosEmpleados().catch(() => [])
     setForm(prev => {
       const next = { ...prev }
       for (const f of data) {
         if (!next[f.id]) {
+          const sugerido = f.empleado_nombre && candidatos.length
+            ? resolverEmpleado(f.empleado_nombre, null, candidatos)
+            : null
           next[f.id] = {
             tipo: f.tipo_detectado === 'desconocido' ? 'nomina' : f.tipo_detectado,
-            empleadoId: '',
+            empleadoId: sugerido?.empleado_id ?? '',
             mes: f.mes ?? '',
             anio: f.anio ?? '',
           }
@@ -152,7 +171,10 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
               return (
                 <div key={f.id} style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: 14 }}>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, color: INK, flex: 1, minWidth: 160, wordBreak: 'break-all' }}>{f.nombre_archivo}</span>
+                    <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, color: INK, flex: 1, minWidth: 160, wordBreak: 'break-word' }}>
+                      {tituloFila(f)}
+                      {(f.mes && f.anio) ? <span style={{ color: GRIS, fontWeight: 600 }}> · {MESES[f.mes - 1]} {f.anio}</span> : null}
+                    </span>
                     <span style={{ fontFamily: OSW, fontSize: 9, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', border: `2px solid ${INK}`, padding: '2px 7px', background: AMA, color: INK }}>
                       {LABEL_TIPO[f.tipo_detectado] || f.tipo_detectado}
                     </span>
@@ -160,7 +182,8 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
                       <a href={f.drive_url} target="_blank" rel="noreferrer" style={{ color: AZUL, fontFamily: LEX, fontSize: 11 }}>Ver documento</a>
                     )}
                   </div>
-                  {f.motivo && <div style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS, marginBottom: 10 }}>{f.motivo}</div>}
+                  {f.motivo && <div style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS, marginBottom: 4 }}>{f.motivo}</div>}
+                  <div style={{ fontFamily: LEX, fontSize: 10.5, color: GRIS, marginBottom: 10, wordBreak: 'break-all' }}>Archivo: {f.nombre_archivo}</div>
 
                   {sinArchivo ? (
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -192,11 +215,11 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
                       )}
 
                       <select value={fm.mes} onChange={e => setCampo(f.id, 'mes', e.target.value ? Number(e.target.value) : '')} style={selectMini}>
-                        <option value="">Mes…</option>
+                        <option value="">Mes (auto)</option>
                         {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                       </select>
                       <input
-                        type="number" placeholder="Año" value={fm.anio}
+                        type="number" placeholder="Año (auto)" value={fm.anio}
                         onChange={e => setCampo(f.id, 'anio', e.target.value ? Number(e.target.value) : '')}
                         style={{ ...selectMini, width: 78 }}
                       />
