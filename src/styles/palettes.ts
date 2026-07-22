@@ -49,3 +49,40 @@ export const VENTAS_CANAL_CHIP: Record<string, { bg: string; tx: string }> = {
 export const PE_CARD_GRAD = 'linear-gradient(180deg, #fff 0%, #1D9E7508 100%)'
 /** Zebra de tabla clara (fila alterna). */
 export const ZEBRA_CLARA = '#EFF0EC'
+
+/* ── Panel Global · marca, variantes oscuras de canal y plan contable ──
+ * (colores de MARCA/DATO fijos, sin equivalente en neobrutal.ts; viven aquí
+ * para que el módulo de tokens del panel quede a 0 hex). */
+export const PANEL_SIDEBAR_BG = '#1e2233'
+export const PANEL_MODAL_BG = '#484f66'
+export const CANAL_UBER_DARK = '#0F6E56'
+export const CANAL_GLOVO_DARK = '#8a5b00'
+export const CANAL_JE_DARK = '#a34e00'
+export const CANAL_WEB_DARK = '#791F1F'
+export const CANAL_DIR_DARK = '#185FA5'
+export const CAT_PRD = '#7B4F2A'
+export const CAT_EQP = '#4A5980'
+export const CAT_LOC = '#5A8A6F'
+export const CAT_CTR = '#A87C3D'
+
+/* ── ResumenLanding (pestaña Resumen del Panel Global) ── */
+/** Colores extra para el gráfico de mix por marca (más allá de los 5 semánticos). */
+export const PANEL_MARCA_MORADO = '#8A4FFF'
+export const PANEL_MARCA_CIAN = '#0FB8B8'
+/** Fondo de fila "en negrita" (totales) de la tabla de costes. */
+export const RESUMEN_ROW_BOLD = '#faf4e6'
+/** Proyección de caja: texto rojo/verde suave sobre fondo oscuro. */
+export const PROY_ROJO_S = '#ffd6d6'
+export const PROY_VERDE_S = '#d6ffe0'
+
+/** CardFacturasCorreo (Resumen) · alerta y progreso de correo. */
+export const CORREO_ALERTA_BORDE = '#FF4757'
+export const CORREO_PROGRESO = '#1D6FE2'
+export const CORREO_ERROR_BORDE = '#E24B4A'
+
+/** CardPedidosTM · colores de canal Web/Directa (más allá de los 5 semánticos del kit). */
+export const CANAL_TM_WEB = '#8B5CF6'
+export const CANAL_TM_DIRECTA = '#06B6D4'
+
+/** TabResumen · borde/sombra "casi negro" de una card puntual (no el INK estándar). */
+export const RESUMEN_BORDE_OSCURO = '#140f08'

@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, GRIS, INK } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, INK, CLARO, TRACK, ROSA, ROJO, AMA, VERDE, NAR, AZUL, CORP } from '@/styles/neobrutal'
 /**
  * CardHoyEnVivo — sección "HOY EN VIVO" del Resumen (Panel Global), a ancho completo,
  * justo encima del estado de salud del periodo.
@@ -21,24 +21,15 @@ import { fmtEur, fmtNum } from '@/lib/format'
 import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { resolverNetoCanal, loadVentasReales, loadRatiosCalibrados, type FuenteNeto } from '@/lib/panel/netoResolver'
 
-/* ── tokens idénticos a ResumenLanding ── */
-const CLARO = '#F3D9A8'
-const TRACK = '#ecdcb8'
-const ROSA = '#FF2E63'
-const ROJO = '#FF1E27'
-const AMA = '#FFC400'
-const VERDE = '#0FB86B'
-const NAR = '#FF6A1A'
-const AZUL = '#2D5BFF'
+/* ── tokens idénticos a ResumenLanding (theme-aware, de neobrutal.ts) ── */
 const SHADOW = `4px 4px 0 ${INK}`
 const OSW = "'Oswald', sans-serif"
 const LEX = "'Lexend', sans-serif"
 const PAD = '40px'
-const CORP: Record<string, string> = { uber: VERDE, glovo: '#FFC244', je: '#FF8000', web: GRANATE, dir: '#1e2233' }
 
 const d = (size: string, color = INK): React.CSSProperties => ({ fontFamily: OSW, fontWeight: 700, fontSize: size, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color })
 const eyebrow = (bg: string, color = INK): React.CSSProperties => ({ display: 'inline-block', background: bg, color, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', padding: '4px 12px' })
-const micro: React.CSSProperties = { fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b5d45' }
+const micro: React.CSSProperties = { fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }
 
 const E2 = (n: number) => fmtEur(n, { showEuro: false, decimals: 2 })
 const N = (n: number) => fmtNum(n, 0)

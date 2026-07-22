@@ -1,8 +1,9 @@
 import { AZUL, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { CANAL_TM_WEB, CANAL_TM_DIRECTA } from '@/styles/palettes'
 /**
  * CardPedidosTM — Ronda 7
  * R7-04: formato canales "1097 / 26,76 / 17,05" sin €, sin punto medio
- * R7-04b: barras Web (#8B5CF6 violeta) y Directa (#06B6D4 cyan) visibles
+ * R7-04b: barras Web (violeta) y Directa (cyan) visibles
  * R7-04c: si pedidos === 0 → "0 / 0,00 / 0,00" (no "—")
  */
 import { fmtNum, fmtEur } from '@/lib/format'
@@ -22,8 +23,8 @@ const CANAL_VISUAL: Record<string, { label: string; color: string }> = {
   uber:  { label: 'Uber Eats', color: VERDE  },
   glovo: { label: 'Glovo',     color: LIMA  },
   je:    { label: 'Just Eat',  color: NAR  },
-  web:   { label: 'Web',       color: '#8B5CF6'  },
-  dir:   { label: 'Directa',   color: '#06B6D4'  },
+  web:   { label: 'Web',       color: CANAL_TM_WEB  },
+  dir:   { label: 'Directa',   color: CANAL_TM_DIRECTA  },
 }
 
 const ORDEN: Array<CanalStat['id']> = ['uber', 'glovo', 'je', 'web', 'dir']

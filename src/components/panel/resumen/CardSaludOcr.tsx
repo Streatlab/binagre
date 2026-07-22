@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, GRIS, INK, NAR, OSC, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, OSC, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { fmtNumES } from '../../../utils/format'
@@ -72,7 +72,7 @@ export default function CardSaludOcr() {
     : []
 
   return (
-    <div style={{ background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '16px 16px' }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 14, padding: '16px 16px' }}>
       <div style={{ marginBottom: 8 }}>
         <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase' }}>Salud OCR</span>
       </div>

@@ -1,4 +1,8 @@
-import { AZUL, AZUL_CL, BLANCO, GRANATE, GRIS, NAR, ROJO, VERDE } from '@/styles/neobrutal'
+import { AMA, AMA_S, AZUL, AZUL_CL, BLANCO, CORP, GRANATE, GRIS, NAR, ROJO, ROSA, VERDE } from '@/styles/neobrutal'
+import {
+  PANEL_SIDEBAR_BG, PANEL_MODAL_BG, CANAL_UBER_DARK, CANAL_GLOVO_DARK, CANAL_JE_DARK,
+  CANAL_WEB_DARK, CANAL_DIR_DARK, CAT_PRD, CAT_EQP, CAT_LOC, CAT_CTR,
+} from '@/styles/palettes'
 /**
  * Tokens del Panel Global — mockups validados.
  *
@@ -31,26 +35,26 @@ export const COLORS = {
   mut: 'var(--sl-text-muted)',
   // Marca
   redSL: GRANATE,
-  sidebar: '#1e2233',
-  modal: '#484f66',
+  sidebar: PANEL_SIDEBAR_BG,
+  modal: PANEL_MODAL_BG,
   // Acción
-  accent: '#FF2E63',
+  accent: ROSA,
   // Semáforo
   ok: VERDE,
   warn: NAR,
   err: ROJO,
   // Canales
   uber: VERDE,
-  uberDark: '#0F6E56',
-  glovo: '#FFC244',
-  glovoDark: '#8a5b00',
+  uberDark: CANAL_UBER_DARK,
+  glovo: CORP.glovo,
+  glovoDark: CANAL_GLOVO_DARK,
   glovoText: 'var(--neo-ink)',
-  je: '#FF8000',
-  jeDark: '#a34e00',
+  je: CORP.je,
+  jeDark: CANAL_JE_DARK,
   web: GRANATE,
-  webDark: '#791F1F',
+  webDark: CANAL_WEB_DARK,
   directa: AZUL_CL,
-  directaDark: '#185FA5',
+  directaDark: CANAL_DIR_DARK,
   // Días semana
   lun: AZUL,
   mar: VERDE,
@@ -60,10 +64,10 @@ export const COLORS = {
   sab: NAR,
   dom: VERDE,
   // Plan contable
-  catPrd: '#7B4F2A',
-  catEqp: '#4A5980',
-  catLoc: '#5A8A6F',
-  catCtr: '#A87C3D',
+  catPrd: CAT_PRD,
+  catEqp: CAT_EQP,
+  catLoc: CAT_LOC,
+  catCtr: CAT_CTR,
   catPlt: VERDE,
   catIng: VERDE,
   catInt: GRIS,
@@ -71,7 +75,7 @@ export const COLORS = {
   ruben: NAR,
   emilio: AZUL,
   // Alias
-  glovoAccent: '#FFC244',
+  glovoAccent: CORP.glovo,
 } as const
 
 /* ── FONT ─────────────────────────────────────────── */
@@ -129,7 +133,7 @@ export const CARDS = {
   filterActive: {
     border: '3px solid var(--neo-ink)',
     boxShadow: '3px 3px 0 var(--neo-shadow-color)',
-    background: '#FFF4CC',
+    background: AMA_S,
   } as CSSProperties,
 } as const
 
@@ -149,7 +153,7 @@ export const TABS_PILL = {
     padding: '5px 13px',
     borderRadius: 0,
     border: '2px solid var(--neo-ink)',
-    background: '#0FB86B',
+    background: VERDE,
     color: BLANCO,
     fontFamily: "'Oswald', sans-serif",
     fontSize: 12,
@@ -181,7 +185,7 @@ export const SUBTABS = {
     padding: '6px 13px',
     borderRadius: 0,
     border: '2px solid var(--neo-ink)',
-    background: '#0FB86B',
+    background: VERDE,
     color: BLANCO,
     fontFamily: "'Oswald', sans-serif",
     fontSize: 12,
@@ -258,9 +262,9 @@ export const LAYOUT = {
 
 /* ── EDITABLE inline ──────────────────────────────── */
 export const EDITABLE: CSSProperties = {
-  borderBottom: '2px dashed #2D5BFF',
+  borderBottom: `2px dashed ${AZUL}`,
   cursor: 'text',
-  color: '#2D5BFF',
+  color: AZUL,
   padding: '0 2px',
 }
 
@@ -271,8 +275,8 @@ export const TAG: CSSProperties = {
   gap: 4,
   padding: '2px 8px',
   borderRadius: 0,
-  background: '#FFF4CC',
-  border: '2px solid #FFC400',
+  background: AMA_S,
+  border: `2px solid ${AMA}`,
   color: 'var(--neo-ink)',
   fontSize: 11,
   fontWeight: 500,

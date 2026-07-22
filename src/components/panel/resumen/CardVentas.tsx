@@ -1,4 +1,4 @@
-import { BLANCO, INK, OSC } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, INK, OSC } from '@/styles/neobrutal'
 /**
  * CardVentas — Panel Global
  * Editable inline:
@@ -234,7 +234,7 @@ function ObjetivoEditable({
     <span
       onClick={() => setEditing(true)}
       style={{
-        borderBottom: '1px dashed #d0c8bc',
+        borderBottom: `1px dashed ${BORDE_SUAVE}`,
         cursor: 'text',
         color: OSC,
         padding: '0 2px',

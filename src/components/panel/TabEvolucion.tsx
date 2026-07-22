@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { ZEBRA_CLARA } from '@/styles/palettes'
 import {
   INK, OSC, CREMA, CLARO, TRACK, ROSA, ROSA_S, ROJO, AMA, VERDE, VERDE_S, NAR, AZUL, GRANATE, GRIS, OSW, LEX, SHADOW, PAD, eyebrow, d, BLANCO } from '@/styles/neobrutal'
 import { fmtEur, fmtNum } from '@/utils/format'
@@ -452,7 +453,7 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
               const isMejor = key === mejorMes, isPeor = key === peorMes
               const dot = isMejor ? VERDE : isPeor ? ROJO : GRANATE
               return (
-                <div key={key} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1fr', gap: 8, alignItems: 'center', padding: '12px 16px', borderTop: `1px solid ${INK}1a`, background: isMejor ? VERDE_S : isPeor ? ROSA_S : (i % 2 ? CLARO : BLANCO) }}>
+                <div key={key} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1fr', gap: 8, alignItems: 'center', padding: '12px 16px', borderTop: `1px solid ${INK}1a`, background: isMejor ? VERDE_S : isPeor ? ROSA_S : (i % 2 ? ZEBRA_CLARA : BLANCO) }}>
                   <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 9, height: 9, flexShrink: 0, background: dot, border: `1px solid ${INK}` }} />{fmtMesKey(key)}
                   </span>

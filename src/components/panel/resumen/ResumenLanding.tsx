@@ -1,4 +1,9 @@
-import { BLANCO, GRANATE, GRIS, INK, NAR_S } from '@/styles/neobrutal'
+import {
+  BLANCO, GRANATE, GRIS, INK, NAR_S,
+  OSC, CLARO, ROSA_CL, LAV, TEAL, TRACK, TRACK_CANAL,
+  ROSA, ROJO, AMA, VERDE, NAR, AZUL, CORP, CLARA, OBJ_MARGEN,
+} from '@/styles/neobrutal'
+import { PANEL_MARCA_MORADO, PANEL_MARCA_CIAN, RESUMEN_ROW_BOLD, PROY_ROJO_S, PROY_VERDE_S, ZEBRA_CLARA } from '@/styles/palettes'
 /**
  * ResumenLanding v20 — pestaña Resumen del Panel Global (neobrutal Food Pop).
  * v20: sección HOY EN VIVO a ancho completo encima del estado de salud (solo en horario de
@@ -18,29 +23,11 @@ import type { PorCobrarResult } from '@/lib/panel/calcPorCobrar'
 import { elegirFrase, type MetricasInsight } from './frasesInsight'
 import CardHoyEnVivo, { enHorarioServicio } from './CardHoyEnVivo'
 
-const OSC = '#2b2117'
 const CREMA = NAR_S
-const CLARO = '#F3D9A8'
-const ROSA_CL = '#ffe0ea'
-const LAV = '#d8e3ff'      // azul lavanda claro (Punto de equilibrio)
-const TEAL = '#0F3D35'     // verde petróleo saturado (Resultado del periodo)
-const TRACK = '#ecdcb8'
-const TRACK_CANAL = '#e2dac9'
-const ROSA = '#FF2E63'   // acento (no significa "malo")
-const ROJO = '#FF1E27'   // negativo (semántico)
-const AMA = '#FFC400'
-const VERDE = '#0FB86B'  // positivo (semántico) · métrica Neto/TM neto · canal propio
-const NAR = '#FF6A1A'    // métrica Pedidos · aviso intermedio · plataformas
-const AZUL = '#2D5BFF'   // métrica TM bruto
 const SHADOW = `4px 4px 0 ${INK}`   // sombra única de todo el ERP
 const OSW = "'Oswald', sans-serif"
 const LEX = "'Lexend', sans-serif"
 const PAD = '40px'
-
-// colores corporativos de plataforma
-const CORP: Record<string, string> = { uber: VERDE, glovo: '#FFC244', je: '#FF8000', web: GRANATE, dir: '#1e2233' }
-const CLARA: Record<string, boolean> = { uber: true, glovo: true, je: false, web: false, dir: false }
-const OBJ_MARGEN: Record<string, number> = { uber: 55, glovo: 55, je: 55, web: 88, dir: 92 }
 
 // textos sobre fondo oscuro
 const D1 = CREMA
@@ -276,7 +263,7 @@ export default function ResumenLanding(p: Props) {
     { l: 'Margen neto', v: P2(p.margenNetoReal), c: INK, tip: 'Ingresos netos sobre facturación bruta' },
   ]
   const servColor = [AMA, AZUL, VERDE, NAR, ROSA]
-  const marcaColor = [ROSA, AZUL, VERDE, NAR, AMA, '#8A4FFF', '#0FB8B8']
+  const marcaColor = [ROSA, AZUL, VERDE, NAR, AMA, PANEL_MARCA_MORADO, PANEL_MARCA_CIAN]
   const marcas5 = p.marcasReales.slice(0, 5)
 
   const marcasVar = marcas5.filter(mk => mk.varPct != null)
@@ -376,7 +363,7 @@ export default function ResumenLanding(p: Props) {
         {desv.map((x, i) => (
           <div key={i} style={{ padding: '20px 22px 26px', borderRight: i < 2 ? `2px solid ${INK}22` : 'none' }}>
             <div style={d('clamp(30px,4.4vw,52px)', x.c)}><Arrow v={x.raw} />{x.v}</div>
-            <div style={{ fontFamily: OSW, letterSpacing: '1.5px', fontSize: 12.5, color: '#6b5d45', textTransform: 'uppercase', marginTop: 6 }}>{x.l} · vs periodo anterior</div>
+            <div style={{ fontFamily: OSW, letterSpacing: '1.5px', fontSize: 12.5, color: GRIS, textTransform: 'uppercase', marginTop: 6 }}>{x.l} · vs periodo anterior</div>
           </div>
         ))}
       </section>
@@ -449,7 +436,7 @@ export default function ResumenLanding(p: Props) {
                     </div>
                   ))}
                 </div>
-              : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340', flex: 1, display: 'flex', alignItems: 'center' }}>Sin reparto por momento del día: el campo «servicio» no viene informado en este periodo.</div>}
+              : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: GRIS, flex: 1, display: 'flex', alignItems: 'center' }}>Sin reparto por momento del día: el campo «servicio» no viene informado en este periodo.</div>}
           </div>
 
           {/* Rectángulo 2 · Días pico (AMA) */}
@@ -543,12 +530,12 @@ export default function ResumenLanding(p: Props) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, margin: '8px 0 22px' }}>
             <div title="Beneficio operativo estimado: ingresos − producto − personal − resto de gastos" style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px', cursor: 'help' }}>
-              <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b5d45' }}>EBITDA estimado<Est /></div>
+              <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>EBITDA estimado<Est /></div>
               <div style={{ ...d('clamp(30px,4.4vw,52px)', p.ebitda >= 0 ? VERDE : ROJO), margin: '6px 0 4px' }}>{EUR(p.ebitda)}</div>
               <div style={{ ...eyebrow(p.ebitda >= 0 ? VERDE : ROJO, BLANCO), fontSize: 12 }}>{P0(p.ebitdaPct)} sobre ingresos</div>
             </div>
             <div title="Coste de producto + personal sobre ingresos. Objetivo ≤ 60%." style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px', cursor: 'help' }}>
-              <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b5d45' }}>Prime cost<Est /></div>
+              <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Prime cost<Est /></div>
               <div style={{ ...d('clamp(30px,4.4vw,52px)', p.primeCostPct <= 60 ? VERDE : NAR), margin: '6px 0 4px' }}>{P0(p.primeCostPct)}</div>
               <div style={{ ...eyebrow(p.primeCostPct <= 60 ? VERDE : NAR, BLANCO), fontSize: 12 }}>objetivo ≤ 60%</div>
             </div>
@@ -568,7 +555,7 @@ export default function ResumenLanding(p: Props) {
                 const sobre = gd && gd.presupuesto > 0 && gd.gasto > gd.presupuesto
                 const esEstimado = !!r.grupo && (!gd || gd.gasto === 0)
                 return (
-                  <div key={r.l} style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, alignItems: 'center', padding: '13px 16px', borderTop: `1px solid ${INK}1a`, background: r.bold ? '#faf4e6' : (i % 2 ? '#fbf8f1' : BLANCO) }}>
+                  <div key={r.l} style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, alignItems: 'center', padding: '13px 16px', borderTop: `1px solid ${INK}1a`, background: r.bold ? RESUMEN_ROW_BOLD : (i % 2 ? ZEBRA_CLARA : BLANCO) }}>
                     <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: r.bold ? 700 : 500, color: INK, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 9, height: 9, flexShrink: 0, background: r.dot, border: `1px solid ${INK}` }} />
                       {r.l}{meta && <span style={{ fontSize: 11, color: GRIS }}> · obj {meta.obj}%</span>}{esEstimado && <Est />}{r.falta && <Est tip="Aún sin costes cargados — se calcula en cuanto entre el dato" />}
@@ -582,7 +569,7 @@ export default function ResumenLanding(p: Props) {
                 )
               })
             })()}
-            <button onClick={() => setVerCostes(v => !v)} style={{ width: '100%', background: '#faf4e6', border: 'none', borderTop: `2px solid ${INK}`, color: INK, fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '11px', cursor: 'pointer' }}>
+            <button onClick={() => setVerCostes(v => !v)} style={{ width: '100%', background: RESUMEN_ROW_BOLD, border: 'none', borderTop: `2px solid ${INK}`, color: INK, fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '11px', cursor: 'pointer' }}>
               {verCostes ? '▲ Ocultar desglose de costes' : '▼ Ver desglose de costes (producto, equipo, local, opex)'}
             </button>
           </div>
@@ -644,8 +631,8 @@ export default function ResumenLanding(p: Props) {
               <div title="Proyección de caja: saldo banco + cobros − pagos estimados de los próximos 30 días" style={{ background: '#ffffff1f', border: `3px solid ${INK}`, padding: '10px 12px', marginTop: 14, cursor: 'help' }}>
                 <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.9 }}>En 30 días tendrás ≈<Est light /></div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={d('clamp(24px,3vw,38px)', proj >= 0 ? BLANCO : '#ffd6d6')}>{E(proj)}</span>
-                  <span style={{ fontFamily: LEX, fontSize: 13, fontWeight: 700, color: delta >= 0 ? '#d6ffe0' : '#ffd6d6' }}>{delta >= 0 ? '▲' : '▼'} {ES(delta)}</span>
+                  <span style={d('clamp(24px,3vw,38px)', proj >= 0 ? BLANCO : PROY_ROJO_S)}>{E(proj)}</span>
+                  <span style={{ fontFamily: LEX, fontSize: 13, fontWeight: 700, color: delta >= 0 ? PROY_VERDE_S : PROY_ROJO_S }}>{delta >= 0 ? '▲' : '▼'} {ES(delta)}</span>
                 </div>
               </div>
             )
@@ -654,7 +641,7 @@ export default function ResumenLanding(p: Props) {
             const meses = p.saldoBanco / p.gastosFijosMes
             return (
               <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, marginTop: 12, opacity: 0.95 }}>
-                Con esta caja aguantas <b style={{ color: meses >= 3 ? '#d6ffe0' : '#ffd6d6' }}>{meses.toFixed(1)} meses</b> de gastos fijos
+                Con esta caja aguantas <b style={{ color: meses >= 3 ? PROY_VERDE_S : PROY_ROJO_S }}>{meses.toFixed(1)} meses</b> de gastos fijos
               </div>
             )
           })()}

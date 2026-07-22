@@ -1,4 +1,5 @@
 import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, ROJO, VERDE } from '@/styles/neobrutal'
+import { CORREO_ALERTA_BORDE, CORREO_PROGRESO, CORREO_ERROR_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { toast } from '@/lib/toastStore'
@@ -135,7 +136,7 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
       onClick={onClick}
       style={{
         background: BLANCO,
-        border: activa ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
+        border: activa ? `1px solid ${CORREO_ALERTA_BORDE}` : `0.5px solid ${BORDE_SUAVE}`,
         borderRadius: 14, padding: '16px 16px',
         cursor: onClick ? 'pointer' : 'default',
         boxShadow: activa ? '0 0 0 3px #FF475715' : 'none',
@@ -155,8 +156,8 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
         <div style={{ height: 5, borderRadius: 3, background: BORDE_SUAVE, overflow: 'hidden' }}><div style={{ width: `${pctFac}%`, height: '100%', background: GRANATE }} /></div>
       </div>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: GRIS, display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Resúmenes de ventas</span><span style={{ color: '#1D6FE2', fontWeight: 500 }}>{resumenes}</span></div>
-        <div style={{ height: 5, borderRadius: 3, background: BORDE_SUAVE, overflow: 'hidden' }}><div style={{ width: `${pctRes}%`, height: '100%', background: '#1D6FE2' }} /></div>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: GRIS, display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Resúmenes de ventas</span><span style={{ color: CORREO_PROGRESO, fontWeight: 500 }}>{resumenes}</span></div>
+        <div style={{ height: 5, borderRadius: 3, background: BORDE_SUAVE, overflow: 'hidden' }}><div style={{ width: `${pctRes}%`, height: '100%', background: CORREO_PROGRESO }} /></div>
       </div>
 
       <button
@@ -177,7 +178,7 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
           onClick={(e) => e.stopPropagation()}
           style={{
             display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 8,
-            padding: '8px 10px', borderRadius: 8, border: '0.5px solid #E24B4A',
+            padding: '8px 10px', borderRadius: 8, border: `0.5px solid ${CORREO_ERROR_BORDE}`,
             background: BLANCO, color: ROJO, textAlign: 'center', textDecoration: 'none',
             fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px',
             textTransform: 'uppercase', fontWeight: 600,

@@ -2,7 +2,7 @@ import { VERDE } from '@/styles/neobrutal'
 /**
  * CardRatio — Fixes 81-88
  * FIX 81: "obj" → "Objetivo" en verde
- * FIX 82: cifra editable objetivo en verde #1D9E75
+ * FIX 82: cifra editable objetivo en verde (VERDE del kit)
  * FIX 83: coeficiente grande con colorSemaforo
  * FIX 84: barra + "▼/▲ X% bajo/sobre objetivo" bajo el coeficiente
  * FIX 85: ELIMINAR bloque inferior "Distancia al objetivo"
