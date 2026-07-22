@@ -47,6 +47,7 @@ const TabUnidades = React.lazy(() => import('@/pages/configuracion/compras/TabUn
 const UsuariosPage = React.lazy(() => import('@/pages/configuracion/usuarios/UsuariosPage'))
 const CalendarioPage = React.lazy(() => import('@/pages/configuracion/calendario/CalendarioPage'))
 const AprendizajesPage = React.lazy(() => import('@/pages/configuracion/AprendizajesPage'))
+const ConfiguracionHub = React.lazy(() => import('@/pages/configuracion/ConfiguracionHub'))
 const CalcNetoAprendizajePage = React.lazy(() => import('@/pages/configuracion/CalcNetoAprendizajePage'))
 
 const VentasPage = React.lazy(() => import('@/pages/finanzas/VentasPage'))
@@ -156,7 +157,7 @@ function AppRoutes() {
           <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
 
 
-          <Route path="configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
+          <Route path="configuracion" element={<ProtectedRoute solo={['admin']}><ConfiguracionHub /></ProtectedRoute>} />
           {/* Pantalla Configuracion antigua eliminada · redirige a integraciones */}
           <Route path="configuracion/configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
 

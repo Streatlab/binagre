@@ -10,7 +10,6 @@ import {
   Settings,
   ChevronRight,
   BellRing,
-  FileText,
   ClipboardList,
   Compass,
 } from 'lucide-react'
@@ -85,25 +84,10 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    key: 'informes', label: 'Informes', perfiles: ['admin'],
+    key: 'ajustes', label: 'Ajustes', perfiles: ['admin'],
     items: [
-      { path: '/informes',               label: 'Panel Informes',   emoji: '📊', perfiles: ['admin'] },
-      { path: '/informes/destinatarios', label: 'Destinatarios',    emoji: '👥', perfiles: ['admin'] },
-      { path: '/informes/historial',     label: 'Historial envíos', emoji: '🕒', perfiles: ['admin'] },
-      { path: '/informes/configuracion', label: 'Configuración',    emoji: '⚙️', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'configuracion', label: 'Configuración', perfiles: ['admin'],
-    items: [
-      { path: '/configuracion/integraciones',        label: 'Integraciones',        emoji: '🔌', perfiles: ['admin'] },
-      { path: '/configuracion/reglas',               label: 'Reglas',               emoji: '📐', perfiles: ['admin'] },
-      { path: '/configuracion/bancos-y-cuentas',     label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
-      { path: '/configuracion/usuarios',             label: 'Usuarios',             emoji: '👤', perfiles: ['admin'] },
-      { path: '/configuracion/calendario',           label: 'Calendario operativo', emoji: '📅', perfiles: ['admin'] },
-      { path: '/configuracion/aprendizajes',         label: 'Aprendizajes ERP',     emoji: '🧠', perfiles: ['admin'] },
-      { path: '/configuracion/calcneto-aprendizaje', label: 'Ajuste calcNeto',      emoji: '⚖️', perfiles: ['admin'] },
-      { path: '/configuracion/mapeo-marcas',         label: 'Mapeo de Marcas',      emoji: '🏷️', perfiles: ['admin'] },
+      { path: '/configuracion', label: 'Configuración', emoji: '⚙️', perfiles: ['admin'] },
+      { path: '/informes',      label: 'Informes',      emoji: '📊', perfiles: ['admin'] },
     ],
   },
 ]
@@ -115,8 +99,7 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
   operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: BLANCO  },
   compras:       { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },
   ventas:        { icon: TrendingUp,    headBg: '#7C3AED', headColor: BLANCO  },
-  informes:      { icon: FileText,      headBg: GRANATE, headColor: BLANCO  },
-  configuracion: { icon: Settings,      headBg: '#484f66', headColor: BLANCO  },
+  ajustes:       { icon: Settings,      headBg: '#484f66', headColor: BLANCO  },
 }
 
 const OPEN_SECTIONS_LS_KEY = 'streatlab.sidebar.openSections'
