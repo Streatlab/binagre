@@ -38,10 +38,10 @@ const btnCancelStyle: CSSProperties = {
   minHeight: '40px',
 }
 
-const inputCls = 'w-full bg-white border-[2px] border-[#140f08] rounded-none px-3 py-2 text-sm text-[#140f08] placeholder:text-[#9a8f78] focus:outline-none focus:border-[#2D5BFF]'
-const labelCls = 'block text-[11px] text-[#140f08] mb-1 uppercase tracking-wider'
-const thCls = 'px-3 py-2 text-left text-[10px] uppercase tracking-wider text-[#140f08] font-semibold border-b-[2px] border-[#140f08] bg-[#FCEFD6]'
-const tdCls = 'px-3 py-2 text-sm border-b border-[#140f08]/20'
+const inputCls = 'w-full bg-white border-[2px] border-ink rounded-none px-3 py-2 text-sm text-ink placeholder:text-gris focus:outline-none focus:border-azul'
+const labelCls = 'block text-[11px] text-ink mb-1 uppercase tracking-wider'
+const thCls = 'px-3 py-2 text-left text-[10px] uppercase tracking-wider text-ink font-semibold border-b-[2px] border-ink bg-crema'
+const tdCls = 'px-3 py-2 text-sm border-b border-ink/20'
 
 interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
 
@@ -333,15 +333,15 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-        <div className="relative bg-[#FCEFD6] border-[4px] border-[#140f08] rounded-none w-full max-w-5xl my-8 shadow-[6px_6px_0_#140f08]" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-crema border-[4px] border-ink rounded-none w-full max-w-5xl my-8 shadow-[6px_6px_0_var(--color-ink)]" onClick={e => e.stopPropagation()}>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b-[4px] border-[#140f08] bg-[#FFC400]">
+          <div className="flex items-center justify-between px-5 py-4 border-b-[4px] border-ink bg-ama">
             <div>
-              <h3 className="text-[#140f08]" style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{eps ? 'Editar EPS' : 'Nueva EPS'}</h3>
-              {eps?.codigo && <p className="text-xs text-[#9a8f78] mt-0.5 font-mono">{eps.codigo} · EPS</p>}
+              <h3 className="text-ink" style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{eps ? 'Editar EPS' : 'Nueva EPS'}</h3>
+              {eps?.codigo && <p className="text-xs text-gris mt-0.5 font-mono">{eps.codigo} · EPS</p>}
             </div>
-            <button onClick={onClose} style={{ background: BLANCO, border: '2px solid #140f08', width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
+            <button onClick={onClose} style={{ background: BLANCO, border: `2px solid ${INK}`, width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
           </div>
 
           <div className="p-5 space-y-5">
@@ -381,7 +381,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
             {/* Líneas */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] text-[#140f08] uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Líneas</p>
+                <p className="text-[11px] text-ink uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Líneas</p>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button
                     onClick={addLinea}
@@ -432,9 +432,9 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
               )}
 
               {loadingLineas ? (
-                <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-[#140f08] border-t-transparent rounded-full animate-spin" /></div>
+                <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-ink border-t-transparent rounded-full animate-spin" /></div>
               ) : (
-                <div className="border-[3px] border-[#140f08] rounded-none overflow-hidden">
+                <div className="border-[3px] border-ink rounded-none overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full" style={{ minWidth: '800px' }}>
                       <thead>
@@ -450,42 +450,42 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                         </tr>
                       </thead>
                       <tbody>
-                        {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[#9a8f78] text-sm">Sin líneas — añade ingredientes</td></tr>}
+                        {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-gris text-sm">Sin líneas — añade ingredientes</td></tr>}
                         {lineasCalc.map((l, idx) => (
                           <tr key={idx}>
-                            <td className={tdCls + ' text-[#9a8f78]'}>{idx + 1}</td>
+                            <td className={tdCls + ' text-gris'}>{idx + 1}</td>
                             <td className={tdCls}>
                               <BuscadorItem
                                 value={l.ingrediente_nombre}
                                 opciones={opcionesLineaEps}
                                 onSelect={v => selectIngrediente(idx, v)}
                                 placeholder="Buscar ingrediente o EPS…"
-                                inputClassName="w-full bg-transparent border-none outline-none text-sm text-[#140f08] placeholder:text-[#9a8f78]"
+                                inputClassName="w-full bg-transparent border-none outline-none text-sm text-ink placeholder:text-gris"
                               />
                             </td>
-                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[#140f08] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
-                            <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[#140f08]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
-                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-[#140f08] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
-                            <td className={tdCls + ' text-right font-medium text-[#140f08]'}>{fmtNum(l.eur_total)}</td>
-                            <td className={tdCls + ' text-right text-[#9a8f78]'}>{fmtNum(l.pct_total)}%</td>
-                            <td className={tdCls}><button onClick={() => deleteLinea(idx)} className="text-[#9a8f78] hover:text-[#FF1E27] transition text-sm">×</button></td>
+                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-ink text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
+                            <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-ink" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
+                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.000001" className="w-full bg-transparent border-none outline-none text-sm text-ink text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
+                            <td className={tdCls + ' text-right font-medium text-ink'}>{fmtNum(l.eur_total)}</td>
+                            <td className={tdCls + ' text-right text-gris'}>{fmtNum(l.pct_total)}%</td>
+                            <td className={tdCls}><button onClick={() => deleteLinea(idx)} className="text-gris hover:text-rojo transition text-sm">×</button></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center justify-between px-3 py-3 border-t-[3px] border-[#140f08] bg-[#FCEFD6]">
+                  <div className="flex items-center justify-between px-3 py-3 border-t-[3px] border-ink bg-crema">
                     <div className="flex items-center gap-6">
                       <div>
-                        <span className="text-[10px] text-[#9a8f78] uppercase tracking-wide block">Coste tanda</span>
-                        <span className="text-sm font-bold text-[#140f08]">{fmtEur(costeTanda)}</span>
+                        <span className="text-[10px] text-gris uppercase tracking-wide block">Coste tanda</span>
+                        <span className="text-sm font-bold text-ink">{fmtEur(costeTanda)}</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-[#9a8f78] uppercase tracking-wide block">Coste ración</span>
-                        <span className="text-base font-bold text-[#140f08]">{fmtNum(costeRac)}</span>
+                        <span className="text-[10px] text-gris uppercase tracking-wide block">Coste ración</span>
+                        <span className="text-base font-bold text-ink">{fmtNum(costeRac)}</span>
                       </div>
                     </div>
-                    <span className="text-xs text-[#9a8f78]">{raciones} raciones</span>
+                    <span className="text-xs text-gris">{raciones} raciones</span>
                   </div>
                 </div>
               )}
@@ -494,21 +494,21 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
             {/* Preparación */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] text-[#140f08] uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Preparación</p>
+                <p className="text-[11px] text-ink uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Preparación</p>
               </div>
               <textarea
                 value={preparacion}
                 onChange={e => { setIsDirty(true); setPreparacion(e.target.value) }}
                 placeholder="Escribe los pasos de elaboración de esta EP…"
                 rows={8}
-                className="w-full bg-white border-[2px] border-[#140f08] rounded-none px-3 py-2 text-[13px] text-[#140f08] placeholder:text-[#9a8f78] focus:outline-none focus:border-[#2D5BFF] font-sans"
+                className="w-full bg-white border-[2px] border-ink rounded-none px-3 py-2 text-[13px] text-ink placeholder:text-gris focus:outline-none focus:border-azul font-sans"
                 style={{ resize: 'vertical', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}
               />
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between gap-3 px-5 py-4 border-t-[4px] border-[#140f08]">
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-t-[4px] border-ink">
             <div className="flex items-center gap-2">
               {eps && !confirmEliminar && (
                 <button

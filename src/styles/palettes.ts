@@ -105,3 +105,12 @@ export const PRINT_BN_TXT = '#111'
 export const COBERTURA_VERDE = '#1D9E75'
 export const COBERTURA_NARANJA = '#c47600'
 export const COBERTURA_NARANJA_CLARO = '#e0a53a'
+
+/** Escandallo · badges de match de ingrediente (paleta Tailwind green/amber, no kit). */
+export const ESCANDALLO_OK_BG = '#dcfce7'
+export const ESCANDALLO_OK_TXT = '#166534'
+export const ESCANDALLO_WARN_BG = '#fef3c7'
+export const ESCANDALLO_WARN_BORDE = '#f59e0b'
+export const ESCANDALLO_WARN_ICON = '#d97706'
+export const ESCANDALLO_WARN_BTN = '#b45309'
+export const ESCANDALLO_WARN_TXT = '#92400e'

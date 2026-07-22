@@ -156,6 +156,13 @@
   --color-rec:         #f5a623;
   --color-text:        #ffffff;
   --color-muted:       #999999;
+  /* Puentes kit Neobrutal Alegre (para clases Tailwind arbitrarias sin hex) */
+  --color-ink:         var(--neo-ink);
+  --color-crema:       var(--neo-bg);
+  --color-gris:        #9a8f78;
+  --color-ama:         #FFC400;
+  --color-azul:        #2D5BFF;
+  --color-rojo:        #FF1E27;
   --font-sans:         "Lexend", system-ui, sans-serif;
   --font-ui:           "Oswald", system-ui, sans-serif;
   --font-title:        "Impact", "Oswald", sans-serif;
