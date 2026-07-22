@@ -1,4 +1,3 @@
-import { BLANCO } from '@/styles/neobrutal'
 /**
  * CostePlato — A2 + A4 · Enlaza cada plato que vendes con su receta costeada,
  * y limpia los platos duplicados.
@@ -12,14 +11,15 @@ import { BLANCO } from '@/styles/neobrutal'
  * misma receta y partía las ventas. Los idénticos ya se han fusionado solos; los
  * dudosos se deciden aquí abajo.
  *
- * Estilo: Ley Visual SL v2.
+ * Estilo: Neobrutal (@/styles/neobrutal).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  C, Card, CardHead, Hero, HeroPill, Kpi, KpiGrid, Pill, Nota, Vacio, Atencion, InBar,
-  eur0, eur2, num0, pct1,
-} from '@/components/panel/sl/uiSL'
+  OSW, LEX, INK, CREMA, CLARO, GRIS, GRANATE, VERDE, AMA, AZUL, BLANCO,
+  VERDE_S, AMA_S, ROSA_S, AZUL_S,
+  SHADOW, BORDER, BORDER_CARD, d, eyebrow, cardWash, cardHead, pill,
+} from '@/styles/neobrutal'
 
 interface Fila {
   id: number
@@ -49,6 +49,33 @@ const FILTROS: Array<{ id: Filtro; label: string }> = [
   { id: 'sugerido', label: 'Sugeridas por confirmar' },
   { id: 'listo', label: 'Ya enlazados' },
 ]
+
+const nf0 = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping: true })
+const eur0 = (n: number) => `${nf0(n)} €`
+const eur2 = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+const pct1 = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+
+function Vacio({ children }: { children: React.ReactNode }) {
+  return <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13, fontWeight: 600 }}>{children}</div>
+}
+
+function Nota({ tono = 'verde', children }: { tono?: 'verde' | 'rojo' | 'ambar' | 'blu'; children: React.ReactNode }) {
+  const map = { verde: VERDE_S, rojo: ROSA_S, ambar: AMA_S, blu: AZUL_S } as const
+  const borde = { verde: VERDE, rojo: GRANATE, ambar: AMA, blu: AZUL } as const
+  return (
+    <div style={{ marginTop: 14, padding: '11px 14px', background: map[tono], border: `2px solid ${borde[tono]}`, fontFamily: LEX, fontSize: 12.5, fontWeight: 600, color: INK, lineHeight: 1.5 }}>
+      {children}
+    </div>
+  )
+}
+
+function InBar({ pct, color }: { pct: number; color: string }) {
+  return (
+    <div style={{ height: 8, background: CLARO, border: `2px solid ${INK}`, marginTop: 4, overflow: 'hidden', width: '100%' }}>
+      <div style={{ height: '100%', width: `${Math.max(1, Math.min(100, pct))}%`, background: color }} />
+    </div>
+  )
+}
 
 export default function CostePlato() {
   const [filas, setFilas] = useState<Fila[]>([])
@@ -169,232 +196,258 @@ export default function CostePlato() {
     [dups])
 
   if (cargando) {
-    return <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}><Card><Vacio>Cargando platos y recetas…</Vacio></Card></div>
+    return (
+      <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
+        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW }}><Vacio>Cargando platos y recetas…</Vacio></div>
+      </div>
+    )
   }
 
   return (
-    <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.4px' }}>Coste por plato</div>
-        <div style={{ fontSize: 12, color: C.grisCl, fontWeight: 700, marginTop: 2 }}>
-          Enlaza lo que vendes con lo que cuesta. Sin esto no hay margen real.
+    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
+      <div style={{ marginBottom: 20 }}>
+        <span style={eyebrow(CLARO)}>COCINA</span>
+        <h1 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '10px 0 6px' }}>COSTE POR PLATO</h1>
+        <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Enlaza lo que vendes con lo que cuesta. Sin esto no hay margen real.</span>
+      </div>
+
+      {/* Hero */}
+      <div style={{ background: GRANATE, border: BORDER_CARD, boxShadow: SHADOW, padding: '18px 22px', marginBottom: 16, color: BLANCO }}>
+        <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.85 }}>FACTURACIÓN CON COSTE CONOCIDO</div>
+        <div style={{ fontFamily: OSW, fontSize: 16, fontWeight: 700, margin: '6px 0 10px' }}>
+          {pctCubierto >= 80 ? 'Ya sabes lo que te cuesta casi todo lo que vendes' : 'No sabes lo que te cuesta casi nada de lo que vendes'}
+        </div>
+        <div style={{ ...d('clamp(30px,4.2vw,40px)', BLANCO) }}>{pct1(pctCubierto)}</div>
+        <div style={{ fontFamily: LEX, fontSize: 12, opacity: 0.92, fontWeight: 600, marginTop: 8 }}>
+          {eur0(stats.eCon)} con coste · {eur0(stats.eSin + stats.eSug)} sin coste conocido
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          <span style={{ background: BLANCO, color: GRANATE, border: `2px solid ${BLANCO}`, padding: '4px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{nf0(stats.conReceta)} platos enlazados</span>
+          <span style={{ background: 'transparent', color: BLANCO, border: `2px solid ${BLANCO}`, padding: '4px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{nf0(stats.sinReceta)} sin receta</span>
         </div>
       </div>
 
-      <Hero
-        eyebrow="FACTURACIÓN CON COSTE CONOCIDO"
-        titular={pctCubierto >= 80 ? 'Ya sabes lo que te cuesta casi todo lo que vendes' : 'No sabes lo que te cuesta casi nada de lo que vendes'}
-        valor={pct1(pctCubierto)}
-        sub={`${eur0(stats.eCon)} con coste · ${eur0(stats.eSin + stats.eSug)} sin coste conocido`}
-        objetivo={{ pct: pctCubierto, label: 'CON COSTE' }}
-        right={
-          <>
-            <HeroPill solid>{num0(stats.conReceta)} platos enlazados</HeroPill>
-            <HeroPill>{num0(stats.sinReceta)} sin receta</HeroPill>
-          </>
-        }
-      />
-
-      <Atencion tono="ambar" cifra={`${para50} recetas`}>
-        <b>No hace falta escandallar los {num0(stats.sinReceta)} platos.</b> Con las <b>{para50}</b> primeras de la lista cubres
+      <div style={{ background: AMA_S, border: `3px solid ${AMA}`, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK }}>
+        <b>No hace falta escandallar los {nf0(stats.sinReceta)} platos.</b> Con las <b>{para50}</b> primeras de la lista cubres
         la mitad de la facturación que hoy va a ciegas. Con <b>{para80}</b> cubres el 80%. Están ordenadas de más euros a menos:
         empieza por arriba y para cuando quieras.
-      </Atencion>
+      </div>
 
       {stats.sugeridas > 0 && (
-        <Atencion
-          tono="blu"
-          cifra={eur0(stats.eSug)}
-          accion={guardando === 'todas' ? 'Aplicando…' : `Confirmar las ${stats.sugeridas}`}
-          onAccion={confirmarSugerencias}
-        >
-          <b>{stats.sugeridas} platos con receta sugerida.</b> El nombre se parece mucho al de una receta que ya tienes. Repásalos y confírmalos.
-        </Atencion>
+        <div style={{ background: AZUL_S, border: `3px solid ${AZUL}`, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <span style={{ ...d('19px', AZUL), whiteSpace: 'nowrap' }}>{eur0(stats.eSug)}</span>
+          <span style={{ flex: 1, fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK, minWidth: 220 }}>
+            <b>{stats.sugeridas} platos con receta sugerida.</b> El nombre se parece mucho al de una receta que ya tienes. Repásalos y confírmalos.
+          </span>
+          <button
+            onClick={confirmarSugerencias}
+            disabled={guardando === 'todas'}
+            style={{ background: AZUL, color: BLANCO, border: `2px solid ${INK}`, boxShadow: '2px 2px 0 var(--neo-shadow-color)', padding: '8px 14px', fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >{guardando === 'todas' ? 'Aplicando…' : `Confirmar las ${stats.sugeridas}`}</button>
+        </div>
       )}
 
       {aviso && <Nota tono="verde">{aviso}</Nota>}
 
-      <KpiGrid>
-        <Kpi icono="✓" tono="verde" label="Con coste" valor={pct1(pctCubierto)}
-          pie={<Pill tone="verde" dot>{eur0(stats.eCon)} de facturación</Pill>} />
-        <Kpi icono="?" tono="blu" label="Sugeridas" valor={num0(stats.sugeridas)}
-          pie={<Pill tone="blu" dot>{eur0(stats.eSug)} en juego</Pill>} />
-        <Kpi icono="✕" tono="rojo" label="Sin receta" valor={num0(stats.sinReceta)}
-          pie={<Pill tone="rojo" dot>{eur0(stats.eSin)} sin coste</Pill>} />
-        <Kpi icono="◈" tono="ambar" label="Recetas para el 80%" valor={num0(para80)}
-          pie={<Pill tone="ambar" dot>de {num0(stats.sinReceta)} platos</Pill>} />
-      </KpiGrid>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12, marginBottom: 16, marginTop: aviso ? 16 : 0 }}>
+        <div style={cardWash(VERDE_S)}>
+          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Con coste</div>
+          <div style={{ ...d('26px', VERDE), margin: '6px 0' }}>{pct1(pctCubierto)}</div>
+          <span style={pill(VERDE_S, VERDE)}>{eur0(stats.eCon)} de facturación</span>
+        </div>
+        <div style={cardWash(AZUL_S)}>
+          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Sugeridas</div>
+          <div style={{ ...d('26px', AZUL), margin: '6px 0' }}>{nf0(stats.sugeridas)}</div>
+          <span style={pill(AZUL_S, AZUL)}>{eur0(stats.eSug)} en juego</span>
+        </div>
+        <div style={cardWash(ROSA_S)}>
+          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Sin receta</div>
+          <div style={{ ...d('26px', GRANATE), margin: '6px 0' }}>{nf0(stats.sinReceta)}</div>
+          <span style={pill(ROSA_S, GRANATE)}>{eur0(stats.eSin)} sin coste</span>
+        </div>
+        <div style={cardWash(AMA_S)}>
+          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Recetas para el 80%</div>
+          <div style={{ ...d('26px', AMA), margin: '6px 0' }}>{nf0(para80)}</div>
+          <span style={pill(AMA_S, AMA)}>de {nf0(stats.sinReceta)} platos</span>
+        </div>
+      </div>
 
       {/* ── A4 · Platos duplicados ── */}
       {dups.length > 0 && (
-        <Card>
-          <CardHead
-            title="Platos que parecen el mismo"
-            sub="Si son el mismo, se juntan las ventas y una sola receta cubre los dos"
-            right={<Pill tone="ambar">{dups.length} por decidir · {eur0(eurosDuplicados)}</Pill>}
-          />
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Se parecen</th>
-                  <th className="r">Factura</th>
-                  <th className="r">Parecido</th>
-                  <th>¿Son el mismo plato?</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dups.slice(0, 50).map(d => {
-                  const busy = guardando === `dup-${d.id}`
-                  const ea = Number(d.euros_a), eb = Number(d.euros_b)
-                  const canon = ea >= eb ? d.plato_a : d.plato_b
-                  const otro = ea >= eb ? d.plato_b : d.plato_a
-                  return (
-                    <tr key={d.id}>
-                      <td style={{ maxWidth: 380 }}>
-                        <div>{d.plato_a}</div>
-                        <div style={{ color: C.grisCl, fontWeight: 700, fontSize: 12, marginTop: 2 }}>{d.plato_b}</div>
-                      </td>
-                      <td className="r">
-                        <div className="slnum">{eur0(ea)}</div>
-                        <div className="slnum" style={{ color: C.grisCl, fontSize: 12 }}>{eur0(eb)}</div>
-                      </td>
-                      <td className="r">
-                        <Pill tone={Number(d.parecido) >= 0.85 ? 'ambar' : 'neutro'}>
-                          {Math.round(Number(d.parecido) * 100)}%
-                        </Pill>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <button
-                            disabled={busy}
-                            onClick={() => fusionar(d, canon, otro)}
-                            style={{
-                              padding: '7px 13px', borderRadius: 999, cursor: 'pointer',
-                              border: 'none', background: C.verde, color: BLANCO,
-                              fontFamily: "'Nunito', sans-serif", fontSize: 11.5, fontWeight: 900,
-                            }}
-                          >{busy ? 'Uniendo…' : 'Sí, es el mismo'}</button>
-                          <button
-                            disabled={busy}
-                            onClick={() => separar(d)}
-                            style={{
-                              padding: '7px 13px', borderRadius: 999, cursor: 'pointer',
-                              border: `1px solid ${C.line}`, background: C.card, color: C.gris,
-                              fontFamily: "'Nunito', sans-serif", fontSize: 11.5, fontWeight: 900,
-                            }}
-                          >Son distintos</button>
-                        </div>
-                        <div style={{ fontSize: 11, color: C.grisCl, fontWeight: 700, marginTop: 4 }}>
-                          Se quedaría con el nombre: {canon}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden', marginBottom: 16 }}>
+          <div style={{ ...cardHead(GRANATE), display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <div>
+              <div>Platos que parecen el mismo</div>
+              <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 500, marginTop: 2, textTransform: 'none', letterSpacing: 0 }}>Si son el mismo, se juntan las ventas y una sola receta cubre los dos</div>
+            </div>
+            <span style={pill(AMA_S, AMA)}>{dups.length} por decidir · {eur0(eurosDuplicados)}</span>
           </div>
-          <Nota tono="ambar">
-            Ojo con los que solo cambian una talla o un ingrediente (por ejemplo Talla XL y Talla XXL): esos <b>no</b> son el mismo plato.
-          </Nota>
-        </Card>
+          <div style={{ padding: '14px 16px' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: INK }}>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'left' }}>Se parecen</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'right' }}>Factura</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'right' }}>Parecido</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'left' }}>¿Son el mismo plato?</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dups.slice(0, 50).map(dd => {
+                    const busy = guardando === `dup-${dd.id}`
+                    const ea = Number(dd.euros_a), eb = Number(dd.euros_b)
+                    const canon = ea >= eb ? dd.plato_a : dd.plato_b
+                    const otro = ea >= eb ? dd.plato_b : dd.plato_a
+                    return (
+                      <tr key={dd.id}>
+                        <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, maxWidth: 380 }}>
+                          <div>{dd.plato_a}</div>
+                          <div style={{ color: GRIS, fontWeight: 600, fontSize: 12, marginTop: 2 }}>{dd.plato_b}</div>
+                        </td>
+                        <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, textAlign: 'right' }}>
+                          <div>{eur0(ea)}</div>
+                          <div style={{ color: GRIS, fontSize: 12 }}>{eur0(eb)}</div>
+                        </td>
+                        <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, textAlign: 'right' }}>
+                          <span style={pill(Number(dd.parecido) >= 0.85 ? AMA_S : CLARO, Number(dd.parecido) >= 0.85 ? AMA : GRIS)}>
+                            {Math.round(Number(dd.parecido) * 100)}%
+                          </span>
+                        </td>
+                        <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}` }}>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            <button
+                              disabled={busy}
+                              onClick={() => fusionar(dd, canon, otro)}
+                              style={{
+                                padding: '6px 12px', cursor: 'pointer',
+                                border: `2px solid ${INK}`, background: VERDE, color: BLANCO,
+                                fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',
+                              }}
+                            >{busy ? 'Uniendo…' : 'Sí, es el mismo'}</button>
+                            <button
+                              disabled={busy}
+                              onClick={() => separar(dd)}
+                              style={{
+                                padding: '6px 12px', cursor: 'pointer',
+                                border: `2px solid ${INK}`, background: BLANCO, color: INK,
+                                fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',
+                              }}
+                            >Son distintos</button>
+                          </div>
+                          <div style={{ fontSize: 11, color: GRIS, fontWeight: 600, marginTop: 4 }}>
+                            Se quedaría con el nombre: {canon}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <Nota tono="ambar">
+              Ojo con los que solo cambian una talla o un ingrediente (por ejemplo Talla XL y Talla XXL): esos <b>no</b> son el mismo plato.
+            </Nota>
+          </div>
+        </div>
       )}
 
-      <Card>
-        <CardHead
-          title="Platos ordenados por lo que facturan"
-          sub="La columna de la derecha dice cuánto llevas cubierto si escandallas hasta ahí"
-          right={
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {FILTROS.map(f => {
-                const on = f.id === filtro
-                return (
-                  <button key={f.id} onClick={() => setFiltro(f.id)}
-                    style={{
-                      padding: '6px 12px', borderRadius: 999, cursor: 'pointer',
-                      border: `1px solid ${on ? C.rojo : C.line}`,
-                      background: on ? C.rojoSoft : C.card,
-                      color: on ? C.rojoSem : C.gris,
-                      fontFamily: "'Nunito', sans-serif", fontSize: 11.5, fontWeight: 900,
-                    }}>{f.label}</button>
-                )
-              })}
-            </div>
-          }
-        />
-
-        {lista.length === 0 ? (
-          <Vacio>Nada en esta lista.</Vacio>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ width: 30 }}>#</th>
-                  <th>Plato</th>
-                  <th className="r">Uds</th>
-                  <th>Factura</th>
-                  <th>Receta</th>
-                  <th className="r">Cubierto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lista.slice(0, 120).map((f, i) => (
-                  <tr key={f.id}>
-                    <td className="slnum" style={{ color: C.grisCl, fontSize: 11 }}>{i + 1}</td>
-                    <td style={{ maxWidth: 320 }}>{f.plato_muestra ?? f.plato_norm}</td>
-                    <td className="r slnum">{num0(Number(f.unidades) || 0)}</td>
-                    <td style={{ minWidth: 120 }}>
-                      <span className="slnum">{eur0(Number(f.euros) || 0)}</span>
-                      <InBar pct={(Number(f.euros) / maxEuros) * 100} color={C.rojo} />
-                    </td>
-                    <td>
-                      <select
-                        value={f.receta_id ?? ''}
-                        disabled={guardando === f.plato_norm}
-                        onChange={e => enlazar(f, e.target.value)}
-                        style={{
-                          padding: '7px 10px', borderRadius: 999, minWidth: 220,
-                          border: `1px solid ${f.receta_id ? C.line : C.rojoSem}`,
-                          background: C.card, color: f.receta_id ? C.ink : C.rojoSem,
-                          fontFamily: "'Nunito', sans-serif", fontSize: 12, fontWeight: 800,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="">— Falta la receta —</option>
-                        {recetas.map(r => (
-                          <option key={r.id} value={r.id}>
-                            {r.nombre}{r.coste_rac != null ? ` · ${eur2(Number(r.coste_rac))}/ración` : ' · sin coste'}
-                          </option>
-                        ))}
-                      </select>
-                      {f.origen === 'sugerido' && (
-                        <div style={{ marginTop: 4 }}>
-                          <Pill tone="blu" dot>Se parece · {Math.round((f.confianza ?? 0) * 100)}%</Pill>
-                        </div>
-                      )}
-                      {f.origen === 'carta' && (
-                        <div style={{ marginTop: 4 }}><Pill tone="verde" dot>Venía de la carta</Pill></div>
-                      )}
-                    </td>
-                    <td className="r slnum" style={{ color: f.acumulado >= 80 ? C.grisCl : C.rojoSem }}>
-                      {pct1(f.acumulado)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {lista.length > 120 && (
-              <Nota tono="blu">Se muestran los 120 que más facturan de {num0(lista.length)}.</Nota>
-            )}
+      <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
+        <div style={{ ...cardHead(GRANATE), display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div>Platos ordenados por lo que facturan</div>
+            <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 500, marginTop: 2, textTransform: 'none', letterSpacing: 0 }}>La columna de la derecha dice cuánto llevas cubierto si escandallas hasta ahí</div>
           </div>
-        )}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {FILTROS.map(f => {
+              const on = f.id === filtro
+              return (
+                <button key={f.id} onClick={() => setFiltro(f.id)}
+                  style={{
+                    padding: '6px 12px', cursor: 'pointer',
+                    background: on ? BLANCO : 'transparent',
+                    color: on ? GRANATE : BLANCO,
+                    border: `2px solid ${BLANCO}`,
+                    fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',
+                  }}>{f.label}</button>
+              )
+            })}
+          </div>
+        </div>
 
-        <Nota tono="ambar">
-          Si un plato no tiene receta, no aparece en el desplegable. Créala primero en Cocina → Recetas y luego vuelve aquí a enlazarla.
-        </Nota>
-      </Card>
+        <div style={{ padding: '14px 16px' }}>
+          {lista.length === 0 ? (
+            <Vacio>Nada en esta lista.</Vacio>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: INK }}>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'left', width: 30 }}>#</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'left' }}>Plato</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'right' }}>Uds</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'left' }}>Factura</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'left' }}>Receta</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'right' }}>Cubierto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lista.slice(0, 120).map((f, i) => (
+                    <tr key={f.id}>
+                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 11, color: GRIS, borderBottom: `2px solid ${INK}` }}>{i + 1}</td>
+                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, maxWidth: 320 }}>{f.plato_muestra ?? f.plato_norm}</td>
+                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, textAlign: 'right' }}>{nf0(Number(f.unidades) || 0)}</td>
+                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, minWidth: 120 }}>
+                        <span>{eur0(Number(f.euros) || 0)}</span>
+                        <InBar pct={(Number(f.euros) / maxEuros) * 100} color={GRANATE} />
+                      </td>
+                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}` }}>
+                        <select
+                          value={f.receta_id ?? ''}
+                          disabled={guardando === f.plato_norm}
+                          onChange={e => enlazar(f, e.target.value)}
+                          style={{
+                            padding: '6px 10px', minWidth: 220,
+                            border: `2px solid ${f.receta_id ? INK : GRANATE}`,
+                            background: BLANCO, color: f.receta_id ? INK : GRANATE,
+                            fontFamily: LEX, fontSize: 13, fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <option value="">— Falta la receta —</option>
+                          {recetas.map(r => (
+                            <option key={r.id} value={r.id}>
+                              {r.nombre}{r.coste_rac != null ? ` · ${eur2(Number(r.coste_rac))}/ración` : ' · sin coste'}
+                            </option>
+                          ))}
+                        </select>
+                        {f.origen === 'sugerido' && (
+                          <div style={{ marginTop: 4 }}>
+                            <span style={pill(AZUL_S, AZUL)}>Se parece · {Math.round((f.confianza ?? 0) * 100)}%</span>
+                          </div>
+                        )}
+                        {f.origen === 'carta' && (
+                          <div style={{ marginTop: 4 }}><span style={pill(VERDE_S, VERDE)}>Venía de la carta</span></div>
+                        )}
+                      </td>
+                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, textAlign: 'right', color: f.acumulado >= 80 ? GRIS : GRANATE }}>
+                        {pct1(f.acumulado)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {lista.length > 120 && (
+                <Nota tono="blu">Se muestran los 120 que más facturan de {nf0(lista.length)}.</Nota>
+              )}
+            </div>
+          )}
+
+          <Nota tono="ambar">
+            Si un plato no tiene receta, no aparece en el desplegable. Créala primero en Cocina → Recetas y luego vuelve aquí a enlazarla.
+          </Nota>
+        </div>
+      </div>
     </div>
   )
 }

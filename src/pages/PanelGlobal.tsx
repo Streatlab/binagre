@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
@@ -25,6 +26,9 @@ import TabEvolucion from '@/components/panel/TabEvolucion'
 import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 import { toLocalDateStr } from '@/lib/dateRange'
+import { useTesoreria13Semanas, type Estado as EstadoTesoreria } from '@/lib/finanzas/useTesoreria13Semanas'
+import { OSW, LEX, GRIS, VERDE, AMA, ROJO, cardWash } from '@/styles/neobrutal'
+import { fmtEur } from '@/lib/format'
 
 interface MarcaItem { id: string; nombre: string }
 
@@ -173,6 +177,39 @@ function buildSubtitulo(label: string, desde: Date, hasta: Date): string {
   return `${label} · ${fmtDate(desde)} — ${fmtDate(hasta)}`
 }
 
+const ESTADO_TES_LABEL: Record<EstadoTesoreria, string> = { verde: 'Holgado', ambar: 'Ajustado', rojo: 'En números rojos' }
+const ESTADO_TES_COLOR: Record<EstadoTesoreria, string> = { verde: VERDE, ambar: AMA, rojo: ROJO }
+
+/** Atajo a Tesorería · 13 semanas. Misma fuente que la pantalla completa (useTesoreria13Semanas), sin duplicar el cálculo. */
+function CajaTesoreriaShortcut() {
+  const { loading, error, saldoMinimo, semanaCritica } = useTesoreria13Semanas()
+  const estado: EstadoTesoreria = semanaCritica?.estado ?? 'verde'
+
+  return (
+    <Link to="/finanzas/tesoreria?tab=13semanas" style={{ textDecoration: 'none', display: 'block', marginBottom: 16 }}>
+      <div style={{ ...cardWash('var(--sl-card)'), display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', cursor: 'pointer' }}>
+        <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, whiteSpace: 'nowrap' }}>
+          Caja a 13 semanas →
+        </div>
+        {loading ? (
+          <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Calculando…</div>
+        ) : error ? (
+          <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Sin previsión disponible</div>
+        ) : (
+          <>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, color: ESTADO_TES_COLOR[estado] }}>
+              {fmtEur(saldoMinimo, { decimals: 0, signed: true })}
+            </div>
+            <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
+              Saldo mínimo previsto{semanaCritica ? ` · semana ${semanaCritica.semana}` : ''} · {ESTADO_TES_LABEL[estado]}
+            </div>
+          </>
+        )}
+      </div>
+    </Link>
+  )
+}
+
 export default function PanelGlobal() {
   const [activeTab, setActiveTab] = useState<TabId>('resumen')
   const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
@@ -266,6 +303,8 @@ export default function PanelGlobal() {
         </div>
         {filtros}
       </div>
+
+      <CajaTesoreriaShortcut />
 
       <TabsPastilla tabs={TABS} activeId={activeTab} onChange={id => setActiveTab(id as TabId)} />
 
