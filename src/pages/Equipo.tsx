@@ -22,25 +22,45 @@ const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
 const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
 
 type TabKey = 'empleados' | 'nominas' | 'costes' | 'segsocial' | 'documentos' | 'incentivos' | 'calendario' | 'permisos' | 'horarios' | 'presencia' | 'organigrama' | 'portal'
+export type GrupoEquipo = 'personas' | 'dinero' | 'dia' | 'documentos'
 
-// Única barra de pestañas del área Equipo (antes había una segunda barra en
-// App.tsx envolviendo esta ruta con TabsContainer — duplicaba "Personas" y
-// "Portal"). Organigrama/Horarios/Presencia/Portal viven aquí como pestañas
-// más, con ?tab= en la URL; las rutas antiguas /equipo/<x> redirigen aquí.
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'empleados',   label: 'Personas' },
-  { key: 'nominas',     label: 'Nóminas' },
-  { key: 'costes',      label: 'Costes' },
-  { key: 'segsocial',   label: 'Seguridad Social' },
-  { key: 'documentos',  label: 'Documentos' },
-  { key: 'incentivos',  label: 'Incentivos' },
-  { key: 'calendario',  label: 'Calendario laboral' },
-  { key: 'permisos',    label: 'Permisos' },
-  { key: 'horarios',    label: 'Horarios' },
-  { key: 'presencia',   label: 'Presencia' },
-  { key: 'organigrama', label: 'Organigrama' },
-  { key: 'portal',      label: 'Portal del empleado' },
-]
+// Equipo es una seccion propia del sidebar con 4 entradas; cada una trae solo
+// SUS pestañas. Antes eran 12 pestañas seguidas en una sola pantalla y no se
+// podia trabajar. Agrupacion: quienes son / que cuestan / como trabajan / papeles.
+const GRUPOS: Record<GrupoEquipo, { titulo: string; tabs: { key: TabKey; label: string }[] }> = {
+  personas: {
+    titulo: 'Equipo · Personas',
+    tabs: [
+      { key: 'empleados',   label: 'Fichas' },
+      { key: 'organigrama', label: 'Organigrama' },
+      { key: 'incentivos',  label: 'Incentivos' },
+      { key: 'portal',      label: 'Portal del empleado' },
+    ],
+  },
+  dinero: {
+    titulo: 'Equipo · Dinero',
+    tabs: [
+      { key: 'nominas',   label: 'Nóminas' },
+      { key: 'costes',    label: 'Costes' },
+      { key: 'segsocial', label: 'Seguridad Social y autónomos' },
+    ],
+  },
+  dia: {
+    titulo: 'Equipo · Día a día',
+    tabs: [
+      { key: 'horarios',   label: 'Horarios' },
+      { key: 'presencia',  label: 'Fichajes' },
+      { key: 'calendario', label: 'Calendario laboral' },
+      { key: 'permisos',   label: 'Permisos y vacaciones' },
+    ],
+  },
+  documentos: {
+    titulo: 'Equipo · Documentos',
+    tabs: [
+      { key: 'documentos', label: 'Documentos' },
+    ],
+  },
+}
 
 const tabBase: React.CSSProperties = {
   fontFamily: 'Oswald, sans-serif',
@@ -57,7 +77,7 @@ const tabBase: React.CSSProperties = {
   alignItems: 'center',
 }
 
-export default function Equipo() {
+export default function Equipo({ grupo = 'personas' }: { grupo?: GrupoEquipo }) {
   const { T } = useTheme()
   const isMobile = useIsMobile()
   const { usuario } = useAuth()
@@ -65,8 +85,9 @@ export default function Equipo() {
 
   const isAdmin = usuario?.perfil === 'admin' || usuario?.rol === 'admin'
 
+  const { titulo, tabs } = GRUPOS[grupo]
   const raw = params.get('tab') as TabKey | null
-  const activeTab: TabKey = TABS.some(t => t.key === raw) ? raw! : 'empleados'
+  const activeTab: TabKey = tabs.some(t => t.key === raw) ? raw! : tabs[0].key
 
   function setTab(key: TabKey) {
     setParams({ tab: key })
@@ -85,11 +106,12 @@ export default function Equipo() {
 
   return (
     <div style={{ background: 'var(--neo-bg)', minHeight: '100vh', padding: isMobile ? '14px 12px' : '24px 28px', fontFamily: FONT.body }}>
-      <h1 style={{ ...pageTitleStyle(T), fontSize: 'clamp(22px, 5vw, 30px)' }}>Personas</h1>
+      <h1 style={{ ...pageTitleStyle(T), fontSize: 'clamp(22px, 5vw, 30px)' }}>{titulo}</h1>
 
       {/* Tabs neobrutal — una sola fila, scroll horizontal en móvil (nunca dos filas apiladas) */}
+      {tabs.length > 1 && (
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 4 }}>
-        {TABS.map(t => {
+        {tabs.map(t => {
           const active = activeTab === t.key
           return (
             <button
@@ -108,6 +130,7 @@ export default function Equipo() {
           )
         })}
       </div>
+      )}
 
       {/* Tab content */}
       <div style={{ ...NEO_CARD, background: 'var(--sl-card)', padding: isMobile ? '14px 12px' : '20px 22px', overflowX: 'auto' }}>
