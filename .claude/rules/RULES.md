@@ -11,21 +11,31 @@
 - Archivos master: `src/styles/tokens.ts`, `src/styles/design-tokens.css`
 - Nunca hardcodear hex fuera de estos archivos
 
-## 3. Cadena de cierre obligatoria — MODO AUTÓNOMO TOTAL
-**Tras cada instrucción de Rubén, ejecutar siempre en este orden sin pedir confirmación:**
+## 3. Cadena de cierre obligatoria — MODO AUTÓNOMO TOTAL (deploys agrupados)
+**Norma permanente (desde 2026-07-22): Vercel cobra por build y un commit-por-microajuste
+quema el límite diario de despliegues. Commitear en cada paso SIGUE siendo obligatorio,
+pero el deploy real (`[deploy]` / `npx vercel --prod --yes`) se dispara SOLO UNA VEZ, al
+cierre de cada tanda — nunca por commit individual.**
 
-```bash
-git add . && git commit -m "..." && git push origin master && npx vercel --prod --yes && git pull origin master
-```
-
-Ciclo obligatorio:
+Ciclo por commit intermedio (sin deploy):
 1. `npm run build` — validar que no hay errores TypeScript
-2. `git add . && git commit -m "..." && git push origin master`
-3. `npx vercel --prod --yes` — deploy automático a producción
-4. `git pull origin master`
+2. `git add . && git commit -m "..." && git push origin trabajo` (o la rama de la tanda)
+3. Sin `[deploy]`, sin `npx vercel --prod --yes`
 
-**NO preguntar "¿hago deploy?". NO esperar autorización. El deploy es implícito en cada envío de instrucciones.**
-Solo parar si hay error de build irrecuperable — documentarlo y avisar.
+Ciclo de cierre de tanda (una sola vez, al terminar todo el grupo de cambios):
+1. `npm run build` limpio
+2. Commit final con `[deploy]` en el mensaje
+3. `git push origin master`
+4. `npx vercel --prod --yes`
+5. `git pull origin master`
+
+**PAUSA TEMPORAL ACTIVA (hasta nuevo aviso de Rubén): límite diario de Vercel agotado
+hoy — CERO deploys, ni siquiera de cierre de tanda. Seguir commiteando en `trabajo` con
+gate verde; el `[deploy]` de cierre se retiene hasta que Rubén lo autorice explícitamente.**
+
+**NO preguntar "¿hago deploy?" salvo que la pausa temporal esté activa (entonces NO
+desplegar bajo ningún concepto). Solo parar por error de build irrecuperable —
+documentarlo y avisar.**
 
 ### 3 bis. Límite diario de builds de Vercel — NORMA PERMANENTE
 Vercel cobra/limita por build; cada commit con `[deploy]` dispara uno. Regla dura:
