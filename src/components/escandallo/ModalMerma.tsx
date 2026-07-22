@@ -24,8 +24,8 @@ interface Props {
   onDelete?: () => void
 }
 
-const inputCls = 'w-full bg-white border-[2px] border-[#140f08] rounded-none px-3 py-2 text-sm text-[#140f08] placeholder:text-[#9a8f78] focus:outline-none focus:border-[#2D5BFF]'
-const labelCls = 'block text-[11px] text-[#140f08] mb-1 uppercase tracking-wider'
+const inputCls = 'w-full bg-white border-[2px] border-ink rounded-none px-3 py-2 text-sm text-ink placeholder:text-gris focus:outline-none focus:border-azul'
+const labelCls = 'block text-[11px] text-ink mb-1 uppercase tracking-wider'
 
 export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props) {
   const isEdit = !!merma
@@ -295,7 +295,7 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
             </div>
           </Section>
 
-          <div className="bg-[#FCEFD6] border-[3px] border-[#140f08] rounded-none p-4 space-y-3">
+          <div className="bg-crema border-[3px] border-ink rounded-none p-4 space-y-3">
             <div style={{ fontFamily: OSW, fontSize: '11px', color: GRIS, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>Subproductos</div>
             <div className="grid grid-cols-6 gap-2 items-end">
               <Field label="Nombre SP1" value={f.sp1_nombre} onChange={v => set('sp1_nombre', v)} />
@@ -304,8 +304,8 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
               <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp1_eur_kg_mercado} onChange={v => set('sp1_eur_kg_mercado', v)} />
               <Field label="€ SP1" value={fmtEur(sp1EurosFinal)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
-                <label className="flex items-center gap-2 text-sm text-[#140f08]">
-                  <input type="checkbox" checked={f.sp1_valorable} onChange={e => set('sp1_valorable', e.target.checked)} className="accent-[#140f08] w-4 h-4" />
+                <label className="flex items-center gap-2 text-sm text-ink">
+                  <input type="checkbox" checked={f.sp1_valorable} onChange={e => set('sp1_valorable', e.target.checked)} className="accent-ink w-4 h-4" />
                   Valorable
                 </label>
               </div>
@@ -317,8 +317,8 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
               <Field label="€/Kg Mercado" type="number" step="0.01" value={f.sp2_eur_kg_mercado} onChange={v => set('sp2_eur_kg_mercado', v)} />
               <Field label="€ SP2" value={fmtEur(sp2EurosFinal)} placeholder="auto" onChange={() => {}} disabled highlight />
               <div className="flex items-end pb-1">
-                <label className="flex items-center gap-2 text-sm text-[#140f08]">
-                  <input type="checkbox" checked={f.sp2_valorable} onChange={e => set('sp2_valorable', e.target.checked)} className="accent-[#140f08] w-4 h-4" />
+                <label className="flex items-center gap-2 text-sm text-ink">
+                  <input type="checkbox" checked={f.sp2_valorable} onChange={e => set('sp2_valorable', e.target.checked)} className="accent-ink w-4 h-4" />
                   Valorable
                 </label>
               </div>
@@ -341,7 +341,7 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
             </div>
           </div>
 
-          {err && <p className="text-[#FF1E27] text-sm">{err}</p>}
+          {err && <p className="text-rojo text-sm">{err}</p>}
         </div>
 
         {/* Footer */}
@@ -386,8 +386,8 @@ async function upsertIngrediente(row: Record<string, unknown>) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#FCEFD6] border-[3px] border-[#140f08] rounded-none p-4">
-      <h4 className="text-[11px] uppercase tracking-wider text-[#140f08] font-semibold mb-3" style={{ fontFamily: OSW, letterSpacing: '1px' }}>{title}</h4>
+    <div className="bg-crema border-[3px] border-ink rounded-none p-4">
+      <h4 className="text-[11px] uppercase tracking-wider text-ink font-semibold mb-3" style={{ fontFamily: OSW, letterSpacing: '1px' }}>{title}</h4>
       <div className="space-y-3">{children}</div>
     </div>
   )

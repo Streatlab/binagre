@@ -8,7 +8,7 @@ import { useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 import { comisionEfectivaCanal } from '@/lib/escandallo/comisionEfectiva'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, n, precioNeto } from './types'
-import { INK, AMA, GRANATE, AZUL, ROJO, NAR, VERDE, GRIS, OSW, LEX, BLANCO, NAR_S } from '@/styles/neobrutal'
+import { INK, AMA, GRANATE, AZUL, ROJO, NAR, VERDE, GRIS, OSW, LEX, BLANCO, NAR_S, CORP } from '@/styles/neobrutal'
 import ModalIngrediente from './ModalIngrediente'
 import MicDictado from './MicDictado'
 import ModalEPS from './ModalEPS'
@@ -20,8 +20,8 @@ interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
 
 interface Props { receta: Receta | null; initialNombre?: string; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
 
-const thCls = 'px-3 py-2 text-left text-[10px] uppercase tracking-wider text-[#140f08] font-semibold border-b-[2px] border-[#140f08] bg-[#FCEFD6]'
-const tdCls = 'px-3 py-2 text-sm border-b border-[#140f08]/20'
+const thCls = 'px-3 py-2 text-left text-[10px] uppercase tracking-wider text-ink font-semibold border-b-[2px] border-ink bg-crema'
+const tdCls = 'px-3 py-2 text-sm border-b border-ink/20'
 
 const labelStyle = (_isDark?: boolean): CSSProperties => ({
   fontFamily: OSW, fontSize: 10, fontWeight: 700,
@@ -38,10 +38,10 @@ const inputStyle: CSSProperties = {
 
 const CHANNELS = [
   { id: 'uber',    label: 'Uber Eats', canalName: 'Uber Eats',     pvpKey: 'pvp_uber'    as CanalKey, color: VERDE, fg: BLANCO },
-  { id: 'glovo',   label: 'Glovo',     canalName: 'Glovo',         pvpKey: 'pvp_glovo'   as CanalKey, color: '#FFC244', fg: INK },
-  { id: 'je',      label: 'Just Eat',  canalName: 'Just Eat',      pvpKey: 'pvp_je'      as CanalKey, color: '#FF8000', fg: INK },
+  { id: 'glovo',   label: 'Glovo',     canalName: 'Glovo',         pvpKey: 'pvp_glovo'   as CanalKey, color: CORP.glovo, fg: INK },
+  { id: 'je',      label: 'Just Eat',  canalName: 'Just Eat',      pvpKey: 'pvp_je'      as CanalKey, color: CORP.je, fg: INK },
   { id: 'web',     label: 'Web',       canalName: 'Web Propia',    pvpKey: 'pvp_web'     as CanalKey, color: GRANATE, fg: BLANCO },
-  { id: 'directa', label: 'Directa',   canalName: 'Venta Directa', pvpKey: 'pvp_directa' as CanalKey, color: '#1e2233', fg: BLANCO },
+  { id: 'directa', label: 'Directa',   canalName: 'Venta Directa', pvpKey: 'pvp_directa' as CanalKey, color: CORP.dir, fg: BLANCO },
 ]
 
 const ALL_PVP_KEYS: CanalKey[] = ['pvp_uber', 'pvp_glovo', 'pvp_je', 'pvp_web', 'pvp_directa']
@@ -320,13 +320,13 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="relative bg-[#FCEFD6] border-[4px] border-[#140f08] rounded-none w-full max-w-7xl my-8 shadow-[6px_6px_0_#140f08]" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b-[4px] border-[#140f08] bg-[#FFC400]">
+      <div className="relative bg-crema border-[4px] border-ink rounded-none w-full max-w-7xl my-8 shadow-[6px_6px_0_var(--color-ink)]" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b-[4px] border-ink bg-ama">
           <div>
-            <h3 className="text-[#140f08]" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
-            {receta?.codigo && <p className="text-xs text-[#9a8f78] mt-0.5 font-mono">{receta.codigo}</p>}
+            <h3 className="text-ink" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
+            {receta?.codigo && <p className="text-xs text-gris mt-0.5 font-mono">{receta.codigo}</p>}
           </div>
-          <button onClick={onClose} style={{ background: BLANCO, border: '2px solid #140f08', width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
+          <button onClick={onClose} style={{ background: BLANCO, border: `2px solid ${INK}`, width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
         </div>
         <div className="p-5 space-y-5">
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
@@ -339,7 +339,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-[#140f08] uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Líneas</p>
+              <p className="text-sm text-ink uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Líneas</p>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button onClick={addLinea} className="text-xs hover:brightness-105 transition px-3 py-1 rounded-none" style={{ backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '0.5px', border: `2px solid ${INK}`, boxShadow: `2px 2px 0 ${INK}` }}>+ Añadir línea</button>
                 <button onClick={() => setShowDictar(true)} style={{ background: BLANCO, color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}>⚡ DICTAR</button>
@@ -357,44 +357,44 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
               </div>
             )}
             {loadingLineas ? (
-              <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-[#140f08] border-t-transparent rounded-full animate-spin" /></div>
+              <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-ink border-t-transparent rounded-full animate-spin" /></div>
             ) : (
-              <div className="border-[3px] border-[#140f08] rounded-none overflow-hidden">
+              <div className="border-[3px] border-ink rounded-none overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full" style={{ minWidth: '900px' }}>
                     <thead><tr><th className={thCls + ' w-10'}>#</th><th className={thCls + ' w-20'}>Tipo</th><th className={thCls}>Nombre</th><th className={thCls + ' w-24 text-right'}>Cantidad</th><th className={thCls + ' w-20'}>Unidad</th><th className={thCls + ' w-28 text-right'}>€/ud neta</th><th className={thCls + ' w-24 text-right'}>€ total</th><th className={thCls + ' w-16 text-right'}>% total</th></tr></thead>
                     <tbody>
-                      {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[#9a8f78] text-sm">Sin líneas</td></tr>}
+                      {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-gris text-sm">Sin líneas</td></tr>}
                       {lineasCalc.map((l, idx) => {
                         const nameColor = l.tipo === 'EPS' ? GRANATE : INK
                         return (
                           <tr key={idx}>
-                            <td className={tdCls + ' text-[#9a8f78]'}>{idx + 1}</td>
+                            <td className={tdCls + ' text-gris'}>{idx + 1}</td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm" style={{ color: nameColor, fontWeight: 600 }} value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS' | 'ENV')}><option value="ING">ING</option><option value="EPS">EPS</option><option value="ENV">ENV</option></select></td>
-                            <td className={tdCls}><BuscadorItem value={l.ingrediente_nombre} opciones={l.tipo === 'ING' ? ingredientes.map(i => ({ id: i.id, nombre: i.nombre, barato: masBaratos.has(i.id) })) : l.tipo === 'ENV' ? envases.map(i => ({ id: i.id, nombre: i.nombre, tag: 'ENV' })) : epsList.map(e => ({ id: e.id, nombre: e.nombre, tag: 'EPS' }))} onSelect={v => selectItem(idx, v)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : l.tipo === 'ENV' ? 'Envase...' : 'EPS...'} inputClassName="w-full bg-transparent border-none outline-none text-sm placeholder:text-[#9a8f78]" inputStyle={{ color: nameColor }} /></td>
-                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[#140f08] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
-                            <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[#140f08]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
-                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.0001" className="w-full bg-transparent border-none outline-none text-sm text-[#140f08] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
-                            <td className={tdCls + ' text-right font-medium text-[#140f08]'}>{fmtEur(l.eur_total)}</td>
-                            <td className={tdCls + ' text-right text-[#9a8f78]'}>{fmtPct(l.pct_total)}</td>
+                            <td className={tdCls}><BuscadorItem value={l.ingrediente_nombre} opciones={l.tipo === 'ING' ? ingredientes.map(i => ({ id: i.id, nombre: i.nombre, barato: masBaratos.has(i.id) })) : l.tipo === 'ENV' ? envases.map(i => ({ id: i.id, nombre: i.nombre, tag: 'ENV' })) : epsList.map(e => ({ id: e.id, nombre: e.nombre, tag: 'EPS' }))} onSelect={v => selectItem(idx, v)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : l.tipo === 'ENV' ? 'Envase...' : 'EPS...'} inputClassName="w-full bg-transparent border-none outline-none text-sm placeholder:text-gris" inputStyle={{ color: nameColor }} /></td>
+                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-ink text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
+                            <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-ink" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
+                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.0001" className="w-full bg-transparent border-none outline-none text-sm text-ink text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
+                            <td className={tdCls + ' text-right font-medium text-ink'}>{fmtEur(l.eur_total)}</td>
+                            <td className={tdCls + ' text-right text-gris'}>{fmtPct(l.pct_total)}</td>
                           </tr>
                         )
                       })}
                     </tbody>
                   </table>
                 </div>
-                <div className="flex items-center justify-between px-3 py-3 border-t-[3px] border-[#140f08] bg-[#FCEFD6]">
+                <div className="flex items-center justify-between px-3 py-3 border-t-[3px] border-ink bg-crema">
                   <div className="flex items-center gap-6">
-                    <div><span className="text-[10px] text-[#9a8f78] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-[#140f08]">{fmtEur(costeTanda)}</span></div>
-                    <div><span className="text-[10px] text-[#9a8f78] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[#140f08]">{fmtNum(costeMP)}</span></div>
+                    <div><span className="text-[10px] text-gris uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-ink">{fmtEur(costeTanda)}</span></div>
+                    <div><span className="text-[10px] text-gris uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-ink">{fmtNum(costeMP)}</span></div>
                   </div>
-                  <span className="text-xs text-[#9a8f78]">{raciones} raciones</span>
+                  <span className="text-xs text-gris">{raciones} raciones</span>
                 </div>
               </div>
             )}
           </div>
           <div>
-            <p className="text-sm text-[#140f08] uppercase tracking-wider mb-3" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Waterfall pricing por canal</p>
+            <p className="text-sm text-ink uppercase tracking-wider mb-3" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Waterfall pricing por canal</p>
             <div className="flex flex-wrap gap-2 mb-4">
               {CHANNELS.map(ch => {
                 const isActive = canalesActivos.includes(ch.id)
@@ -402,9 +402,9 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
               })}
             </div>
             {canalesActivos.length === 0 ? (
-              <div className="text-center py-8 text-[#9a8f78]">Selecciona al menos un canal</div>
+              <div className="text-center py-8 text-gris">Selecciona al menos un canal</div>
             ) : (
-              <div className="border-[3px] border-[#140f08] rounded-none overflow-hidden">
+              <div className="border-[3px] border-ink rounded-none overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                     <thead>
@@ -443,7 +443,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t-[4px] border-[#140f08]">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t-[4px] border-ink">
           <div className="flex items-center gap-2">
             {receta && !confirmEliminar && (<button onClick={() => setConfirmEliminar(true)} style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '10px 16px', borderRadius: '0', fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}>ELIMINAR</button>)}
             {receta && confirmEliminar && (

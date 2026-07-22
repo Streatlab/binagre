@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { INK, AMA, CREMA, GRANATE, NAR, AZUL, VERDE, GRIS, OSW, LEX, BLANCO } from '@/styles/neobrutal'
+import { INK, AMA, CREMA, GRANATE, NAR, AZUL, VERDE, GRIS, OSW, LEX, BLANCO, ROJO, LIMA } from '@/styles/neobrutal'
+import { ESCANDALLO_DIVIDER, BOTON_ANADIR_TXT } from '@/styles/palettes'
 
 const btnSaveStyle: CSSProperties = {
   backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '1px',
@@ -11,10 +12,10 @@ const btnCancelStyle: CSSProperties = {
   backgroundColor: BLANCO, color: INK, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700,
   letterSpacing: '1px', textTransform: 'uppercase', padding: '11px 28px', borderRadius: 0, cursor: 'pointer', minHeight: 44, fontSize: 14,
 }
-const labelStyle: CSSProperties = { display: 'block', fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: '#6b5d45', marginBottom: 5 }
+const labelStyle: CSSProperties = { display: 'block', fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS, marginBottom: 5 }
 const roBox: CSSProperties = { background: CREMA, border: `2px solid ${INK}`, borderRadius: 0, padding: '9px 12px', fontSize: 14, color: INK, fontFamily: LEX, minHeight: 42, display: 'flex', alignItems: 'center' }
 const calcBox: CSSProperties = { background: AMA, border: `2px solid ${INK}`, borderRadius: 0, padding: '9px 12px', fontSize: 15, color: INK, fontWeight: 700, fontFamily: OSW, letterSpacing: '-0.3px', minHeight: 42, display: 'flex', alignItems: 'center' }
-const inputCls = 'w-full bg-white border-[2px] border-[#140f08] rounded-none px-3 py-2.5 text-[14px] text-[#140f08] focus:outline-none focus:border-[#2D5BFF]'
+const inputCls = 'w-full bg-white border-[2px] border-ink rounded-none px-3 py-2.5 text-[14px] text-ink focus:outline-none focus:border-azul'
 
 function Block({ tag, bg, fg = INK, children, style }: { tag: string; bg: string; fg?: string; children: ReactNode; style?: CSSProperties }) {
   return (
@@ -533,7 +534,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
           </div>
 
           {/* PRODUCTOS POR PROVEEDOR (diccionario ingrediente_productos) — solo si el ingrediente ya existe */}
-          <Block tag="Productos por proveedor" bg={VERDE} fg="#fff">
+          <Block tag="Productos por proveedor" bg={VERDE} fg={BLANCO}>
             {isEdit && ingrediente ? (
               <SeccionProductos ingredienteId={ingrediente.id} />
             ) : (
@@ -543,7 +544,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
             )}
           </Block>
 
-          {err && <p style={{ color: '#FF1E27', fontFamily: LEX, fontSize: 14, fontWeight: 600 }}>{err}</p>}
+          {err && <p style={{ color: ROJO, fontFamily: LEX, fontSize: 14, fontWeight: 600 }}>{err}</p>}
         </div>
 
         {/* Footer */}
@@ -633,22 +634,22 @@ function SeccionProductos({ ingredienteId }: { ingredienteId: string }) {
     if (error) { setProductos(prev); setError(error.message) }
   }
 
-  if (loading) return <div style={{ fontFamily: LEX, fontSize: 13, color: '#fff' }}>Cargando…</div>
+  if (loading) return <div style={{ fontFamily: LEX, fontSize: 13, color: BLANCO }}>Cargando…</div>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {error && <p style={{ color: '#fff', background: GRANATE, padding: '6px 10px', fontFamily: LEX, fontSize: 12 }}>{error}</p>}
+      {error && <p style={{ color: BLANCO, background: GRANATE, padding: '6px 10px', fontFamily: LEX, fontSize: 12 }}>{error}</p>}
       {GRUPOS_PROVEEDOR.map(g => {
         const items = productos.filter(p => p.proveedor === g.key)
         return (
-          <div key={g.key} style={{ background: '#fff', border: `2px solid ${INK}`, padding: '10px 12px' }}>
+          <div key={g.key} style={{ background: BLANCO, border: `2px solid ${INK}`, padding: '10px 12px' }}>
             <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', color: INK, marginBottom: 6 }}>
               {g.label} <span style={{ color: GRIS, fontWeight: 400 }}>({items.length})</span>
             </div>
             {items.length === 0 ? (
               <p style={{ fontFamily: LEX, fontSize: 12, color: GRIS, margin: '0 0 4px' }}>Sin productos.</p>
             ) : items.map(p => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #e5ddc8' }}>
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: `1px solid ${ESCANDALLO_DIVIDER}` }}>
                 <div style={{ flex: 2, minWidth: 140 }}>
                   <InlineEdit value={p.producto_nombre} type="text" onSubmit={(v) => editarNombre(p.id, String(v))} />
                 </div>
@@ -723,14 +724,14 @@ function AddRowProducto({ onAdd }: { onAdd: (data: { producto_nombre: string; un
         />
         <button
           type="button" onClick={toggleVoz}
-          style={{ background: escuchando ? GRANATE : '#fff', color: escuchando ? '#fff' : INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '9px 11px', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: 11, minHeight: 40 }}
+          style={{ background: escuchando ? GRANATE : BLANCO, color: escuchando ? BLANCO : INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '9px 11px', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: 11, minHeight: 40 }}
         >{escuchando ? '● GRABANDO' : '🎤'}</button>
         <button
           type="button" onClick={handleAdd}
-          style={{ background: '#e8f442', color: '#111111', border: `2px solid ${INK}`, borderRadius: 0, padding: '9px 14px', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', minHeight: 40 }}
+          style={{ background: LIMA, color: BOTON_ANADIR_TXT, border: `2px solid ${INK}`, borderRadius: 0, padding: '9px 14px', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', minHeight: 40 }}
         >+ Añadir</button>
       </div>
-      {err && <span style={{ fontSize: 11, color: '#fff', background: GRANATE, padding: '3px 8px', display: 'inline-block', fontFamily: LEX }}>{err}</span>}
+      {err && <span style={{ fontSize: 11, color: BLANCO, background: GRANATE, padding: '3px 8px', display: 'inline-block', fontFamily: LEX }}>{err}</span>}
     </div>
   )
 }

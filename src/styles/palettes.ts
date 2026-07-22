@@ -114,3 +114,8 @@ export const ESCANDALLO_WARN_BORDE = '#f59e0b'
 export const ESCANDALLO_WARN_ICON = '#d97706'
 export const ESCANDALLO_WARN_BTN = '#b45309'
 export const ESCANDALLO_WARN_TXT = '#92400e'
+/** Divisor suave dentro de tarjeta de proveedor (Escandallo·Ingrediente), distinto de BORDE_SUAVE. */
+export const ESCANDALLO_DIVIDER = '#e5ddc8'
+
+/** Botón "Añadir" canónico (regla design-system): fondo LIMA, texto casi-negro fijo. */
+export const BOTON_ANADIR_TXT = '#111111'
