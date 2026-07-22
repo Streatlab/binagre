@@ -1,4 +1,9 @@
 import { BLANCO, GRANATE, GRIS, INK, LIMA } from '@/styles/neobrutal'
+import {
+  CONFIG_BORDE, CONFIG_MUT, CONFIG_MUT_ALT, CONFIG_ROJO_WASH,
+  CONCILIACION_ACTIVE_BG_DARK, CONCILIACION_ACTIVE_BG_LIGHT, CONCILIACION_ACTIVE_BORDE_DARK,
+  CONCILIACION_ACTIVE_BORDE_LIGHT, CONCILIACION_ACTIVE_TXT_LIGHT, ROJO_WASH_BG_DARK, ROJO_TXT_DARK,
+} from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useIsDark } from '@/hooks/useIsDark'
@@ -55,9 +60,9 @@ export default function TabConciliacion() {
   const subPillStyle = (active: boolean): React.CSSProperties => ({
     padding: '7px 14px',
     borderRadius: 6,
-    background: active ? (isDark ? '#2a2600' : '#FFF3B8') : (isDark ? INK : BLANCO),
-    border: `1px solid ${active ? (isDark ? '#4a4000' : '#E8D066') : (isDark ? INK : '#E9E1D0')}`,
-    color: active ? (isDark ? LIMA : '#5a4d0a') : (isDark ? GRIS : '#555555'),
+    background: active ? (isDark ? CONCILIACION_ACTIVE_BG_DARK : CONCILIACION_ACTIVE_BG_LIGHT) : (isDark ? INK : BLANCO),
+    border: `1px solid ${active ? (isDark ? CONCILIACION_ACTIVE_BORDE_DARK : CONCILIACION_ACTIVE_BORDE_LIGHT) : (isDark ? INK : CONFIG_BORDE)}`,
+    color: active ? (isDark ? LIMA : CONCILIACION_ACTIVE_TXT_LIGHT) : (isDark ? GRIS : GRIS),
     fontSize: 12,
     fontWeight: active ? 600 : 500,
     fontFamily: 'Oswald, sans-serif',
@@ -119,13 +124,13 @@ function PanelCategorias() {
     await refetch()
   }
 
-  const mut = isDark ? '#777' : '#9E9588'
+  const mut = isDark ? GRIS : CONFIG_MUT
   const actionColor = GRANATE
 
   if (loading) return <div style={{ padding: 24, color: mut }}>Cargando categorías…</div>
   if (error) {
     return (
-      <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: isDark ? '#ff8080' : GRANATE, borderRadius: 12 }}>
+      <div style={{ padding: 16, background: isDark ? ROJO_WASH_BG_DARK : CONFIG_ROJO_WASH, color: isDark ? ROJO_TXT_DARK : GRANATE, borderRadius: 12 }}>
         {error}
       </div>
     )
@@ -222,9 +227,9 @@ function addBtn(isDark: boolean): React.CSSProperties {
     fontWeight: 600,
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
-    background: isDark ? '#2a2600' : '#FFF3B8',
-    color: isDark ? LIMA : '#5a4d0a',
-    border: `1px solid ${isDark ? '#4a4000' : '#E8D066'}`,
+    background: isDark ? CONCILIACION_ACTIVE_BG_DARK : CONCILIACION_ACTIVE_BG_LIGHT,
+    color: isDark ? LIMA : CONCILIACION_ACTIVE_TXT_LIGHT,
+    border: `1px solid ${isDark ? CONCILIACION_ACTIVE_BORDE_DARK : CONCILIACION_ACTIVE_BORDE_LIGHT}`,
     cursor: 'pointer',
     fontFamily: 'Oswald, sans-serif',
     width: 'fit-content',
@@ -298,7 +303,7 @@ function CategoriaModal({
       {check('Gasto fijo', 'Se repite cada mes: Running lo estima si falta', estimable, setEstimable)}
 
       {error && (
-        <div style={{ marginTop: 12, padding: 8, background: '#FCE0E2', color: GRANATE, fontSize: 12, borderRadius: 6 }}>
+        <div style={{ marginTop: 12, padding: 8, background: CONFIG_ROJO_WASH, color: GRANATE, fontSize: 12, borderRadius: 6 }}>
           {error}
         </div>
       )}
@@ -361,13 +366,13 @@ function PanelReglas() {
     await refetch()
   }
 
-  const mut = isDark ? '#777' : '#9E9588'
-  const subtle = isDark ? '#aaa' : '#6E6656'
+  const mut = isDark ? GRIS : CONFIG_MUT
+  const subtle = isDark ? GRIS : CONFIG_MUT_ALT
 
   if (loading) return <div style={{ padding: 24, color: mut }}>Cargando reglas…</div>
   if (error) {
     return (
-      <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: isDark ? '#ff8080' : GRANATE, borderRadius: 12 }}>
+      <div style={{ padding: 16, background: isDark ? ROJO_WASH_BG_DARK : CONFIG_ROJO_WASH, color: isDark ? ROJO_TXT_DARK : GRANATE, borderRadius: 12 }}>
         {error}
       </div>
     )
@@ -511,7 +516,7 @@ function ReglaModal({
         </label>
       </ConfigField>
       {error && (
-        <div style={{ marginTop: 12, padding: 8, background: '#FCE0E2', color: GRANATE, fontSize: 12, borderRadius: 6 }}>
+        <div style={{ marginTop: 12, padding: 8, background: CONFIG_ROJO_WASH, color: GRANATE, fontSize: 12, borderRadius: 6 }}>
           {error}
         </div>
       )}

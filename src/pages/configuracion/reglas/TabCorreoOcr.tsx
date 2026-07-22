@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -86,7 +86,7 @@ export default function TabCorreoOcr() {
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        {kpi(<Mail size={13} />, 'Buzón', estado?.buzon_conectado ? 'Conectado' : 'Sin conectar', estado?.buzon_conectado ? VERDE : '#999')}
+        {kpi(<Mail size={13} />, 'Buzón', estado?.buzon_conectado ? 'Conectado' : 'Sin conectar', estado?.buzon_conectado ? VERDE : GRIS)}
         {kpi(<BarChart3 size={13} />, 'Procesados hoy', String(estado?.procesados_hoy ?? 0))}
         {kpi(<HelpCircle size={13} />, 'Por clasificar', String(estado?.pendientes_clasificar ?? 0), (estado?.pendientes_clasificar ?? 0) > 0 ? GRANATE : undefined)}
         {kpi(<FileText size={13} />, 'Último barrido', estado?.ultimo_barrido ? new Date(estado.ultimo_barrido).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—')}
@@ -127,7 +127,7 @@ export default function TabCorreoOcr() {
                 <td style={{ textAlign: 'center', color: T.sec }}>{r.veces_confirmada}</td>
                 <td style={{ textAlign: 'center' }}>
                   <button onClick={() => toggleActiva(r.id, r.activa)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-                    <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? VERDE : '#999' }} />
+                    <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? VERDE : GRIS }} />
                   </button>
                 </td>
                 <td style={{ padding: '10px 14px' }}>

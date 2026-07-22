@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE } from '@/styles/neobrutal'
+import { CONFIG_AMBER_WASH } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { Star, Landmark } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -181,7 +182,7 @@ export default function CuentasPanel() {
                   </td>
                   <td style={{ ...td, textAlign: 'center' }}>
                     {c.es_principal ? (
-                      <Star size={16} fill="#F5C36B" color="#F5C36B" />
+                      <Star size={16} fill={CONFIG_AMBER_WASH.txtSubDark} color={CONFIG_AMBER_WASH.txtSubDark} />
                     ) : (
                       <span style={{ color: T.mut }}>—</span>
                     )}

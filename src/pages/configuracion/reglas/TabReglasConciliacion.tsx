@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -132,7 +132,7 @@ export default function TabReglasConciliacion() {
                     <td style={{ padding: '10px 14px', color: T.sec }}>{r.categoria_codigo ?? '—'}</td>
                     <td style={{ textAlign: 'center' }}>
                       <button onClick={() => toggleActiva(r.id, r.activa)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-                        <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? VERDE : '#999' }} />
+                        <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? VERDE : GRIS }} />
                       </button>
                     </td>
                     <td style={{ padding: '10px 14px' }}><div style={{ display: 'flex', gap: 4 }}>

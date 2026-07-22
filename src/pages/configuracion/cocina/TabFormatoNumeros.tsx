@@ -58,7 +58,7 @@ export default function TabFormatoNumeros() {
   return (
     <ConfigGroupCard title="Formato de números" padded>
       {error && (
-        <div style={{ margin: '0 0 12px', padding: '8px 12px', background: '#B01D2320', color: '#B01D23', borderRadius: 8, fontFamily: FONT.body, fontSize: 12.5 }}>
+        <div style={{ margin: '0 0 12px', padding: '8px 12px', background: GRANATE + '20', color: GRANATE, borderRadius: 8, fontFamily: FONT.body, fontSize: 12.5 }}>
           {error}
         </div>
       )}

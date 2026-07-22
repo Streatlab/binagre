@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
+import { TITULARES_BG_LIGHT } from '@/styles/palettes'
 import { useCallback, useEffect, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -192,7 +193,7 @@ export default function TitularesPanel() {
                       alignItems: 'center',
                       gap: 10,
                       padding: '12px 16px',
-                      background: isDark ? INK : '#fafafa',
+                      background: isDark ? INK : TITULARES_BG_LIGHT,
                       border: `1.5px dashed ${T.brd}`,
                       borderRadius: 8,
                       cursor: isSubiendo ? 'wait' : 'pointer',

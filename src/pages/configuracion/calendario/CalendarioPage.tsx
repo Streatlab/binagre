@@ -1,4 +1,8 @@
-import { BLANCO, INK, LIMA, NAR, ROJO, ROJO_S } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRIS, INK, LIMA, NAR, ROJO, ROJO_S } from '@/styles/neobrutal'
+import {
+  ERROR_BANNER_BG, PANEL_SIDEBAR_BG, PANEL_MODAL_BG, CALENDARIO_FESTIVO_BORDE, CALENDARIO_VACACIONES_BORDE,
+  APRENDIZAJES_SEC, ESTIMADO_BADGE_TXT, CALENDARIO_MODAL_BG, CALENDARIO_MODAL_BORDE,
+} from '@/styles/palettes'
 import { useState } from 'react'
 import { FONT, useTheme, pageTitleStyle } from '@/styles/tokens'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
@@ -18,9 +22,9 @@ const LEYENDA: { tipo: string; bg: string; border: string; text: string; label: 
   { tipo: 'operativo',   bg: INK, border: INK, text: BLANCO,    label: 'Operativo' },
   { tipo: 'solo_comida', bg: INK, border: LIMA, text: LIMA, label: 'Solo comida (ALM)' },
   { tipo: 'solo_cena',   bg: INK, border: NAR, text: NAR, label: 'Solo cena (CENA)' },
-  { tipo: 'cerrado',     bg: '#2d1515', border: ROJO, text: ROJO_S, label: 'Cerrado' },
-  { tipo: 'festivo',     bg: '#1e2233', border: '#3a4060', text: '#9ba8c0', label: 'Festivo' },
-  { tipo: 'vacaciones',  bg: '#484f66', border: '#6070aa', text: '#d0d8ff', label: 'Vacaciones' },
+  { tipo: 'cerrado',     bg: ERROR_BANNER_BG, border: ROJO, text: ROJO_S, label: 'Cerrado' },
+  { tipo: 'festivo',     bg: PANEL_SIDEBAR_BG, border: CALENDARIO_FESTIVO_BORDE, text: APRENDIZAJES_SEC, label: 'Festivo' },
+  { tipo: 'vacaciones',  bg: PANEL_MODAL_BG, border: CALENDARIO_VACACIONES_BORDE, text: ESTIMADO_BADGE_TXT, label: 'Vacaciones' },
 ]
 
 export default function CalendarioPage() {
@@ -72,7 +76,7 @@ export default function CalendarioPage() {
         <button
           onClick={goPrev}
           disabled={!canPrev}
-          style={{ padding: '6px 14px', backgroundColor: INK, border: '1px solid #383838', borderRadius: 6, color: canPrev ? BLANCO : '#444', fontFamily: FONT.heading, fontSize: 13, cursor: canPrev ? 'pointer' : 'default', letterSpacing: 0.5 }}
+          style={{ padding: '6px 14px', backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: canPrev ? BLANCO : GRIS, fontFamily: FONT.heading, fontSize: 13, cursor: canPrev ? 'pointer' : 'default', letterSpacing: 0.5 }}
         >
           ‹
         </button>
@@ -82,14 +86,14 @@ export default function CalendarioPage() {
         <button
           onClick={goNext}
           disabled={!canNext}
-          style={{ padding: '6px 14px', backgroundColor: INK, border: '1px solid #383838', borderRadius: 6, color: canNext ? BLANCO : '#444', fontFamily: FONT.heading, fontSize: 13, cursor: canNext ? 'pointer' : 'default', letterSpacing: 0.5 }}
+          style={{ padding: '6px 14px', backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: canNext ? BLANCO : GRIS, fontFamily: FONT.heading, fontSize: 13, cursor: canNext ? 'pointer' : 'default', letterSpacing: 0.5 }}
         >
           ›
         </button>
       </div>
 
       {/* Grid */}
-      <div style={{ backgroundColor: '#131928', border: '1px solid #2a3050', borderRadius: 12, padding: '20px 20px 24px', maxWidth: 560 }}>
+      <div style={{ backgroundColor: CALENDARIO_MODAL_BG, border: `1px solid ${CALENDARIO_MODAL_BORDE}`, borderRadius: 12, padding: '20px 20px 24px', maxWidth: 560 }}>
         <MesGrid year={year} month={month} />
       </div>
 

@@ -1,4 +1,5 @@
-import { BLANCO, INK, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRIS, INK, ROJO, VERDE } from '@/styles/neobrutal'
+import { TABCANALES_BG_LIGHT } from '@/styles/palettes'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -155,7 +156,7 @@ export default function TabCanales() {
   const th: CSSProperties = {
     fontFamily: FONT.heading, fontSize: 11, fontWeight: 500, letterSpacing: '1.4px',
     textTransform: 'uppercase', color: T.mut, padding: '14px 12px',
-    background: isDark ? INK : '#faf8f3',
+    background: isDark ? INK : TABCANALES_BG_LIGHT,
     borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap', textAlign: 'left',
   }
   const thR: CSSProperties = { ...th, textAlign: 'right' }
@@ -348,7 +349,7 @@ export default function TabCanales() {
                       <button onClick={() => toggleActivo(c.id, c.activo)}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
                         title={c.activo ? 'Activo (click para desactivar)' : 'Inactivo (click para activar)'}>
-                        <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', backgroundColor: c.activo ? VERDE : '#555' }} />
+                        <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', backgroundColor: c.activo ? VERDE : GRIS }} />
                       </button>
                     </td>
 
@@ -370,7 +371,7 @@ export default function TabCanales() {
       </div>
 
       <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-        {saving ? 'Guardando…' : err ? <span style={{ color: '#dc2626' }}>{err}</span> : 'Click en cualquier valor para editarlo. Enter para guardar, Esc para cancelar.'}
+        {saving ? 'Guardando…' : err ? <span style={{ color: ROJO }}>{err}</span> : 'Click en cualquier valor para editarlo. Enter para guardar, Esc para cancelar.'}
       </div>
     </div>
   )

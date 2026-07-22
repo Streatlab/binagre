@@ -1,4 +1,5 @@
 import { GRANATE } from '@/styles/neobrutal'
+import { CONFIG_AMBER_WASH, CATEGORIAS_N1_LIGHT, CATEGORIAS_ING_LIGHT, STATUSTAG, TABCOSTES_MANUAL_FG_DARK } from '@/styles/palettes'
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -117,8 +118,8 @@ export default function CategoriasPanel() {
   }
   const groupRowBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
   const subGroupBg = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
-  const accentN1 = isDark ? '#F09595' : '#A32D2D'
-  const accentIng = isDark ? '#5DCAA5' : '#3B6D11'
+  const accentN1 = isDark ? TABCOSTES_MANUAL_FG_DARK : CATEGORIAS_N1_LIGHT
+  const accentIng = isDark ? STATUSTAG.ok.fgDark : CATEGORIAS_ING_LIGHT
 
   function GroupHeaderN1({ cat }: { cat: CatPyg }) {
     const accent = cat.id === '1' ? accentIng : accentN1
@@ -204,15 +205,15 @@ export default function CategoriasPanel() {
         style={{
           margin: '0 22px 14px',
           padding: 14,
-          background: isDark ? 'rgba(186,117,23,0.18)' : '#FAEEDA',
-          border: `1px solid ${isDark ? 'rgba(250,199,117,0.28)' : '#FAC775'}`,
+          background: isDark ? CONFIG_AMBER_WASH.bgDark : CONFIG_AMBER_WASH.bgLight,
+          border: `1px solid ${isDark ? CONFIG_AMBER_WASH.brdDark : CONFIG_AMBER_WASH.brdLight}`,
           borderRadius: 8,
           fontSize: 12.5,
-          color: isDark ? '#F5C36B' : '#854F0B',
+          color: isDark ? CONFIG_AMBER_WASH.txtSubDark : CONFIG_AMBER_WASH.txtSubLight,
           fontFamily: FONT.body,
         }}
       >
-        <strong style={{ color: isDark ? '#FAC775' : '#412402' }}>Categorías canónicas P&amp;G.</strong>{' '}
+        <strong style={{ color: isDark ? CONFIG_AMBER_WASH.txtStrongDark : CONFIG_AMBER_WASH.txtStrongLight }}>Categorías canónicas P&amp;G.</strong>{' '}
         Estas son las únicas categorías válidas para conciliación, gastos, presupuestos y P&amp;G. La columna
         <em> Requiere factura</em> determina si un movimiento bancario necesita factura adjunta para considerarse conciliado.
       </div>

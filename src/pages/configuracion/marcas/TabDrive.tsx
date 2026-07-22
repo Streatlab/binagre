@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
+import { COBERTURA_VERDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { useTheme, FONT } from '@/styles/tokens'
 
@@ -60,7 +61,7 @@ export default function TabDrive() {
         <>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            background: 'rgba(29,158,117,0.1)', border: '0.5px solid #1D9E75',
+            background: 'rgba(29,158,117,0.1)', border: `0.5px solid ${COBERTURA_VERDE}`,
             borderRadius: 8, padding: '12px 14px', marginBottom: 16,
           }}>
             <span style={{ color: VERDE, fontSize: 18 }}>✓</span>
@@ -89,7 +90,7 @@ export default function TabDrive() {
         <>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            background: 'rgba(176,29,35,0.08)', border: '0.5px solid #B01D23',
+            background: 'rgba(176,29,35,0.08)', border: `0.5px solid ${GRANATE}`,
             borderRadius: 8, padding: '12px 14px', marginBottom: 16,
           }}>
             <span style={{ color: GRANATE, fontSize: 18 }}>✗</span>
