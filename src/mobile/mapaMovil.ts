@@ -53,7 +53,6 @@ export const SECCIONES: SeccionMovil[] = [
       { path: '/finanzas/resultados?tab=running', label: 'Running', emoji: '📊', desc: 'Cuenta de resultados', perfiles: ['admin'] },
       { path: '/finanzas/tesoreria?tab=calendario', label: 'Pagos y Cobros', emoji: '💳', desc: 'Qué entra y qué sale', perfiles: ['admin'] },
       { path: '/finanzas/tesoreria?tab=reserva', label: 'Reservas', emoji: '🏦', desc: 'Colchón y provisiones', perfiles: ['admin'] },
-      { path: '/finanzas/verifactu', label: 'Verifactu', emoji: '✅', desc: 'Facturas emitidas', perfiles: ['admin'] },
       { path: '/finanzas/tesoreria?tab=escenarios', label: 'Escenarios Tesorería', emoji: '🔮', desc: 'Simulaciones de caja', perfiles: ['admin'] },
       { path: '/finanzas/tesoreria?tab=13semanas', label: 'Tesorería 13 Semanas', emoji: '📅', desc: 'Caja a 3 meses', perfiles: ['admin'] },
       { path: '/finanzas/tesoreria?tab=salud', label: 'Salud Financiera', emoji: '⚙️', desc: 'Colchón operativo', perfiles: ['admin'] },

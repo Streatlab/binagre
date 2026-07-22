@@ -158,7 +158,6 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
 }
 
 const PROXIMAMENTE: { label: string; emoji: string }[] = [
-  { label: 'Verifactu',               emoji: '✅' },
   { label: 'Compras',                 emoji: '🛒' },
   { label: 'Líneas de Factura',       emoji: '🧩' },
   { label: 'Ventas Perdidas',         emoji: '🕳️' },

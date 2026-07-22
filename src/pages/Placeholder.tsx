@@ -41,7 +41,6 @@ const LABELS: Record<string, string> = {
   // Integraciones
   'pos': 'POS Ventas',
   // Finanzas
-  'verifactu': 'Verifactu / Facturación legal',
   'calendario-cobros-pagos': 'Calendario Cobros/Pagos',
   'escenarios-tesoreria': 'Escenarios de Tesorería',
 
