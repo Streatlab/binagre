@@ -476,11 +476,12 @@ function Liquidaciones({
                   const neto = Number(r.pago_neto) || 0
                   const adsPromo = (Number(r.ads) || 0) + (Number(r.promociones) || 0)
                   const pNeto = bruto > 0 ? (neto / bruto) * 100 : 0
+                  const sinMarca = !r.marca || r.marca === 'SIN_MARCA'
                   return (
-                    <tr key={r.id}>
+                    <tr key={r.id} style={sinMarca ? { background: `${COLORS.warn}14` } : undefined}>
                       <td style={tdL}>{fmtF(r.fecha_inicio_periodo)} – {fmtF(r.fecha_fin_periodo)}</td>
                       <td style={tdL}><PastillaPlataforma plataforma={r.plataforma} /></td>
-                      <td style={tdL}>{!r.marca || r.marca === 'SIN_MARCA' ? <span style={{ color: COLORS.mut, fontStyle: 'italic' }}>sin marca</span> : r.marca}</td>
+                      <td style={tdL}>{sinMarca ? <span style={{ color: COLORS.warn, fontWeight: 600 }}>⚠ Marca sin detectar — revisar</span> : r.marca}</td>
                       <td style={tdR}>{r.pedidos != null ? nf0(r.pedidos) : '—'}</td>
                       <td style={tdR}>{fmtEur(bruto)}</td>
                       <td style={{ ...tdR, color: COLORS.redSL }}>{r.comision != null ? fmtEur(Number(r.comision)) : '—'}</td>

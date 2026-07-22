@@ -15,9 +15,8 @@ const ITEMS: Item[] = [
   { label: 'Papeleo', path: '/finanzas/papeleo?tab=bandeja', group: 'Finanzas' },
   { label: 'Facturación', path: '/finanzas/papeleo?tab=facturacion', group: 'Finanzas' },
   { label: 'Conciliación', path: '/finanzas/papeleo?tab=conciliacion', group: 'Finanzas' },
-  { label: 'Gestión de facturas', path: '/finanzas/papeleo?tab=gestion', group: 'Finanzas' },
+  { label: 'Gestión de facturas', path: '/finanzas/papeleo?tab=documental', group: 'Finanzas' },
   { label: 'Gestoría', path: '/finanzas/papeleo?tab=gestoria', group: 'Finanzas' },
-  { label: 'Importar plataformas', path: '/finanzas/papeleo?tab=importar', group: 'Finanzas' },
   { label: 'Bandeja pendientes', path: '/finanzas/pendientes', group: 'Finanzas' },
 
   { label: 'Ventas', path: '/finanzas/ventas-panel?tab=ventas', group: 'Finanzas' },

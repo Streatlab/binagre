@@ -172,7 +172,7 @@ function downloadCSV(filename: string, headers: string[], rows: (string|number)[
   const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url)
 }
 
-export default function Facturacion() {
+export default function Facturacion({ embedded = false }: { embedded?: boolean } = {}) {
   const { tipoDia } = useCalendario()
   const isMobile = useIsMobile()
   const [tab, setTab] = useState<Tab>('diario')
@@ -260,10 +260,10 @@ export default function Facturacion() {
   }
 
   return (
-    <div style={{ background:'var(--neo-bg)', minHeight:'100vh', padding: isMobile ? '14px 12px' : '24px 28px', fontFamily:FONT.body, color:COLORS.pri }}>
+    <div style={{ background: embedded ? 'transparent' : 'var(--neo-bg)', minHeight: embedded ? 'auto' : '100vh', padding: embedded ? 0 : (isMobile ? '14px 12px' : '24px 28px'), fontFamily:FONT.body, color:COLORS.pri }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:18, flexWrap:'wrap', gap:12 }}>
         <div>
-          <div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.redSL, letterSpacing:3, textTransform:'uppercase' }}>FACTURACIÓN</div>
+          {!embedded && <div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.redSL, letterSpacing:3, textTransform:'uppercase' }}>FACTURACIÓN</div>}
           <div style={{ fontFamily:FONT.body, fontSize:13, color:COLORS.mut, marginTop:2 }}>
             {fmtFechaCorta(toLocalDateStr(periodoDesde))} — {fmtFechaCorta(toLocalDateStr(periodoHasta))}
           </div>

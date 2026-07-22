@@ -8,7 +8,7 @@ import Login from '@/pages/Login'
 import { TabsContainer } from '@/components/kit/TabsContainer'
 
 const Home = React.lazy(() => import('@/pages/Home'))
-const PapeleoPage = React.lazy(() => import('@/pages/finanzas/PapeleoPage'))
+const PapeleoPage = React.lazy(() => import('@/pages/finanzas/Documentacion'))
 const RentabilidadPage = React.lazy(() => import('@/pages/finanzas/RentabilidadPage'))
 const Proveedores = React.lazy(() => import('@/pages/Proveedores'))
 const POS = React.lazy(() => import('@/pages/POS'))
@@ -215,14 +215,14 @@ function AppRoutes() {
           <Route path="finanzas/objetivos" element={<Navigate to="/finanzas/ventas-panel?tab=objetivos" replace />} />
           <Route path="finanzas/resultados" element={<ProtectedRoute solo={['admin']}><ResultadosPage /></ProtectedRoute>} />
           <Route path="finanzas/running" element={<Navigate to="/finanzas/resultados?tab=running" replace />} />
-          <Route path="finanzas/importar-plataformas" element={<Navigate to="/finanzas/papeleo?tab=importar" replace />} />
+          <Route path="finanzas/importar-plataformas" element={<Navigate to="/finanzas/papeleo?tab=bandeja" replace />} />
           <Route path="finanzas/rentabilidad" element={<ProtectedRoute solo={['admin']}><RentabilidadPage /></ProtectedRoute>} />
           <Route path="finanzas/punto-equilibrio" element={<Navigate to="/finanzas/rentabilidad?tab=equilibrio" replace />} />
           <Route path="finanzas/documentacion" element={<Navigate to="/finanzas/papeleo?tab=bandeja" replace />} />
           <Route path="finanzas/pendientes" element={<ProtectedRoute solo={['admin']}><BandejaPendientes /></ProtectedRoute>} />
           <Route path="finanzas/ventas" element={<Navigate to="/finanzas/ventas-panel?tab=ventas" replace />} />
-          <Route path="finanzas/gestion-facturas" element={<Navigate to="/finanzas/papeleo?tab=gestion" replace />} />
-          <Route path="finanzas/listado-facturas" element={<Navigate to="/finanzas/papeleo?tab=gestion" replace />} />
+          <Route path="finanzas/gestion-facturas" element={<Navigate to="/finanzas/papeleo?tab=documental" replace />} />
+          <Route path="finanzas/listado-facturas" element={<Navigate to="/finanzas/papeleo?tab=documental" replace />} />
           <Route path="finanzas/tesoreria" element={<ProtectedRoute solo={['admin']}><TesoreriaPage /></ProtectedRoute>} />
           <Route path="finanzas/pagos-cobros" element={<Navigate to="/finanzas/tesoreria?tab=calendario" replace />} />
           <Route path="finanzas/gestoria" element={<Navigate to="/finanzas/papeleo?tab=gestoria" replace />} />

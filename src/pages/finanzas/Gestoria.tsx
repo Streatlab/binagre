@@ -107,7 +107,7 @@ function KpiCard({ label, value, badge }: { label: string; value: string; badge?
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function Gestoria() {
+export default function Gestoria({ embedded = false }: { embedded?: boolean } = {}) {
   const [titulares, setTitulares] = useState<Titular[]>([])
   const [selectedTitularId, setSelectedTitularId] = useState<string>('todos')
   const [ano, setAno] = useState(2025)
@@ -340,16 +340,18 @@ export default function Gestoria() {
   }
 
   return (
-    <div style={{ background: INK, minHeight: '100vh', padding: '28px 32px', color: BLANCO }}>
+    <div style={{ background: embedded ? 'transparent' : INK, minHeight: embedded ? 'auto' : '100vh', padding: embedded ? 0 : '28px 32px', color: BLANCO }}>
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, color: BLANCO, margin: 0, letterSpacing: '0.06em' }}>
-          GESTORÍA — EXPORTS FISCALES
-        </h1>
-        <p style={{ color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, margin: '6px 0 0' }}>
-          Resumen fiscal y exportación de datos para gestoría
-        </p>
-      </div>
+      {!embedded && (
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, color: BLANCO, margin: 0, letterSpacing: '0.06em' }}>
+            GESTORÍA — EXPORTS FISCALES
+          </h1>
+          <p style={{ color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, margin: '6px 0 0' }}>
+            Resumen fiscal y exportación de datos para gestoría
+          </p>
+        </div>
+      )}
 
       {/* Selectores */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap', alignItems: 'flex-end' }}>
