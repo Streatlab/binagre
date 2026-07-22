@@ -44,11 +44,12 @@ function palabrasSignificativas(s: string): Set<string> {
   return new Set(normalizarNombrePersona(s).split(' ').filter(p => p.length >= 3))
 }
 
-/** Carga todos los empleados activos (de plantilla: los EXTRA no van en nómina)
- *  con su nombre oficial, NIF y alias — incluidos los alias de la propia ficha. */
+/** Carga los empleados activos de PLANTILLA (los EXTRA se pagan por Bizum y los
+ *  SOCIOS no cobran nómina: ninguno de los dos entra aquí) con su nombre oficial,
+ *  NIF y alias — incluidos los alias guardados en la propia ficha. */
 export async function cargarCandidatosEmpleados(): Promise<CandidatoEmpleado[]> {
   const [{ data: empleados }, { data: alias }] = await Promise.all([
-    supabase.from('empleados').select('id, nombre, nombre_oficial, nif, aliases, tipo_relacion').eq('estado', 'activo').neq('tipo_relacion', 'extra'),
+    supabase.from('empleados').select('id, nombre, nombre_oficial, nif, aliases, tipo_relacion').eq('estado', 'activo').eq('tipo_relacion', 'plantilla'),
     supabase.from('empleado_alias').select('empleado_id, alias'),
   ])
   const aliasPorEmpleado = new Map<string, string[]>()
