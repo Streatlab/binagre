@@ -390,49 +390,67 @@ function AppRoutes() {
 
           <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><CocinaInventario /></ProtectedRoute>} />
 
-          {/* ── Bloque 4 · 💶 Cocina · Números (perfil admin) ── */}
-          <Route path="cocina/numeros" element={<Navigate to="/cocina/numeros/hoy" replace />} />
-          <Route path="cocina/numeros/hoy" element={<ProtectedRoute solo={['admin']}><Hoy /></ProtectedRoute>} />
-          <Route path="cocina/numeros/datos" element={<ProtectedRoute solo={['admin']}><Escandallo /></ProtectedRoute>} />
-          <Route path="cocina/numeros/plato-maestro" element={<ProtectedRoute solo={['admin']}><PlatoMaestro /></ProtectedRoute>} />
-          <Route path="cocina/numeros/analisis" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Análisis" tabs={[
-            { to: '.', label: 'Menú Engineering', end: true },
-            { to: 'pareto', label: 'Pareto' },
-            { to: 'coste', label: 'Coste por plato' },
+          {/* ── Cocina (módulo único): Hoy · Operativa · Dinero ── */}
+          <Route path="cocina/hoy" element={<ProtectedRoute solo={['admin']}><Hoy /></ProtectedRoute>} />
+
+          <Route path="cocina/operativa" element={<TabsContainer title="Cocina · Operativa" tabs={[
+            { to: 'recetas', label: 'Libro de Recetas' },
+            { to: 'produccion', label: 'Producción' },
+            { to: 'plato-maestro', label: 'Plato Maestro' },
+          ]} />}>
+            <Route index element={<Navigate to="recetas" replace />} />
+            <Route path="recetas" element={<TabsContainer tabs={[
+              { to: '.', label: 'Recetas', end: true },
+              { to: 'carta', label: 'Carta' },
+              { to: 'menu-familia', label: 'Menú Familia' },
+            ]} />}>
+              <Route index element={<Recetario />} />
+              <Route path="carta" element={<Carta />} />
+              <Route path="menu-familia" element={<MenuFamilia />} />
+            </Route>
+            <Route path="produccion" element={<Produccion />} />
+            <Route path="plato-maestro" element={<ProtectedRoute solo={['admin']}><PlatoMaestro /></ProtectedRoute>} />
+          </Route>
+
+          <Route path="cocina/dinero" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Cocina · Dinero" tabs={[
+            { to: 'datos', label: 'Datos' },
+            { to: 'analisis', label: 'Análisis' },
           ]} /></ProtectedRoute>}>
-            <Route index element={<MenuEngineering />} />
-            <Route path="pareto" element={<ParetoIngredientes />} />
-            <Route path="coste" element={<CostePlato />} />
+            <Route index element={<Navigate to="datos" replace />} />
+            <Route path="datos" element={<Escandallo />} />
+            <Route path="analisis" element={<TabsContainer tabs={[
+              { to: '.', label: 'Menú Engineering', end: true },
+              { to: 'pareto', label: 'Pareto' },
+              { to: 'coste', label: 'Coste por plato' },
+            ]} />}>
+              <Route index element={<MenuEngineering />} />
+              <Route path="pareto" element={<ParetoIngredientes />} />
+              <Route path="coste" element={<CostePlato />} />
+            </Route>
           </Route>
 
           {/* B6 · Plato maestro: catálogo, alias, fusiones (acceso por paleta) */}
           <Route path="cocina/platos-maestros" element={<ProtectedRoute solo={['admin']}><PlatosMaestros /></ProtectedRoute>} />
 
-          {/* ── Bloque 4 · 🍳 Cocina · Operativa (admin + cocina) ── */}
-          <Route path="cocina/operativa" element={<Navigate to="/cocina/operativa/recetas" replace />} />
-          <Route path="cocina/operativa/recetas" element={<TabsContainer title="Libro de Recetas" tabs={[
-            { to: '.', label: 'Recetas', end: true },
-            { to: 'carta', label: 'Carta' },
-            { to: 'menu-familia', label: 'Menú Familia' },
-          ]} />}>
-            <Route index element={<Recetario />} />
-            <Route path="carta" element={<Carta />} />
-            <Route path="menu-familia" element={<MenuFamilia />} />
-          </Route>
-          <Route path="cocina/operativa/produccion" element={<Produccion />} />
-
-          {/* ── Bloque 4 · redirecciones de rutas viejas de cocina ── */}
-          <Route path="escandallo" element={<Navigate to="/cocina/numeros/datos" replace />} />
+          {/* ── redirecciones de rutas viejas de cocina (incluye la etapa Números/Operativa) ── */}
+          <Route path="cocina/numeros" element={<Navigate to="/cocina/hoy" replace />} />
+          <Route path="cocina/numeros/hoy" element={<Navigate to="/cocina/hoy" replace />} />
+          <Route path="cocina/numeros/datos" element={<Navigate to="/cocina/dinero/datos" replace />} />
+          <Route path="cocina/numeros/plato-maestro" element={<Navigate to="/cocina/operativa/plato-maestro" replace />} />
+          <Route path="cocina/numeros/analisis" element={<Navigate to="/cocina/dinero/analisis" replace />} />
+          <Route path="cocina/numeros/analisis/pareto" element={<Navigate to="/cocina/dinero/analisis/pareto" replace />} />
+          <Route path="cocina/numeros/analisis/coste" element={<Navigate to="/cocina/dinero/analisis/coste" replace />} />
+          <Route path="escandallo" element={<Navigate to="/cocina/dinero/datos" replace />} />
           <Route path="carta" element={<Navigate to="/cocina/operativa/recetas/carta" replace />} />
           <Route path="cocina/recetas" element={<Navigate to="/cocina/operativa/recetas" replace />} />
           <Route path="cocina/recetario" element={<Navigate to="/cocina/operativa/recetas" replace />} />
-          <Route path="cocina/coste-plato" element={<Navigate to="/cocina/numeros/analisis/coste" replace />} />
-          <Route path="cocina/menu-engineering" element={<Navigate to="/cocina/numeros/analisis" replace />} />
+          <Route path="cocina/coste-plato" element={<Navigate to="/cocina/dinero/analisis/coste" replace />} />
+          <Route path="cocina/menu-engineering" element={<Navigate to="/cocina/dinero/analisis" replace />} />
           <Route path="cocina/esquemas" element={<Navigate to="/cocina/operativa/produccion" replace />} />
           <Route path="cocina/produccion" element={<Navigate to="/cocina/operativa/produccion" replace />} />
           <Route path="cocina/lista-compra" element={<Navigate to="/compras" replace />} />
           <Route path="cocina/menu-familia" element={<Navigate to="/cocina/operativa/recetas/menu-familia" replace />} />
-          <Route path="cocina/pareto-ingredientes" element={<Navigate to="/cocina/numeros/analisis/pareto" replace />} />
+          <Route path="cocina/pareto-ingredientes" element={<Navigate to="/cocina/dinero/analisis/pareto" replace />} />
 
           <Route path="analytics/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
           <Route path="ops/:slug" element={<Placeholder />} />
@@ -445,7 +463,6 @@ function AppRoutes() {
           <Route path="pos/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
           <Route path="marcas/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
           <Route path="informes/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
-          <Route path="configuracion/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
