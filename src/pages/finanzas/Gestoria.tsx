@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { AMA, BLANCO, NAR, BORDER_CARD, BORDER_FINO, BORDE_SUAVE, CLARO, CREMA, GRANATE, GRIS, INK, LIMA, SHADOW, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/utils/format'
@@ -83,9 +83,9 @@ function getNombreMes(fecha: string): string {
 function KpiCard({ label, value, badge }: { label: string; value: string; badge?: string }) {
   return (
     <div style={{
-      background: INK,
-      border: '1px solid #2a2a2a',
-      borderRadius: 10,
+      background: BLANCO,
+      border: BORDER_CARD,
+      boxShadow: SHADOW,
       padding: '20px 24px',
       display: 'flex',
       flexDirection: 'column',
@@ -94,12 +94,12 @@ function KpiCard({ label, value, badge }: { label: string; value: string; badge?
       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, color: GRIS, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 8 }}>
         {label}
         {badge && (
-          <span style={{ background: LIMA, color: INK, fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4 }}>
+          <span style={{ background: AMA, color: INK, border: BORDER_FINO, fontSize: 9, fontWeight: 700, padding: '1px 6px' }}>
             {badge}
           </span>
         )}
       </div>
-      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, color: BLANCO, fontWeight: 500 }}>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, color: INK, fontWeight: 700 }}>
         {value}
       </div>
     </div>
@@ -295,10 +295,10 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
   ]
 
   const selectStyle: React.CSSProperties = {
-    background: INK,
-    border: '1px solid #2a2a2a',
+    background: BLANCO,
+    border: BORDER_FINO,
     borderRadius: 6,
-    color: BLANCO,
+    color: INK,
     fontFamily: 'Oswald, sans-serif',
     fontSize: 13,
     padding: '7px 12px',
@@ -328,23 +328,23 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
     letterSpacing: '0.08em',
     padding: '10px 12px',
     textAlign: 'left',
-    borderBottom: '1px solid #2a2a2a',
+    borderBottom: BORDER_FINO,
   }
 
   const tdStyle: React.CSSProperties = {
     padding: '10px 12px',
-    borderBottom: '1px solid #1a1a1a',
-    color: GRIS,
+    borderBottom: `1px solid ${BORDE_SUAVE}`,
+    color: INK,
     fontFamily: 'Lexend, sans-serif',
     fontSize: 13,
   }
 
   return (
-    <div style={{ background: embedded ? 'transparent' : INK, minHeight: embedded ? 'auto' : '100vh', padding: embedded ? 0 : '28px 32px', color: BLANCO }}>
+    <div style={{ background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : '100vh', padding: embedded ? 0 : '28px 32px', color: INK }}>
       {/* Header */}
       {!embedded && (
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, color: BLANCO, margin: 0, letterSpacing: '0.06em' }}>
+          <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, color: INK, margin: 0, letterSpacing: '0.06em' }}>
             GESTORÍA — EXPORTS FISCALES
           </h1>
           <p style={{ color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, margin: '6px 0 0' }}>
@@ -381,12 +381,12 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
 
         <div style={{ color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 12, paddingBottom: 8 }}>
           {desde} → {hasta}
-          {loading && <span style={{ marginLeft: 12, color: LIMA }}>Cargando...</span>}
+          {loading && <span style={{ marginLeft: 12, color: GRIS }}>Cargando...</span>}
         </div>
       </div>
 
       {/* Tabs pastilla */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: INK, border: '1px solid #2a2a2a', borderRadius: 8, padding: 4, width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: CLARO, border: BORDER_FINO, borderRadius: 8, padding: 4, width: 'fit-content' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
@@ -420,8 +420,8 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
           </div>
           {selectedTitularId !== 'todos' && (
             <div style={{
-              background: INK,
-              border: '1px solid #383838',
+              background: CLARO,
+              border: BORDER_FINO,
               borderRadius: 8,
               padding: '12px 16px',
               color: GRIS,
@@ -438,7 +438,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
       {activeTab === 'iva-soportado' && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: BLANCO, margin: 0, letterSpacing: '0.05em' }}>
+            <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: INK, margin: 0, letterSpacing: '0.05em' }}>
               FACTURAS DE GASTOS — IVA SOPORTADO
             </h2>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer' }}>
@@ -452,7 +452,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
             </label>
           </div>
 
-          <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 10, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -508,17 +508,17 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
       {activeTab === 'iva-repercutido' && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: BLANCO, margin: 0, letterSpacing: '0.05em' }}>
+            <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: INK, margin: 0, letterSpacing: '0.05em' }}>
               IVA REPERCUTIDO ESTIMADO
             </h2>
-            <span style={{ background: LIMA, color: INK, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, fontFamily: 'Oswald, sans-serif' }}>
+            <span style={{ background: AMA, color: INK, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, fontFamily: 'Oswald, sans-serif' }}>
               #ESTIMADO
             </span>
           </div>
 
           <div style={{
-            background: INK,
-            border: '1px solid #383838',
+            background: CLARO,
+            border: BORDER_FINO,
             borderRadius: 8,
             padding: '12px 16px',
             marginBottom: 20,
@@ -529,7 +529,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
             Este cálculo es orientativo. Para modelo 303/130 real se requieren datos de facturación formal. El IVA se estima aplicando 21% sobre ventas brutas de plataformas.
           </div>
 
-          <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 10, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -551,7 +551,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
                         <td style={tdStyle}>{row.periodo}</td>
                         <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtEur(row.ventas)}</td>
                         <td style={{ ...tdStyle, textAlign: 'right', color: GRIS }}>{fmtEur(base)}</td>
-                        <td style={{ ...tdStyle, textAlign: 'right', color: LIMA }}>{fmtEur(iva)}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right', color: NAR }}>{fmtEur(iva)}</td>
                       </tr>
                     )
                   })
@@ -562,7 +562,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
                   <td style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontSize: 12, color: GRIS }}>TOTALES</td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: BLANCO, fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalIngresos)}</td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: GRIS, fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalIngresos / 1.21)}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: LIMA, fontFamily: 'Oswald, sans-serif' }}>{fmtEur(ivaRepercutidoEstimado)}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: NAR, fontFamily: 'Oswald, sans-serif' }}>{fmtEur(ivaRepercutidoEstimado)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -573,22 +573,22 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
       {/* ── TAB EXPORTS ──────────────────────────────────────────────────────── */}
       {activeTab === 'exports' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: BLANCO, margin: 0, letterSpacing: '0.05em' }}>
+          <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: INK, margin: 0, letterSpacing: '0.05em' }}>
             EXPORTACIONES PARA GESTORÍA
           </h2>
 
           {/* Modelo 303 */}
-          <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 24px' }}>
+          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 10, padding: '20px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: BLANCO, marginBottom: 6 }}>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: INK, marginBottom: 6 }}>
                   Modelo 303 — IVA Trimestral
                 </div>
                 <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, maxWidth: 500 }}>
                   CSV con base imponible repercutida estimada, IVA repercutido estimado, base IVA soportado, IVA soportado y cuota diferencial.
                 </div>
                 <div style={{ marginTop: 10, display: 'flex', gap: 16, fontFamily: 'Lexend, sans-serif', fontSize: 12, flexWrap: 'wrap' }}>
-                  <span style={{ color: GRIS }}>IVA rep. est.: <strong style={{ color: LIMA }}>{fmtEur(ivaRepercutidoEstimado)}</strong></span>
+                  <span style={{ color: GRIS }}>IVA rep. est.: <strong style={{ color: NAR }}>{fmtEur(ivaRepercutidoEstimado)}</strong></span>
                   <span style={{ color: GRIS }}>IVA soportado: <strong style={{ color: GRANATE }}>{fmtEur(ivaSoportado)}</strong></span>
                   <span style={{ color: GRIS }}>Cuota diferencial: <strong style={{ color: ivaRepercutidoEstimado - ivaSoportado >= 0 ? VERDE : GRANATE }}>{fmtEur(ivaRepercutidoEstimado - ivaSoportado)}</strong></span>
                 </div>
@@ -600,10 +600,10 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
           </div>
 
           {/* Export gastos */}
-          <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 24px' }}>
+          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 10, padding: '20px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: BLANCO, marginBottom: 6 }}>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: INK, marginBottom: 6 }}>
                   Export Gastos Completo
                 </div>
                 <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, maxWidth: 500 }}>
@@ -620,10 +620,10 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
           </div>
 
           {/* Export movimientos */}
-          <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 24px' }}>
+          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 10, padding: '20px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: BLANCO, marginBottom: 6 }}>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: INK, marginBottom: 6 }}>
                   Export Movimientos Bancarios
                 </div>
                 <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, maxWidth: 500 }}>
