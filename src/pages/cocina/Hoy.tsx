@@ -1,10 +1,11 @@
 /**
- * Hoy — panel de cocina (Bloque 2). 4 KPIs + una lista de tareas ordenada por €,
- * cada fila una frase en cristiano y un botón que la resuelve. Resolver =
- * desaparece. Móvil-friendly, sin tarjetas gigantes. Vincular usa el único
- * vinculador (RPC vincular_plato_maestro), igual que el hub Plato Maestro.
+ * Hoy — panel de cocina (Bloque 2), piel neobrutal uniforme con el resto del ERP.
+ * 4 KPIs + lista de tareas ordenada por €, una frase y un botón por fila.
+ * Tareas de vincular con el MISMO nombre de plato se agrupan en una sola fila
+ * (resolverla vincula todos los maestros del grupo a la vez).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { vincularPlato } from '@/lib/cocina/vincularCliente'
@@ -12,12 +13,16 @@ import {
   requiereReceta, sugerirReceta, computeHoyKpis, buildTareasHoy,
   type Tarea, type MaestroLite,
 } from '@/lib/cocina/platoHub'
-import { C, Card, CardHead, Kpi, KpiGrid, Pill, Nota, Vacio } from '@/components/panel/sl/uiSL'
+import { OSW, LEX, INK, CREMA, BLANCO, GRANATE, AMA, VERDE, NAR, AZUL, GRIS, BORDE_SUAVE } from '@/styles/neobrutal'
 
 interface Maestro { id: number; nombre: string; es_extra: boolean | null; receta_id: string | null; euros: number | null }
 interface Receta { id: string; nombre: string; coste_rac: number | null }
 
-const KPI_TONO = { pct: 'verde', fc: 'blu', esc: 'rojo', al: 'ambar' } as const
+const SOMBRA = `5px 5px 0 ${INK}`
+const nrm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+const eur0 = (n: number) => `${Math.round(n).toLocaleString('es-ES')} €`
+
+type Fila = Tarea & { maestroIds: number[] }
 
 export default function Hoy() {
   const [maestros, setMaestros] = useState<Maestro[]>([])
@@ -26,7 +31,7 @@ export default function Hoy() {
   const [ingSinPrecio, setIngSinPrecio] = useState(0)
   const [epHuecos, setEpHuecos] = useState(0)
   const [cargando, setCargando] = useState(true)
-  const [busy, setBusy] = useState<number | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -61,7 +66,6 @@ export default function Hoy() {
     return m
   }, [recetas])
 
-  // Platos con su € de ventas y food cost real (coste_rac / precio medio de venta).
   const platos = useMemo(() => maestros.map(m => {
     const vt = ventas.get(m.id)
     const euros = vt?.euros ?? Number(m.euros) ?? 0
@@ -74,76 +78,124 @@ export default function Hoy() {
 
   const kpis = useMemo(() => computeHoyKpis({ platos: platos.map(p => ({ euros: p.euros || 0, receta_id: p.receta_id, es_extra: p.es_extra, foodCostPct: p.foodCostPct })), alertasPrecio: ingSinPrecio }), [platos, ingSinPrecio])
 
-  const tareas = useMemo(() => buildTareasHoy({
-    platos,
-    ingredientesSinPrecio: { count: ingSinPrecio },
-    epHuecos: { count: epHuecos },
-  }), [platos, ingSinPrecio, epHuecos])
+  // Agrupar tareas de vincular/confirmar con el mismo nombre de plato en UNA fila.
+  const filas = useMemo<Fila[]>(() => {
+    const base = buildTareasHoy({ platos, ingredientesSinPrecio: { count: ingSinPrecio }, epHuecos: { count: epHuecos } })
+    const out: Fila[] = []
+    const grupos = new Map<string, Fila>()
+    const nombreDe = (t: Tarea) => {
+      const m = t.frase.match(/«([^»]+)»/)
+      return m ? nrm(m[1]) : null
+    }
+    for (const t of base) {
+      const agrupable = (t.tipo === 'vincular' || t.tipo === 'confirmar') && t.maestroId != null
+      const k = agrupable ? `${t.tipo}:${nombreDe(t)}` : null
+      if (k && grupos.has(k)) {
+        const g = grupos.get(k)!
+        g.maestroIds.push(t.maestroId!)
+        g.euros += t.euros
+        g.frase = g.frase.replace(/vende [\d.,]+ €/, `vende ${eur0(g.euros)}`)
+      } else {
+        const f: Fila = { ...t, maestroIds: t.maestroId != null ? [t.maestroId] : [] }
+        out.push(f)
+        if (k) grupos.set(k, f)
+      }
+    }
+    return out.sort((a, b) => b.euros - a.euros)
+  }, [platos, ingSinPrecio, epHuecos])
 
-  const resolver = useCallback(async (t: Tarea, recetaId: string) => {
-    if (!t.maestroId || !recetaId) return
-    setBusy(t.maestroId)
-    try { await vincularPlato(t.maestroId, recetaId); await cargar() }
+  const resolver = useCallback(async (f: Fila, recetaId: string) => {
+    if (!f.maestroIds.length || !recetaId) return
+    setBusy(f.key)
+    try { for (const id of f.maestroIds) await vincularPlato(id, recetaId); await cargar() }
     finally { setBusy(null) }
   }, [cargar])
 
   if (cargando) {
-    return <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}><Card><Vacio>Cargando la cocina de hoy…</Vacio></Card></div>
+    return (
+      <div style={{ minHeight: '100vh', background: CREMA, padding: '26px 30px', fontFamily: LEX }}>
+        <div style={cardStyle}><div style={{ padding: 22, fontFamily: OSW, fontWeight: 700, textTransform: 'uppercase', color: GRIS }}>Cargando la cocina de hoy…</div></div>
+      </div>
+    )
   }
 
   return (
-    <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.4px' }}>🏠 Hoy</div>
-        <div style={{ fontSize: 12, color: C.grisCl, fontWeight: 700, marginTop: 2 }}>Lo que mueve la aguja hoy, ordenado por euros. Resuelve de arriba abajo.</div>
+    <div style={{ minHeight: '100vh', background: CREMA, padding: '26px 30px', fontFamily: LEX }}>
+      {/* Cabecera uniforme con el resto del ERP */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontFamily: OSW, fontWeight: 800, fontSize: 34, letterSpacing: '0.02em', textTransform: 'uppercase', color: GRANATE }}>Cocina · Hoy</div>
+        <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK, marginTop: 2 }}>Lo que mueve la aguja hoy, ordenado por euros. Resuelve de arriba abajo.</div>
       </div>
 
-      <KpiGrid>
-        <Kpi icono="✓" tono={KPI_TONO.pct} label="Ventas con coste" valor={`${Math.round(kpis.pctConCoste)}%`} pie={<Pill tone="verde" dot>calculado</Pill>} />
-        <Kpi icono="%" tono={KPI_TONO.fc} label="Food cost medio" valor={`${Math.round(kpis.foodCostMedio)}%`} pie={<Pill tone="blu" dot>real ponderado</Pill>} />
-        <Kpi icono="✎" tono={KPI_TONO.esc} label="Recetas por escribir" valor={`${Math.round(kpis.eurosPorEscribir)} €`} pie={<Pill tone="rojo" dot>en ventas</Pill>} />
-        <Kpi icono="!" tono={KPI_TONO.al} label="Alertas de precio" valor={String(kpis.alertasPrecio)} pie={<Pill tone="ambar" dot>ingredientes</Pill>} />
-      </KpiGrid>
+      {/* KPIs neobrutal */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14, marginBottom: 18 }}>
+        <KpiCard color={VERDE} label="Ventas con coste" valor={`${Math.round(kpis.pctConCoste)}%`} pie="calculado" />
+        <KpiCard color={AZUL} label="Food cost medio" valor={`${Math.round(kpis.foodCostMedio)}%`} pie="real ponderado" />
+        <KpiCard color={GRANATE} label="Recetas por escribir" valor={eur0(kpis.eurosPorEscribir)} pie="en ventas" />
+        <KpiCard color={NAR} label="Alertas de precio" valor={String(kpis.alertasPrecio)} pie="ingredientes" />
+      </div>
 
-      <Card>
-        <CardHead title="Tareas de hoy" sub="Una frase, un botón. Al resolverla desaparece." right={<Pill tone="neutro">{tareas.length}</Pill>} />
-        {tareas.length === 0 ? <Vacio>Todo al día. Nada pendiente en cocina. 🎉</Vacio> : (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {tareas.slice(0, 80).map(t => (
-              <div key={t.key} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: '10px 4px', borderBottom: `1px solid ${C.line}` }}>
-                <div style={{ flex: '1 1 260px', minWidth: 200, fontSize: 13, fontWeight: 700, color: C.ink }}>
-                  {t.euros > 0 && <span className="slnum" style={{ color: C.grisCl, marginRight: 8 }}>{Math.round(t.euros)} €</span>}
-                  {t.frase}
-                </div>
-                <div style={{ flexShrink: 0 }}>{accion(t, recetas, busy, resolver)}</div>
+      {/* Tareas */}
+      <div style={cardStyle}>
+        <div style={{ background: INK, color: BLANCO, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontFamily: OSW, fontWeight: 800, fontSize: 18, textTransform: 'uppercase', letterSpacing: '0.03em', flex: 1 }}>Tareas de hoy</span>
+          <span style={{ fontFamily: OSW, fontWeight: 800, fontSize: 13, background: AMA, color: INK, border: `2px solid ${BLANCO}`, padding: '1px 9px' }}>{filas.length}</span>
+        </div>
+        {filas.length === 0 ? (
+          <div style={{ padding: 22, fontFamily: OSW, fontWeight: 700, textTransform: 'uppercase', color: GRIS }}>Todo al día. Nada pendiente en cocina.</div>
+        ) : (
+          <div>
+            {filas.slice(0, 80).map((f, i) => (
+              <div key={f.key} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: '9px 16px', background: i % 2 ? '#faf6ee' : BLANCO, borderTop: i > 0 ? `1.5px solid ${BORDE_SUAVE}` : 'none' }}>
+                <span style={{ fontFamily: OSW, fontWeight: 800, fontSize: 17, color: INK, minWidth: 74, textAlign: 'right' }}>{f.euros > 0 ? eur0(f.euros) : '—'}</span>
+                <span style={{ flex: '1 1 280px', minWidth: 220, fontFamily: LEX, fontSize: 13.5, fontWeight: 600, color: INK }}>
+                  {f.frase}
+                  {f.maestroIds.length > 1 && <span style={{ marginLeft: 8, fontFamily: OSW, fontWeight: 700, fontSize: 10.5, background: AMA, border: `1.5px solid ${INK}`, padding: '1px 6px', textTransform: 'uppercase' }}>{f.maestroIds.length} variantes</span>}
+                </span>
+                <span style={{ flexShrink: 0 }}>{accion(f, recetas, busy, resolver)}</span>
               </div>
             ))}
-            {tareas.length > 80 && <Nota tono="blu">Se muestran las 80 de mayor impacto de {tareas.length}.</Nota>}
+            {filas.length > 80 && <div style={{ padding: '9px 16px', fontFamily: LEX, fontSize: 12, fontWeight: 600, color: GRIS, borderTop: `1.5px solid ${BORDE_SUAVE}` }}>Se muestran las 80 de mayor impacto de {filas.length}.</div>}
           </div>
         )}
-      </Card>
+      </div>
     </div>
   )
 }
 
+const cardStyle: CSSProperties = { background: BLANCO, border: `3px solid ${INK}`, boxShadow: SOMBRA, overflow: 'hidden' }
+
+function KpiCard({ color, label, valor, pie }: { color: string; label: string; valor: string; pie: string }) {
+  return (
+    <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SOMBRA }}>
+      <div style={{ height: 7, background: color, borderBottom: `3px solid ${INK}` }} />
+      <div style={{ padding: '10px 14px 12px' }}>
+        <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12.5, letterSpacing: '0.07em', textTransform: 'uppercase', color: INK }}>{label}</div>
+        <div style={{ fontFamily: OSW, fontWeight: 800, fontSize: 34, lineHeight: 1.05, color: INK, marginTop: 2 }}>{valor}</div>
+        <div style={{ fontFamily: LEX, fontSize: 11.5, fontWeight: 600, color: GRIS, marginTop: 2 }}>{pie}</div>
+      </div>
+    </div>
+  )
+}
+
+const btnStyle: CSSProperties = { padding: '7px 14px', textDecoration: 'none', background: AMA, color: INK, border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, fontFamily: OSW, fontSize: 12.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap', display: 'inline-block' }
+
 function accion(
-  t: Tarea,
+  f: Fila,
   recetas: Receta[],
-  busy: number | null,
-  resolver: (t: Tarea, recetaId: string) => void,
+  busy: string | null,
+  resolver: (f: Fila, recetaId: string) => void,
 ) {
-  if (t.tipo === 'vincular' || t.tipo === 'confirmar' || t.tipo === 'foodcost') {
+  if (f.tipo === 'vincular' || f.tipo === 'confirmar' || f.tipo === 'foodcost') {
     return (
-      <select defaultValue={t.recetaId ?? ''} disabled={busy === t.maestroId} onChange={e => resolver(t, e.target.value)}
-        style={{ padding: '7px 10px', borderRadius: 999, minWidth: 200, border: `1px solid ${C.rojoSem}`, background: C.card, color: C.ink, fontFamily: "'Nunito', sans-serif", fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-        <option value="">{t.tipo === 'confirmar' ? '— Confirmar receta —' : '— Elegir receta —'}</option>
+      <select defaultValue={f.recetaId ?? ''} disabled={busy === f.key} onChange={e => resolver(f, e.target.value)}
+        style={{ padding: '7px 10px', minWidth: 200, border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, background: BLANCO, color: INK, fontFamily: OSW, fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' }}>
+        <option value="">{f.tipo === 'confirmar' ? '— Confirmar receta —' : '— Elegir receta —'}</option>
         {recetas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
       </select>
     )
   }
-  if (t.tipo === 'ingsinprecio') return <Link to="/cocina/numeros/datos" style={btn}>Poner precios</Link>
-  if (t.tipo === 'ep') return <Link to="/cocina/numeros/datos" style={btn}>Completar EP</Link>
-  return <Link to="/cocina/numeros/plato-maestro" style={btn}>Abrir</Link>
+  if (f.tipo === 'ingsinprecio') return <Link to="/cocina/numeros/datos" style={btnStyle}>Poner precios</Link>
+  if (f.tipo === 'ep') return <Link to="/cocina/numeros/datos" style={btnStyle}>Completar EP</Link>
+  return <Link to="/cocina/numeros/plato-maestro" style={btnStyle}>Abrir</Link>
 }
-
-const btn: React.CSSProperties = { padding: '7px 13px', borderRadius: 999, textDecoration: 'none', background: C.ink, color: '#fff', fontFamily: "'Nunito', sans-serif", fontSize: 11.5, fontWeight: 900, whiteSpace: 'nowrap' }
