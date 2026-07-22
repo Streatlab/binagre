@@ -1,0 +1,21 @@
+name: merge-b6-qa
+on:
+  push:
+    paths:
+      - '.github/workflows/merge-b6-qa.yml'
+permissions:
+  contents: write
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: trabajo
+          fetch-depth: 0
+      - name: Merge tanda QA de Equipo en trabajo
+        run: |
+          git config user.name "Claude"
+          git config user.email "noreply@anthropic.com"
+          git merge origin/claude/b6-xkyf0o -m "Merge Equipo v2 tanda QA (barra unica, tarjetas, visor Storage, diferencias) [deploy]"
+          git push origin trabajo
