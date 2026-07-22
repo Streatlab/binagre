@@ -210,7 +210,15 @@ function TabPlatos({ platos, recetaMap, T, thStyle, tdStyle, onEdit, onToggle, o
                 <td style={{ ...tdStyle, color: T.sec }}>{p.marca}</td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtEur(p.pvp)}</td>
                 <td style={{ ...tdStyle, color: receta ? T.pri : T.mut, fontStyle: receta ? 'normal' : 'italic' }}>
-                  {receta ? receta.nombre : '—'}
+                  {receta ? receta.nombre : (
+                    <span style={{
+                      display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 10,
+                      fontFamily: FONT.heading, letterSpacing: '0.5px', textTransform: 'uppercase',
+                      background: `${COLOR_AMARILLO}33`, color: COLOR_AMARILLO,
+                    }}>
+                      Sin escandallo
+                    </span>
+                  )}
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>
                   {foodCost != null ? (

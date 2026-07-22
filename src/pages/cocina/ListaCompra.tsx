@@ -100,12 +100,14 @@ export default function ListaCompra() {
   const [cobOpen, setCobOpen] = useState(false)
   const [filtroProv, setFiltroProv] = useState<Proveedor | 'todos'>('todos')
   const [filtroCob, setFiltroCob] = useState<FiltroCobertura>('todos')
+  const [bajoMinimoIds, setBajoMinimoIds] = useState<Set<string>>(new Set())
+  const [soloBajoMinimo, setSoloBajoMinimo] = useState(false)
   const [copiado, setCopiado] = useState(false)
 
   useEffect(() => {
     (async () => {
       setLoading(true)
-      const [iR, cR, pR, eR] = await Promise.all([
+      const [iR, cR, pR, eR, sR] = await Promise.all([
         supabase.from('ingredientes')
           .select('id,nombre,nombre_base,abv,categoria_id,ud_std,ud_min,precio_activo,activo')
           .eq('activo', true).order('nombre'),
@@ -113,6 +115,9 @@ export default function ListaCompra() {
         supabase.from('ingrediente_productos')
           .select('ingrediente_id,proveedor,unidad_minima_txt,precio_robot,activo').eq('activo', true),
         supabase.from('lista_compra_excluidos').select('ingrediente_id'),
+        // Tanda F5: mismo stock+consumo real que ya usa Compras -> Inventario (v_stock_real),
+        // reutilizado aquí como filtro en vez de recalcular necesidad por separado.
+        supabase.from('v_stock_real').select('id,bajo_minimo'),
       ])
       // Regla de negocio: ABV EPS/MRM = elaboraciones propias, no son ingredientes comprables.
       setIngredientes(((iR.data ?? []) as any[])
@@ -129,6 +134,7 @@ export default function ListaCompra() {
         precio_robot: p.precio_robot != null ? Number(p.precio_robot) : null,
       })))
       setExcluidos(new Set(((eR.data ?? []) as any[]).map(e => e.ingrediente_id as string)))
+      setBajoMinimoIds(new Set(((sR.data ?? []) as any[]).filter(s => s.bajo_minimo).map(s => s.id as string)))
       setLoading(false)
     })()
   }, [])
@@ -138,10 +144,14 @@ export default function ListaCompra() {
   const metaTexto = useMemo(() => metaSemana(ahora), [ahora])
 
   const ingredientesFiltrados = useMemo(() => {
-    if (!busq.trim()) return ingredientes
-    const q = busq.toLowerCase()
-    return ingredientes.filter(i => (i.nombre_base ?? i.nombre).toLowerCase().includes(q))
-  }, [ingredientes, busq])
+    let out = ingredientes
+    if (busq.trim()) {
+      const q = busq.toLowerCase()
+      out = out.filter(i => (i.nombre_base ?? i.nombre).toLowerCase().includes(q))
+    }
+    if (soloBajoMinimo) out = out.filter(i => bajoMinimoIds.has(i.id))
+    return out
+  }, [ingredientes, busq, soloBajoMinimo, bajoMinimoIds])
 
   const bloques = useMemo(
     () => construirBloques(ingredientesFiltrados, categorias, productos, excluidos),
@@ -266,6 +276,13 @@ export default function ListaCompra() {
               <button key={k} onClick={() => setFiltroCob(k)} style={chip(T, filtroCob === k)}>{lbl}</button>
             ))}
           </div>
+
+          {/* Tanda F5: filtro por stock real (v_stock_real, misma fuente que Compras -> Inventario) */}
+          {bajoMinimoIds.size > 0 && (
+            <button onClick={() => setSoloBajoMinimo(v => !v)} style={chip(T, soloBajoMinimo)}>
+              Bajo mínimo ({bajoMinimoIds.size})
+            </button>
+          )}
 
           {/* KPI de ahorro (abre el comparador) */}
           {comparativa.items.length > 0 && (

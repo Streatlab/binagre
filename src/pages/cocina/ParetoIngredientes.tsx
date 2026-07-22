@@ -16,16 +16,18 @@ import TabsPastilla from '@/components/ui/TabsPastilla'
  * qué pocos ingredientes / categorías concentran el coste.
  *
  * Vistas:
+ *   - Consumo real (compras) [Tanda F3]: gasto real de compra por partida en
+ *     90 días — vista `v_escandallo_pareto_compras`, la MISMA que ya usa el
+ *     cuadro de mando de Escandallo → Auto ("Dónde se va el dinero"). Es el
+ *     pareto por gasto = precio × volumen comprado, no una estimación.
  *   - Recetario: peso de cada ingrediente en el coste del escandallo
  *     cargado (tabla recetas_lineas, importe por línea). Es el food-cost
- *     real de las recetas; crece según cargas recetas.
+ *     TEÓRICO de las recetas; crece según cargas recetas.
  *   - Catálogo: coste unitario estándar de cada ingrediente del maestro
  *     (tabla ingredientes). Para detectar artículos caros a negociar.
  *   - Categorías: coste por familia de ingrediente.
  *
  * Clasificación ABC: A ≤80% acumulado · B 80–95% · C >95%.
- * Nota: aún no hay consumo real por ventas, así que el Pareto pondera
- * coste de receta / coste unitario, no gasto = precio × volumen comprado.
  * ------------------------------------------------------------------ */
 
 interface LineaRow {
@@ -39,8 +41,9 @@ interface IngRow {
   precio_activo: number | null
   ultimo_precio: number | null
 }
+interface ComprasRow { item: string; gasto: number; pct: number; pct_acumulado: number }
 
-type Vista = 'recetario' | 'catalogo' | 'categorias'
+type Vista = 'compras' | 'recetario' | 'catalogo' | 'categorias'
 type Clase = 'A' | 'B' | 'C'
 
 interface ParetoRow {
@@ -60,6 +63,7 @@ const CLASE_DESC: Record<Clase, string> = {
 }
 
 const VISTAS: Array<{ id: Vista; label: string }> = [
+  { id: 'compras', label: 'Consumo real (compras)' },
   { id: 'recetario', label: 'En recetas' },
   { id: 'catalogo', label: 'Catálogo' },
   { id: 'categorias', label: 'Categorías' },
@@ -108,20 +112,23 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
 export default function ParetoIngredientes() {
   const [lineas, setLineas] = useState<LineaRow[]>([])
   const [ings, setIngs] = useState<IngRow[]>([])
+  const [compras, setCompras] = useState<ComprasRow[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [vista, setVista] = useState<Vista>('recetario')
+  const [vista, setVista] = useState<Vista>('compras')
   const [catSel, setCatSel] = useState<string>('__todas')
   const [excluirEps, setExcluirEps] = useState(true)
 
   const cargar = useCallback(async () => {
     setLoading(true)
-    const [{ data: l }, { data: i }] = await Promise.all([
+    const [{ data: l }, { data: i }, { data: c }] = await Promise.all([
       supabase.from('recetas_lineas').select('ingrediente_nombre,eur_total'),
       supabase.from('ingredientes').select('nombre,categoria,coste_neto_std,precio_activo,ultimo_precio').eq('activo', true),
+      supabase.from('v_escandallo_pareto_compras').select('item,gasto,pct,pct_acumulado').limit(200),
     ])
     setLineas((l as LineaRow[]) ?? [])
     setIngs((i as IngRow[]) ?? [])
+    setCompras((c as ComprasRow[]) ?? [])
     setLoading(false)
   }, [])
   useEffect(() => { cargar() }, [cargar])
@@ -136,6 +143,19 @@ export default function ParetoIngredientes() {
   }, [ings])
 
   const { rows, total, nA, unidad } = useMemo(() => {
+    if (vista === 'compras') {
+      // Tanda F3: consumo real (gasto de compra por partida, 90 días) — v_escandallo_pareto_compras,
+      // la misma vista que ya usa el cuadro de mando de Escandallo → Auto ("Dónde se va el dinero").
+      const rowsC: ParetoRow[] = compras.map(c => ({
+        key: c.item,
+        valor: Number(c.gasto || 0),
+        pct: Number(c.pct || 0),
+        acumPct: Number(c.pct_acumulado || 0),
+        clase: (c.pct_acumulado <= 80 ? 'A' : c.pct_acumulado <= 95 ? 'B' : 'C') as Clase,
+      }))
+      const totalC = compras.reduce((s, c) => s + Number(c.gasto || 0), 0)
+      return { rows: rowsC, total: totalC, nA: rowsC.filter(r => r.clase === 'A').length, unidad: '€' as const }
+    }
     if (vista === 'recetario') {
       const agg = new Map<string, number>()
       for (const l of lineas) {
@@ -160,7 +180,7 @@ export default function ParetoIngredientes() {
     }
     const r = computePareto([...agg.entries()].map(([key, valor]) => ({ key, valor })))
     return { ...r, unidad: '€' as const }
-  }, [vista, lineas, ings, catSel, excluirEps])
+  }, [vista, lineas, ings, compras, catSel, excluirEps])
 
   const chartData = useMemo(
     () => rows.slice(0, 20).map(r => ({ name: r.key, valor: r.valor, acum: Number(r.acumPct.toFixed(1)), clase: r.clase })),
@@ -169,13 +189,15 @@ export default function ParetoIngredientes() {
 
   if (loading) return <div style={{ padding: 32, color: COLORS.sec, fontFamily: FONT.body }}>Cargando escandallo…</div>
 
-  const tituloMetrica = vista === 'recetario' ? 'Coste en recetas' : vista === 'catalogo' ? 'Coste unitario' : 'Coste por categoría'
+  const tituloMetrica = vista === 'compras' ? 'Gasto real (90 días)' : vista === 'recetario' ? 'Coste en recetas' : vista === 'catalogo' ? 'Coste unitario' : 'Coste por categoría'
   const notaVista =
-    vista === 'recetario'
-      ? `Suma del coste de cada ingrediente en las recetas cargadas. No ponderado por ventas todavía.`
-      : vista === 'catalogo'
-        ? `Coste unitario estándar del maestro de ingredientes (no gasto total). ${excluirEps && catSel === '__todas' ? 'EPS excluidas para no duplicar sub-recetas.' : ''}`
-        : `Coste agregado por familia de ingrediente del maestro.`
+    vista === 'compras'
+      ? `Gasto real de compra por partida en los últimos 90 días (misma fuente que "Dónde se va el dinero" en Escandallo → Auto): precio × volumen comprado, no una estimación teórica.`
+      : vista === 'recetario'
+        ? `Suma del coste de cada ingrediente en las recetas cargadas (food cost teórico, no gasto real de compra — para eso usa "Consumo real (compras)").`
+        : vista === 'catalogo'
+          ? `Coste unitario estándar del maestro de ingredientes (no gasto total). ${excluirEps && catSel === '__todas' ? 'EPS excluidas para no duplicar sub-recetas.' : ''}`
+          : `Coste agregado por familia de ingrediente del maestro.`
 
   return (
     <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
