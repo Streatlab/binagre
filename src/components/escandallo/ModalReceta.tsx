@@ -7,6 +7,7 @@ import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, n } from './types'
 import { INK, AMA, GRANATE, AZUL, ROJO, NAR, VERDE, GRIS, OSW, LEX } from '@/styles/neobrutal'
 import ModalIngrediente from './ModalIngrediente'
+import MicDictado from './MicDictado'
 import ModalEPS from './ModalEPS'
 import BuscadorItem from './BuscadorItem'
 
@@ -368,6 +369,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                 <div style={{ fontFamily: LEX, fontSize: 12, color: INK, marginBottom: 8 }}>Escribe o dicta ingredientes y/o EPS en lenguaje libre:</div>
                 <textarea value={textoDictado} onChange={e => setTextoDictado(e.target.value)} placeholder="Ej: 200g tomate frito, 3 dientes ajo, 50ml aceite oliva..." style={{ background: '#ffffff', border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, borderRadius: 0, padding: 10, width: '100%', boxSizing: 'border-box', height: 80, resize: 'none', outline: 'none' }} />
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <MicDictado onTexto={t => setTextoDictado(prev => (prev ? prev + ' ' : '') + t)} />
                   <button onClick={procesarDictado} disabled={loadingDictado} style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 16px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', flex: 1, opacity: loadingDictado ? 0.6 : 1 }}>{loadingDictado ? 'PROCESANDO…' : 'PROCESAR'}</button>
                   <button onClick={() => { setShowDictar(false); setTextoDictado('') }} style={{ background: '#ffffff', color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, cursor: 'pointer' }}>CANCELAR</button>
                 </div>
