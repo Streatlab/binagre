@@ -113,6 +113,7 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const [busquedaFusion, setBusquedaFusion] = useState('')
   const [motor, setMotor] = useState<Motor | null>(null)
   const [pendientes, setPendientes] = useState<number | null>(null)
+  const [borrPage, setBorrPage] = useState(0)
   const [radar, setRadar] = useState<RadarAhorro[]>([])
   const [sangran, setSangran] = useState<PlatoSangra[]>([])
   const [objetivoFood, setObjetivoFood] = useState(35)
@@ -620,50 +621,60 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
         </div>
       )}
 
-      {/* Borradores */}
-      {!!borradores.length && (
+      {/* Borradores · A4: tabla densa paginada (20/pág) */}
+      {!!borradores.length && (() => {
+        const PS = 20
+        const nPag = Math.max(1, Math.ceil(borradores.length / PS))
+        const pg = Math.min(borrPage, nPag - 1)
+        const vis = borradores.slice(pg * PS, pg * PS + PS)
+        const vacio = (v: unknown) => v == null || String(v).trim() === '' || Number(v) === 0
+        const chip = (txt: string) => <span key={txt} style={{ fontFamily: OSW, fontSize: 10, fontWeight: 700, letterSpacing: '.5px', textTransform: 'uppercase', background: AMA, color: INK, border: `2px solid ${INK}`, padding: '1px 6px', marginRight: 4 }}>{txt}</span>
+        return (
         <div style={card}>
-          <h3 style={h3}>Ingredientes pre-creados · dicta lo que falta y quedan automatizados</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {borradores.map(b => (
-              <div key={b.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button style={btn(CREMA)} onClick={() => onOpenIngrediente(b)}>
-                    {b.nombre} {b.precio_activo != null ? `· ${fmtES(b.precio_activo, 2)}€` : ''}
-                  </button>
-                  <button style={btn('var(--sl-card)')} onClick={() => abrirBuscadorFusion(b.id)}>
-                    {fusionAbierta === b.id ? 'Cancelar' : 'Es el mismo que…'}
-                  </button>
-                </div>
-                {fusionAbierta === b.id && (
-                  <div style={{ background: 'var(--sl-card)', border: `2px solid ${INK}`, padding: 8, minWidth: 260 }}>
-                    <input
-                      autoFocus
-                      placeholder="Buscar ingrediente ya existente…"
-                      value={busquedaFusion}
-                      onChange={e => setBusquedaFusion(e.target.value)}
-                      style={{ width: '100%', fontFamily: LEX, fontSize: 13, padding: '6px 8px', border: `2px solid ${INK}`, marginBottom: 6 }}
-                    />
-                    <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {catalogoIngs
-                        .filter(i => busquedaFusion.trim().length > 1 && i.nombre.toLowerCase().includes(busquedaFusion.trim().toLowerCase()))
-                        .slice(0, 20)
-                        .map(i => (
-                          <button key={i.id} style={{ ...btn('var(--sl-card)'), textAlign: 'left', fontSize: 11 }}
-                            disabled={busy === `fusion-${b.id}`}
-                            onClick={() => fusionar(b.id, i.id, i.nombre)}>
-                            {i.nombre}
-                          </button>
-                        ))}
-                      {busquedaFusion.trim().length > 1 && !catalogoIngs.some(i => i.nombre.toLowerCase().includes(busquedaFusion.trim().toLowerCase())) && (
-                        <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Sin resultados.</span>
+          <h3 style={h3}>Ingredientes pre-creados · completa lo ámbar y quedan automatizados</h3>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>IDING</th><th style={th}>NOMBRE</th><th style={thR}>PRECIO</th><th style={th}>PROVEEDOR</th><th style={th}>FALTA</th><th style={th} /></tr></thead>
+            <tbody>
+              {vis.map((b, i) => {
+                const falta: string[] = []
+                if (vacio((b as any).formato)) falta.push('formato')
+                if (vacio((b as any).uds) || vacio((b as any).ud_std)) falta.push('unidades')
+                if (vacio((b as any).categoria)) falta.push('categoría')
+                if (vacio((b as any).merma_pct)) falta.push('merma')
+                return (
+                  <tr key={b.id} style={{ background: zebra(i) }}>
+                    <td style={{ ...td, fontFamily: OSW, fontWeight: 700, color: GRANATE }}>{(b as any).iding ?? '—'}</td>
+                    <td style={{ ...td, fontWeight: 700 }}>{b.nombre}</td>
+                    <td style={tdNum}>{b.precio_activo != null ? `${fmtES(b.precio_activo, 2)} €` : '—'}</td>
+                    <td style={{ ...td, fontSize: 12, color: GRIS }}>{(b as any).marca ?? '—'}</td>
+                    <td style={td}>{falta.length ? falta.map(chip) : <span style={{ color: VERDE, fontWeight: 700 }}>✓ listo</span>}</td>
+                    <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button style={{ ...btn(AMA), marginRight: 6 }} onClick={() => onOpenIngrediente(b)}>Completar</button>
+                      <button style={btn('var(--sl-card)')} onClick={() => abrirBuscadorFusion(b.id)}>{fusionAbierta === b.id ? 'Cerrar' : 'Es el mismo que…'}</button>
+                      {fusionAbierta === b.id && (
+                        <div style={{ background: 'var(--sl-card)', border: `2px solid ${INK}`, padding: 8, marginTop: 6, minWidth: 260, textAlign: 'left' }}>
+                          <input autoFocus placeholder="Buscar ingrediente ya existente…" value={busquedaFusion} onChange={e => setBusquedaFusion(e.target.value)} style={{ width: '100%', fontFamily: LEX, fontSize: 13, padding: '6px 8px', border: `2px solid ${INK}`, marginBottom: 6 }} />
+                          <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {catalogoIngs.filter(x => busquedaFusion.trim().length > 1 && x.nombre.toLowerCase().includes(busquedaFusion.trim().toLowerCase())).slice(0, 20).map(x => (
+                              <button key={x.id} style={{ ...btn('var(--sl-card)'), textAlign: 'left', fontSize: 11 }} disabled={busy === `fusion-${b.id}`} onClick={() => fusionar(b.id, x.id, x.nombre)}>{x.nombre}</button>
+                            ))}
+                            {busquedaFusion.trim().length > 1 && !catalogoIngs.some(x => x.nombre.toLowerCase().includes(busquedaFusion.trim().toLowerCase())) && <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Sin resultados.</span>}
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {nPag > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10 }}>
+              <button style={btn('var(--sl-card)')} disabled={pg === 0} onClick={() => setBorrPage(p => Math.max(0, p - 1))}>◀</button>
+              <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12, color: INK }}>Página {pg + 1} de {nPag} · {borradores.length} pre-creados</span>
+              <button style={btn('var(--sl-card)')} disabled={pg >= nPag - 1} onClick={() => setBorrPage(p => Math.min(nPag - 1, p + 1))}>▶</button>
+            </div>
+          )}
 
           <div style={{ marginTop: 14, paddingTop: 12, borderTop: `2px solid ${INK}` }}>
             <button style={btn(CREMA)} disabled={busy === 'sugerencias'} onClick={cargarSugerencias}>
@@ -685,7 +696,8 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
             )}
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Fase C · inventario quincenal */}
       <div style={card}>

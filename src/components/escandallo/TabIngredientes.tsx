@@ -5,7 +5,7 @@ import { fmt, fmtPct, n, getProveedor } from './types'
 import { fmtNum } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import { useMultiSort } from '@/hooks/useMultiSort'
-import { INK, CREMA, CLARO, OSW, VERDE, ROJO, NAR, GRANATE, GRIS, AMA } from '@/styles/neobrutal'
+import { INK, CREMA, CLARO, OSW, VERDE, ROJO, NAR, GRANATE, GRIS, AMA, AMA_S } from '@/styles/neobrutal'
 import { th, thR, thC, td, tdNum, tdSub, tdCod, zebra, bandUsos, BAND } from './estilosTabla'
 import CabeceraEscandallo from './CabeceraEscandallo'
 
@@ -213,18 +213,23 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onBuscar,
                   const cell: CSSProperties = { ...td, background: bg }
                   const numCell: CSSProperties = { ...tdNum, background: bg }
                   const subCell: CSSProperties = { ...tdSub, background: bg }
+                  // A3: campo vacío/por revisar → fondo ámbar suave + aviso.
+                  const vacio = (v: unknown) => v == null || String(v).trim() === '' || n(v as number) === 0
+                  const amber = (baseSt: CSSProperties, malo: boolean): CSSProperties => malo ? { ...baseSt, background: AMA_S } : baseSt
+                  const rev = (v: ReactNode, malo: boolean) => malo ? <span title="Falta por completar">⚠ {v}</span> : v
+                  const catV = vacio(i.categoria), formV = vacio(i.formato), udStdV = vacio(i.ud_std), udsV = vacio(i.uds)
                   return (
                     <tr key={i.id} onClick={() => onSelect?.(i)} style={{ cursor: 'pointer' }}>
                       <td style={stickyIding(usos, bg)} title={i.iding ?? undefined}>{i.iding ?? '—'}</td>
-                      <td style={subCell} title={tip(i.categoria)}>{i.categoria ?? '—'}</td>
+                      <td style={amber(subCell, catV)} title={tip(i.categoria)}>{rev(i.categoria ?? '—', catV)}</td>
                       <td style={{ ...cell, fontWeight: 700 }} title={tip(i.nombre_base)}>{i.nombre_base ?? '—'}</td>
                       <td style={{ ...tdCod, background: bg, color: '#2D5BFF' }}>{i.abv ?? '—'}</td>
                       <td style={cell} title={tip(i.nombre)}>{i.nombre}</td>
                       <td style={{ ...cell, color: '#5a4f3a' }} title={getProveedor(i.abv) || undefined}>{getProveedor(i.abv) || '—'}</td>
                       <td style={{ ...cell, color: '#5a4f3a' }} title={tip(i.marca)}>{i.marca ?? '—'}</td>
-                      <td style={{ ...cell, color: '#5a4f3a' }} title={tip(i.formato)}>{i.formato ?? '—'}</td>
-                      <td style={numCell}>{fmt(i.uds)}</td>
-                      <td style={subCell}>{i.ud_std ?? '—'}</td>
+                      <td style={amber({ ...cell, color: '#5a4f3a' }, formV)} title={tip(i.formato)}>{rev(i.formato ?? '—', formV)}</td>
+                      <td style={amber(numCell, udsV)}>{udsV ? '⚠' : fmt(i.uds)}</td>
+                      <td style={amber(subCell, udStdV)}>{rev(i.ud_std ?? '—', udStdV)}</td>
                       <td style={subCell}>{i.ud_min ?? '—'}</td>
                       <td style={{ ...cell, textAlign: 'center', fontFamily: OSW, fontWeight: 700, fontSize: 16, color: colorUsos(usos) }}>{usos}</td>
                       <td style={{ ...numCell, color: '#5a4f3a' }}>{d.p1 ? fmt(d.p1) : '—'}</td>
