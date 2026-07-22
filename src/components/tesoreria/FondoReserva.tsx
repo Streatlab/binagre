@@ -16,7 +16,7 @@ import {
 } from '@/styles/neobrutal'
 import { fmtEur } from '@/lib/format'
 
-interface Config { id: number; pct: number; activo: boolean; fecha_inicio: string; objetivo_fijos_mes: number }
+interface Config { id: number; pct: number; activo: boolean; fecha_inicio: string; objetivo_fijos_mes: number; cuenta_destino: string | null; match_traspaso: string | null; tolerancia_dias: number }
 interface Orden {
   id: string; fecha_cobro: string; plataforma: string
   importe_cobro: number; pct_aplicado: number; importe_reservar: number; estado: string
@@ -24,7 +24,9 @@ interface Orden {
 interface Movimiento {
   id: string; fecha: string; tipo: string; importe: number
   destino: string | null; autorizado: boolean; nota: string | null
+  verificado: boolean; fecha_verificado: string | null
 }
+interface NoVerif { id: string; fecha: string; importe: number; nota: string | null; dias_sin_verificar: number }
 interface Agenda {
   hoy: number; hoy_n: number; semana: number; semana_n: number
   total: number; total_n: number; barrido_mes: number; objetivo_mes: number
@@ -83,11 +85,17 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const [fugaArmada, setFugaArmada] = useState(false)
   const msgTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fugaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [noVerif, setNoVerif] = useState<NoVerif[]>([])
+  const [revisando, setRevisando] = useState(false)
+  const [configOpen, setConfigOpen] = useState(false)
+  const [cuentaEdit, setCuentaEdit] = useState('')
+  const [matchEdit, setMatchEdit] = useState('')
+  const [tolEdit, setTolEdit] = useState(3)
 
   async function cargar() {
     try {
     setError(null)
-    const [c, o, m, f, a, p, fm] = await Promise.all([
+    const [c, o, m, f, a, p, fm, nv] = await Promise.all([
       supabase.from('reserva_config').select('*').eq('id', 1).single(),
       supabase.from('reserva_ordenes').select('*').order('fecha_cobro', { ascending: false }).limit(300),
       supabase.from('reserva_movimientos').select('*').order('fecha', { ascending: false }).limit(100),
@@ -95,11 +103,14 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       supabase.from('v_reserva_agenda').select('*').single(),
       supabase.from('v_reserva_panel').select('saldo_teorico').single(),
       supabase.from('v_tesoreria_fijos_mes').select('concepto,importe,dia,estimado,categoria,estado_pago').order('dia', { ascending: true }).order('concepto', { ascending: true }),
+      supabase.from('v_reserva_no_verificadas').select('*').order('dias_sin_verificar', { ascending: false }),
     ])
     setFijosMes(((fm.data ?? []) as FijoMes[]).map(r => ({ ...r, importe: Number(r.importe) })))
+    setNoVerif(((nv.data ?? []) as NoVerif[]).map(r => ({ ...r, importe: Number(r.importe), dias_sin_verificar: Number(r.dias_sin_verificar) })))
     if (c.data) {
       const cd = c.data as Config
       setCfg(cd); setPctEdit(Number(cd.pct)); setObjetivoReal(Number(cd.objetivo_fijos_mes ?? 0))
+      setCuentaEdit(cd.cuenta_destino ?? ''); setMatchEdit(cd.match_traspaso ?? ''); setTolEdit(Number(cd.tolerancia_dias ?? 3))
     }
     setSaldoTeorico(Number((p.data as { saldo_teorico?: number } | null)?.saldo_teorico ?? 0))
     setOrdenes((o.data ?? []) as Orden[])
@@ -121,6 +132,35 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
     }
   }
   async function refrescar() { setRefreshing(true); await cargar() }
+
+  // Concilia las dotaciones del fondo con los traspasos reales del banco.
+  async function revisarBanco() {
+    setRevisando(true)
+    const { data, error: eRpc } = await supabase.rpc('fn_reserva_conciliar')
+    setRevisando(false)
+    if (eRpc) { setMsg('No se pudo revisar el banco'); return }
+    const r = (data ?? {}) as { ok?: boolean; motivo?: string; verificadas?: number; creadas?: number }
+    if (!r.ok) {
+      setMsg(r.motivo === 'sin_cuenta_reserva_configurada'
+        ? 'Configura primero el texto del traspaso en «Cuenta de reserva»'
+        : 'No se pudo revisar el banco')
+      setConfigOpen(true)
+      return
+    }
+    setMsg(`Banco revisado · ${r.verificadas ?? 0} confirmada${(r.verificadas ?? 0) === 1 ? '' : 's'}, ${r.creadas ?? 0} detectada${(r.creadas ?? 0) === 1 ? '' : 's'}`)
+    cargar()
+  }
+
+  async function guardarCuenta() {
+    await supabase.from('reserva_config').update({
+      cuenta_destino: cuentaEdit.trim() || null,
+      match_traspaso: matchEdit.trim() || null,
+      tolerancia_dias: Math.max(0, tolEdit),
+    }).eq('id', 1)
+    setMsg('Cuenta de reserva guardada')
+    setConfigOpen(false)
+    cargar()
+  }
   useEffect(() => { cargar(); return () => { if (confirmTimer.current) clearTimeout(confirmTimer.current) } }, [])
 
   // El aviso (toast) se cierra solo a los 4,5 s.
@@ -360,7 +400,8 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             <span style={eyebrow(AMA)}>Tesorería · desde {cfg?.fecha_inicio ?? ''}</span>
             <h1 style={{ ...d('42px'), margin: '10px 0 0' }}>Reservas</h1>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: AZUL, color: '#fff' }}>{revisando ? 'Revisando…' : '🏦 Revisar banco'}</button>
             <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: '#fff', color: INK }}>{refreshing ? 'Actualizando…' : '↻ Actualizar'}</button>
             <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Barrido</span>
             <button onClick={toggleActivo} style={{
@@ -372,7 +413,8 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       )}
 
       {embedded && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+          <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: AZUL, color: '#fff' }}>{revisando ? 'Revisando…' : '🏦 Revisar banco'}</button>
           <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: '#fff', color: INK }}>{refreshing ? 'Actualizando…' : '↻ Actualizar'}</button>
           <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Barrido {cfg?.fecha_inicio ? `· desde ${cfg.fecha_inicio}` : ''}</span>
           <button onClick={toggleActivo} style={{
@@ -392,6 +434,17 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
         <div style={{ background: ROJO, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: 0.5, textTransform: 'uppercase' }}>Error al cargar: {error}</span>
           <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: '#fff', color: ROJO }}>Reintentar</button>
+        </div>
+      )}
+
+      {/* Alerta: dotaciones que el banco no ha confirmado pasado el margen de días. */}
+      {noVerif.length > 0 && (
+        <div style={{ background: ROJO, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 18px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: LEX, fontSize: 13 }}>
+            <strong style={{ fontFamily: OSW, letterSpacing: 0.5 }}>⚠ {noVerif.length} ingreso{noVerif.length === 1 ? '' : 's'} sin confirmar en banco</strong>
+            {' '}(más de {cfg?.tolerancia_dias ?? 3} días). {E2(noVerif.reduce((a, n) => a + n.importe, 0))} € que dijiste apartar pero el banco aún no refleja.
+          </span>
+          <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: '#fff', color: ROJO }}>{revisando ? 'Revisando…' : 'Revisar banco'}</button>
         </div>
       )}
 
@@ -788,7 +841,16 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
               }}>
                 {m.tipo === 'DOTACION' ? 'Entra' : m.autorizado ? 'Sale' : 'Fuga'}
               </span>
-              <span style={{ fontFamily: LEX, fontSize: 12.5, color: GRIS }}>{m.destino ?? m.nota ?? '—'}</span>
+              <span style={{ fontFamily: LEX, fontSize: 12.5, color: GRIS, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                {m.destino ?? m.nota ?? '—'}
+                {m.tipo === 'DOTACION' && (
+                  <span title={m.verificado && m.fecha_verificado ? `Confirmado en banco el ${m.fecha_verificado}` : 'El banco aún no ha confirmado este traspaso'} style={{
+                    fontFamily: OSW, fontWeight: 700, fontSize: 9.5, letterSpacing: 0.5, textTransform: 'uppercase',
+                    padding: '2px 6px', border: `2px solid ${m.verificado ? VERDE : GRIS}`,
+                    background: m.verificado ? VERDE : 'transparent', color: m.verificado ? '#fff' : GRIS,
+                  }}>{m.verificado ? '✓ banco' : 'pend. banco'}</span>
+                )}
+              </span>
               <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 17, textAlign: 'right', color: m.tipo === 'DOTACION' ? VERDE : ROJO }}>
                 {fmtEur(m.tipo === 'DOTACION' ? Number(m.importe) : -Number(m.importe), { decimals: 2, signed: true })}
               </span>
@@ -804,6 +866,48 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             </div>
           )
         })}
+      </div>
+
+      {/* ══ CUENTA DE RESERVA (configuración de la conciliación bancaria) ══ */}
+      <div style={{ ...card, marginTop: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={eyebrow(AZUL, '#fff')}>Cuenta de reserva</span>
+          <button onClick={() => setConfigOpen(v => !v)} style={{ ...btnMini, background: '#fff', color: INK }}>
+            {configOpen ? 'Cerrar' : 'Configurar'}
+          </button>
+        </div>
+        <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 10 }}>
+          Cuenta destino: <strong style={{ color: INK }}>{cfg?.cuenta_destino ?? '—'}</strong>
+          {' · '}Texto del traspaso en banco: {cfg?.match_traspaso
+            ? <strong style={{ color: INK }}>«{cfg.match_traspaso}»</strong>
+            : <strong style={{ color: ROJO }}>sin configurar</strong>}
+          {' · '}Margen: <strong style={{ color: INK }}>{cfg?.tolerancia_dias ?? 3} días</strong>
+        </div>
+        {!cfg?.match_traspaso && !configOpen && (
+          <div style={{ fontFamily: LEX, fontSize: 11.5, color: ROJO, marginTop: 6 }}>
+            Sin el texto del traspaso, «Revisar banco» no puede casar los ingresos. Pulsa Configurar.
+          </div>
+        )}
+        {configOpen && (
+          <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, alignItems: 'end' }}>
+            <label style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
+              Nombre de la cuenta
+              <input value={cuentaEdit} onChange={e => setCuentaEdit(e.target.value)} placeholder="p.ej. BBVA Reserva"
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '9px 10px', border: `2px solid ${AZUL}`, background: '#fff', fontFamily: OSW, fontWeight: 600, fontSize: 13, outline: 'none', color: INK }} />
+            </label>
+            <label style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
+              Texto que aparece en el banco
+              <input value={matchEdit} onChange={e => setMatchEdit(e.target.value)} placeholder="p.ej. TRASPASO RESERVA"
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '9px 10px', border: `2px solid ${AZUL}`, background: '#fff', fontFamily: OSW, fontWeight: 600, fontSize: 13, outline: 'none', color: INK }} />
+            </label>
+            <label style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
+              Margen de días
+              <input type="number" min={0} step={1} value={tolEdit} onChange={e => setTolEdit(parseInt(e.target.value) || 0)}
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '9px 10px', border: `2px solid ${AZUL}`, background: '#fff', fontFamily: OSW, fontWeight: 600, fontSize: 13, textAlign: 'right', outline: 'none', color: INK }} />
+            </label>
+            <button onClick={guardarCuenta} style={{ ...btn, background: GRANATE, color: '#fff' }}>Guardar cuenta</button>
+          </div>
+        )}
       </div>
     </div>
   )
