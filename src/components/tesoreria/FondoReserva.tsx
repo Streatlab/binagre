@@ -180,6 +180,11 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   // Saldo real desde el servidor (v_reserva_panel), no la suma de los últimos 100 movimientos.
   const saldo = saldoTeorico
   const fugas = useMemo(() => movs.filter(m => m.tipo === 'RETIRADA' && !m.autorizado), [movs])
+  // Nombre del mes en curso, para dejar explícito qué mes cubre la barra (p.ej. "julio 2026").
+  const mesCoberturaTexto = useMemo(() => {
+    const t = new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+    return t.charAt(0).toUpperCase() + t.slice(1)
+  }, [])
   // Cobertura contra el objetivo REAL de fijos del mes (no la media historica).
   const objetivo = objetivoReal > 0 ? objetivoReal : fijosMedia
   const cobertura = objetivo > 0 ? (saldo / objetivo) * 100 : 0
@@ -545,7 +550,10 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             </span>
             <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, color: colorCob }}>{P0(cobertura)}</span>
           </div>
-          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 6 }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', color: colorCob, marginTop: 6 }}>
+            Fijos de {mesCoberturaTexto}
+          </div>
+          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 4 }}>
             Objetivo real = suma de gastos fijos activos del mes. Media 3 meses: <strong>{EUR(fijosMedia)}</strong>.
           </div>
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: `2px solid ${INK}`, fontFamily: LEX, fontSize: 12, color: GRIS }}>
