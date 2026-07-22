@@ -18,9 +18,10 @@ const Conciliacion = lazy(() => import('@/pages/Conciliacion'))
 const GestionFacturas = lazy(() => import('@/pages/finanzas/GestionFacturas'))
 const Facturacion = lazy(() => import('@/pages/Facturacion'))
 const Gestoria = lazy(() => import('@/pages/finanzas/Gestoria'))
+const TabEquipoSubir = lazy(() => import('@/pages/finanzas/TabEquipoSubir'))
 
-type Tab = 'bandeja' | 'facturas' | 'conciliacion' | 'documental' | 'facturacion' | 'gestoria'
-const VALID_TABS: Tab[] = ['bandeja', 'facturas', 'conciliacion', 'documental', 'facturacion', 'gestoria']
+type Tab = 'bandeja' | 'facturas' | 'conciliacion' | 'documental' | 'facturacion' | 'gestoria' | 'equipo'
+const VALID_TABS: Tab[] = ['bandeja', 'facturas', 'conciliacion', 'documental', 'facturacion', 'gestoria', 'equipo']
 
 const STORAGE_KEY = 'documentacion:tab'
 
@@ -98,6 +99,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'documental', label: 'Gestor documental' },
   { id: 'facturacion', label: 'Facturación' },
   { id: 'gestoria', label: 'Gestoría' },
+  { id: 'equipo', label: 'Equipo' },
 ]
 
 function TabsNeo({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
@@ -191,6 +193,7 @@ export default function Documentacion() {
         {tab === 'documental' && <GestionFacturas />}
         {tab === 'facturacion' && <Facturacion embedded />}
         {tab === 'gestoria' && <Gestoria embedded />}
+        {tab === 'equipo' && <TabEquipoSubir />}
       </Suspense>
     </div>
   )
