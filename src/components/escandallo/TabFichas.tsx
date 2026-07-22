@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { Printer, Pencil, AlertTriangle, Link2, Box } from 'lucide-react'
 import ModalEditarFicha from './ModalEditarFicha'
 import { fmtEur, fmtNum } from '@/lib/format'
+import * as M from '@/lib/marcoDoc'
+import HojaDoc from '@/components/marco/HojaDoc'
 
 interface Match { iding: string; nombre: string; precio: number; prov: string }
 interface IngLinea { cant: string; ud: string; ingrediente: string; equivalencia: string; grupo?: number; match: Match | null }
@@ -224,6 +226,124 @@ function costeLinea(i: IngLinea): number {
   return factor * i.match.precio
 }
 
+/* ═══ FICHA TÉCNICA — PDF con MARCO ÚNICO (src/lib/marcoDoc.ts) ═══ */
+
+const AREA_F: M.Area = 'cocina'
+
+function secLabelPDF(doc: any, ctx: M.Ctx, pal: M.Paleta, x0: number, x1: number, txt: string, y: number): number {
+  M.fTitulo(doc, ctx, true); doc.setFontSize(10); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text(txt.toUpperCase(), x0, y + 3)
+  doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.4); doc.line(x0, y + 4.6, x1, y + 4.6)
+  return y + 8.5
+}
+
+function construirFichaPDF(f: Ficha, ingredientes: IngLinea[], alergenos: string[], costeTanda: number, costeRac: number, rec: M.Recursos, bn = false) {
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA_F, bn)
+  const cb = M.contentBox(doc)
+
+  M.pintarEspina(doc, AREA_F, ctx, bn)
+  let y = M.pintarCabecera(doc, ctx, {
+    docNombre: f.codigo ?? (f.tipo === 'receta' ? 'REC' : 'EP'),
+    tituloCentrado: (f.nombre ?? '').replace(/\.\s*$/, ''),
+    area: AREA_F, bn,
+  })
+
+  const ensure = (h: number) => {
+    if (y + h > cb.bottom) { doc.addPage(); M.pintarEspina(doc, AREA_F, ctx, bn); y = cb.top + 2 }
+  }
+
+  // Meta: Prep · Rendimiento · Coste tanda · €/Ración
+  const cells: [string, string][] = [
+    ['Prep.', f.tiempo_prep ?? '—'],
+    ['Rendimiento', f.raciones ? `${fmtNum(f.raciones)} rac.` : '—'],
+    ['Coste tanda', fmtEur(costeTanda, { decimals: 2 })],
+    ['€ / Ración', fmtEur(costeRac, { decimals: 2 })],
+  ]
+  const metaH = 12, cw = cb.w / 4
+  M.tablaWrap(doc, cb.x0, y, cb.w, metaH)
+  cells.forEach((c, i) => {
+    const x = cb.x0 + i * cw
+    if (i > 0) { doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.2); doc.line(x, y + 1.5, x, y + metaH - 1.5) }
+    M.fTitulo(doc, ctx, true); doc.setFontSize(7); doc.setTextColor(...M.GRIS)
+    doc.text(c[0].toUpperCase(), x + cw / 2, y + 4.6, { align: 'center' })
+    M.fDato(doc, ctx, true); doc.setFontSize(11); doc.setTextColor(...M.TINTA)
+    doc.text(c[1], x + cw / 2, y + 9.6, { align: 'center' })
+  })
+  y += metaH + 6
+
+  // Ingredientes (tabla, 2 columnas si son muchos)
+  y = secLabelPDF(doc, ctx, pal, cb.x0, cb.x1, 'Ingredientes', y)
+  const rowH = 5
+  const nCol = ingredientes.length >= 16 ? 2 : 1
+  const gap = 8
+  const colW = (cb.w - gap * (nCol - 1)) / nCol
+  const per = Math.ceil(ingredientes.length / nCol) || 1
+  let maxY = y
+  for (let c = 0; c < nCol; c++) {
+    const x = cb.x0 + c * (colW + gap)
+    let yy = y
+    ingredientes.slice(c * per, (c + 1) * per).forEach(ing => {
+      const nom = ing.match?.nombre ?? ing.ingrediente
+      const cant = `${fmtCant(ing.cant)}${ing.ud ? ` ${ing.ud}.` : ''}`
+      M.fDato(doc, ctx, true); doc.setFontSize(9.5); doc.setTextColor(...M.GRIS)
+      const cantW = doc.getTextWidth(cant)
+      M.fDato(doc, ctx, false); doc.setTextColor(...M.TINTA)
+      M.fitFont(doc, nom, colW - cantW - 4, 9.5, 7)
+      doc.text(nom, x, yy + 3.4)
+      M.fDato(doc, ctx, true); doc.setFontSize(9.5); doc.setTextColor(...M.GRIS)
+      doc.text(cant, x + colW, yy + 3.4, { align: 'right' })
+      doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(x, yy + rowH - 0.6, x + colW, yy + rowH - 0.6)
+      yy += rowH
+    })
+    if (yy > maxY) maxY = yy
+  }
+  y = maxY + 6
+
+  // Elaboración: pasos numerados con badge de acento (radio único)
+  y = secLabelPDF(doc, ctx, pal, cb.x0, cb.x1, 'Elaboración', y)
+  const badge = 5.2
+  const pasos = f.pasos ?? []
+  if (!pasos.length) {
+    M.fDato(doc, ctx, false); doc.setFontSize(10); doc.setTextColor(...M.GRIS); doc.text('—', cb.x0, y + 3); y += 6
+  }
+  pasos.forEach((paso, idx) => {
+    M.fDato(doc, ctx, false); doc.setFontSize(10)
+    const tx = cb.x0 + badge + 3
+    const lines = doc.splitTextToSize(paso, cb.x1 - tx) as string[]
+    const blockH = Math.max(badge, lines.length * 4.5) + 2.6
+    ensure(blockH)
+    doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.roundedRect(cb.x0, y, badge, badge, M.R, M.R, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(255, 255, 255)
+    doc.text(String(idx + 1), cb.x0 + badge / 2, y + badge / 2 + 1.3, { align: 'center' })
+    M.fDato(doc, ctx, false); doc.setFontSize(10); doc.setTextColor(...M.TINTA)
+    doc.text(lines, tx, y + 3.4)
+    y += blockH
+  })
+  y += 4
+
+  // Alérgenos: pills (mismo radio)
+  ensure(14)
+  y = secLabelPDF(doc, ctx, pal, cb.x0, cb.x1, 'Alérgenos', y)
+  if (!alergenos.length) {
+    M.fDato(doc, ctx, false); doc.setFontSize(10); doc.setTextColor(...M.GRIS); doc.text('Ninguno', cb.x0, y + 3)
+  } else {
+    let px = cb.x0, py = y
+    alergenos.forEach(a => {
+      M.fDato(doc, ctx, true); doc.setFontSize(8)
+      const w = doc.getTextWidth(a) + 4.8
+      if (px + w > cb.x1) { px = cb.x0; py += 6.5 }
+      M.pill(doc, px, py, a, AREA_F, ctx, { bn })
+      px += w + 2
+    })
+  }
+
+  const tp = doc.getNumberOfPages()
+  for (let p = 1; p <= tp; p++) { doc.setPage(p); M.pintarPaginado(doc, p, tp, ctx) }
+  return doc
+}
+
 function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineasEP }: { ficha: Ficha; alergMap: Record<string, string[]>; gamasAll: string[]; onSaved: () => void; costeReal?: { tanda: number; rac: number }; lineasEP?: { ingrediente: string; cant: string; ud: string }[] }) {
   const tienePropios = (f.ingredientes ?? []).some(i => i.ingrediente && i.cant)
   const ingredientes: IngLinea[] = tienePropios
@@ -282,7 +402,15 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
     return { texto: 'NO' }
   }
 
-  function imprimir() { window.print() }
+  const [bn, setBn] = useState(false)
+  async function imprimir() {
+    const rec = await M.cargarRecursos()
+    M.abrirImprimir(construirFichaPDF(f, ingredientes, alergAuto, costeTanda, costeRac, rec, bn))
+  }
+  async function descargarPdf() {
+    const rec = await M.cargarRecursos()
+    M.descargar(construirFichaPDF(f, ingredientes, alergAuto, costeTanda, costeRac, rec, bn), `${f.codigo ?? f.tipo}-${f.nombre}`)
+  }
 
   const theadIng = (
     <thead>
@@ -346,12 +474,8 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
         </div>
       )}
 
-      <div className="print-ficha ficha-card">
-
-        <div className="ficha-head">
-          <span className="ficha-id">{f.codigo}</span>
-          <span className="ficha-title">{(f.nombre ?? '').replace(/\.\s*$/, '')}</span>
-        </div>
+      <div className="print-ficha">
+      <HojaDoc area="cocina" docNombre={f.codigo ?? ''} tituloCentrado={(f.nombre ?? '').replace(/\.\s*$/, '')}>
 
         <div className="ficha-meta">
           <div className="cell"><div className="lbl">Prep.</div><div className="val">{f.tiempo_prep ?? '—'}</div></div>
@@ -424,7 +548,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
           <div style={{ flex: 1 }}>
             <div style={{ position: 'relative' }}>
               <div className="ficha-seclabel"><AlertTriangle size={12} style={{ verticalAlign: -2, marginRight: 4 }} />Alérgenos</div>
-              <button className="no-print" onClick={() => editAlerg ? guardarAlerg() : setEditAlerg(true)} style={{ position: 'absolute', top: -2, right: 0, background: 'none', border: 'none', color: '#B01D23', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <button className="no-print" onClick={() => editAlerg ? guardarAlerg() : setEditAlerg(true)} style={{ position: 'absolute', top: -2, right: 0, background: 'none', border: 'none', color: 'var(--m-acento)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
                 <Pencil size={11} /> {editAlerg ? 'Guardar' : 'Editar'}
               </button>
             </div>
@@ -434,22 +558,31 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
                   const on = alergManual.includes(a)
                   return (
                     <button key={a} onClick={() => setAlergManual(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a])}
-                      style={{ padding: '4px 9px', borderRadius: 99, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? '#B01D23' : 'transparent', color: on ? '#fff' : 'var(--sl-text-secondary)' }}>
+                      style={{ padding: '4px 9px', borderRadius: 99, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? 'var(--m-acento)' : 'transparent', color: on ? '#fff' : 'var(--sl-text-secondary)' }}>
                       {a}
                     </button>
                   )
                 })}
               </div>
             ) : (
-              <div className="ficha-alerg-val">{alergAuto.length === 0 ? 'Ninguno' : alergAuto.join(', ')}</div>
+              alergAuto.length === 0
+                ? <div className="ficha-alerg-val">Ninguno</div>
+                : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, paddingTop: 2 }}>
+                    {alergAuto.map(a => (
+                      <span key={a} style={{ padding: '3px 9px', borderRadius: 99, fontSize: 11, fontFamily: "'Oswald', sans-serif", background: 'var(--m-soft)', color: 'var(--m-acento)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{a}</span>
+                    ))}
+                  </div>
             )}
           </div>
         </div>
 
+      </HojaDoc>
       </div>
 
       <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-        <button onClick={imprimir} style={btn}><Printer size={15} /> Imprimir / PDF</button>
+        <button onClick={() => setBn(v => !v)} style={{ ...btn, background: bn ? '#e7e7e7' : 'transparent', color: bn ? '#111' : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
+        <button onClick={imprimir} style={btn}><Printer size={15} /> Imprimir</button>
+        <button onClick={descargarPdf} style={btn}><Printer size={15} /> PDF</button>
         <button onClick={() => setEditando(true)} style={btn}><Pencil size={15} /> Editar</button>
       </div>
     </div>

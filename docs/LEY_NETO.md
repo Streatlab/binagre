@@ -64,3 +64,45 @@ Pantallas obligadas: **Panel, Vivo, Running, Margen, Break-even, Tesorería, Fac
 - Escribir a mano los campos `pct_*_estim` de `config_canales`: los gestiona `fn_recalibrar_calcneto()`.
 - Usar `v_ratio_neto_canal` (media plana de 150 días, **sin recencia**) como fuente de verdad. Solo para inspección manual.
 - Mostrar neto sin etiqueta de fuente.
+
+---
+
+## LEY-NETO v2 · Bruto real (no inflado) y `ratio_neto_real`
+
+> El partner infla el PVP para que, tras la promo autofinanciada, quede su precio real.
+> Ese precio real ES la facturación. El PVP inflado y las "ventas" crudas de la
+> liquidación **no son bruto**. En Uber la comisión se paga sobre el precio real.
+
+### Fuente de facturación por canal
+- **Uber → Rushour (revenue).** · **Glovo → Rushour (revenue).**
+- **Just Eat → Sinqro (importe vivo).** PROVISIONAL: sin verificar bueno/inflado.
+- Ningún módulo coge la facturación de la liquidación ni del PVP inflado.
+
+### Reglas v2
+1. Bruto/facturación real = revenue Rushour (Uber/Glovo) / importe Sinqro (JE).
+2. La promo autofinanciada **no** se resta al neto (ya está fuera del bruto real).
+3. Neto = bruto_real − cargos_reales (comisión + tasas + ads). Comisión sobre bruto real.
+4. Ratios de `config_canales` calibrados sobre **bruto_real** = `ventas_bruto −
+   abs(promo_autofinanciada)`, y aplicados sobre bruto_real. Misma base para calibrar
+   y aplicar.
+5. Prohibido: PVP inflado o `ventas_bruto` crudo de liquidación como facturación.
+
+### `ratio_neto_real` (nuevo)
+- `config_canales.ratio_neto_real = sum(pago_neto) / sum(bruto_real)`, ventana 183 d,
+  lo escribe **solo** `fn_recalibrar_calcneto()`.
+- `netoResolver.ts`: neto estimado = facturación_real × `ratio_neto_real` (preferido
+  sobre el ratio empírico). **Nunca** multiplicar facturación real por un ratio del
+  bruto inflado.
+- Denominador de todos los ratios (Uber/Glovo) pasa a bruto_real. Uber usa
+  `promociones`; Glovo usa `otros_cargos` (promo asumida por partner).
+
+### Asserts v2
+- Ningún neto sale de dividir por bruto inflado.
+- Ningún módulo usa `ventas_bruto` de liquidación como facturación.
+- `ratio_neto_real` por canal nunca > 1 ni < 0.
+
+### Estado (última calibración)
+- **Uber Eats**: `ratio_neto_real ≈ 0,507` (50,7 %) · 98 liq / 946 pedidos. Antes,
+  sobre bruto inflado, ~38,6 %.
+- **Glovo**: pendiente de muestra (umbral 120 pedidos / 3 liq).
+- **Just Eat**: PROVISIONAL (facturación Sinqro sin verificar).

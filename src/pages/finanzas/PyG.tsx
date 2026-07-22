@@ -33,7 +33,7 @@ function toMonthly(importe: number, periodicidad: string): number {
   return importe
 }
 
-export default function PyG() {
+export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
   const { T } = useTheme()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
@@ -175,8 +175,8 @@ export default function PyG() {
   const empty: React.CSSProperties = { color: '#777777', fontSize: 13, padding: '12px 0' }
 
   return (
-    <div style={{ padding: 28, fontFamily: FONT.body, background: '#111111', minHeight: '100vh' }}>
-      <h1 style={pageTitleStyle(T)}>Cuenta de Resultados</h1>
+    <div style={{ padding: embedded ? 0 : 28, fontFamily: FONT.body, background: embedded ? 'transparent' : '#111111', minHeight: embedded ? 'auto' : '100vh' }}>
+      {!embedded && <h1 style={pageTitleStyle(T)}>Cuenta de Resultados</h1>}
 
       {/* Selector */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 24 }}>
@@ -337,3 +337,5 @@ export default function PyG() {
     </div>
   )
 }
+
+export default PyG

@@ -59,14 +59,6 @@ const P0 = (n: number) => fmtPct(n, 0)
 const P2 = (n: number) => fmtPct(n, 2)
 const DELTA = (v: number | null) => (v == null ? '—' : fmtEur(v, { signed: true, showEuro: false, decimals: 1 }) + '%')
 
-function serieEstimada(bruto: number): number[] {
-  const b = bruto > 0 ? bruto : 100
-  const factores = [0.62, 0.71, 0.79, 0.88, 0.95, 1]
-  return factores.map(f => b * f)
-}
-
-const PCT_EST = [46, 37, 28, 19, 11]
-
 function Est({ light = false, tip = 'Dato estimado · todavía no proviene del Running / datos reales' }: { light?: boolean; tip?: string }) {
   return <span title={tip} style={{ fontFamily: OSW, fontSize: 9, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', border: `1px solid ${light ? '#ffffff66' : '#00000044'}`, color: light ? '#ffffffcc' : '#00000088', padding: '0 4px', marginLeft: 6, verticalAlign: 'middle', cursor: 'help', borderRadius: 3 }}>est</span>
 }
@@ -116,6 +108,7 @@ interface Props {
   diasPico: DiaPico[]
   mediaDiariaPico: number
   saldo: { saldoHoy: number; cobros7d: number; pagos7d: number; cobros30d: number; pagos30d: number }
+  saldoBanco: number | null
   ratioActual: number
   objetivoRatio: number
   gastosFijosMes: number
@@ -644,9 +637,31 @@ export default function ResumenLanding(p: Props) {
             </div>
             {p.objetivoMes > 0 && <div style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, opacity: 0.9, marginTop: 2 }}>objetivo {E(p.objetivoMes)}</div>}
           </div>
-          <div title="Saldo estimado a partir de cobros y pagos medios, no del extracto bancario real" style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.85, marginTop: 16, cursor: 'help' }}>Saldo estimado<Est light /></div>
-          <div style={d('clamp(28px,3.4vw,42px)', '#fff')}>{p.saldo.saldoHoy > 0 ? E(p.saldo.saldoHoy) : '—'}</div>
-          <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, lineHeight: 1.95, marginTop: 12 }}>
+          <div title="Saldo real del banco · suma de movimientos de v_caja_mensual (mismo dato que Cashflow)" style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.85, marginTop: 16, cursor: 'help' }}>Saldo banco</div>
+          <div style={d('clamp(28px,3.4vw,42px)', '#fff')}>{p.saldoBanco != null ? E(p.saldoBanco) : '—'}</div>
+          {p.saldoBanco != null && (() => {
+            const proj = p.saldoBanco + p.saldo.cobros30d - p.saldo.pagos30d
+            const delta = proj - p.saldoBanco
+            return (
+              <div title="Proyección de caja: saldo banco + cobros − pagos estimados de los próximos 30 días" style={{ background: '#ffffff1f', border: `3px solid ${INK}`, padding: '10px 12px', marginTop: 14, cursor: 'help' }}>
+                <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.9 }}>En 30 días tendrás ≈<Est light /></div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={d('clamp(24px,3vw,38px)', proj >= 0 ? '#fff' : '#ffd6d6')}>{E(proj)}</span>
+                  <span style={{ fontFamily: LEX, fontSize: 13, fontWeight: 700, color: delta >= 0 ? '#d6ffe0' : '#ffd6d6' }}>{delta >= 0 ? '▲' : '▼'} {ES(delta)}</span>
+                </div>
+              </div>
+            )
+          })()}
+          {p.saldoBanco != null && p.gastosFijosMes > 0 && (() => {
+            const meses = p.saldoBanco / p.gastosFijosMes
+            return (
+              <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, marginTop: 12, opacity: 0.95 }}>
+                Con esta caja aguantas <b style={{ color: meses >= 3 ? '#d6ffe0' : '#ffd6d6' }}>{meses.toFixed(1)} meses</b> de gastos fijos
+              </div>
+            )
+          })()}
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.7, marginTop: 14 }}>Cobros y pagos<Est light /></div>
+          <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, lineHeight: 1.95, marginTop: 4 }}>
             <div>Cobros 7 d · <b>{E(p.saldo.cobros7d)}</b></div>
             <div>Cobros 30 d · <b>{E(p.saldo.cobros30d)}</b></div>
             <div>Pagos 7 d · <b>{E(p.saldo.pagos7d)}</b></div>
@@ -696,25 +711,29 @@ export default function ResumenLanding(p: Props) {
             ? <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {marcas5.map((mk, i) => {
                   const real = mk.bruto > 0
-                  const pctMostrar = real ? mk.pct : PCT_EST[i] ?? 8
-                  const colorBarra = real ? marcaColor[i % marcaColor.length] : GRIS
-                  const curva = real && mk.serie && mk.serie.length >= 2 ? mk.serie : serieEstimada(mk.bruto)
                   return (
-                    <div key={mk.nombre} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: SHADOW, padding: '12px 16px', display: 'grid', gridTemplateColumns: '1fr 160px', gap: 16, alignItems: 'center', opacity: real ? 1 : 0.82 }}>
+                    <div key={mk.nombre} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: SHADOW, padding: '12px 16px', display: 'grid', gridTemplateColumns: real ? '1fr 160px' : '1fr', gap: 16, alignItems: 'center', opacity: real ? 1 : 0.82 }}>
                       <div>
-                        <Barra nombre={mk.nombre} pct={pctMostrar} color={colorBarra} valor={real ? E(mk.bruto) : '—'} alto={28} />
+                        {real
+                          ? <Barra nombre={mk.nombre} pct={mk.pct} color={marcaColor[i % marcaColor.length]} valor={E(mk.bruto)} alto={28} />
+                          : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                              <span style={{ ...d('15px'), lineHeight: 1.05 }}>{mk.nombre}</span>
+                              <span style={{ ...d('17px'), color: GRIS }}>—</span>
+                            </div>}
                         <div style={{ display: 'flex', gap: 18, marginTop: 8, fontFamily: OSW, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase', alignItems: 'center' }}>
                           {real ? <>
                             <span style={{ opacity: 0.55 }}>Fact. bruta <b style={{ color: INK }}>{E2(mk.bruto)}</b></span>
                             <span style={{ opacity: 0.55 }}>TM bruto <b style={{ color: AZUL }}>{mk.tmBruto > 0 ? E2(mk.tmBruto) : '—'}</b></span>
                             {mk.varPct != null && <span style={{ color: mk.varPct >= 0 ? VERDE : ROJO }}><Arrow v={mk.varPct} />{DELTA(mk.varPct)}</span>}
-                          </> : <span style={{ color: GRIS }}>Sin datos en 90 días<Est /></span>}
+                          </> : <span style={{ color: GRIS }}>Sin datos en 90 días</span>}
                         </div>
                       </div>
-                      <div style={{ borderLeft: `2px solid ${INK}22`, paddingLeft: 14 }}>
-                        <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.55, marginBottom: 2 }}>Evolución {!real && <span style={{ color: GRIS }}>· est.</span>}</div>
-                        <Spark serie={curva} color={real ? marcaColor[i % marcaColor.length] : GRIS} w={160} h={38} dashed={!real} />
-                      </div>
+                      {real && (
+                        <div style={{ borderLeft: `2px solid ${INK}22`, paddingLeft: 14 }}>
+                          <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.55, marginBottom: 2 }}>Evolución</div>
+                          <Spark serie={mk.serie && mk.serie.length >= 2 ? mk.serie : []} color={marcaColor[i % marcaColor.length]} w={160} h={38} />
+                        </div>
+                      )}
                     </div>
                   )
                 })}

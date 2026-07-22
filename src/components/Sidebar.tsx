@@ -42,26 +42,11 @@ const SECTIONS: NavSection[] = [
   {
     key: 'finanzas', label: 'Finanzas', perfiles: ['admin'],
     items: [
-      { path: '/finanzas/documentacion',        label: 'Papeleo',        emoji: '📥', perfiles: ['admin'] },
-      { path: '/facturacion',                   label: 'Facturación',          emoji: '🧾', perfiles: ['admin'] },
-      { path: '/finanzas/ventas',               label: 'Ventas',               emoji: '💰', perfiles: ['admin'] },
-      { path: '/finanzas/objetivos',            label: 'Objetivos',            emoji: '🎯', perfiles: ['admin'] },
-      { path: '/finanzas/punto-equilibrio',     label: 'Punto de Equilibrio',  emoji: '⚖️', perfiles: ['admin'] },
-      { path: '/finanzas/running',              label: 'Running',              emoji: '📊', perfiles: ['admin'] },
-      { path: '/finanzas/pagos-cobros',         label: 'Pagos y Cobros',       emoji: '💳', perfiles: ['admin'] },
-      { path: '/finanzas/reservas',             label: 'Reservas',             emoji: '🏦', perfiles: ['admin'] },
-      { path: '/finanzas/escenarios-tesoreria', label: 'Escenarios Tesorería', emoji: '🔮', perfiles: ['admin'] },
-      { path: '/finanzas/tesoreria-13-semanas', label: 'Tesorería 13 Semanas', emoji: '📅', perfiles: ['admin'] },
-      { path: '/finanzas/fondo-maniobra', label: 'Fondo de Maniobra', emoji: '⚙️', perfiles: ['admin'] },
-      { path: '/finanzas/estados-financieros', label: 'Estados Financieros', emoji: '📑', perfiles: ['admin'] },
-      { path: '/finanzas/pyg', label: 'P&G', emoji: '📈', perfiles: ['admin'] },
-      { path: '/finanzas/rentabilidad-franja', label: 'Rentab. por Franja', emoji: '🕐', perfiles: ['admin'] },
-      { path: '/finanzas/break-even', label: 'Break-even Marca/Canal', emoji: '📐', perfiles: ['admin'] },
-      { path: '/finanzas/analisis-horizontal-vertical', label: 'Análisis Horiz./Vert.', emoji: '📉', perfiles: ['admin'] },
-      { path: '/finanzas/panel-alertas', label: 'Panel de Alertas', emoji: '🚨', perfiles: ['admin'] },
-      { path: '/finanzas/repeticion-clientes', label: 'Repetición Clientes', emoji: '🔁', perfiles: ['admin'] },
-      { path: '/finanzas/roi-canal', label: 'ROI por Canal', emoji: '🏆', perfiles: ['admin'] },
-      { path: '/finanzas/ticket-medio', label: 'Ticket Medio', emoji: '🎫', perfiles: ['admin'] },
+      { path: '/finanzas/papeleo',       label: 'Papeleo',      emoji: '📥', perfiles: ['admin'] },
+      { path: '/finanzas/ventas-panel',  label: 'Ventas',       emoji: '💰', perfiles: ['admin'] },
+      { path: '/finanzas/tesoreria',     label: 'Tesorería',    emoji: '💳', perfiles: ['admin'] },
+      { path: '/finanzas/resultados',    label: 'Resultados',   emoji: '📊', perfiles: ['admin'] },
+      { path: '/finanzas/rentabilidad',  label: 'Rentabilidad', emoji: '🎯', perfiles: ['admin'] },
     ],
   },
   {
@@ -173,7 +158,6 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
 }
 
 const PROXIMAMENTE: { label: string; emoji: string }[] = [
-  { label: 'Tesorería',               emoji: '💳' },
   { label: 'Verifactu',               emoji: '✅' },
   { label: 'Compras',                 emoji: '🛒' },
   { label: 'Líneas de Factura',       emoji: '🧩' },

@@ -319,14 +319,14 @@ export default function PanelGlobal() {
           : <TabResumen rowsPeriodo={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} canalesFiltro={canalesFiltro} periodoLabel={periodoLabel} onNavTab={(t) => setActiveTab(t as TabId)} />
       )}
       {activeTab === 'operaciones' && <TabOperaciones rows={rowsPeriodo} />}
-      {activeTab === 'finanzas'    && <TabFinanzas rows={rowsPeriodo} />}
+      {activeTab === 'finanzas'    && <TabFinanzas rows={rowsPeriodo} rowsAll={rowsAll} fechaDesde={fechaDesde} fechaHasta={fechaHasta} />}
       {activeTab === 'cashflow'    && (usaSL ? <CashflowSL /> : <Cashflow />)}
       {activeTab === 'evolucion'   && (
         usaSL
           ? <TabEvolucionSL rowsAll={rowsAll} periodoDesde={fechaDesde} periodoHasta={fechaHasta} />
           : <TabEvolucion rowsAll={rowsAll} periodoDesde={fechaDesde} periodoHasta={fechaHasta} />
       )}
-      {activeTab === 'marcas' && <TabMarcas rows={rowsPeriodo} />}
+      {activeTab === 'marcas' && <TabMarcas rows={rowsPeriodo} fechaDesde={fechaDesde} fechaHasta={fechaHasta} />}
     </>
   )
 

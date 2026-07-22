@@ -87,6 +87,8 @@ export interface CanalConfig {
   /** Autocalibrados por fn_recalibrar_calcneto (LEY-NETO-02) */
   pct_promo_subvencionada_estim: number
   pct_ads_estim: number
+  /** LEY-NETO v2: neto/bruto_real calibrado sobre bruto real (ventas − promo autofinanciada) */
+  ratio_neto_real?: number | null
 }
 
 /** Marcas activas reales por canal (de marca_plataforma_acceso) */
@@ -268,7 +270,7 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
   if (cacheConfig) return cacheConfig
   const { data, error } = await supabase
     .from('config_canales')
-    .select('canal, comision_pct, comision_pct_prime, fijo_eur, fee_prime_eur, fee_promo_eur, fee_periodo_eur, fee_periodicidad, pct_pedidos_prime_estim, pct_pedidos_promo_estim, pct_promo_subvencionada_estim, pct_ads_estim')
+    .select('canal, comision_pct, comision_pct_prime, fijo_eur, fee_prime_eur, fee_promo_eur, fee_periodo_eur, fee_periodicidad, pct_pedidos_prime_estim, pct_pedidos_promo_estim, pct_promo_subvencionada_estim, pct_ads_estim, ratio_neto_real')
     .eq('activo', true)
   if (error || !data) { cacheConfig = {}; return cacheConfig }
   const out: Record<string, CanalConfig> = {}
@@ -286,6 +288,7 @@ export async function loadConfigCanales(): Promise<Record<string, CanalConfig>> 
       pct_pedidos_promo_estim: Number(row.pct_pedidos_promo_estim ?? 0),
       pct_promo_subvencionada_estim: Number(row.pct_promo_subvencionada_estim ?? 0),
       pct_ads_estim: Number(row.pct_ads_estim ?? 0),
+      ratio_neto_real: row.ratio_neto_real != null ? Number(row.ratio_neto_real) : null,
     }
   }
   cacheConfig = out

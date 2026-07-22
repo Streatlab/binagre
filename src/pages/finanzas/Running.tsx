@@ -20,7 +20,7 @@ const po=(p:number,t:number)=>t?(p/t)*100:0
 type Col={label:string;ms:number[];isQ?:boolean;qn?:number;isY?:boolean}
 type ResRow={plataforma:string;mes:number;año:number;bruto:number;comisiones:number;fees:number;cargos_promocion:number;neto_real_cobrado:number;pedidos?:number}
 const EstB=()=><span style={{fontFamily:OSW,fontSize:9,fontWeight:700,border:'1.5px solid #5a4f3a',color:'#3d362a',padding:'0 3px',marginLeft:3,textTransform:'uppercase',verticalAlign:'middle'}}>est</span>
-export default function Running(){
+export function Running({ embedded = false }: { embedded?: boolean } = {}){
 const[año,sA]=useState(2026)
 const[buscar,sBu]=useState('')
 const[det,sD]=useState<Record<string,boolean>>({'1':true,'2.1':true,'2.2':true,'2.3':true,'2.4':true})
@@ -137,13 +137,15 @@ const card:React.CSSProperties={background:BLANCO,border:BORDER_CARD,boxShadow:S
 const kpiLbl=(color:string):React.CSSProperties=>({fontFamily:OSW,fontSize:11,letterSpacing:'2px',textTransform:'uppercase',color,marginBottom:6})
 const kpiNum=(color:string):React.CSSProperties=>({fontFamily:OSW,fontWeight:700,fontSize:34,lineHeight:1,color})
 const kpiSub=(color:string):React.CSSProperties=>({fontFamily:LEX,fontSize:12,color,marginTop:6})
-return(<div style={{fontFamily:LEX,padding:28,background:CREMA,minHeight:'100vh',color:INK}}>
+return(<div style={{fontFamily:LEX,padding:embedded?0:28,background:embedded?'transparent':CREMA,minHeight:embedded?'auto':'100vh',color:INK}}>
 <div style={{marginBottom:20,display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12}}>
+{!embedded && (
 <div>
 <span style={eyebrow(GRANATE,'#fff')}>Finanzas · P&G anual</span>
 <h1 style={{fontFamily:OSW,fontWeight:700,fontSize:34,lineHeight:0.95,letterSpacing:'-0.5px',textTransform:'uppercase',color:GRANATE,margin:'10px 0 6px'}}>Running {año}</h1>
 <span style={{fontFamily:LEX,fontSize:13,color:GRIS}}>Cuenta de resultados anual · real y estimado</span>
 </div>
+)}
 <div style={{display:'flex',gap:8,alignItems:'center'}}>
 <input placeholder="🔍 Buscar..." value={buscar} onChange={e=>sBu(e.target.value)} style={{padding:'7px 12px',border:`3px solid ${INK}`,background:BLANCO,fontFamily:LEX,fontSize:13,color:INK,width:150,outline:'none',boxShadow:SHADOW}}/>
 <select value={año} onChange={e=>sA(Number(e.target.value))} style={pS}>{[2026,2025,2024].map(a=><option key={a} value={a}>{a}</option>)}</select>
@@ -235,3 +237,5 @@ return(<div style={{fontFamily:LEX,padding:28,background:CREMA,minHeight:'100vh'
 <tr {...hv}><td style={{...t1,paddingLeft:22,fontSize:13}}>Ads Just Eat</td><Cells fn={ms=>adsC('je',ms)} zona="det"/></tr>
 </tbody></table></div></div></div>)
 }
+
+export default Running

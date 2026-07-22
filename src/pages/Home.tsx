@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { INK, CREMA, GRANATE, AMA, VERDE, NARANJA, AZUL, VERDE_S, AMA_S, AZUL_S, ROSA_S, OSW, LEX, BORDER, SHADOW, cardWash, cardHead, eyebrow, bigNum, chip } from '@/styles/kit'
 import HeroTocho, { Resaltado } from '@/components/kit/HeroTocho'
 import FraseHero, { Sub } from '@/components/kit/FraseHero'
+import { AlertasBanner } from '@/pages/finanzas/PanelAlertas'
 
 type Dia = {
   fecha: string
@@ -114,8 +115,8 @@ export default function Home() {
   }, [ayer])
 
   const accesos = [
-    { to: '/finanzas/documentacion', label: 'Subir factura', emoji: '📥' },
-    { to: '/finanzas/ventas', label: 'Ventas', emoji: '💰' },
+    { to: '/finanzas/papeleo?tab=bandeja', label: 'Subir factura', emoji: '📥' },
+    { to: '/finanzas/ventas-panel?tab=ventas', label: 'Ventas', emoji: '💰' },
     { to: '/cocina/produccion', label: 'Producción', emoji: '📋' },
     { to: '/panel', label: 'Panel Global', emoji: '🧭' },
   ]
@@ -138,6 +139,8 @@ export default function Home() {
           No se han podido cargar los datos: {error}
         </div>
       )}
+
+      <AlertasBanner />
 
       {/* HERO TOCHO */}
       <HeroTocho

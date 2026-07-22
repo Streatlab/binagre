@@ -28,9 +28,9 @@ interface Notif {
 const DURACION_MS = 60000
 
 export default function OcrCompletadoGlobal() {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const navigate = useNavigate()
-  const esOcr = pathname === '/finanzas/documentacion'
+  const esOcr = pathname === '/finanzas/papeleo' && (new URLSearchParams(search).get('tab') ?? 'bandeja') === 'bandeja'
   const [notifs, setNotifs] = useState<Notif[]>([])
   const vistasRef = useRef<Set<string>>(new Set())
 
@@ -140,7 +140,7 @@ export default function OcrCompletadoGlobal() {
               <br />Ve a revisar el resultado.
             </div>
             <button
-              onClick={() => { setNotifs(prev => prev.filter(x => x.id !== n.id)); navigate('/finanzas/documentacion') }}
+              onClick={() => { setNotifs(prev => prev.filter(x => x.id !== n.id)); navigate('/finanzas/papeleo?tab=bandeja') }}
               style={{
                 width: '100%', background: acento, color: '#fff', border: 'none',
                 borderRadius: 8, padding: '10px 12px', cursor: 'pointer',

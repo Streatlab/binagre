@@ -7,11 +7,14 @@ import ModalDescartarFactura, { type FacturaDescartable } from '@/components/doc
 
 // ── Avisos autoaprendibles de Papeleo ────────────────────────────────────────
 // Lista las dudas abiertas (proveedor nuevo, sin categoría, titular, duplicado,
-// IVA) y las facturas atascadas en lectura manual. Los 4 botones filtran la
-// lista (un tipo activo a la vez). Cada fila muestra el detalle real (factura +
-// movimiento candidato + enlace a Drive) y sus acciones a la derecha, sin
-// necesidad de desplegar nada. Al resolver una, el sistema APRENDE (diccionario
-// NIF) y propaga la solución a todo lo existente y futuro del mismo proveedor.
+// IVA, destino sin handler, lectura fallida, extracto/documento de equipo mal
+// clasificado…) y las facturas atascadas en lectura manual (aparte, no cuentan
+// como duda real). Los botones filtran la lista (un tipo activo a la vez). Cada
+// fila muestra el detalle real (factura + movimiento candidato + enlace a
+// Drive) y sus acciones a la derecha. Todo tipo tiene al menos una acción — el
+// que no está contemplado usa el fallback "Marcar revisado". Al resolver una,
+// el sistema APRENDE (diccionario NIF) y propaga la solución a todo lo
+// existente y futuro del mismo proveedor, cuando hay NIF de por medio.
 
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
@@ -51,9 +54,13 @@ const ETIQUETA: Record<string, string> = {
   posible_duplicado: 'Duplicados',
   aviso_iva: 'IVA no cuadra',
   regla_desconocida: 'Regla',
+  destino_pendiente: 'Destino pendiente',
+  lectura_fallida: 'Lectura fallida',
+  extracto_recibido: 'Extracto bancario',
+  doc_equipo_recibido: 'Documento de equipo',
 }
 // Color solo con valor semántico (tokens de neobrutal.ts, sin hex sueltos): ámbar = duda,
-// azul = informativo (proveedor nuevo por conocer), naranja = intermedio, rojo = alerta.
+// azul = informativo, naranja = intermedio, rojo = alerta.
 const TIPO_ESTILO: Record<string, { bg: string; fg: string }> = {
   sin_categoria: { bg: AMA, fg: INK },
   nif_nuevo: { bg: AZUL, fg: '#fff' },
@@ -61,11 +68,15 @@ const TIPO_ESTILO: Record<string, { bg: string; fg: string }> = {
   posible_duplicado: { bg: ROJO, fg: '#fff' },
   aviso_iva: { bg: ROJO, fg: '#fff' },
   regla_desconocida: { bg: GRIS, fg: '#fff' },
+  destino_pendiente: { bg: NAR, fg: '#fff' },
+  lectura_fallida: { bg: ROJO, fg: '#fff' },
+  extracto_recibido: { bg: AZUL, fg: '#fff' },
+  doc_equipo_recibido: { bg: AZUL, fg: '#fff' },
 }
 const estiloTipo = (tipo: string) => TIPO_ESTILO[tipo] ?? { bg: GRIS, fg: '#fff' }
 
-// Los 4 botones que filtran la bandeja (orden fijo, siempre visibles)
-const TIPOS_FILTRO = ['sin_categoria', 'nif_nuevo', 'posible_duplicado', 'titular_desconocido']
+// Los botones que filtran la bandeja (orden fijo, siempre visibles)
+const TIPOS_FILTRO = ['sin_categoria', 'nif_nuevo', 'posible_duplicado', 'titular_desconocido', 'destino_pendiente', 'lectura_fallida']
 
 const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
@@ -128,8 +139,131 @@ function SelectorCategoria({ cats, value, onChange, disabled }: { cats: Categori
   )
 }
 
+const btnMiniEstilo: CSSProperties = {
+  fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase',
+  border: `2px solid ${INK}`, boxShadow: SHADOW, padding: '7px 12px', cursor: 'pointer', color: '#fff', whiteSpace: 'nowrap',
+}
+
+// Una fila de aviso (real o sintética). Todo tipo con botón tiene su rama; el
+// que no está contemplado cae en el fallback "Marcar revisado".
+function FilaAviso({ a, factura, mov, cats, cat, onCat, ocupado, resolver, setDescartar }: {
+  a: Aviso; factura: FacturaInfo | undefined; mov: Movimiento | undefined
+  cats: Categoria[]; cat: string; onCat: (v: string) => void
+  ocupado: string | null; resolver: (a: Aviso, decision: Record<string, any>) => void
+  setDescartar: (f: FacturaDescartable) => void
+}) {
+  const muestraCategoria = a.tipo === 'sin_categoria' || a.tipo === 'nif_nuevo'
+  const est = estiloTipo(a.tipo)
+  const bloqueado = ocupado === a.id
+  const tiposConAccionPropia = new Set([
+    'sin_categoria', 'nif_nuevo', 'titular_desconocido', 'posible_duplicado', 'aviso_iva',
+    'destino_pendiente', 'lectura_fallida', 'extracto_recibido', 'doc_equipo_recibido',
+  ])
+  const necesitaFallback = !tiposConAccionPropia.has(a.tipo) && !factura
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'stretch', border: BORDER_CARD, marginBottom: 8, background: '#fff' }}>
+      <div style={{ width: 6, background: est.bg, flexShrink: 0 }} />
+
+      <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: '10px 14px', minWidth: 0 }}>
+        <span style={eyebrow(est.bg, est.fg)}>{ETIQUETA[a.tipo] ?? a.tipo}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 200 }}>
+          <span style={{ fontFamily: LEX, fontSize: 13, color: INK, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>{a.titulo}</span>
+          {factura && (
+            <span style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
+              {factura.fecha_factura ? fmtDate(factura.fecha_factura) : '—'}
+              {' · '}<strong style={{ color: !factura.total ? NAR : INK }}>{fmtEurFactura(factura.total)}</strong>
+              {' · '}{factura.proveedor_nombre || '—'}
+              {factura.nif_emisor ? ` · NIF ${factura.nif_emisor}` : ''}
+            </span>
+          )}
+          {mov && (
+            <span style={{ fontFamily: LEX, fontSize: 11.5, color: VERDE }}>
+              Banco: {fmtDate(mov.fecha)} · {mov.concepto} · {fmtEur(mov.importe, { decimals: 2 })}
+            </span>
+          )}
+          {a.detalle && !factura && <span style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>{a.detalle}</span>}
+        </div>
+        {factura?.pdf_drive_url && (
+          <a href={factura.pdf_drive_url} target="_blank" rel="noopener noreferrer" title="Ver PDF en Drive" style={{ textDecoration: 'none', fontSize: 16 }}>📎</a>
+        )}
+      </div>
+
+      {/* ── Acciones a la derecha ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderLeft: `2px solid ${INK}`, flexShrink: 0, flexWrap: 'wrap', maxWidth: 360 }}>
+        {muestraCategoria && (
+          <>
+            <SelectorCategoria cats={cats} value={cat} onChange={onCat} disabled={bloqueado} />
+            <button disabled={!cat || bloqueado} onClick={() => resolver(a, { categoria: cat })}
+              style={{ ...btnMiniEstilo, background: cat ? VERDE : GRIS, cursor: cat ? 'pointer' : 'not-allowed' }}>
+              Aprender
+            </button>
+          </>
+        )}
+
+        {a.tipo === 'titular_desconocido' && (
+          <>
+            <button disabled={bloqueado} onClick={() => resolver(a, { titular_id: RUBEN_ID })} style={{ ...btnMiniEstilo, background: NAR }}>Rubén, siempre</button>
+            <button disabled={bloqueado} onClick={() => resolver(a, { titular_id: EMILIO_ID })} style={{ ...btnMiniEstilo, background: AZUL }}>Emilio, siempre</button>
+          </>
+        )}
+
+        {a.tipo === 'posible_duplicado' && (
+          <>
+            <button disabled={bloqueado} onClick={() => resolver(a, { es_duplicado: true })} style={{ ...btnMiniEstilo, background: ROJO }}>Es duplicado</button>
+            <button disabled={bloqueado} onClick={() => resolver(a, { es_duplicado: false })} style={{ ...btnMiniEstilo, background: VERDE }}>Son dos reales</button>
+          </>
+        )}
+
+        {a.tipo === 'aviso_iva' && (
+          <button disabled={bloqueado} onClick={() => resolver(a, { nota: 'revisado por Rubén, total correcto' })} style={{ ...btnMiniEstilo, background: VERDE }}>Revisado, está bien</button>
+        )}
+
+        {a.tipo === 'destino_pendiente' && (
+          <button disabled={bloqueado} onClick={() => resolver(a, { nota: 'ya registrada manualmente' })} style={{ ...btnMiniEstilo, background: VERDE }}>Entendido, ya registrada</button>
+        )}
+
+        {a.tipo === 'lectura_fallida' && (
+          <>
+            <button disabled={bloqueado} onClick={() => resolver(a, { reintentar: true })} style={{ ...btnMiniEstilo, background: NAR }}>Reintentar lectura</button>
+            {factura?.pdf_drive_url && (
+              <a href={factura.pdf_drive_url} target="_blank" rel="noopener noreferrer" style={{ ...btnMiniEstilo, background: AZUL, textDecoration: 'none', display: 'inline-block' }}>Ver PDF</a>
+            )}
+          </>
+        )}
+
+        {(a.tipo === 'extracto_recibido' || a.tipo === 'doc_equipo_recibido') && (
+          <>
+            <button disabled={bloqueado}
+              onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+              style={{ ...btnMiniEstilo, background: AZUL }}>
+              Ir a subirlo
+            </button>
+            <button disabled={bloqueado} onClick={() => resolver(a, { nota: 'descartado' })} style={{ ...btnMiniEstilo, background: GRIS }}>Descartar</button>
+          </>
+        )}
+
+        {necesitaFallback && (
+          <button disabled={bloqueado} onClick={() => resolver(a, { nota: 'marcado revisado' })} style={{ ...btnMiniEstilo, background: GRIS }}>Marcar revisado</button>
+        )}
+
+        {factura && (
+          <button disabled={bloqueado} onClick={() => setDescartar({
+            id: factura.id, pdf_original_name: factura.pdf_original_name, nif_emisor: factura.nif_emisor,
+            proveedor_nombre: factura.proveedor_nombre, fecha_factura: factura.fecha_factura,
+            total: factura.total, titular_id: factura.titular_id,
+          })} style={{ ...btnMiniEstilo, background: GRIS }}>
+            Descartar factura
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void }) {
-  const [avisos, setAvisos] = useState<Aviso[]>([])
+  const [avisosReales, setAvisosReales] = useState<Aviso[]>([])
+  const [sinteticos, setSinteticos] = useState<Aviso[]>([])
   const [facturas, setFacturas] = useState<Record<string, FacturaInfo>>({})
   const [movs, setMovs] = useState<Record<string, Movimiento>>({})
   const [dic, setDic] = useState<Record<string, string>>({})
@@ -138,6 +272,7 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
   const [catSel, setCatSel] = useState<Record<string, string>>({})
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [verTodos, setVerTodos] = useState(false)
+  const [verSinteticos, setVerSinteticos] = useState(false)
   const [truncado, setTruncado] = useState(false)
   const [descartar, setDescartar] = useState<FacturaDescartable | null>(null)
 
@@ -154,7 +289,8 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
 
     const idsConAviso = new Set((avisosData ?? []).map(a => a.factura_id).filter(Boolean) as string[])
 
-    // Facturas atascadas en lectura manual que aún no generaron un aviso propio
+    // Facturas atascadas en lectura manual que aún no generaron un aviso propio.
+    // NO son "dudas" reales del titular: se listan aparte, nunca en el recuento grande.
     let queryPendientes = supabase
       .from('facturas')
       .select('id, fecha_factura, total, proveedor_nombre, nif_emisor, pdf_drive_url, pdf_original_name, titular_id, estado')
@@ -166,7 +302,7 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
     // recuento mostrado es un mínimo, no el total real (evita un "N" que parece cerrado).
     setTruncado((avisosData?.length ?? 0) >= LIMITE_AVISOS || (pendientes?.length ?? 0) >= LIMITE_PENDIENTES)
 
-    const sinteticos: Aviso[] = (pendientes ?? []).map(f => ({
+    const sinteticosNuevos: Aviso[] = (pendientes ?? []).map(f => ({
       id: `f-${f.id}`,
       tipo: 'sin_categoria',
       titulo: `Pendiente lectura manual — ${f.proveedor_nombre || f.nif_emisor || 'sin proveedor'}`,
@@ -178,8 +314,8 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
       synthetic: true,
     }))
 
-    const todos = [...(avisosData as Aviso[] ?? []), ...sinteticos]
-    setAvisos(todos)
+    setAvisosReales((avisosData as Aviso[]) ?? [])
+    setSinteticos(sinteticosNuevos)
 
     // Detalle real de cada factura implicada (fecha, importe, proveedor, NIF, Drive)
     const mapaFacturas: Record<string, FacturaInfo> = {}
@@ -270,16 +406,22 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
     cargar(); onResuelto?.()
   }
 
-  if (avisos.length === 0) return null
+  if (avisosReales.length === 0 && sinteticos.length === 0) return null
 
-  const base = filtro ? avisos.filter(a => a.tipo === filtro) : avisos
+  const base = filtro ? avisosReales.filter(a => a.tipo === filtro) : avisosReales
   const visibles = verTodos ? base : base.slice(0, 8)
+  const sinteticosVisibles = verSinteticos ? sinteticos : sinteticos.slice(0, 5)
   const resumen: Record<string, number> = {}
-  for (const a of avisos) resumen[a.tipo] = (resumen[a.tipo] ?? 0) + 1
+  for (const a of avisosReales) resumen[a.tipo] = (resumen[a.tipo] ?? 0) + 1
 
-  const btnMini: CSSProperties = {
-    fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase',
-    border: `2px solid ${INK}`, boxShadow: SHADOW, padding: '7px 12px', cursor: 'pointer', color: '#fff', whiteSpace: 'nowrap',
+  const filaProps = (a: Aviso) => {
+    const factura = a.factura_id ? facturas[a.factura_id] : undefined
+    const mov = a.factura_id ? movs[a.factura_id] : undefined
+    return {
+      a, factura, mov, cats, cat: valorCategoria(a),
+      onCat: (v: string) => setCatSel(m => ({ ...m, [a.id]: v })),
+      ocupado, resolver, setDescartar,
+    }
   }
 
   return (
@@ -287,7 +429,7 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={d('20px', GRANATE)}>Avisos</span>
-          <span style={eyebrow(ROJO, '#fff')}>{avisos.length}{truncado ? '+' : ''} dudas por resolver</span>
+          <span style={eyebrow(ROJO, '#fff')}>{avisosReales.length}{truncado ? '+' : ''} dudas por resolver</span>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {TIPOS_FILTRO.map(tipo => {
@@ -314,91 +456,28 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
         Resuelve una vez y el sistema lo aprende: se aplica solo a todo lo pasado y futuro de ese proveedor.
       </div>
 
-      {visibles.map(a => {
-        const factura = a.factura_id ? facturas[a.factura_id] : undefined
-        const mov = a.factura_id ? movs[a.factura_id] : undefined
-        const muestraCategoria = a.tipo === 'sin_categoria' || a.tipo === 'nif_nuevo'
-        const est = estiloTipo(a.tipo)
-        const cat = valorCategoria(a)
-        const bloqueado = ocupado === a.id
-
-        return (
-          <div key={a.id} style={{ display: 'flex', alignItems: 'stretch', border: BORDER_CARD, marginBottom: 8, background: '#fff' }}>
-            <div style={{ width: 6, background: est.bg, flexShrink: 0 }} />
-
-            <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: '10px 14px', minWidth: 0 }}>
-              <span style={eyebrow(est.bg, est.fg)}>{ETIQUETA[a.tipo] ?? a.tipo}</span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 200 }}>
-                <span style={{ fontFamily: LEX, fontSize: 13, color: INK, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>{a.titulo}</span>
-                {factura && (
-                  <span style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
-                    {factura.fecha_factura ? fmtDate(factura.fecha_factura) : '—'}
-                    {' · '}<strong style={{ color: !factura.total ? NAR : INK }}>{fmtEurFactura(factura.total)}</strong>
-                    {' · '}{factura.proveedor_nombre || '—'}
-                    {factura.nif_emisor ? ` · NIF ${factura.nif_emisor}` : ''}
-                  </span>
-                )}
-                {mov && (
-                  <span style={{ fontFamily: LEX, fontSize: 11.5, color: VERDE }}>
-                    Banco: {fmtDate(mov.fecha)} · {mov.concepto} · {fmtEur(mov.importe, { decimals: 2 })}
-                  </span>
-                )}
-                {a.detalle && !factura && <span style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>{a.detalle}</span>}
-              </div>
-              {factura?.pdf_drive_url && (
-                <a href={factura.pdf_drive_url} target="_blank" rel="noopener noreferrer" title="Ver PDF en Drive" style={{ textDecoration: 'none', fontSize: 16 }}>📎</a>
-              )}
-            </div>
-
-            {/* ── Acciones a la derecha ── */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderLeft: `2px solid ${INK}`, flexShrink: 0, flexWrap: 'wrap', maxWidth: 360 }}>
-              {muestraCategoria && (
-                <>
-                  <SelectorCategoria cats={cats} value={cat} onChange={v => setCatSel(m => ({ ...m, [a.id]: v }))} disabled={bloqueado} />
-                  <button disabled={!cat || bloqueado} onClick={() => resolver(a, { categoria: cat })}
-                    style={{ ...btnMini, background: cat ? VERDE : GRIS, cursor: cat ? 'pointer' : 'not-allowed' }}>
-                    Aprender
-                  </button>
-                </>
-              )}
-
-              {a.tipo === 'titular_desconocido' && (
-                <>
-                  <button disabled={bloqueado} onClick={() => resolver(a, { titular_id: RUBEN_ID })} style={{ ...btnMini, background: NAR }}>Rubén, siempre</button>
-                  <button disabled={bloqueado} onClick={() => resolver(a, { titular_id: EMILIO_ID })} style={{ ...btnMini, background: AZUL }}>Emilio, siempre</button>
-                </>
-              )}
-
-              {a.tipo === 'posible_duplicado' && (
-                <>
-                  <button disabled={bloqueado} onClick={() => resolver(a, { es_duplicado: true })} style={{ ...btnMini, background: ROJO }}>Es duplicado</button>
-                  <button disabled={bloqueado} onClick={() => resolver(a, { es_duplicado: false })} style={{ ...btnMini, background: VERDE }}>Son dos reales</button>
-                </>
-              )}
-
-              {a.tipo === 'aviso_iva' && (
-                <button disabled={bloqueado} onClick={() => resolver(a, { nota: 'revisado por Rubén, total correcto' })} style={{ ...btnMini, background: VERDE }}>Revisado, está bien</button>
-              )}
-
-              {factura && (
-                <button disabled={bloqueado} onClick={() => setDescartar({
-                  id: factura.id, pdf_original_name: factura.pdf_original_name, nif_emisor: factura.nif_emisor,
-                  proveedor_nombre: factura.proveedor_nombre, fecha_factura: factura.fecha_factura,
-                  total: factura.total, titular_id: factura.titular_id,
-                })} style={{ ...btnMini, background: GRIS }}>
-                  Descartar
-                </button>
-              )}
-            </div>
-          </div>
-        )
-      })}
+      {visibles.map(a => <FilaAviso key={a.id} {...filaProps(a)} />)}
 
       {base.length > 8 && (
         <button onClick={() => setVerTodos(v => !v)}
           style={{ marginTop: 4, background: 'none', border: 'none', color: GRANATE, fontFamily: LEX, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
           {verTodos ? 'Ver menos' : `Ver los ${base.length}`}
         </button>
+      )}
+
+      {sinteticos.length > 0 && (
+        <div style={{ marginTop: 18, paddingTop: 12, borderTop: `2px solid ${INK}` }}>
+          <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS, display: 'block', marginBottom: 8 }}>
+            Lecturas manuales pendientes ({sinteticos.length}{truncado ? '+' : ''})
+          </span>
+          {sinteticosVisibles.map(a => <FilaAviso key={a.id} {...filaProps(a)} />)}
+          {sinteticos.length > 5 && (
+            <button onClick={() => setVerSinteticos(v => !v)}
+              style={{ marginTop: 4, background: 'none', border: 'none', color: GRANATE, fontFamily: LEX, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+              {verSinteticos ? 'Ver menos' : `Ver las ${sinteticos.length}`}
+            </button>
+          )}
+        </div>
       )}
 
       {descartar && (

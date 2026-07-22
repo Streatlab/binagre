@@ -11,6 +11,8 @@ import ModalEPS from '@/components/escandallo/ModalEPS'
 import ModalReceta from '@/components/escandallo/ModalReceta'
 import ModalIngrediente from '@/components/escandallo/ModalIngrediente'
 import ModalMerma from '@/components/escandallo/ModalMerma'
+import EditorCategoriasIngredientes from '@/components/escandallo/EditorCategoriasIngredientes'
+import { useTheme } from '@/styles/tokens'
 import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, ROSA, GRANATE, ROJO } from '@/styles/neobrutal'
 
 type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas' | 'auto'
@@ -50,6 +52,7 @@ export default function Escandallo() {
   const [modalReceta, setModalReceta] = useState<{ open: boolean; receta: Receta | null }>({ open: false, receta: null })
   const [modalIng, setModalIng] = useState<{ open: boolean; ing: Ingrediente | null }>({ open: false, ing: null })
   const [modalMerma, setModalMerma] = useState<{ open: boolean; merma: Merma | null }>({ open: false, merma: null })
+  const [modalCategorias, setModalCategorias] = useState(false)
 
   const data: Data = { ingredientes, mermas, epsList, recetasList }
 
@@ -161,6 +164,7 @@ export default function Escandallo() {
                 onBuscar={setBusqueda}
                 onSelect={ing => setModalIng({ open: true, ing })}
                 onNew={() => setModalIng({ open: true, ing: null })}
+                onOpenCategorias={() => setModalCategorias(true)}
               />
             )}
             {tab === 'mermas' && (
@@ -233,6 +237,31 @@ export default function Escandallo() {
           onDelete={handleSaved}
         />
       )}
+      {modalCategorias && <ModalCategoriasIngredientes onClose={() => setModalCategorias(false)} />}
+    </div>
+  )
+}
+
+/** Overlay que envuelve el editor único de categorías de ingredientes (misma tabla que Config). */
+function ModalCategoriasIngredientes({ onClose }: { onClose: () => void }) {
+  const { T } = useTheme()
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24, overflowY: 'auto' }}
+      onClick={onClose}
+    >
+      <div
+        onClick={ev => ev.stopPropagation()}
+        style={{ background: T.card, border: `4px solid ${INK}`, boxShadow: SHADOW, width: 640, maxWidth: '100%', marginTop: 40 }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `4px solid ${INK}`, background: AMA }}>
+          <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 18, letterSpacing: '1px', textTransform: 'uppercase', color: INK }}>Categorías de ingredientes</span>
+          <button onClick={onClose} style={{ background: '#fff', border: `2px solid ${INK}`, width: 32, height: 32, fontSize: 18, lineHeight: 1, cursor: 'pointer', color: INK }}>×</button>
+        </div>
+        <div style={{ padding: 4 }}>
+          <EditorCategoriasIngredientes />
+        </div>
+      </div>
     </div>
   )
 }

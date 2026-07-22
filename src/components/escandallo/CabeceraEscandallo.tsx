@@ -33,10 +33,12 @@ interface Props {
   onNew?: () => void
   nuevoLabel?: string
   scroll?: ScrollCtl
+  /** Botones extra (p.ej. "Categorías") junto al botón Nuevo. */
+  extra?: React.ReactNode
 }
 
 export default function CabeceraEscandallo({
-  titulo, pills, busqueda, onBuscar, placeholder, onNew, nuevoLabel = '+ Nuevo', scroll,
+  titulo, pills, busqueda, onBuscar, placeholder, onNew, nuevoLabel = '+ Nuevo', scroll, extra,
 }: Props) {
   return (
     <div style={{ background: AMA, border: `4px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -48,9 +50,12 @@ export default function CabeceraEscandallo({
             {pills.map((p, i) => <Pill key={i} {...p} />)}
           </div>
         </div>
-        {onNew && (
-          <button onClick={onNew} style={btnNuevo}>{nuevoLabel}</button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {extra}
+          {onNew && (
+            <button onClick={onNew} style={btnNuevo}>{nuevoLabel}</button>
+          )}
+        </div>
       </div>
 
       {/* Fila 2: buscador + desplazamiento (sin leyenda) */}
@@ -94,6 +99,13 @@ function Pill({ label, value, color, active, onClick }: PillCfg) {
 const btnNuevo: CSSProperties = {
   fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase',
   background: VERDE, color: '#ffffff', border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`,
+  padding: '10px 18px', cursor: 'pointer', borderRadius: 0,
+}
+
+/** Botón secundario (fondo blanco) reutilizable en las cabeceras del Escandallo. */
+export const btnSecundarioEsc: CSSProperties = {
+  fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase',
+  background: '#ffffff', color: INK, border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`,
   padding: '10px 18px', cursor: 'pointer', borderRadius: 0,
 }
 

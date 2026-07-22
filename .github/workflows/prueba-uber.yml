@@ -2,7 +2,7 @@ name: PRUEBA uber semanal (temporal 19-jul)
 
 # TEMPORAL: palanca para probar el robot Uber sin dispatch manual.
 # Se dispara al tocar ESTE fichero en trabajo. Borrar cuando la prueba pase.
-# palanca: 1
+# palanca: 2 (20-jul: cerrar la prueba de LOS DOS informes con nombre; anoche quedaron pedidos y ya deben estar Disponibles)
 
 on:
   push:

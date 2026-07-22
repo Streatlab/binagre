@@ -10,8 +10,8 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
-import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
+import { resolverNeto } from '@/lib/panel/netoResolver'
+import { useNetoContext } from '@/lib/panel/useNetoContext'
 import { calcPorCobrar, type PorCobrarResult } from '@/lib/panel/calcPorCobrar'
 import { COLOR, LEXEND } from './tokens'
 import { toLocalDateStr } from '@/lib/dateRange'
@@ -135,12 +135,12 @@ export default function TabResumen({
   const [presupuestosBD, setPresupuestosBD] = useState<PresupuestoRow[]>([])
   const [datosDemo, setDatosDemo] = useState<boolean>(false)
   const [topDatosDemo, setTopDatosDemo] = useState<boolean>(false)
-  const [configCanales, setConfigCanales] = useState<Record<string, CanalConfig>>({})
-  const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
+  const { configCanales, marcasPorCanal, ventasListas } = useNetoContext()
   const [festivos, setFestivos] = useState<Set<string>>(new Set())
   const [frontera, setFrontera] = useState<Record<string, string>>({})
   const [ventasMarca, setVentasMarca] = useState<Array<{ marca: string; neto: number; bruto: number; pedidos: number; fecha: string }>>([])
   const [marcasActivas, setMarcasActivas] = useState<string[]>([])
+  const [saldoBanco, setSaldoBanco] = useState<number | null>(null)
 
   /* ── state UI ──────────────────────────────── */
   const [topTab, setTopTab] = useState<'productos' | 'modificadores'>('productos')
@@ -155,17 +155,14 @@ export default function TabResumen({
   }, [])
   void showToast
 
-  /* ── fetch config_canales + marcas por canal + listener refresco vivo ─── */
+  /* ── config_canales + marcas + liquidaciones reales: precarga centralizada en useNetoContext ─── */
+
+  /* ── saldo REAL de banco (v_caja_mensual, igual que Cashflow) ── */
   useEffect(() => {
-    loadConfigCanales().then(cfg => setConfigCanales(cfg))
-    loadVentasReales().then(() => loadRatiosCalibrados())
-    loadMarcasPorCanal().then(m => setMarcasPorCanal(m))
-    const onChange = () => {
-      recargarConfigCanales().then(cfg => setConfigCanales(cfg))
-      loadMarcasPorCanal().then(m => setMarcasPorCanal(m))
-    }
-    window.addEventListener('config_canales:changed', onChange)
-    return () => window.removeEventListener('config_canales:changed', onChange)
+    supabase.from('v_caja_mensual').select('saldo_mes').then(({ data }) => {
+      const rows = (data ?? []) as { saldo_mes: number | null }[]
+      setSaldoBanco(rows.length ? rows.reduce((s, r) => s + (Number(r.saldo_mes) || 0), 0) : null)
+    })
   }, [])
 
   /* ── festivos + frontera de cobro del banco (para deuda de plataformas) ── */
@@ -360,7 +357,7 @@ export default function TabResumen({
         margen: margenPct,
       }
     })
-  }, [rowsPeriodo, canalesFiltro, configCanales, marcasPorCanal, fechaDesde, fechaHasta, diasConDatosPeriodo])
+  }, [rowsPeriodo, canalesFiltro, configCanales, marcasPorCanal, fechaDesde, fechaHasta, diasConDatosPeriodo, ventasListas])
 
   const ventasPeriodo = useMemo(() => rowsPeriodo.reduce((a, r) => a + (r.total_bruto || 0), 0), [rowsPeriodo])
   const pedidosPeriodo = useMemo(() => rowsPeriodo.reduce((a, r) => a + (r.total_pedidos || 0), 0), [rowsPeriodo])
@@ -592,6 +589,14 @@ export default function TabResumen({
     return validos.reduce((a, d) => a + d.valor, 0) / validos.length
   }, [diasPico])
 
+  const gastosFijosMes = useMemo(() => {
+    if (!peParams) return 0
+    return peParams.alquiler_local + peParams.sueldo_ruben + peParams.sueldo_emilio + peParams.sueldos_empleados +
+      peParams.ss_empresa + peParams.ss_autonomos + peParams.gestoria + peParams.luz + peParams.agua + peParams.gas +
+      peParams.telefono + peParams.internet + peParams.hosting_software + peParams.seguros + peParams.licencias +
+      peParams.think_paladar + peParams.otros_fijos
+  }, [peParams])
+
   const saldoData = useMemo(() => {
     if (gastos.length === 0 && rowsAll.length === 0) {
       return { saldoHoy: 0, cobros7d: 0, pagos7d: 0, cobros30d: 0, pagos30d: 0 }
@@ -620,21 +625,22 @@ export default function TabResumen({
     const cobros7d = netoRows(desde7, hasta, hace7, hoy)
     const cobros30d = netoRows(desde30, hasta, hace30, hoy)
 
-    const sueldosMes = peParams ? (peParams.sueldo_ruben + peParams.sueldo_emilio + peParams.sueldos_empleados + peParams.ss_empresa + peParams.ss_autonomos + peParams.alquiler_local + peParams.gestoria + peParams.luz + peParams.agua + peParams.telefono + peParams.hosting_software + peParams.otros_fijos) : 3500
-    const pagos7d  = (sueldosMes / 30) * 7  + gastos.filter(g => g.fecha >= desde7  && g.fecha <= hasta).reduce((a, g) => a + (Number(g.importe) || 0), 0) * 0.3
-    const pagos30d = sueldosMes + gastos.filter(g => g.fecha >= desde30 && g.fecha <= hasta).reduce((a, g) => a + (Number(g.importe) || 0), 0) * 0.5
+    // Pagos previstos = costes fijos configurados (prorrateo mensual) + provisiones
+    // con vencimiento real en la ventana. Sin factores heurísticos sobre gastos pasados.
+    const hoy0 = new Date(hoy); hoy0.setHours(0, 0, 0, 0)
+    const provEnVentana = (dias: number): number => {
+      const limite = new Date(hoy0); limite.setDate(hoy0.getDate() + dias)
+      return provisiones
+        .filter(p => { const f = parseLocalDate(p.fecha_fin); return f >= hoy0 && f <= limite })
+        .reduce((a, p) => a + (Number(p.importe) || 0), 0)
+    }
+    const fijosMes = gastosFijosMes || (peParams ? 0 : 3500)
+    const pagos7d  = (fijosMes / 30) * 7 + provEnVentana(7)
+    const pagos30d = fijosMes + provEnVentana(30)
 
     const saldoHoy = Math.max(0, cobros30d - pagos30d) + (peParams?.caja_minima_verde ?? 0)
     return { saldoHoy, cobros7d, pagos7d, cobros30d, pagos30d }
-  }, [rowsAll, gastos, peParams, configCanales, marcasPorCanal])
-
-  const gastosFijosMes = useMemo(() => {
-    if (!peParams) return 0
-    return peParams.alquiler_local + peParams.sueldo_ruben + peParams.sueldo_emilio + peParams.sueldos_empleados +
-      peParams.ss_empresa + peParams.ss_autonomos + peParams.gestoria + peParams.luz + peParams.agua + peParams.gas +
-      peParams.telefono + peParams.internet + peParams.hosting_software + peParams.seguros + peParams.licencias +
-      peParams.think_paladar + peParams.otros_fijos
-  }, [peParams])
+  }, [rowsAll, gastos, peParams, configCanales, marcasPorCanal, gastosFijosMes, provisiones, ventasListas])
 
   const ratioActual = gastosFijosMes > 0 ? netoEstimado / gastosFijosMes : 0
 
@@ -871,6 +877,7 @@ export default function TabResumen({
         diasPico={diasPico}
         mediaDiariaPico={mediaDiariaPico}
         saldo={saldoData}
+        saldoBanco={saldoBanco}
         ratioActual={ratioActual}
         objetivoRatio={objetivoRatio}
         gastosFijosMes={gastosFijosMes}

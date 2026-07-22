@@ -504,7 +504,7 @@ function Liquidaciones({
   )
 }
 
-export default function Ventas() {
+export function Ventas({ embedded = false }: { embedded?: boolean } = {}) {
   const [tab, setTab] = useState<Tab>(loadTab())
   const cambiar = (t: Tab) => { setTab(t); try { sessionStorage.setItem(STORAGE_KEY, t) } catch { /* */ } }
 
@@ -573,9 +573,9 @@ export default function Ventas() {
   ), [rows, canalesFiltro, marcasFiltro])
 
   return (
-    <div style={{ background: COLOR.bgPagina, padding: '24px 28px', minHeight: '100%' }}>
+    <div style={{ background: embedded ? 'transparent' : COLOR.bgPagina, padding: embedded ? 0 : '24px 28px', minHeight: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <h2 style={{ color: COLORS.redSL, fontFamily: OSWALD, fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>VENTAS</h2>
+        {!embedded && <h2 style={{ color: COLORS.redSL, fontFamily: OSWALD, fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>VENTAS</h2>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <SelectorFechaUniversal nombreModulo="ventas" defaultOpcion="este_mes" onChange={(d, h) => { setDesde(d); setHasta(h) }} />
           <MultiSelect label="Todas las marcas" options={marcasOpts} selected={marcasFiltro}
@@ -615,3 +615,5 @@ export default function Ventas() {
     </div>
   )
 }
+
+export default Ventas

@@ -7,6 +7,7 @@ import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { FondoReserva } from '@/components/tesoreria/FondoReserva'
 
 // ─── Neobrutal ───────────────────────────────────────────────────────────────
 const NEO_INK = 'var(--neo-ink)'
@@ -60,6 +61,7 @@ interface GastoFijo {
   periodicidad: string
   proxima_fecha_pago: string
   activo: boolean
+  estimado: boolean
 }
 
 interface HistorialItem {
@@ -211,17 +213,38 @@ function calcGastosPagos(gastos: GastoFijo[], hoy: Date, hasta: Date): Calendari
 
 // ─── Componente principal ────────────────────────────────────────────────────
 
-type TabId = 'calendario' | 'gastos' | 'historial'
+type TabId = 'calendario' | 'gastos' | 'reserva' | 'historial'
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'calendario', label: 'CALENDARIO' },
   { id: 'gastos', label: 'GASTOS FIJOS' },
+  { id: 'reserva', label: 'FONDO & RESERVA' },
   { id: 'historial', label: 'HISTORIAL' },
 ]
 
+const VALID_TABS: TabId[] = ['calendario', 'gastos', 'reserva', 'historial']
+
 export default function PagosCobros() {
-  const [tab, setTab] = useState<TabId>('calendario')
+  const [tab, setTab] = useState<TabId>(() => {
+    const q = new URLSearchParams(window.location.search).get('tab')
+    return (q && VALID_TABS.includes(q as TabId)) ? (q as TabId) : 'calendario'
+  })
+  const [ordPend, setOrdPend] = useState(0)
   const isMobile = useIsMobile()
+
+  // Nº de barridos pendientes (para avisar desde cualquier pestaña).
+  useEffect(() => {
+    supabase.from('v_reserva_panel').select('ordenes_pendientes').single()
+      .then(({ data }) => setOrdPend(Number((data as { ordenes_pendientes?: number } | null)?.ordenes_pendientes ?? 0)))
+  }, [])
+
+  // Deep-link: la pestaña activa queda reflejada en la URL (refresh y botón atrás).
+  function selectTab(id: TabId) {
+    setTab(id)
+    const url = new URL(window.location.href)
+    url.searchParams.set('tab', id)
+    window.history.replaceState({}, '', url)
+  }
 
   return (
     <div style={{ padding: isMobile ? '18px 12px' : '28px 28px', fontFamily: 'Lexend, sans-serif', color: 'var(--sl-text-primary)', minHeight: '100vh', backgroundColor: 'var(--neo-bg)' }}>
@@ -238,8 +261,11 @@ export default function PagosCobros() {
         {TABS.map(t => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => selectTab(t.id)}
             style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
               fontFamily: 'Oswald, sans-serif',
               fontSize: 13,
               fontWeight: 600,
@@ -257,12 +283,21 @@ export default function PagosCobros() {
             }}
           >
             {t.label}
+            {t.id === 'reserva' && ordPend > 0 && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: 20, height: 20, padding: '0 5px', borderRadius: 0,
+                border: `2px solid ${NEO_INK}`, backgroundColor: '#B01D23', color: '#fff',
+                fontSize: 11, fontWeight: 700, lineHeight: 1,
+              }}>{ordPend}</span>
+            )}
           </button>
         ))}
       </div>
 
       {tab === 'calendario' && <TabCalendario />}
       {tab === 'gastos' && <TabGastos />}
+      {tab === 'reserva' && <FondoReserva embedded />}
       {tab === 'historial' && <TabHistorial />}
     </div>
   )
@@ -270,7 +305,7 @@ export default function PagosCobros() {
 
 // ─── Tab Calendario ──────────────────────────────────────────────────────────
 
-function TabCalendario() {
+export function TabCalendario() {
   const [items, setItems] = useState<CalendarioItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -397,6 +432,7 @@ interface FormGasto {
   importe: string
   periodicidad: string
   proxima_fecha_pago: string
+  estimado: boolean
 }
 
 const emptyForm: FormGasto = {
@@ -404,9 +440,10 @@ const emptyForm: FormGasto = {
   importe: '',
   periodicidad: 'mensual',
   proxima_fecha_pago: '',
+  estimado: false,
 }
 
-function TabGastos() {
+export function TabGastos() {
   const [gastos, setGastos] = useState<GastoFijo[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -441,6 +478,7 @@ function TabGastos() {
       periodicidad: form.periodicidad,
       proxima_fecha_pago: form.proxima_fecha_pago,
       activo: true,
+      estimado: form.estimado,
     }
     let saveError: { message: string } | null = null
     if (editId !== null) {
@@ -474,6 +512,7 @@ function TabGastos() {
       importe: String(g.importe),
       periodicidad: g.periodicidad,
       proxima_fecha_pago: g.proxima_fecha_pago,
+      estimado: !!g.estimado,
     })
     setEditId(g.id)
     setShowForm(true)
@@ -518,6 +557,15 @@ function TabGastos() {
             </div>
             <InputField label="Próximo pago" value={form.proxima_fecha_pago} onChange={v => setForm(f => ({ ...f, proxima_fecha_pago: v }))} type="date" />
           </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-secondary)' }}>
+            <input
+              type="checkbox"
+              checked={form.estimado}
+              onChange={e => setForm(f => ({ ...f, estimado: e.target.checked }))}
+              style={{ width: 18, height: 18, accentColor: '#e8f442', cursor: 'pointer' }}
+            />
+            Importe estimado (pendiente de factura/confirmación)
+          </label>
           <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <button
               onClick={() => { setShowForm(false); setForm(emptyForm); setEditId(null) }}
@@ -563,7 +611,12 @@ function TabGastos() {
                 onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--sl-hover)')}
                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
-                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)' }}>{g.concepto}</td>
+                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {g.concepto}
+                    <EstimadoBadge estimado={g.estimado} />
+                  </span>
+                </td>
                 <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)', fontFamily: 'Oswald, sans-serif', whiteSpace: 'nowrap' }}>{fmtEur(g.importe)}</td>
                 <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--sl-btn-cancel-text)', textTransform: 'capitalize' }}>{g.periodicidad}</td>
                 <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)', whiteSpace: 'nowrap' }}>{fmtDate(g.proxima_fecha_pago)}</td>
@@ -604,7 +657,7 @@ function TabGastos() {
 
 type FiltroHistorial = 'todos' | 'ingreso' | 'pago'
 
-function TabHistorial() {
+export function TabHistorial() {
   const [movs, setMovs] = useState<HistorialItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filtro, setFiltro] = useState<FiltroHistorial>('todos')
@@ -720,6 +773,26 @@ function KpiCard({ label, value, color }: { label: string; value: string; color:
         {value}
       </div>
     </div>
+  )
+}
+
+function EstimadoBadge({ estimado }: { estimado: boolean }) {
+  return (
+    <span style={{
+      fontSize: 10,
+      padding: '2px 7px',
+      borderRadius: 0,
+      border: `2px solid ${estimado ? '#e8f442' : '#1D9E75'}`,
+      backgroundColor: estimado ? '#e8f44222' : '#1D9E7522',
+      color: estimado ? '#aabc00' : '#1D9E75',
+      fontFamily: 'Oswald, sans-serif',
+      fontWeight: 600,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      whiteSpace: 'nowrap',
+    }}>
+      {estimado ? '🟡 Estimado' : '🟢 Fijo'}
+    </span>
   )
 }
 

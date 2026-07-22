@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
 import { ClipboardList, Printer, Download, Plus, Trash2, X, Check, Pencil, FileDown } from 'lucide-react'
 import { jsPDF } from 'jspdf'
+import * as M from '@/lib/marcoDoc'
+import HojaDoc from '@/components/marco/HojaDoc'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 import Esquemas from '@/pages/cocina/Esquemas'
@@ -106,168 +108,134 @@ function agruparInventario(items: InvItem[]): InvUbi[] {
   return ubis
 }
 
-// ─── GENERACIÓN DE PDF REAL (descarga directa, sin diálogo de impresión) ───────
+// ─── GENERACIÓN DE PDF REAL — MARCO ÚNICO (src/lib/marcoDoc.ts) ────────────────
+// Todos los documentos usan la misma espina + cabecera + logo + paginado + paleta + radio.
 
-const RED: [number, number, number] = [176, 29, 35]
-const RED_DARK: [number, number, number] = [138, 26, 34]
-const RED_SOFT: [number, number, number] = [240, 216, 218]
-const RED_SOFT2: [number, number, number] = [245, 226, 227]
-const GREY_LINE: [number, number, number] = [201, 201, 201]
-const WRITE_LINE: [number, number, number] = [201, 201, 210]
+const AREA: M.Area = 'cocina'
 
-function safe(name: string) {
-  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
-}
-
-// Abre el PDF generado en una pestaña nueva y lanza el diálogo de impresión desde el visor
-// (evita la cola colgada de la impresora WiFi al imprimir directo desde la web)
-function imprimirDesdePDF(doc: jsPDF) {
-  const url = doc.output('bloburl')
-  const win = window.open(url as unknown as string, '_blank')
-  if (win) {
-    win.addEventListener('load', () => { try { win.focus(); win.print() } catch { /* el usuario imprime desde el visor */ } })
-  }
-}
-
-// Reduce el cuerpo de letra solo si el texto no cabe en el ancho dado (evita salto de linea/pagina)
-function fitFont(doc: jsPDF, text: string, maxWidth: number, base: number, min: number): number {
-  let fs = base
-  doc.setFontSize(fs)
-  while (fs > min && doc.getTextWidth(text) > maxWidth) { fs -= 0.5; doc.setFontSize(fs) }
-  return fs
-}
-
-function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string): jsPDF {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  const PW = doc.internal.pageSize.getWidth()
-  const M = 12
-  const usableW = PW - M * 2
+function construirListaPDF(paginas: BloqueImpresion[][], semanaLabel: string, rec: M.Recursos, bn = false): jsPDF {
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  const cb = M.contentBox(doc)
+  const pal = M.paleta(AREA, bn)
   const rowH = 5.2
-  // Columna Producto ajustada al nombre más largo (no ocupa todo el sobrante);
-  // el resto del ancho se reparte entre las casillas HOY/SSP.
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(11)
+  // Columna Producto ajustada al nombre más largo; el resto se reparte entre HOY/SSP.
+  M.fDato(doc, ctx, false); doc.setFontSize(11)
   let maxNombreW = 0
   paginas.forEach(bloques => bloques.forEach(b => b.parts.forEach(p => {
     const w = doc.getTextWidth(p.nombre)
     if (w > maxNombreW) maxNombreW = w
   })))
-  const wProd = Math.min(Math.max(maxNombreW + 5, 28), 60)
-  const wCelda = (usableW - wProd * 2) / 14
-  const xProdDer = M + wProd + wCelda * 14
+  const wProd = Math.min(Math.max(maxNombreW + 5, 26), 56)
+  const wCelda = (cb.w - wProd * 2) / 14
+  const xProdDer = cb.x0 + wProd + wCelda * 14
 
   paginas.forEach((bloques, pi) => {
     if (pi > 0) doc.addPage()
-    let y = M
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...RED_DARK)
-    doc.text('LISTA DE PRODUCCIÓN', M, y + 4)
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90)
-    doc.text(semanaLabel, M + 70, y + 4)
-    doc.text(`Página ${pi + 1} de ${paginas.length}`, PW - M, y + 4, { align: 'right' })
-    y += 7
-    doc.setDrawColor(...RED_DARK); doc.setLineWidth(0.4); doc.line(M, y, PW - M, y)
-    y += 3
+    M.pintarEspina(doc, AREA, ctx, bn)
+    let y = M.pintarCabecera(doc, ctx, { docNombre: 'Lista de Producción', meta: semanaLabel, area: AREA, bn })
 
     bloques.forEach(b => {
       const filas = conBiberones(b.parts)
       const tituloSec = `${b.sec.nombre}${b.cont ? '  ·  (CONTINÚA)' : ''}`
-      doc.setFillColor(...RED_SOFT); doc.rect(M, y, usableW, 6, 'F')
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...RED_DARK)
-      doc.text(tituloSec, M + 2, y + 4)
+      doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+      doc.text(tituloSec, cb.x0 + 2, y + 4)
       doc.text(tituloSec, xProdDer + 2, y + 4)
       y += 6
-      doc.setFillColor(...RED_SOFT2); doc.rect(M, y, usableW, 5, 'F')
-      doc.setFontSize(7); doc.setTextColor(...RED_DARK)
-      doc.text('Producto', M + 1.5, y + 3.3)
-      let x = M + wProd
+      doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 5, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(7); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+      doc.text('Producto', cb.x0 + 1.5, y + 3.3)
+      let x = cb.x0 + wProd
       DIAS.forEach(dia => { doc.text(DIAS_LABEL[dia], x + wCelda, y + 3.3, { align: 'center' }); x += wCelda * 2 })
       doc.text('Producto', xProdDer + 1.5, y + 3.3)
       y += 5
-      doc.setFillColor(...RED_SOFT2); doc.rect(M, y, usableW, 3.6, 'F')
+      doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 3.6, 'F')
       doc.setFontSize(5.5)
-      x = M + wProd
+      x = cb.x0 + wProd
       DIAS.forEach(() => { doc.text('HOY', x + wCelda / 2, y + 2.6, { align: 'center' }); doc.text('SSP', x + wCelda + wCelda / 2, y + 2.6, { align: 'center' }); x += wCelda * 2 })
       y += 3.6
 
-      doc.setFont('helvetica', 'normal')
+      M.fDato(doc, ctx, false)
       let prevBib = false
       filas.forEach(f => {
         if (f.kind === 'sub') {
-          doc.setFillColor(247, 238, 239); doc.rect(M, y, usableW, rowH, 'F')
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...RED_DARK)
-          doc.text(f.label.toUpperCase(), M + 6, y + 3.7)
+          doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, rowH, 'F')
+          M.fTitulo(doc, ctx, true); doc.setFontSize(8); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+          doc.text(f.label.toUpperCase(), cb.x0 + 6, y + 3.7)
           doc.text(f.label.toUpperCase(), xProdDer + 6, y + 3.7)
-          doc.setFont('helvetica', 'normal')
-          drawColsLines(doc, M, y, rowH, wProd, wCelda)
+          M.fDato(doc, ctx, false)
+          drawColsLines(doc, cb.x0, y, rowH, wProd, wCelda, pal)
           y += rowH
           prevBib = false
           return
         }
-        // franja roja de separación al terminar los biberones
+        // franja de acento suave al terminar los biberones
         if (prevBib && !f.part.biberon) {
-          doc.setFillColor(...RED_SOFT); doc.rect(M, y, usableW, 2.6, 'F')
+          doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.rect(cb.x0, y, cb.w, 2.6, 'F')
           y += 2.6
         }
         prevBib = !!f.part.biberon
-        x = M + wProd
-        DIAS.forEach(() => { doc.setFillColor(247, 238, 239); doc.rect(x + wCelda, y, wCelda, rowH, 'F'); x += wCelda * 2 })
-        doc.setTextColor(20)
-        fitFont(doc, f.part.nombre, wProd - 2.5, 11, 7)
-        doc.text(f.part.nombre, M + 1.5, y + 3.7)
+        x = cb.x0 + wProd
+        DIAS.forEach(() => { doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(x + wCelda, y, wCelda, rowH, 'F'); x += wCelda * 2 })
+        doc.setTextColor(...M.TINTA)
+        M.fitFont(doc, f.part.nombre, wProd - 2.5, 11, 7)
+        doc.text(f.part.nombre, cb.x0 + 1.5, y + 3.7)
         doc.text(f.part.nombre, xProdDer + 1.5, y + 3.7)
         doc.setFontSize(11)
-        drawColsLines(doc, M, y, rowH, wProd, wCelda)
+        drawColsLines(doc, cb.x0, y, rowH, wProd, wCelda, pal)
         y += rowH
       })
       y += 3
     })
+    M.pintarPaginado(doc, pi + 1, paginas.length, ctx)
   })
   return doc
 }
 
-function descargarListaPDF(paginas: BloqueImpresion[][], semanaLabel: string) {
-  construirListaPDF(paginas, semanaLabel).save(`lista-produccion-${safe(semanaLabel)}.pdf`)
-}
-
-function drawColsLines(doc: jsPDF, M: number, y: number, rowH: number, wProd: number, wCelda: number) {
-  doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1)
+// Líneas de columnas: día enmarcado (borde de acento entre días) + separador fino HOY|SSP.
+function drawColsLines(doc: jsPDF, x0: number, y: number, rowH: number, wProd: number, wCelda: number, pal: M.Paleta) {
   const totalW = wProd * 2 + wCelda * 14
-  doc.line(M, y + rowH, M + totalW, y + rowH)
-  let x = M
+  doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1)
+  doc.line(x0, y + rowH, x0 + totalW, y + rowH)
+  let x = x0
   doc.line(x, y, x, y + rowH); x += wProd
   for (let i = 0; i < 14; i++) {
-    if (i % 2 === 0) { doc.setDrawColor(207, 123, 129); doc.setLineWidth(0.5) }
-    else { doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1) }
+    if (i % 2 === 0) { doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.5) } // borde de día
+    else { doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1) }                                             // separador HOY|SSP
     doc.line(x, y, x, y + rowH)
     x += wCelda
   }
-  doc.setDrawColor(...GREY_LINE); doc.setLineWidth(0.1)
+  doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.5)
   doc.line(x, y, x, y + rowH); x += wProd
+  doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1)
   doc.line(x, y, x, y + rowH)
 }
 
-// Carteles de cámara: una sola columna por balda, con el cuerpo de letra MÁS GRANDE posible
-// que entre en una hoja sin saltos de línea (tamaño uniforme dentro de cada balda).
-function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[]): jsPDF {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  const PW = doc.internal.pageSize.getWidth()
-  const PH = doc.internal.pageSize.getHeight()
-  const M = 10
+function descargarListaPDF(paginas: BloqueImpresion[][], semanaLabel: string, rec: M.Recursos, bn = false) {
+  M.descargar(construirListaPDF(paginas, semanaLabel, rec, bn), `lista-produccion-${semanaLabel}`)
+}
+
+// Carteles de cámara: una columna por balda, letra lo más grande posible sin saltos de línea.
+function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[], rec: M.Recursos, bn = false): jsPDF {
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
 
   grupos.forEach((g, gi) => {
     if (gi > 0) doc.addPage()
-    doc.setFillColor(...RED_SOFT); doc.rect(M, M, PW - M * 2, 16, 'F')
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(26); doc.setTextColor(...RED_DARK)
-    doc.text(g.titulo, M + 6, M + 11)
-    const top = M + 16
-    const colW = (PW - M * 2) / g.secs.length
-    const colH = PH - top - M
+    M.pintarEspina(doc, AREA, ctx, bn)
+    const top = M.pintarCabecera(doc, ctx, { docNombre: 'Ordenación de Cámara', tituloCentrado: g.titulo, area: AREA, bn })
+    const cb = M.contentBox(doc)
+    const colW = cb.w / g.secs.length
+    const colH = cb.bottom - top
 
     g.secs.forEach((sec, ci) => {
-      const x0 = M + ci * colW
+      const x0 = cb.x0 + ci * colW
       const parts = partidas.filter(p => p.seccion_id === sec.id)
-      if (ci > 0) { doc.setDrawColor(...RED).setLineWidth(0.4); doc.line(x0, top, x0, top + colH) }
-      doc.setFillColor(250, 240, 241); doc.rect(x0, top, colW, 9, 'F')
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...RED_DARK)
+      if (ci > 0) { doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.5); doc.line(x0, top, x0, top + colH) }
+      doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.roundedRect(x0 + 1, top, colW - 2, 9, M.R, M.R, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(13); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
       doc.text(sec.nombre, x0 + 4, top + 6)
 
       const filas = conBiberones(parts)
@@ -275,8 +243,7 @@ function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
       const innerTop = top + 12
       const innerH = colH - 12
       const maxTextW = colW - 8
-      // tamaño de letra uniforme = el mayor que cabe en alto (nº filas) y en ancho (texto más largo)
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(10)
+      M.fDato(doc, ctx, true); doc.setFontSize(10)
       let wMax10 = 1
       for (const f of filas) {
         const t = f.kind === 'sub' ? f.label : f.part.nombre
@@ -291,61 +258,48 @@ function construirCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
       let prevBib = false
       for (const f of filas) {
         if (f.kind === 'sub') {
-          doc.setFont('helvetica', 'bold'); doc.setTextColor(...RED_DARK); doc.setFontSize(fs)
+          M.fTitulo(doc, ctx, true); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setFontSize(fs)
           doc.text(f.label, x0 + 4, fy)
-          doc.setFont('helvetica', 'normal')
           fy += lh
           continue
         }
         if (prevBib && !f.part.biberon) {
-          doc.setDrawColor(...RED); doc.setLineWidth(0.8)
+          doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.8)
           doc.line(x0 + 4, fy - lh * 0.6, x0 + colW - 4, fy - lh * 0.6)
         }
         prevBib = !!f.part.biberon
-        doc.setTextColor(20); doc.setFontSize(fs)
+        M.fDato(doc, ctx, false); doc.setTextColor(...M.TINTA); doc.setFontSize(fs)
         doc.text(f.part.nombre, x0 + 4, fy)
         fy += lh
       }
     })
-    doc.setDrawColor(...RED).setLineWidth(0.8); doc.rect(M, M, PW - M * 2, PH - M * 2)
+    M.pintarPaginado(doc, gi + 1, grupos.length, ctx)
   })
   return doc
 }
 
-function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[]) {
-  construirCamaraPDF(grupos, partidas).save('ordenacion-camara.pdf')
+function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], partidas: Partida[], rec: M.Recursos, bn = false) {
+  M.descargar(construirCamaraPDF(grupos, partidas, rec, bn), 'ordenacion-camara')
 }
 
-// Inventario: UNA sola hoja A4 apaisada por ubicación. 2 columnas equilibradas, filas compactas,
-// stock mínimo entre paréntesis pegado al nombre (en rojo) y línea continua a la derecha para anotar.
-function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
-  const PW = doc.internal.pageSize.getWidth()
-  const PH = doc.internal.pageSize.getHeight()
-  const M = 10
-  const usableW = PW - M * 2
+// Inventario: una hoja A4 apaisada por ubicación. 2 columnas, stock mínimo entre paréntesis,
+// línea continua a la derecha para anotar.
+function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi, ctx: M.Ctx, bn: boolean) {
+  const pal = M.paleta(AREA, bn)
+  const yTop = M.pintarCabecera(doc, ctx, { docNombre: 'Inventario Permanente', meta: 'FECHA: ___ / ___ / ______', tituloCentrado: ubi.nombre, area: AREA, bn })
+  const cb = M.contentBox(doc)
+  const usableW = cb.w
 
-  // cabecera de la hoja
-  doc.setFillColor(...RED_SOFT); doc.rect(M, M, usableW, 14, 'F')
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(19); doc.setTextColor(...RED_DARK)
-  doc.text(ubi.nombre, M + 5, M + 9.3)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5)
-  doc.text('INVENTARIO PERMANENTE     FECHA: ___ / ___ / ______', PW - M - 4, M + 9.3, { align: 'right' })
-  doc.setDrawColor(...RED).setLineWidth(0.6); doc.rect(M, M, usableW, PH - M * 2)
-
-  const top = M + 17
-  const bottom = PH - M - 3
+  const top = yTop
+  const bottom = cb.bottom
   const alturaDisp = bottom - top
   const headH = 6.5
   const gap = 1.4
 
-  // 2 columnas fijas, con margen interior para no pisar el borde rojo
   const nCols = 2
   const colGap = 5
-  const innerPad = 4
-  const contentW = usableW - innerPad * 2
-  const colW = (contentW - colGap) / nCols
-  const x0c = M + innerPad
-  const xCol = [x0c, x0c + colW + colGap]
+  const colW = (usableW - colGap) / nCols
+  const xCol = [cb.x0, cb.x0 + colW + colGap]
 
   // reparto equilibrado de categorías enteras entre las 2 columnas
   const cols: InvCat[][] = [[], []]
@@ -356,7 +310,6 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
     carga[ci] += cat.items.length + 0.8
   }
 
-  // altura de fila: que la columna más cargada llene la hoja, pero COMPACTA (tope 10mm)
   let maxItems = 1, catsEnMax = 1, peor = -1
   for (let k = 0; k < nCols; k++) {
     const its = cols[k].reduce((a, c) => a + c.items.length, 0)
@@ -369,35 +322,27 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
     const x = xCol[k]
     let y = top
     for (const cat of cols[k]) {
-      // cabecera de categoría
-      doc.setFillColor(26, 26, 26); doc.rect(x, y, colW, headH, 'F')
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255, 255, 255)
+      // cabecera de categoría (acento, radio único)
+      doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.roundedRect(x, y, colW, headH, M.R, M.R, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(11); doc.setTextColor(255, 255, 255)
       doc.text(cat.nombre.toUpperCase(), x + 3, y + headH - 2.1)
       y += headH
 
       for (const it of cat.items) {
-        // nombre + stock mínimo entre paréntesis, pegado al nombre, en rojo
         const sufijo = it.min_seguridad != null ? `  (${it.min_seguridad})` : ''
-        // letra lo más grande posible que llene ~90% de la altura de la fila,
-        // reduciéndose solo si no cabe en el ancho (deja sitio para la raya)
         const fsAltura = Math.min(16, itemH * 2.7)
-        const fs = fitFont(doc, it.nombre + sufijo, colW * 0.7, fsAltura, 7)
+        const fs = M.fitFont(doc, it.nombre + sufijo, colW * 0.7, fsAltura, 7)
         const baseY = y + itemH * 0.5 + fs * 0.13
-        doc.setFont('helvetica', 'normal'); doc.setTextColor(35); doc.setFontSize(fs)
+        M.fDato(doc, ctx, false); doc.setTextColor(...M.TINTA); doc.setFontSize(fs)
         doc.text(it.nombre, x + 2.5, baseY)
         let endX = x + 2.5 + doc.getTextWidth(it.nombre)
         if (it.min_seguridad != null) {
-          doc.setFont('helvetica', 'bold'); doc.setTextColor(...RED)
+          M.fTitulo(doc, ctx, true); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setFontSize(fs)
           doc.text(`  (${it.min_seguridad})`, endX, baseY)
           endX += doc.getTextWidth(`  (${it.min_seguridad})`)
-          doc.setFont('helvetica', 'normal')
         }
-        // línea continua de anotación justo tras el stock (sin puntos ni hueco)
-        doc.setDrawColor(...WRITE_LINE); doc.setLineWidth(0.3)
-        doc.line(endX + 3, y + itemH - 1.4, x + colW - 2, y + itemH - 1.4)
-        // separador inferior de la fila
-        doc.setDrawColor(236, 236, 240); doc.setLineWidth(0.15)
-        doc.line(x, y + itemH, x + colW, y + itemH)
+        // línea continua de anotación (única línea del marco para este uso, ver M.lineaRelleno)
+        M.lineaRelleno(doc, endX + 3, x + colW - 2, y + itemH - 1.4)
         y += itemH
       }
       y += gap
@@ -405,24 +350,33 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi) {
   }
 }
 
-function construirInventarioPDF(ubi: InvUbi): jsPDF {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  pintarInventarioUbi(doc, ubi)
+function construirInventarioPDF(ubi: InvUbi, rec: M.Recursos, bn = false): jsPDF {
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  M.pintarEspina(doc, AREA, ctx, bn)
+  pintarInventarioUbi(doc, ubi, ctx, bn)
+  M.pintarPaginado(doc, 1, 1, ctx)
   return doc
 }
 
-function construirInventarioTodosPDF(ubis: InvUbi[]): jsPDF {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  ubis.forEach((u, i) => { if (i > 0) doc.addPage(); pintarInventarioUbi(doc, u) })
+function construirInventarioTodosPDF(ubis: InvUbi[], rec: M.Recursos, bn = false): jsPDF {
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  ubis.forEach((u, i) => {
+    if (i > 0) doc.addPage()
+    M.pintarEspina(doc, AREA, ctx, bn)
+    pintarInventarioUbi(doc, u, ctx, bn)
+    M.pintarPaginado(doc, i + 1, ubis.length, ctx)
+  })
   return doc
 }
 
-function descargarInventarioPDF(ubi: InvUbi) {
-  construirInventarioPDF(ubi).save(`inventario-${safe(ubi.nombre)}.pdf`)
+function descargarInventarioPDF(ubi: InvUbi, rec: M.Recursos, bn = false) {
+  M.descargar(construirInventarioPDF(ubi, rec, bn), `inventario-${ubi.nombre}`)
 }
 
-function descargarInventarioTodosPDF(ubis: InvUbi[]) {
-  construirInventarioTodosPDF(ubis).save('inventario-completo.pdf')
+function descargarInventarioTodosPDF(ubis: InvUbi[], rec: M.Recursos, bn = false) {
+  M.descargar(construirInventarioTodosPDF(ubis, rec, bn), 'inventario-completo')
 }
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
@@ -495,6 +449,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
   const [entradas, setEntradas] = useState<EntradaProduccion[]>([])
   const [modalSecciones, setModalSecciones] = useState(false)
   const [modalPartidas, setModalPartidas] = useState(false)
+  const [bn, setBn] = useState(false)
   const semana = useMemo(() => getSemanaISO(new Date()), [])
 
   const partidasLista = useMemo(() => partidas.filter(p => !p.solo_camara), [partidas])
@@ -589,18 +544,16 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => setModalSecciones(true)} style={btnGhost}><Plus size={15} /> Secciones</button>
           <button onClick={() => setModalPartidas(true)} style={btnGhost}><Plus size={15} /> Partidas</button>
-          <button onClick={() => imprimirDesdePDF(construirListaPDF(paginas, semLabel))} style={btnGhost}><Printer size={15} /> Imprimir</button>
-          <button onClick={() => descargarListaPDF(paginas, semLabel)} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
+          <BnToggle bn={bn} setBn={setBn} />
+          <button onClick={async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(construirListaPDF(paginas, semLabel, rec, bn)) }} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <button onClick={async () => { const rec = await M.cargarRecursos(); descargarListaPDF(paginas, semLabel, rec, bn) }} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
 
       {/* VISTA PANTALLA */}
-      <div className="vista-pantalla ficha-card">
-        <div className="ficha-head">
-          <span className="ficha-title">Lista de Producción</span>
-          <span className="ficha-week">{semLabel}</span>
-        </div>
-        <div className="ficha-section" style={{ borderBottom: 'none', paddingBottom: 6 }}>
+      <div className="vista-pantalla">
+        <HojaDoc area="cocina" docNombre="Lista de Producción" meta={semLabel}>
+          <div className="ficha-section" style={{ borderBottom: 'none', paddingBottom: 6 }}>
           {!hayContenido ? (
             <div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Sin secciones todavía.</div>
           ) : (
@@ -623,6 +576,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
             </div>
           )}
         </div>
+        </HojaDoc>
       </div>
 
       {/* VISTA IMPRESIÓN paginada */}
@@ -664,6 +618,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
 
 function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof useTheme>['T']; secciones: Seccion[]; partidas: Partida[] }) {
   const grupos = useMemo(() => agruparLados(secciones), [secciones])
+  const [bn, setBn] = useState(false)
 
   return (
     <>
@@ -672,16 +627,16 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
           Una hoja A4 por lado de la cámara (izquierda / derecha), con todas sus baldas y los productos en grande para pegar en la puerta.
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => imprimirDesdePDF(construirCamaraPDF(grupos, partidas))} style={btnGhost}><Printer size={15} /> Imprimir</button>
-          <button onClick={() => descargarCamaraPDF(grupos, partidas)} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
+          <BnToggle bn={bn} setBn={setBn} />
+          <button onClick={async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(construirCamaraPDF(grupos, partidas, rec, bn)) }} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <button onClick={async () => { const rec = await M.cargarRecursos(); descargarCamaraPDF(grupos, partidas, rec, bn) }} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
 
       <div className="camara-wrap">
         {grupos.map((g, gi) => (
-          <div key={gi} className="hoja-camara" style={{ breakAfter: gi < grupos.length - 1 ? 'page' : 'auto' }}>
-            <div className="camara-lado-head">{g.titulo}</div>
-            <div className="camara-cols" style={{ gridTemplateColumns: `repeat(${g.secs.length}, 1fr)` }}>
+          <HojaDoc key={gi} area="cocina" docNombre="Ordenación de Cámara" tituloCentrado={g.titulo}>
+            <div className="camara-cols" style={{ display: 'grid', gridTemplateColumns: `repeat(${g.secs.length}, 1fr)`, gap: 0 }}>
               {g.secs.map(sec => {
                 const parts = partidas.filter(p => p.seccion_id === sec.id)
                 const filas = conBiberones(parts)
@@ -705,7 +660,7 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
                 )
               })}
             </div>
-          </div>
+          </HojaDoc>
         ))}
       </div>
     </>
@@ -717,6 +672,7 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
 function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTheme>['T']; inventario: InvItem[] }) {
   const ubis = useMemo(() => agruparInventario(inventario), [inventario])
   const [activa, setActiva] = useState(0)
+  const [bn, setBn] = useState(false)
 
   if (!ubis.length) {
     return <div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Sin inventario todavía.</div>
@@ -724,7 +680,7 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
   const ubi = ubis[Math.min(activa, ubis.length - 1)]
 
   return (
-    <>
+    <div style={M.marcoCSSVars('cocina') as React.CSSProperties}>
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
         <div className="inv-pills">
           {ubis.map((u, i) => (
@@ -732,18 +688,15 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
           ))}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => imprimirDesdePDF(construirInventarioPDF(ubi))} style={btnGhost}><Printer size={15} /> Imprimir</button>
-          <button onClick={() => descargarInventarioPDF(ubi)} style={btnGhost}><Download size={15} /> Esta ubicación</button>
-          <button onClick={() => descargarInventarioTodosPDF(ubis)} style={btnPrimary}><FileDown size={15} /> Descargar todo</button>
+          <BnToggle bn={bn} setBn={setBn} />
+          <button onClick={async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(construirInventarioPDF(ubi, rec, bn)) }} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <button onClick={async () => { const rec = await M.cargarRecursos(); descargarInventarioPDF(ubi, rec, bn) }} style={btnGhost}><Download size={15} /> Esta ubicación</button>
+          <button onClick={async () => { const rec = await M.cargarRecursos(); descargarInventarioTodosPDF(ubis, rec, bn) }} style={btnPrimary}><FileDown size={15} /> Descargar todo</button>
         </div>
       </div>
 
 
-      <div className="inv-hoja">
-        <div className="inv-head">
-          <span>{ubi.nombre}</span>
-          <span className="inv-head-sub">INVENTARIO PERMANENTE · FECHA __ / __ / ____</span>
-        </div>
+      <HojaDoc area="cocina" docNombre="Inventario Permanente" tituloCentrado={ubi.nombre} meta="INVENTARIO PERMANENTE · FECHA __ / __ / ____">
         <div className="inv-cats">
           {ubi.cats.map(cat => (
             <div className="inv-cat" key={cat.nombre}>
@@ -757,8 +710,8 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
             </div>
           ))}
         </div>
-      </div>
-    </>
+      </HojaDoc>
+    </div>
   )
 }
 
@@ -856,6 +809,16 @@ function ModalGestionPartidas({ T, secciones, partidas, onClose, onSaved }: { T:
   )
 }
 
+// ─── TOGGLE BLANCO/NEGRO (impresión) ───────────────────────────────────────────
+
+function BnToggle({ bn, setBn }: { bn: boolean; setBn: (v: boolean) => void }) {
+  return (
+    <button onClick={() => setBn(!bn)} style={{ ...btnGhost, background: bn ? '#e7e7e7' : 'transparent', color: bn ? '#111' : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">
+      {bn ? 'B/N' : 'Color'}
+    </button>
+  )
+}
+
 // ─── ESTILOS BOTONES / MODALES ─────────────────────────────────────────────────
 
 const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }
@@ -878,24 +841,24 @@ const FICHA_CSS = `
 .prod-table-wrap { overflow-x: auto; }
 .prod-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Lexend', sans-serif; font-size: 13px; }
 .prod-table th, .prod-table td { border-right: 1px solid var(--sl-border-strong); border-bottom: 1px solid var(--sl-border-strong); }
-.prod-table th.dia-ini, .prod-table td.dia-ini { border-left: 3px solid #B01D23 !important; }
+.prod-table th.dia-ini, .prod-table td.dia-ini { border-left: 3px solid var(--m-acento) !important; }
 
-.th-partida { font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; text-align: left; padding: 6px 8px; background: #B01D23; color: #fff; min-width: 120px; }
+.th-partida { font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; text-align: left; padding: 6px 8px; background: var(--m-acento); color: #fff; min-width: 120px; }
 .th-partida-ini { position: sticky; left: 0; z-index: 2; }
-.th-dia { font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; text-align: center; padding: 5px 2px; background: #B01D23; color: #fff; }
-.th-sub-empty { background: #8c161c; }
+.th-dia { font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; text-align: center; padding: 5px 2px; background: var(--m-acento); color: #fff; }
+.th-sub-empty { background: var(--m-espina); }
 .th-sub { font-family: 'Oswald', sans-serif; font-size: 10px; font-weight: 600; text-align: center; padding: 2px 1px; color: #fff; }
-.th-sub-hoy { background: #8c161c; }
-.th-sub-ssp { background: #6e1116; color: #f0c9cb; }
-.td-seccion { font-family: 'Oswald', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #B01D23; padding: 5px 8px; background: rgba(176,29,35,0.07); }
-.td-bib { font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a1a22; padding: 3px 8px 3px 20px; background: rgba(176,29,35,0.04); }
+.th-sub-hoy { background: var(--m-espina); }
+.th-sub-ssp { background: var(--m-tinta); color: var(--m-soft); }
+.td-seccion { font-family: 'Oswald', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--m-acento); padding: 5px 8px; background: var(--m-soft2); }
+.td-bib { font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--m-acento); padding: 3px 8px 3px 20px; background: var(--m-soft2); }
 
 .td-partida { font-family: 'Lexend', sans-serif; font-size: 14.5px; color: var(--text-primary); padding: 0 8px; white-space: nowrap; background: var(--bg-card); }
 .td-partida-ini { position: sticky; left: 0; z-index: 1; }
 .td-partida-fin { text-align: right; }
 .td-celda { padding: 0; }
 .td-celda-hoy { background: var(--bg-card); }
-.td-celda-ssp { background: rgba(176,29,35,0.06); }
+.td-celda-ssp { background: var(--m-soft2); }
 .celda-input { width: 100%; min-width: 34px; background: transparent; border: none; outline: none; font-family: 'Lexend', sans-serif; font-size: 15px; color: var(--text-primary); padding: 0 3px; text-align: center; }
 .celda-ssp { color: var(--text-muted); }
 .celda-print { display: none; }
@@ -904,31 +867,31 @@ const FICHA_CSS = `
 
 /* Carteles cámara — preview en pantalla (1 columna) */
 .camara-wrap { display: flex; flex-direction: column; gap: 22px; }
-.hoja-camara { border: 2px solid #B01D23; border-radius: 12px; overflow: hidden; background: var(--bg-card); }
-.camara-lado-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: 0.05em; text-transform: uppercase; color: #fff; background: #B01D23; padding: 14px 22px; }
+.hoja-camara { border: 2px solid var(--m-acento); border-radius: 12px; overflow: hidden; background: var(--bg-card); }
+.camara-lado-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: 0.05em; text-transform: uppercase; color: #fff; background: var(--m-acento); padding: 14px 22px; }
 .camara-cols { display: grid; gap: 0; }
 .camara-balda { border-right: 1px solid var(--sl-border); padding: 0 0 10px 0; }
 .camara-balda:last-child { border-right: none; }
-.camara-balda-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; color: #B01D23; padding: 10px 16px; border-bottom: 2px solid rgba(176,29,35,0.25); }
+.camara-balda-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--m-acento); padding: 10px 16px; border-bottom: 2px solid var(--m-soft); }
 .camara-balda-list { list-style: none; margin: 0; padding: 10px 16px; }
 .camara-balda-item { font-family: 'Lexend', sans-serif; font-size: 21px; line-height: 1.5; color: var(--text-primary); }
-.camara-bib-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 19px; text-transform: uppercase; letter-spacing: 0.04em; color: #B01D23; margin-top: 6px; }
-.camara-sep { height: 0; border-top: 2px solid #B01D23; margin: 8px 4px 8px 0; list-style: none; }
+.camara-bib-head { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 19px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--m-acento); margin-top: 6px; }
+.camara-sep { height: 0; border-top: 2px solid var(--m-acento); margin: 8px 4px 8px 0; list-style: none; }
 
 /* Inventario permanente — 2 columnas, stock entre paréntesis pegado al nombre, zona rayada para anotar */
 .inv-pills { display: flex; gap: 7px; flex-wrap: wrap; }
 .inv-pill { font-family: 'Oswald', sans-serif; letter-spacing: 0.03em; text-transform: uppercase; font-size: 12px; padding: 7px 14px; border-radius: 99px; border: 1px solid var(--sl-border); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
-.inv-pill.on { background: #B01D23; border-color: #B01D23; color: #fff; }
-.inv-mintag { display: inline-flex; align-items: center; background: #B01D23; color: #fff; font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 5px; }
-.inv-hoja { border: 2px solid #B01D23; border-radius: 10px; overflow: hidden; background: var(--bg-card); }
-.inv-head { background: rgba(176,29,35,0.10); color: #8a1a22; font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 24px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #B01D23; }
+.inv-pill.on { background: var(--m-acento); border-color: var(--m-acento); color: #fff; }
+.inv-mintag { display: inline-flex; align-items: center; background: var(--m-acento); color: #fff; font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 5px; }
+.inv-hoja { border: 2px solid var(--m-acento); border-radius: 10px; overflow: hidden; background: var(--bg-card); }
+.inv-head { background: var(--m-soft); color: var(--m-acento); font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 24px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid var(--m-acento); }
 .inv-head-sub { font-size: 13px; font-weight: 500; }
 .inv-cats { column-count: 2; column-gap: 0; }
 .inv-cat { break-inside: avoid; border-right: 1px solid var(--sl-border); }
-.inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 15px; color: #fff; background: #1a1a1a; padding: 7px 14px; border-bottom: 2px solid #000; }
-.inv-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--sl-border); min-height: 38px; }
+.inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 15px; color: #fff; background: var(--m-acento); padding: 7px 14px; border-bottom: 2px solid var(--m-espina); }
+.inv-row { display: flex; align-items: stretch; min-height: 38px; }
 .inv-name { flex: 0 0 auto; display: flex; align-items: center; white-space: nowrap; padding: 1px 12px; font-family: 'Lexend', sans-serif; font-size: 24px; font-weight: 500; color: var(--text-primary); }
-.inv-min-inline { margin-left: 8px; color: #B01D23; font-family: 'Oswald', sans-serif; font-weight: 700; }
+.inv-min-inline { margin-left: 8px; color: var(--m-acento); font-family: 'Oswald', sans-serif; font-weight: 700; }
 .inv-write { flex: 1 1 auto; align-self: flex-end; border-bottom: 1.5px solid var(--sl-border); margin: 0 12px 8px 6px; }
 @media (max-width: 820px) { .inv-cats { column-count: 1; } .inv-cat { border-right: none; } .inv-name { font-size: 21px; } }
 

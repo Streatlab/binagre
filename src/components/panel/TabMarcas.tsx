@@ -7,25 +7,24 @@ import { supabase } from '@/lib/supabase'
 import { COLORS, FONT, CARDS, BAR, lbl, kpiMid, kpiSm } from '@/components/panel/resumen/tokens'
 import { fmtEur, fmtNum } from '@/utils/format'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
+import { resolverNeto } from '@/lib/panel/netoResolver'
+import { useNetoContext } from '@/lib/panel/useNetoContext'
 
 // RowFacturacion extended with optional servicio
 type RowConServicio = RowFacturacion & { servicio?: string | null }
 
 interface Marca { id: string; nombre: string }
 
-interface Props { rows: RowConServicio[] }
+interface Props { rows: RowConServicio[]; fechaDesde: Date; fechaHasta: Date }
 
-const COMISIONES: Record<string, number> = {
-  uber: 0.30, glovo: 0.30, je: 0.30, web: 0.07, directa: 0.00,
-}
-const CANALES_IDS = ['uber', 'glovo', 'je', 'web', 'directa'] as const
-
-function netoDeRow(r: RowConServicio): number {
-  return CANALES_IDS.reduce((s, c) => {
-    const bruto = (r as unknown as Record<string, number>)[`${c}_bruto`] ?? 0
-    return s + bruto * (1 - COMISIONES[c])
-  }, 0)
-}
+// LEY-NETO-01: el neto se resuelve siempre con resolverNeto, nunca con comisiones fijas.
+const CANALES = [
+  { id: 'uber',  bk: 'uber_bruto',    pk: 'uber_pedidos' },
+  { id: 'glovo', bk: 'glovo_bruto',   pk: 'glovo_pedidos' },
+  { id: 'je',    bk: 'je_bruto',      pk: 'je_pedidos' },
+  { id: 'web',   bk: 'web_bruto',     pk: 'web_pedidos' },
+  { id: 'dir',   bk: 'directa_bruto', pk: 'directa_pedidos' },
+] as const
 
 function kpiCard(label: string, value: string, sub?: string) {
   return (
@@ -41,8 +40,9 @@ const MARCA_COLORS = [
   COLORS.redSL, COLORS.uber, COLORS.je, COLORS.directa, COLORS.warn,
 ]
 
-export default function TabMarcas({ rows }: Props) {
+export default function TabMarcas({ rows, fechaDesde, fechaHasta }: Props) {
   const [marcasDisp, setMarcasDisp] = useState<Marca[]>([])
+  const { configCanales: config, marcasPorCanal } = useNetoContext()
 
   useEffect(() => {
     supabase.from('marcas').select('id, nombre').eq('activa', true).then(({ data }) => {
@@ -99,18 +99,36 @@ export default function TabMarcas({ rows }: Props) {
     )
   }
 
-  // Aggregate by servicio
+  // Neto por canal AGREGADO del periodo (resolverNeto una vez por canal, como
+  // Finanzas/Resumen → el total cuadra). Después se prorratea el neto de cada
+  // canal entre las franjas según su cuota de bruto en ese canal (sin
+  // sobre-atribuir la liquidación real de canal a cada franja).
+  const nDias = new Set(rows.filter(r => r.total_bruto > 0).map(r => r.fecha)).size || 1
+  const netoRatioCanal: Record<string, number> = {}
+  for (const c of CANALES) {
+    const bruto = rows.reduce((s, r) => s + ((r as unknown as Record<string, number>)[c.bk] ?? 0), 0)
+    const pedidos = rows.reduce((s, r) => s + ((r as unknown as Record<string, number>)[c.pk] ?? 0), 0)
+    const { neto } = resolverNeto(c.id, bruto, pedidos, {
+      modo: 'agregado_canal', marcasPorCanal, fechaDesde, fechaHasta,
+      configCanales: config, diasConDatos: nDias,
+    })
+    netoRatioCanal[c.id] = bruto > 0 ? neto / bruto : 0
+  }
+
   const marcaMap: Record<string, { pedidos: number; bruto: number; neto: number }> = {}
   rows.forEach(r => {
     const key = r.servicio ?? 'Sin marca'
-    if (!marcaMap[key]) marcaMap[key] = { pedidos: 0, bruto: 0, neto: 0 }
-    marcaMap[key].pedidos += r.total_pedidos
-    marcaMap[key].bruto += r.total_bruto
-    marcaMap[key].neto += netoDeRow(r)
+    const e = (marcaMap[key] ??= { pedidos: 0, bruto: 0, neto: 0 })
+    e.pedidos += r.total_pedidos
+    e.bruto += r.total_bruto
+    for (const c of CANALES) {
+      const b = (r as unknown as Record<string, number>)[c.bk] ?? 0
+      e.neto += b * netoRatioCanal[c.id]
+    }
   })
 
   const marcaList = Object.entries(marcaMap)
-    .map(([nombre, stats]) => ({ nombre, ...stats }))
+    .map(([nombre, s]) => ({ nombre, pedidos: s.pedidos, bruto: s.bruto, neto: s.neto }))
     .sort((a, b) => b.bruto - a.bruto)
 
   const totalBruto = marcaList.reduce((s, m) => s + m.bruto, 0)
@@ -194,12 +212,14 @@ export default function TabMarcas({ rows }: Props) {
               <th style={{ ...thStyle, textAlign: 'right' }}>Pedidos</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>Bruto</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>Neto est.</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Margen est.</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>% total</th>
             </tr>
           </thead>
           <tbody>
             {marcaList.map((m, i) => {
               const pct = totalBruto > 0 ? (m.bruto / totalBruto) * 100 : 0
+              const margen = m.bruto > 0 ? (m.neto / m.bruto) * 100 : 0
               const color = MARCA_COLORS[i % MARCA_COLORS.length]
               return (
                 <tr key={m.nombre}>
@@ -216,21 +236,29 @@ export default function TabMarcas({ rows }: Props) {
                   </td>
                   <td style={tdR}>{fmtEur(m.bruto)}</td>
                   <td style={{ ...tdR, color: COLORS.ok }}>{fmtEur(m.neto)}</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontSize: 12, color: margen >= 70 ? COLORS.ok : COLORS.warn }}>
+                    {margen.toFixed(0)}%
+                  </td>
                   <td style={tdR}>
                     <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12 }}>{pct.toFixed(1)}%</span>
                   </td>
                 </tr>
               )
             })}
-            <tr style={{ background: COLORS.group }}>
-              <td style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>TOTAL</td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{fmtNum(totalPedidos)}</td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{fmtEur(totalBruto)}</td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.ok }}>
-                {fmtEur(marcaList.reduce((s, m) => s + m.neto, 0))}
-              </td>
-              <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600 }}>100%</td>
-            </tr>
+            {(() => {
+              const netoTot = marcaList.reduce((s, m) => s + m.neto, 0)
+              const margenTot = totalBruto > 0 ? (netoTot / totalBruto) * 100 : 0
+              return (
+                <tr style={{ background: COLORS.group }}>
+                  <td style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>TOTAL</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{fmtNum(totalPedidos)}</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{fmtEur(totalBruto)}</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.ok }}>{fmtEur(netoTot)}</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{margenTot.toFixed(0)}%</td>
+                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600 }}>100%</td>
+                </tr>
+              )
+            })()}
           </tbody>
         </table>
       </div>

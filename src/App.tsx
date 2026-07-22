@@ -6,10 +6,8 @@ import Layout from '@/components/Layout'
 import Login from '@/pages/Login'
 
 const Home = React.lazy(() => import('@/pages/Home'))
-const Facturacion = React.lazy(() => import('@/pages/Facturacion'))
-const Reservas = React.lazy(() => import('@/pages/finanzas/Reservas'))
-const PyG = React.lazy(() => import('@/pages/finanzas/PyG'))
-const RentabilidadFranja = React.lazy(() => import('@/pages/analytics/RentabilidadFranja'))
+const PapeleoPage = React.lazy(() => import('@/pages/finanzas/PapeleoPage'))
+const RentabilidadPage = React.lazy(() => import('@/pages/finanzas/RentabilidadPage'))
 const Proveedores = React.lazy(() => import('@/pages/Proveedores'))
 const POS = React.lazy(() => import('@/pages/POS'))
 const Placeholder = React.lazy(() => import('@/pages/Placeholder'))
@@ -26,8 +24,6 @@ const CostePlato = React.lazy(() => import('@/pages/cocina/CostePlato'))
 
 // Pantallas con interruptor NEO / SL: la ruta decide cual se ve
 const EscandalloSwitch = React.lazy(() => import('@/pages/switch/EscandalloSwitch'))
-const ConciliacionSwitch = React.lazy(() => import('@/pages/switch/ConciliacionSwitch'))
-const TesoreriaSwitch = React.lazy(() => import('@/pages/switch/TesoreriaSwitch'))
 const PanelSwitch = React.lazy(() => import('@/pages/switch/PanelSwitch'))
 
 const ReglasPage = React.lazy(() => import('@/pages/configuracion/reglas/ReglasPage'))
@@ -52,28 +48,13 @@ const CalendarioPage = React.lazy(() => import('@/pages/configuracion/calendario
 const AprendizajesPage = React.lazy(() => import('@/pages/configuracion/AprendizajesPage'))
 const CalcNetoAprendizajePage = React.lazy(() => import('@/pages/configuracion/CalcNetoAprendizajePage'))
 
-const Objetivos = React.lazy(() => import('@/pages/finanzas/Objetivos'))
-const Running = React.lazy(() => import('@/pages/finanzas/Running'))
-const PagosCobros = React.lazy(() => import('@/pages/PagosCobros'))
-const ImportarPlataformas = React.lazy(() => import('@/pages/finanzas/ImportarPlataformas'))
-const PuntoEquilibrio = React.lazy(() => import('@/pages/finanzas/PuntoEquilibrio'))
-const GestionFacturas = React.lazy(() => import('@/pages/finanzas/GestionFacturas'))
-const Gestoria = React.lazy(() => import('@/pages/finanzas/Gestoria'))
-const EscenariosTesoreria = React.lazy(() => import('@/pages/finanzas/EscenariosTesoreria'))
-const Documentacion = React.lazy(() => import('@/pages/finanzas/Documentacion'))
+const VentasPage = React.lazy(() => import('@/pages/finanzas/VentasPage'))
+const ResultadosPage = React.lazy(() => import('@/pages/finanzas/ResultadosPage'))
+const TesoreriaPage = React.lazy(() => import('@/pages/finanzas/TesoreriaPage'))
 const BandejaPendientes = React.lazy(() => import('@/pages/BandejaPendientes'))
-const Ventas = React.lazy(() => import('@/pages/finanzas/Ventas'))
 
-const FondoManiobra = React.lazy(() => import('@/pages/finanzas/FondoManiobra'))
-const EstadosFinancieros = React.lazy(() => import('@/pages/finanzas/EstadosFinancieros'))
-const BreakEvenCanal = React.lazy(() => import('@/pages/finanzas/BreakEvenCanal'))
-const AnalisisHorizontalVertical = React.lazy(() => import('@/pages/finanzas/AnalisisHorizontalVertical'))
 const PanelAlertas = React.lazy(() => import('@/pages/finanzas/PanelAlertas'))
-const RepeticionClientes = React.lazy(() => import('@/pages/finanzas/RepeticionClientes'))
-const RoiCanal = React.lazy(() => import('@/pages/finanzas/RoiCanal'))
-const TicketMedio = React.lazy(() => import('@/pages/finanzas/TicketMedio'))
 
-const PanelGlobal = React.lazy(() => import('@/pages/PanelGlobal'))
 const PanelDireccion = React.lazy(() => import('@/pages/PanelDireccion'))
 const Tareas = React.lazy(() => import('@/pages/Tareas'))
 const Carta = React.lazy(() => import('@/pages/Carta'))
@@ -162,8 +143,9 @@ function AppRoutes() {
           <Route index element={<Home />} />
           <Route path="escandallo" element={<EscandalloSwitch />} />
           <Route path="carta" element={<Carta />} />
-          <Route path="facturacion" element={<ProtectedRoute solo={['admin']}><Facturacion /></ProtectedRoute>} />
-          <Route path="facturacion/conciliacion" element={<ProtectedRoute solo={['admin']}><ConciliacionSwitch /></ProtectedRoute>} />
+          <Route path="finanzas/papeleo" element={<ProtectedRoute solo={['admin']}><PapeleoPage /></ProtectedRoute>} />
+          <Route path="facturacion" element={<Navigate to="/finanzas/papeleo?tab=facturacion" replace />} />
+          <Route path="facturacion/conciliacion" element={<Navigate to="/finanzas/papeleo?tab=conciliacion" replace />} />
           <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
 
 
@@ -209,37 +191,41 @@ function AppRoutes() {
           <Route path="configuracion/aprendizajes" element={<ProtectedRoute solo={['admin']}><AprendizajesPage /></ProtectedRoute>} />
           <Route path="configuracion/calcneto-aprendizaje" element={<ProtectedRoute solo={['admin']}><CalcNetoAprendizajePage /></ProtectedRoute>} />
 
-          <Route path="finanzas/objetivos" element={<ProtectedRoute solo={['admin']}><Objetivos /></ProtectedRoute>} />
-          <Route path="finanzas/running" element={<ProtectedRoute solo={['admin']}><Running /></ProtectedRoute>} />
-          <Route path="finanzas/importar-plataformas" element={<ProtectedRoute solo={['admin']}><ImportarPlataformas /></ProtectedRoute>} />
-          <Route path="finanzas/punto-equilibrio" element={<ProtectedRoute solo={['admin']}><PuntoEquilibrio /></ProtectedRoute>} />
-          <Route path="finanzas/documentacion" element={<ProtectedRoute solo={['admin']}><Documentacion /></ProtectedRoute>} />
+          <Route path="finanzas/ventas-panel" element={<ProtectedRoute solo={['admin']}><VentasPage /></ProtectedRoute>} />
+          <Route path="finanzas/objetivos" element={<Navigate to="/finanzas/ventas-panel?tab=objetivos" replace />} />
+          <Route path="finanzas/resultados" element={<ProtectedRoute solo={['admin']}><ResultadosPage /></ProtectedRoute>} />
+          <Route path="finanzas/running" element={<Navigate to="/finanzas/resultados?tab=running" replace />} />
+          <Route path="finanzas/importar-plataformas" element={<Navigate to="/finanzas/papeleo?tab=importar" replace />} />
+          <Route path="finanzas/rentabilidad" element={<ProtectedRoute solo={['admin']}><RentabilidadPage /></ProtectedRoute>} />
+          <Route path="finanzas/punto-equilibrio" element={<Navigate to="/finanzas/rentabilidad?tab=equilibrio" replace />} />
+          <Route path="finanzas/documentacion" element={<Navigate to="/finanzas/papeleo?tab=bandeja" replace />} />
           <Route path="finanzas/pendientes" element={<ProtectedRoute solo={['admin']}><BandejaPendientes /></ProtectedRoute>} />
-          <Route path="finanzas/ventas" element={<ProtectedRoute solo={['admin']}><Ventas /></ProtectedRoute>} />
-          <Route path="finanzas/gestion-facturas" element={<ProtectedRoute solo={['admin']}><GestionFacturas /></ProtectedRoute>} />
-          <Route path="finanzas/listado-facturas" element={<Navigate to="/finanzas/gestion-facturas" replace />} />
-          <Route path="finanzas/pagos-cobros" element={<ProtectedRoute solo={['admin']}><PagosCobros /></ProtectedRoute>} />
-          <Route path="finanzas/gestoria" element={<ProtectedRoute solo={['admin']}><Gestoria /></ProtectedRoute>} />
-          <Route path="finanzas/escenarios-tesoreria" element={<ProtectedRoute solo={['admin']}><EscenariosTesoreria /></ProtectedRoute>} />
+          <Route path="finanzas/ventas" element={<Navigate to="/finanzas/ventas-panel?tab=ventas" replace />} />
+          <Route path="finanzas/gestion-facturas" element={<Navigate to="/finanzas/papeleo?tab=gestion" replace />} />
+          <Route path="finanzas/listado-facturas" element={<Navigate to="/finanzas/papeleo?tab=gestion" replace />} />
+          <Route path="finanzas/tesoreria" element={<ProtectedRoute solo={['admin']}><TesoreriaPage /></ProtectedRoute>} />
+          <Route path="finanzas/pagos-cobros" element={<Navigate to="/finanzas/tesoreria?tab=calendario" replace />} />
+          <Route path="finanzas/gestoria" element={<Navigate to="/finanzas/papeleo?tab=gestoria" replace />} />
+          <Route path="finanzas/escenarios-tesoreria" element={<Navigate to="/finanzas/tesoreria?tab=escenarios" replace />} />
 
-          <Route path="finanzas/tesoreria-13-semanas" element={<ProtectedRoute solo={['admin']}><TesoreriaSwitch /></ProtectedRoute>} />
-          <Route path="finanzas/fondo-maniobra" element={<ProtectedRoute solo={['admin']}><FondoManiobra /></ProtectedRoute>} />
-          <Route path="finanzas/estados-financieros" element={<ProtectedRoute solo={['admin']}><EstadosFinancieros /></ProtectedRoute>} />
-          <Route path="finanzas/break-even" element={<ProtectedRoute solo={['admin']}><BreakEvenCanal /></ProtectedRoute>} />
-          <Route path="finanzas/analisis-horizontal-vertical" element={<ProtectedRoute solo={['admin']}><AnalisisHorizontalVertical /></ProtectedRoute>} />
+          <Route path="finanzas/tesoreria-13-semanas" element={<Navigate to="/finanzas/tesoreria?tab=13semanas" replace />} />
+          <Route path="finanzas/fondo-maniobra" element={<Navigate to="/finanzas/tesoreria?tab=salud" replace />} />
+          <Route path="finanzas/estados-financieros" element={<Navigate to="/finanzas/resultados?tab=estados" replace />} />
+          <Route path="finanzas/break-even" element={<Navigate to="/finanzas/rentabilidad?tab=marca-canal" replace />} />
+          <Route path="finanzas/analisis-horizontal-vertical" element={<Navigate to="/finanzas/resultados?tab=evolucion" replace />} />
           <Route path="finanzas/panel-alertas" element={<ProtectedRoute solo={['admin']}><PanelAlertas /></ProtectedRoute>} />
-          <Route path="finanzas/repeticion-clientes" element={<ProtectedRoute solo={['admin']}><RepeticionClientes /></ProtectedRoute>} />
-          <Route path="finanzas/roi-canal" element={<ProtectedRoute solo={['admin']}><RoiCanal /></ProtectedRoute>} />
-          <Route path="finanzas/reservas" element={<ProtectedRoute solo={['admin']}><Reservas /></ProtectedRoute>} />
-          <Route path="finanzas/pyg" element={<ProtectedRoute solo={['admin']}><PyG /></ProtectedRoute>} />
-          <Route path="finanzas/rentabilidad-franja" element={<ProtectedRoute solo={['admin']}><RentabilidadFranja /></ProtectedRoute>} />
-          <Route path="finanzas/ticket-medio" element={<ProtectedRoute solo={['admin']}><TicketMedio /></ProtectedRoute>} />
+          <Route path="finanzas/repeticion-clientes" element={<Navigate to="/finanzas/ventas-panel?tab=repeticion" replace />} />
+          <Route path="finanzas/roi-canal" element={<Navigate to="/finanzas/rentabilidad?tab=roi" replace />} />
+          <Route path="finanzas/reservas" element={<Navigate to="/finanzas/tesoreria?tab=reserva" replace />} />
+          <Route path="finanzas/pyg" element={<Navigate to="/finanzas/resultados?tab=pyg" replace />} />
+          <Route path="finanzas/rentabilidad-franja" element={<Navigate to="/finanzas/rentabilidad?tab=franja" replace />} />
+          <Route path="finanzas/ticket-medio" element={<Navigate to="/finanzas/ventas-panel?tab=ticket" replace />} />
 
           <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelSwitch /></ProtectedRoute>} />
           <Route path="panel-direccion" element={<ProtectedRoute solo={['admin']}><PanelDireccion /></ProtectedRoute>} />
 
-          <Route path="importador" element={<Navigate to="/finanzas/documentacion" replace />} />
-          <Route path="ocr" element={<Navigate to="/finanzas/documentacion" replace />} />
+          <Route path="importador" element={<Navigate to="/finanzas/papeleo?tab=bandeja" replace />} />
+          <Route path="ocr" element={<Navigate to="/finanzas/papeleo?tab=bandeja" replace />} />
           <Route path="importar-ventas" element={<ProtectedRoute solo={['admin']}><ImportarVentas /></ProtectedRoute>} />
           <Route path="tareas" element={<ProtectedRoute solo={['admin']}><Tareas /></ProtectedRoute>} />
 

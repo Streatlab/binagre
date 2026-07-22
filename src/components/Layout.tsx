@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import ToastHost from '@/components/ui/ToastHost'
+import ToastSL from '@/components/ui/ToastSL'
 import ResponsiveTables from '@/components/ResponsiveTables'
 import OcrCompletadoGlobal from '@/components/ocr/OcrCompletadoGlobal'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
@@ -49,7 +49,7 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
-      <ToastHost />
+      <ToastSL />
       <ResponsiveTables />
       <OcrUploadToast />
       <OcrCompletadoGlobal />

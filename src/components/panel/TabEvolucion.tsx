@@ -16,6 +16,8 @@ import {
 } from '@/styles/neobrutal'
 import { fmtEur, fmtNum } from '@/utils/format'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
+import { resolverNeto } from '@/lib/panel/netoResolver'
+import { useNetoContext } from '@/lib/panel/useNetoContext'
 
 interface Props {
   rowsAll: RowFacturacion[]
@@ -27,15 +29,14 @@ interface Props {
 const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 const DIAS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
-const COMISIONES: Record<string, number> = { uber: 0.30, glovo: 0.30, je: 0.30, web: 0.07, directa: 0.00 }
-const CANALES_IDS = ['uber', 'glovo', 'je', 'web', 'directa'] as const
-
-function netoDeRow(r: RowFacturacion): number {
-  return CANALES_IDS.reduce((s, c) => {
-    const bruto = (r as unknown as Record<string, number>)[`${c}_bruto`] ?? 0
-    return s + bruto * (1 - COMISIONES[c])
-  }, 0)
-}
+// LEY-NETO-01: el neto SIEMPRE sale de resolverNeto, nunca de comisiones fijas.
+const CH = [
+  { id: 'uber',  bk: 'uber_bruto',    pk: 'uber_pedidos' },
+  { id: 'glovo', bk: 'glovo_bruto',   pk: 'glovo_pedidos' },
+  { id: 'je',    bk: 'je_bruto',      pk: 'je_pedidos' },
+  { id: 'web',   bk: 'web_bruto',     pk: 'web_pedidos' },
+  { id: 'dir',   bk: 'directa_bruto', pk: 'directa_pedidos' },
+] as const
 
 // ── Helpers de cifra ──────────────────────────────────────────
 const EUR = (n: number) => fmtEur(n)
@@ -288,6 +289,7 @@ function CardComparativaPeriodo({ rowsAll, ancla }: { rowsAll: RowFacturacion[];
 // ── LANDING principal ─────────────────────────────────────────
 export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
   const racha = useRacha(rowsAll)
+  const { configCanales: config, marcasPorCanal } = useNetoContext()
 
   if (!rowsAll.length) {
     return (
@@ -297,16 +299,37 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
     )
   }
 
-  // ── Agregación mensual (intacta) ──
-  const mesMap: Record<string, { bruto: number; pedidos: number; neto: number; online: number }> = {}
+  // ── Agregación mensual · neto por canal vía resolverNeto (LEY-NETO-01) ──
+  const mesAgg: Record<string, { bruto: number; pedidos: number; online: number; canal: Record<string, { b: number; p: number }>; dias: Set<string> }> = {}
   rowsAll.forEach(r => {
     const key = r.fecha.slice(0, 7)
-    if (!mesMap[key]) mesMap[key] = { bruto: 0, pedidos: 0, neto: 0, online: 0 }
-    mesMap[key].bruto += r.total_bruto
-    mesMap[key].pedidos += r.total_pedidos
-    mesMap[key].neto += netoDeRow(r)
-    mesMap[key].online += (r.web_bruto ?? 0) + (r.directa_bruto ?? 0)
+    const e = (mesAgg[key] ??= { bruto: 0, pedidos: 0, online: 0, canal: {}, dias: new Set() })
+    e.bruto += r.total_bruto
+    e.pedidos += r.total_pedidos
+    e.online += (r.web_bruto ?? 0) + (r.directa_bruto ?? 0)
+    if ((r.total_bruto ?? 0) > 0) e.dias.add(r.fecha)
+    for (const c of CH) {
+      const cc = (e.canal[c.id] ??= { b: 0, p: 0 })
+      cc.b += (r as unknown as Record<string, number>)[c.bk] ?? 0
+      cc.p += (r as unknown as Record<string, number>)[c.pk] ?? 0
+    }
   })
+  const mesMap: Record<string, { bruto: number; pedidos: number; neto: number; online: number }> = {}
+  for (const [key, e] of Object.entries(mesAgg)) {
+    const [y, m] = key.split('-').map(Number)
+    const mDesde = new Date(y, m - 1, 1)
+    const mHasta = new Date(y, m, 0)
+    const nD = e.dias.size || 1
+    let neto = 0
+    for (const c of CH) {
+      const cc = e.canal[c.id] ?? { b: 0, p: 0 }
+      neto += resolverNeto(c.id, cc.b, cc.p, {
+        modo: 'agregado_canal', marcasPorCanal, fechaDesde: mDesde, fechaHasta: mHasta,
+        configCanales: config, diasConDatos: nD,
+      }).neto
+    }
+    mesMap[key] = { bruto: e.bruto, pedidos: e.pedidos, neto, online: e.online }
+  }
   const ultimos12 = Object.keys(mesMap).sort().slice(-12)
   const mejorMes = ultimos12.reduce((b, k) => mesMap[k].bruto > mesMap[b].bruto ? k : b, ultimos12[0])
   const peorMes = ultimos12.reduce((w, k) => mesMap[k].bruto < mesMap[w].bruto ? k : w, ultimos12[0])
