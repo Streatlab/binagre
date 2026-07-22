@@ -99,6 +99,7 @@ const Equipo = React.lazy(() => import('@/pages/Equipo'))
 const Horarios = React.lazy(() => import('@/pages/equipo/Horarios'))
 const ControlPresencia = React.lazy(() => import('@/pages/equipo/ControlPresencia'))
 const Organigrama = React.lazy(() => import('@/pages/equipo/Organigrama'))
+const PortalEmpleado = React.lazy(() => import('@/pages/equipo/PortalEmpleado'))
 
 const ClubFidelizacion = React.lazy(() => import('@/pages/clientes/ClubFidelizacion'))
 const CrmTiendaPropia = React.lazy(() => import('@/pages/clientes/CrmTiendaPropia'))
@@ -290,25 +291,70 @@ function AppRoutes() {
           <Route path="analytics/demanda" element={<Navigate to="/ventas/analitica/demanda" replace />} />
           <Route path="analytics/pareto-ventas" element={<Navigate to="/ventas/analitica/pareto" replace />} />
 
+          {/* ── D·Tanda 5 · OPERACIONES ── */}
+          {/* Registro diario ← Checklists + Tareas + Temperaturas + Bitácora + Pulso */}
+          <Route path="ops/registro-diario" element={<TabsContainer title="Registro diario" tabs={[
+            { to: '.', label: 'Checklists', end: true },
+            { to: 'tareas', label: 'Tareas' },
+            { to: 'temperaturas', label: 'Temperaturas' },
+            { to: 'bitacora', label: 'Bitácora' },
+            { to: 'pulso', label: 'Pulso Cocina' },
+          ]} />}>
+            <Route index element={<ChecklistsAperturaCierre />} />
+            <Route path="tareas" element={<TareasOperativas />} />
+            <Route path="temperaturas" element={<ControlTemperaturas />} />
+            <Route path="bitacora" element={<BitacoraNovedades />} />
+            <Route path="pulso" element={<ProtectedRoute solo={['admin']}><PulsoCocina /></ProtectedRoute>} />
+          </Route>
+          {/* Mantenimiento ← Libro Equipos + Daños Menaje + Pedidos Menaje */}
+          <Route path="ops/mantenimiento" element={<TabsContainer title="Mantenimiento" tabs={[
+            { to: '.', label: 'Libro Equipos', end: true },
+            { to: 'danos', label: 'Daños Menaje' },
+            { to: 'pedidos-menaje', label: 'Pedidos Menaje' },
+          ]} />}>
+            <Route index element={<LibroEquipos />} />
+            <Route path="danos" element={<DanosMenaje />} />
+            <Route path="pedidos-menaje" element={<PedidosMenaje />} />
+          </Route>
+          {/* Calidad ← BPM/Calidad + Manuales */}
+          <Route path="ops/calidad" element={<TabsContainer title="Calidad" tabs={[
+            { to: '.', label: 'BPM / Calidad', end: true },
+            { to: 'manuales', label: 'Manuales' },
+          ]} />}>
+            <Route index element={<ProtectedRoute solo={['admin']}><BpmCalidad /></ProtectedRoute>} />
+            <Route path="manuales" element={<ManualesOperaciones />} />
+          </Route>
+          {/* Equipo ← Personas + Organigrama + Horarios + Presencia + Portal del empleado */}
+          <Route path="equipo" element={<TabsContainer title="Equipo" tabs={[
+            { to: '.', label: 'Personas', end: true },
+            { to: 'organigrama', label: 'Organigrama' },
+            { to: 'horarios', label: 'Horarios' },
+            { to: 'presencia', label: 'Presencia' },
+            { to: 'portal', label: 'Portal del empleado' },
+          ]} />}>
+            <Route index element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
+            <Route path="organigrama" element={<ProtectedRoute solo={['admin']}><Organigrama /></ProtectedRoute>} />
+            <Route path="horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
+            <Route path="presencia" element={<ProtectedRoute solo={['admin']}><ControlPresencia /></ProtectedRoute>} />
+            <Route path="portal" element={<PortalEmpleado />} />
+          </Route>
+
           <Route path="ops/reembolsos" element={<ReclamacionReembolsos />} />
-          <Route path="ops/temperaturas" element={<ControlTemperaturas />} />
-          <Route path="ops/checklists" element={<ChecklistsAperturaCierre />} />
-          <Route path="ops/tareas" element={<TareasOperativas />} />
-          <Route path="ops/manuales" element={<ManualesOperaciones />} />
-          <Route path="ops/bitacora" element={<BitacoraNovedades />} />
-          <Route path="ops/equipos" element={<LibroEquipos />} />
-          <Route path="ops/danos" element={<DanosMenaje />} />
-          <Route path="ops/pedidos-menaje" element={<PedidosMenaje />} />
-          <Route path="ops/pulso" element={<ProtectedRoute solo={['admin']}><PulsoCocina /></ProtectedRoute>} />
-          <Route path="ops/bpm" element={<ProtectedRoute solo={['admin']}><BpmCalidad /></ProtectedRoute>} />
           <Route path="ops/reuniones" element={<ProtectedRoute solo={['admin']}><ReunionesEquipo /></ProtectedRoute>} />
           <Route path="ops/recetas" element={<RecetasFichasTecnicas />} />
           <Route path="marcas" element={<ProtectedRoute solo={['admin']}><MarcasSimple /></ProtectedRoute>} />
 
-          <Route path="equipo" element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
-          <Route path="equipo/organigrama" element={<ProtectedRoute solo={['admin']}><Organigrama /></ProtectedRoute>} />
-          <Route path="equipo/horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
-          <Route path="equipo/presencia" element={<ProtectedRoute solo={['admin']}><ControlPresencia /></ProtectedRoute>} />
+          {/* Redirecciones Tanda 5 */}
+          <Route path="ops/checklists" element={<Navigate to="/ops/registro-diario" replace />} />
+          <Route path="ops/tareas" element={<Navigate to="/ops/registro-diario/tareas" replace />} />
+          <Route path="ops/temperaturas" element={<Navigate to="/ops/registro-diario/temperaturas" replace />} />
+          <Route path="ops/bitacora" element={<Navigate to="/ops/registro-diario/bitacora" replace />} />
+          <Route path="ops/pulso" element={<Navigate to="/ops/registro-diario/pulso" replace />} />
+          <Route path="ops/equipos" element={<Navigate to="/ops/mantenimiento" replace />} />
+          <Route path="ops/danos" element={<Navigate to="/ops/mantenimiento/danos" replace />} />
+          <Route path="ops/pedidos-menaje" element={<Navigate to="/ops/mantenimiento/pedidos-menaje" replace />} />
+          <Route path="ops/bpm" element={<Navigate to="/ops/calidad" replace />} />
+          <Route path="ops/manuales" element={<Navigate to="/ops/calidad/manuales" replace />} />
 
           <Route path="clientes/club" element={<Navigate to="/ventas/clientes/club" replace />} />
           <Route path="clientes/crm" element={<Navigate to="/ventas/clientes" replace />} />

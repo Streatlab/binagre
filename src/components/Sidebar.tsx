@@ -9,7 +9,6 @@ import {
   ShoppingCart,
   Settings,
   ChevronRight,
-  Users,
   BellRing,
   FileText,
   ClipboardList,
@@ -58,19 +57,13 @@ const SECTIONS: NavSection[] = [
   {
     key: 'operaciones', label: 'Operaciones', perfiles: ['admin'],
     items: [
-      { path: '/ops/checklists',    label: 'Checklists',       emoji: '✅', perfiles: ['admin'] },
-      { path: '/ops/tareas',        label: 'Tareas',           emoji: '📝', perfiles: ['admin'] },
-      { path: '/ops/manuales',      label: 'Manuales',         emoji: '📚', perfiles: ['admin'] },
-      { path: '/ops/reembolsos',    label: 'Reclamaciones',    emoji: '💸', perfiles: ['admin'] },
-      { path: '/ops/pulso',         label: 'Pulso Cocina',     emoji: '📡', perfiles: ['admin'] },
-      { path: '/ops/temperaturas',  label: 'Temperaturas',     emoji: '🌡️', perfiles: ['admin'] },
-      { path: '/ops/bpm',           label: 'BPM / Calidad',    emoji: '✅', perfiles: ['admin'] },
-      { path: '/ops/equipos',       label: 'Libro Equipos',    emoji: '🔧', perfiles: ['admin'] },
-      { path: '/ops/danos',         label: 'Daños Menaje',     emoji: '🍽️', perfiles: ['admin'] },
-      { path: '/ops/pedidos-menaje',label: 'Pedidos Menaje',   emoji: '📦', perfiles: ['admin'] },
-      { path: '/ops/bitacora',      label: 'Bitácora',         emoji: '🔔', perfiles: ['admin'] },
-      { path: '/ops/reuniones',     label: 'Reuniones Equipo', emoji: '🤝', perfiles: ['admin'] },
-      { path: '/marcas',            label: 'Marcas',           emoji: '🏷️', perfiles: ['admin'] },
+      { path: '/ops/registro-diario', label: 'Registro diario',  emoji: '✅', perfiles: ['admin'] },
+      { path: '/ops/mantenimiento',   label: 'Mantenimiento',    emoji: '🔧', perfiles: ['admin'] },
+      { path: '/ops/calidad',         label: 'Calidad',          emoji: '📚', perfiles: ['admin'] },
+      { path: '/ops/reembolsos',      label: 'Reclamaciones',    emoji: '💸', perfiles: ['admin'] },
+      { path: '/ops/reuniones',       label: 'Reuniones Equipo', emoji: '🤝', perfiles: ['admin'] },
+      { path: '/marcas',              label: 'Marcas',           emoji: '🏷️', perfiles: ['admin'] },
+      { path: '/equipo',              label: 'Equipo',           emoji: '👥', perfiles: ['admin'] },
     ],
   },
   {
@@ -101,15 +94,6 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    key: 'equipo', label: 'Equipo', perfiles: ['admin'],
-    items: [
-      { path: '/equipo',             label: 'Personas',    emoji: '👥', perfiles: ['admin'] },
-      { path: '/equipo/organigrama', label: 'Organigrama', emoji: '🏢', perfiles: ['admin'] },
-      { path: '/equipo/horarios',    label: 'Horarios',    emoji: '🗓️', perfiles: ['admin'] },
-      { path: '/equipo/presencia',   label: 'Presencia',   emoji: '🕐', perfiles: ['admin'] },
-    ],
-  },
-  {
     key: 'configuracion', label: 'Configuración', perfiles: ['admin'],
     items: [
       { path: '/configuracion/integraciones',        label: 'Integraciones',        emoji: '🔌', perfiles: ['admin'] },
@@ -132,7 +116,6 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
   compras:       { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },
   ventas:        { icon: TrendingUp,    headBg: '#7C3AED', headColor: BLANCO  },
   informes:      { icon: FileText,      headBg: GRANATE, headColor: BLANCO  },
-  equipo:        { icon: Users,         headBg: '#FF2E63', headColor: BLANCO  },
   configuracion: { icon: Settings,      headBg: '#484f66', headColor: BLANCO  },
 }
 
