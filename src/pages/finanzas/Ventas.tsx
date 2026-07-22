@@ -1,4 +1,5 @@
-import { BLANCO, GRIS, INK, OSC, ROJO } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRIS, INK, OSC, ROJO } from '@/styles/neobrutal'
+import { VENTAS_CANAL_CHIP } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useRef, Suspense, lazy } from 'react'
 import { ChevronDown } from 'lucide-react'
 import TabsPastilla from '@/components/ui/TabsPastilla'
@@ -51,13 +52,7 @@ const fmtF = (s: string | null) => {
 const NOMBRE_PLAT: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat', rushour: 'Rushour', desconocido: 'Desconocido',
 }
-const PILL_PLAT: Record<string, { bg: string; tx: string }> = {
-  uber:     { bg: '#06C16722', tx: '#05833f' },
-  glovo:    { bg: '#F2D20033', tx: '#8a7400' },
-  just_eat: { bg: '#FF800022', tx: '#c25e00' },
-  rushour:  { bg: '#1e223318', tx: '#1e2233' },
-  desconocido: { bg: '#9aa0ad22', tx: '#6b7280' },
-}
+const PILL_PLAT = VENTAS_CANAL_CHIP
 const nombrePlat = (p: string) => NOMBRE_PLAT[p] || p
 const pillPlat = (p: string) => PILL_PLAT[p] || PILL_PLAT.desconocido
 
@@ -74,12 +69,12 @@ function PastillaPlataforma({ plataforma }: { plataforma: string }) {
 
 // ── Multi-selector (mismo patrón que Panel Global) ─────────────────────────
 const dropdownBtn: React.CSSProperties = {
-  padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc',
+  padding: '6px 10px', borderRadius: 8, border: `0.5px solid ${BORDE_SUAVE}`,
   background: BLANCO, fontSize: 13, fontFamily: 'Lexend, sans-serif', color: INK,
   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', position: 'relative',
 }
 const menuStyle: React.CSSProperties = {
-  position: 'absolute', top: 38, right: 0, background: BLANCO, border: '0.5px solid #d0c8bc',
+  position: 'absolute', top: 38, right: 0, background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`,
   borderRadius: 8, width: 260, fontSize: 12, color: OSC, boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
   zIndex: 100, maxHeight: 360, overflowY: 'auto', paddingTop: 2, paddingBottom: 2,
 }
@@ -113,12 +108,12 @@ function MultiSelect({
             style={{
               display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
               background: 'transparent', border: 'none', fontSize: 13, fontFamily: 'Lexend, sans-serif',
-              color: GRIS, cursor: 'pointer', borderBottom: '0.5px solid #ebe8e2',
+              color: GRIS, cursor: 'pointer', borderBottom: `0.5px solid ${BORDE_SUAVE}`,
             }}
             onClick={() => { onAll(); setOpen(false) }}
           >Todos</button>
           {options.length === 0 && (
-            <div style={{ padding: '8px 12px', color: '#9aa0ad', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>Sin datos</div>
+            <div style={{ padding: '8px 12px', color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>Sin datos</div>
           )}
           {options.map(o => (
             <label key={o.id} style={{

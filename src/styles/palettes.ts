@@ -35,3 +35,17 @@ export const PDF_LINE_GRAY = '#ccc'
 export const RUNNING_MUT = '#5a4f3a'
 export const RUNNING_EST_TXT = '#3d362a'
 export const RUNNING_BORDER = '#4a3f2c'
+
+/** Ventas · chips tintados por canal (color de plataforma + alpha, dato). */
+export const VENTAS_CANAL_CHIP: Record<string, { bg: string; tx: string }> = {
+  uber:        { bg: '#06C16722', tx: '#05833f' },
+  glovo:       { bg: '#F2D20033', tx: '#8a7400' },
+  just_eat:    { bg: '#FF800022', tx: '#c25e00' },
+  rushour:     { bg: '#1e223318', tx: '#1e2233' },
+  desconocido: { bg: '#9aa0ad22', tx: '#6b7280' },
+}
+
+/** Punto de equilibrio · fondo de tarjeta con degradado verde suave. */
+export const PE_CARD_GRAD = 'linear-gradient(180deg, #fff 0%, #1D9E7508 100%)'
+/** Zebra de tabla clara (fila alterna). */
+export const ZEBRA_CLARA = '#EFF0EC'

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
   INK, OSC, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, AMA, GRIS, OSW, LEX, SHADOW, BORDER_CARD, PAD, CORP, CLARA, eyebrow, d, BLANCO } from '@/styles/neobrutal'
+import { RUNNING_MUT, RUNNING_BORDER, ZEBRA_CLARA } from '@/styles/palettes'
 import {
   loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
   type CanalConfig, type MarcasPorCanal,
@@ -317,14 +318,14 @@ export default function Cashflow() {
   // Tabla canónica Escandallo (patrón Notion 38dc8b1f): contenedor 5px + sombra 7px,
   // cabecera INK, banda lateral de estado, columna-bloque del KPI crítico, total INK.
   const CONT: CSSProperties = { background: CREMA, border: `5px solid ${INK}`, boxShadow: `7px 7px 0 ${INK}` }
-  const thT: CSSProperties = { fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: CREMA, background: INK, padding: '9px 8px', textAlign: 'left', whiteSpace: 'nowrap', borderRight: '1px solid #4a3f2c' }
+  const thT: CSSProperties = { fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: CREMA, background: INK, padding: '9px 8px', textAlign: 'left', whiteSpace: 'nowrap', borderRight: `1px solid ${RUNNING_BORDER}` }
   const thTR: CSSProperties = { ...thT, textAlign: 'right' }
   const thTC: CSSProperties = { ...thT, textAlign: 'center' }
   const tdT: CSSProperties = { fontFamily: LEX, fontSize: 14, fontWeight: 600, color: INK, padding: '6px 8px', borderTop: `3px solid ${INK}`, borderRight: '2px solid rgba(20,15,8,.12)', whiteSpace: 'nowrap' }
   const tdTN: CSSProperties = { ...tdT, fontFamily: OSW, fontWeight: 700, fontSize: 15.5, textAlign: 'right' }
   const totTd: CSSProperties = { background: INK, color: CREMA, fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '0.6px', textTransform: 'uppercase', padding: '9px 10px', borderTop: `5px solid ${INK}` }
   const totTdN: CSSProperties = { ...totTd, textAlign: 'right' }
-  const zebra = (i: number): string => (i % 2 ? '#EFF0EC' : BLANCO)
+  const zebra = (i: number): string => (i % 2 ? ZEBRA_CLARA : BLANCO)
   const BAND = 12
   const dot = (c: string): CSSProperties => ({ display: 'inline-block', width: 8, height: 8, background: c, marginRight: 6 })
   const SUBC: CSSProperties = { display: 'inline-flex', gap: 4, padding: '3px 4px', background: INK, border: `2px solid ${INK}` }
@@ -391,7 +392,7 @@ export default function Cashflow() {
         </div>
       </section>
 
-      {/* ── SECCIÓN 2 · COBROS · GRÁFICO (#fff) ── */}
+      {/* ── SECCIÓN 2 · COBROS · GRÁFICO (blanco) ── */}
       <section style={{ background: BLANCO, borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
         <span style={eyebrow(AMA)}>Cobros · cobrado y previsto · neto</span>
         {graf.length === 0
@@ -450,7 +451,7 @@ export default function Cashflow() {
         </div>
       </section>
 
-      {/* ── SECCIÓN 4 · INGRESOS PENDIENTES + CAJA POR MARCA (#fff / CLARO) ── */}
+      {/* ── SECCIÓN 4 · INGRESOS PENDIENTES + CAJA POR MARCA (blanco / CLARO) ── */}
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
         {/* Izquierda: tabla ingresos pendientes */}
         <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: BLANCO }}>
@@ -484,10 +485,10 @@ export default function Cashflow() {
                         return (
                           <tr key={i} style={{ background: zebra(i), opacity: cobrado ? 0.55 : 1 }}>
                             <td style={{ ...tdT, borderLeft: `${BAND}px solid ${band}` }}><span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', background: CORP[c.canal] ?? c.color, color: CLARA[c.canal] ? INK : BLANCO, fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '0.3px', whiteSpace: 'nowrap', border: `2px solid ${INK}` }}>{c.label}</span></td>
-                            <td style={{ ...tdT, color: '#5a4f3a', fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '.3px', textTransform: 'uppercase' }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
+                            <td style={{ ...tdT, color: RUNNING_MUT, fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '.3px', textTransform: 'uppercase' }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
                             <td style={tdTN}>{c.pedidos}</td>
                             <td style={{ ...tdT, fontFamily: OSW, fontWeight: 700, fontSize: 14, color: vencido ? ROJO : INK }}>{fmtCorta(c.pago)}{vencido ? ' · reclamar' : ''}</td>
-                            <td style={{ ...tdTN, color: '#5a4f3a' }}>{nf0(c.bruto)}</td>
+                            <td style={{ ...tdTN, color: RUNNING_MUT }}>{nf0(c.bruto)}</td>
                             <td style={{ ...tdTN, color: VERDE, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
                             <td style={{ ...tdT, padding: 0, textAlign: 'center' }}><div style={{ background: pctCol, color: BLANCO, fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '8px 6px', borderLeft: `3px solid ${INK}`, borderRight: `3px solid ${INK}` }}>{pct.toFixed(0)}%</div></td>
                             <td style={{ ...tdT, textAlign: 'center', borderRight: 'none' }}>{porBanco
@@ -519,7 +520,7 @@ export default function Cashflow() {
                       <span style={{ width: 14, height: 14, background: it.c, border: `2px solid ${INK}`, display: 'inline-block' }} />{it.t}
                     </span>
                   ))}
-                  <span style={{ fontFamily: LEX, fontSize: 11, color: '#5a4f3a', marginLeft: 'auto' }}>Neto estimado · del 19-jun hacia atrás ya cobrado.</span>
+                  <span style={{ fontFamily: LEX, fontSize: 11, color: RUNNING_MUT, marginLeft: 'auto' }}>Neto estimado · del 19-jun hacia atrás ya cobrado.</span>
                 </div>
               </div>
             )}
@@ -583,9 +584,9 @@ export default function Cashflow() {
                         return (
                           <tr key={i} style={{ background: zebra(i) }}>
                             <td style={{ ...tdT, borderLeft: `${BAND}px solid ${band}`, whiteSpace: 'normal' }}><span style={{ display: 'inline-block', width: 10, height: 10, background: band, border: `2px solid ${INK}`, marginRight: 8, verticalAlign: 'middle' }} />{g.nombre}</td>
-                            <td style={{ ...tdTN, color: '#5a4f3a', fontSize: 14 }}>{g.n}</td>
+                            <td style={{ ...tdTN, color: RUNNING_MUT, fontSize: 14 }}>{g.n}</td>
                             <td style={{ ...tdTN, color: ROJO }}>{nf0(g.total)}</td>
-                            <td style={{ ...tdTN, color: '#5a4f3a' }}>{nf0(g.iva)}</td>
+                            <td style={{ ...tdTN, color: RUNNING_MUT }}>{nf0(g.iva)}</td>
                             <td style={{ ...tdT, padding: 0, textAlign: 'center', borderRight: 'none' }}><div style={{ background: band, color: BLANCO, fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '8px 6px', borderLeft: `3px solid ${INK}` }}>{share.toFixed(0)}%</div></td>
                           </tr>
                         )

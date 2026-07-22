@@ -1,4 +1,6 @@
-import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, OSC } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, CREMA, GRANATE, GRIS, INK, NAR, OSC, ROSA_S, AZUL } from '@/styles/neobrutal'
+import { MORADO } from '@/styles/kit'
+import { PE_CARD_GRAD } from '@/styles/palettes'
 /**
  * Punto de Equilibrio v7 — fórmula unificada completa:
  *   neto = bruto − (com·bruto + fijo€·pedidos + fee_periodo·periodos·marcas) × 1,21
@@ -21,7 +23,7 @@ const ROJO=COLOR.rojoSL,VERDE=COLOR.verde,AMBAR=COLOR.ambar,ERR=COLOR.rojo
 const MESES_CORTO=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
 const GRUPOS_FIJOS=['Equipo','Alquiler','Controlables'] as const
 const GRUPOS_VARIABLES=['Producto'] as const
-const COLOR_GRUPO:Record<string,string>={'Producto':NAR,'Equipo':GRANATE,'Alquiler':'#8b5a9f','Controlables':'#4a90d9'}
+const COLOR_GRUPO:Record<string,string>={'Producto':NAR,'Equipo':GRANATE,'Alquiler':MORADO,'Controlables':AZUL}
 const IVA=0.21
 type Tab='resumen'|'simulador'
 interface CanalDatos{bruto:number;neto:number;margenPct:number;pedidos:number}
@@ -78,7 +80,7 @@ const ticketMedioNeto=totalPedidos>0?totalNeto/totalPedidos:0
 const diaCubreInfo=useMemo(()=>{if(!peMensual||brutoMedioDiario<=0)return{fecha:null as Date|null,diasNecesarios:null as number|null,mesesDelta:0};const diasNecesarios=Math.ceil(peMensual/brutoMedioDiario);const inicio=new Date(periodo.desde.getFullYear(),periodo.desde.getMonth(),1);const cur=new Date(inicio);let contados=0;let safety=0;while(contados<diasNecesarios&&safety<730){if(diasOperativosEnRango(cur,cur)===1)contados++;if(contados>=diasNecesarios)break;cur.setDate(cur.getDate()+1);safety++};const mesesDelta=(cur.getFullYear()-inicio.getFullYear())*12+(cur.getMonth()-inicio.getMonth());return{fecha:cur,diasNecesarios,mesesDelta}},[peMensual,brutoMedioDiario,periodo.desde,diasOperativosEnRango])
 const estado:'cubre'|'ajustado'|'pierde'=peMensual==null?'pierde':totalBruto>=peMensual*1.05?'cubre':totalBruto>=peMensual?'ajustado':'pierde'
 const colorEstado=estado==='cubre'?VERDE:estado==='ajustado'?AMBAR:ERR
-return(<div style={{background:embedded?'transparent':'#f5f3ef',padding:embedded?0:'24px 28px',minHeight:embedded?'auto':'100vh'}}>
+return(<div style={{background:embedded?'transparent':CREMA,padding:embedded?0:'24px 28px',minHeight:embedded?'auto':'100vh'}}>
 <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
 {!embedded && (
 <div>
@@ -91,7 +93,7 @@ return(<div style={{background:embedded?'transparent':'#f5f3ef',padding:embedded
 </div>
 </div>
 <TabsPastilla tabs={[{id:'resumen',label:'Resumen'},{id:'simulador',label:'Simulador'}]} activeId={tab} onChange={(id)=>setTab(id as Tab)}/>
-{error&&<div style={{background:'#FCEBEB',border:`1px solid ${ROJO}`,color:'#A32D2D',padding:16,borderRadius:8,fontFamily:FONT.body,fontSize:13,marginTop:16}}>Error: {error}</div>}
+{error&&<div style={{background:ROSA_S,border:`1px solid ${ROJO}`,color:ERR,padding:16,borderRadius:8,fontFamily:FONT.body,fontSize:13,marginTop:16}}>Error: {error}</div>}
 {loading&&!error&&<div style={{padding:40,color:T.mut,fontFamily:FONT.body}}>Cargando datos reales...</div>}
 {!loading&&!error&&tab==='resumen'&&<TabResumen totalBruto={totalBruto} totalNeto={totalNeto} totalPedidos={totalPedidos} totalFijos={totalFijos} totalComisiones={totalComisiones} totalVariables={totalVariables} margenContribPct={margenContribPct} margenNetoPct={margenNetoPct} peMensual={peMensual} diaCubreInfo={diaCubreInfo} datosPorCanal={datosPorCanal} gastosPorGrupo={gastosPorGrupo} diasOperativos={diasOperativos} brutoMedioDiario={brutoMedioDiario} colorEstado={colorEstado} beneficio={beneficio} ebitdaPct={ebitdaPct} ticketMedioBruto={ticketMedioBruto} ticketMedioNeto={ticketMedioNeto}/>}
 {!loading&&!error&&tab==='simulador'&&<TabSimulador totalBruto={totalBruto} totalFijos={totalFijos} margenContribPct={margenContribPct} peMensual={peMensual} totalPedidos={totalPedidos} brutoMedioDiario={brutoMedioDiario}/>}
@@ -150,7 +152,7 @@ if(fechaPE&&peMensual){if(mesesDelta===0){circuloLinea1=String(fechaPE.getDate()
 const pedidosNecesarios=peMensual&&ticketMedioBruto>0?Math.ceil(peMensual/ticketMedioBruto):null
 const brutoDiaObjetivo=peMensual!=null?peMensual/diasOperativos:null
 const diasNecesarios=diaCubreInfo.diasNecesarios
-return(<div style={{...cardBig,background:'linear-gradient(180deg, #fff 0%, #1D9E7508 100%)'}}>
+return(<div style={{...cardBig,background:PE_CARD_GRAD}}>
 <div style={lbl}>PUNTO DE EQUILIBRIO</div>
 <div style={{display:'flex',alignItems:'baseline',gap:18,marginTop:8,flexWrap:'wrap'}}>
 <div><div style={{fontFamily:OSWALD,fontSize:38,fontWeight:600,color:INK}}>{peMensual!=null?fmtEur(peMensual,{showEuro:false,decimals:2}):'—'}</div><div style={lblXs}>BRUTO PARA NO PERDER</div></div>
@@ -184,7 +186,7 @@ return(<div style={cardBig}>
 <div style={{fontFamily:LEXEND,fontSize:12,color:OSC,marginTop:10,marginBottom:14}}>Margen contribución <strong style={{fontFamily:OSWALD,color:VERDE}}>{fmtPct(margenContribPct,2)}</strong></div>
 <div style={{display:'flex',flexDirection:'column',gap:8}}>
 {filas.map((f,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',fontFamily:LEXEND,fontSize:13}}><span style={{color:OSC}}>{f.label}</span><span style={{fontFamily:OSWALD,fontWeight:600,color:f.color}}>{fmtEur(f.valor,{showEuro:false,decimals:2,signed:f.signed})}</span></div>)}
-<div style={{display:'flex',justifyContent:'space-between',fontFamily:LEXEND,fontSize:13,paddingTop:8,borderTop:'0.5px solid #d0c8bc'}}><span style={{color:OSC,fontWeight:600}}>Resultado</span><span style={{fontFamily:OSWALD,fontWeight:600,color:colorBen}}>{fmtEur(beneficio,{showEuro:false,decimals:2,signed:true})}</span></div>
+<div style={{display:'flex',justifyContent:'space-between',fontFamily:LEXEND,fontSize:13,paddingTop:8,borderTop:`0.5px solid ${BORDE_SUAVE}`}}><span style={{color:OSC,fontWeight:600}}>Resultado</span><span style={{fontFamily:OSWALD,fontWeight:600,color:colorBen}}>{fmtEur(beneficio,{showEuro:false,decimals:2,signed:true})}</span></div>
 </div>
 </div>)
 }
@@ -198,7 +200,7 @@ return(<div style={cardBig}>
 </div>
 <div style={{marginTop:16,display:'flex',flexDirection:'column',gap:0}}>
 {filas.length===0&&<div style={{fontFamily:LEXEND,fontSize:12,color:GRIS,fontStyle:'italic',padding:'8px 0'}}>Sin gastos en el periodo</div>}
-{filas.map((f,i)=>{const pct=totalBruto>0?(f.valor/totalBruto)*100:0;return<div key={i} style={{display:'grid',gridTemplateColumns:'1fr auto auto',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<filas.length-1?'0.5px solid #ebe8e2':'none'}}><span style={{display:'flex',alignItems:'center',gap:8,fontFamily:LEXEND,fontSize:13,color:OSC}}><span style={{width:8,height:8,borderRadius:4,background:f.color}}/>{f.label}</span><span style={{fontFamily:OSWALD,fontSize:16,fontWeight:600,color:INK,minWidth:110,textAlign:'right'}}>{fmtEur(f.valor,{showEuro:false,decimals:2})}</span><span style={{fontFamily:OSWALD,fontSize:12,color:GRIS,minWidth:60,textAlign:'right'}}>{fmtPct(pct,2)}</span></div>})}
+{filas.map((f,i)=>{const pct=totalBruto>0?(f.valor/totalBruto)*100:0;return<div key={i} style={{display:'grid',gridTemplateColumns:'1fr auto auto',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<filas.length-1?`0.5px solid ${BORDE_SUAVE}`:'none'}}><span style={{display:'flex',alignItems:'center',gap:8,fontFamily:LEXEND,fontSize:13,color:OSC}}><span style={{width:8,height:8,borderRadius:4,background:f.color}}/>{f.label}</span><span style={{fontFamily:OSWALD,fontSize:16,fontWeight:600,color:INK,minWidth:110,textAlign:'right'}}>{fmtEur(f.valor,{showEuro:false,decimals:2})}</span><span style={{fontFamily:OSWALD,fontSize:12,color:GRIS,minWidth:60,textAlign:'right'}}>{fmtPct(pct,2)}</span></div>})}
 </div>
 </div>)
 }
@@ -220,7 +222,7 @@ function calcularEscenario(e:Escenario){const brutoEsperado=e.ticketMedio*e.pedi
 return(<div style={{marginTop:16}}>
 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(320px, 1fr))',gap:14}}>
 {escenarios.map(e=>{const calc=calcularEscenario(e);const calcBase=calcularEscenario(baseEscenario);return<CardEscenario key={e.id} escenario={e} calc={calc} calcBase={calcBase} onChangePreset={(pp)=>cambiarPreset(e.id,pp)} onChange={(c,v)=>actualizarEscenario(e.id,c,v)} onDelete={()=>eliminarEscenario(e.id)}/>})}
-{escenarios.length<6&&<button onClick={añadirEscenario} style={{...cardBig,border:'1.5px dashed #d0c8bc',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:6,minHeight:320,background:'transparent',fontFamily:OSWALD,color:GRIS,fontSize:14,letterSpacing:'1px',textTransform:'uppercase'}}><span style={{fontSize:32,fontWeight:300}}>+</span>Añadir escenario</button>}
+{escenarios.length<6&&<button onClick={añadirEscenario} style={{...cardBig,border:`1.5px dashed ${BORDE_SUAVE}`,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:6,minHeight:320,background:'transparent',fontFamily:OSWALD,color:GRIS,fontSize:14,letterSpacing:'1px',textTransform:'uppercase'}}><span style={{fontSize:32,fontWeight:300}}>+</span>Añadir escenario</button>}
 </div>
 </div>)
 }
@@ -233,7 +235,7 @@ const deltaBeneficio=calc.beneficio-calcBase.beneficio
 return(<div style={{...cardBig,borderWidth:e.bloqueado?'1.5px':'0.5px',borderColor:e.bloqueado?OSC:BORDE_SUAVE,borderStyle:'solid'}}>
 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:14}}>
 <div style={{flex:1}}>
-{e.bloqueado?<div style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'1px',textTransform:'uppercase',color:INK}}>Datos reales del periodo</div>:<select value={e.preset} onChange={(ev)=>onChangePreset(ev.target.value as PresetKey)} style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'0.5px',color:INK,background:BLANCO,border:'0.5px solid #d0c8bc',borderRadius:6,padding:'5px 8px',cursor:'pointer',width:'100%'}}>{PRESETS.filter(p=>p.key!=='base').map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</select>}
+{e.bloqueado?<div style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'1px',textTransform:'uppercase',color:INK}}>Datos reales del periodo</div>:<select value={e.preset} onChange={(ev)=>onChangePreset(ev.target.value as PresetKey)} style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'0.5px',color:INK,background:BLANCO,border:`0.5px solid ${BORDE_SUAVE}`,borderRadius:6,padding:'5px 8px',cursor:'pointer',width:'100%'}}>{PRESETS.filter(p=>p.key!=='base').map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</select>}
 </div>
 <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
 <span style={{fontFamily:OSWALD,fontSize:10,fontWeight:500,letterSpacing:'1px',padding:'3px 8px',borderRadius:4,textTransform:'uppercase',background:PILL_BG[tipo],color:BLANCO}}>{PILL_LABEL[tipo]}</span>
@@ -250,13 +252,13 @@ return(<div style={{...cardBig,borderWidth:e.bloqueado?'1.5px':'0.5px',borderCol
 <RowResultado label="Pedidos para PE" valor={calc.pedNec!=null?fmtEur(calc.pedNec,{showEuro:false,decimals:0}):'—'} color={INK}/>
 <RowResultado label="Días para PE" valor={calc.diasNec!=null?`${fmtEur(calc.diasNec,{showEuro:false,decimals:0})} días`:'—'} color={INK}/>
 <RowResultado label="Beneficio esperado" valor={fmtEur(calc.beneficio,{showEuro:false,decimals:2,signed:true})} color={calc.beneficio>=0?VERDE:ERR} big/>
-{!e.bloqueado&&<div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:10,paddingTop:8,borderTop:'0.5px solid #d0c8bc'}}><span style={{fontFamily:OSWALD,fontSize:10,letterSpacing:'1px',textTransform:'uppercase',color:GRIS}}>Vs base · beneficio</span><span style={{fontFamily:OSWALD,fontSize:14,fontWeight:600,color:deltaBeneficio>0?VERDE:deltaBeneficio<0?ERR:GRIS}}>{fmtEur(deltaBeneficio,{showEuro:false,decimals:2,signed:true})}</span></div>}
+{!e.bloqueado&&<div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:10,paddingTop:8,borderTop:`0.5px solid ${BORDE_SUAVE}`}}><span style={{fontFamily:OSWALD,fontSize:10,letterSpacing:'1px',textTransform:'uppercase',color:GRIS}}>Vs base · beneficio</span><span style={{fontFamily:OSWALD,fontSize:14,fontWeight:600,color:deltaBeneficio>0?VERDE:deltaBeneficio<0?ERR:GRIS}}>{fmtEur(deltaBeneficio,{showEuro:false,decimals:2,signed:true})}</span></div>}
 </div>
 </div>)
 }
 function RowResultado({label,valor,color,big}:{label:string;valor:string;color:string;big?:boolean}){return(<div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:5}}><span style={{fontFamily:OSWALD,fontSize:10,fontWeight:500,letterSpacing:'1px',textTransform:'uppercase',color:GRIS}}>{label}</span><span style={{fontFamily:OSWALD,fontSize:big?22:15,fontWeight:600,color}}>{valor}</span></div>)}
 function RowInput({label,value,decimales,onChange,bloqueado}:{label:string;value:number;decimales:number;onChange:(v:number)=>void;bloqueado?:boolean}){
-const styleInput:CSSProperties={width:'100%',padding:'6px 10px',border:'0.5px solid #d0c8bc',borderRadius:6,fontSize:13,fontFamily:OSWALD,fontWeight:500,background:bloqueado?BORDE_SUAVE:BLANCO,color:bloqueado?GRIS:INK,textAlign:'right',outline:'none',cursor:bloqueado?'not-allowed':'text'}
+const styleInput:CSSProperties={width:'100%',padding:'6px 10px',border:`0.5px solid ${BORDE_SUAVE}`,borderRadius:6,fontSize:13,fontFamily:OSWALD,fontWeight:500,background:bloqueado?BORDE_SUAVE:BLANCO,color:bloqueado?GRIS:INK,textAlign:'right',outline:'none',cursor:bloqueado?'not-allowed':'text'}
 return(<div style={{display:'grid',gridTemplateColumns:'1fr 110px',gap:10,alignItems:'center',padding:'5px 0'}}><span style={{fontFamily:LEXEND,fontSize:12,color:OSC}}>{label}</span><input type="number" step={decimales>0?0.01:1} value={Number.isFinite(value)?value.toFixed(decimales):''} disabled={bloqueado} onChange={(ev)=>{const n=parseFloat(ev.target.value);if(!isNaN(n))onChange(n)}} style={styleInput}/></div>)
 }
 
