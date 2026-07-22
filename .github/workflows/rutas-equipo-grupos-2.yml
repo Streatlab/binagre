@@ -1,0 +1,46 @@
+name: rutas-equipo-grupos-2
+on:
+  push:
+    paths:
+      - '.github/workflows/rutas-equipo-grupos-2.yml'
+permissions:
+  contents: write
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: trabajo
+      - name: Rutas de Equipo por grupo
+        run: |
+          set -e
+          python3 aplicar_rutas_equipo.py || true
+          cat > /tmp/fix.py <<'PYEOF'
+          p = 'src/App.tsx'
+          s = open(p, encoding='utf-8').read()
+          viejo = '          <Route path="equipo" element={<Equipo />} />'
+          nuevo = (
+            '          <Route path="equipo" element={<Navigate to="/equipo/personas" replace />} />\n'
+            '          <Route path="equipo/personas" element={<Equipo grupo="personas" />} />\n'
+            '          <Route path="equipo/dinero" element={<Equipo grupo="dinero" />} />\n'
+            '          <Route path="equipo/dia-a-dia" element={<Equipo grupo="dia" />} />\n'
+            '          <Route path="equipo/documentos" element={<Equipo grupo="documentos" />} />\n'
+            '          <Route path="equipo/incentivos" element={<Navigate to="/equipo/personas?tab=incentivos" replace />} />\n'
+            '          <Route path="equipo/nominas" element={<Navigate to="/equipo/dinero?tab=nominas" replace />} />\n'
+            '          <Route path="equipo/costes" element={<Navigate to="/equipo/dinero?tab=costes" replace />} />'
+          )
+          assert viejo in s, 'ruta base de equipo no encontrada'
+          s = s.replace(viejo, nuevo, 1)
+          s = s.replace('<Navigate to="/equipo?tab=organigrama" replace />', '<Navigate to="/equipo/personas?tab=organigrama" replace />')
+          s = s.replace('<Navigate to="/equipo?tab=horarios" replace />', '<Navigate to="/equipo/dia-a-dia?tab=horarios" replace />')
+          s = s.replace('<Navigate to="/equipo?tab=presencia" replace />', '<Navigate to="/equipo/dia-a-dia?tab=presencia" replace />')
+          s = s.replace('<Navigate to="/equipo?tab=portal" replace />', '<Navigate to="/equipo/personas?tab=portal" replace />')
+          open(p, 'w', encoding='utf-8').write(s)
+          print('OK')
+          PYEOF
+          python3 /tmp/fix.py
+          git config user.name "Claude"
+          git config user.email "noreply@anthropic.com"
+          git commit -am "Equipo: una ruta por grupo (personas/dinero/dia-a-dia/documentos) + redirecciones [deploy]"
+          git push origin trabajo
