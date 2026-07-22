@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { PRESENCIA_WASH_VERDE_BG, PRESENCIA_WASH_ROJO_BG, PRESENCIA_SALIDA_TXT } from '@/styles/palettes'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -460,8 +461,8 @@ export default function ControlPresencia() {
                     <div>{u?.nombre ?? f.usuario_id.slice(0, 8)}</div>
                     <div>
                       <span style={{
-                        background: f.tipo === 'entrada' ? '#0d3320' : '#2a0d0d',
-                        color: f.tipo === 'entrada' ? VERDE : '#ff6b6b',
+                        background: f.tipo === 'entrada' ? PRESENCIA_WASH_VERDE_BG : PRESENCIA_WASH_ROJO_BG,
+                        color: f.tipo === 'entrada' ? VERDE : PRESENCIA_SALIDA_TXT,
                         borderRadius: 4,
                         padding: '2px 8px',
                         fontSize: 11,
@@ -551,7 +552,7 @@ export default function ControlPresencia() {
                 >
                   <div style={{ fontFamily: FONT_LABEL, color: AMARILLO }}>{fmtFecha(d.fecha + 'T12:00:00')}</div>
                   <div style={{ color: VERDE }}>{d.entrada ?? '—'}</div>
-                  <div style={{ color: '#ff6b6b' }}>{d.salida ?? '—'}</div>
+                  <div style={{ color: PRESENCIA_SALIDA_TXT }}>{d.salida ?? '—'}</div>
                   <div style={{ color: d.horas > 0 ? PRI : MUT }}>{d.horas > 0 ? fmtHorasFmt(d.horas) : '—'}</div>
                   <div style={{ color: MUT }}>{d.nota ?? '—'}</div>
                 </div>

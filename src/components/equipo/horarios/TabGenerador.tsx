@@ -89,7 +89,7 @@ export default function TabGenerador() {
   })
   const actionBtn: React.CSSProperties = {
     height: 30, padding: '0 12px', borderRadius: 8,
-    border: `1px solid #B01D23`, background: GRANATE, color: BLANCO,
+    border: `1px solid ${GRANATE}`, background: GRANATE, color: BLANCO,
     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
     fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px',
     textTransform: 'uppercase', fontWeight: 600,

@@ -2,6 +2,7 @@
  * Utilidades compartidas Horarios — formato rota cuadrante.
  * Datos reales se enchufan en un segundo paso (Supabase tablas: turnos_semana, reglas_horario).
  */
+import { COLORES_EMPLEADO_HORARIOS } from '@/styles/palettes'
 
 export const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] as const
 export type DiaKey = typeof DIAS[number]
@@ -48,14 +49,7 @@ export const REGLAS_DEFAULT: ReglasHorario = {
 }
 
 /** Color por empleado (rama suave del kit). Se asigna por orden estable. */
-export const COLORES_EMPLEADO = [
-  { bg: '#B5D4F4', text: '#042C53' }, // azul
-  { bg: '#C0DD97', text: '#173404' }, // verde
-  { bg: '#F4C0D1', text: '#4B1528' }, // rosa
-  { bg: '#FAC775', text: '#412402' }, // ámbar
-  { bg: '#9FE1CB', text: '#04342C' }, // teal
-  { bg: '#CECBF6', text: '#26215C' }, // morado
-] as const
+export const COLORES_EMPLEADO = COLORES_EMPLEADO_HORARIOS
 
 export function colorEmpleado(idx: number) {
   return COLORES_EMPLEADO[idx % COLORES_EMPLEADO.length]

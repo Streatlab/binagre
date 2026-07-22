@@ -52,7 +52,7 @@ export default function TabHistorico() {
     return { width: 32, height: 32, borderRadius: 8, border: `0.5px solid ${T.brd}`, background: disabled ? T.group : T.card, color: disabled ? T.mut : T.sec, cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.4 : 1 }
   }
   function actionBtn(): React.CSSProperties {
-    return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: GRANATE, color: BLANCO, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
+    return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid ${GRANATE}`, background: GRANATE, color: BLANCO, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
   }
 
   // Límite: no navegar a semanas futuras desde el histórico (para eso está TabEstaSemana)

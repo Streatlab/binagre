@@ -1,4 +1,5 @@
-import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { SIN_DATO_GRIS } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { UserPlus, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -10,7 +11,7 @@ type EstadoEmpleado = 'activo' | 'baja' | 'vacaciones' | 'despedido' | 'inactivo
 
 function estadoColor(estado: EstadoEmpleado): string {
   if (estado === 'activo') return VERDE
-  if (estado === 'baja') return '#888'
+  if (estado === 'baja') return SIN_DATO_GRIS
   if (estado === 'vacaciones') return AZUL_CL
   return GRANATE
 }
@@ -140,7 +141,7 @@ export default function TabEmpleados() {
                 >
                   <td style={tdSticky}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Avatar nombre={emp.nombre} foto={emp.foto_url} color={archivado ? '#444' : undefined} />
+                      <Avatar nombre={emp.nombre} foto={emp.foto_url} color={archivado ? GRIS : undefined} />
                       <div>
                         <div style={{ fontWeight: 600, color: T.pri }}>{emp.nombre}</div>
                         <div style={{ fontSize: 11, color: T.mut }}>{emp.datos_personales?.email || emp.email || '—'}</div>

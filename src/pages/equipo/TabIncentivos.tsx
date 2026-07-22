@@ -1,4 +1,5 @@
 import { GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { INCENTIVOS_PRINT as IP } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { Printer, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -100,26 +101,26 @@ export default function TabIncentivos() {
     const r = calc(cfg, e, meds[e.empleado_id], fact)
     const w = window.open('', '_blank', 'width=760,height=900')
     if (!w) return
-    const row = (k: string, v: string) => `<tr><td style="padding:8px 4px;border-bottom:1px solid #eee">${k}</td><td style="padding:8px 4px;border-bottom:1px solid #eee;text-align:right;font-weight:600">${v}</td></tr>`
+    const row = (k: string, v: string) => `<tr><td style="padding:8px 4px;border-bottom:1px solid ${IP.borde}">${k}</td><td style="padding:8px 4px;border-bottom:1px solid ${IP.borde};text-align:right;font-weight:600">${v}</td></tr>`
     w.document.write(`<html><head><title>Incentivos ${e.nombre}</title></head>
-      <body style="font-family:Arial,sans-serif;max-width:640px;margin:32px auto;color:#111">
+      <body style="font-family:Arial,sans-serif;max-width:640px;margin:32px auto;color:${IP.texto}">
       <h1 style="font-size:22px;margin:0">Incentivos · ${e.nombre}</h1>
-      <div style="color:#666;margin-bottom:20px">${MESES[mes-1]} ${anio}</div>
-      <div style="background:#f6f6f6;padding:16px;border-radius:8px;margin-bottom:20px">
-        <div style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1px">Facturación cocina este mes</div>
+      <div style="color:${IP.mut};margin-bottom:20px">${MESES[mes-1]} ${anio}</div>
+      <div style="background:${IP.fondoSuave};padding:16px;border-radius:8px;margin-bottom:20px">
+        <div style="font-size:12px;color:${IP.mut};text-transform:uppercase;letter-spacing:1px">Facturación cocina este mes</div>
         <div style="font-size:28px;font-weight:700">${fact.toLocaleString('es-ES')} €</div>
-        <div style="font-size:13px;color:#666">Candado: ${cfg.tramo1.toLocaleString('es-ES')} abre · ${cfg.tramo2.toLocaleString('es-ES')} sube · ${cfg.tramo3.toLocaleString('es-ES')} completo — <b>Nivel ${r.nivel}</b></div>
+        <div style="font-size:13px;color:${IP.mut}">Candado: ${cfg.tramo1.toLocaleString('es-ES')} abre · ${cfg.tramo2.toLocaleString('es-ES')} sube · ${cfg.tramo3.toLocaleString('es-ES')} completo — <b>Nivel ${r.nivel}</b></div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:14px">
         ${row('Por facturación', EUR(r.impFact))}
         ${row('Global compartido (reembolsos, limpieza, mermas, incidencias)', EUR(r.impGlobal))}
         ${row('Personal (puntualidad, errores)', EUR(r.impPers))}
       </table>
-      <div style="display:flex;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:2px solid #111">
+      <div style="display:flex;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:2px solid ${IP.texto}">
         <div style="font-size:16px;font-weight:700">A COBRAR ESTE MES</div>
-        <div style="font-size:22px;font-weight:700;color:#B01D23">${EUR(r.total)}</div>
+        <div style="font-size:22px;font-weight:700;color:${IP.granate}">${EUR(r.total)}</div>
       </div>
-      <div style="color:#999;font-size:11px;margin-top:6px">Tope máximo ${EUR(cfg.tope_total)}. Si la cocina no llega a ${cfg.tramo1.toLocaleString('es-ES')} €, no se cobra ningún incentivo.</div>
+      <div style="color:${IP.pieMut};font-size:11px;margin-top:6px">Tope máximo ${EUR(cfg.tope_total)}. Si la cocina no llega a ${cfg.tramo1.toLocaleString('es-ES')} €, no se cobra ningún incentivo.</div>
       <script>window.print()</script></body></html>`)
     w.document.close()
   }

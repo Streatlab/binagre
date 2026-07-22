@@ -162,5 +162,44 @@ export const ERROR_BANNER_BORDE = '#aa3030'
 
 /** Fila/tarjeta seleccionada en Libro de Equipos (navy oscuro). */
 export const LIBRO_SELECTED_BG = '#1a1f2e'
+
+/** Incentivos · documento HTML imprimible independiente (window.open), fijo
+ * como un "hoja" — no sigue el tema claro/oscuro de la app a propósito. */
+/** Calendario Laboral (Equipo) · color por empleado (top-5 + fallback) y tipos
+ * de ausencia sin equivalente semántico en el kit. */
+export const EMP_CALENDARIO_EXTRA = ['#1E88CC', '#9b59b6', '#e67e22', '#27ae60']
+export const PERMISO_RETRIBUIDO = '#9b59b6'
+export const FESTIVO_CALENDARIO_TXT = '#9a9a1e'
+export const SIN_DATO_GRIS = '#888'
+
+/** Organigrama · dorado "responsable" y violeta "habilidades/onboarding" (sin equivalente kit). */
+export const ORG_DORADO = '#e8b341'
+export const ORG_VIOLETA = '#9b6dff'
+
+/** Control de Presencia · washes de entrada/salida (verdes/rojos oscuros propios). */
+export const PRESENCIA_WASH_VERDE_BG = '#0d3320'
+export const PRESENCIA_WASH_ROJO_BG = '#2a0d0d'
+export const PRESENCIA_SALIDA_TXT = '#ff6b6b'
+
+/** Horarios (Equipo) · color pastel por empleado, rama suave del kit (6 tonos). */
+export const COLORES_EMPLEADO_HORARIOS = [
+  { bg: '#B5D4F4', text: '#042C53' }, // azul
+  { bg: '#C0DD97', text: '#173404' }, // verde
+  { bg: '#F4C0D1', text: '#4B1528' }, // rosa
+  { bg: '#FAC775', text: '#412402' }, // ámbar
+  { bg: '#9FE1CB', text: '#04342C' }, // teal
+  { bg: '#CECBF6', text: '#26215C' }, // morado
+] as const
+/** Botón "Guardando…" (Cuadrante Horarios): verde apagado mientras persiste. */
+export const VERDE_GUARDANDO = '#7a8'
+
+export const INCENTIVOS_PRINT = {
+  borde: '#eee',
+  texto: '#111',
+  mut: '#666',
+  fondoSuave: '#f6f6f6',
+  pieMut: '#999',
+  granate: '#B01D23',
+}
 /** Verde "positivo" Material (distinto de VERDE del kit), usado en Inventario. */
 export const VERDE_POSITIVO = '#4caf50'

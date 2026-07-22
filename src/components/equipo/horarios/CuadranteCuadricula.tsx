@@ -19,8 +19,9 @@ import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import { esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
 import {
   DIAS, type DiaKey, type Empleado, type Turno, type Tramo,
-  horasReales, horasBrutas,
+  horasReales, horasBrutas, colorEmpleado,
 } from './utils'
+import { PANEL_SIDEBAR_BG, VERDE_GUARDANDO } from '@/styles/palettes'
 import {
   cargarOverrides, guardarSemana, claveOverride, normalizarHora,
   type OverridesMap,
@@ -28,7 +29,7 @@ import {
 import { crearEmpleado, archivarEmpleado, guardarOrden, renombrarEmpleado } from './personal'
 
 const FESTIVO_ROJO = GRANATE
-const NEGRO = '#1e2233'
+const NEGRO = PANEL_SIDEBAR_BG
 const SEMANA_SIN_LIBRE = '2026-06-15'
 
 /** Descanso de 30 min/día descontado a TODAS las personas (afecta solo al cálculo de horas efectivas). */
@@ -196,17 +197,7 @@ export function CuadranteCuadricula({
     return [...reordenados, ...nuevos]
   }, [empleados, ordenLocal])
 
-  function color(idx: number) {
-    const pal = [
-      { bg: '#B5D4F4', text: '#042C53' },
-      { bg: '#C0DD97', text: '#173404' },
-      { bg: '#F4C0D1', text: '#4B1528' },
-      { bg: '#FAC775', text: '#412402' },
-      { bg: '#9FE1CB', text: '#04342C' },
-      { bg: '#CECBF6', text: '#26215C' },
-    ]
-    return pal[idx % pal.length]
-  }
+  const color = colorEmpleado
 
   function totalEmp(empId: string, pila: string) {
     let real = 0, bruto = 0
@@ -312,7 +303,7 @@ export function CuadranteCuadricula({
               <Pencil size={14} /> Editar
             </button>
           ) : (
-            <button onClick={guardarTodo} disabled={guardado === 'guardando'} style={topBtn(guardado === 'guardando' ? '#7a8' : VERDE, guardado === 'guardando')}>
+            <button onClick={guardarTodo} disabled={guardado === 'guardando'} style={topBtn(guardado === 'guardando' ? VERDE_GUARDANDO : VERDE, guardado === 'guardando')}>
               {guardado === 'guardando' ? 'Guardando…' : 'Guardar'}
             </button>
           )}

@@ -1,4 +1,5 @@
 import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { ORG_DORADO, ORG_VIOLETA } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, X, Trash2, LayoutGrid, List, Users, CheckCircle2, CircleDashed, Pencil, Star } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -120,7 +121,7 @@ export default function Organigrama() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, margin: '18px 0 26px' }}>
         <KpiCard T={T} label="Puestos" value={String(kpis.total)} icon={<Users size={15} />} />
         <KpiCard T={T} label="Cubiertos" value={`${kpis.cubiertos} / ${kpis.internos}`} icon={<CheckCircle2 size={15} />} accent={VERDE} />
-        <KpiCard T={T} label="Por cubrir" value={String(kpis.porCubrir)} icon={<CircleDashed size={15} />} accent={kpis.porCubrir ? '#e8b341' : T.mut} />
+        <KpiCard T={T} label="Por cubrir" value={String(kpis.porCubrir)} icon={<CircleDashed size={15} />} accent={kpis.porCubrir ? ORG_DORADO : T.mut} />
         <KpiCard T={T} label="Cobertura" value={`${kpis.pct}%`} />
         <KpiCard T={T} label="Dedicación objetivo" value={`${kpis.fte} FTE`} />
       </div>
@@ -237,7 +238,7 @@ function OcNode({ p, T, onClick, foto, dashed }: { p: Puesto; T: any; onClick: (
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 700, color: asignado ? T.pri : T.mut, lineHeight: 1.2, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asignado ? p.persona : 'Por asignar'}</div>
-            {p.es_responsable && <Star size={13} color="#e8b341" fill="#e8b341" style={{ flexShrink: 0 }} />}
+            {p.es_responsable && <Star size={13} color={ORG_DORADO} fill={ORG_DORADO} style={{ flexShrink: 0 }} />}
           </div>
           <div style={{ fontSize: 12, color: T.sec, marginTop: 3, lineHeight: 1.3 }}>{p.puesto}</div>
         </div>
@@ -272,7 +273,7 @@ function Tabla({ puestos, T, isDark, onRow }: { puestos: Puesto[]; T: any; isDar
                 <tr key={p.id} onClick={() => onRow(p)} style={{ borderBottom: `1px solid ${T.brd}`, cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <td style={td}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: p.color ?? GRANATE, marginRight: 8 }} />{p.puesto}{p.es_responsable && <Star size={11} color="#e8b341" fill="#e8b341" style={{ marginLeft: 6, verticalAlign: '-1px' }} />}</td>
+                  <td style={td}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: p.color ?? GRANATE, marginRight: 8 }} />{p.puesto}{p.es_responsable && <Star size={11} color={ORG_DORADO} fill={ORG_DORADO} style={{ marginLeft: 6, verticalAlign: '-1px' }} />}</td>
                   <td style={{ ...td, color: asignado ? T.pri : T.mut }}>{p.persona}</td>
                   <td style={{ ...td, color: T.sec }}>{p.area}</td>
                   <td style={{ ...td, color: T.sec, fontSize: 12 }}>{dedicLabel(p)}</td>
@@ -361,7 +362,7 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8, alignItems: 'center' }}>
                 <span style={{ padding: '3px 9px', borderRadius: 5, fontSize: 12, fontWeight: 600, background: asignado ? '#1D9E7522' : T.group, color: asignado ? VERDE : T.mut }}>{data.persona}</span>
                 <span style={{ fontSize: 12, color: T.sec }}>{data.area} · {dedicLabel(data)}</span>
-                {data.es_responsable && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#e8b341' }}><Star size={12} fill="#e8b341" />Responsable de área</span>}
+                {data.es_responsable && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: ORG_DORADO }}><Star size={12} fill={ORG_DORADO} />Responsable de área</span>}
               </div>
             )}
           </div>
@@ -389,12 +390,12 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18 }}>
                 <Seccion T={T} titulo="Habilidades duras"><Lista T={T} items={lst(data.hab_duras)} dot={AZUL_CL} /></Seccion>
-                <Seccion T={T} titulo="Habilidades blandas"><Lista T={T} items={lst(data.hab_blandas)} dot="#9b6dff" /></Seccion>
+                <Seccion T={T} titulo="Habilidades blandas"><Lista T={T} items={lst(data.hab_blandas)} dot={ORG_VIOLETA} /></Seccion>
               </div>
 
               <Seccion T={T} titulo="Indicadores de desempeño (KPIs)"><Lista T={T} items={lst(data.kpis)} dot={VERDE} /></Seccion>
-              <Seccion T={T} titulo="Controles de cumplimiento y rendimiento"><Lista T={T} items={lst(data.controles)} dot="#e8b341" /></Seccion>
-              <Seccion T={T} titulo="Onboarding"><Lista T={T} items={lst(data.onboarding)} dot="#9b6dff" /></Seccion>
+              <Seccion T={T} titulo="Controles de cumplimiento y rendimiento"><Lista T={T} items={lst(data.controles)} dot={ORG_DORADO} /></Seccion>
+              <Seccion T={T} titulo="Onboarding"><Lista T={T} items={lst(data.onboarding)} dot={ORG_VIOLETA} /></Seccion>
               <Seccion T={T} titulo="Plan de capacitación"><Lista T={T} items={lst(data.capacitacion)} dot={VERDE} /></Seccion>
 
               {data.plan_carrera && <Seccion T={T} titulo="Plan de carrera / ascenso"><div style={{ color: T.sec, fontSize: 13, lineHeight: 1.5 }}>{data.plan_carrera}</div></Seccion>}

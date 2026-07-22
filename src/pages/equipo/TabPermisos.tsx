@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, CLARO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -228,7 +228,7 @@ export default function TabPermisos() {
               style={{ width: '100%', padding: '8px 10px', background: INK, border: `1px solid ${T.brd}`, borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13, minHeight: 80, resize: 'vertical', boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
-              <button onClick={() => setNotaRej(null)} style={{ padding: '7px 14px', borderRadius: 6, border: `1px solid ${T.brd}`, background: '#222', color: T.pri, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={() => setNotaRej(null)} style={{ padding: '7px 14px', borderRadius: 6, border: `1px solid ${T.brd}`, background: CLARO, color: T.pri, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
               <button
                 onClick={() => rechazar(notaRej.id, notaRej.nota)}
                 disabled={!notaRej.nota.trim()}
