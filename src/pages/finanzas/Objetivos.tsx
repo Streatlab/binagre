@@ -69,7 +69,7 @@ function barColor(pct: number): string {
   return pct > 0 ? '#1D9E75' : '#E24B4A'
 }
 
-export default function Objetivos() {
+export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
   const { T, isDark } = useTheme()
   const { diasCerradosSemana, diasOperativosEnRango, tipoDia } = useCalendario()
   const { canales } = useConfig()
@@ -497,7 +497,7 @@ export default function Objetivos() {
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-        <h1 style={pageTitleStyle(T)}>OBJETIVOS</h1>
+        {!embedded && <h1 style={pageTitleStyle(T)}>OBJETIVOS</h1>}
         <SelectorFechaUniversal nombreModulo="objetivos" defaultOpcion="semana_actual" onChange={handlePeriodo} />
       </div>
 
@@ -811,3 +811,5 @@ export default function Objetivos() {
     </div>
   )
 }
+
+export default Objetivos

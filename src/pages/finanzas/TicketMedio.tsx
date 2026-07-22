@@ -25,7 +25,7 @@ function fmtMesEtiqueta(mes: string): string {
   return `${MESES_LABEL[idx] ?? m} ${y}`;
 }
 
-export default function TicketMedio() {
+export function TicketMedio({ embedded = false }: { embedded?: boolean } = {}) {
   const { loading, error, ticketGlobalUltimoMes, mesUltimoMes, mejorMarca, tendenciaPct, porMarca, porCanal, evolucion } = useTicketMedio();
 
   const maxTicketCanal = useMemo(
@@ -42,13 +42,15 @@ export default function TicketMedio() {
   const tendenciaColor = tendenciaPct === null ? GRIS : tendenciaPositiva ? VERDE : ROJO;
 
   return (
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: "100vh", color: INK }}>
+    <div style={{ fontFamily: LEX, padding: embedded ? 0 : 28, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : "100vh", color: INK }}>
 
-      <div style={{ marginBottom: 20 }}>
-        <span style={eyebrow(NAR, "#fff")}>FINANZAS</span>
-        <h1 style={{ ...d("34px", GRANATE), margin: "10px 0 6px" }}>TICKET MEDIO</h1>
-        <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Por marca, por canal y global · palanca de crecimiento sin más pedidos</span>
-      </div>
+      {!embedded && (
+        <div style={{ marginBottom: 20 }}>
+          <span style={eyebrow(NAR, "#fff")}>FINANZAS</span>
+          <h1 style={{ ...d("34px", GRANATE), margin: "10px 0 6px" }}>TICKET MEDIO</h1>
+          <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Por marca, por canal y global · palanca de crecimiento sin más pedidos</span>
+        </div>
+      )}
 
       {/* Hero KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 22 }}>
@@ -173,3 +175,5 @@ export default function TicketMedio() {
     </div>
   );
 }
+
+export default TicketMedio

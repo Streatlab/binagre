@@ -13,7 +13,7 @@ import { fmtPct, fmtNum } from "@/lib/format";
 
 const card: React.CSSProperties = { background: "#fff", border: BORDER_CARD, boxShadow: SHADOW };
 
-export default function RepeticionClientes() {
+export function RepeticionClientes({ embedded = false }: { embedded?: boolean } = {}) {
   const { loading, error, metricas, porMarca } = useRepeticionClientes();
 
   if (loading) {
@@ -30,15 +30,17 @@ export default function RepeticionClientes() {
   const sinDatos = metricas.totalClientes === 0;
 
   return (
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: "100vh", color: INK }}>
+    <div style={{ fontFamily: LEX, padding: embedded ? 0 : 28, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : "100vh", color: INK }}>
 
-      <div style={{ marginBottom: 20 }}>
-        <span style={eyebrow(NAR, "#fff")}>FINANZAS</span>
-        <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
-          REPETICIÓN DE CLIENTES
-        </h1>
-        <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>% de clientes que repiten, frecuencia media de pedidos y clientes perdidos</span>
-      </div>
+      {!embedded && (
+        <div style={{ marginBottom: 20 }}>
+          <span style={eyebrow(NAR, "#fff")}>FINANZAS</span>
+          <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
+            REPETICIÓN DE CLIENTES
+          </h1>
+          <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>% de clientes que repiten, frecuencia media de pedidos y clientes perdidos</span>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 20 }}>
         <HeroKpi
@@ -112,3 +114,5 @@ function HeroKpi({ label, value, sub, bg, fg }: { label: string; value: string; 
     </div>
   );
 }
+
+export default RepeticionClientes
