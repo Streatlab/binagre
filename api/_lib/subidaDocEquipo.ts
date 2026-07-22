@@ -191,15 +191,27 @@ export async function procesarResumenNominas(
       coste_empresa: fila.coste_empresa,
     }
 
-    if (!resolucion) {
-      // Cero pérdidas: la fila no reconocida queda en la cola de revisión con sus
-      // importes en payload. Rubén la asigna en un clic (aprende alias) y se crea
-      // la nómina desde el payload — no hace falta re-subir el resumen.
+    // Cero pérdidas: cualquier fila que no acabe en `nominas` (trabajador no
+    // reconocido O error al guardar) queda en la cola de revisión con sus importes
+    // en payload. Rubén la asigna en un clic (aprende alias) y se crea la nómina
+    // desde el payload — no hace falta re-subir el resumen. Sin duplicar: si ya
+    // hay una pendiente igual (mismo trabajador/mes/año), no se crea otra.
+    const aRevisionConPayload = async (motivo: string) => {
+      const { data: yaPendiente } = await supabaseAdmin
+        .from('equipo_docs_revision')
+        .select('id')
+        .eq('estado', 'pendiente')
+        .eq('empleado_nombre', fila.trabajador)
+        .eq('mes', mesFinal)
+        .eq('anio', anioFinal)
+        .limit(1)
+        .maybeSingle()
+      if (yaPendiente) return
       await supabaseAdmin.from('equipo_docs_revision').insert({
         nombre_archivo: `${nombreOriginal} · fila "${fila.trabajador}"`,
         tipo_detectado: 'nomina',
         confianza: 0,
-        motivo: `Trabajador del resumen no reconocido: "${fila.trabajador}". Asigna el empleado para crear su nómina de ${mesFinal}/${anioFinal}.`,
+        motivo,
         mes: mesFinal,
         anio: anioFinal,
         empleado_nombre: fila.trabajador,
@@ -214,6 +226,10 @@ export async function procesarResumenNominas(
           drive_pendiente: archivado.drivePendiente,
         },
       })
+    }
+
+    if (!resolucion) {
+      await aRevisionConPayload(`Trabajador del resumen no reconocido: "${fila.trabajador}". Asigna el empleado para crear su nómina de ${mesFinal}/${anioFinal}.`)
       revisarIdentidad.push(filaOut)
       continue
     }
@@ -253,6 +269,7 @@ export async function procesarResumenNominas(
     })
 
     if (errInsert) {
+      await aRevisionConPayload(`La nómina de "${fila.trabajador}" (${mesFinal}/${anioFinal}) no se pudo guardar: ${errInsert.message}. Asigna el empleado para reintentarlo desde aquí.`)
       revisarIdentidad.push({ ...filaOut, trabajador: `${fila.trabajador} (error al guardar: ${errInsert.message})` })
       continue
     }
