@@ -1,4 +1,5 @@
-import { AZUL_CL, BLANCO, GRIS, INK, NAR, ROJO_S, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, BORDE_SUAVE, GRIS, INK, NAR, ROJO_S, VERDE } from '@/styles/neobrutal'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -96,7 +97,7 @@ export default function PulsoCocina() {
   const totalOrdAvg   = channels.reduce((s, c) => s + c.avgOrders, 0)
 
   const DeltaBadge = ({ val, avg }: { val: number; avg: number }) => {
-    if (avg === 0) return <span style={{ color: '#555555' }}>—</span>
+    if (avg === 0) return <span style={{ color: GRIS }}>—</span>
     const d = ((val - avg) / avg) * 100
     return <span style={{ color: d >= 0 ? COLORS.ok : COLORS.redSL, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{d >= 0 ? '▲' : '▼'} {Math.abs(d).toFixed(1)}%</span>
   }
@@ -111,10 +112,10 @@ export default function PulsoCocina() {
             {' · '}Actualizado {lastRefresh.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
-        <button onClick={loadData} style={{ padding: '8px 16px', background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Actualizar</button>
+        <button onClick={loadData} style={{ padding: '8px 16px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: GRIS, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Actualizar</button>
       </div>
 
-      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
 
       {loading ? <div style={{ color: COLOR.textMut, fontSize: 13, padding: '20px 0' }}>Cargando…</div> : (
         <>
@@ -123,10 +124,10 @@ export default function PulsoCocina() {
               { label: 'Facturación Hoy', val: fmtE(totalRevToday), avg: fmtE(totalRevAvg), delta: totalRevAvg > 0 ? ((totalRevToday - totalRevAvg) / totalRevAvg) * 100 : null },
               { label: 'Pedidos Hoy', val: Math.round(totalOrdToday).toString(), avg: `Media: ${Math.round(totalOrdAvg)}`, delta: totalOrdAvg > 0 ? ((totalOrdToday - totalOrdAvg) / totalOrdAvg) * 100 : null },
             ].map(kpi => (
-              <div key={kpi.label} style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 22px' }}>
+              <div key={kpi.label} style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 10, padding: '20px 22px' }}>
                 <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 8 }}>{kpi.label}</div>
                 <div style={{ fontFamily: FONT.heading, fontSize: 32, fontWeight: 600, lineHeight: 1 }}>{kpi.val}</div>
-                <div style={{ fontSize: 12, color: '#555555', marginTop: 6 }}>{kpi.avg}</div>
+                <div style={{ fontSize: 12, color: GRIS, marginTop: 6 }}>{kpi.avg}</div>
                 {kpi.delta !== null && (
                   <div style={{ fontFamily: FONT.heading, fontSize: 13, marginTop: 6, color: kpi.delta >= 0 ? COLORS.ok : COLORS.redSL, fontWeight: 600 }}>
                     {kpi.delta >= 0 ? '▲' : '▼'} {Math.abs(kpi.delta).toFixed(1)}% vs media
@@ -136,18 +137,18 @@ export default function PulsoCocina() {
             ))}
           </div>
 
-          <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #2a2a2a' }}>
+          <div style={{ overflowX: 'auto', borderRadius: 10, border: `1px solid ${BORDE_SUAVE}` }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: INK }}>
                   {['Canal', 'Facturación Hoy', 'Media (mismo día)', 'Var.', 'Pedidos Hoy', 'Media Pedidos', 'Var.'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, fontWeight: 600, borderBottom: '1px solid #2a2a2a', whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, fontWeight: 600, borderBottom: `1px solid ${BORDE_SUAVE}`, whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {channels.map((ch, i) => (
-                  <tr key={ch.key} style={{ background: i % 2 === 0 ? BG_OPS : INK, borderBottom: '1px solid #1e1e1e' }}>
+                  <tr key={ch.key} style={{ background: i % 2 === 0 ? BG_OPS : INK, borderBottom: `1px solid ${BORDE_SUAVE}` }}>
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ width: 10, height: 10, borderRadius: '50%', background: ch.color, flexShrink: 0 }} />

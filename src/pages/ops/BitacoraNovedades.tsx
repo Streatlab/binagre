@@ -1,4 +1,5 @@
-import { BLANCO, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -92,16 +93,16 @@ export default function BitacoraNovedades() {
         </button>
       </div>
 
-      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
 
       {/* Formulario nueva entrada */}
       {showForm && (
-        <div style={{ background: INK, border: '1px solid #383838', borderRadius: 10, padding: '20px', marginBottom: 20 }}>
+        <div style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 10, padding: '20px', marginBottom: 20 }}>
           <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Turno</label>
               <select value={turno} onChange={e => setTurno(e.target.value)}
-                style={{ padding: '8px 10px', background: INK, border: '1px solid #2a2a2a', borderRadius: 6, color: BLANCO, fontSize: 13 }}>
+                style={{ padding: '8px 10px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontSize: 13 }}>
                 {TURNOS.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
@@ -109,7 +110,7 @@ export default function BitacoraNovedades() {
               <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Novedad</label>
               <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={3}
                 placeholder="Escribe la novedad del turno..."
-                style={{ padding: '8px 10px', background: INK, border: '1px solid #2a2a2a', borderRadius: 6, color: BLANCO, fontSize: 13, resize: 'vertical', fontFamily: FONT.body }} />
+                style={{ padding: '8px 10px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontSize: 13, resize: 'vertical', fontFamily: FONT.body }} />
             </div>
           </div>
           <div style={{ marginBottom: 12 }}>
@@ -128,7 +129,7 @@ export default function BitacoraNovedades() {
               style={{ padding: '8px 18px', background: COLORS.redSL, color: BLANCO, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
               {saving ? 'Guardando…' : 'Guardar'}
             </button>
-            <button onClick={() => setShowForm(false)} style={{ padding: '8px 14px', background: INK, border: '1px solid #383838', color: GRIS, borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+            <button onClick={() => setShowForm(false)} style={{ padding: '8px 14px', background: INK, border: `1px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
           </div>
         </div>
       )}
@@ -137,7 +138,7 @@ export default function BitacoraNovedades() {
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
           placeholder="Buscar en novedades..."
-          style={{ padding: '8px 12px', background: INK, border: '1px solid #2a2a2a', borderRadius: 6, color: BLANCO, fontSize: 13, minWidth: 200, outline: 'none' }} />
+          style={{ padding: '8px 12px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontSize: 13, minWidth: 200, outline: 'none' }} />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button onClick={() => setFiltroEtiqueta(null)}
             style={{ padding: '4px 12px', borderRadius: 12, border: 'none', cursor: 'pointer', background: filtroEtiqueta === null ? COLORS.glovo : INK, color: filtroEtiqueta === null ? BG_OPS : GRIS, fontSize: 12, fontFamily: FONT.body }}>
@@ -157,15 +158,15 @@ export default function BitacoraNovedades() {
           {entradas.length === 0 ? (
             <div style={{ color: COLOR.textMut, fontSize: 13 }}>Sin entradas{busqueda || filtroEtiqueta ? ' para esta búsqueda' : ' aún'}.</div>
           ) : entradas.map(entrada => (
-            <div key={entrada.id} style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '16px 18px' }}>
+            <div key={entrada.id} style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 10, padding: '16px 18px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ background: INK, border: '1px solid #383838', padding: '2px 8px', borderRadius: 4, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.glovo }}>{entrada.turno}</span>
+                  <span style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, padding: '2px 8px', borderRadius: 4, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.glovo }}>{entrada.turno}</span>
                   {entrada.etiquetas && entrada.etiquetas.map(et => (
                     <span key={et} style={{ background: '#B01D2315', border: '1px solid #B01D2340', padding: '2px 8px', borderRadius: 10, fontSize: 10, color: GRIS }}>{et}</span>
                   ))}
                 </div>
-                <span style={{ fontSize: 12, color: '#555555', whiteSpace: 'nowrap' }}>{fmtFechaHora(entrada.fecha_hora)}</span>
+                <span style={{ fontSize: 12, color: GRIS, whiteSpace: 'nowrap' }}>{fmtFechaHora(entrada.fecha_hora)}</span>
               </div>
               <p style={{ margin: 0, fontSize: 14, color: GRIS, lineHeight: 1.5 }}>{entrada.texto}</p>
             </div>

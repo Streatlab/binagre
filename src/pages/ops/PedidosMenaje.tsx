@@ -1,4 +1,5 @@
-import { BLANCO, GRIS, INK, NAR, ROJO_S } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRIS, INK, NAR, ROJO_S } from '@/styles/neobrutal'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -101,13 +102,13 @@ export default function PedidosMenaje() {
       </div>
 
       {error && (
-        <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: ROJO_S, borderRadius: 8, padding: '1rem', marginBottom: 16 }}>
+        <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, color: ROJO_S, borderRadius: 8, padding: '1rem', marginBottom: 16 }}>
           {error}
         </div>
       )}
 
       {showForm && (
-        <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 8, padding: '1rem', marginBottom: 24 }}>
+        <div style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 8, padding: '1rem', marginBottom: 24 }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 12 }}>
             Nuevo Pedido
           </div>
@@ -124,7 +125,7 @@ export default function PedidosMenaje() {
                   type={f.type}
                   value={form[f.key as keyof typeof form] as string}
                   onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                  style={{ width: '100%', backgroundColor: INK, border: '1px solid #2a2a2a', color: BLANCO, padding: '0.5rem', borderRadius: 6, boxSizing: 'border-box' }}
+                  style={{ width: '100%', backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, color: BLANCO, padding: '0.5rem', borderRadius: 6, boxSizing: 'border-box' }}
                 />
               </div>
             ))}
@@ -133,7 +134,7 @@ export default function PedidosMenaje() {
               <select
                 value={form.estado}
                 onChange={e => setForm(prev => ({ ...prev, estado: e.target.value }))}
-                style={{ width: '100%', backgroundColor: INK, border: '1px solid #2a2a2a', color: BLANCO, padding: '0.5rem', borderRadius: 6 }}
+                style={{ width: '100%', backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, color: BLANCO, padding: '0.5rem', borderRadius: 6 }}
               >
                 {ESTADOS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -143,7 +144,7 @@ export default function PedidosMenaje() {
             <button onClick={guardar} disabled={saving} style={{ backgroundColor: COLORS.redSL, color: BLANCO, border: 'none', borderRadius: 6, padding: '0.5rem 1.25rem', fontFamily: FONT.heading, fontSize: 12, cursor: 'pointer' }}>
               Guardar
             </button>
-            <button onClick={() => setShowForm(false)} style={{ backgroundColor: INK, border: '1px solid #383838', color: GRIS, borderRadius: 6, padding: '0.5rem 1.25rem', fontSize: 13, cursor: 'pointer' }}>
+            <button onClick={() => setShowForm(false)} style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, padding: '0.5rem 1.25rem', fontSize: 13, cursor: 'pointer' }}>
               Cancelar
             </button>
           </div>
@@ -153,12 +154,12 @@ export default function PedidosMenaje() {
       {loading ? (
         <div style={{ color: COLOR.textMut, fontSize: 13 }}>Cargando...</div>
       ) : (
-        <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #2a2a2a' }}>
+        <div style={{ overflowX: 'auto', borderRadius: 8, border: `1px solid ${BORDE_SUAVE}` }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ backgroundColor: INK }}>
                 {['Fecha', 'Proveedor', 'Descripcion', 'Coste', 'Estado'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: COLOR.textMut, borderBottom: '1px solid #2a2a2a' }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: COLOR.textMut, borderBottom: `1px solid ${BORDE_SUAVE}` }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -166,7 +167,7 @@ export default function PedidosMenaje() {
               {pedidos.length === 0 ? (
                 <tr><td colSpan={5} style={{ padding: '20px 14px', color: COLOR.textMut, textAlign: 'center' }}>Sin pedidos</td></tr>
               ) : pedidos.map((p, i) => (
-                <tr key={p.id} style={{ backgroundColor: i % 2 === 0 ? BG_OPS : INK, borderBottom: '1px solid #2a2a2a' }}>
+                <tr key={p.id} style={{ backgroundColor: i % 2 === 0 ? BG_OPS : INK, borderBottom: `1px solid ${BORDE_SUAVE}` }}>
                   <td style={{ padding: '10px 14px', color: GRIS }}>{p.fecha}</td>
                   <td style={{ padding: '10px 14px', color: BLANCO, fontWeight: 500 }}>{p.proveedor}</td>
                   <td style={{ padding: '10px 14px', color: GRIS }}>{p.descripcion ?? '—'}</td>

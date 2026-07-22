@@ -1,4 +1,5 @@
-import { BLANCO, GRIS, INK, NAR, ROJO_S } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, ROJO_S } from '@/styles/neobrutal'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -175,7 +176,7 @@ export default function BpmCalidad() {
         ))}
       </div>
 
-      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
       {loading && <div style={{ color: COLOR.textMut, fontSize: 13, padding: '20px 0' }}>Cargando…</div>}
 
       {!loading && !error && !modoEdicion && (
@@ -204,7 +205,7 @@ export default function BpmCalidad() {
             ))}
           </div>
 
-          <button onClick={() => { setModoEdicion(true); cargarPlantillas(activeTab) }} style={{ padding: '8px 16px', background: INK, border: '1px solid #383838', color: GRIS, borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
+          <button onClick={() => { setModoEdicion(true); cargarPlantillas(activeTab) }} style={{ padding: '8px 16px', background: INK, border: `1px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
             Editar plantilla
           </button>
         </div>
@@ -218,10 +219,10 @@ export default function BpmCalidad() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
             {plantillas.map((p, idx) => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: INK, border: '1px solid #2a2a2a', borderRadius: 8 }}>
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 8 }}>
                 <span style={{ fontFamily: FONT.heading, fontSize: 12, color: COLOR.textMut, minWidth: 24, textAlign: 'right' }}>{idx + 1}</span>
                 <span style={{ flex: 1, fontSize: 13, color: GRIS }}>{p.nombre}</span>
-                <button onClick={() => deleteItemPlantilla(p.id)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #B01D23', color: COLORS.redSL, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Eliminar</button>
+                <button onClick={() => deleteItemPlantilla(p.id)} style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${GRANATE}`, color: COLORS.redSL, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Eliminar</button>
               </div>
             ))}
           </div>
@@ -229,9 +230,9 @@ export default function BpmCalidad() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <input type="text" value={nuevoItemNombre} onChange={e => setNuevoItemNombre(e.target.value)} onKeyDown={e => e.key === 'Enter' && addItemPlantilla()}
                 placeholder="Nombre del item..." autoFocus
-                style={{ flex: 1, minWidth: 200, padding: '8px 12px', background: INK, border: '1px solid #383838', borderRadius: 6, color: BLANCO, fontSize: 13, outline: 'none' }} />
+                style={{ flex: 1, minWidth: 200, padding: '8px 12px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontSize: 13, outline: 'none' }} />
               <button onClick={addItemPlantilla} style={{ padding: '8px 16px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Añadir</button>
-              <button onClick={() => { setShowAddItem(false); setNuevoItemNombre('') }} style={{ padding: '8px 14px', background: INK, border: '1px solid #383838', color: GRIS, borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={() => { setShowAddItem(false); setNuevoItemNombre('') }} style={{ padding: '8px 14px', background: INK, border: `1px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
             </div>
           ) : (
             <button onClick={() => setShowAddItem(true)} style={{ padding: '8px 16px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>+ Añadir item</button>
