@@ -30,7 +30,7 @@
     },
     {
       "source": "/api/facturas/:ruta*",
-      "destination": "/api/papeleo/facturas/:ruta*"
+      "destination": "/api/papeleo/facturas"
     },
     {
       "source": "/api/bootstrap-ocr",
@@ -42,7 +42,7 @@
     },
     {
       "source": "/api/checklists/:ruta*",
-      "destination": "/api/papeleo/checklists/:ruta*"
+      "destination": "/api/papeleo/checklists"
     },
     {
       "source": "/api/debug-texto",
@@ -61,6 +61,22 @@
       "destination": "/api/papeleo/escandallo-auto?action=:accion"
     },
     {
+      "source": "/api/papeleo/facturas/:ruta*",
+      "destination": "/api/papeleo/facturas"
+    },
+    {
+      "source": "/api/papeleo/checklists/:ruta*",
+      "destination": "/api/papeleo/checklists"
+    },
+    {
+      "source": "/api/papeleo/conciliacion/:ruta*",
+      "destination": "/api/papeleo/conciliacion"
+    },
+    {
+      "source": "/api/papeleo/importar/:ruta*",
+      "destination": "/api/papeleo/importar"
+    },
+    {
       "source": "/api/conciliacion",
       "destination": "/api/papeleo/conciliacion"
     },
@@ -70,7 +86,7 @@
     },
     {
       "source": "/api/conciliacion/:ruta*",
-      "destination": "/api/papeleo/conciliacion/:ruta*"
+      "destination": "/api/papeleo/conciliacion"
     },
     {
       "source": "/api/importar",
@@ -82,7 +98,7 @@
     },
     {
       "source": "/api/importar/:ruta*",
-      "destination": "/api/papeleo/importar/:ruta*"
+      "destination": "/api/papeleo/importar"
     },
     {
       "source": "/api/pe",
@@ -90,7 +106,7 @@
     },
     {
       "source": "/api/pe/:ruta*",
-      "destination": "/api/operaciones/pe/:ruta*"
+      "destination": "/api/operaciones/pe"
     },
     {
       "source": "/api/pos",
@@ -98,7 +114,7 @@
     },
     {
       "source": "/api/pos/:ruta*",
-      "destination": "/api/operaciones/pos/:ruta*"
+      "destination": "/api/operaciones/pos"
     },
     {
       "source": "/api/equipo",
@@ -106,7 +122,7 @@
     },
     {
       "source": "/api/equipo/:ruta*",
-      "destination": "/api/operaciones/equipo/:ruta*"
+      "destination": "/api/operaciones/equipo"
     },
     {
       "source": "/api/nominas",
@@ -114,7 +130,23 @@
     },
     {
       "source": "/api/nominas/:ruta*",
-      "destination": "/api/operaciones/nominas/:ruta*"
+      "destination": "/api/operaciones/nominas"
+    },
+    {
+      "source": "/api/operaciones/equipo/:ruta*",
+      "destination": "/api/operaciones/equipo"
+    },
+    {
+      "source": "/api/operaciones/nominas/:ruta*",
+      "destination": "/api/operaciones/nominas"
+    },
+    {
+      "source": "/api/operaciones/pos/:ruta*",
+      "destination": "/api/operaciones/pos"
+    },
+    {
+      "source": "/api/operaciones/pe/:ruta*",
+      "destination": "/api/operaciones/pe"
     },
     {
       "source": "/((?!api/).*)",
