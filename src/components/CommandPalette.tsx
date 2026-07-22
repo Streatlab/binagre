@@ -6,8 +6,8 @@ type Item = { label: string; path: string; group: string }
 
 const ITEMS: Item[] = [
   { label: 'Dashboard', path: '/', group: 'General' },
-  { label: 'Hoy (cocina)', path: '/cocina/numeros/hoy', group: 'General' },
-  { label: 'Escandallo / Datos', path: '/cocina/numeros/datos', group: 'General' },
+  { label: 'Hoy (cocina)', path: '/cocina/hoy', group: 'General' },
+  { label: 'Escandallo / Datos', path: '/cocina/dinero/datos', group: 'General' },
   { label: 'Carta', path: '/cocina/operativa/recetas/carta', group: 'General' },
   { label: 'Panel global', path: '/panel', group: 'General' },
   { label: 'Panel dirección', path: '/panel-direccion', group: 'General' },
@@ -47,11 +47,11 @@ const ITEMS: Item[] = [
   { label: 'Predicción demanda', path: '/analytics/demanda', group: 'Analytics' },
   { label: 'Pareto ventas', path: '/analytics/pareto-ventas', group: 'Analytics' },
 
-  { label: 'Hoy', path: '/cocina/numeros/hoy', group: 'Cocina' },
-  { label: 'Plato Maestro', path: '/cocina/numeros/plato-maestro', group: 'Cocina' },
-  { label: 'Análisis (Menú Engineering)', path: '/cocina/numeros/analisis', group: 'Cocina' },
-  { label: 'Pareto ingredientes', path: '/cocina/numeros/analisis/pareto', group: 'Cocina' },
-  { label: 'Coste por plato', path: '/cocina/numeros/analisis/coste', group: 'Cocina' },
+  { label: 'Hoy', path: '/cocina/hoy', group: 'Cocina' },
+  { label: 'Plato Maestro', path: '/cocina/operativa/plato-maestro', group: 'Cocina' },
+  { label: 'Análisis (Menú Engineering)', path: '/cocina/dinero/analisis', group: 'Cocina' },
+  { label: 'Pareto ingredientes', path: '/cocina/dinero/analisis/pareto', group: 'Cocina' },
+  { label: 'Coste por plato', path: '/cocina/dinero/analisis/coste', group: 'Cocina' },
   { label: 'Libro de Recetas', path: '/cocina/operativa/recetas', group: 'Cocina' },
   { label: 'Producción', path: '/cocina/operativa/produccion', group: 'Cocina' },
   { label: 'Menú familia', path: '/cocina/operativa/recetas/menu-familia', group: 'Cocina' },
