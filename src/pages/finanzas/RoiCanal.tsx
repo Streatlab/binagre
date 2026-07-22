@@ -18,7 +18,7 @@ const fmtRoi = (n: number | null) =>
 
 const fmtPedidos = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 0 })
 
-export default function RoiCanal() {
+export function RoiCanal({ embedded = false }: { embedded?: boolean } = {}) {
   const [periodo, setPeriodo] = useState<PeriodoRoi>('ultimo_mes')
   const año = new Date().getFullYear()
   const { loading, error, canales, mejor, peor, roiMedio } = useRoiCanal(periodo, año)
@@ -38,18 +38,20 @@ export default function RoiCanal() {
   }
 
   return (
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
+    <div style={{ fontFamily: LEX, padding: embedded ? 0 : 28, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : '100vh', color: INK }}>
 
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <span style={eyebrow(NAR, '#fff')}>FINANZAS</span>
-          <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
-            ROI POR CANAL
-          </h1>
-          <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>
-            Retorno real cobrado frente a lo que se queda cada plataforma · {año}
-          </span>
-        </div>
+        {!embedded && (
+          <div>
+            <span style={eyebrow(NAR, '#fff')}>FINANZAS</span>
+            <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
+              ROI POR CANAL
+            </h1>
+            <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>
+              Retorno real cobrado frente a lo que se queda cada plataforma · {año}
+            </span>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 8 }}>
           {(['ultimo_mes', 'año_actual'] as PeriodoRoi[]).map(p => (
             <button key={p} onClick={() => setPeriodo(p)} style={{
@@ -147,3 +149,5 @@ export default function RoiCanal() {
     </div>
   )
 }
+
+export default RoiCanal

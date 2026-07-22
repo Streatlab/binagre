@@ -60,7 +60,7 @@ function ordenarPorGap(combos: ComboBreakEven[]): ComboBreakEven[] {
   })
 }
 
-export default function BreakEvenCanal() {
+export function BreakEvenCanal({ embedded = false }: { embedded?: boolean } = {}) {
   const { loading, error, mesReferencia, combos, costesFijosTotalesMes, totalBrutoMes } = useBreakEvenCanal()
   const [filtroCanal, setFiltroCanal] = useState<CanalFiltro>('all')
 
@@ -81,19 +81,21 @@ export default function BreakEvenCanal() {
   }
 
   return (
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
+    <div style={{ fontFamily: LEX, padding: embedded ? 0 : 28, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : '100vh', color: INK }}>
 
-      <div style={{ marginBottom: 20 }}>
-        <span style={eyebrow(AMA, INK)}>FINANZAS</span>
-        <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
-          BREAK-EVEN POR CANAL
-        </h1>
-        <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>
-          {mesReferencia
-            ? `Punto de equilibrio por marca y plataforma · ${fmtMes(mesReferencia.mes)} ${mesReferencia.año} · costes fijos del mes (equipo + alquiler): ${fmtEur(costesFijosTotalesMes, { decimals: 2 })}`
-            : 'Sin datos de facturación por marca y canal para el año en curso.'}
-        </span>
-      </div>
+      {!embedded && (
+        <div style={{ marginBottom: 20 }}>
+          <span style={eyebrow(AMA, INK)}>FINANZAS</span>
+          <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
+            BREAK-EVEN POR CANAL
+          </h1>
+          <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>
+            {mesReferencia
+              ? `Punto de equilibrio por marca y plataforma · ${fmtMes(mesReferencia.mes)} ${mesReferencia.año} · costes fijos del mes (equipo + alquiler): ${fmtEur(costesFijosTotalesMes, { decimals: 2 })}`
+              : 'Sin datos de facturación por marca y canal para el año en curso.'}
+          </span>
+        </div>
+      )}
 
       {combos.length === 0 ? (
         <div style={{ ...card, padding: 30, textAlign: 'center', color: GRIS, fontFamily: LEX }}>
@@ -199,3 +201,5 @@ export default function BreakEvenCanal() {
 }
 
 const selectNeo: React.CSSProperties = { background: '#fff', border: `3px solid ${INK}`, color: INK, padding: '7px 12px', fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer', outline: 'none' }
+
+export default BreakEvenCanal

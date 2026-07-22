@@ -47,7 +47,7 @@ function canalMotor(c: string): string {
   return 'dir'
 }
 
-export default function RentabilidadFranja() {
+export function RentabilidadFranja({ embedded = false }: { embedded?: boolean } = {}) {
   const [franjas, setFranjas] = useState<Franja[]>([])
   const [config, setConfig] = useState<Record<string, CanalConfig>>({})
   const [marcasPorCanal, setMarcasPorCanal] = useState<MarcasPorCanal>({ uber: 1, glovo: 1, je: 1, web: 1, dir: 1 })
@@ -190,13 +190,15 @@ export default function RentabilidadFranja() {
   }
 
   return (
-    <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.4px' }}>Rentabilidad por franja</div>
-        <div style={{ fontSize: 12, color: C.grisCl, fontWeight: 700, marginTop: 2 }}>
-          A qué horas y qué días te queda dinero de verdad.
+    <div className="sl-skin" style={{ minHeight: embedded ? 'auto' : '100vh', padding: embedded ? 0 : '24px 28px' }}>
+      {!embedded && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.4px' }}>Rentabilidad por franja</div>
+          <div style={{ fontSize: 12, color: C.grisCl, fontWeight: 700, marginTop: 2 }}>
+            A qué horas y qué días te queda dinero de verdad.
+          </div>
         </div>
-      </div>
+      )}
 
       <Hero
         eyebrow="MEJOR FRANJA"
@@ -367,3 +369,5 @@ export default function RentabilidadFranja() {
     </div>
   )
 }
+
+export default RentabilidadFranja

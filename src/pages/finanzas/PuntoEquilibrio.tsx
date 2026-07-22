@@ -35,7 +35,7 @@ const CONFIG_KEY:Record<CanalId,string>={uber:'Uber Eats',glovo:'Glovo',just_eat
 
 // Fórmula migrada a calcNetoPorCanal central (Notion 366c8b1f-6139-81a8-95a7-dd0abdf63a91)
 
-export default function PuntoEquilibrio(){
+export function PuntoEquilibrio({ embedded = false }: { embedded?: boolean } = {}){
 const{T}=useTheme()
 const[tab,setTab]=useState<Tab>('resumen')
 const{canales}=useConfig()
@@ -77,12 +77,14 @@ const ticketMedioNeto=totalPedidos>0?totalNeto/totalPedidos:0
 const diaCubreInfo=useMemo(()=>{if(!peMensual||brutoMedioDiario<=0)return{fecha:null as Date|null,diasNecesarios:null as number|null,mesesDelta:0};const diasNecesarios=Math.ceil(peMensual/brutoMedioDiario);const inicio=new Date(periodo.desde.getFullYear(),periodo.desde.getMonth(),1);const cur=new Date(inicio);let contados=0;let safety=0;while(contados<diasNecesarios&&safety<730){if(diasOperativosEnRango(cur,cur)===1)contados++;if(contados>=diasNecesarios)break;cur.setDate(cur.getDate()+1);safety++};const mesesDelta=(cur.getFullYear()-inicio.getFullYear())*12+(cur.getMonth()-inicio.getMonth());return{fecha:cur,diasNecesarios,mesesDelta}},[peMensual,brutoMedioDiario,periodo.desde,diasOperativosEnRango])
 const estado:'cubre'|'ajustado'|'pierde'=peMensual==null?'pierde':totalBruto>=peMensual*1.05?'cubre':totalBruto>=peMensual?'ajustado':'pierde'
 const colorEstado=estado==='cubre'?VERDE:estado==='ajustado'?AMBAR:ERR
-return(<div style={{background:'#f5f3ef',padding:'24px 28px',minHeight:'100vh'}}>
+return(<div style={{background:embedded?'transparent':'#f5f3ef',padding:embedded?0:'24px 28px',minHeight:embedded?'auto':'100vh'}}>
 <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
+{!embedded && (
 <div>
 <h2 style={{color:ROJO,fontFamily:OSWALD,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>PUNTO DE EQUILIBRIO</h2>
 <span style={{fontFamily:LEXEND,fontSize:13,color:'#7a8090',display:'block',marginTop:4}}>{fmtFechaCorta(periodo.desde.toISOString().slice(0,10))} — {fmtFechaCorta(periodo.hasta.toISOString().slice(0,10))}</span>
 </div>
+)}
 <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
 <SelectorFechaUniversal nombreModulo="punto_equilibrio" defaultOpcion="mes_en_curso" onChange={(desde,hasta,label)=>{setPeriodoDesde(desde);setPeriodoHasta(hasta);setPeriodoLabel(label)}}/>
 </div>
@@ -256,3 +258,5 @@ function RowInput({label,value,decimales,onChange,bloqueado}:{label:string;value
 const styleInput:CSSProperties={width:'100%',padding:'6px 10px',border:'0.5px solid #d0c8bc',borderRadius:6,fontSize:13,fontFamily:OSWALD,fontWeight:500,background:bloqueado?'#ebe8e2':'#fff',color:bloqueado?'#7a8090':'#111111',textAlign:'right',outline:'none',cursor:bloqueado?'not-allowed':'text'}
 return(<div style={{display:'grid',gridTemplateColumns:'1fr 110px',gap:10,alignItems:'center',padding:'5px 0'}}><span style={{fontFamily:LEXEND,fontSize:12,color:'#3a4050'}}>{label}</span><input type="number" step={decimales>0?0.01:1} value={Number.isFinite(value)?value.toFixed(decimales):''} disabled={bloqueado} onChange={(ev)=>{const n=parseFloat(ev.target.value);if(!isNaN(n))onChange(n)}} style={styleInput}/></div>)
 }
+
+export default PuntoEquilibrio
