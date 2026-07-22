@@ -1,3 +1,4 @@
+import { AZUL, GRIS, NAR, VERDE } from '@/styles/neobrutal'
 /**
  * CardPE — Fixes 89-94
  * FIX 89: "Bruto necesario" con B mayúscula
@@ -36,26 +37,26 @@ function calcDiaVerde(
 
   if (pct >= 100) {
     const velocidadDia = diaActual > 0 ? facturadoActual / diaActual : 0
-    if (velocidadDia <= 0) return { texto: 'Alcanzado', color: '#1D9E75' }
+    if (velocidadDia <= 0) return { texto: 'Alcanzado', color: VERDE }
     const diaAlcanzado = Math.ceil(brutoNecesario / velocidadDia)
-    return { texto: `Día ${diaAlcanzado} · ✓ alcanzado`, color: '#1D9E75' }
+    return { texto: `Día ${diaAlcanzado} · ✓ alcanzado`, color: VERDE }
   }
 
   if (facturadoActual === 0) {
-    return { texto: 'Sin datos', color: '#7a8090' }
+    return { texto: 'Sin datos', color: GRIS }
   }
 
   const velocidadDia = diaActual > 0 ? facturadoActual / diaActual : 0
-  if (velocidadDia <= 0) return { texto: 'Sin datos', color: '#7a8090' }
+  if (velocidadDia <= 0) return { texto: 'Sin datos', color: GRIS }
 
   const diaVerdeEstimado = Math.ceil(brutoNecesario / velocidadDia)
 
   if (diaVerdeEstimado <= diasMes) {
-    return { texto: `Día ${diaVerdeEstimado}`, color: '#1D9E75' }
+    return { texto: `Día ${diaVerdeEstimado}`, color: VERDE }
   }
 
   const diasExtra = diaVerdeEstimado - diasMes
-  return { texto: `+${diasExtra}d sobre mes`, color: '#1D9E75' }
+  return { texto: `+${diasExtra}d sobre mes`, color: VERDE }
 }
 
 function diasEnMes(año: number, mes: number): number {
@@ -140,9 +141,9 @@ export default function CardPE({
             <div style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontFamily: LEXEND }}>
               <span style={{ color: COLOR.textMut }}>Pedidos día / TM</span>
               <span>
-                <span style={{ color: '#1E5BCC', fontWeight: 500 }}>{fmtNum(pedidosDia, 0)}</span>
+                <span style={{ color: AZUL, fontWeight: 500 }}>{fmtNum(pedidosDia, 0)}</span>
                 <span style={{ color: COLOR.textMut }}>{' / '}</span>
-                <span style={{ color: '#F26B1F', fontWeight: 500 }}>{fmtEur(tmActual, { showEuro: false, decimals: 2 })}</span>
+                <span style={{ color: NAR, fontWeight: 500 }}>{fmtEur(tmActual, { showEuro: false, decimals: 2 })}</span>
               </span>
             </div>
 

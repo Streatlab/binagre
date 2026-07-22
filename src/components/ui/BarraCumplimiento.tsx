@@ -1,3 +1,4 @@
+import { BORDE_SUAVE, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 import React from 'react';
 
 interface BarraCumplimientoProps {
@@ -26,14 +27,14 @@ export function BarraCumplimiento({
   if (presupuesto === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ height: altura, borderRadius: altura / 2, background: '#ebe8e2', flex: 1 }} />
+        <div style={{ height: altura, borderRadius: altura / 2, background: BORDE_SUAVE, flex: 1 }} />
       </div>
     )
   }
 
   const c = Math.min(Math.max(rawVal, 0), 100)
-  const colorFill = c >= 50 ? '#1D9E75' : '#f5a623'
-  const colorRest = '#E24B4A'
+  const colorFill = c >= 50 ? VERDE : NAR
+  const colorRest = ROJO
   const rest = 100 - c
 
   return (
@@ -41,7 +42,7 @@ export function BarraCumplimiento({
       <div style={{
         height: altura,
         borderRadius: altura / 2,
-        background: '#ebe8e2',
+        background: BORDE_SUAVE,
         overflow: 'hidden',
         display: 'flex',
         flex: 1,
@@ -54,7 +55,7 @@ export function BarraCumplimiento({
         <span style={{
           fontSize: 12,
           fontFamily: 'Lexend, sans-serif',
-          color: rawVal >= 50 ? '#1D9E75' : rawVal >= 1 ? '#f5a623' : '#E24B4A',
+          color: rawVal >= 50 ? VERDE : rawVal >= 1 ? NAR : ROJO,
           whiteSpace: 'nowrap',
           minWidth: 36,
         }}>

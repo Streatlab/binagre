@@ -1,3 +1,4 @@
+import { INK } from '@/styles/neobrutal'
 /**
  * CardProvisiones
  * L.1: Sublabel "PROVISIONES Y PRÓXIMOS PAGOS" (ya estaba, confirmar)
@@ -24,7 +25,7 @@ export default function CardProvisiones({ totalAGuardar, proximosPagos }: Props)
 
       {/* L.2: Valor superior Oswald 24px "Total". Sin badge IVA+IRPF */}
       <div style={{ marginTop: 8 }}>
-        <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: '#111111' }}>
+        <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: INK }}>
           {fmtEur(totalAGuardar, { showEuro: false, decimals: 2 })}
         </div>
         <div style={{ fontSize: 11, color: COLOR.textMut, fontFamily: LEXEND }}>Total provisiones</div>

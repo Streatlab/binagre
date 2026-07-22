@@ -1,3 +1,4 @@
+import { AZUL, GRIS, INK, NAR, VERDE } from '@/styles/neobrutal'
 // Tabla extractos bancarios - lee de tabla dedicada extractos_bancarios
 // v3: ordenación canónica multi-criterio
 import { useState, useEffect, useMemo } from 'react'
@@ -56,13 +57,13 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
   const filas = useMemo(() => ms.applySorts(extractos), [extractos, ms])
 
   if (cargando) return (
-    <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
+    <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS }}>
       Cargando…
     </div>
   )
 
   if (extractos.length === 0) return (
-    <div style={{ padding: '32px 28px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
+    <div style={{ padding: '32px 28px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS }}>
       No hay extractos subidos aún
     </div>
   )
@@ -104,25 +105,25 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
               : '—'
             return (
               <tr key={e.id} title={e.notas ?? ''}>
-                <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
+                <td style={{ ...tdBase, color: GRIS, fontSize: 12, whiteSpace: 'nowrap' }}>
                   {fmtDate(e.fecha_subida)}
                 </td>
-                <td style={{ ...tdBase, color: '#111', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <td style={{ ...tdBase, color: INK, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {e.filename}
                 </td>
                 <td style={tdBase}>
                   {isRuben
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }} />Rubén</span>
+                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#F26B1F15', color: NAR, whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: NAR, flexShrink: 0 }} />Rubén</span>
                     : isEmilio
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }} />Emilio</span>
-                    : <span style={{ color: '#7a8090', fontSize: 12 }}>—</span>
+                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: AZUL, whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: AZUL, flexShrink: 0 }} />Emilio</span>
+                    : <span style={{ color: GRIS, fontSize: 12 }}>—</span>
                   }
                 </td>
                 <td style={{ ...tdBase, fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 500 }}>
-                  <span style={{ color: '#1D9E75' }}>{e.movimientos_insertados}</span>
-                  {e.movimientos_saltados > 0 && <span style={{ color: '#7a8090', fontSize: 11, marginLeft: 6 }}>+{e.movimientos_saltados} dup</span>}
+                  <span style={{ color: VERDE }}>{e.movimientos_insertados}</span>
+                  {e.movimientos_saltados > 0 && <span style={{ color: GRIS, fontSize: 11, marginLeft: 6 }}>+{e.movimientos_saltados} dup</span>}
                 </td>
-                <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
+                <td style={{ ...tdBase, color: GRIS, fontSize: 12, whiteSpace: 'nowrap' }}>
                   {periodo}
                 </td>
               </tr>

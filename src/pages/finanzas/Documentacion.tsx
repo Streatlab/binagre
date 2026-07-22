@@ -3,9 +3,7 @@ import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { supabase } from '@/lib/supabase'
 import { fechaLocalStr } from '@/utils/fechaLocal'
 import {
-  OSW, LEX, INK, CREMA, CLARO, VERDE, NAR, ROJO, AMA, GRANATE, GRIS,
-  SHADOW, BORDER, BORDER_CARD, d, eyebrow,
-} from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, CLARO, VERDE, NAR, ROJO, AMA, GRANATE, GRIS, SHADOW, BORDER, BORDER_CARD, d, eyebrow, BLANCO } from '@/styles/neobrutal'
 import BandejaEntrada from '@/components/documentacion/BandejaEntrada'
 import ResolverPendientes from '@/components/documentacion/ResolverPendientes'
 
@@ -100,8 +98,8 @@ function TabsNeo({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
         const activo = t.id === tab
         return (
           <button key={t.id} onClick={() => onChange(t.id)} style={{
-            background: activo ? GRANATE : '#fff',
-            color: activo ? '#fff' : INK,
+            background: activo ? GRANATE : BLANCO,
+            color: activo ? BLANCO : INK,
             border: BORDER_CARD,
             boxShadow: activo ? `2px 2px 0 ${INK}` : SHADOW,
             transform: activo ? 'translate(2px, 2px)' : 'none',

@@ -1,8 +1,7 @@
+import { BLANCO, INK } from '@/styles/neobrutal'
 interface SidebarBadgeProps {
   count: number
 }
-
-const INK = '#140f08'
 
 export default function SidebarBadge({ count }: SidebarBadgeProps) {
   return (
@@ -17,7 +16,7 @@ export default function SidebarBadge({ count }: SidebarBadgeProps) {
         borderRadius: 0,
         border: `2px solid ${INK}`,
         background: '#FF2E63',
-        color: '#ffffff',
+        color: BLANCO,
         fontSize: 11,
         fontWeight: 700,
         fontFamily: 'Oswald, sans-serif',

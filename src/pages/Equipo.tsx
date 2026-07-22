@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useSearchParams } from 'react-router-dom'
 import { useTheme, FONT, pageTitleStyle } from '@/styles/tokens'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -66,8 +67,8 @@ export default function Equipo() {
               onClick={() => setTab(t.key)}
               style={{
                 ...tabBase,
-                background: active ? '#B01D23' : 'var(--sl-card)',
-                color: active ? '#fff' : NEO_INK,
+                background: active ? GRANATE : 'var(--sl-card)',
+                color: active ? BLANCO : NEO_INK,
                 boxShadow: active ? NEO_SHADOW : 'none',
               }}
             >

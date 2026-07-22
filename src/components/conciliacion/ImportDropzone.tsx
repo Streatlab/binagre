@@ -1,3 +1,4 @@
+import { GRANATE } from '@/styles/neobrutal'
 import { useRef, useState } from 'react'
 import { Upload, FileCheck2 } from 'lucide-react'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -251,7 +252,7 @@ export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
           gap: 12,
           padding: '10px 18px',
           borderRadius: 10,
-          border: `2px dashed ${dragging ? '#B01D23' : T.brd}`,
+          border: `2px dashed ${dragging ? GRANATE : T.brd}`,
           backgroundColor: dragging ? T.card : 'transparent',
           cursor: 'pointer',
           transition: 'all 0.15s ease',
@@ -280,9 +281,9 @@ export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
           </>
         ) : (
           <>
-            <Upload size={20} color="#B01D23" />
+            <Upload size={20} color={GRANATE} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontFamily: FONT.heading, fontSize: 12, color: '#B01D23', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
+              <span style={{ fontFamily: FONT.heading, fontSize: 12, color: GRANATE, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
                 Importar documento
               </span>
               <span style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>

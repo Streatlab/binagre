@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -29,16 +30,15 @@ interface EstadoEmpleado {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const BG = '#111111'
-const CARD = '#1a1a1a'
-const CARD2 = '#222222'
-const BRD = '#2a2a2a'
-const BRD2 = '#383838'
-const PRI = '#ffffff'
-const MUT = '#777777'
-const ROJO = '#B01D23'
-const VERDE = '#1D9E75'
-const AMARILLO = '#e8f442'
+const BG = INK
+const CARD = INK
+const CARD2 = INK
+const BRD = INK
+const BRD2 = INK
+const PRI = BLANCO
+const MUT = GRIS
+const ROJO = GRANATE
+const AMARILLO = LIMA
 const FONT_BODY = FONT.body
 const FONT_LABEL = FONT.heading
 
@@ -117,7 +117,7 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
         borderRadius: 6,
         border: active ? `1px solid ${ROJO}` : `1px solid ${BRD}`,
         background: active ? ROJO : 'transparent',
-        color: active ? '#ffffff' : MUT,
+        color: active ? BLANCO : MUT,
         cursor: 'pointer',
       }}
     >
@@ -281,7 +281,7 @@ export default function ControlPresencia() {
   const totalHorasPeriodo = diasHist.reduce((acc, d) => acc + d.horas, 0)
 
   const inputStyle = {
-    background: '#1e1e1e',
+    background: INK,
     border: `1px solid ${BRD2}`,
     borderRadius: 6,
     color: PRI,
@@ -305,7 +305,7 @@ export default function ControlPresencia() {
       </h1>
 
       {!tableExists && (
-        <div style={{ backgroundColor: '#1a1a1a', border: `1px solid ${AMARILLO}`, borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
+        <div style={{ backgroundColor: INK, border: `1px solid ${AMARILLO}`, borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
           <p style={{ color: AMARILLO, fontFamily: FONT_LABEL, fontSize: 14, margin: '0 0 8px', letterSpacing: '1px' }}>
             TABLA FICHAJES NO ENCONTRADA
           </p>
@@ -315,7 +315,7 @@ export default function ControlPresencia() {
           <button
             onClick={inicializarBD}
             disabled={inicializando}
-            style={{ background: AMARILLO, color: '#111111', fontFamily: FONT_LABEL, fontSize: 13, fontWeight: 700, letterSpacing: '1px', padding: '8px 20px', borderRadius: 6, border: 'none', cursor: 'pointer', textTransform: 'uppercase' }}
+            style={{ background: AMARILLO, color: INK, fontFamily: FONT_LABEL, fontSize: 13, fontWeight: 700, letterSpacing: '1px', padding: '8px 20px', borderRadius: 6, border: 'none', cursor: 'pointer', textTransform: 'uppercase' }}
           >
             {inicializando ? 'Inicializando...' : 'Inicializar BD'}
           </button>
@@ -391,7 +391,7 @@ export default function ControlPresencia() {
                     border: 'none',
                     cursor: fichandoId === e.usuario.id ? 'not-allowed' : 'pointer',
                     background: e.dentro ? ROJO : VERDE,
-                    color: '#ffffff',
+                    color: BLANCO,
                     opacity: fichandoId === e.usuario.id ? 0.6 : 1,
                     minWidth: 110,
                   }}
@@ -427,7 +427,7 @@ export default function ControlPresencia() {
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '90px 1fr 100px 1fr',
-                background: '#0a0a0a',
+                background: INK,
                 padding: '10px 16px',
                 fontFamily: FONT_LABEL,
                 fontSize: 11,
@@ -521,7 +521,7 @@ export default function ControlPresencia() {
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '120px 90px 90px 90px 1fr',
-                background: '#0a0a0a',
+                background: INK,
                 padding: '10px 16px',
                 fontFamily: FONT_LABEL,
                 fontSize: 11,

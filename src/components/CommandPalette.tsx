@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { INK, CREMA, OSW, LEX, SHADOW } from '@/styles/neobrutal'
+import { INK, CREMA, OSW, LEX, SHADOW, BLANCO } from '@/styles/neobrutal'
 
 type Item = { label: string; path: string; group: string }
 
@@ -213,7 +213,7 @@ export default function CommandPalette() {
                 padding: '10px 14px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 background: idx === sel ? INK : 'transparent',
-                color: idx === sel ? '#fff' : INK,
+                color: idx === sel ? BLANCO : INK,
                 cursor: 'pointer',
                 fontFamily: LEX, fontSize: 14,
               }}

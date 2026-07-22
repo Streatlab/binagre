@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -94,7 +95,7 @@ function Pill({ active, color, children, onClick }: { active: boolean; color: st
       padding: '5px 12px', borderRadius: 7,
       border: active ? 'none' : `0.5px solid ${COLORS.brd}`,
       background: active ? color : COLORS.card,
-      color: active ? '#fff' : COLORS.sec,
+      color: active ? BLANCO : COLORS.sec,
       fontFamily: FONT.body, fontSize: 12, fontWeight: 500, cursor: 'pointer',
     }}>{children}</button>
   )
@@ -281,7 +282,7 @@ export default function ParetoVentas() {
                 <span style={{ position: 'relative' }}>{fmtDec(r.acumPct)}%</span>
               </span>
               <span style={{ justifySelf: 'start' }}>
-                <span style={{ fontFamily: FONT.heading, fontSize: 11, fontWeight: 600, color: '#fff', background: CLASE_COLOR[r.clase], borderRadius: 4, padding: '1px 8px' }}>{r.clase}</span>
+                <span style={{ fontFamily: FONT.heading, fontSize: 11, fontWeight: 600, color: BLANCO, background: CLASE_COLOR[r.clase], borderRadius: 4, padding: '1px 8px' }}>{r.clase}</span>
               </span>
             </div>
           ))}
@@ -302,7 +303,7 @@ function PTooltip({ active, payload, metrica }: { active?: boolean; payload?: Ar
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div style={{ background: '#fff', border: `0.5px solid ${COLORS.brd}`, borderRadius: 8, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 8, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 13, marginBottom: 2 }}>{d.name}</div>
       <div>{metrica === 'eur' ? fmtEur(d.valor) : `${fmtDec(d.valor, 0)} ud`}</div>
       <div>Acumulado: {fmtDec(d.acum)}%</div>

@@ -5,14 +5,9 @@
  * (referencia de estilo: src/pages/ops/ReclamacionReembolsos.tsx).
  */
 import React, { useMemo, useState } from 'react'
+import { useEstadosFinancieros, deltaPct, csvFromRows, descargarCsv, type PygAnual, type CashFlowAnual, type BalanceEstado, } from '@/lib/finanzas/useEstadosFinancieros'
 import {
-  useEstadosFinancieros, deltaPct, csvFromRows, descargarCsv,
-  type PygAnual, type CashFlowAnual, type BalanceEstado,
-} from '@/lib/finanzas/useEstadosFinancieros'
-import {
-  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD,
-  GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow,
-} from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal'
 import { fmtEur, fmtPct, fmtDate } from '@/lib/format'
 
 type TabKey = 'pyg' | 'balance' | 'cashflow'
@@ -38,14 +33,14 @@ export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } 
 
   const años = useMemo(() => [currentYear, currentYear - 1, currentYear - 2, currentYear - 3], [currentYear])
 
-  const card: React.CSSProperties = { background: '#fff', border: BORDER_CARD, boxShadow: SHADOW }
+  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
   const btnPrim: React.CSSProperties = {
     fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase',
     border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '8px 14px', cursor: 'pointer',
-    background: GRANATE, color: '#fff', whiteSpace: 'nowrap',
+    background: GRANATE, color: BLANCO, whiteSpace: 'nowrap',
   }
   const selectNeo: React.CSSProperties = {
-    background: '#fff', border: `3px solid ${INK}`, color: INK, padding: '7px 12px',
+    background: BLANCO, border: `3px solid ${INK}`, color: INK, padding: '7px 12px',
     fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: 'uppercase',
     letterSpacing: '0.5px', cursor: 'pointer', outline: 'none',
   }
@@ -108,7 +103,7 @@ export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } 
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         {!embedded && (
           <div>
-            <span style={eyebrow(NAR, '#fff')}>FINANZAS</span>
+            <span style={eyebrow(NAR, BLANCO)}>FINANZAS</span>
             <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
               ESTADOS FINANCIEROS
             </h1>
@@ -119,7 +114,7 @@ export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } 
           <select style={selectNeo} value={año} onChange={e => setAño(Number(e.target.value))}>
             {años.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
-          <button onClick={() => setComparar(c => !c)} style={{ ...selectNeo, background: comparar ? AMA : '#fff' }}>
+          <button onClick={() => setComparar(c => !c)} style={{ ...selectNeo, background: comparar ? AMA : BLANCO }}>
             {comparar ? '✓ ' : ''}Comparar con {año - 1}
           </button>
         </div>
@@ -128,14 +123,14 @@ export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } 
       {/* Hero KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 20 }}>
         <div style={{ ...card, padding: '16px 20px', background: pyg.resultadoEjercicio >= 0 ? VERDE : ROJO }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Resultado del ejercicio {año}</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 32, lineHeight: 1, color: '#fff' }}>{fmt0(pyg.resultadoEjercicio)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: '#fff', marginTop: 6 }}>Ingresos {fmt0(pyg.totalIngresos)} · Gastos {fmt0(pyg.totalGastos)}</div>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Resultado del ejercicio {año}</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 32, lineHeight: 1, color: BLANCO }}>{fmt0(pyg.resultadoEjercicio)}</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>Ingresos {fmt0(pyg.totalIngresos)} · Gastos {fmt0(pyg.totalGastos)}</div>
         </div>
         <div style={{ ...card, padding: '16px 20px', background: AZUL }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Caja actual</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 32, lineHeight: 1, color: '#fff' }}>{fmt0(balance.caja)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: '#fff', marginTop: 6 }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Caja actual</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 32, lineHeight: 1, color: BLANCO }}>{fmt0(balance.caja)}</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
             {balance.cajaOrigen === 'extracto' ? `extracto real a ${fmtDate(balance.fecha)}`
               : balance.cajaOrigen === 'manual' ? `manual a ${fmtDate(balance.fecha)}`
               : 'sin saldo de banco disponible'}
@@ -144,7 +139,7 @@ export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } 
         <div style={{ ...card, padding: '16px 20px', background: INK }}>
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: AMA, marginBottom: 6 }}>Flujo neto acumulado {año}</div>
           <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 32, lineHeight: 1, color: AMA }}>{fmt0(cashFlow.flujoNetoAcumulado)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: '#fff', marginTop: 6 }}>real, ya ejecutado (sin inversión)</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>real, ya ejecutado (sin inversión)</div>
         </div>
       </div>
 
@@ -157,7 +152,7 @@ export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } 
         ] as [TabKey, string][]).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             padding: '9px 18px', border: `3px solid ${INK}`,
-            background: tab === k ? GRANATE : '#fff', color: tab === k ? '#fff' : INK,
+            background: tab === k ? GRANATE : BLANCO, color: tab === k ? BLANCO : INK,
             boxShadow: tab === k ? SHADOW : 'none',
             fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer',
           }}>

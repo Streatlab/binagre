@@ -1,3 +1,4 @@
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, OSC, VERDE } from '@/styles/neobrutal'
 import { useState } from 'react'
 
 // Alerta de pendientes (paso 6-9 del flujo OCR).
@@ -36,10 +37,8 @@ interface Props {
   onReconciliado?: () => void
 }
 
-const ROJO = '#B01D23'
-const NARANJA = '#F26B1F'
-const VERDE = '#1D9E75'
-
+const ROJO = GRANATE
+const NARANJA = NAR
 function Grupo({ titulo, color, items }: { titulo: string; color: string; items: Pendiente[] }) {
   const [abierto, setAbierto] = useState(items.length > 0 && items.length <= 12)
   if (items.length === 0) return null
@@ -51,18 +50,18 @@ function Grupo({ titulo, color, items }: { titulo: string; color: string; items:
       >
         <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: color }} />
         {titulo} · {items.length}
-        <span style={{ fontSize: 11, color: '#7a8090' }}>{abierto ? '▲' : '▼'}</span>
+        <span style={{ fontSize: 11, color: GRIS }}>{abierto ? '▲' : '▼'}</span>
       </button>
       {abierto && (
         <div style={{ marginTop: 8, border: '0.5px solid #ebe8e2', borderRadius: 10, overflow: 'hidden' }}>
           {items.map((p, i) => (
-            <div key={p.factura_id} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 12px', borderTop: i === 0 ? 'none' : '0.5px solid #ebe8e2', background: '#fff' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111' }}>
+            <div key={p.factura_id} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 12px', borderTop: i === 0 ? 'none' : '0.5px solid #ebe8e2', background: BLANCO }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK }}>
                 <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.proveedor || p.archivo || 'Sin identificar'}</span>
-                <span style={{ flexShrink: 0, color: '#7a8090' }}>{p.fecha ?? ''}{p.total != null ? ` · ${p.total.toFixed(2)}€` : ''}</span>
+                <span style={{ flexShrink: 0, color: GRIS }}>{p.fecha ?? ''}{p.total != null ? ` · ${p.total.toFixed(2)}€` : ''}</span>
               </div>
-              {p.nif && <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#7a8090' }}>{p.nif}</div>}
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#3a4050' }}>{p.motivo}</div>
+              {p.nif && <div style={{ fontFamily: 'monospace', fontSize: 11, color: GRIS }}>{p.nif}</div>}
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: OSC }}>{p.motivo}</div>
             </div>
           ))}
         </div>
@@ -97,7 +96,7 @@ export default function PendientesAlerta({ desde, hasta, onReconciliado }: Props
   const bloqueantes = informe ? informe.sin_regla.length + informe.sin_plantilla.length : 0
 
   return (
-    <div style={{ background: '#fff', border: `0.5px solid ${informe && bloqueantes > 0 ? NARANJA : '#d0c8bc'}`, borderRadius: 14, padding: '14px 18px', marginBottom: 14 }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${informe && bloqueantes > 0 ? NARANJA : BORDE_SUAVE}`, borderRadius: 14, padding: '14px 18px', marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: ROJO }}>
           Barrido de pendientes
@@ -105,13 +104,13 @@ export default function PendientesAlerta({ desde, hasta, onReconciliado }: Props
         <button
           onClick={reconciliar}
           disabled={cargando}
-          style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: cargando ? '#d0c8bc' : ROJO, color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: cargando ? 'wait' : 'pointer', fontWeight: 600 }}
+          style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: cargando ? BORDE_SUAVE : ROJO, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: cargando ? 'wait' : 'pointer', fontWeight: 600 }}
         >
           {cargando ? 'Re-conciliando…' : 'Re-conciliar pendientes'}
         </button>
       </div>
 
-      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 6 }}>
+      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, marginTop: 6 }}>
         Reintenta el match de todas las pendientes con las reglas y plantillas actuales. Las que sigan sin cuadrar aparecen aquí con su motivo.
       </div>
 
@@ -122,7 +121,7 @@ export default function PendientesAlerta({ desde, hasta, onReconciliado }: Props
       {informe && (
         <div style={{ marginTop: 12 }}>
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
-            <span style={{ color: '#3a4050' }}>Revisadas: <strong>{informe.total_pendientes_revisados}</strong></span>
+            <span style={{ color: OSC }}>Revisadas: <strong>{informe.total_pendientes_revisados}</strong></span>
             <span style={{ color: VERDE }}>Reconciliadas ahora: <strong>{informe.reconciliadas}</strong></span>
             <span style={{ color: informe.siguen_pendientes > 0 ? NARANJA : VERDE }}>Siguen pendientes: <strong>{informe.siguen_pendientes}</strong></span>
           </div>

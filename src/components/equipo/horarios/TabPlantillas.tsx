@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { FileDown, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -29,7 +30,7 @@ export default function TabPlantillas() {
   const ids: PlantillaId[] = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6']
 
   function actionBtn(): React.CSSProperties {
-    return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: '#B01D23', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
+    return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: GRANATE, color: BLANCO, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
   }
 
   return (
@@ -40,9 +41,9 @@ export default function TabPlantillas() {
             <button key={id} onClick={() => setActiva(id)}
               style={{
                 padding: '6px 14px', borderRadius: 8,
-                border: `1px solid ${activa === id ? '#B01D23' : T.brd}`,
-                background: activa === id ? '#B01D23' : T.card,
-                color: activa === id ? '#fff' : T.pri,
+                border: `1px solid ${activa === id ? GRANATE : T.brd}`,
+                background: activa === id ? GRANATE : T.card,
+                color: activa === id ? BLANCO : T.pri,
                 fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1.5px',
                 textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600,
               }}>
@@ -61,7 +62,7 @@ export default function TabPlantillas() {
       </div>
 
       <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: '12px 16px', marginBottom: 14 }}>
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 600, color: '#B01D23', letterSpacing: '2px', textTransform: 'uppercase' }}>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 600, color: GRANATE, letterSpacing: '2px', textTransform: 'uppercase' }}>
           {plantilla.nombre}
         </div>
         <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginTop: 4 }}>{plantilla.descripcion}</div>

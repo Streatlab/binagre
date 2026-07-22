@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK } from '@/styles/neobrutal'
 /**
  * CardHoyEnVivo — sección "HOY EN VIVO" del Resumen (Panel Global), a ancho completo,
  * justo encima del estado de salud del periodo.
@@ -21,7 +22,6 @@ import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type Cana
 import { resolverNetoCanal, loadVentasReales, loadRatiosCalibrados, type FuenteNeto } from '@/lib/panel/netoResolver'
 
 /* ── tokens idénticos a ResumenLanding ── */
-const INK = '#140f08'
 const CLARO = '#F3D9A8'
 const TRACK = '#ecdcb8'
 const ROSA = '#FF2E63'
@@ -30,12 +30,11 @@ const AMA = '#FFC400'
 const VERDE = '#0FB86B'
 const NAR = '#FF6A1A'
 const AZUL = '#2D5BFF'
-const GRIS = '#9a8f78'
 const SHADOW = `4px 4px 0 ${INK}`
 const OSW = "'Oswald', sans-serif"
 const LEX = "'Lexend', sans-serif"
 const PAD = '40px'
-const CORP: Record<string, string> = { uber: '#06C167', glovo: '#FFC244', je: '#FF8000', web: '#B01D23', dir: '#1e2233' }
+const CORP: Record<string, string> = { uber: VERDE, glovo: '#FFC244', je: '#FF8000', web: GRANATE, dir: '#1e2233' }
 
 const d = (size: string, color = INK): React.CSSProperties => ({ fontFamily: OSW, fontWeight: 700, fontSize: size, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color })
 const eyebrow = (bg: string, color = INK): React.CSSProperties => ({ display: 'inline-block', background: bg, color, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', padding: '4px 12px' })
@@ -97,7 +96,7 @@ function Anillo({ pct, color }: { pct: number; color: string }) {
 
 function Kpi({ label, valor, color, pie }: { label: string; valor: string; color: string; pie?: React.ReactNode }) {
   return (
-    <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
+    <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
       <div style={micro}>{label}</div>
       <div style={{ ...d('clamp(26px,3.6vw,44px)', color), margin: '8px 0 8px' }}>{valor}</div>
       {pie}
@@ -201,7 +200,7 @@ export default function CardHoyEnVivo() {
     <section style={{ background: CLARO, borderBottom: `4px solid ${INK}`, padding: `32px ${PAD} 36px`, fontFamily: LEX, color: INK }}>
       {/* cabecera */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-        <span style={eyebrow(vivo ? VERDE : GRIS, '#fff')}>{vivo ? '● Hoy en vivo' : '● Robot parado'}</span>
+        <span style={eyebrow(vivo ? VERDE : GRIS, BLANCO)}>{vivo ? '● Hoy en vivo' : '● Robot parado'}</span>
         <span style={{ ...eyebrow(INK, AMA), fontSize: 12 }}>
           {minutos === null ? 'Sin datos del robot' : minutos === 0 ? 'Actualizado ahora mismo' : `Actualizado hace ${minutos} min`}
         </span>
@@ -215,7 +214,7 @@ export default function CardHoyEnVivo() {
           label="Pedidos"
           valor={N(k?.pedidos ?? 0)}
           color={NAR}
-          pie={<span style={{ ...eyebrow(NAR, '#fff'), fontSize: 11 }}>{N(k?.clientes_nuevos ?? 0)} nuevos · {N(k?.clientes_recurrentes ?? 0)} repiten</span>}
+          pie={<span style={{ ...eyebrow(NAR, BLANCO), fontSize: 11 }}>{N(k?.clientes_nuevos ?? 0)} nuevos · {N(k?.clientes_recurrentes ?? 0)} repiten</span>}
         />
         <Kpi
           label="Facturación bruta"
@@ -227,16 +226,16 @@ export default function CardHoyEnVivo() {
           label="Neto estimado"
           valor={calcLista ? E2(netoTotal) : '—'}
           color={VERDE}
-          pie={<span title={`Neto calculado con la calculadora del ERP: ${fuenteTxt}`} style={{ ...eyebrow(VERDE, '#fff'), fontSize: 11, cursor: 'help' }}>{Math.round(pctNeto)}% s/ bruto · {fuenteTxt}</span>}
+          pie={<span title={`Neto calculado con la calculadora del ERP: ${fuenteTxt}`} style={{ ...eyebrow(VERDE, BLANCO), fontSize: 11, cursor: 'help' }}>{Math.round(pctNeto)}% s/ bruto · {fuenteTxt}</span>}
         />
         <Kpi
           label="Ticket medio"
           valor={E2(k?.ticket_medio ?? 0)}
           color={AZUL}
-          pie={<span style={{ ...eyebrow(AZUL, '#fff'), fontSize: 11 }}>{N(k?.pedidos_hace_7d ?? 0)} ped hace 7 días</span>}
+          pie={<span style={{ ...eyebrow(AZUL, BLANCO), fontSize: 11 }}>{N(k?.pedidos_hace_7d ?? 0)} ped hace 7 días</span>}
         />
 
-        <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
           <Anillo pct={pctVs7d} color={colorRitmo} />
           <div>
             <div style={micro}>Ritmo del día</div>
@@ -250,7 +249,7 @@ export default function CardHoyEnVivo() {
       {/* plataformas · marcas · productos */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.1fr 1fr', gap: 16, marginTop: 16 }}>
         {/* plataformas + curva */}
-        <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
+        <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
           <span style={{ ...eyebrow(AMA), fontSize: 12 }}>Por dónde entran</span>
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {canales.length === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: GRIS }}>Sin pedidos todavía.</span>}
@@ -297,8 +296,8 @@ export default function CardHoyEnVivo() {
         </div>
 
         {/* marcas */}
-        <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
-          <span style={{ ...eyebrow(ROSA, '#fff'), fontSize: 12 }}>Marcas que tiran hoy</span>
+        <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
+          <span style={{ ...eyebrow(ROSA, BLANCO), fontSize: 12 }}>Marcas que tiran hoy</span>
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {marcas.length === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: GRIS }}>Sin pedidos todavía.</span>}
             {marcas.map(mk => {
@@ -323,8 +322,8 @@ export default function CardHoyEnVivo() {
         </div>
 
         {/* productos */}
-        <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
-          <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 12 }}>Lo más vendido hoy</span>
+        <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
+          <span style={{ ...eyebrow(VERDE, BLANCO), fontSize: 12 }}>Lo más vendido hoy</span>
           <div style={{ marginTop: 12 }}>
             {platos.length === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: GRIS }}>Sin ventas todavía.</span>}
             {platos.map((pl, i) => (

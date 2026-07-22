@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -82,16 +83,16 @@ export default function Marcas() {
     <div style={{ fontFamily: FONT.body, padding: isMobile ? '16px' : '28px', background: 'var(--neo-bg)', minHeight: '100vh', color: 'var(--sl-text-primary)' }}>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 'clamp(20px, 5vw, 26px)', letterSpacing: '3px', color: '#B01D23', fontWeight: 800, textTransform: 'uppercase', margin: '0 0 4px' }}>MARCAS</h1>
+          <h1 style={{ fontFamily: FONT.heading, fontSize: 'clamp(20px, 5vw, 26px)', letterSpacing: '3px', color: GRANATE, fontWeight: 800, textTransform: 'uppercase', margin: '0 0 4px' }}>MARCAS</h1>
           <span style={{ fontSize: 13, color: 'var(--sl-text-muted)' }}>Gestion de marcas del negocio</span>
         </div>
         <button onClick={openCreate}
-          style={{ padding: '10px 18px', minHeight: 44, background: '#e8f442', color: 'var(--sl-text-primary)', ...NEO_CARD, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 800, cursor: 'pointer' }}>
+          style={{ padding: '10px 18px', minHeight: 44, background: LIMA, color: 'var(--sl-text-primary)', ...NEO_CARD, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 800, cursor: 'pointer' }}>
           + Nueva marca
         </button>
       </div>
 
-      {error && <div style={{ backgroundColor: '#B01D2318', ...NEO_CARD, padding: '14px 18px', color: '#B01D23', fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ backgroundColor: '#B01D2318', ...NEO_CARD, padding: '14px 18px', color: GRANATE, fontSize: 13, marginBottom: 20 }}>{error}</div>}
 
       {showForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'var(--sl-overlay)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -117,7 +118,7 @@ export default function Marcas() {
               <button onClick={() => { setShowForm(false); setEditId(null) }}
                 style={{ padding: '10px 16px', minHeight: 44, background: 'var(--sl-btn-cancel-bg)', ...NEO_CARD, color: 'var(--sl-btn-cancel-text)', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Cancelar</button>
               <button onClick={save} disabled={saving}
-                style={{ padding: '10px 18px', minHeight: 44, background: '#B01D23', color: '#fff', ...NEO_CARD, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 800, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+                style={{ padding: '10px 18px', minHeight: 44, background: GRANATE, color: BLANCO, ...NEO_CARD, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 800, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
@@ -143,7 +144,7 @@ export default function Marcas() {
                   <td style={{ padding: '12px 14px', color: 'var(--sl-text-primary)', fontWeight: 500 }}>{m.nombre}</td>
                   <td style={{ padding: '12px 14px', color: 'var(--sl-text-muted)', fontSize: 12 }}>{m.descripcion ?? '—'}</td>
                   <td style={{ padding: '12px 14px' }}>
-                    <span style={{ background: m.activa ? '#1D9E7520' : '#B01D2320', color: m.activa ? '#1D9E75' : '#B01D23', border: `2px solid ${m.activa ? '#1D9E75' : '#B01D23'}`, padding: '3px 8px', borderRadius: 0, fontSize: 10, fontFamily: FONT.heading, fontWeight: 800, letterSpacing: '1px' }}>
+                    <span style={{ background: m.activa ? '#1D9E7520' : '#B01D2320', color: m.activa ? VERDE : GRANATE, border: `2px solid ${m.activa ? VERDE : GRANATE}`, padding: '3px 8px', borderRadius: 0, fontSize: 10, fontFamily: FONT.heading, fontWeight: 800, letterSpacing: '1px' }}>
                       {m.activa ? 'ACTIVA' : 'INACTIVA'}
                     </span>
                   </td>
@@ -152,7 +153,7 @@ export default function Marcas() {
                       <button onClick={() => openEdit(m)}
                         style={{ padding: '6px 12px', background: 'transparent', border: `2px solid ${NEO_INK}`, color: 'var(--sl-text-secondary)', borderRadius: 0, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Editar</button>
                       <button onClick={() => toggleActiva(m)}
-                        style={{ padding: '6px 12px', background: 'transparent', border: `2px solid ${m.activa ? '#B01D23' : '#1D9E75'}`, color: m.activa ? '#B01D23' : '#1D9E75', borderRadius: 0, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                        style={{ padding: '6px 12px', background: 'transparent', border: `2px solid ${m.activa ? GRANATE : VERDE}`, color: m.activa ? GRANATE : VERDE, borderRadius: 0, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                         {m.activa ? 'Desactivar' : 'Activar'}
                       </button>
                     </div>

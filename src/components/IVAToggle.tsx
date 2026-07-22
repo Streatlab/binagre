@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 import { useIVA } from '@/contexts/IVAContext'
 import { useTheme, FONT } from '@/styles/tokens'
 
@@ -27,7 +28,7 @@ export default function IVAToggle() {
     fontSize: 13,
     fontWeight: active ? 600 : 500,
     background: active ? ROJO_ACTIVO : 'transparent',
-    color: active ? '#ffffff' : T.pri,
+    color: active ? BLANCO : T.pri,
     transition: 'background 120ms, color 120ms',
   })
 

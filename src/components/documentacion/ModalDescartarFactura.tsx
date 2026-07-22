@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, ROJO_S } from '@/styles/neobrutal'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -28,8 +29,8 @@ interface Props {
 }
 
 const inp: React.CSSProperties = {
-  width: '100%', boxSizing: 'border-box', background: '#1e1e1e', border: '1px solid #383838',
-  borderRadius: 8, color: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '10px 12px', outline: 'none',
+  width: '100%', boxSizing: 'border-box', background: INK, border: '1px solid #383838',
+  borderRadius: 8, color: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '10px 12px', outline: 'none',
 }
 
 export default function ModalDescartarFactura({ factura, onClose, onDescartada }: Props) {
@@ -165,9 +166,9 @@ export default function ModalDescartarFactura({ factura, onClose, onDescartada }
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ backgroundColor: '#1a1a1a', borderRadius: 14, width: '100%', maxWidth: 460, border: '1px solid #383838', padding: 22 }}
+        style={{ backgroundColor: INK, borderRadius: 14, width: '100%', maxWidth: 460, border: '1px solid #383838', padding: 22 }}
       >
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: 2, textTransform: 'uppercase', color: '#ffaaaa', marginBottom: 4, fontWeight: 600 }}>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: 2, textTransform: 'uppercase', color: ROJO_S, marginBottom: 4, fontWeight: 600 }}>
           Descartar factura
         </div>
         <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#ccc', marginBottom: 16 }}>
@@ -175,27 +176,27 @@ export default function ModalDescartarFactura({ factura, onClose, onDescartada }
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#fff' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: BLANCO }}>
             <input type="radio" checked={modo === 'uno'} onChange={() => setModo('uno')} />
             Descartar solo esta factura
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#fff' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: BLANCO }}>
             <input type="radio" checked={modo === 'siempre'} onChange={() => setModo('siempre')} />
             Descartar siempre los de este tipo
           </label>
 
           {modo === 'siempre' && (
             <div style={{ marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 8, background: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '10px 12px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 12.5, color: '#ffaaaa' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 12.5, color: ROJO_S }}>
                 <input type="radio" checked={campo === 'pdf_original_name'} onChange={() => setCampo('pdf_original_name')} disabled={!factura.pdf_original_name} />
                 Por nombre de archivo{factura.pdf_original_name ? ` (${factura.pdf_original_name})` : ' (sin dato)'}
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 12.5, color: '#ffaaaa' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 12.5, color: ROJO_S }}>
                 <input type="radio" checked={campo === 'nif_emisor'} onChange={() => setCampo('nif_emisor')} disabled={!factura.nif_emisor} />
                 Por NIF del emisor{factura.nif_emisor ? ` (${factura.nif_emisor})` : ' (sin dato)'}
               </label>
               {bloqueadoSiempre && (
-                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11.5, color: '#ffaaaa' }}>Esta factura no tiene ese dato: elige el otro campo.</div>
+                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11.5, color: ROJO_S }}>Esta factura no tiene ese dato: elige el otro campo.</div>
               )}
             </div>
           )}
@@ -209,15 +210,15 @@ export default function ModalDescartarFactura({ factura, onClose, onDescartada }
           style={{ ...inp, resize: 'vertical', marginBottom: 12 }}
         />
 
-        {error && <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#ffaaaa', marginBottom: 10 }}>{error}</div>}
+        {error && <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: ROJO_S, marginBottom: 10 }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} disabled={guardando}
-            style={{ padding: '9px 16px', background: '#222222', border: '1px solid #383838', borderRadius: 8, color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', cursor: guardando ? 'default' : 'pointer' }}>
+            style={{ padding: '9px 16px', background: INK, border: '1px solid #383838', borderRadius: 8, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', cursor: guardando ? 'default' : 'pointer' }}>
             Cancelar
           </button>
           <button onClick={confirmar} disabled={guardando || bloqueadoSiempre}
-            style={{ padding: '9px 16px', background: '#B01D23', border: 'none', borderRadius: 8, color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', cursor: (guardando || bloqueadoSiempre) ? 'not-allowed' : 'pointer', opacity: (guardando || bloqueadoSiempre) ? 0.5 : 1 }}>
+            style={{ padding: '9px 16px', background: GRANATE, border: 'none', borderRadius: 8, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', cursor: (guardando || bloqueadoSiempre) ? 'not-allowed' : 'pointer', opacity: (guardando || bloqueadoSiempre) ? 0.5 : 1 }}>
             {guardando ? 'Descartando…' : 'Descartar'}
           </button>
         </div>

@@ -1,3 +1,4 @@
+import { AZUL_CL, GRANATE, NAR, VERDE } from '@/styles/neobrutal'
 import type { CSSProperties } from 'react'
 import { useTheme, cardStyle, kpiLabelStyle, kpiValueStyle, FONT } from '@/styles/tokens'
 
@@ -14,10 +15,10 @@ interface KpiCardProps {
 }
 
 const ACCENT_COLOR: Record<KpiAccent, string | null> = {
-  success: '#06C167',
-  danger:  '#B01D23',
-  warning: '#f5a623',
-  info:    '#66aaff',
+  success: VERDE,
+  danger:  GRANATE,
+  warning: NAR,
+  info:    AZUL_CL,
   default: null,
 }
 
@@ -36,8 +37,8 @@ export function KpiCard({ label, value, period, delta, accent = 'default', highl
   }
 
   const trendColor =
-    delta?.trend === 'up'   ? '#06C167' :
-    delta?.trend === 'down' ? '#B01D23' :
+    delta?.trend === 'up'   ? VERDE :
+    delta?.trend === 'down' ? GRANATE :
                               T.mut
 
   const trendIcon =

@@ -1,10 +1,11 @@
+import { BLANCO, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
 
 
-const BG_OPS = '#111111'
+const BG_OPS = INK
 interface Equipo {
   id: string
   nombre: string
@@ -98,7 +99,7 @@ export default function LibroEquipos() {
   const costAcum = eqMantenimientos.reduce((s, m) => s + (m.coste ?? 0), 0)
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: BLANCO }}>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>LIBRO EQUIPOS</h1>
@@ -110,12 +111,12 @@ export default function LibroEquipos() {
         </button>
       </div>
 
-      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: '#ffaaaa', fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
 
       {showForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 480 }}>
-            <h2 style={{ fontFamily: FONT.heading, fontSize: 16, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff', margin: '0 0 20px' }}>
+          <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 480 }}>
+            <h2 style={{ fontFamily: FONT.heading, fontSize: 16, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, margin: '0 0 20px' }}>
               {editData.id ? 'EDITAR EQUIPO' : 'NUEVO EQUIPO'}
             </h2>
             {[
@@ -131,14 +132,14 @@ export default function LibroEquipos() {
                 <input type={f.type}
                   value={(editData as Record<string, unknown>)[f.key] as string ?? ''}
                   onChange={e => setEditData(p => ({ ...p, [f.key]: f.type === 'number' ? (e.target.value ? parseFloat(e.target.value) : null) : e.target.value }))}
-                  style={{ width: '100%', padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontSize: 13, boxSizing: 'border-box' }} />
+                  style={{ width: '100%', padding: '8px 10px', background: INK, border: '1px solid #2a2a2a', borderRadius: 6, color: BLANCO, fontSize: 13, boxSizing: 'border-box' }} />
               </div>
             ))}
             <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => { setShowForm(false); setEditData(EMPTY_EQUIPO) }}
-                style={{ padding: '8px 16px', background: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Cancelar</button>
+                style={{ padding: '8px 16px', background: INK, border: '1px solid #383838', color: GRIS, borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Cancelar</button>
               <button onClick={saveEquipo} disabled={saving}
-                style={{ padding: '8px 18px', background: COLORS.redSL, color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+                style={{ padding: '8px 18px', background: COLORS.redSL, color: BLANCO, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
@@ -155,10 +156,10 @@ export default function LibroEquipos() {
                 const coste = mants.reduce((s, m) => s + (m.coste ?? 0), 0)
                 return (
                   <div key={eq.id} onClick={() => setSelectedId(eq.id === selectedId ? null : eq.id)}
-                    style={{ background: selectedId === eq.id ? '#1a1f2e' : '#141414', border: `1px solid ${selectedId === eq.id ? COLORS.redSL : '#2a2a2a'}`, borderRadius: 10, padding: '16px 18px', cursor: 'pointer', opacity: eq.activo ? 1 : 0.5 }}>
+                    style={{ background: selectedId === eq.id ? '#1a1f2e' : INK, border: `1px solid ${selectedId === eq.id ? COLORS.redSL : INK}`, borderRadius: 10, padding: '16px 18px', cursor: 'pointer', opacity: eq.activo ? 1 : 0.5 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                       <div>
-                        <div style={{ fontFamily: FONT.heading, fontSize: 15, letterSpacing: '1px', color: '#ffffff', marginBottom: 4 }}>{eq.nombre}</div>
+                        <div style={{ fontFamily: FONT.heading, fontSize: 15, letterSpacing: '1px', color: BLANCO, marginBottom: 4 }}>{eq.nombre}</div>
                         <div style={{ fontSize: 12, color: COLOR.textMut }}>
                           {eq.tipo && <span style={{ marginRight: 10 }}>{eq.tipo}</span>}
                           {eq.temp_min !== null && eq.temp_max !== null && <span>Rango: {eq.temp_min}°C – {eq.temp_max}°C</span>}
@@ -169,7 +170,7 @@ export default function LibroEquipos() {
                           {eq.estado ?? (eq.activo ? 'ACTIVO' : 'INACTIVO')}
                         </span>
                         <button onClick={e => { e.stopPropagation(); setEditData({ ...eq }); setShowForm(true) }}
-                          style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #383838', color: '#cccccc', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Editar</button>
+                          style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #383838', color: GRIS, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Editar</button>
                         <button onClick={e => { e.stopPropagation(); toggleActivo(eq) }}
                           style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${eq.activo ? COLORS.redSL : COLORS.ok}`, color: eq.activo ? COLORS.redSL : COLORS.ok, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
                           {eq.activo ? 'Desactivar' : 'Activar'}
@@ -188,14 +189,14 @@ export default function LibroEquipos() {
           </div>
 
           {selectedEquipo && (
-            <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px' }}>
+            <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px' }}>
               <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 12 }}>
                 HISTORIAL — {selectedEquipo.nombre}
               </div>
               <div style={{ marginBottom: 16, display: 'flex', gap: 16 }}>
-                <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '12px 16px', flex: 1 }}>
+                <div style={{ background: INK, borderRadius: 8, padding: '12px 16px', flex: 1 }}>
                   <div style={{ fontSize: 11, color: COLOR.textMut, marginBottom: 4, fontFamily: FONT.heading, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Coste Acumulado</div>
-                  <div style={{ fontFamily: FONT.heading, fontSize: 22, color: '#ffffff' }}>{fmtEurLocal(costAcum)}</div>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 22, color: BLANCO }}>{fmtEurLocal(costAcum)}</div>
                 </div>
               </div>
               {eqMantenimientos.length === 0 ? (
@@ -203,7 +204,7 @@ export default function LibroEquipos() {
               ) : eqMantenimientos.map(m => (
                 <div key={m.id} style={{ borderBottom: '1px solid #222222', padding: '10px 0', fontSize: 13 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                    <span style={{ color: '#cccccc' }}>{m.descripcion ?? '—'}</span>
+                    <span style={{ color: GRIS }}>{m.descripcion ?? '—'}</span>
                     <span style={{ color: COLOR.textMut, whiteSpace: 'nowrap' }}>{fmtFecha(m.fecha)}</span>
                   </div>
                   {m.coste !== null && <div style={{ color: COLORS.glovo, fontSize: 12, marginTop: 2 }}>{fmtEurLocal(m.coste)}</div>}

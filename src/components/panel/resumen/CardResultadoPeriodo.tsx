@@ -1,3 +1,4 @@
+import { BORDE_SUAVE, GRANATE, GRIS, INK, OSC, VERDE } from '@/styles/neobrutal'
 /**
  * CardResultadoPeriodo — Ronda 10
  * R10-01: cascada usa rango fechaDesde/fechaHasta del periodo (oculto al usuario)
@@ -124,7 +125,7 @@ export default function CardResultadoPeriodo({
   const colorDelta = (deltaPp ?? 0) >= 0 ? COLOR.verde : COLOR.rojo
 
   const objetivoPC = kpiObj?.prime_cost_target ?? 60
-  const primeCostColor = primeCostPct <= objetivoPC ? COLOR.verde : '#B01D23'
+  const primeCostColor = primeCostPct <= objetivoPC ? COLOR.verde : GRANATE
 
   // R10-02: resolución de cada fila — prioridad running, fallback gastos
   function resolverValor(
@@ -183,7 +184,7 @@ export default function CardResultadoPeriodo({
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: sinDatosCascada ? '#3a4050' : colorEbitda }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: sinDatosCascada ? OSC : colorEbitda }}>
             {sinDatosCascada
               ? 'Datos insuficientes'
               : fmtEur(ebitda, { showEuro: true, decimals: 2 })}
@@ -191,10 +192,10 @@ export default function CardResultadoPeriodo({
           <div style={lblXs}>EBITDA</div>
         </div>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: sinDatosCascada ? '#3a4050' : colorEbitda }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: sinDatosCascada ? OSC : colorEbitda }}>
             {sinDatosCascada ? '—' : `${fmtNum(ebitdaPct, 0)}%`}
           </div>
-          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: '#3a4050', fontWeight: 600 }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 10, letterSpacing: '1.5px', color: OSC, fontWeight: 600 }}>
             % s/netos
           </div>
         </div>
@@ -271,7 +272,7 @@ export default function CardResultadoPeriodo({
               filtros={{}}
               decimales={0}
               unidad="%"
-              color="#1D9E75"
+              color={VERDE}
               onUpdate={() => setKpiVersion(v => v + 1)}
             />
           </span>
@@ -286,10 +287,10 @@ function BarraPrimeCost({ pctActual, objetivo }: { pctActual: number; objetivo: 
   const fillPct = dentroObjetivo
     ? Math.min(100, (pctActual / objetivo) * 100)
     : 100
-  const colorFill = dentroObjetivo ? '#1D9E75' : '#B01D23'
+  const colorFill = dentroObjetivo ? VERDE : GRANATE
 
   return (
-    <div style={{ height: 8, borderRadius: 4, background: '#ebe8e2', overflow: 'hidden' }}>
+    <div style={{ height: 8, borderRadius: 4, background: BORDE_SUAVE, overflow: 'hidden' }}>
       <div style={{ height: '100%', width: `${fillPct}%`, background: colorFill, transition: 'width 0.4s' }} />
     </div>
   )
@@ -316,8 +317,8 @@ function LineaPyG({
         fontWeight: bold ? 500 : 400,
       }}
     >
-      <span style={{ color: '#7a8090', cursor: tooltip ? 'help' : 'default' }}>{label}</span>
-      <span style={{ color: colorVal ?? (valor === 'Datos insuficientes' ? '#7a8090' : '#111111'), fontStyle: valor === 'Datos insuficientes' ? 'italic' : 'normal' }}>{valor}</span>
+      <span style={{ color: GRIS, cursor: tooltip ? 'help' : 'default' }}>{label}</span>
+      <span style={{ color: colorVal ?? (valor === 'Datos insuficientes' ? GRIS : INK), fontStyle: valor === 'Datos insuficientes' ? 'italic' : 'normal' }}>{valor}</span>
     </div>
   )
 }

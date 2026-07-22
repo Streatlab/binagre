@@ -1,3 +1,4 @@
+import { BLANCO, INK, NAR_S } from '@/styles/neobrutal'
 /**
  * TabsPastilla — pestañas del Panel Global (Resumen, Operaciones, Finanzas…).
  * v10: modelo T3 — pastilla dura, activa en ROSA con sombra negra, inactivas en
@@ -5,9 +6,8 @@
  * En móvil (.movil-scope) se convierte en una tira deslizable: ver movil-scope.css.
  */
 
-const INK = '#140f08'
 const ROSA = '#FF2E63'
-const CREMA = '#FCEFD6'
+const CREMA = NAR_S
 const OSW = "'Oswald', sans-serif"
 
 interface TabItem {
@@ -43,7 +43,7 @@ export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaP
               border: `3px solid ${INK}`,
               borderRadius: 0,
               background: active ? ROSA : CREMA,
-              color: active ? '#fff' : INK,
+              color: active ? BLANCO : INK,
               boxShadow: active ? `4px 4px 0 ${INK}` : 'none',
               display: 'inline-flex',
               alignItems: 'center',
@@ -62,7 +62,7 @@ export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaP
                 padding: '0 5px',
                 border: `2px solid ${INK}`,
                 background: INK,
-                color: '#ffffff',
+                color: BLANCO,
                 fontSize: 11,
                 fontWeight: 700,
                 fontFamily: OSW,

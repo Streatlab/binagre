@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
 /**
  * PagosCobros — Módulo de gestión de cobros y pagos
  * Tabs: Calendario | Gastos Fijos | Historial
@@ -276,8 +277,8 @@ export default function PagosCobros() {
               borderRadius: 0,
               border: `3px solid ${NEO_INK}`,
               cursor: 'pointer',
-              backgroundColor: tab === t.id ? '#e8f442' : 'var(--sl-card-alt)',
-              color: tab === t.id ? '#111111' : 'var(--sl-text-secondary)',
+              backgroundColor: tab === t.id ? LIMA : 'var(--sl-card-alt)',
+              color: tab === t.id ? INK : 'var(--sl-text-secondary)',
               boxShadow: tab === t.id ? NEO_SHADOW : 'none',
               transition: 'all 0.15s',
             }}
@@ -365,9 +366,9 @@ export function TabCalendario() {
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 28 }}>
-        <KpiCard label="Cobros pendientes" value={fmtEur(totalCobros)} color="#1D9E75" />
-        <KpiCard label="Pagos pendientes" value={fmtEur(totalPagos)} color="#B01D23" />
-        <KpiCard label="Balance" value={fmtEur(balance)} color={balance >= 0 ? '#1D9E75' : '#B01D23'} />
+        <KpiCard label="Cobros pendientes" value={fmtEur(totalCobros)} color={VERDE} />
+        <KpiCard label="Pagos pendientes" value={fmtEur(totalPagos)} color={GRANATE} />
+        <KpiCard label="Balance" value={fmtEur(balance)} color={balance >= 0 ? VERDE : GRANATE} />
       </div>
 
       {items.length === 0 ? (
@@ -408,7 +409,7 @@ export function TabCalendario() {
                     {fmtEur(item.importe)}
                   </td>
                   <td style={{ padding: '12px 16px' }}>
-                    <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, backgroundColor: '#e8f44220', color: '#e8f442', fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
+                    <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, backgroundColor: '#e8f44220', color: LIMA, fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
                       PENDIENTE
                     </span>
                   </td>
@@ -523,7 +524,7 @@ export function TabGastos() {
   return (
     <div>
       {toast && (
-        <div style={{ marginBottom: 16, padding: '10px 16px', borderRadius: 8, backgroundColor: toast.ok ? '#1D9E7520' : '#B01D2320', color: toast.ok ? '#1D9E75' : '#B01D23', fontSize: 13, border: `1px solid ${toast.ok ? '#1D9E75' : '#B01D23'}` }}>
+        <div style={{ marginBottom: 16, padding: '10px 16px', borderRadius: 8, backgroundColor: toast.ok ? '#1D9E7520' : '#B01D2320', color: toast.ok ? VERDE : GRANATE, fontSize: 13, border: `1px solid ${toast.ok ? VERDE : GRANATE}` }}>
           {toast.msg}
         </div>
       )}
@@ -531,7 +532,7 @@ export function TabGastos() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
         <button
           onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(v => !v) }}
-          style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, letterSpacing: 1, padding: '12px 20px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, cursor: 'pointer', backgroundColor: '#e8f442', color: '#111111' }}
+          style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, letterSpacing: 1, padding: '12px 20px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, cursor: 'pointer', backgroundColor: LIMA, color: INK }}
         >
           + AÑADIR GASTO FIJO
         </button>
@@ -576,7 +577,7 @@ export function TabGastos() {
             <button
               onClick={guardar}
               disabled={saving}
-              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, padding: '12px 20px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: '#B01D23', color: '#fff', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
+              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, padding: '12px 20px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: GRANATE, color: BLANCO, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? 'GUARDANDO...' : 'GUARDAR'}
             </button>
@@ -621,7 +622,7 @@ export function TabGastos() {
                 <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--sl-btn-cancel-text)', textTransform: 'capitalize' }}>{g.periodicidad}</td>
                 <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)', whiteSpace: 'nowrap' }}>{fmtDate(g.proxima_fecha_pago)}</td>
                 <td style={{ padding: '12px 16px' }}>
-                  <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, backgroundColor: g.activo ? '#1D9E7520' : '#77777720', color: g.activo ? '#1D9E75' : 'var(--sl-text-muted)', fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
+                  <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, backgroundColor: g.activo ? '#1D9E7520' : '#77777720', color: g.activo ? VERDE : 'var(--sl-text-muted)', fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
                     {g.activo ? 'ACTIVO' : 'ARCHIVADO'}
                   </span>
                 </td>
@@ -636,7 +637,7 @@ export function TabGastos() {
                     {g.activo && (
                       <button
                         onClick={() => archivar(g.id)}
-                        style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '9px 12px', minHeight: 38, borderRadius: 6, border: 'none', backgroundColor: '#B01D2330', color: '#B01D23', cursor: 'pointer' }}
+                        style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '9px 12px', minHeight: 38, borderRadius: 6, border: 'none', backgroundColor: '#B01D2330', color: GRANATE, cursor: 'pointer' }}
                       >
                         ARCHIVAR
                       </button>
@@ -702,8 +703,8 @@ export function TabHistorial() {
               border: `3px solid ${NEO_INK}`,
               cursor: 'pointer',
               textTransform: 'uppercase',
-              backgroundColor: filtro === f ? '#e8f442' : 'var(--sl-card-alt)',
-              color: filtro === f ? '#111111' : 'var(--sl-text-secondary)',
+              backgroundColor: filtro === f ? LIMA : 'var(--sl-card-alt)',
+              color: filtro === f ? INK : 'var(--sl-text-secondary)',
               boxShadow: filtro === f ? NEO_SHADOW : 'none',
             }}
           >
@@ -744,7 +745,7 @@ export function TabHistorial() {
               >
                 <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)', whiteSpace: 'nowrap' }}>{fmtDate(m.fecha)}</td>
                 <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)' }}>{m.concepto}</td>
-                <td style={{ padding: '12px 16px', fontSize: 13, fontFamily: 'Oswald, sans-serif', color: m.tipo === 'ingreso' ? '#1D9E75' : '#B01D23', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                <td style={{ padding: '12px 16px', fontSize: 13, fontFamily: 'Oswald, sans-serif', color: m.tipo === 'ingreso' ? VERDE : GRANATE, textAlign: 'right', whiteSpace: 'nowrap' }}>
                   {m.tipo === 'pago' ? '-' : '+'}{fmtEur(Math.abs(Number(m.importe)))}
                 </td>
                 <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--sl-text-muted)', textTransform: 'capitalize' }}>{m.categoria || '—'}</td>
@@ -804,7 +805,7 @@ function TipoBadge({ tipo }: { tipo: 'COBRO' | 'PAGO' }) {
       padding: '3px 8px',
       borderRadius: 4,
       backgroundColor: isCobro ? '#1D9E7520' : '#B01D2320',
-      color: isCobro ? '#1D9E75' : '#B01D23',
+      color: isCobro ? VERDE : GRANATE,
       fontFamily: 'Oswald, sans-serif',
       letterSpacing: 1,
     }}>
@@ -844,7 +845,7 @@ function LoadingSpinner() {
 
 function ErrorMsg({ msg }: { msg: string }) {
   return (
-    <div style={{ padding: 24, borderRadius: 8, backgroundColor: '#B01D2320', border: '1px solid #B01D23', color: '#B01D23', fontSize: 13 }}>
+    <div style={{ padding: 24, borderRadius: 8, backgroundColor: '#B01D2320', border: '1px solid #B01D23', color: GRANATE, fontSize: 13 }}>
       Error: {msg}
     </div>
   )

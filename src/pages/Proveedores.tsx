@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
 import { useState, useEffect, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, pageTitleStyle, FONT } from '@/styles/tokens'
@@ -158,7 +159,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
                 type="checkbox"
                 checked={form.activo ?? true}
                 onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))}
-                style={{ accentColor: '#e8f442', width: 16, height: 16 }}
+                style={{ accentColor: LIMA, width: 16, height: 16 }}
               />
               Activo
             </label>
@@ -198,15 +199,15 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
             {!isNew && !confirmDelete && (
               <button
                 onClick={() => setConfirmDelete(true)}
-                style={{ background: 'none', border: '1px solid #B01D23', color: '#B01D23', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: FONT.body }}
+                style={{ background: 'none', border: '1px solid #B01D23', color: GRANATE, borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: FONT.body }}
               >
                 Eliminar
               </button>
             )}
             {confirmDelete && (
-              <span style={{ color: '#B01D23', fontSize: 12 }}>
+              <span style={{ color: GRANATE, fontSize: 12 }}>
                 ¿Seguro?{' '}
-                <button onClick={() => onDelete(prov!.id)} style={{ color: '#B01D23', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, textDecoration: 'underline' }}>Sí, eliminar</button>
+                <button onClick={() => onDelete(prov!.id)} style={{ color: GRANATE, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, textDecoration: 'underline' }}>Sí, eliminar</button>
                 {' '}
                 <button onClick={() => setConfirmDelete(false)} style={{ color: 'var(--sl-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancelar</button>
               </span>
@@ -222,7 +223,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
             <button
               onClick={() => onSave(form)}
               disabled={saving || !form.nombre}
-              style={{ background: '#B01D23', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW, color: '#fff', padding: '7px 20px', minHeight: 44, cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontFamily: FONT.body, opacity: saving ? 0.7 : 1 }}
+              style={{ background: GRANATE, border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW, color: BLANCO, padding: '7px 20px', minHeight: 44, cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontFamily: FONT.body, opacity: saving ? 0.7 : 1 }}
             >
               {saving ? 'Guardando…' : 'Guardar'}
             </button>
@@ -413,10 +414,10 @@ export default function Proveedores() {
           <button
             onClick={() => openModal(null)}
             style={{
-              background: '#e8f442',
+              background: LIMA,
               border: `3px solid ${NEO_INK}`,
               boxShadow: NEO_SHADOW,
-              color: '#111111',
+              color: INK,
               borderRadius: 0,
               padding: '8px 18px',
               minHeight: 44,
@@ -433,7 +434,7 @@ export default function Proveedores() {
       </div>
 
       {error && (
-        <div style={{ color: '#B01D23', backgroundColor: '#B01D2318', border: '1px solid #B01D2355', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
+        <div style={{ color: GRANATE, backgroundColor: '#B01D2318', border: '1px solid #B01D2355', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -510,8 +511,8 @@ export default function Proveedores() {
                       padding: '2px 8px',
                       borderRadius: 4,
                       background: p.activo ? 'rgba(29,158,117,0.15)' : 'rgba(176,29,35,0.15)',
-                      color: p.activo ? '#1D9E75' : '#B01D23',
-                      border: `1px solid ${p.activo ? '#1D9E75' : '#B01D23'}`,
+                      color: p.activo ? VERDE : GRANATE,
+                      border: `1px solid ${p.activo ? VERDE : GRANATE}`,
                     }}>
                       {p.activo ? 'Activo' : 'Inactivo'}
                     </span>
@@ -571,7 +572,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
         {p.total_comprado > 0 && (
           <span style={{ fontFamily: 'Oswald,sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--sl-btn-cancel-text)' }}>{fmtEur(p.total_comprado)}</span>
         )}
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.activo ? '#1D9E75' : '#B01D23', display: 'inline-block' }} />
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.activo ? VERDE : GRANATE, display: 'inline-block' }} />
       </span>
     </button>
   )
@@ -597,13 +598,13 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
       {grupos.map(([cat, items]) => {
         const open = abiertos.has(cat)
         return (
-          <div key={cat} style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, border: `3px solid ${open ? '#e8f442' : NEO_INK}`, overflow: 'hidden' }}>
+          <div key={cat} style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, border: `3px solid ${open ? LIMA : NEO_INK}`, overflow: 'hidden' }}>
             <button
               onClick={() => toggleGrupo(cat)}
               style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={open ? '#e8f442' : 'var(--sl-text-muted)'} strokeWidth="2.5" style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s', flexShrink: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={open ? LIMA : 'var(--sl-text-muted)'} strokeWidth="2.5" style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s', flexShrink: 0 }}>
                   <path d="M9 6l6 6-6 6" />
                 </svg>
                 <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: 'var(--sl-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</span>

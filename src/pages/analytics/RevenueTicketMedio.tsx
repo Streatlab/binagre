@@ -1,3 +1,4 @@
+import { GRANATE } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo } from 'react'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -107,7 +108,7 @@ export default function RevenueTicketMedio() {
                   <YAxis yAxisId="r" orientation="right" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.mut }} unit="€" />
                   <Tooltip formatter={((v: number, n: string) => [fmtEur(v), n === 'ticket' ? 'Ticket medio' : 'Ventas']) as never} />
                   <Bar yAxisId="l" dataKey="bruto" fill={COLORS.uber} radius={[6, 6, 0, 0]} />
-                  <Line yAxisId="r" type="monotone" dataKey="ticket" stroke="#B01D23" strokeWidth={2.5} dot={{ r: 3 }} />
+                  <Line yAxisId="r" type="monotone" dataKey="ticket" stroke={GRANATE} strokeWidth={2.5} dot={{ r: 3 }} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>

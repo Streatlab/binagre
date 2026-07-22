@@ -83,7 +83,7 @@ const W_LABEL=280
 // Cabecera: todo INK texto crema (patrón homogéneo ERP). Trimestre/año: negrita, no color de fondo
 const th1:React.CSSProperties={fontFamily:OSW,fontSize:12,fontWeight:700,letterSpacing:'1.5px',color:CREMA,textTransform:'uppercase',textAlign:'left',padding:'10px 12px',background:INK,borderRight:'2px solid #4a3f2c',whiteSpace:'nowrap',position:'sticky',left:0,zIndex:6,minWidth:W_LABEL,width:W_LABEL}
 const t1:React.CSSProperties={padding:'9px 12px',fontSize:13,fontFamily:LEX,color:INK,borderBottom:`2px solid ${INK}`,borderRight:`3px solid ${INK}`,whiteSpace:'nowrap',textAlign:'left',position:'sticky',left:0,zIndex:5,verticalAlign:'middle',background:BLANCO,minWidth:W_LABEL,width:W_LABEL}
-const thC=(c:Col):React.CSSProperties=>({fontFamily:OSW,fontSize:12,fontWeight:c.isQ||c.isY?700:600,letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'10px 8px',background:INK,borderRight:'2px solid #4a3f2c',whiteSpace:'nowrap',userSelect:'none',color:c.isY?AMA:c.isQ?'#fff':CREMA})
+const thC=(c:Col):React.CSSProperties=>({fontFamily:OSW,fontSize:12,fontWeight:c.isQ||c.isY?700:600,letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'10px 8px',background:INK,borderRight:'2px solid #4a3f2c',whiteSpace:'nowrap',userSelect:'none',color:c.isY?AMA:c.isQ?BLANCO:CREMA})
 const thP=(c:Col):React.CSSProperties=>({...thC(c),fontSize:9,minWidth:28,padding:'10px 2px'})
 // Celdas de datos: SIEMPRE fondo blanco. Color solo en el texto (semántico). Cero fondos pastel
 const tdBase=(cl?:string,zona?:'pyg'|'det'):React.CSSProperties=>({padding:'8px 8px',fontSize:14,fontFamily:OSW,color:cl||(zona==='det'?INK:AZUL),borderBottom:`2px solid ${INK}`,borderRight:BRD_V,whiteSpace:'nowrap',textAlign:'right',verticalAlign:'middle',fontVariantNumeric:'tabular-nums',lineHeight:1.2,fontWeight:600,background:BLANCO})
@@ -119,7 +119,7 @@ const mhRow=(label:string)=><tr><th style={th1}>{label}</th>{vc.map((c,i)=>[<th 
 const tPO=(k:string)=>sPO(p=>({...p,[k]:!p[k]}))
 const allPlatOpen=platOpen.uber&&platOpen.glovo&&platOpen.je&&platOpen.web
 // Cabecera de plataforma: pastilla de color de marca a la izquierda, resto banda INK (no toda la fila de color)
-const platHeader=(name:string,key:string)=>{const bg=CORP[key]||INK;const tx=CLARA[key]?INK:'#fff';return<tr style={{cursor:'pointer'}} onClick={()=>tPO(key)}>
+const platHeader=(name:string,key:string)=>{const bg=CORP[key]||INK;const tx=CLARA[key]?INK:BLANCO;return<tr style={{cursor:'pointer'}} onClick={()=>tPO(key)}>
   <td style={{...t1,background:INK,color:CREMA,fontFamily:OSW,fontSize:13,letterSpacing:'1.5px',textTransform:'uppercase',padding:'9px 12px',borderTop:`3px solid ${INK}`,borderBottom:`3px solid ${INK}`,borderLeft:`12px solid ${bg}`,fontWeight:700}}>{platOpen[key]?'▾':'▸'} <span style={{background:bg,color:tx,border:`2px solid ${bg}`,padding:'1px 8px',marginLeft:2}}>{name}</span></td>
   {vc.map((c,i)=>[<td key={i} style={{background:INK,borderTop:`3px solid ${INK}`,borderBottom:`3px solid ${INK}`,padding:0}}/>,<td key={`p${i}`} style={{background:INK,borderTop:`3px solid ${INK}`,borderBottom:`3px solid ${INK}`,padding:0}}/>])}
 </tr>}
@@ -129,7 +129,7 @@ const platNetoEst=(name:string,canal:string)=><tr><td style={{...t1,paddingLeft:
 const platNetoReal=(name:string,plat:string)=><tr><td style={{...t1,paddingLeft:22,fontWeight:700,fontFamily:OSW,fontSize:13,color:VERDE,textTransform:'uppercase',letterSpacing:'1px'}}>= Neto real cobrado {name}</td>{vc.map((c,i)=>{let v=0;for(const r of resumenes){if(r.plataforma===plat&&c.ms.includes(r.mes))v+=Number(r.neto_real_cobrado||0)};return[<td key={i} style={{...tdBase(v?VERDE:GRIS),fontWeight:v?700:600}}>{v?fI(v):'—'}</td>,<td key={`p${i}`} style={tdP()}/>]})}</tr>
 const togglePyGAll=()=>{const n=!allBl;sBl({ing:n,dist:n,ratios:n});sAllBl(n)}
 const toggleDetAll=()=>{const n=!aO;const nv:Record<string,boolean>={};['1','2.1','2.2','2.3','2.4'].forEach(k=>nv[k]=n);sD(nv);sAO(n)}
-if(loading)return(<div style={{background:CREMA,padding:'28px',minHeight:'100vh'}}><span style={eyebrow(GRANATE,'#fff')}>Finanzas · P&G anual</span><h1 style={{color:GRANATE,fontFamily:OSW,fontSize:34,fontWeight:700,letterSpacing:'-0.5px',lineHeight:0.95,margin:'10px 0 0',textTransform:'uppercase'}}>Running {año}</h1><p style={{fontFamily:LEX,fontSize:14,color:GRIS,marginTop:8}}>Cargando…</p></div>)
+if(loading)return(<div style={{background:CREMA,padding:'28px',minHeight:'100vh'}}><span style={eyebrow(GRANATE,BLANCO)}>Finanzas · P&G anual</span><h1 style={{color:GRANATE,fontFamily:OSW,fontSize:34,fontWeight:700,letterSpacing:'-0.5px',lineHeight:0.95,margin:'10px 0 0',textTransform:'uppercase'}}>Running {año}</h1><p style={{fontFamily:LEX,fontSize:14,color:GRIS,marginTop:8}}>Cargando…</p></div>)
 const grupos=categorias.filter(c=>c.nivel===1&&c.id.startsWith('2.'))
 const ingC=categorias.filter(c=>c.parent_id==='1.1'&&c.nivel===3)
 const resAño=re(ALL)
@@ -141,7 +141,7 @@ return(<div style={{fontFamily:LEX,padding:embedded?0:28,background:embedded?'tr
 <div style={{marginBottom:20,display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12}}>
 {!embedded && (
 <div>
-<span style={eyebrow(GRANATE,'#fff')}>Finanzas · P&G anual</span>
+<span style={eyebrow(GRANATE,BLANCO)}>Finanzas · P&G anual</span>
 <h1 style={{fontFamily:OSW,fontWeight:700,fontSize:34,lineHeight:0.95,letterSpacing:'-0.5px',textTransform:'uppercase',color:GRANATE,margin:'10px 0 6px'}}>Running {año}</h1>
 <span style={{fontFamily:LEX,fontSize:13,color:GRIS}}>Cuenta de resultados anual · real y estimado</span>
 </div>
@@ -152,8 +152,8 @@ return(<div style={{fontFamily:LEX,padding:embedded?0:28,background:embedded?'tr
 </div></div>
 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:14,marginBottom:18}}>
 <div style={card}><div style={kpiLbl(MUT)}>Facturación bruta {año}</div><div style={kpiNum(AZUL)}>{fI(fB(ALL))} €{fBisEst(ALL)?<EstB/>:null}</div><div style={kpiSub(GRIS)}>{fI(pe(ALL))} pedidos · TM bruto {fD(tB(ALL))} €</div></div>
-<div style={{...card,background:VERDE}}><div style={kpiLbl('#fff')}>Ingresos netos {año}</div><div style={kpiNum('#fff')}>{fI(iM(ALL))} €{iMisEst(ALL)?<EstB/>:null}</div><div style={kpiSub('#fff')}>TM neto {fD(tN(ALL))} € · Gastos {fI(gT(ALL))} €</div></div>
-<div style={{...card,background:resAño>=0?INK:ROJO}}><div style={kpiLbl(resAño>=0?AMA:'#fff')}>Resultado {año}</div><div style={kpiNum(resAño>=0?AMA:'#fff')}>{fI(resAño)} €{iMisEst(ALL)?<EstB/>:null}</div><div style={kpiSub('#fff')}>{fP(po(resAño,iM(ALL)))} sobre ingresos netos</div></div>
+<div style={{...card,background:VERDE}}><div style={kpiLbl(BLANCO)}>Ingresos netos {año}</div><div style={kpiNum(BLANCO)}>{fI(iM(ALL))} €{iMisEst(ALL)?<EstB/>:null}</div><div style={kpiSub(BLANCO)}>TM neto {fD(tN(ALL))} € · Gastos {fI(gT(ALL))} €</div></div>
+<div style={{...card,background:resAño>=0?INK:ROJO}}><div style={kpiLbl(resAño>=0?AMA:BLANCO)}>Resultado {año}</div><div style={kpiNum(resAño>=0?AMA:BLANCO)}>{fI(resAño)} €{iMisEst(ALL)?<EstB/>:null}</div><div style={kpiSub(BLANCO)}>{fP(po(resAño,iM(ALL)))} sobre ingresos netos</div></div>
 </div>
 <div ref={topRef} style={{overflowX:'scroll',overflowY:'hidden',height:16,background:CLARO,border:`3px solid ${INK}`,marginBottom:8}}><div style={{width:tW,height:1}}/></div>
 <div style={{background:BLANCO,border:`4px solid ${INK}`,boxShadow:SHADOW,overflow:'hidden'}}>

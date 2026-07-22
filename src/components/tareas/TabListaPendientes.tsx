@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '@/styles/tokens'
@@ -38,14 +39,14 @@ function urgenciaOrden(t: TareaPendiente): number {
 }
 
 const ESTADO_COLORS: Record<string, string> = {
-  atrasada: '#B01D23',
-  pendiente: '#f5a623',
-  cumplida: '#1D9E75',
+  atrasada: GRANATE,
+  pendiente: NAR,
+  cumplida: VERDE,
 }
 
 const RESPONSABLE_COLORS: Record<string, string> = {
-  'Rubén': '#B01D23',
-  'Emilio': '#e8f442',
+  'Rubén': GRANATE,
+  'Emilio': LIMA,
   'Ambos': '#484f66',
 }
 
@@ -139,8 +140,8 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
             key={r}
             onClick={() => setFiltroResponsable(r)}
             style={{
-              background: filtroResponsable === r ? '#B01D23' : '#1e1e1e',
-              color: filtroResponsable === r ? '#fff' : '#ccc',
+              background: filtroResponsable === r ? GRANATE : INK,
+              color: filtroResponsable === r ? BLANCO : '#ccc',
               border: `1px solid #2a2a2a`,
               borderRadius: 6,
               padding: '6px 14px',
@@ -162,7 +163,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
-            <tr style={{ background: '#0a0a0a' }}>
+            <tr style={{ background: INK }}>
               {['Tarea', 'Responsable', 'Fecha esperada', 'Estado', 'Días retraso', 'Acción'].map(h => (
                 <th
                   key={h}
@@ -172,7 +173,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                     fontFamily: 'Oswald, sans-serif',
                     fontSize: 12,
                     fontWeight: 600,
-                    color: '#cccccc',
+                    color: GRIS,
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                     borderBottom: `1px solid #2a2a2a`,
@@ -190,12 +191,12 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                 <tr
                   key={t.id}
                   style={{
-                    background: idx % 2 === 0 ? '#111111' : '#141414',
+                    background: idx % 2 === 0 ? INK : INK,
                     borderBottom: `1px solid #2a2a2a`,
                     borderLeft: `4px solid ${bandaColor}`,
                   }}
                 >
-                  <td style={{ padding: '10px 12px', color: '#ffffff' }}>{t.nombre}</td>
+                  <td style={{ padding: '10px 12px', color: BLANCO }}>{t.nombre}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{
                       padding: '3px 10px',
@@ -207,7 +208,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                       fontWeight: 600,
                     }}>{t.responsable || '—'}</span>
                   </td>
-                  <td style={{ padding: '10px 12px', color: '#cccccc', whiteSpace: 'nowrap' }}>{t.fecha_esperada}</td>
+                  <td style={{ padding: '10px 12px', color: GRIS, whiteSpace: 'nowrap' }}>{t.fecha_esperada}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{
                       padding: '3px 10px',
@@ -221,7 +222,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                       letterSpacing: '0.05em',
                     }}>{t.estado}</span>
                   </td>
-                  <td style={{ padding: '10px 12px', color: retraso > 0 ? '#B01D23' : '#777', fontWeight: retraso > 0 ? 600 : 400 }}>
+                  <td style={{ padding: '10px 12px', color: retraso > 0 ? GRANATE : '#777', fontWeight: retraso > 0 ? 600 : 400 }}>
                     {retraso > 0 ? `+${retraso}d` : '—'}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
@@ -229,8 +230,8 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                       <button
                         onClick={() => irImportador(t.id, t.modulo_destino ?? '')}
                         style={{
-                          background: '#B01D23',
-                          color: '#ffffff',
+                          background: GRANATE,
+                          color: BLANCO,
                           border: 'none',
                           borderRadius: 6,
                           padding: '5px 10px',
@@ -246,8 +247,8 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                       <button
                         onClick={() => posponer(t.id, t.fecha_esperada)}
                         style={{
-                          background: '#222222',
-                          color: '#cccccc',
+                          background: INK,
+                          color: GRIS,
                           border: `1px solid #383838`,
                           borderRadius: 6,
                           padding: '5px 10px',

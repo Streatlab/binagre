@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA, NAR, ROJO, ROJO_S, VERDE } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtPct } from '@/lib/format'
@@ -62,13 +63,13 @@ const CANAL_LABEL: Record<string, string> = {
 }
 
 const CANAL_COLOR: Record<string, string> = {
-  uber:    '#06C167',
-  glovo:   '#e8f442',
-  je:      '#f5a623',
-  justeat: '#f5a623',
-  web:     '#B01D23',
-  directa: '#66aaff',
-  dir:     '#66aaff',
+  uber:    VERDE,
+  glovo:   LIMA,
+  je:      NAR,
+  justeat: NAR,
+  web:     GRANATE,
+  directa: AZUL_CL,
+  dir:     AZUL_CL,
 }
 
 function normCanal(p: string): string {
@@ -84,9 +85,9 @@ function lastDayOfMonth(year: number, month: number): number {
 
 function desvColor(pct: number): string {
   const abs = Math.abs(pct)
-  if (abs < 3) return '#1D9E75'
-  if (abs < 10) return '#e8f442'
-  return '#B01D23'
+  if (abs < 3) return VERDE
+  if (abs < 10) return LIMA
+  return GRANATE
 }
 
 function estadoFromPct(abs: number, umbral: number): FilaCalculo['estado'] {
@@ -103,7 +104,7 @@ const TH: React.CSSProperties = {
   color: '#9ba8c0',
   padding: '10px 12px',
   textAlign: 'left',
-  backgroundColor: '#0a0a0a',
+  backgroundColor: INK,
   borderBottom: '1px solid #2a2a2a',
   whiteSpace: 'nowrap',
 }
@@ -111,7 +112,7 @@ const TH: React.CSSProperties = {
 const TD: React.CSSProperties = {
   fontFamily: 'Lexend,sans-serif',
   fontSize: 13,
-  color: '#cccccc',
+  color: GRIS,
   padding: '9px 12px',
   borderBottom: '1px solid #1c1c1c',
   verticalAlign: 'middle',
@@ -254,24 +255,24 @@ export default function CalcNetoAprendizajePage() {
     <ConfigShell>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontFamily: 'Oswald,sans-serif', fontSize: 22, letterSpacing: '3px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: 0 }}>
+        <h1 style={{ fontFamily: 'Oswald,sans-serif', fontSize: 22, letterSpacing: '3px', color: GRANATE, fontWeight: 600, textTransform: 'uppercase', margin: 0 }}>
           Aprendizaje calcNeto
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: '#777777' }}>Año</span>
+          <span style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>Año</span>
           <select
             value={anio}
             onChange={e => setAnio(Number(e.target.value))}
-            style={{ backgroundColor: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 4, color: '#ffffff', fontFamily: 'Lexend,sans-serif', fontSize: 13, padding: '6px 10px', cursor: 'pointer' }}
+            style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 4, color: BLANCO, fontFamily: 'Lexend,sans-serif', fontSize: 13, padding: '6px 10px', cursor: 'pointer' }}
           >
             {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-          <span style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: '#777777' }}>Umbral alerta: {umbral}%</span>
+          <span style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>Umbral alerta: {umbral}%</span>
           <input
             type="range" min={1} max={20} step={1}
             value={umbral}
             onChange={e => setUmbral(Number(e.target.value))}
-            style={{ width: 120, accentColor: '#e8f442' }}
+            style={{ width: 120, accentColor: LIMA }}
           />
         </div>
       </div>
@@ -286,9 +287,9 @@ export default function CalcNetoAprendizajePage() {
       {/* Leyenda */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
         {[
-          { color: '#1D9E75', label: '< 3% — OK' },
-          { color: '#e8f442', label: '3–10% — Alerta' },
-          { color: '#B01D23', label: '> 10% — Error' },
+          { color: VERDE, label: '< 3% — OK' },
+          { color: LIMA, label: '3–10% — Alerta' },
+          { color: GRANATE, label: '> 10% — Error' },
         ].map(l => (
           <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: l.color }} />
@@ -305,11 +306,11 @@ export default function CalcNetoAprendizajePage() {
       {loading ? (
         <div style={{ padding: 32, textAlign: 'center', color: '#777', fontFamily: 'Lexend,sans-serif' }}>Calculando…</div>
       ) : error ? (
-        <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: '#ffaaaa', borderRadius: 4, padding: '12px 16px', fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>
+        <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: ROJO_S, borderRadius: 4, padding: '12px 16px', fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>
           Error: {error}
         </div>
       ) : (
-        <div style={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 6, overflowX: 'auto', marginBottom: 32 }}>
+        <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 6, overflowX: 'auto', marginBottom: 32 }}>
           {filasConUmbral.length === 0 ? (
             <div style={{ padding: 32, textAlign: 'center', color: '#777', fontFamily: 'Lexend,sans-serif' }}>No hay datos para {anio}.</div>
           ) : (
@@ -332,31 +333,31 @@ export default function CalcNetoAprendizajePage() {
                   const canalColor = CANAL_COLOR[f.canal] ?? '#888'
                   const rowBg = f.estado === 'rojo'
                     ? '#2a1515'
-                    : i % 2 === 0 ? '#141414' : '#111111'
+                    : i % 2 === 0 ? INK : INK
                   return (
                     <tr key={`${f.canal}_${f.mes}`} style={{ backgroundColor: rowBg }}>
                       <td style={TD}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: canalColor, display: 'inline-block' }} />
-                          <span style={{ color: '#ffffff' }}>{CANAL_LABEL[f.canal] ?? f.canal}</span>
+                          <span style={{ color: BLANCO }}>{CANAL_LABEL[f.canal] ?? f.canal}</span>
                         </span>
                       </td>
                       <td style={{ ...TD, color: '#9ba8c0' }}>{MESES[f.mes - 1]}</td>
-                      <td style={{ ...TD, textAlign: 'right', color: '#cccccc' }}>{fmtEur(f.bruto, { decimals: 0 })}</td>
+                      <td style={{ ...TD, textAlign: 'right', color: GRIS }}>{fmtEur(f.bruto, { decimals: 0 })}</td>
                       <td style={{ ...TD, textAlign: 'right' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ backgroundColor: '#484f66', color: '#d0d8ff', fontSize: 9, padding: '1px 5px', borderRadius: 3, fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px' }}>EST</span>
-                          <span style={{ color: '#cccccc' }}>{fmtEur(f.netoTeorico, { decimals: 0 })}</span>
+                          <span style={{ color: GRIS }}>{fmtEur(f.netoTeorico, { decimals: 0 })}</span>
                         </span>
                       </td>
-                      <td style={{ ...TD, textAlign: 'right', color: '#ffffff' }}>{fmtEur(f.netoReal, { decimals: 0 })}</td>
+                      <td style={{ ...TD, textAlign: 'right', color: BLANCO }}>{fmtEur(f.netoReal, { decimals: 0 })}</td>
                       <td style={{ ...TD, textAlign: 'right', color: desvColor(f.desvPct) }}>{fmtEur(f.desvEur, { decimals: 0, signed: true })}</td>
                       <td style={{ ...TD, textAlign: 'right', color: desvColor(f.desvPct), fontWeight: 600 }}>{fmtPct(f.desvPct)}</td>
                       <td style={TD}>
                         <span style={{
                           backgroundColor: f.estado === 'ok' ? '#0d2d1a' : f.estado === 'alerta' ? '#2d2800' : '#2d1515',
-                          color: f.estado === 'ok' ? '#4ade80' : f.estado === 'alerta' ? '#e8f442' : '#ffaaaa',
-                          border: `1px solid ${f.estado === 'ok' ? '#1d9e75' : f.estado === 'alerta' ? '#e8f44233' : '#aa3030'}`,
+                          color: f.estado === 'ok' ? '#4ade80' : f.estado === 'alerta' ? LIMA : ROJO_S,
+                          border: `1px solid ${f.estado === 'ok' ? VERDE : f.estado === 'alerta' ? '#e8f44233' : ROJO}`,
                           fontSize: 10, padding: '2px 8px', borderRadius: 3,
                           fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px', textTransform: 'uppercase',
                         }}>
@@ -368,7 +369,7 @@ export default function CalcNetoAprendizajePage() {
                           <button
                             onClick={() => proponerAjuste(f)}
                             style={{
-                              backgroundColor: '#e8f442', color: '#111111',
+                              backgroundColor: LIMA, color: INK,
                               border: 'none', borderRadius: 4,
                               padding: '5px 10px', fontFamily: 'Oswald,sans-serif',
                               fontSize: 11, letterSpacing: '0.5px', cursor: 'pointer',
@@ -390,7 +391,7 @@ export default function CalcNetoAprendizajePage() {
 
       {/* Panel propuestas pendientes */}
       <div style={{ marginBottom: 12 }}>
-        <h2 style={{ fontFamily: 'Oswald,sans-serif', fontSize: 16, letterSpacing: '2px', textTransform: 'uppercase', color: '#e8f442', margin: '0 0 16px' }}>
+        <h2 style={{ fontFamily: 'Oswald,sans-serif', fontSize: 16, letterSpacing: '2px', textTransform: 'uppercase', color: LIMA, margin: '0 0 16px' }}>
           Propuestas pendientes
         </h2>
         {loadingProp ? (
@@ -398,7 +399,7 @@ export default function CalcNetoAprendizajePage() {
         ) : propuestas.length === 0 ? (
           <div style={{ color: '#555', fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>No hay propuestas pendientes.</div>
         ) : (
-          <div style={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 6, overflowX: 'auto' }}>
+          <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 6, overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -413,24 +414,24 @@ export default function CalcNetoAprendizajePage() {
               </thead>
               <tbody>
                 {propuestas.map((p, i) => (
-                  <tr key={p.id} style={{ backgroundColor: i % 2 === 0 ? '#141414' : '#111111' }}>
-                    <td style={{ ...TD, color: '#ffffff' }}>{CANAL_LABEL[p.canal] ?? p.canal}</td>
+                  <tr key={p.id} style={{ backgroundColor: i % 2 === 0 ? INK : INK }}>
+                    <td style={{ ...TD, color: BLANCO }}>{CANAL_LABEL[p.canal] ?? p.canal}</td>
                     <td style={{ ...TD, color: '#9ba8c0' }}>{MESES[p.mes - 1]} {p.anio}</td>
                     <td style={{ ...TD, textAlign: 'right' }}>{fmtEur(p.neto_teorico, { decimals: 0 })}</td>
-                    <td style={{ ...TD, textAlign: 'right', color: '#ffffff' }}>{fmtEur(p.neto_real, { decimals: 0 })}</td>
+                    <td style={{ ...TD, textAlign: 'right', color: BLANCO }}>{fmtEur(p.neto_real, { decimals: 0 })}</td>
                     <td style={{ ...TD, textAlign: 'right', color: desvColor(p.desviacion_pct) }}>{fmtEur(p.desviacion_eur, { decimals: 0, signed: true })}</td>
                     <td style={{ ...TD, textAlign: 'right', color: desvColor(p.desviacion_pct), fontWeight: 600 }}>{fmtPct(p.desviacion_pct)}</td>
                     <td style={TD}>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button
                           onClick={() => actualizarEstado(p.id, 'aprobado')}
-                          style={{ backgroundColor: '#1D9E75', color: '#ffffff', border: 'none', borderRadius: 4, padding: '5px 12px', fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '0.5px', cursor: 'pointer', textTransform: 'uppercase' }}
+                          style={{ backgroundColor: VERDE, color: BLANCO, border: 'none', borderRadius: 4, padding: '5px 12px', fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '0.5px', cursor: 'pointer', textTransform: 'uppercase' }}
                         >
                           Aprobar
                         </button>
                         <button
                           onClick={() => actualizarEstado(p.id, 'descartado')}
-                          style={{ backgroundColor: '#222222', color: '#cccccc', border: '1px solid #383838', borderRadius: 4, padding: '5px 12px', fontFamily: 'Oswald,sans-serif', fontSize: 11, cursor: 'pointer', textTransform: 'uppercase' }}
+                          style={{ backgroundColor: INK, color: GRIS, border: '1px solid #383838', borderRadius: 4, padding: '5px 12px', fontFamily: 'Oswald,sans-serif', fontSize: 11, cursor: 'pointer', textTransform: 'uppercase' }}
                         >
                           Descartar
                         </button>

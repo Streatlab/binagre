@@ -1,3 +1,4 @@
+import { GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { Printer, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -148,7 +149,7 @@ export default function TabIncentivos() {
         <input type="number" value={anio} onChange={e => setAnio(Number(e.target.value))} style={{ ...numInput, width: 80 }} />
         <div style={{ flex: 1 }} />
         <button onClick={guardar} disabled={saving}
-          style={{ padding: '12px 16px', minHeight: 44, borderRadius: 8, border: 'none', background: '#e8f442', color: '#111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          style={{ padding: '12px 16px', minHeight: 44, borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
           <Save size={14} /> {saving ? 'Guardando…' : 'Guardar mes'}
         </button>
       </div>
@@ -162,23 +163,23 @@ export default function TabIncentivos() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut }}>Candado</div>
-            <div style={{ fontFamily: FONT.heading, fontSize: 20, fontWeight: 700, color: candadoAbierto ? '#1D9E75' : '#B01D23' }}>
+            <div style={{ fontFamily: FONT.heading, fontSize: 20, fontWeight: 700, color: candadoAbierto ? VERDE : GRANATE }}>
               {candadoAbierto ? `NIVEL ${nivelActual}` : 'CERRADO'}
             </div>
           </div>
         </div>
         <div style={{ position: 'relative', height: 14, borderRadius: 8, background: T.group, overflow: 'hidden' }}>
-          <div style={{ width: `${pct}%`, height: '100%', background: candadoAbierto ? '#1D9E75' : '#B01D23', transition: 'width .4s' }} />
+          <div style={{ width: `${pct}%`, height: '100%', background: candadoAbierto ? VERDE : GRANATE, transition: 'width .4s' }} />
         </div>
         <div style={{ position: 'relative', height: 22, marginTop: 4, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
           {[cfg.tramo1, cfg.tramo2, cfg.tramo3].map((v, i) => (
             <div key={i} style={{ position: 'absolute', left: marca(v), transform: 'translateX(-50%)', textAlign: 'center' }}>
-              <span style={{ color: fact >= v ? '#1D9E75' : T.mut, fontWeight: 600 }}>{(v / 1000).toFixed(0)}k</span>
+              <span style={{ color: fact >= v ? VERDE : T.mut, fontWeight: 600 }}>{(v / 1000).toFixed(0)}k</span>
             </div>
           ))}
         </div>
         {!candadoAbierto && (
-          <div style={{ marginTop: 8, fontFamily: FONT.body, fontSize: 12, color: '#B01D23' }}>
+          <div style={{ marginTop: 8, fontFamily: FONT.body, fontSize: 12, color: GRANATE }}>
             Falta{' '}{(cfg.tramo1 - fact).toLocaleString('es-ES')} € para abrir el bote. Sin esto, nadie cobra incentivo.
           </div>
         )}
@@ -215,7 +216,7 @@ export default function TabIncentivos() {
                     </td>
                     <td style={td}>
                       <input type="number" min={0} value={m.tardes} onChange={ev => upd(e.empleado_id, { tardes: Number(ev.target.value) })} style={numInput} />
-                      <span style={{ fontSize: 10, color: m.tardes <= r.perm ? '#1D9E75' : '#B01D23', marginLeft: 4 }}>/{r.perm}</span>
+                      <span style={{ fontSize: 10, color: m.tardes <= r.perm ? VERDE : GRANATE, marginLeft: 4 }}>/{r.perm}</span>
                     </td>
                     <td style={td}>
                       <input type="number" min={0} value={m.errores_personales} onChange={ev => upd(e.empleado_id, { errores_personales: Number(ev.target.value) })} style={numInput} />

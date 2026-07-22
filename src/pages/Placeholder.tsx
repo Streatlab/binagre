@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, LIMA } from '@/styles/neobrutal'
 import { type CSSProperties } from 'react'
 import { useParams, useLocation } from 'react-router-dom'
 import { FONT } from '@/styles/tokens'
@@ -154,9 +155,7 @@ const NEO_INK = 'var(--neo-ink)'
 const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
 const NEO_CARD: CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
 
-const ROJO = '#B01D23'
-const LIMA = '#e8f442'
-
+const ROJO = GRANATE
 function Etiqueta({ texto, fondo, color }: { texto: string; fondo: string; color: string }) {
   return (
     <span style={{
@@ -229,9 +228,9 @@ export default function Placeholder() {
           }}
         >
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Etiqueta texto={`Ref ${ficha.ref}`} fondo={NEO_INK} color="#fff" />
+            <Etiqueta texto={`Ref ${ficha.ref}`} fondo={NEO_INK} color={BLANCO} />
             {ficha.critico
-              ? <Etiqueta texto="Bloquea el resto" fondo={ROJO} color="#fff" />
+              ? <Etiqueta texto="Bloquea el resto" fondo={ROJO} color={BLANCO} />
               : <Etiqueta texto="Pendiente" fondo={LIMA} color={NEO_INK} />}
             {ficha.bloqueo ? <Etiqueta texto={ficha.bloqueo} fondo="#d8d6d0" color={NEO_INK} /> : null}
           </div>
@@ -266,7 +265,7 @@ export default function Placeholder() {
           </p>
           <code
             className="inline-block mt-5 px-3 py-1 rounded"
-            style={{ fontFamily: 'monospace', fontSize: 11, background: 'var(--sl-thead)', color: '#66aaff', border: '1px solid var(--sl-border)' }}
+            style={{ fontFamily: 'monospace', fontSize: 11, background: 'var(--sl-thead)', color: AZUL_CL, border: '1px solid var(--sl-border)' }}
           >
             {location.pathname}
           </code>

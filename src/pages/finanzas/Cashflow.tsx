@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  INK, OSC, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, AMA, GRIS,
-  OSW, LEX, SHADOW, BORDER_CARD, PAD, CORP, CLARA,
-  eyebrow, d,
-} from '@/styles/neobrutal'
+  INK, OSC, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, AMA, GRIS, OSW, LEX, SHADOW, BORDER_CARD, PAD, CORP, CLARA, eyebrow, d, BLANCO } from '@/styles/neobrutal'
 import {
   loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
   type CanalConfig, type MarcasPorCanal,
@@ -327,12 +324,12 @@ export default function Cashflow() {
   const tdTN: CSSProperties = { ...tdT, fontFamily: OSW, fontWeight: 700, fontSize: 15.5, textAlign: 'right' }
   const totTd: CSSProperties = { background: INK, color: CREMA, fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '0.6px', textTransform: 'uppercase', padding: '9px 10px', borderTop: `5px solid ${INK}` }
   const totTdN: CSSProperties = { ...totTd, textAlign: 'right' }
-  const zebra = (i: number): string => (i % 2 ? '#EFF0EC' : '#ffffff')
+  const zebra = (i: number): string => (i % 2 ? '#EFF0EC' : BLANCO)
   const BAND = 12
   const dot = (c: string): CSSProperties => ({ display: 'inline-block', width: 8, height: 8, background: c, marginRight: 6 })
   const SUBC: CSSProperties = { display: 'inline-flex', gap: 4, padding: '3px 4px', background: INK, border: `2px solid ${INK}` }
-  const subA: CSSProperties = { padding: '4px 10px', border: 'none', background: '#fff', color: INK, fontFamily: OSW, fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
-  const subI: CSSProperties = { padding: '4px 10px', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontFamily: OSW, fontSize: 10, fontWeight: 500, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
+  const subA: CSSProperties = { padding: '4px 10px', border: 'none', background: BLANCO, color: INK, fontFamily: OSW, fontSize: 10, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
+  const subI: CSSProperties = { padding: '4px 10px', border: 'none', background: 'rgba(255,255,255,0.15)', color: BLANCO, fontFamily: OSW, fontSize: 10, fontWeight: 500, letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer' }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
 
@@ -358,11 +355,11 @@ export default function Cashflow() {
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 40, alignItems: 'start' }}>
           {/* Izquierda: eyebrow + número hero + frases */}
           <div>
-            <span style={eyebrow('#fff', INK)}>CASHFLOW · COBROS Y TESORERÍA</span>
+            <span style={eyebrow(BLANCO, INK)}>CASHFLOW · COBROS Y TESORERÍA</span>
             <div style={{ marginTop: 18 }}>
               <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff99', marginBottom: 6 }}>POR COBRAR</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
-                <div style={{ ...d('clamp(44px,6.8vw,92px)', '#fff') }}>{nf0(porCobrarTotal)}</div>
+                <div style={{ ...d('clamp(44px,6.8vw,92px)', BLANCO) }}>{nf0(porCobrarTotal)}</div>
                 {sim !== 0 && <span style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, color: AMA, letterSpacing: '0.5px', marginBottom: 14 }}>· simulación {sim > 0 ? '+' : ''}{sim}%</span>}
               </div>
             </div>
@@ -389,18 +386,18 @@ export default function Cashflow() {
         </div>
         {/* Simulador full-width debajo del grid */}
         <div style={{ borderTop: `4px solid ${INK}`, marginTop: 32, marginLeft: `-${PAD}`, marginRight: `-${PAD}`, padding: `14px ${PAD}`, background: OSC, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={eyebrow('#ffffff33', '#fff')}>Simulador</span>
+          <span style={eyebrow('#ffffff33', BLANCO)}>Simulador</span>
           <div style={SUBC}>{simTabs.map(t => <button key={t.id} onClick={() => setSim(t.id)} style={sim === t.id ? subA : subI}>{t.label}</button>)}</div>
         </div>
       </section>
 
       {/* ── SECCIÓN 2 · COBROS · GRÁFICO (#fff) ── */}
-      <section style={{ background: '#fff', borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+      <section style={{ background: BLANCO, borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
         <span style={eyebrow(AMA)}>Cobros · cobrado y previsto · neto</span>
         {graf.length === 0
           ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, padding: '20px 0', marginTop: 8 }}>Sin cobros en el horizonte.</div>
           : (
-            <div style={{ marginTop: 18, background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px 16px' }}>
+            <div style={{ marginTop: 18, background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px 16px' }}>
             <div style={{ position: 'relative' }}>
               <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
                 {[0, 1, 2, 3].map(g => { const v = maxY / 3 * g; const y = Y(v); return (<g key={g}><line x1={P.l} y1={y} x2={W - P.r} y2={y} stroke={TRACK} /><text x={P.l - 6} y={y + 3} textAnchor="end" fontSize="9" fill={GRIS} fontFamily="Lexend">{nf0(v)}</text></g>) })}
@@ -408,7 +405,7 @@ export default function Cashflow() {
                 {graf.length > 1 && <polygon points={`${X(0)} ${H - P.b} ${graf.map((p, i) => `${X(i)} ${Y(p.total)}`).join(' ')} ${X(graf.length - 1)} ${H - P.b}`} fill={VERDE} opacity={0.1} />}
                 {graf.length > 1 && <polyline points={graf.map((p, i) => `${X(i) + 2} ${Y(p.total) + 3}`).join(' ')} fill="none" stroke={INK} strokeWidth="4" opacity={0.22} />}
                 {graf.length > 1 && <polyline points={graf.map((p, i) => `${X(i)} ${Y(p.total)}`).join(' ')} fill="none" stroke={VERDE} strokeWidth="4" strokeLinejoin="round" />}
-                {graf.map((p, i) => (<g key={i}><circle cx={X(i)} cy={Y(p.total)} r={hover === i ? 7 : 5} fill={p.futuro ? '#fff' : VERDE} stroke={INK} strokeWidth="2.5" style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} /><text x={X(i)} y={H - P.b + 14} textAnchor="middle" fontSize="9" fill={GRIS} fontFamily="Lexend">{fmtCorta(p.pago)}</text></g>))}
+                {graf.map((p, i) => (<g key={i}><circle cx={X(i)} cy={Y(p.total)} r={hover === i ? 7 : 5} fill={p.futuro ? BLANCO : VERDE} stroke={INK} strokeWidth="2.5" style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} /><text x={X(i)} y={H - P.b + 14} textAnchor="middle" fontSize="9" fill={GRIS} fontFamily="Lexend">{fmtCorta(p.pago)}</text></g>))}
               </svg>
               {hover != null && graf[hover] && (
                 <div style={{ position: 'absolute', left: `${(X(hover) / W) * 100}%`, top: `${(Y(graf[hover].total) / H) * 100}%`, transform: 'translate(-50%, calc(-100% - 12px))', background: INK, color: CREMA, padding: '10px 12px', minWidth: 160, pointerEvents: 'none', zIndex: 5, boxShadow: SHADOW, border: BORDER_CARD }}>
@@ -419,7 +416,7 @@ export default function Cashflow() {
               )}
               <div style={{ display: 'flex', gap: 16, fontSize: 11, color: GRIS, marginTop: 8 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, background: VERDE }} />Cobrado</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, background: '#fff', border: `2px solid ${VERDE}` }} />Previsto</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 10, background: BLANCO, border: `2px solid ${VERDE}` }} />Previsto</span>
               </div>
             </div>
             </div>
@@ -429,7 +426,7 @@ export default function Cashflow() {
       {/* ── SECCIÓN 3 · CAJA POR MES (CREMA) ── */}
       <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
         <span style={eyebrow(INK, CREMA)}>Caja por mes · banco real · línea = saldo</span>
-        <div style={{ marginTop: 18, background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px 16px' }}>
+        <div style={{ marginTop: 18, background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px 16px' }}>
         <svg viewBox={`0 0 ${CW} 170`} style={{ width: '100%', height: 'auto' }}>
           <line x1={40} y1={cb} x2={CW - 10} y2={cb} stroke={TRACK} />
           {cruce.map((c, i) => { const x = cx(i); return (
@@ -456,8 +453,8 @@ export default function Cashflow() {
       {/* ── SECCIÓN 4 · INGRESOS PENDIENTES + CAJA POR MARCA (#fff / CLARO) ── */}
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
         {/* Izquierda: tabla ingresos pendientes */}
-        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
-          <span style={eyebrow(VERDE, '#fff')}>Ingresos pendientes · lo que el banco aún no ha pagado</span>
+        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: BLANCO }}>
+          <span style={eyebrow(VERDE, BLANCO)}>Ingresos pendientes · lo que el banco aún no ha pagado</span>
           {futuros.length === 0
             ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin cobros pendientes.</div>
             : (
@@ -486,16 +483,16 @@ export default function Cashflow() {
                         const pctCol = pct >= 58 ? VERDE : NAR
                         return (
                           <tr key={i} style={{ background: zebra(i), opacity: cobrado ? 0.55 : 1 }}>
-                            <td style={{ ...tdT, borderLeft: `${BAND}px solid ${band}` }}><span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', background: CORP[c.canal] ?? c.color, color: CLARA[c.canal] ? INK : '#fff', fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '0.3px', whiteSpace: 'nowrap', border: `2px solid ${INK}` }}>{c.label}</span></td>
+                            <td style={{ ...tdT, borderLeft: `${BAND}px solid ${band}` }}><span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', background: CORP[c.canal] ?? c.color, color: CLARA[c.canal] ? INK : BLANCO, fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '0.3px', whiteSpace: 'nowrap', border: `2px solid ${INK}` }}>{c.label}</span></td>
                             <td style={{ ...tdT, color: '#5a4f3a', fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '.3px', textTransform: 'uppercase' }}>{periodoTxt(c.canal, c.ini, c.fin)}</td>
                             <td style={tdTN}>{c.pedidos}</td>
                             <td style={{ ...tdT, fontFamily: OSW, fontWeight: 700, fontSize: 14, color: vencido ? ROJO : INK }}>{fmtCorta(c.pago)}{vencido ? ' · reclamar' : ''}</td>
                             <td style={{ ...tdTN, color: '#5a4f3a' }}>{nf0(c.bruto)}</td>
                             <td style={{ ...tdTN, color: VERDE, textDecoration: cobrado ? 'line-through' : 'none' }}>{nf0(c.neto * factor)}</td>
-                            <td style={{ ...tdT, padding: 0, textAlign: 'center' }}><div style={{ background: pctCol, color: '#fff', fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '8px 6px', borderLeft: `3px solid ${INK}`, borderRight: `3px solid ${INK}` }}>{pct.toFixed(0)}%</div></td>
+                            <td style={{ ...tdT, padding: 0, textAlign: 'center' }}><div style={{ background: pctCol, color: BLANCO, fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '8px 6px', borderLeft: `3px solid ${INK}`, borderRight: `3px solid ${INK}` }}>{pct.toFixed(0)}%</div></td>
                             <td style={{ ...tdT, textAlign: 'center', borderRight: 'none' }}>{porBanco
-                              ? <span title="Cobrado · confirmado por el banco" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: VERDE, color: '#fff', fontFamily: OSW, fontSize: 11, fontWeight: 700, border: `2px solid ${INK}` }}>✓ banco</span>
-                              : <button onClick={() => toggleCobrado(c)} aria-label={cobrado ? 'Cobrado' : 'Pendiente'} title={cobrado ? 'Cobrado' : 'Marcar como cobrado'} style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'transparent', display: 'inline-flex', alignItems: 'center' }}><span style={{ position: 'relative', width: 38, height: 22, background: cobrado ? VERDE : TRACK, transition: 'background .15s', display: 'inline-block', border: `2px solid ${INK}` }}><span style={{ position: 'absolute', top: 2, left: cobrado ? 16 : 2, width: 14, height: 14, background: '#fff', border: `2px solid ${INK}`, transition: 'left .15s' }} /></span></button>
+                              ? <span title="Cobrado · confirmado por el banco" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: VERDE, color: BLANCO, fontFamily: OSW, fontSize: 11, fontWeight: 700, border: `2px solid ${INK}` }}>✓ banco</span>
+                              : <button onClick={() => toggleCobrado(c)} aria-label={cobrado ? 'Cobrado' : 'Pendiente'} title={cobrado ? 'Cobrado' : 'Marcar como cobrado'} style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'transparent', display: 'inline-flex', alignItems: 'center' }}><span style={{ position: 'relative', width: 38, height: 22, background: cobrado ? VERDE : TRACK, transition: 'background .15s', display: 'inline-block', border: `2px solid ${INK}` }}><span style={{ position: 'absolute', top: 2, left: cobrado ? 16 : 2, width: 14, height: 14, background: BLANCO, border: `2px solid ${INK}`, transition: 'left .15s' }} /></span></button>
                             }</td>
                           </tr>
                         )
@@ -562,8 +559,8 @@ export default function Cashflow() {
       {/* ── SECCIÓN 5 · GASTOS DEL MES (grid 2fr 1fr, fondo CLARO) ── */}
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
         {/* Izquierda: tabla gastos */}
-        <div style={{ background: '#fff', borderRight: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
-          <span style={eyebrow(ROJO, '#fff')}>Gastos del mes · por categoría</span>
+        <div style={{ background: BLANCO, borderRight: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+          <span style={eyebrow(ROJO, BLANCO)}>Gastos del mes · por categoría</span>
           {gastosCat.length === 0
             ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin facturas registradas este mes.</div>
             : (
@@ -589,7 +586,7 @@ export default function Cashflow() {
                             <td style={{ ...tdTN, color: '#5a4f3a', fontSize: 14 }}>{g.n}</td>
                             <td style={{ ...tdTN, color: ROJO }}>{nf0(g.total)}</td>
                             <td style={{ ...tdTN, color: '#5a4f3a' }}>{nf0(g.iva)}</td>
-                            <td style={{ ...tdT, padding: 0, textAlign: 'center', borderRight: 'none' }}><div style={{ background: band, color: '#fff', fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '8px 6px', borderLeft: `3px solid ${INK}` }}>{share.toFixed(0)}%</div></td>
+                            <td style={{ ...tdT, padding: 0, textAlign: 'center', borderRight: 'none' }}><div style={{ background: band, color: BLANCO, fontFamily: OSW, fontWeight: 700, fontSize: 16, padding: '8px 6px', borderLeft: `3px solid ${INK}` }}>{share.toFixed(0)}%</div></td>
                           </tr>
                         )
                       })}
@@ -640,7 +637,7 @@ export default function Cashflow() {
             { t: 'Coste de ADS y promos', desc: 'Descuento por publicidad y su efecto en el neto.', dep: 'liquidaciones (vacías)' },
             { t: 'Calendario 30/60/90', desc: 'Días con dinero y días secos.', dep: 'fecha de pago de gastos' },
           ].map((x, i) => (
-            <div key={i} style={{ border: `2px dashed ${INK}`, padding: '16px 18px', background: '#fff', boxShadow: SHADOW }}>
+            <div key={i} style={{ border: `2px dashed ${INK}`, padding: '16px 18px', background: BLANCO, boxShadow: SHADOW }}>
               <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, marginBottom: 7 }}>{x.t}</div>
               <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 8, lineHeight: 1.4 }}>{x.desc}</div>
               <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '0.5px', textTransform: 'uppercase', color: AZUL }}>Falta: {x.dep}</div>

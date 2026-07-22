@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK } from '@/styles/neobrutal'
 import type { ReactNode } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -11,9 +12,9 @@ export function ConfigModal({
   children: ReactNode
 }) {
   const isDark = useIsDark()
-  const bg = isDark ? '#141414' : '#ffffff'
-  const border = isDark ? '#2a2a2a' : '#E9E1D0'
-  const titleColor = isDark ? '#ffffff' : '#1A1A1A'
+  const bg = isDark ? INK : BLANCO
+  const border = isDark ? INK : '#E9E1D0'
+  const titleColor = isDark ? BLANCO : INK
 
   return (
     <div
@@ -63,7 +64,7 @@ export function ConfigModal({
 
 export function ConfigField({ label, children }: { label: string; children: ReactNode }) {
   const isDark = useIsDark()
-  const labelColor = isDark ? '#777777' : '#9E9588'
+  const labelColor = isDark ? GRIS : '#9E9588'
   return (
     <div style={{ marginBottom: 12 }}>
       <label
@@ -90,11 +91,11 @@ export function useInputStyle() {
   return {
     width: '100%',
     padding: '8px 12px',
-    border: `1px solid ${isDark ? '#2a2a2a' : '#E9E1D0'}`,
+    border: `1px solid ${isDark ? INK : '#E9E1D0'}`,
     borderRadius: 8,
     fontSize: 13,
-    background: isDark ? '#1e1e1e' : '#ffffff',
-    color: isDark ? '#ffffff' : '#1A1A1A',
+    background: isDark ? INK : BLANCO,
+    color: isDark ? BLANCO : INK,
     fontFamily: 'Lexend, sans-serif',
     outline: 'none',
   } as const
@@ -125,7 +126,7 @@ export function ModalActions({
           letterSpacing: '0.04em',
           textTransform: 'uppercase',
           background: 'transparent',
-          color: isDark ? '#cccccc' : '#6E6656',
+          color: isDark ? GRIS : '#6E6656',
           border: 'none',
           cursor: 'pointer',
           fontFamily: 'Oswald, sans-serif',
@@ -144,8 +145,8 @@ export function ModalActions({
           fontWeight: 600,
           letterSpacing: '0.04em',
           textTransform: 'uppercase',
-          background: '#B01D23',
-          color: '#ffffff',
+          background: GRANATE,
+          color: BLANCO,
           border: 'none',
           cursor: (saving || disabled) ? 'not-allowed' : 'pointer',
           opacity: (saving || disabled) ? 0.5 : 1,

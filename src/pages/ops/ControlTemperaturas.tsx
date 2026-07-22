@@ -1,10 +1,11 @@
+import { BLANCO, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
 
 
-const BG_OPS = '#111111'
+const BG_OPS = INK
 interface Equipo {
   id: string
   nombre: string
@@ -118,45 +119,45 @@ export default function ControlTemperaturas() {
   }
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: BLANCO }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>CONTROL TEMPERATURAS</h1>
         <span style={{ fontSize: 13, color: COLOR.textMut }}>{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
       </div>
 
-      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: '#ffaaaa', fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
 
       {equiposSinRegistroHoy.length > 0 && (
         <div style={{ background: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '12px 16px', marginBottom: 20 }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffaaaa', marginBottom: 6 }}>Equipos sin registro hoy</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: ROJO_S, marginBottom: 6 }}>Equipos sin registro hoy</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {equiposSinRegistroHoy.map(n => (
-              <span key={n} style={{ background: '#B01D2330', border: '1px solid #B01D23', borderRadius: 12, padding: '2px 10px', fontSize: 12, color: '#ffaaaa' }}>{n}</span>
+              <span key={n} style={{ background: '#B01D2330', border: '1px solid #B01D23', borderRadius: 12, padding: '2px 10px', fontSize: 12, color: ROJO_S }}>{n}</span>
             ))}
           </div>
         </div>
       )}
 
       {/* Formulario añadir */}
-      <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px', marginBottom: 24 }}>
+      <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px', marginBottom: 24 }}>
         <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 14 }}>Nuevo Registro</div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
             <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Equipo</label>
             <select value={form.equipo_id} onChange={e => setForm(p => ({ ...p, equipo_id: e.target.value }))}
-              style={{ padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontFamily: FONT.body, fontSize: 13 }}>
+              style={{ padding: '8px 10px', background: INK, border: '1px solid #2a2a2a', borderRadius: 6, color: BLANCO, fontFamily: FONT.body, fontSize: 13 }}>
               {equipos.map(eq => <option key={eq.id} value={eq.id}>{eq.nombre}</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Temperatura (°C)</label>
             <input type="number" step="0.1" value={form.temperatura} onChange={e => setForm(p => ({ ...p, temperatura: e.target.value }))}
-              style={{ padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontFamily: FONT.body, fontSize: 13, width: 120 }} />
+              style={{ padding: '8px 10px', background: INK, border: '1px solid #2a2a2a', borderRadius: 6, color: BLANCO, fontFamily: FONT.body, fontSize: 13, width: 120 }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 160 }}>
             <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Nota</label>
             <input type="text" value={form.nota} onChange={e => setForm(p => ({ ...p, nota: e.target.value }))}
-              placeholder="Opcional..." style={{ padding: '8px 10px', background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontFamily: FONT.body, fontSize: 13 }} />
+              placeholder="Opcional..." style={{ padding: '8px 10px', background: INK, border: '1px solid #2a2a2a', borderRadius: 6, color: BLANCO, fontFamily: FONT.body, fontSize: 13 }} />
           </div>
           <button onClick={addRegistro} disabled={saving}
             style={{ padding: '8px 18px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
@@ -169,7 +170,7 @@ export default function ControlTemperaturas() {
         <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #2a2a2a' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ background: '#0a0a0a' }}>
+              <tr style={{ background: INK }}>
                 {['Equipo', 'Temperatura', 'Rango', 'Estado', 'Nota', 'Fecha/Hora'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, fontWeight: 600, borderBottom: '1px solid #2a2a2a', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
@@ -181,8 +182,8 @@ export default function ControlTemperaturas() {
               ) : registros.map((r, i) => {
                 const sem = semaforo(r.temperatura, r.equipo_temp_min ?? null, r.equipo_temp_max ?? null)
                 return (
-                  <tr key={r.id} style={{ background: i % 2 === 0 ? BG_OPS : '#141414', borderBottom: '1px solid #1e1e1e' }}>
-                    <td style={{ padding: '10px 14px', color: '#cccccc' }}>{r.equipo_nombre ?? '—'}</td>
+                  <tr key={r.id} style={{ background: i % 2 === 0 ? BG_OPS : INK, borderBottom: '1px solid #1e1e1e' }}>
+                    <td style={{ padding: '10px 14px', color: GRIS }}>{r.equipo_nombre ?? '—'}</td>
                     <td style={{ padding: '10px 14px', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: sem.color }}>{r.temperatura}°C</td>
                     <td style={{ padding: '10px 14px', color: COLOR.textMut, fontSize: 12 }}>
                       {r.equipo_temp_min !== null && r.equipo_temp_max !== null ? `${r.equipo_temp_min}°C – ${r.equipo_temp_max}°C` : '—'}

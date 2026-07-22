@@ -1,3 +1,4 @@
+import { BLANCO, GRIS } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { COLORS, OSWALD, LEXEND } from '@/components/panel/resumen/tokens'
@@ -38,7 +39,7 @@ export function PanelCobertura() {
   return (
     <div
       style={{
-        background: '#ffffff',
+        background: BLANCO,
         border: '1px solid #e5e2dc',
         borderRadius: 14,
         padding: '20px 28px',
@@ -57,7 +58,7 @@ export function PanelCobertura() {
             fontFamily: OSWALD,
             fontSize: 10,
             letterSpacing: '2px',
-            color: '#7a8090',
+            color: GRIS,
             textTransform: 'uppercase',
             marginBottom: 4,
           }}
@@ -124,7 +125,7 @@ function Stat({ label, value, color }: { label: string; value: string | number; 
           fontFamily: OSWALD,
           fontSize: 10,
           letterSpacing: '1.5px',
-          color: '#7a8090',
+          color: GRIS,
           textTransform: 'uppercase',
         }}
       >

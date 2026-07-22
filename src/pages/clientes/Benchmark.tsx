@@ -1,3 +1,4 @@
+import { BLANCO, INK } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { COLORS, FONT, CARDS, lbl, lblSm, kpiMid, kpiBig, TABS_PILL, SUBTABS } from '@/components/panel/resumen/tokens'
@@ -51,7 +52,7 @@ const TABS = [
 ] as const
 
 const inp: React.CSSProperties = { padding: '6px 9px', borderRadius: 7, border: `0.5px solid ${COLORS.brd}`, background: COLORS.card, color: COLORS.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none', width: '100%' }
-const btnPri: React.CSSProperties = { padding: '7px 14px', borderRadius: 8, border: 'none', background: COLORS.redSL, color: '#fff', fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
+const btnPri: React.CSSProperties = { padding: '7px 14px', borderRadius: 8, border: 'none', background: COLORS.redSL, color: BLANCO, fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
 const btnGhost: React.CSSProperties = { padding: '7px 12px', borderRadius: 8, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, fontFamily: FONT.body, fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }
 const btnMini: React.CSSProperties = { padding: '3px 8px', borderRadius: 6, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.mut, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
 
@@ -189,7 +190,7 @@ function TabCompetencia({ competidores, insights, onChange }: { competidores: Co
                   <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: COLORS.pri }}>{c.nombre}</div>
                   <div style={{ ...lblSm, marginTop: 2 }}>{CAT_LABEL[c.categoria] || c.categoria}{c.año_fundacion ? ` · desde ${c.año_fundacion}` : ''}</div>
                 </div>
-                <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: 0.5, padding: '2px 8px', borderRadius: 4, background: c.es_benchmark ? COLORS.redSL : COLORS.group, color: c.es_benchmark ? '#fff' : COLORS.sec, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>{c.es_benchmark ? 'Benchmark' : 'Eficiente'}</span>
+                <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: 0.5, padding: '2px 8px', borderRadius: 4, background: c.es_benchmark ? COLORS.redSL : COLORS.group, color: c.es_benchmark ? BLANCO : COLORS.sec, whiteSpace: 'nowrap', textTransform: 'uppercase' }}>{c.es_benchmark ? 'Benchmark' : 'Eficiente'}</span>
               </div>
 
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -211,8 +212,8 @@ function TabCompetencia({ competidores, insights, onChange }: { competidores: Co
               <div style={{ background: COLORS.glovo, borderRadius: 8, padding: '10px 12px', marginTop: 2 }}>
                 <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', color: COLORS.glovoText, fontWeight: 600, marginBottom: 3 }}>Nuestro atajo</div>
                 {editando
-                  ? <textarea value={draft.nuestro_atajo ?? c.nuestro_atajo ?? ''} onChange={e => setDraft({ ...draft, nuestro_atajo: e.target.value })} style={{ ...inp, minHeight: 70, background: '#fff' }} />
-                  : <div style={{ fontFamily: FONT.body, fontSize: 13, color: '#111', lineHeight: 1.4 }}>{c.nuestro_atajo}</div>}
+                  ? <textarea value={draft.nuestro_atajo ?? c.nuestro_atajo ?? ''} onChange={e => setDraft({ ...draft, nuestro_atajo: e.target.value })} style={{ ...inp, minHeight: 70, background: BLANCO }} />
+                  : <div style={{ fontFamily: FONT.body, fontSize: 13, color: INK, lineHeight: 1.4 }}>{c.nuestro_atajo}</div>}
               </div>
 
               <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
@@ -294,11 +295,11 @@ function TabManual({ patrones, onChange }: { patrones: Patron[]; onChange: () =>
                 <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', color: COLORS.glovoText, fontWeight: 600, marginBottom: 3 }}>Cómo lo aplicamos</div>
                 {editando
                   ? <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <textarea value={draft} onChange={e => setDraft(e.target.value)} style={{ ...inp, minHeight: 60, background: '#fff' }} />
+                      <textarea value={draft} onChange={e => setDraft(e.target.value)} style={{ ...inp, minHeight: 60, background: BLANCO }} />
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}><button onClick={() => setEditId(null)} style={btnMini}>Cancelar</button><button onClick={() => guardar(p.id)} style={btnPri}>Guardar</button></div>
                     </div>
                   : <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                      <span style={{ fontFamily: FONT.body, fontSize: 13, color: '#111' }}>{p.aplicacion_sl || '—'}</span>
+                      <span style={{ fontFamily: FONT.body, fontSize: 13, color: INK }}>{p.aplicacion_sl || '—'}</span>
                       <button onClick={() => { setEditId(p.id); setDraft(p.aplicacion_sl || '') }} style={{ ...btnMini, flexShrink: 0 }}>✎</button>
                     </div>}
               </div>
@@ -360,7 +361,7 @@ function TabPlan({ plan, onChange }: { plan: PlanItem[]; onChange: () => void })
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {items.map(it => (
                 <div key={it.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '7px 8px', borderRadius: 8 }}>
-                  <button onClick={() => toggle(it)} disabled={guardando === it.id} style={{ width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 1, cursor: 'pointer', border: `1.5px solid ${it.hecho ? COLORS.ok : COLORS.brd}`, background: it.hecho ? COLORS.ok : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, opacity: guardando === it.id ? 0.5 : 1 }}>{it.hecho ? '✓' : ''}</button>
+                  <button onClick={() => toggle(it)} disabled={guardando === it.id} style={{ width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 1, cursor: 'pointer', border: `1.5px solid ${it.hecho ? COLORS.ok : COLORS.brd}`, background: it.hecho ? COLORS.ok : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BLANCO, fontSize: 13, fontWeight: 700, opacity: guardando === it.id ? 0.5 : 1 }}>{it.hecho ? '✓' : ''}</button>
                   <span style={{ flex: 1, fontFamily: FONT.body, fontSize: 13, color: it.hecho ? COLORS.mut : COLORS.sec, lineHeight: 1.4, textDecoration: it.hecho ? 'line-through' : 'none' }}>{it.accion}</span>
                   <button onClick={() => borrar(it.id)} style={{ ...btnMini, flexShrink: 0, color: COLORS.err }} title="Borrar">✕</button>
                 </div>
@@ -458,7 +459,7 @@ function TabCarta({ platos, onChange }: { platos: Plato[]; onChange: () => void 
                     const mg = margenNeto(p.precio, p.food_cost_pct)
                     return (
                       <div key={p.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px', borderRadius: 8, background: p.en_carta ? `${COLORS.ok}10` : 'transparent' }}>
-                        <button onClick={() => toggleCarta(p)} disabled={guardando === p.id} title={p.en_carta ? 'Quitar de carta' : 'Marcar en carta'} style={{ width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 1, cursor: 'pointer', border: `1.5px solid ${p.en_carta ? COLORS.ok : COLORS.brd}`, background: p.en_carta ? COLORS.ok : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, opacity: guardando === p.id ? 0.5 : 1 }}>{p.en_carta ? '✓' : ''}</button>
+                        <button onClick={() => toggleCarta(p)} disabled={guardando === p.id} title={p.en_carta ? 'Quitar de carta' : 'Marcar en carta'} style={{ width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 1, cursor: 'pointer', border: `1.5px solid ${p.en_carta ? COLORS.ok : COLORS.brd}`, background: p.en_carta ? COLORS.ok : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BLANCO, fontSize: 13, fontWeight: 700, opacity: guardando === p.id ? 0.5 : 1 }}>{p.en_carta ? '✓' : ''}</button>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           {editando ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -516,7 +517,7 @@ function GraficoMargen({ platos }: { platos: Plato[] }) {
           <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.sec, width: 110, textAlign: 'right' }}>{MARCA_LABEL[d.marca] || d.marca}</span>
           <div style={{ flex: 1, height: 18, background: COLORS.group, borderRadius: 4, overflow: 'hidden' }}>
             <div style={{ height: 18, width: `${(d.avg / max) * 100}%`, background: COLORS.redSL, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 6 }}>
-              <span style={{ fontFamily: FONT.heading, fontSize: 11, color: '#fff', fontWeight: 600 }}>{fmtEur(d.avg)}</span>
+              <span style={{ fontFamily: FONT.heading, fontSize: 11, color: BLANCO, fontWeight: 600 }}>{fmtEur(d.avg)}</span>
             </div>
           </div>
         </div>
@@ -564,7 +565,7 @@ function TabSimulador({ platos, kpis }: { platos: Plato[]; kpis: Kpis | null }) 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ ...CARDS.std, background: COLORS.modal, color: '#fff' }}>
+      <div style={{ ...CARDS.std, background: COLORS.modal, color: BLANCO }}>
         <div style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>🚀 Simulador de lanzamiento</div>
         <div style={{ fontFamily: FONT.body, fontSize: 12.5, opacity: 0.85, marginTop: 3, lineHeight: 1.4 }}>Lo que ningún competidor puede hacer: cruzar la batería de platos con tu food cost y tu ticket real para decidir qué marca lanzar primero. Ajusta los pedidos/día y mira el margen.</div>
       </div>
@@ -609,7 +610,7 @@ function TabSimulador({ platos, kpis }: { platos: Plato[]; kpis: Kpis | null }) 
               <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.sec, width: 110 }}>{MARCA_LABEL[r.marca] || r.marca}</span>
               <div style={{ flex: 1, height: 22, background: COLORS.group, borderRadius: 5, overflow: 'hidden' }}>
                 <div style={{ height: 22, width: `${(r.margenMes / maxMg) * 100}%`, background: i === 0 ? COLORS.ok : COLORS.directa, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 8 }}>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 12, color: '#fff', fontWeight: 600 }}>{fmtEur(r.margenMes)}</span>
+                  <span style={{ fontFamily: FONT.heading, fontSize: 12, color: BLANCO, fontWeight: 600 }}>{fmtEur(r.margenMes)}</span>
                 </div>
               </div>
               <span style={{ fontFamily: FONT.body, fontSize: 11, color: COLORS.mut, width: 70, textAlign: 'right' }}>FC {r.fc.toFixed(0)}%</span>
@@ -618,7 +619,7 @@ function TabSimulador({ platos, kpis }: { platos: Plato[]; kpis: Kpis | null }) 
         </div>
         <div style={{ marginTop: 14, padding: '10px 12px', background: COLORS.glovo, borderRadius: 8 }}>
           <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: COLORS.glovoText, fontWeight: 600 }}>Recomendación · </span>
-          <span style={{ fontFamily: FONT.body, fontSize: 13, color: '#111' }}>Lanza primero <strong>{MARCA_LABEL[ranking[0]?.marca] || ranking[0]?.marca}</strong>: mejor margen neto con el mismo esfuerzo de cocina. Test de 4 semanas como pop-up, mide repetición, y si funciona, escala.</span>
+          <span style={{ fontFamily: FONT.body, fontSize: 13, color: INK }}>Lanza primero <strong>{MARCA_LABEL[ranking[0]?.marca] || ranking[0]?.marca}</strong>: mejor margen neto con el mismo esfuerzo de cocina. Test de 4 semanas como pop-up, mide repetición, y si funciona, escala.</span>
         </div>
       </div>
 

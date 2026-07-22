@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -70,7 +71,7 @@ function Lista({ titulo, items, onAdd, onDel, onRen, placeholder }: ListaProps) 
                       fontWeight: 600,
                       padding: 0,
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#B01D23')}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = GRANATE)}
                     onMouseLeave={(e) => (e.currentTarget.style.color = T.mut)}
                   >Eliminar</button>
                 </td>
@@ -111,8 +112,8 @@ function Lista({ titulo, items, onAdd, onDel, onRen, placeholder }: ListaProps) 
             padding: '7px 14px',
             borderRadius: 6,
             border: 'none',
-            background: '#B01D23',
-            color: '#ffffff',
+            background: GRANATE,
+            color: BLANCO,
             fontFamily: FONT.heading,
             fontSize: 11,
             letterSpacing: '1px',
@@ -168,7 +169,7 @@ export default function TabCategorias() {
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
   if (error) {
     return (
-      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
+      <div style={{ padding: 16, background: '#B01D2320', color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>
         {error}
       </div>
     )

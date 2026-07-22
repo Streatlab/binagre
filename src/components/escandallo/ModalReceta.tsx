@@ -5,7 +5,7 @@ import { fmtNum, fmtEur, fmtPct } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, n } from './types'
-import { INK, AMA, GRANATE, AZUL, ROJO, NAR, VERDE, GRIS, OSW, LEX } from '@/styles/neobrutal'
+import { INK, AMA, GRANATE, AZUL, ROJO, NAR, VERDE, GRIS, OSW, LEX, BLANCO, NAR_S } from '@/styles/neobrutal'
 import ModalIngrediente from './ModalIngrediente'
 import MicDictado from './MicDictado'
 import ModalEPS from './ModalEPS'
@@ -27,18 +27,18 @@ const labelStyle = (_isDark?: boolean): CSSProperties => ({
 })
 
 const inputStyle: CSSProperties = {
-  width: '100%', padding: '8px 12px', background: '#ffffff',
+  width: '100%', padding: '8px 12px', background: BLANCO,
   border: `2px solid ${INK}`, borderRadius: 0,
   fontFamily: LEX, fontSize: 13, color: INK,
   outline: 'none', transition: 'border-color 200ms',
 }
 
 const CHANNELS = [
-  { id: 'uber',    label: 'Uber Eats', canalName: 'Uber Eats',     pvpKey: 'pvp_uber'    as CanalKey, color: '#06C167', fg: '#ffffff' },
-  { id: 'glovo',   label: 'Glovo',     canalName: 'Glovo',         pvpKey: 'pvp_glovo'   as CanalKey, color: '#FFC244', fg: '#111111' },
-  { id: 'je',      label: 'Just Eat',  canalName: 'Just Eat',      pvpKey: 'pvp_je'      as CanalKey, color: '#FF8000', fg: '#111111' },
-  { id: 'web',     label: 'Web',       canalName: 'Web Propia',    pvpKey: 'pvp_web'     as CanalKey, color: '#B01D23', fg: '#ffffff' },
-  { id: 'directa', label: 'Directa',   canalName: 'Venta Directa', pvpKey: 'pvp_directa' as CanalKey, color: '#1e2233', fg: '#ffffff' },
+  { id: 'uber',    label: 'Uber Eats', canalName: 'Uber Eats',     pvpKey: 'pvp_uber'    as CanalKey, color: VERDE, fg: BLANCO },
+  { id: 'glovo',   label: 'Glovo',     canalName: 'Glovo',         pvpKey: 'pvp_glovo'   as CanalKey, color: '#FFC244', fg: INK },
+  { id: 'je',      label: 'Just Eat',  canalName: 'Just Eat',      pvpKey: 'pvp_je'      as CanalKey, color: '#FF8000', fg: INK },
+  { id: 'web',     label: 'Web',       canalName: 'Web Propia',    pvpKey: 'pvp_web'     as CanalKey, color: GRANATE, fg: BLANCO },
+  { id: 'directa', label: 'Directa',   canalName: 'Venta Directa', pvpKey: 'pvp_directa' as CanalKey, color: '#1e2233', fg: BLANCO },
 ]
 
 const ALL_PVP_KEYS: CanalKey[] = ['pvp_uber', 'pvp_glovo', 'pvp_je', 'pvp_web', 'pvp_directa']
@@ -301,7 +301,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
   const getSemaforoColor = (margenEur: number, margenPct: number, margenDeseado: number): string => { if (margenEur < 0) return ROJO; if ((margenPct / 100) < margenDeseado) return NAR; return VERDE }
   const pvpRef = useRef<HTMLInputElement>(null)
   const btnSaveStyle: CSSProperties = { backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', padding: '9px 24px', borderRadius: '0', border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, cursor: 'pointer', minHeight: '40px' }
-  const btnCancelStyle: CSSProperties = { backgroundColor: '#ffffff', color: INK, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', padding: '9px 24px', borderRadius: '0', cursor: 'pointer', minHeight: '40px' }
+  const btnCancelStyle: CSSProperties = { backgroundColor: BLANCO, color: INK, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', padding: '9px 24px', borderRadius: '0', cursor: 'pointer', minHeight: '40px' }
   const metricaCellStyle: CSSProperties = { width: '130px', padding: '8px 12px', textAlign: 'left', fontFamily: 'Oswald, sans-serif', color: GRIS, fontSize: '11px', letterSpacing: '0.5px', textTransform: 'uppercase' }
   const channelBorderStyle = (chIdx: number, isRealCol: boolean): CSSProperties => { if (chIdx === 0 || !isRealCol) return {}; const color = channelData[chIdx].ch.color; return { borderLeft: `2px solid ${colorAlpha(color, 0.4)}` } }
 
@@ -314,7 +314,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
             <h3 className="text-[#140f08]" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
             {receta?.codigo && <p className="text-xs text-[#9a8f78] mt-0.5 font-mono">{receta.codigo}</p>}
           </div>
-          <button onClick={onClose} style={{ background: '#fff', border: '2px solid #140f08', width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: '#140f08', flexShrink: 0 }}>×</button>
+          <button onClick={onClose} style={{ background: BLANCO, border: '2px solid #140f08', width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
         </div>
         <div className="p-5 space-y-5">
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
@@ -330,17 +330,17 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
               <p className="text-sm text-[#140f08] uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Líneas</p>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button onClick={addLinea} className="text-xs hover:brightness-105 transition px-3 py-1 rounded-none" style={{ backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '0.5px', border: `2px solid ${INK}`, boxShadow: `2px 2px 0 ${INK}` }}>+ Añadir línea</button>
-                <button onClick={() => setShowDictar(true)} style={{ background: '#ffffff', color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}>⚡ DICTAR</button>
+                <button onClick={() => setShowDictar(true)} style={{ background: BLANCO, color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}>⚡ DICTAR</button>
               </div>
             </div>
             {showDictar && (
-              <div style={{ padding: 14, background: '#FCEFD6', border: `3px solid ${INK}`, borderRadius: 0, marginBottom: 8 }}>
+              <div style={{ padding: 14, background: NAR_S, border: `3px solid ${INK}`, borderRadius: 0, marginBottom: 8 }}>
                 <div style={{ fontFamily: LEX, fontSize: 12, color: INK, marginBottom: 8 }}>Escribe o dicta ingredientes y/o EPS en lenguaje libre:</div>
-                <textarea value={textoDictado} onChange={e => setTextoDictado(e.target.value)} placeholder="Ej: 200g tomate frito, 3 dientes ajo, 50ml aceite oliva..." style={{ background: '#ffffff', border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, borderRadius: 0, padding: 10, width: '100%', boxSizing: 'border-box', height: 80, resize: 'none', outline: 'none' }} />
+                <textarea value={textoDictado} onChange={e => setTextoDictado(e.target.value)} placeholder="Ej: 200g tomate frito, 3 dientes ajo, 50ml aceite oliva..." style={{ background: BLANCO, border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, borderRadius: 0, padding: 10, width: '100%', boxSizing: 'border-box', height: 80, resize: 'none', outline: 'none' }} />
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <MicDictado onTexto={t => setTextoDictado(prev => (prev ? prev + ' ' : '') + t)} />
-                  <button onClick={procesarDictado} disabled={loadingDictado} style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 16px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', flex: 1, opacity: loadingDictado ? 0.6 : 1 }}>{loadingDictado ? 'PROCESANDO…' : 'PROCESAR'}</button>
-                  <button onClick={() => { setShowDictar(false); setTextoDictado('') }} style={{ background: '#ffffff', color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, cursor: 'pointer' }}>CANCELAR</button>
+                  <button onClick={procesarDictado} disabled={loadingDictado} style={{ background: GRANATE, color: BLANCO, border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 16px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', flex: 1, opacity: loadingDictado ? 0.6 : 1 }}>{loadingDictado ? 'PROCESANDO…' : 'PROCESAR'}</button>
+                  <button onClick={() => { setShowDictar(false); setTextoDictado('') }} style={{ background: BLANCO, color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, cursor: 'pointer' }}>CANCELAR</button>
                 </div>
               </div>
             )}
@@ -354,7 +354,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                     <tbody>
                       {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[#9a8f78] text-sm">Sin líneas</td></tr>}
                       {lineasCalc.map((l, idx) => {
-                        const nameColor = l.tipo === 'EPS' ? '#B01D23' : '#140f08'
+                        const nameColor = l.tipo === 'EPS' ? GRANATE : INK
                         return (
                           <tr key={idx}>
                             <td className={tdCls + ' text-[#9a8f78]'}>{idx + 1}</td>
@@ -396,34 +396,34 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                 <div className="overflow-x-auto">
                   <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr style={{ backgroundColor: '#FCEFD6' }}>
+                      <tr style={{ backgroundColor: NAR_S }}>
                         <th style={{ ...metricaCellStyle, padding: '10px 12px' }}>MÉTRICA</th>
                         {channelData.map((d, idx) => (<th key={d.ch.id} colSpan={2} style={{ padding: '10px 10px', textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: d.ch.color, textTransform: 'uppercase', ...channelBorderStyle(idx, true) }}>{d.ch.label}</th>))}
                       </tr>
-                      <tr style={{ backgroundColor: '#FCEFD6' }}>
+                      <tr style={{ backgroundColor: NAR_S }}>
                         <th />
                         {channelData.map((d, idx) => (<><th key={`${d.ch.id}-hr`} style={{ padding: '4px 10px', textAlign: 'right', fontSize: '9px', fontFamily: 'Oswald, sans-serif', color: GRIS, letterSpacing: '0.5px', textTransform: 'uppercase', ...channelBorderStyle(idx, true) }}>real</th><th key={`${d.ch.id}-hc`} style={{ padding: '4px 10px', textAlign: 'right', fontSize: '9px', fontFamily: 'Oswald, sans-serif', color: GRIS, letterSpacing: '0.5px', textTransform: 'uppercase' }}>cash</th></>))}
                       </tr>
                     </thead>
                     <tbody>
-                      <tr style={{ backgroundColor: '#FCEFD6' }}><td style={metricaCellStyle}>Coste MP</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-mp-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: '#140f08', ...channelBorderStyle(idx, true) }}>{fmtEur(costeMP)}</td><td key={`${d.ch.id}-mp-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: GRIS }}>{fmtEur(costeMP)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: '#FCEFD6' }}><td style={metricaCellStyle}>Coste plataforma</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-pl-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: '#140f08', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costePlatR)}</td><td key={`${d.ch.id}-pl-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: GRIS }}>{fmtEur(d.w.costePlatC)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: '#FCEFD6' }}><td style={metricaCellStyle}>Coste estructura</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-es-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: '#140f08', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeEstrR)}</td><td key={`${d.ch.id}-es-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: GRIS }}>{fmtEur(d.w.costeEstrC)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: '#FCEFD6', borderTop: `2px solid ${INK}`, borderBottom: `2px solid ${INK}` }}><td style={{ ...metricaCellStyle, fontWeight: 700, color: '#140f08' }}>Coste total</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-tot-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: '#140f08', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeTotalR)}</td><td key={`${d.ch.id}-tot-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: GRIS }}>{fmtEur(d.w.costeTotalC)}</td></>))}</tr>
+                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>Coste MP</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-mp-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(costeMP)}</td><td key={`${d.ch.id}-mp-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: GRIS }}>{fmtEur(costeMP)}</td></>))}</tr>
+                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>Coste plataforma</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-pl-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costePlatR)}</td><td key={`${d.ch.id}-pl-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: GRIS }}>{fmtEur(d.w.costePlatC)}</td></>))}</tr>
+                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>Coste estructura</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-es-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeEstrR)}</td><td key={`${d.ch.id}-es-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: GRIS }}>{fmtEur(d.w.costeEstrC)}</td></>))}</tr>
+                      <tr style={{ backgroundColor: NAR_S, borderTop: `2px solid ${INK}`, borderBottom: `2px solid ${INK}` }}><td style={{ ...metricaCellStyle, fontWeight: 700, color: INK }}>Coste total</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-tot-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeTotalR)}</td><td key={`${d.ch.id}-tot-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: GRIS }}>{fmtEur(d.w.costeTotalC)}</td></>))}</tr>
                     </tbody>
                     <tbody>
-                      <tr style={{ backgroundColor: '#ffffff', borderTop: `2px solid ${INK}` }}><td style={metricaCellStyle}>Margen deseado</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-md-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS, ...channelBorderStyle(idx, true) }}>{fmtPct(d.margenDeseado)}</td><td key={`${d.ch.id}-md-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS }}>{fmtPct(d.margenDeseado)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: '#ffffff' }}><td style={metricaCellStyle}>PVP recomendado</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-pr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: '#140f08', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.pvpRecR)}</td><td key={`${d.ch.id}-pr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: GRIS }}>{fmtEur(d.w.pvpRecC)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: '#ffffff' }}><td style={metricaCellStyle}>PVP real</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-pvp`} colSpan={2} style={{ padding: '6px 8px', ...channelBorderStyle(idx, true) }}><input ref={idx === 0 ? pvpRef : undefined} type="number" min={0} step="0.01" value={(pvpCanal[d.ch.pvpKey] || 0) > 0 ? pvpCanal[d.ch.pvpKey] : ''} onChange={e => { setIsDirty(true); const v = parseFloat(e.target.value) || 0; setPvpCanal(prev => ({ ...prev, [d.ch.pvpKey]: v })) }} placeholder="—" style={{ width: '100%', padding: '4px 8px', fontFamily: 'Oswald, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', color: AZUL, background: 'transparent', border: 'none', outline: 'none' }} /></td>))}</tr>
+                      <tr style={{ backgroundColor: BLANCO, borderTop: `2px solid ${INK}` }}><td style={metricaCellStyle}>Margen deseado</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-md-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS, ...channelBorderStyle(idx, true) }}>{fmtPct(d.margenDeseado)}</td><td key={`${d.ch.id}-md-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS }}>{fmtPct(d.margenDeseado)}</td></>))}</tr>
+                      <tr style={{ backgroundColor: BLANCO }}><td style={metricaCellStyle}>PVP recomendado</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-pr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.pvpRecR)}</td><td key={`${d.ch.id}-pr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: GRIS }}>{fmtEur(d.w.pvpRecC)}</td></>))}</tr>
+                      <tr style={{ backgroundColor: BLANCO }}><td style={metricaCellStyle}>PVP real</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-pvp`} colSpan={2} style={{ padding: '6px 8px', ...channelBorderStyle(idx, true) }}><input ref={idx === 0 ? pvpRef : undefined} type="number" min={0} step="0.01" value={(pvpCanal[d.ch.pvpKey] || 0) > 0 ? pvpCanal[d.ch.pvpKey] : ''} onChange={e => { setIsDirty(true); const v = parseFloat(e.target.value) || 0; setPvpCanal(prev => ({ ...prev, [d.ch.pvpKey]: v })) }} placeholder="—" style={{ width: '100%', padding: '4px 8px', fontFamily: 'Oswald, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', color: AZUL, background: 'transparent', border: 'none', outline: 'none' }} /></td>))}</tr>
                     </tbody>
                     <tbody>
                       <tr style={{ borderTop: `2px solid ${INK}` }}><td style={metricaCellStyle}>Factor K</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-k`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 700, color: getSemaforoColor(d.w.margenR, d.w.margenPctR, d.margenDeseado), ...channelBorderStyle(idx, true) }}>{fmtNum(d.w.factorK)}</td>))}</tr>
-                      <tr><td style={metricaCellStyle}>Margen €</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-mg-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: '#140f08', ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.margenR)}</td><td key={`${d.ch.id}-mg-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: GRIS }}>{fmtEur(d.w.margenC)}</td></>))}</tr>
+                      <tr><td style={metricaCellStyle}>Margen €</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-mg-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.margenR)}</td><td key={`${d.ch.id}-mg-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: GRIS }}>{fmtEur(d.w.margenC)}</td></>))}</tr>
                       <tr><td style={metricaCellStyle}>% Margen</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-pct-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenR, d.w.margenPctR, d.margenDeseado), ...channelBorderStyle(idx, true) }}>{fmtPct(d.w.margenPctR / 100)}</td><td key={`${d.ch.id}-pct-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenC, d.w.margenPctC, d.margenDeseado) }}>{fmtPct(d.w.margenPctC / 100)}</td></>))}</tr>
                     </tbody>
                     <tbody>
-                      <tr style={{ backgroundColor: '#FCEFD6' }}><td style={metricaCellStyle}>IVA repercutido</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-ivr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.ivaRepercutido)}</td><td key={`${d.ch.id}-ivr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS }}>{fmtEur(d.w.ivaRepercutido)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: '#FCEFD6' }}><td style={metricaCellStyle}>IVA soportado</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-ivs-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS, ...channelBorderStyle(idx, true) }}>{d.comision === 0 ? '—' : fmtEur(d.w.ivaSoportado)}</td><td key={`${d.ch.id}-ivs-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS }}>{d.comision === 0 ? '—' : fmtEur(d.w.ivaSoportado)}</td></>))}</tr>
+                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>IVA repercutido</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-ivr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.ivaRepercutido)}</td><td key={`${d.ch.id}-ivr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS }}>{fmtEur(d.w.ivaRepercutido)}</td></>))}</tr>
+                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>IVA soportado</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-ivs-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS, ...channelBorderStyle(idx, true) }}>{d.comision === 0 ? '—' : fmtEur(d.w.ivaSoportado)}</td><td key={`${d.ch.id}-ivs-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS }}>{d.comision === 0 ? '—' : fmtEur(d.w.ivaSoportado)}</td></>))}</tr>
                     </tbody>
                   </table>
                 </div>
@@ -437,7 +437,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
             {receta && confirmEliminar && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '12px', color: GRANATE, fontFamily: LEX }}>¿Eliminar definitivamente?</span>
-                <button onClick={handleEliminar} disabled={deleting} style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>{deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}</button>
+                <button onClick={handleEliminar} disabled={deleting} style={{ background: GRANATE, color: BLANCO, border: `2px solid ${INK}`, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>{deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}</button>
                 <button onClick={() => setConfirmEliminar(false)} style={{ background: 'transparent', border: `2px solid ${INK}`, color: INK, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem' }}>CANCELAR</button>
               </div>
             )}
@@ -449,19 +449,19 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
         </div>
         {showConflictos && conflictos.length > 0 && (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, borderRadius: 0 }}>
-            <div style={{ background: '#ffffff', border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, borderRadius: 0, padding: 20, width: '90%', maxWidth: 460, maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, borderRadius: 0, padding: 20, width: '90%', maxWidth: 460, maxHeight: '80vh', overflowY: 'auto' }}>
               <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 12 }}>INGREDIENTES / EPS NO ENCONTRADOS</div>
               {conflictos.map((item, idx) => (
-                <div key={idx} style={{ background: '#FCEFD6', border: `2px solid ${INK}`, borderRadius: 0, padding: '10px 14px', marginBottom: 8 }}>
+                <div key={idx} style={{ background: NAR_S, border: `2px solid ${INK}`, borderRadius: 0, padding: '10px 14px', marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                    <span style={{ background: NAR, color: '#fff', padding: '2px 8px', borderRadius: 0, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700, fontSize: 10 }}>⚠ NO ENCONTRADO</span>
+                    <span style={{ background: NAR, color: BLANCO, padding: '2px 8px', borderRadius: 0, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700, fontSize: 10 }}>⚠ NO ENCONTRADO</span>
                     <span style={{ fontFamily: LEX, fontSize: 13, color: INK, fontWeight: 500 }}>{item.nombre}</span>
                     <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{item.cantidad} {item.unidad}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <button onClick={() => { setConflictos(prev => prev.filter((_, i) => i !== idx)); setShowModalCrearIng({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad }) }} style={{ background: GRANATE, color: '#ffffff', border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ CREAR ING</button>
-                    <button onClick={() => { setConflictos(prev => prev.filter((_, i) => i !== idx)); setShowModalCrearEps({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad }) }} style={{ background: '#ffffff', color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ CREAR EPS</button>
-                    <select defaultValue="" onChange={e => { if (!e.target.value) return; const [tipo, id] = e.target.value.split('::'); if (tipo === 'ING') { const ing = ingredientes.find(i => i.id === id); if (ing) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } else if (tipo === 'ENV') { const ing = ingredientes.find(i => i.id === id); if (ing) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ENV', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: 1, unidad: 'ud.', eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } else { const ep = epsList.find(e => e.id === id); if (ep) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'EPS', ingrediente_id: null, eps_id: ep.id, ingrediente_nombre: ep.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ep.coste_rac) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } }} style={{ background: '#ffffff', border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 12, borderRadius: 0, padding: '6px 8px', flex: 1, minWidth: 120, cursor: 'pointer' }}>
+                    <button onClick={() => { setConflictos(prev => prev.filter((_, i) => i !== idx)); setShowModalCrearIng({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad }) }} style={{ background: GRANATE, color: BLANCO, border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ CREAR ING</button>
+                    <button onClick={() => { setConflictos(prev => prev.filter((_, i) => i !== idx)); setShowModalCrearEps({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad }) }} style={{ background: BLANCO, color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ CREAR EPS</button>
+                    <select defaultValue="" onChange={e => { if (!e.target.value) return; const [tipo, id] = e.target.value.split('::'); if (tipo === 'ING') { const ing = ingredientes.find(i => i.id === id); if (ing) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } else if (tipo === 'ENV') { const ing = ingredientes.find(i => i.id === id); if (ing) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ENV', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: 1, unidad: 'ud.', eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } else { const ep = epsList.find(e => e.id === id); if (ep) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'EPS', ingrediente_id: null, eps_id: ep.id, ingrediente_nombre: ep.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ep.coste_rac) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } }} style={{ background: BLANCO, border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 12, borderRadius: 0, padding: '6px 8px', flex: 1, minWidth: 120, cursor: 'pointer' }}>
                       <option value="">Elegir existente...</option>
                       <optgroup label="INGREDIENTES">{ingredientes.filter(i => !/_ENV$/.test(i.nombre ?? '')).map(i => <option key={i.id} value={`ING::${i.id}`}>{i.nombre}</option>)}</optgroup>
                       <optgroup label="EPS">{epsList.map(e => <option key={e.id} value={`EPS::${e.id}`}>{e.nombre}</option>)}</optgroup>

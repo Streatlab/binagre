@@ -1,3 +1,4 @@
+import { GRANATE } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -145,7 +146,7 @@ export default function PulsoOperativa() {
                   <Tooltip formatter={((v: unknown, n: unknown) => [v as number, n === 'pedidos' ? 'Pedidos' : (n as string)]) as never} />
                   <Bar dataKey="pedidos" radius={[6, 6, 0, 0]}>
                     {momFiltrados.map((d, i) => (
-                      <Cell key={i} fill={d.hora >= 13 && d.hora <= 15 ? COLORS.uber : d.hora >= 20 && d.hora <= 23 ? '#B01D23' : COLORS.mut} />
+                      <Cell key={i} fill={d.hora >= 13 && d.hora <= 15 ? COLORS.uber : d.hora >= 20 && d.hora <= 23 ? GRANATE : COLORS.mut} />
                     ))}
                   </Bar>
                 </BarChart>

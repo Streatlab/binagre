@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -78,7 +79,7 @@ export default function TabUnidades() {
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
   if (error) {
     return (
-      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
+      <div style={{ padding: 16, background: '#B01D2320', color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>
         {error}
       </div>
     )
@@ -101,8 +102,8 @@ export default function TabUnidades() {
     padding: '7px 14px',
     borderRadius: 6,
     border: 'none',
-    background: '#B01D23',
-    color: '#ffffff',
+    background: GRANATE,
+    color: BLANCO,
     fontFamily: FONT.heading,
     fontSize: 11,
     letterSpacing: '1px',
@@ -149,7 +150,7 @@ export default function TabUnidades() {
                     <button
                       onClick={() => delFmt(f.id)}
                       style={{ background: 'transparent', border: 'none', color: T.mut, fontSize: 11, cursor: 'pointer', fontFamily: FONT.heading, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, padding: 0 }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = '#B01D23')}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = GRANATE)}
                       onMouseLeave={(e) => (e.currentTarget.style.color = T.mut)}
                     >Eliminar</button>
                   </td>
@@ -200,7 +201,7 @@ export default function TabUnidades() {
                     <button
                       onClick={() => delRel(r.id)}
                       style={{ background: 'transparent', border: 'none', color: T.mut, fontSize: 11, cursor: 'pointer', fontFamily: FONT.heading, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, padding: 0 }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = '#B01D23')}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = GRANATE)}
                       onMouseLeave={(e) => (e.currentTarget.style.color = T.mut)}
                     >Eliminar</button>
                   </td>

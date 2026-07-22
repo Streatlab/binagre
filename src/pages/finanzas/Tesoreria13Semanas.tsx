@@ -4,19 +4,14 @@
  * Lógica de proyección en @/lib/finanzas/useTesoreria13Semanas.
  */
 import React from 'react'
+import { useTesoreria13Semanas, UMBRAL_VERDE, type SemanaTesoreria, type Estado, } from '@/lib/finanzas/useTesoreria13Semanas'
 import {
-  useTesoreria13Semanas, UMBRAL_VERDE,
-  type SemanaTesoreria, type Estado,
-} from '@/lib/finanzas/useTesoreria13Semanas'
-import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD,
-  GRANATE, VERDE, ROJO, NAR, AMA, GRIS, eyebrow,
-} from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, VERDE, ROJO, NAR, AMA, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal'
 import { fmtEur } from '@/lib/format'
 
 const ESTADO_LABEL: Record<Estado, string> = { verde: 'Holgado', ambar: 'Ajustado', rojo: 'En números rojos' }
 const ESTADO_COLOR: Record<Estado, string> = { verde: VERDE, ambar: AMA, rojo: ROJO }
-const ESTADO_FG: Record<Estado, string> = { verde: '#fff', ambar: INK, rojo: '#fff' }
+const ESTADO_FG: Record<Estado, string> = { verde: BLANCO, ambar: INK, rojo: BLANCO }
 
 export default function Tesoreria13Semanas() {
   const {
@@ -26,7 +21,7 @@ export default function Tesoreria13Semanas() {
     nominaSemanal, segSocialSemanal, nominasCount, segSocialCount,
   } = useTesoreria13Semanas()
 
-  const card: React.CSSProperties = { background: '#fff', border: BORDER_CARD, boxShadow: SHADOW }
+  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
 
   if (loading) {
     return <div style={{ padding: 40, color: GRIS, fontFamily: OSW, textTransform: 'uppercase', letterSpacing: '1px' }}>Cargando tesorería…</div>
@@ -41,7 +36,7 @@ export default function Tesoreria13Semanas() {
     <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
 
       <div style={{ marginBottom: 20 }}>
-        <span style={eyebrow(GRANATE, '#fff')}>FINANZAS</span>
+        <span style={eyebrow(GRANATE, BLANCO)}>FINANZAS</span>
         <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
           TESORERÍA 13 SEMANAS
         </h1>
@@ -84,12 +79,12 @@ export default function Tesoreria13Semanas() {
           <tbody>
             {semanas.map((s: SemanaTesoreria) => (
               <tr key={s.index} style={{ borderBottom: `2px solid ${INK}`, borderLeft: `6px solid ${ESTADO_COLOR[s.estado]}` }}>
-                <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, whiteSpace: 'nowrap', background: '#fff' }}>{s.semana}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', color: VERDE, fontFamily: OSW, fontWeight: 600, background: '#fff' }}>{fmtEur(s.entradas, { decimals: 2 })}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', color: NAR, fontFamily: OSW, fontWeight: 600, background: '#fff' }}>{fmtEur(s.salidas, { decimals: 2 })}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 600, color: s.saldoSemana >= 0 ? VERDE : ROJO, background: '#fff' }}>{fmtEur(s.saldoSemana, { decimals: 2, signed: true })}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: s.saldoAcumulado >= 0 ? INK : ROJO, background: '#fff' }}>{fmtEur(s.saldoAcumulado, { decimals: 2, signed: true })}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', background: '#fff' }}>
+                <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, whiteSpace: 'nowrap', background: BLANCO }}>{s.semana}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: VERDE, fontFamily: OSW, fontWeight: 600, background: BLANCO }}>{fmtEur(s.entradas, { decimals: 2 })}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: NAR, fontFamily: OSW, fontWeight: 600, background: BLANCO }}>{fmtEur(s.salidas, { decimals: 2 })}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 600, color: s.saldoSemana >= 0 ? VERDE : ROJO, background: BLANCO }}>{fmtEur(s.saldoSemana, { decimals: 2, signed: true })}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: s.saldoAcumulado >= 0 ? INK : ROJO, background: BLANCO }}>{fmtEur(s.saldoAcumulado, { decimals: 2, signed: true })}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', background: BLANCO }}>
                   <span style={{ background: ESTADO_COLOR[s.estado], color: ESTADO_FG[s.estado], border: `2px solid ${INK}`, padding: '3px 9px', fontSize: 11, fontFamily: OSW, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                     {ESTADO_LABEL[s.estado]}
                   </span>
@@ -114,7 +109,7 @@ export default function Tesoreria13Semanas() {
       </div>
 
       {gastosFijosCount === 0 && (
-        <div style={{ marginTop: 18, border: `3px dashed ${INK}`, padding: '14px 18px', background: '#fff', boxShadow: SHADOW }}>
+        <div style={{ marginTop: 18, border: `3px dashed ${INK}`, padding: '14px 18px', background: BLANCO, boxShadow: SHADOW }}>
           <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, marginBottom: 6 }}>Gastos fijos sin cargar</div>
           <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, lineHeight: 1.4 }}>
             La tabla de gastos fijos (alquileres, nóminas, suscripciones…) está vacía todavía, así que las salidas previstas solo reflejan

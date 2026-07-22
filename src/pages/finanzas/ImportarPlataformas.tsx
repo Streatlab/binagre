@@ -1,3 +1,4 @@
+import { GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 /**
  * T-F2-09 — Importar Plataformas
  * Dropzone único multi-formato (CSV / XLSX / PDF / imagen).
@@ -47,9 +48,9 @@ interface VentaRow {
 /* ─── helpers ─────────────────────────────────────────────────────────────── */
 
 const PLATAFORMA_COLOR: Record<string, string> = {
-  uber:       '#06C167',
+  uber:       VERDE,
   glovo:      '#aabc00',
-  just_eat:   '#f5a623',
+  just_eat:   NAR,
   rushour:    '#7F77DD',
   desconocido:'#888888',
 }
@@ -171,7 +172,7 @@ export default function ImportarPlataformas() {
     <div style={page}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
-        <h2 style={{ color: '#B01D23', fontFamily: FONT.heading, fontSize: 22, fontWeight: 500, letterSpacing: 1, margin: 0, textTransform: 'uppercase' }}>
+        <h2 style={{ color: GRANATE, fontFamily: FONT.heading, fontSize: 22, fontWeight: 500, letterSpacing: 1, margin: 0, textTransform: 'uppercase' }}>
           Importar Plataformas
         </h2>
         <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
@@ -195,7 +196,7 @@ export default function ImportarPlataformas() {
             onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files) }}
             onClick={() => !uploading && inputRef.current?.click()}
             style={{
-              border: `${dragOver ? 2 : 1.5}px dashed ${dragOver ? '#B01D23' : T.brd}`,
+              border: `${dragOver ? 2 : 1.5}px dashed ${dragOver ? GRANATE : T.brd}`,
               borderRadius: 14,
               padding: '40px 24px',
               textAlign: 'center',
@@ -237,10 +238,10 @@ export default function ImportarPlataformas() {
           {/* Instrucciones plataformas */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 24 }}>
             {[
-              { id: 'uber', label: 'Uber / Portier', nif: 'B88515200', color: '#06C167', formatos: 'PDF factura' },
+              { id: 'uber', label: 'Uber / Portier', nif: 'B88515200', color: VERDE, formatos: 'PDF factura' },
               { id: 'glovo', label: 'Glovo', nif: 'B67282871', color: '#aabc00', formatos: 'PDF (formato A/B)' },
               { id: 'rushour', label: 'RushHour', nif: 'Francés', color: '#7F77DD', formatos: 'PDF · CTR-SW' },
-              { id: 'just_eat', label: 'Just Eat', nif: 'Pendiente', color: '#f5a623', formatos: 'Sin parser aún' },
+              { id: 'just_eat', label: 'Just Eat', nif: 'Pendiente', color: NAR, formatos: 'Sin parser aún' },
             ].map(p => (
               <div key={p.id} style={{ ...cardStyle(T), display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, marginTop: 4, flexShrink: 0 }} />
@@ -286,15 +287,15 @@ export default function ImportarPlataformas() {
                       <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, fontSize: 12 }}>{fmtEur(Number(l.total_bruto ?? 0))}</td>
                       <td style={td}>
                         {l.estado === 'ok' ? (
-                          <span style={{ color: '#06C167', fontFamily: FONT.heading, fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ color: VERDE, fontFamily: FONT.heading, fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
                             <CheckCircle2 size={12} /> OK
                           </span>
                         ) : l.estado === 'pendiente' ? (
-                          <span style={{ color: '#e8f442', fontFamily: FONT.heading, fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ color: LIMA, fontFamily: FONT.heading, fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
                             <Clock size={12} /> Pendiente
                           </span>
                         ) : (
-                          <span title={l.error ?? ''} style={{ color: '#B01D23', fontFamily: FONT.heading, fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span title={l.error ?? ''} style={{ color: GRANATE, fontFamily: FONT.heading, fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
                             <AlertTriangle size={12} /> Error
                           </span>
                         )}
@@ -341,9 +342,9 @@ export default function ImportarPlataformas() {
                     const esSinMarca = v.marca === 'SIN_MARCA'
                     const rowStyle: CSSProperties = {
                       borderBottom: `0.5px solid ${T.brd}`,
-                      background: esSinMarca ? '#e8f442' : 'transparent',
+                      background: esSinMarca ? LIMA : 'transparent',
                     }
-                    const tdColor = esSinMarca ? '#111111' : T.pri
+                    const tdColor = esSinMarca ? INK : T.pri
                     return (
                       <tr key={v.id} style={rowStyle}>
                         <td style={{ ...td, color: T.sec, fontSize: 11 }}>
@@ -352,7 +353,7 @@ export default function ImportarPlataformas() {
                         <td style={{ ...td, fontFamily: FONT.heading, fontSize: 11, color: PLATAFORMA_COLOR[v.plataforma] ?? T.mut, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                           {labelPlataforma(v.plataforma)}
                         </td>
-                        <td style={{ ...td, color: esSinMarca ? '#B01D23' : tdColor, fontWeight: esSinMarca ? 600 : 400 }}>
+                        <td style={{ ...td, color: esSinMarca ? GRANATE : tdColor, fontWeight: esSinMarca ? 600 : 400 }}>
                           {esSinMarca ? '⚠ Marca sin detectar — revisar' : v.marca}
                         </td>
                         <td style={{ ...td, textAlign: 'right', color: tdColor }}>{fmtEur(v.bruto)}</td>

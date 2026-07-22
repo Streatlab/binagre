@@ -1,3 +1,4 @@
+import { AZUL, BLANCO, GRANATE, GRIS, INK, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fmtEur, fmtDate } from '@/utils/format'
@@ -489,7 +490,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   }
 
   const cardStyle = (filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({
-    background: '#fff',
+    background: BLANCO,
     border: isActive ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
     borderRadius: 14,
     padding: '18px 20px',
@@ -517,18 +518,18 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
         <div onClick={() => onCambiarFiltroCard('ingresos')} style={cardStyle('ingresos', filtroCard === 'ingresos')}>
           <div style={{ marginBottom: 8 }}>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Ingresos</span>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase' }}>Ingresos</span>
           </div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#1D9E75' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: VERDE }}>
             {agregados !== null ? fmtEur(agregados.ingresosImporte) : '—'}
           </div>
         </div>
 
         <div onClick={() => onCambiarFiltroCard('gastos')} style={cardStyle('gastos', filtroCard === 'gastos')}>
           <div style={{ marginBottom: 8 }}>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Gastos</span>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase' }}>Gastos</span>
           </div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#E24B4A' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: ROJO }}>
             {agregados !== null ? fmtEur(Math.abs(agregados.gastosImporte)) : '—'}
           </div>
         </div>
@@ -536,9 +537,9 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         <div style={{ ...cardStyle('pend_total', filtroCard === 'pend_total' || filtroCard === 'pend_sin_cat' || filtroCard === 'pend_sin_doc'), padding: '14px 16px', cursor: 'default' }}>
           <div onClick={() => onCambiarFiltroCard('pend_total')} style={{ cursor: 'pointer', marginBottom: 8 }}>
             <div style={{ marginBottom: 4 }}>
-              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Pendientes</span>
+              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase' }}>Pendientes</span>
             </div>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: agregados !== null && agregados.pendTotalNeto < 0 ? '#E24B4A' : '#1D9E75' }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: agregados !== null && agregados.pendTotalNeto < 0 ? ROJO : VERDE }}>
               {agregados !== null ? fmtEur(agregados.pendTotalNeto) : '—'}
             </div>
           </div>
@@ -549,11 +550,11 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               style={{
                 flex: 1, padding: '5px 6px', borderRadius: 5,
                 border: filtroCard === 'pend_sin_cat' ? '1px solid #E24B4A' : '0.5px solid #d0c8bc',
-                background: filtroCard === 'pend_sin_cat' ? '#E24B4A10' : '#fff',
+                background: filtroCard === 'pend_sin_cat' ? '#E24B4A10' : BLANCO,
                 cursor: 'pointer', textAlign: 'center',
               }}>
-              <div style={{ color: '#7a8090', fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>Sin categoría</div>
-              <div style={{ color: '#E24B4A', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600 }}>
+              <div style={{ color: GRIS, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>Sin categoría</div>
+              <div style={{ color: ROJO, fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600 }}>
                 {agregados !== null ? agregados.pendSinCatCount : '—'}
               </div>
             </button>
@@ -562,26 +563,26 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               style={{
                 flex: 1, padding: '5px 6px', borderRadius: 5,
                 border: filtroCard === 'pend_sin_doc' ? '1px solid #F26B1F' : '0.5px solid #d0c8bc',
-                background: filtroCard === 'pend_sin_doc' ? '#F26B1F10' : '#fff',
+                background: filtroCard === 'pend_sin_doc' ? '#F26B1F10' : BLANCO,
                 cursor: 'pointer', textAlign: 'center',
               }}>
-              <div style={{ color: '#7a8090', fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>Sin doc</div>
-              <div style={{ color: '#F26B1F', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600 }}>
+              <div style={{ color: GRIS, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>Sin doc</div>
+              <div style={{ color: NAR, fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600 }}>
                 {agregados !== null ? agregados.pendSinDocCount : '—'}
               </div>
             </button>
           </div>
         </div>
 
-        <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '14px 16px' }}>
+        <div style={{ background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '14px 16px' }}>
           <div style={{ marginBottom: 6 }}>
-            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Titular</span>
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase' }}>Titular</span>
           </div>
           <div style={{ display: 'flex', gap: 5, marginBottom: 8 }}>
             {(['todos', 'ruben', 'emilio'] as const).map(t => {
               const isActive = filtroTitular === t
-              const bg  = isActive ? (t === 'todos' ? '#3a4050' : t === 'ruben' ? '#F26B1F' : '#1E5BCC') : '#fff'
-              const clr = isActive ? '#fff' : '#3a4050'
+              const bg  = isActive ? (t === 'todos' ? OSC : t === 'ruben' ? NAR : AZUL) : BLANCO
+              const clr = isActive ? BLANCO : OSC
               const bd  = isActive ? 'none' : '0.5px solid #d0c8bc'
               return (
                 <button key={t} onClick={() => onCambiarFiltroTitular(t)}
@@ -591,12 +592,12 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               )
             })}
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#3a4050', userSelect: 'none' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: OSC, userSelect: 'none' }}>
             <input
               type="checkbox"
               checked={ocultarConciliados}
               onChange={e => onCambiarOcultarConciliados(e.target.checked)}
-              style={{ width: 14, height: 14, accentColor: '#FF4757', margin: 0, cursor: 'pointer' }}
+              style={{ width: 14, height: 14, accentColor: ROJO, margin: 0, cursor: 'pointer' }}
             />
             <span>Ocultar conciliados</span>
           </label>
@@ -610,7 +611,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             value={busqueda}
             onChange={e => onCambiarBusqueda(e.target.value)}
             placeholder="Buscar concepto, notas o proveedor en toda la BBDD"
-            style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', outline: 'none', boxSizing: 'border-box' }}
+            style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK, outline: 'none', boxSizing: 'border-box' }}
           />
           {busqueda && (
             <button
@@ -619,7 +620,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               style={{
                 position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
                 background: '#f5f3ef', border: 'none', borderRadius: '50%', width: 22, height: 22,
-                cursor: 'pointer', fontSize: 14, color: '#7a8090', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                cursor: 'pointer', fontSize: 14, color: GRIS, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
               }}>
               ×
             </button>
@@ -628,7 +629,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         <select
           value={catFiltro}
           onChange={e => onCambiarCatFiltro(e.target.value)}
-          style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', minWidth: 280, cursor: 'pointer' }}
+          style={{ padding: '10px 14px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK, minWidth: 280, cursor: 'pointer' }}
         >
           <option value="todas">Categorías</option>
           {categoriasPyg.filter(c => c.nivel === 3).map(c => (
@@ -639,7 +640,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         <button
           onClick={handleExportar}
           disabled={exportando}
-          style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#3a4050', cursor: exportando ? 'default' : 'pointer', fontWeight: 500, opacity: exportando ? 0.6 : 1 }}
+          style={{ padding: '10px 18px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: OSC, cursor: exportando ? 'default' : 'pointer', fontWeight: 500, opacity: exportando ? 0.6 : 1 }}
         >
           {exportando ? 'Exportando...' : 'Exportar'}
         </button>
@@ -657,14 +658,14 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           justifyContent: 'space-between',
           fontFamily: 'Lexend, sans-serif',
           fontSize: 13,
-          color: '#B01D23',
+          color: GRANATE,
         }}>
           <span>{errorCarga}</span>
           <button
             onClick={() => { cargarPagina(); cargarAgregados() }}
             style={{
-              background: '#B01D23',
-              color: '#fff',
+              background: GRANATE,
+              color: BLANCO,
               border: 'none',
               borderRadius: 6,
               padding: '6px 14px',
@@ -680,14 +681,14 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       )}
 
       {!cargando && total === 0 && !errorCarga ? (
-        <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#7a8090', letterSpacing: 1, marginBottom: 8 }}>No hay movimientos</div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', marginBottom: 24 }}>Prueba a cambiar la búsqueda o el periodo</div>
+        <div style={{ background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRIS, letterSpacing: 1, marginBottom: 8 }}>No hay movimientos</div>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS, marginBottom: 24 }}>Prueba a cambiar la búsqueda o el periodo</div>
         </div>
       ) : (
-        <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden' }}>
           {cargando && (
-            <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
+            <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS }}>
               Cargando…
             </div>
           )}
@@ -706,7 +707,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                 <tbody>
                   {filasVisibles.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
+                      <td colSpan={8} style={{ padding: '32px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS }}>
                         Sin movimientos con los filtros actuales
                       </td>
                     </tr>
@@ -737,26 +738,26 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                       <tr key={m.id} onClick={() => setModalMov(m)} style={{ cursor: 'pointer' }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
-                        <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>
+                        <td style={{ ...tdBase, color: GRIS, fontSize: 12, whiteSpace: 'nowrap' }}>
                           {fmtDate(m.fecha)}
                         </td>
-                        <td title={m.concepto} style={{ ...tdBase, color: '#111', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <td title={m.concepto} style={{ ...tdBase, color: INK, maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {m.concepto}
                         </td>
-                        <td title={m.contraparte || ''} style={{ ...tdBase, color: m.contraparte ? '#111' : '#7a8090', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <td title={m.contraparte || ''} style={{ ...tdBase, color: m.contraparte ? INK : GRIS, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {m.contraparte || 'Sin identificar'}
                         </td>
-                        <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: m.importe >= 0 ? '#1D9E75' : '#E24B4A', whiteSpace: 'nowrap' }}>
+                        <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 500, letterSpacing: '0.5px', color: m.importe >= 0 ? VERDE : ROJO, whiteSpace: 'nowrap' }}>
                           {fmtEur(m.importe)}
                         </td>
                         <td style={{ ...tdBase, whiteSpace: 'nowrap' }}>
                           {catInfo ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#3a4050', whiteSpace: 'nowrap' }}>
-                              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: '#7a8090', fontWeight: 500 }}>{catInfo.id}</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 6, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: OSC, whiteSpace: 'nowrap' }}>
+                              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: GRIS, fontWeight: 500 }}>{catInfo.id}</span>
                               {catInfo.nombre}
                             </span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: '#E24B4A10', border: '0.5px dashed #E24B4A50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#E24B4A', fontStyle: 'italic' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: '#E24B4A10', border: '0.5px dashed #E24B4A50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: ROJO, fontStyle: 'italic' }}>
                               sin categoría
                             </span>
                           )}
@@ -786,7 +787,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                           </td>
                         ) : m.doc_estado === 'no_requiere' || noConc ? (
                           <td style={{ ...tdDocBase, padding: '8px 16px' }}>
-                            <span style={{ color: '#7a8090', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>—</span>
+                            <span style={{ color: GRIS, fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>—</span>
                           </td>
                         ) : (
                           <td style={tdDocBase} title="Pendiente de documento">
@@ -807,28 +808,28 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                               Conciliado
                             </span>
                           ) : estado === 'parcial' ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#F26B1F15', color: '#F26B1F' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#F26B1F15', color: NAR }}>
                               Parcial
                             </span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: '#E24B4A' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: ROJO }}>
                               Pendiente
                             </span>
                           )}
                         </td>
                         <td style={tdBase}>
                           {isRuben ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: '#F26B1F15', color: '#F26B1F', whiteSpace: 'nowrap' }}>
-                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F26B1F', flexShrink: 0 }} />
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: '#F26B1F15', color: NAR, whiteSpace: 'nowrap' }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: NAR, flexShrink: 0 }} />
                               Rubén
                             </span>
                           ) : isEmilio ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: '#1E5BCC15', color: '#1E5BCC', whiteSpace: 'nowrap' }}>
-                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1E5BCC', flexShrink: 0 }} />
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: '#1E5BCC15', color: AZUL, whiteSpace: 'nowrap' }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: AZUL, flexShrink: 0 }} />
                               Emilio
                             </span>
                           ) : (
-                            <span style={{ color: '#7a8090', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>—</span>
+                            <span style={{ color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>—</span>
                           )}
                         </td>
                       </tr>
@@ -846,13 +847,13 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             const isLast  = page === totalPages
 
             const btnBase: React.CSSProperties = {
-              background: '#fff',
+              background: BLANCO,
               border: '0.5px solid #d0c8bc',
               borderRadius: 8,
               padding: '6px 12px',
               fontFamily: 'Lexend, sans-serif',
               fontSize: 13,
-              color: '#111',
+              color: INK,
               cursor: 'pointer',
             }
             const btnDisabled: React.CSSProperties = { ...btnBase, opacity: 0.35, cursor: 'default' }
@@ -866,13 +867,13 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                 background: '#fafaf7',
                 borderTop: '0.5px solid #d0c8bc',
               }}>
-                <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>
+                <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS }}>
                   {`Mostrando ${desde.toLocaleString('es-ES')}–${hasta.toLocaleString('es-ES')} de ${total.toLocaleString('es-ES')} movimientos`}
                 </span>
 
                 {totalPages > 1 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: '#7a8090', textTransform: 'uppercase' }}>
+                    <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: GRIS, textTransform: 'uppercase' }}>
                       Filas:
                     </label>
                     <select
@@ -882,7 +883,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                         padding: '6px 10px',
                         borderRadius: 8,
                         border: '0.5px solid #d0c8bc',
-                        background: '#fff',
+                        background: BLANCO,
                         fontFamily: 'Lexend, sans-serif',
                         fontSize: 13,
                       }}

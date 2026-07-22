@@ -7,7 +7,7 @@
  * botones de desplazamiento (sin leyenda) · botón Nuevo.
  */
 import type { CSSProperties } from 'react'
-import { INK, AMA, OSW, LEX, SHADOW, VERDE } from '@/styles/neobrutal'
+import { INK, AMA, OSW, LEX, SHADOW, VERDE, BLANCO } from '@/styles/neobrutal'
 
 export interface PillCfg {
   label: string
@@ -66,7 +66,7 @@ export default function CabeceraEscandallo({
             onChange={e => onBuscar(e.target.value)}
             placeholder={placeholder ?? '🔎  Buscar por nombre, ABV, proveedor, categoría…'}
             style={{
-              flex: 1, background: '#ffffff', border: `2px solid ${INK}`, borderRadius: 0,
+              flex: 1, background: BLANCO, border: `2px solid ${INK}`, borderRadius: 0,
               padding: '10px 32px 10px 14px', fontFamily: LEX, fontSize: 14, color: INK, outline: 'none',
             }}
           />
@@ -93,18 +93,18 @@ function Pill({ label, value, color, active, onClick }: PillCfg) {
   return (
     <button onClick={onClick} type="button" disabled={!onClick} style={{
       cursor: onClick ? 'pointer' : 'default', display: 'flex', alignItems: 'baseline', gap: 7,
-      background: active ? c : '#ffffff', border: `2px solid ${INK}`, borderRadius: 0,
+      background: active ? c : BLANCO, border: `2px solid ${INK}`, borderRadius: 0,
       boxShadow: active ? `3px 3px 0 ${INK}` : 'none', padding: '6px 12px', transition: 'all 120ms',
     }}>
-      <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: active ? '#fff' : INK }}>{label}</span>
-      <span style={{ fontFamily: OSW, fontSize: 19, fontWeight: 700, lineHeight: 1, color: active ? '#fff' : c }}>{value}</span>
+      <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: active ? BLANCO : INK }}>{label}</span>
+      <span style={{ fontFamily: OSW, fontSize: 19, fontWeight: 700, lineHeight: 1, color: active ? BLANCO : c }}>{value}</span>
     </button>
   )
 }
 
 const btnNuevo: CSSProperties = {
   fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase',
-  background: VERDE, color: '#ffffff', border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`,
+  background: VERDE, color: BLANCO, border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`,
   padding: '10px 18px', cursor: 'pointer', borderRadius: 0,
 }
 
@@ -116,7 +116,7 @@ export const btnSecundarioEsc: CSSProperties = {
 }
 
 const scrollBtn: CSSProperties = {
-  fontFamily: OSW, fontWeight: 700, fontSize: 14, background: '#ffffff', color: INK,
+  fontFamily: OSW, fontWeight: 700, fontSize: 14, background: BLANCO, color: INK,
   border: `2px solid ${INK}`, boxShadow: `2px 2px 0 ${INK}`, borderRadius: 0,
   padding: '8px 12px', cursor: 'pointer', minWidth: 42, minHeight: 40,
 }

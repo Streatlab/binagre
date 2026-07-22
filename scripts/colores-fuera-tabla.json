@@ -1,0 +1,2971 @@
+[
+  {
+    "hex": "#b01d2320",
+    "total": 21,
+    "files": {
+      "src/components/equipo/ModalEmpleado.tsx": 1,
+      "src/components/equipo/ModalSolicitud.tsx": 1,
+      "src/components/equipo/horarios/TabVacaciones.tsx": 1,
+      "src/pages/Marcas.tsx": 1,
+      "src/pages/PagosCobros.tsx": 3,
+      "src/pages/configuracion/bancos/CategoriasPanel.tsx": 1,
+      "src/pages/configuracion/bancos/CuentasPanel.tsx": 1,
+      "src/pages/configuracion/bancos/ReglasPanel.tsx": 1,
+      "src/pages/configuracion/compras/TabCategorias.tsx": 1,
+      "src/pages/configuracion/compras/TabCostes.tsx": 1,
+      "src/pages/configuracion/compras/TabProveedores.tsx": 1,
+      "src/pages/configuracion/compras/TabUnidades.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1,
+      "src/pages/equipo/TabPermisos.tsx": 1,
+      "src/pages/equipo/TabPortal.tsx": 1,
+      "src/pages/informes/ConfiguracionInformes.tsx": 1,
+      "src/pages/informes/Historial.tsx": 1,
+      "src/pages/informes/InformesPanel.tsx": 1,
+      "src/pages/ops/LibroEquipos.tsx": 1
+    }
+  },
+  {
+    "hex": "#777",
+    "total": 21,
+    "files": {
+      "src/components/tareas/TabCalendario.tsx": 2,
+      "src/components/tareas/TabConfigTareas.tsx": 3,
+      "src/components/tareas/TabListaPendientes.tsx": 3,
+      "src/pages/configuracion/AprendizajesPage.tsx": 4,
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 3,
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 2,
+      "src/pages/configuracion/calendario/MesGrid.tsx": 1,
+      "src/pages/configuracion/calendario/ModalRangoBulk.tsx": 1,
+      "src/pages/configuracion/calendario/ModalTipoDia.tsx": 1,
+      "src/pages/ops/TareasOperativas.tsx": 1
+    }
+  },
+  {
+    "hex": "#9ba8c0",
+    "total": 20,
+    "files": {
+      "src/components/NavIcon.tsx": 3,
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/components/ocr/DocBadge.tsx": 1,
+      "src/components/ocr/DocBadgeV2.tsx": 1,
+      "src/pages/configuracion/AprendizajesPage.tsx": 6,
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 5,
+      "src/pages/configuracion/calendario/CalendarioPage.tsx": 1,
+      "src/pages/configuracion/calendario/MesGrid.tsx": 2
+    }
+  },
+  {
+    "hex": "#1e2233",
+    "total": 20,
+    "files": {
+      "src/components/SelloAct.tsx": 3,
+      "src/components/Sidebar.tsx": 1,
+      "src/components/conciliacion/PanelCobertura.tsx": 2,
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/escandallo/ModalReceta.tsx": 1,
+      "src/components/ocr/VentasPlatosFranjas.tsx": 1,
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/components/panel/resumen/tokens.ts": 1,
+      "src/mobile/mapaMovil.ts": 1,
+      "src/pages/BandejaPendientes.tsx": 1,
+      "src/pages/Conciliacion.tsx": 2,
+      "src/pages/configuracion/calendario/CalendarioPage.tsx": 1,
+      "src/pages/configuracion/calendario/MesGrid.tsx": 1,
+      "src/pages/finanzas/Ventas.tsx": 1,
+      "src/pages/ops/ManualesOperaciones.tsx": 1
+    }
+  },
+  {
+    "hex": "#5a4f3a",
+    "total": 20,
+    "files": {
+      "src/components/escandallo/TabEPS.tsx": 1,
+      "src/components/escandallo/TabIndice.tsx": 1,
+      "src/components/escandallo/TabIngredientes.tsx": 7,
+      "src/components/escandallo/TabMermas.tsx": 2,
+      "src/components/escandallo/TabRecetas.tsx": 1,
+      "src/components/escandallo/estilosTabla.ts": 1,
+      "src/pages/finanzas/Cashflow.tsx": 5,
+      "src/pages/finanzas/Running.tsx": 2
+    }
+  },
+  {
+    "hex": "#888",
+    "total": 19,
+    "files": {
+      "src/components/conciliacion/ResumenDashboard.tsx": 2,
+      "src/components/equipo/ModalEmpleado.tsx": 3,
+      "src/components/tareas/TabCalendario.tsx": 2,
+      "src/components/tareas/TabConfigTareas.tsx": 2,
+      "src/components/tareas/TabListaPendientes.tsx": 5,
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1,
+      "src/pages/equipo/TabCalendarioLaboral.tsx": 1,
+      "src/pages/equipo/TabEmpleados.tsx": 1,
+      "src/pages/informes/ConfiguracionInformes.tsx": 1
+    }
+  },
+  {
+    "hex": "#2d1515",
+    "total": 18,
+    "files": {
+      "src/components/documentacion/ModalDescartarFactura.tsx": 1,
+      "src/components/importador/TabSubir.tsx": 1,
+      "src/components/inventario/TabConteos.tsx": 1,
+      "src/pages/configuracion/AprendizajesPage.tsx": 1,
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 2,
+      "src/pages/configuracion/calendario/CalendarioPage.tsx": 1,
+      "src/pages/configuracion/calendario/MesGrid.tsx": 1,
+      "src/pages/ops/BitacoraNovedades.tsx": 1,
+      "src/pages/ops/BpmCalidad.tsx": 1,
+      "src/pages/ops/ControlTemperaturas.tsx": 2,
+      "src/pages/ops/DanosMenaje.tsx": 1,
+      "src/pages/ops/LibroEquipos.tsx": 1,
+      "src/pages/ops/PedidosMenaje.tsx": 1,
+      "src/pages/ops/PulsoCocina.tsx": 1,
+      "src/pages/ops/ReunionesEquipo.tsx": 1,
+      "src/pages/ops/TareasOperativas.tsx": 1
+    }
+  },
+  {
+    "hex": "#6b5d45",
+    "total": 18,
+    "files": {
+      "src/components/escandallo/ModalIngrediente.tsx": 1,
+      "src/components/panel/TabEvolucion.tsx": 1,
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 3,
+      "src/pages/Home.tsx": 3,
+      "src/pages/cocina/MenuFamilia.tsx": 1,
+      "src/pages/marketing/RendimientoAdsPromo.tsx": 8
+    }
+  },
+  {
+    "hex": "#4caf50",
+    "total": 16,
+    "files": {
+      "src/components/compras/TabComprasEntradas.tsx": 1,
+      "src/components/compras/TabListasCompra.tsx": 2,
+      "src/components/compras/TabMenusMarcas.tsx": 2,
+      "src/components/compras/TabPreciosProveedor.tsx": 1,
+      "src/components/compras/TabPricingGen.tsx": 1,
+      "src/components/compras/TabStockReal.tsx": 2,
+      "src/components/inventario/TabAnalisisFoodCost.tsx": 1,
+      "src/components/inventario/TabConteos.tsx": 1,
+      "src/components/inventario/TabMermas.tsx": 4,
+      "src/components/inventario/TabMovimientos.tsx": 1
+    }
+  },
+  {
+    "hex": "#666",
+    "total": 15,
+    "files": {
+      "src/components/ocr/VentasTab.tsx": 1,
+      "src/pages/equipo/TabIncentivos.tsx": 3,
+      "src/pages/finanzas/GestionFacturas.tsx": 1,
+      "src/pages/marketing/PanelMkt.tsx": 10
+    }
+  },
+  {
+    "hex": "#0f6e56",
+    "total": 14,
+    "files": {
+      "src/components/conciliacion/ModalDetalleMovimiento.tsx": 1,
+      "src/components/conciliacion/TabMovimientos.tsx": 3,
+      "src/components/ocr/DocBadge.tsx": 1,
+      "src/components/ocr/DocBadgeV2.tsx": 1,
+      "src/components/ocr/ModalDetalleFactura.tsx": 2,
+      "src/components/ocr/OcrEditModal.tsx": 1,
+      "src/components/ocr/PendientesAlerta.tsx": 1,
+      "src/components/panel/resumen/tokens.ts": 1,
+      "src/pages/Ocr.tsx": 2,
+      "src/pages/configuracion/bancos/ReglasGlobalesPanel.tsx": 1
+    }
+  },
+  {
+    "hex": "#ffc400",
+    "total": 13,
+    "files": {
+      "src/components/Sidebar.tsx": 2,
+      "src/components/escandallo/ModalEPS.tsx": 1,
+      "src/components/escandallo/ModalReceta.tsx": 1,
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/components/panel/resumen/tokens.ts": 1,
+      "src/components/ui/SelectorFechaUniversal.tsx": 1,
+      "src/mobile/kit.tsx": 1,
+      "src/mobile/mapaMovil.ts": 1,
+      "src/mobile/pwa.tsx": 2,
+      "src/pages/marketing/PanelMkt.tsx": 1
+    }
+  },
+  {
+    "hex": "#2d5bff",
+    "total": 13,
+    "files": {
+      "src/components/Sidebar.tsx": 1,
+      "src/components/escandallo/ModalEPS.tsx": 2,
+      "src/components/escandallo/ModalIngrediente.tsx": 1,
+      "src/components/escandallo/ModalMerma.tsx": 1,
+      "src/components/escandallo/TabIngredientes.tsx": 1,
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/components/panel/resumen/tokens.ts": 2,
+      "src/mobile/kit.tsx": 1,
+      "src/mobile/mapaMovil.ts": 1,
+      "src/pages/Ocr.tsx": 1
+    }
+  },
+  {
+    "hex": "#f5f3ef",
+    "total": 13,
+    "files": {
+      "src/components/conciliacion/ModalDetalleMovimiento.tsx": 2,
+      "src/components/conciliacion/TabMovimientos.tsx": 2,
+      "src/components/ocr/ModalDetalleFactura.tsx": 1,
+      "src/components/ocr/OcrEditModal.tsx": 1,
+      "src/components/ocr/OcrUploadToast.tsx": 1,
+      "src/components/ocr/VentasTab.tsx": 1,
+      "src/components/ui/SortableHeader.tsx": 1,
+      "src/pages/configuracion/bancos/BancosYCuentasPage.tsx": 1,
+      "src/pages/configuracion/bancos/ReglasGlobalesPanel.tsx": 2,
+      "src/pages/finanzas/PuntoEquilibrio.tsx": 1
+    }
+  },
+  {
+    "hex": "#a32d2d",
+    "total": 13,
+    "files": {
+      "src/components/conciliacion/ResumenDashboard.tsx": 1,
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/components/facturas/ModalDetalleFactura.tsx": 3,
+      "src/pages/configuracion/bancos/CategoriasPanel.tsx": 1,
+      "src/pages/configuracion/bancos/DrivePanel.tsx": 1,
+      "src/pages/configuracion/compras/TabCostes.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 2,
+      "src/pages/finanzas/GestionFacturas.tsx": 2,
+      "src/pages/finanzas/PuntoEquilibrio.tsx": 1
+    }
+  },
+  {
+    "hex": "#e9e1d0",
+    "total": 13,
+    "files": {
+      "src/components/configuracion/BigCard.tsx": 1,
+      "src/components/configuracion/ConfigModal.tsx": 2,
+      "src/components/configuracion/EditModal.tsx": 2,
+      "src/components/configuracion/KpiCard.tsx": 1,
+      "src/components/configuracion/PeriodDropdown.tsx": 4,
+      "src/components/configuracion/Toolbar.tsx": 2,
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 1
+    }
+  },
+  {
+    "hex": "#9e9588",
+    "total": 13,
+    "files": {
+      "src/components/configuracion/BigCard.tsx": 1,
+      "src/components/configuracion/ConfigModal.tsx": 1,
+      "src/components/configuracion/ConfigTable.tsx": 2,
+      "src/components/configuracion/EditModal.tsx": 1,
+      "src/components/configuracion/InlineEdit.tsx": 1,
+      "src/components/configuracion/KpiCard.tsx": 1,
+      "src/components/configuracion/PeriodDropdown.tsx": 2,
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/components/configuracion/Toolbar.tsx": 1,
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 2
+    }
+  },
+  {
+    "hex": "#e8b341",
+    "total": 12,
+    "files": {
+      "src/components/equipo/ModalEmpleado.tsx": 4,
+      "src/pages/equipo/Organigrama.tsx": 8
+    }
+  },
+  {
+    "hex": "#0fb86b",
+    "total": 11,
+    "files": {
+      "src/components/Sidebar.tsx": 1,
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/components/panel/resumen/tokens.ts": 2,
+      "src/mobile/kit.tsx": 1,
+      "src/mobile/mapaMovil.ts": 1,
+      "src/pages/Ocr.tsx": 1,
+      "src/pages/cocina/MenuFamilia.tsx": 2,
+      "src/pages/marketing/PanelMkt.tsx": 1
+    }
+  },
+  {
+    "hex": "#ff2e63",
+    "total": 11,
+    "files": {
+      "src/components/Sidebar.tsx": 1,
+      "src/components/ThemeToggle.tsx": 1,
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/components/panel/resumen/tokens.ts": 1,
+      "src/components/ui/SelectorFechaUniversal.tsx": 1,
+      "src/components/ui/SidebarBadge.tsx": 1,
+      "src/components/ui/TabsPastilla.tsx": 1,
+      "src/mobile/kit.tsx": 1,
+      "src/mobile/mapaMovil.ts": 1,
+      "src/pages/PanelGlobal.tsx": 1
+    }
+  },
+  {
+    "hex": "#484f66",
+    "total": 11,
+    "files": {
+      "src/components/Sidebar.tsx": 1,
+      "src/components/panel/resumen/tokens.ts": 1,
+      "src/components/tareas/TabConfigTareas.tsx": 1,
+      "src/components/tareas/TabListaPendientes.tsx": 1,
+      "src/mobile/mapaMovil.ts": 1,
+      "src/mobile/usePanelMovil.ts": 1,
+      "src/pages/clientes/CrmTiendaPropia.tsx": 1,
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 2,
+      "src/pages/configuracion/calendario/CalendarioPage.tsx": 1,
+      "src/pages/configuracion/calendario/MesGrid.tsx": 1
+    }
+  },
+  {
+    "hex": "#1d9e7520",
+    "total": 11,
+    "files": {
+      "src/components/equipo/ModalEmpleado.tsx": 1,
+      "src/components/equipo/horarios/TabVacaciones.tsx": 1,
+      "src/pages/Marcas.tsx": 1,
+      "src/pages/PagosCobros.tsx": 3,
+      "src/pages/configuracion/marcas/TabCanales.tsx": 1,
+      "src/pages/equipo/TabPermisos.tsx": 1,
+      "src/pages/equipo/TabPortal.tsx": 2,
+      "src/pages/ops/LibroEquipos.tsx": 1
+    }
+  },
+  {
+    "hex": "#555555",
+    "total": 11,
+    "files": {
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 1,
+      "src/pages/ops/BitacoraNovedades.tsx": 1,
+      "src/pages/ops/LibroEquipos.tsx": 2,
+      "src/pages/ops/ManualesOperaciones.tsx": 2,
+      "src/pages/ops/PulsoCocina.tsx": 2,
+      "src/pages/ops/ReunionesEquipo.tsx": 3
+    }
+  },
+  {
+    "hex": "#fafaf7",
+    "total": 10,
+    "files": {
+      "src/components/conciliacion/ModalDetalleMovimiento.tsx": 4,
+      "src/components/conciliacion/TabMovimientos.tsx": 1,
+      "src/components/importador/TabSubirV2.tsx": 3,
+      "src/components/ocr/ModalDetalleFactura.tsx": 1,
+      "src/components/ocr/OcrEditModal.tsx": 1
+    }
+  },
+  {
+    "hex": "#ff1e27",
+    "total": 9,
+    "files": {
+      "src/components/escandallo/ModalEPS.tsx": 1,
+      "src/components/escandallo/ModalIngrediente.tsx": 1,
+      "src/components/escandallo/ModalMerma.tsx": 1,
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/mobile/kit.tsx": 1,
+      "src/mobile/mapaMovil.ts": 1,
+      "src/pages/Ocr.tsx": 2
+    }
+  },
+  {
+    "hex": "#999",
+    "total": 9,
+    "files": {
+      "src/components/ocr/OcrUploadToast.tsx": 1,
+      "src/pages/cocina/MenuFamilia.tsx": 3,
+      "src/pages/configuracion/reglas/TabCorreoOcr.tsx": 2,
+      "src/pages/configuracion/reglas/TabOcrPlantillas.tsx": 1,
+      "src/pages/configuracion/reglas/TabReglasConciliacion.tsx": 1,
+      "src/pages/equipo/TabIncentivos.tsx": 1
+    }
+  },
+  {
+    "hex": "#aaa",
+    "total": 8,
+    "files": {
+      "src/components/conciliacion/BandejaPropuestas.tsx": 1,
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 1,
+      "src/pages/configuracion/calendario/ModalRangoBulk.tsx": 4,
+      "src/pages/configuracion/calendario/ModalTipoDia.tsx": 2
+    }
+  },
+  {
+    "hex": "#1d9e7515",
+    "total": 8,
+    "files": {
+      "src/components/conciliacion/CardFiltro.tsx": 1,
+      "src/components/importador/TabSubirV2.tsx": 1,
+      "src/components/ocr/ModalDetalleFactura.tsx": 1,
+      "src/components/ocr/OcrEditModal.tsx": 1,
+      "src/pages/Ocr.tsx": 2,
+      "src/pages/configuracion/marcas/TabCanales.tsx": 1,
+      "src/pages/ops/BpmCalidad.tsx": 1
+    }
+  },
+  {
+    "hex": "#f26b1f15",
+    "total": 8,
+    "files": {
+      "src/components/conciliacion/TabMovimientos.tsx": 2,
+      "src/components/ocr/ExtractosTabla.tsx": 1,
+      "src/pages/Ocr.tsx": 5
+    }
+  },
+  {
+    "hex": "#fce0e2",
+    "total": 8,
+    "files": {
+      "src/components/configuracion/EditModal.tsx": 1,
+      "src/components/configuracion/MultiSelectDropdown.tsx": 1,
+      "src/components/configuracion/PeriodDropdown.tsx": 1,
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 4,
+      "src/pages/configuracion/marcas/TabMarcas.tsx": 1
+    }
+  },
+  {
+    "hex": "#ccc",
+    "total": 8,
+    "files": {
+      "src/components/documentacion/ModalDescartarFactura.tsx": 1,
+      "src/components/tareas/TabConfigTareas.tsx": 2,
+      "src/components/tareas/TabListaPendientes.tsx": 1,
+      "src/pages/configuracion/AprendizajesPage.tsx": 1,
+      "src/pages/configuracion/calendario/ModalRangoBulk.tsx": 1,
+      "src/pages/configuracion/calendario/ModalTipoDia.tsx": 1,
+      "src/pages/finanzas/PanelInteligenciaVentas.tsx": 1
+    }
+  },
+  {
+    "hex": "#222",
+    "total": 8,
+    "files": {
+      "src/components/tareas/TabConfigTareas.tsx": 2,
+      "src/pages/configuracion/AprendizajesPage.tsx": 1,
+      "src/pages/configuracion/calendario/ModalRangoBulk.tsx": 1,
+      "src/pages/configuracion/calendario/ModalTipoDia.tsx": 1,
+      "src/pages/configuracion/cuentas/CuentasPage.tsx": 1,
+      "src/pages/equipo/TabPermisos.tsx": 1,
+      "src/pages/finanzas/Objetivos.tsx": 1
+    }
+  },
+  {
+    "hex": "#22b573",
+    "total": 7,
+    "files": {
+      "src/components/configuracion/CanalCard.tsx": 2,
+      "src/components/configuracion/KpiCard.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 4
+    }
+  },
+  {
+    "hex": "#f5c36b",
+    "total": 7,
+    "files": {
+      "src/components/configuracion/Ctag.tsx": 1,
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/pages/configuracion/bancos/CategoriasPanel.tsx": 1,
+      "src/pages/configuracion/bancos/CuentasPanel.tsx": 2,
+      "src/pages/configuracion/bancos/ReglasPanel.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#fcebeb",
+    "total": 7,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/pages/configuracion/compras/TabCostes.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 2,
+      "src/pages/finanzas/GestionFacturas.tsx": 2,
+      "src/pages/finanzas/PuntoEquilibrio.tsx": 1
+    }
+  },
+  {
+    "hex": "#fac775",
+    "total": 7,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1,
+      "src/pages/configuracion/bancos/CategoriasPanel.tsx": 2,
+      "src/pages/configuracion/bancos/ReglasGlobalesPanel.tsx": 1,
+      "src/pages/configuracion/bancos/ReglasPanel.tsx": 2
+    }
+  },
+  {
+    "hex": "#ffc244",
+    "total": 7,
+    "files": {
+      "src/components/escandallo/ModalReceta.tsx": 1,
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/components/panel/resumen/tokens.ts": 2,
+      "src/lib/panel/calcPorCobrar.ts": 1,
+      "src/pages/marketing/RendimientoAdsPromo.tsx": 1
+    }
+  },
+  {
+    "hex": "#555",
+    "total": 7,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1,
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 1,
+      "src/pages/configuracion/cuentas/CuentasPage.tsx": 1,
+      "src/pages/configuracion/marcas/TabCanales.tsx": 1,
+      "src/pages/finanzas/PanelInteligenciaVentas.tsx": 1,
+      "src/pages/marketing/PanelMkt.tsx": 2
+    }
+  },
+  {
+    "hex": "#ff6a1a",
+    "total": 6,
+    "files": {
+      "src/components/Sidebar.tsx": 1,
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/mobile/kit.tsx": 1,
+      "src/mobile/mapaMovil.ts": 1,
+      "src/pages/Ocr.tsx": 1
+    }
+  },
+  {
+    "hex": "#1a2a1a",
+    "total": 6,
+    "files": {
+      "src/components/compras/TabMenusMarcas.tsx": 1,
+      "src/components/compras/TabPreciosProveedor.tsx": 1,
+      "src/components/compras/TabPricingGen.tsx": 1,
+      "src/components/compras/TabStockReal.tsx": 1,
+      "src/components/inventario/TabConteos.tsx": 1,
+      "src/components/inventario/TabMovimientos.tsx": 1
+    }
+  },
+  {
+    "hex": "#2a1a1a",
+    "total": 6,
+    "files": {
+      "src/components/compras/TabPricingGen.tsx": 1,
+      "src/components/compras/TabStockReal.tsx": 1,
+      "src/components/inventario/TabAnalisisFoodCost.tsx": 1,
+      "src/components/inventario/TabMermas.tsx": 2,
+      "src/components/inventario/TabMovimientos.tsx": 1
+    }
+  },
+  {
+    "hex": "#ff475715",
+    "total": 6,
+    "files": {
+      "src/components/conciliacion/CardFiltro.tsx": 1,
+      "src/components/conciliacion/TabMovimientos.tsx": 1,
+      "src/components/conciliacion/TagFiltroActivo.tsx": 1,
+      "src/components/panel/resumen/CardFacturasCorreo.tsx": 1,
+      "src/pages/finanzas/GestionFacturas.tsx": 1,
+      "src/pages/finanzas/Ventas.tsx": 1
+    }
+  },
+  {
+    "hex": "#f09595",
+    "total": 6,
+    "files": {
+      "src/components/configuracion/Ctag.tsx": 1,
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/pages/configuracion/bancos/CategoriasPanel.tsx": 1,
+      "src/pages/configuracion/compras/TabCostes.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 2
+    }
+  },
+  {
+    "hex": "#ff8000",
+    "total": 6,
+    "files": {
+      "src/components/escandallo/ModalReceta.tsx": 1,
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/components/panel/resumen/tokens.ts": 1,
+      "src/lib/panel/calcPorCobrar.ts": 1,
+      "src/pages/marketing/RendimientoAdsPromo.tsx": 1
+    }
+  },
+  {
+    "hex": "#b01d2318",
+    "total": 6,
+    "files": {
+      "src/components/ui/SortableHeader.tsx": 1,
+      "src/pages/BandejaPendientes.tsx": 2,
+      "src/pages/Marcas.tsx": 1,
+      "src/pages/Proveedores.tsx": 1,
+      "src/pages/cocina/CocinaInventario.tsx": 1
+    }
+  },
+  {
+    "hex": "#9b59b6",
+    "total": 6,
+    "files": {
+      "src/pages/analytics/MargenCanal.tsx": 1,
+      "src/pages/analytics/VentasMarca.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1,
+      "src/pages/equipo/TabCalendarioLaboral.tsx": 3
+    }
+  },
+  {
+    "hex": "#444",
+    "total": 5,
+    "files": {
+      "src/components/Sidebar.tsx": 1,
+      "src/pages/configuracion/calendario/CalendarioPage.tsx": 2,
+      "src/pages/equipo/TabEmpleados.tsx": 1,
+      "src/pages/marketing/PanelMkt.tsx": 1
+    }
+  },
+  {
+    "hex": "#1d9e7510",
+    "total": 5,
+    "files": {
+      "src/components/conciliacion/ModalDetalleMovimiento.tsx": 1,
+      "src/components/equipo/horarios/TabGenerador.tsx": 1,
+      "src/components/ocr/ModalDetalleFactura.tsx": 1,
+      "src/components/ocr/PendientesAlerta.tsx": 1,
+      "src/pages/finanzas/Objetivos.tsx": 1
+    }
+  },
+  {
+    "hex": "#7f77dd",
+    "total": 5,
+    "files": {
+      "src/components/conciliacion/ResumenDashboard.tsx": 1,
+      "src/components/importador/TabResumenes.tsx": 1,
+      "src/components/importador/TabSubir.tsx": 1,
+      "src/pages/finanzas/ImportarPlataformas.tsx": 2
+    }
+  },
+  {
+    "hex": "#fff5f5",
+    "total": 5,
+    "files": {
+      "src/components/conciliacion/TabMovimientos.tsx": 1,
+      "src/components/ocr/ModalDetalleFactura.tsx": 2,
+      "src/components/ocr/OcrEditModal.tsx": 1,
+      "src/components/ocr/PendientesAlerta.tsx": 1
+    }
+  },
+  {
+    "hex": "#faeeda",
+    "total": 5,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/pages/configuracion/bancos/CategoriasPanel.tsx": 1,
+      "src/pages/configuracion/bancos/ReglasGlobalesPanel.tsx": 1,
+      "src/pages/configuracion/bancos/ReglasPanel.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#854f0b",
+    "total": 5,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/pages/configuracion/bancos/CategoriasPanel.tsx": 1,
+      "src/pages/configuracion/bancos/ReglasGlobalesPanel.tsx": 1,
+      "src/pages/configuracion/bancos/ReglasPanel.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#412402",
+    "total": 5,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1,
+      "src/pages/configuracion/bancos/CategoriasPanel.tsx": 1,
+      "src/pages/configuracion/bancos/ReglasGlobalesPanel.tsx": 1,
+      "src/pages/configuracion/bancos/ReglasPanel.tsx": 1
+    }
+  },
+  {
+    "hex": "#f5a62320",
+    "total": 5,
+    "files": {
+      "src/components/equipo/horarios/TabVacaciones.tsx": 1,
+      "src/pages/equipo/TabPermisos.tsx": 1,
+      "src/pages/equipo/TabPortal.tsx": 2,
+      "src/pages/ops/ReunionesEquipo.tsx": 1
+    }
+  },
+  {
+    "hex": "#5c5340",
+    "total": 5,
+    "files": {
+      "src/components/panel/TabEvolucion.tsx": 4,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#f3d9a8",
+    "total": 5,
+    "files": {
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/mobile/PantallasMovil.tsx": 1,
+      "src/mobile/kit.tsx": 1,
+      "src/mobile/mapaMovil.ts": 1
+    }
+  },
+  {
+    "hex": "#1d9e7522",
+    "total": 5,
+    "files": {
+      "src/components/tareas/TabConfigTareas.tsx": 2,
+      "src/pages/ImportarVentas.tsx": 1,
+      "src/pages/configuracion/bancos/DrivePanel.tsx": 1,
+      "src/pages/equipo/Organigrama.tsx": 1
+    }
+  },
+  {
+    "hex": "#b0a690",
+    "total": 5,
+    "files": {
+      "src/pages/cocina/MenuFamilia.tsx": 5
+    }
+  },
+  {
+    "hex": "#7c3aed",
+    "total": 4,
+    "files": {
+      "src/components/Sidebar.tsx": 1,
+      "src/pages/Facturacion.tsx": 2,
+      "src/pages/FacturacionMobile.tsx": 1
+    }
+  },
+  {
+    "hex": "#027b4b",
+    "total": 4,
+    "files": {
+      "src/components/configuracion/CanalCard.tsx": 1,
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 2
+    }
+  },
+  {
+    "hex": "#89b5df",
+    "total": 4,
+    "files": {
+      "src/components/configuracion/Ctag.tsx": 1,
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/pages/configuracion/compras/TabCostes.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#173404",
+    "total": 4,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1,
+      "src/pages/finanzas/GestionFacturas.tsx": 2
+    }
+  },
+  {
+    "hex": "#4a3f2c",
+    "total": 4,
+    "files": {
+      "src/components/escandallo/estilosTabla.ts": 1,
+      "src/pages/finanzas/Cashflow.tsx": 1,
+      "src/pages/finanzas/Running.tsx": 2
+    }
+  },
+  {
+    "hex": "#3a1a1a",
+    "total": 4,
+    "files": {
+      "src/components/escandallo/types.ts": 1,
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 2,
+      "src/pages/configuracion/marcas/TabMarcas.tsx": 1
+    }
+  },
+  {
+    "hex": "#aabc00",
+    "total": 4,
+    "files": {
+      "src/components/importador/TabResumenes.tsx": 1,
+      "src/components/importador/TabSubir.tsx": 1,
+      "src/pages/finanzas/ImportarPlataformas.tsx": 2
+    }
+  },
+  {
+    "hex": "#4ade80",
+    "total": 4,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 2,
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 2
+    }
+  },
+  {
+    "hex": "#d0d8ff",
+    "total": 4,
+    "files": {
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 2,
+      "src/pages/configuracion/calendario/CalendarioPage.tsx": 1,
+      "src/pages/configuracion/calendario/MesGrid.tsx": 1
+    }
+  },
+  {
+    "hex": "#fce8e8",
+    "total": 4,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 4
+    }
+  },
+  {
+    "hex": "#eef0f4",
+    "total": 4,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 4
+    }
+  },
+  {
+    "hex": "#e24b4a15",
+    "total": 3,
+    "files": {
+      "src/components/conciliacion/CardFiltro.tsx": 1,
+      "src/components/conciliacion/TabMovimientos.tsx": 1,
+      "src/pages/configuracion/bancos/BancosYCuentasPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#e5e2dc",
+    "total": 3,
+    "files": {
+      "src/components/conciliacion/PanelCobertura.tsx": 3
+    }
+  },
+  {
+    "hex": "#e24b4a10",
+    "total": 3,
+    "files": {
+      "src/components/conciliacion/TabMovimientos.tsx": 2,
+      "src/pages/Ocr.tsx": 1
+    }
+  },
+  {
+    "hex": "#1e5bcc15",
+    "total": 3,
+    "files": {
+      "src/components/conciliacion/TabMovimientos.tsx": 1,
+      "src/components/ocr/ExtractosTabla.tsx": 1,
+      "src/pages/Ocr.tsx": 1
+    }
+  },
+  {
+    "hex": "#6e6656",
+    "total": 3,
+    "files": {
+      "src/components/configuracion/ConfigModal.tsx": 1,
+      "src/components/configuracion/EditModal.tsx": 1,
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 1
+    }
+  },
+  {
+    "hex": "#5dcaa5",
+    "total": 3,
+    "files": {
+      "src/components/configuracion/Ctag.tsx": 1,
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/pages/configuracion/bancos/CategoriasPanel.tsx": 1
+    }
+  },
+  {
+    "hex": "#901a1e",
+    "total": 3,
+    "files": {
+      "src/components/configuracion/EditModal.tsx": 1,
+      "src/components/configuracion/PeriodDropdown.tsx": 2
+    }
+  },
+  {
+    "hex": "#e6f1fb",
+    "total": 3,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/pages/configuracion/compras/TabCostes.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#0c447c",
+    "total": 3,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/pages/configuracion/compras/TabCostes.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#eee",
+    "total": 3,
+    "files": {
+      "src/components/documentacion/AvisosBandeja.tsx": 1,
+      "src/pages/equipo/TabIncentivos.tsx": 2
+    }
+  },
+  {
+    "hex": "#8f1519",
+    "total": 3,
+    "files": {
+      "src/components/documentacion/BandejaEntrada.tsx": 1,
+      "src/pages/Ocr.tsx": 2
+    }
+  },
+  {
+    "hex": "#ba7517",
+    "total": 3,
+    "files": {
+      "src/components/facturas/ModalDetalleFactura.tsx": 3
+    }
+  },
+  {
+    "hex": "#fff7ed",
+    "total": 3,
+    "files": {
+      "src/components/ocr/ModalDetalleFactura.tsx": 1,
+      "src/pages/Ocr.tsx": 2
+    }
+  },
+  {
+    "hex": "#ffffff33",
+    "total": 3,
+    "files": {
+      "src/components/panel/TabEvolucion.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/pages/finanzas/Cashflow.tsx": 1
+    }
+  },
+  {
+    "hex": "#ecdcb8",
+    "total": 3,
+    "files": {
+      "src/components/panel/resumen/CardHoyEnVivo.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/mobile/kit.tsx": 1
+    }
+  },
+  {
+    "hex": "#ffe0ea",
+    "total": 3,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1,
+      "src/pages/Ocr.tsx": 2
+    }
+  },
+  {
+    "hex": "#951218",
+    "total": 3,
+    "files": {
+      "src/components/panel/sl/CashflowSL.tsx": 1,
+      "src/components/panel/sl/uiSL.tsx": 1,
+      "src/pages/lab/LabPanel.tsx": 1
+    }
+  },
+  {
+    "hex": "#fff8e6",
+    "total": 3,
+    "files": {
+      "src/pages/analytics/ParetoVentas.tsx": 1,
+      "src/pages/cocina/MenuEngineering.tsx": 1,
+      "src/pages/cocina/ParetoIngredientes.tsx": 1
+    }
+  },
+  {
+    "hex": "#8a6d1f",
+    "total": 3,
+    "files": {
+      "src/pages/analytics/ParetoVentas.tsx": 1,
+      "src/pages/cocina/MenuEngineering.tsx": 1,
+      "src/pages/cocina/ParetoIngredientes.tsx": 1
+    }
+  },
+  {
+    "hex": "#0d2d1a",
+    "total": 3,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1,
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 2
+    }
+  },
+  {
+    "hex": "#3b6d11",
+    "total": 3,
+    "files": {
+      "src/pages/configuracion/bancos/CategoriasPanel.tsx": 1,
+      "src/pages/finanzas/GestionFacturas.tsx": 2
+    }
+  },
+  {
+    "hex": "#ffc107",
+    "total": 3,
+    "files": {
+      "src/pages/configuracion/marcas/TabMarcas.tsx": 2,
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#9a9a1e",
+    "total": 3,
+    "files": {
+      "src/pages/equipo/TabCalendarioLaboral.tsx": 3
+    }
+  },
+  {
+    "hex": "#3a4058",
+    "total": 3,
+    "files": {
+      "src/pages/finanzas/Objetivos.tsx": 3
+    }
+  },
+  {
+    "hex": "#06c16720",
+    "total": 3,
+    "files": {
+      "src/pages/informes/ConfiguracionInformes.tsx": 1,
+      "src/pages/informes/Historial.tsx": 1,
+      "src/pages/informes/InformesPanel.tsx": 1
+    }
+  },
+  {
+    "hex": "#1d9e7508",
+    "total": 2,
+    "files": {
+      "src/components/KpiCardGrande.tsx": 1,
+      "src/pages/finanzas/PuntoEquilibrio.tsx": 1
+    }
+  },
+  {
+    "hex": "#1a1f2e",
+    "total": 2,
+    "files": {
+      "src/components/Sidebar.tsx": 1,
+      "src/pages/ops/LibroEquipos.tsx": 1
+    }
+  },
+  {
+    "hex": "#2a2a1a",
+    "total": 2,
+    "files": {
+      "src/components/compras/TabPatronesPrecio.tsx": 1,
+      "src/components/compras/TabPricingGen.tsx": 1
+    }
+  },
+  {
+    "hex": "#ff475710",
+    "total": 2,
+    "files": {
+      "src/components/conciliacion/ModalDetalleMovimiento.tsx": 1,
+      "src/pages/Ocr.tsx": 1
+    }
+  },
+  {
+    "hex": "#1d9e7540",
+    "total": 2,
+    "files": {
+      "src/components/conciliacion/ModalDetalleMovimiento.tsx": 1,
+      "src/components/ocr/ModalDetalleFactura.tsx": 1
+    }
+  },
+  {
+    "hex": "#e24b4a40",
+    "total": 2,
+    "files": {
+      "src/components/conciliacion/ModalDetalleMovimiento.tsx": 1,
+      "src/components/ocr/ModalDetalleFactura.tsx": 1
+    }
+  },
+  {
+    "hex": "#8a7df0",
+    "total": 2,
+    "files": {
+      "src/components/conciliacion/ModalDetalleMovimiento.tsx": 2
+    }
+  },
+  {
+    "hex": "#e24b4a50",
+    "total": 2,
+    "files": {
+      "src/components/conciliacion/TabMovimientos.tsx": 1,
+      "src/pages/Ocr.tsx": 1
+    }
+  },
+  {
+    "hex": "#5c550d",
+    "total": 2,
+    "files": {
+      "src/components/configuracion/CanalCard.tsx": 1,
+      "src/components/configuracion/Ctag.tsx": 1
+    }
+  },
+  {
+    "hex": "#e89a2b",
+    "total": 2,
+    "files": {
+      "src/components/configuracion/CanalCard.tsx": 2
+    }
+  },
+  {
+    "hex": "#b8561f",
+    "total": 2,
+    "files": {
+      "src/components/configuracion/CanalCard.tsx": 1,
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#ddd4bf",
+    "total": 2,
+    "files": {
+      "src/components/configuracion/ConfigTable.tsx": 2
+    }
+  },
+  {
+    "hex": "#f1eadd",
+    "total": 2,
+    "files": {
+      "src/components/configuracion/EditModal.tsx": 1,
+      "src/components/configuracion/PeriodDropdown.tsx": 1
+    }
+  },
+  {
+    "hex": "#faf4e4",
+    "total": 2,
+    "files": {
+      "src/components/configuracion/InlineEdit.tsx": 1,
+      "src/components/configuracion/InlineSelect.tsx": 1
+    }
+  },
+  {
+    "hex": "#d4f0e0",
+    "total": 2,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1,
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#3d8b8b",
+    "total": 2,
+    "files": {
+      "src/components/documentacion/BandejaEntrada.tsx": 2
+    }
+  },
+  {
+    "hex": "#b5d4f4",
+    "total": 2,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1
+    }
+  },
+  {
+    "hex": "#042c53",
+    "total": 2,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1
+    }
+  },
+  {
+    "hex": "#c0dd97",
+    "total": 2,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1
+    }
+  },
+  {
+    "hex": "#f4c0d1",
+    "total": 2,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1
+    }
+  },
+  {
+    "hex": "#4b1528",
+    "total": 2,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1
+    }
+  },
+  {
+    "hex": "#9fe1cb",
+    "total": 2,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1
+    }
+  },
+  {
+    "hex": "#04342c",
+    "total": 2,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1
+    }
+  },
+  {
+    "hex": "#cecbf6",
+    "total": 2,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1
+    }
+  },
+  {
+    "hex": "#26215c",
+    "total": 2,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1,
+      "src/components/equipo/horarios/utils.ts": 1
+    }
+  },
+  {
+    "hex": "#dc2626",
+    "total": 2,
+    "files": {
+      "src/components/escandallo/ModalEditarFicha.tsx": 1,
+      "src/pages/configuracion/marcas/TabCanales.tsx": 1
+    }
+  },
+  {
+    "hex": "#f7eace",
+    "total": 2,
+    "files": {
+      "src/components/escandallo/TabRecetas.tsx": 1,
+      "src/components/escandallo/estilosTabla.ts": 1
+    }
+  },
+  {
+    "hex": "#fbbf24",
+    "total": 2,
+    "files": {
+      "src/components/escandallo/types.ts": 1,
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#ff8a8a",
+    "total": 2,
+    "files": {
+      "src/components/facturas/ModalDetalleFactura.tsx": 2
+    }
+  },
+  {
+    "hex": "#fff3e0",
+    "total": 2,
+    "files": {
+      "src/components/ocr/OcrUploadToast.tsx": 1,
+      "src/pages/CocinaRecetas.tsx": 1
+    }
+  },
+  {
+    "hex": "#fdecec",
+    "total": 2,
+    "files": {
+      "src/components/ocr/OcrUploadToast.tsx": 1,
+      "src/components/panel/TabEvolucion.tsx": 1
+    }
+  },
+  {
+    "hex": "#fbf8f1",
+    "total": 2,
+    "files": {
+      "src/components/panel/TabEvolucion.tsx": 1,
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#1d6fe2",
+    "total": 2,
+    "files": {
+      "src/components/panel/resumen/CardFacturasCorreo.tsx": 2
+    }
+  },
+  {
+    "hex": "#8b5cf6",
+    "total": 2,
+    "files": {
+      "src/components/panel/resumen/CardPedidosTM.tsx": 2
+    }
+  },
+  {
+    "hex": "#06b6d4",
+    "total": 2,
+    "files": {
+      "src/components/panel/resumen/CardPedidosTM.tsx": 2
+    }
+  },
+  {
+    "hex": "#ffffff66",
+    "total": 2,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 2
+    }
+  },
+  {
+    "hex": "#faf4e6",
+    "total": 2,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 2
+    }
+  },
+  {
+    "hex": "#fff4cc",
+    "total": 2,
+    "files": {
+      "src/components/panel/resumen/tokens.ts": 2
+    }
+  },
+  {
+    "hex": "#d3d1c7",
+    "total": 2,
+    "files": {
+      "src/components/panel/sl/uiSLPanel.tsx": 1,
+      "src/pages/lab/LabPanel.tsx": 1
+    }
+  },
+  {
+    "hex": "#77777722",
+    "total": 2,
+    "files": {
+      "src/components/tareas/TabConfigTareas.tsx": 2
+    }
+  },
+  {
+    "hex": "#8b5a9f",
+    "total": 2,
+    "files": {
+      "src/lib/running.ts": 1,
+      "src/pages/finanzas/PuntoEquilibrio.tsx": 1
+    }
+  },
+  {
+    "hex": "#4a90d9",
+    "total": 2,
+    "files": {
+      "src/lib/running.ts": 1,
+      "src/pages/finanzas/PuntoEquilibrio.tsx": 1
+    }
+  },
+  {
+    "hex": "#fffdf7",
+    "total": 2,
+    "files": {
+      "src/mobile/kit.tsx": 1,
+      "src/mobile/mapaMovil.ts": 1
+    }
+  },
+  {
+    "hex": "#ff6b70",
+    "total": 2,
+    "files": {
+      "src/pages/Carta.tsx": 2
+    }
+  },
+  {
+    "hex": "#8a7800",
+    "total": 2,
+    "files": {
+      "src/pages/Facturacion.tsx": 2
+    }
+  },
+  {
+    "hex": "#4285f4",
+    "total": 2,
+    "files": {
+      "src/pages/Login.tsx": 2
+    }
+  },
+  {
+    "hex": "#b01d2330",
+    "total": 2,
+    "files": {
+      "src/pages/PagosCobros.tsx": 1,
+      "src/pages/ops/ControlTemperaturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#001d0d",
+    "total": 2,
+    "files": {
+      "src/pages/PanelDireccion.tsx": 2
+    }
+  },
+  {
+    "hex": "#6b7cff",
+    "total": 2,
+    "files": {
+      "src/pages/analytics/MargenCanal.tsx": 1,
+      "src/pages/analytics/VentasMarca.tsx": 1
+    }
+  },
+  {
+    "hex": "#1c1c1c",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1,
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 1
+    }
+  },
+  {
+    "hex": "#fafafa",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/CuentasBancarias.tsx": 1,
+      "src/pages/configuracion/bancos/TitularesPanel.tsx": 1
+    }
+  },
+  {
+    "hex": "#b01d2315",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/bancos/ReglasGlobalesPanel.tsx": 1,
+      "src/pages/ops/BitacoraNovedades.tsx": 1
+    }
+  },
+  {
+    "hex": "#2a2600",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 2
+    }
+  },
+  {
+    "hex": "#fff3b8",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 2
+    }
+  },
+  {
+    "hex": "#4a4000",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 2
+    }
+  },
+  {
+    "hex": "#e8d066",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 2
+    }
+  },
+  {
+    "hex": "#5a4d0a",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 2
+    }
+  },
+  {
+    "hex": "#ff8080",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/bancos/TabConciliacion.tsx": 2
+    }
+  },
+  {
+    "hex": "#3a4060",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/calendario/CalendarioPage.tsx": 1,
+      "src/pages/configuracion/calendario/MesGrid.tsx": 1
+    }
+  },
+  {
+    "hex": "#6070aa",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/calendario/CalendarioPage.tsx": 1,
+      "src/pages/configuracion/calendario/MesGrid.tsx": 1
+    }
+  },
+  {
+    "hex": "#f36805",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/marcas/TabMarcas.tsx": 2
+    }
+  },
+  {
+    "hex": "#06c16722",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/reglas/TabDiccionarioNif.tsx": 1,
+      "src/pages/finanzas/Ventas.tsx": 1
+    }
+  },
+  {
+    "hex": "#7080a8",
+    "total": 2,
+    "files": {
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 2
+    }
+  },
+  {
+    "hex": "#ff6b6b",
+    "total": 2,
+    "files": {
+      "src/pages/equipo/ControlPresencia.tsx": 2
+    }
+  },
+  {
+    "hex": "#9b6dff",
+    "total": 2,
+    "files": {
+      "src/pages/equipo/Organigrama.tsx": 2
+    }
+  },
+  {
+    "hex": "#fcf0dc",
+    "total": 2,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 2
+    }
+  },
+  {
+    "hex": "#eaf3de",
+    "total": 2,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 2
+    }
+  },
+  {
+    "hex": "#639922",
+    "total": 2,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 2
+    }
+  },
+  {
+    "hex": "#501313",
+    "total": 2,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 2
+    }
+  },
+  {
+    "hex": "#1a1a00",
+    "total": 2,
+    "files": {
+      "src/pages/finanzas/Objetivos.tsx": 2
+    }
+  },
+  {
+    "hex": "#0d0d0d",
+    "total": 2,
+    "files": {
+      "src/pages/finanzas/Objetivos.tsx": 2
+    }
+  },
+  {
+    "hex": "#ff4444",
+    "total": 2,
+    "files": {
+      "src/pages/ops/ManualesOperaciones.tsx": 2
+    }
+  },
+  {
+    "hex": "#ff7777",
+    "total": 2,
+    "files": {
+      "src/pages/ops/ManualesOperaciones.tsx": 2
+    }
+  },
+  {
+    "hex": "#3a3a3a",
+    "total": 2,
+    "files": {
+      "src/pages/ops/TareasOperativas.tsx": 2
+    }
+  },
+  {
+    "hex": "#c4372c",
+    "total": 1,
+    "files": {
+      "src/components/IVAToggle.tsx": 1
+    }
+  },
+  {
+    "hex": "#a52d24",
+    "total": 1,
+    "files": {
+      "src/components/IVAToggle.tsx": 1
+    }
+  },
+  {
+    "hex": "#378add",
+    "total": 1,
+    "files": {
+      "src/components/NavIcon.tsx": 1
+    }
+  },
+  {
+    "hex": "#5a6880",
+    "total": 1,
+    "files": {
+      "src/components/NavIcon.tsx": 1
+    }
+  },
+  {
+    "hex": "#c8d0e8",
+    "total": 1,
+    "files": {
+      "src/components/NavIcon.tsx": 1
+    }
+  },
+  {
+    "hex": "#22c55e",
+    "total": 1,
+    "files": {
+      "src/components/SelloAct.tsx": 1
+    }
+  },
+  {
+    "hex": "#333333",
+    "total": 1,
+    "files": {
+      "src/components/alerts/MargenBanner.tsx": 1
+    }
+  },
+  {
+    "hex": "#8a7df010",
+    "total": 1,
+    "files": {
+      "src/components/conciliacion/ModalDetalleMovimiento.tsx": 1
+    }
+  },
+  {
+    "hex": "#ece9e3",
+    "total": 1,
+    "files": {
+      "src/components/conciliacion/PanelCobertura.tsx": 1
+    }
+  },
+  {
+    "hex": "#d85a30",
+    "total": 1,
+    "files": {
+      "src/components/conciliacion/ResumenDashboard.tsx": 1
+    }
+  },
+  {
+    "hex": "#f59e0b",
+    "total": 1,
+    "files": {
+      "src/components/conciliacion/ResumenDashboard.tsx": 1
+    }
+  },
+  {
+    "hex": "#d4537e",
+    "total": 1,
+    "files": {
+      "src/components/conciliacion/ResumenDashboard.tsx": 1
+    }
+  },
+  {
+    "hex": "#888780",
+    "total": 1,
+    "files": {
+      "src/components/conciliacion/ResumenDashboard.tsx": 1
+    }
+  },
+  {
+    "hex": "#f26b1f10",
+    "total": 1,
+    "files": {
+      "src/components/conciliacion/TabMovimientos.tsx": 1
+    }
+  },
+  {
+    "hex": "#f5f3ef60",
+    "total": 1,
+    "files": {
+      "src/components/conciliacion/TabMovimientos.tsx": 1
+    }
+  },
+  {
+    "hex": "#8a7df015",
+    "total": 1,
+    "files": {
+      "src/components/conciliacion/TabMovimientos.tsx": 1
+    }
+  },
+  {
+    "hex": "#6a5acd",
+    "total": 1,
+    "files": {
+      "src/components/conciliacion/TabMovimientos.tsx": 1
+    }
+  },
+  {
+    "hex": "#0f6e5615",
+    "total": 1,
+    "files": {
+      "src/components/conciliacion/TabMovimientos.tsx": 1
+    }
+  },
+  {
+    "hex": "#dcefe0",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/CanalCard.tsx": 1
+    }
+  },
+  {
+    "hex": "#f4eebc",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/CanalCard.tsx": 1
+    }
+  },
+  {
+    "hex": "#dccf2a",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/CanalCard.tsx": 1
+    }
+  },
+  {
+    "hex": "#8a7d00",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/CanalCard.tsx": 1
+    }
+  },
+  {
+    "hex": "#f9e8cc",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/CanalCard.tsx": 1
+    }
+  },
+  {
+    "hex": "#f0e8d5",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/ConfigTable.tsx": 1
+    }
+  },
+  {
+    "hex": "#ebe5d8",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#e6dfff",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#b7a8f5",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#5a4abf",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#ffe6d9",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#f5a983",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#d9efff",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#89bff0",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#1f6cb8",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#ffd9e9",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#f092b6",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#b8266e",
+    "total": 1,
+    "files": {
+      "src/components/configuracion/StatusTag.tsx": 1
+    }
+  },
+  {
+    "hex": "#16459e",
+    "total": 1,
+    "files": {
+      "src/components/documentacion/BandejaEntrada.tsx": 1
+    }
+  },
+  {
+    "hex": "#157a5a",
+    "total": 1,
+    "files": {
+      "src/components/documentacion/BandejaEntrada.tsx": 1
+    }
+  },
+  {
+    "hex": "#2c6666",
+    "total": 1,
+    "files": {
+      "src/components/documentacion/BandejaEntrada.tsx": 1
+    }
+  },
+  {
+    "hex": "#6c4bd8",
+    "total": 1,
+    "files": {
+      "src/components/documentacion/BandejaEntrada.tsx": 1
+    }
+  },
+  {
+    "hex": "#5636ab",
+    "total": 1,
+    "files": {
+      "src/components/documentacion/BandejaEntrada.tsx": 1
+    }
+  },
+  {
+    "hex": "#7a8",
+    "total": 1,
+    "files": {
+      "src/components/equipo/horarios/CuadranteCuadricula.tsx": 1
+    }
+  },
+  {
+    "hex": "#1e3a1e",
+    "total": 1,
+    "files": {
+      "src/components/escandallo/types.ts": 1
+    }
+  },
+  {
+    "hex": "#6ee7b7",
+    "total": 1,
+    "files": {
+      "src/components/escandallo/types.ts": 1
+    }
+  },
+  {
+    "hex": "#3a2a0a",
+    "total": 1,
+    "files": {
+      "src/components/escandallo/types.ts": 1
+    }
+  },
+  {
+    "hex": "#fca5a5",
+    "total": 1,
+    "files": {
+      "src/components/escandallo/types.ts": 1
+    }
+  },
+  {
+    "hex": "#a32d2d15",
+    "total": 1,
+    "files": {
+      "src/components/facturas/ModalDetalleFactura.tsx": 1
+    }
+  },
+  {
+    "hex": "#1a1a2a",
+    "total": 1,
+    "files": {
+      "src/components/inventario/TabConteos.tsx": 1
+    }
+  },
+  {
+    "hex": "#f26b1f50",
+    "total": 1,
+    "files": {
+      "src/components/ocr/ModalDetalleFactura.tsx": 1
+    }
+  },
+  {
+    "hex": "#9a4a12",
+    "total": 1,
+    "files": {
+      "src/components/ocr/ModalDetalleFactura.tsx": 1
+    }
+  },
+  {
+    "hex": "#7a0d12",
+    "total": 1,
+    "files": {
+      "src/components/ocr/OcrUploadToast.tsx": 1
+    }
+  },
+  {
+    "hex": "#8a4b00",
+    "total": 1,
+    "files": {
+      "src/components/ocr/OcrUploadToast.tsx": 1
+    }
+  },
+  {
+    "hex": "#eaf7f1",
+    "total": 1,
+    "files": {
+      "src/components/ocr/OcrUploadToast.tsx": 1
+    }
+  },
+  {
+    "hex": "#edecea",
+    "total": 1,
+    "files": {
+      "src/components/ocr/VentasPlatosFranjas.tsx": 1
+    }
+  },
+  {
+    "hex": "#eafaef",
+    "total": 1,
+    "files": {
+      "src/components/panel/TabEvolucion.tsx": 1
+    }
+  },
+  {
+    "hex": "#2b2117",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#d8e3ff",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#0f3d35",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#e2dac9",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#00000044",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#ffffffcc",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#00000088",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#8a4fff",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#0fb8b8",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#ffffff26",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#00000022",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#ffffff1f",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/ResumenLanding.tsx": 1
+    }
+  },
+  {
+    "hex": "#8a5b00",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/tokens.ts": 1
+    }
+  },
+  {
+    "hex": "#a34e00",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/tokens.ts": 1
+    }
+  },
+  {
+    "hex": "#791f1f",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/tokens.ts": 1
+    }
+  },
+  {
+    "hex": "#185fa5",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/tokens.ts": 1
+    }
+  },
+  {
+    "hex": "#7b4f2a",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/tokens.ts": 1
+    }
+  },
+  {
+    "hex": "#4a5980",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/tokens.ts": 1
+    }
+  },
+  {
+    "hex": "#5a8a6f",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/tokens.ts": 1
+    }
+  },
+  {
+    "hex": "#a87c3d",
+    "total": 1,
+    "files": {
+      "src/components/panel/resumen/tokens.ts": 1
+    }
+  },
+  {
+    "hex": "#4a3a00",
+    "total": 1,
+    "files": {
+      "src/components/panel/sl/uiSL.tsx": 1
+    }
+  },
+  {
+    "hex": "#3d5219",
+    "total": 1,
+    "files": {
+      "src/components/panel/sl/uiSLFoco.tsx": 1
+    }
+  },
+  {
+    "hex": "#5c7a29",
+    "total": 1,
+    "files": {
+      "src/components/panel/sl/uiSLFoco.tsx": 1
+    }
+  },
+  {
+    "hex": "#a8c464",
+    "total": 1,
+    "files": {
+      "src/components/panel/sl/uiSLFoco.tsx": 1
+    }
+  },
+  {
+    "hex": "#edf2e1",
+    "total": 1,
+    "files": {
+      "src/components/panel/sl/uiSLFoco.tsx": 1
+    }
+  },
+  {
+    "hex": "#2c3b12",
+    "total": 1,
+    "files": {
+      "src/components/panel/sl/uiSLFoco.tsx": 1
+    }
+  },
+  {
+    "hex": "#9c9894",
+    "total": 1,
+    "files": {
+      "src/context/skin.tsx": 1
+    }
+  },
+  {
+    "hex": "#f0e7dc",
+    "total": 1,
+    "files": {
+      "src/context/skin.tsx": 1
+    }
+  },
+  {
+    "hex": "#e8a4a0",
+    "total": 1,
+    "files": {
+      "src/lib/running.ts": 1
+    }
+  },
+  {
+    "hex": "#7d7060",
+    "total": 1,
+    "files": {
+      "src/mobile/kit.tsx": 1
+    }
+  },
+  {
+    "hex": "#1d9e7533",
+    "total": 1,
+    "files": {
+      "src/pages/Carta.tsx": 1
+    }
+  },
+  {
+    "hex": "#2a1500",
+    "total": 1,
+    "files": {
+      "src/pages/CocinaRecetas.tsx": 1
+    }
+  },
+  {
+    "hex": "#06c16712",
+    "total": 1,
+    "files": {
+      "src/pages/Facturacion.tsx": 1
+    }
+  },
+  {
+    "hex": "#e8f44218",
+    "total": 1,
+    "files": {
+      "src/pages/Facturacion.tsx": 1
+    }
+  },
+  {
+    "hex": "#b01d2312",
+    "total": 1,
+    "files": {
+      "src/pages/Facturacion.tsx": 1
+    }
+  },
+  {
+    "hex": "#66aaff12",
+    "total": 1,
+    "files": {
+      "src/pages/Facturacion.tsx": 1
+    }
+  },
+  {
+    "hex": "#f5a62312",
+    "total": 1,
+    "files": {
+      "src/pages/Facturacion.tsx": 1
+    }
+  },
+  {
+    "hex": "#f5a62322",
+    "total": 1,
+    "files": {
+      "src/pages/ImportarVentas.tsx": 1
+    }
+  },
+  {
+    "hex": "#f26b1f22",
+    "total": 1,
+    "files": {
+      "src/pages/ImportarVentas.tsx": 1
+    }
+  },
+  {
+    "hex": "#1e5bcc22",
+    "total": 1,
+    "files": {
+      "src/pages/ImportarVentas.tsx": 1
+    }
+  },
+  {
+    "hex": "#e24b4a18",
+    "total": 1,
+    "files": {
+      "src/pages/ImportarVentas.tsx": 1
+    }
+  },
+  {
+    "hex": "#1d9e7518",
+    "total": 1,
+    "files": {
+      "src/pages/ImportarVentas.tsx": 1
+    }
+  },
+  {
+    "hex": "#34a853",
+    "total": 1,
+    "files": {
+      "src/pages/Login.tsx": 1
+    }
+  },
+  {
+    "hex": "#fbbc05",
+    "total": 1,
+    "files": {
+      "src/pages/Login.tsx": 1
+    }
+  },
+  {
+    "hex": "#ea4335",
+    "total": 1,
+    "files": {
+      "src/pages/Login.tsx": 1
+    }
+  },
+  {
+    "hex": "#e8f44220",
+    "total": 1,
+    "files": {
+      "src/pages/PagosCobros.tsx": 1
+    }
+  },
+  {
+    "hex": "#77777720",
+    "total": 1,
+    "files": {
+      "src/pages/PagosCobros.tsx": 1
+    }
+  },
+  {
+    "hex": "#3d0000",
+    "total": 1,
+    "files": {
+      "src/pages/PanelDireccion.tsx": 1
+    }
+  },
+  {
+    "hex": "#2d2000",
+    "total": 1,
+    "files": {
+      "src/pages/PanelDireccion.tsx": 1
+    }
+  },
+  {
+    "hex": "#d8d6d0",
+    "total": 1,
+    "files": {
+      "src/pages/Placeholder.tsx": 1
+    }
+  },
+  {
+    "hex": "#b01d2355",
+    "total": 1,
+    "files": {
+      "src/pages/Proveedores.tsx": 1
+    }
+  },
+  {
+    "hex": "#e8617a",
+    "total": 1,
+    "files": {
+      "src/pages/analytics/VentasMarca.tsx": 1
+    }
+  },
+  {
+    "hex": "#3aa8c1",
+    "total": 1,
+    "files": {
+      "src/pages/analytics/VentasMarca.tsx": 1
+    }
+  },
+  {
+    "hex": "#c17d3a",
+    "total": 1,
+    "files": {
+      "src/pages/analytics/VentasMarca.tsx": 1
+    }
+  },
+  {
+    "hex": "#5a5a5a",
+    "total": 1,
+    "files": {
+      "src/pages/analytics/VentasMarca.tsx": 1
+    }
+  },
+  {
+    "hex": "#b01d2314",
+    "total": 1,
+    "files": {
+      "src/pages/cocina/CocinaInventario.tsx": 1
+    }
+  },
+  {
+    "hex": "#fff7e0",
+    "total": 1,
+    "files": {
+      "src/pages/cocina/MenuFamilia.tsx": 1
+    }
+  },
+  {
+    "hex": "#1a2d1a",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#1a1a2d",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#818cf8",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#2d1a2d",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#e879f9",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#2d2a1a",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#1a2d2d",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#22d3ee",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#2d1a1a",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#f87171",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#1a2520",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#34d399",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#9ca3af",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/AprendizajesPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#2a1515",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 1
+    }
+  },
+  {
+    "hex": "#2d2800",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 1
+    }
+  },
+  {
+    "hex": "#e8f44233",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/CalcNetoAprendizajePage.tsx": 1
+    }
+  },
+  {
+    "hex": "#ff475708",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/bancos/BancosYCuentasPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#a32d2d22",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/bancos/DrivePanel.tsx": 1
+    }
+  },
+  {
+    "hex": "#e9d9a6",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/bancos/ReglasPanel.tsx": 1
+    }
+  },
+  {
+    "hex": "#131928",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/calendario/CalendarioPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#2a3050",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/calendario/CalendarioPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#faf8f3",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/marcas/TabCanales.tsx": 1
+    }
+  },
+  {
+    "hex": "#3b82f622",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/reglas/TabDiccionarioNif.tsx": 1
+    }
+  },
+  {
+    "hex": "#3b82f6",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/reglas/TabDiccionarioNif.tsx": 1
+    }
+  },
+  {
+    "hex": "#9999991f",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/reglas/TabDiccionarioNif.tsx": 1
+    }
+  },
+  {
+    "hex": "#d4f0e4",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#5dd8a8",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#eaedf2",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#8a98b8",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#445570",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#f0e8f8",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#c39fde",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#6b3a8f",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#333",
+    "total": 1,
+    "files": {
+      "src/pages/configuracion/usuarios/UsuariosPage.tsx": 1
+    }
+  },
+  {
+    "hex": "#0d3320",
+    "total": 1,
+    "files": {
+      "src/pages/equipo/ControlPresencia.tsx": 1
+    }
+  },
+  {
+    "hex": "#2a0d0d",
+    "total": 1,
+    "files": {
+      "src/pages/equipo/ControlPresencia.tsx": 1
+    }
+  },
+  {
+    "hex": "#16355c",
+    "total": 1,
+    "files": {
+      "src/pages/equipo/TabCalendarioLaboral.tsx": 1
+    }
+  },
+  {
+    "hex": "#1e88cc",
+    "total": 1,
+    "files": {
+      "src/pages/equipo/TabCalendarioLaboral.tsx": 1
+    }
+  },
+  {
+    "hex": "#e67e22",
+    "total": 1,
+    "files": {
+      "src/pages/equipo/TabCalendarioLaboral.tsx": 1
+    }
+  },
+  {
+    "hex": "#27ae60",
+    "total": 1,
+    "files": {
+      "src/pages/equipo/TabCalendarioLaboral.tsx": 1
+    }
+  },
+  {
+    "hex": "#e8f44215",
+    "total": 1,
+    "files": {
+      "src/pages/equipo/TabCalendarioLaboral.tsx": 1
+    }
+  },
+  {
+    "hex": "#f6f6f6",
+    "total": 1,
+    "files": {
+      "src/pages/equipo/TabIncentivos.tsx": 1
+    }
+  },
+  {
+    "hex": "#b01d2310",
+    "total": 1,
+    "files": {
+      "src/pages/equipo/TabPortal.tsx": 1
+    }
+  },
+  {
+    "hex": "#eff0ec",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Cashflow.tsx": 1
+    }
+  },
+  {
+    "hex": "#ffffff99",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Cashflow.tsx": 1
+    }
+  },
+  {
+    "hex": "#dde8f4",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#3a5f80",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#dee9d4",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#3d6027",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#f4e8c8",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#7d5a1a",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#e3d8eb",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#4a3163",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#fbe5e8",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#e8f5ec",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#fff3cd",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#f5c2c7",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#7a1218",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/GestionFacturas.tsx": 1
+    }
+  },
+  {
+    "hex": "#888888",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/ImportarPlataformas.tsx": 1
+    }
+  },
+  {
+    "hex": "#c8d400",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Objetivos.tsx": 1
+    }
+  },
+  {
+    "hex": "#5c5c00",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Objetivos.tsx": 1
+    }
+  },
+  {
+    "hex": "#4a5270",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Objetivos.tsx": 1
+    }
+  },
+  {
+    "hex": "#ffffff15",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Objetivos.tsx": 1
+    }
+  },
+  {
+    "hex": "#1e5bcc10",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Objetivos.tsx": 1
+    }
+  },
+  {
+    "hex": "#3d362a",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Running.tsx": 1
+    }
+  },
+  {
+    "hex": "#f0ece0",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/TicketMedio.tsx": 1
+    }
+  },
+  {
+    "hex": "#05833f",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Ventas.tsx": 1
+    }
+  },
+  {
+    "hex": "#f2d20033",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Ventas.tsx": 1
+    }
+  },
+  {
+    "hex": "#8a7400",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Ventas.tsx": 1
+    }
+  },
+  {
+    "hex": "#ff800022",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Ventas.tsx": 1
+    }
+  },
+  {
+    "hex": "#c25e00",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Ventas.tsx": 1
+    }
+  },
+  {
+    "hex": "#1e223318",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Ventas.tsx": 1
+    }
+  },
+  {
+    "hex": "#9aa0ad22",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Ventas.tsx": 1
+    }
+  },
+  {
+    "hex": "#6b7280",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Ventas.tsx": 1
+    }
+  },
+  {
+    "hex": "#9aa0ad",
+    "total": 1,
+    "files": {
+      "src/pages/finanzas/Ventas.tsx": 1
+    }
+  },
+  {
+    "hex": "#88888820",
+    "total": 1,
+    "files": {
+      "src/pages/informes/ConfiguracionInformes.tsx": 1
+    }
+  },
+  {
+    "hex": "#ee8a4e",
+    "total": 1,
+    "files": {
+      "src/pages/lab/LabPanel.tsx": 1
+    }
+  },
+  {
+    "hex": "#b01d2340",
+    "total": 1,
+    "files": {
+      "src/pages/ops/BitacoraNovedades.tsx": 1
+    }
+  },
+  {
+    "hex": "#1d9e7530",
+    "total": 1,
+    "files": {
+      "src/pages/ops/BpmCalidad.tsx": 1
+    }
+  },
+  {
+    "hex": "#cc88ff",
+    "total": 1,
+    "files": {
+      "src/pages/ops/ManualesOperaciones.tsx": 1
+    }
+  },
+  {
+    "hex": "#444444",
+    "total": 1,
+    "files": {
+      "src/pages/ops/ManualesOperaciones.tsx": 1
+    }
+  },
+  {
+    "hex": "#f5a62340",
+    "total": 1,
+    "files": {
+      "src/pages/ops/ReunionesEquipo.tsx": 1
+    }
+  },
+  {
+    "hex": "#6b1015",
+    "total": 1,
+    "files": {
+      "src/pages/ops/TareasOperativas.tsx": 1
+    }
+  }
+]

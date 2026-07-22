@@ -1,3 +1,4 @@
+import { GRANATE, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -73,7 +74,7 @@ export default function TabResumenHoras() {
         <KpiCard label="Horas totales" value={`${fmtHoras(totalHoras)} h`} T={T} />
         <KpiCard label="Promedio / empleado" value={`${fmtHoras(promedio)} h`} T={T} />
         <KpiCard label="Tope semanal" value={`${reglas.horas_max_semana} h`} T={T} />
-        <KpiCard label="Con horas extra" value={`${conExtra}`} color={conExtra > 0 ? '#f5a623' : undefined} T={T} />
+        <KpiCard label="Con horas extra" value={`${conExtra}`} color={conExtra > 0 ? NAR : undefined} T={T} />
       </div>
 
       {showClearButton && (
@@ -100,7 +101,7 @@ export default function TabResumenHoras() {
               {filasOrden.length === 0 ? (
                 <tr><td colSpan={4} style={{ padding: '40px 24px', textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Sin empleados activos.</td></tr>
               ) : filasOrden.map(f => {
-                const color = f.estadoOrden === 2 ? '#B01D23' : f.estadoOrden === 1 ? '#f5a623' : '#1D9E75'
+                const color = f.estadoOrden === 2 ? GRANATE : f.estadoOrden === 1 ? NAR : VERDE
                 return (
                   <tr key={f.id} style={{ borderBottom: `1px solid ${T.brd}` }}>
                     <td style={{ ...td, fontWeight: 600 }}>

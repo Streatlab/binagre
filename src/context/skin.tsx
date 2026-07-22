@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 /**
  * skin — interruptor entre el estilo Neobrutal (antiguo) y el estilo SL (canon).
  *
@@ -86,7 +87,7 @@ export function SkinToggle() {
     boxShadow: 'none',
     minHeight: esMovil ? 40 : undefined,
   }
-  const on: React.CSSProperties = { ...base, background: '#B01D23', color: '#fff' }
+  const on: React.CSSProperties = { ...base, background: GRANATE, color: BLANCO }
   const off: React.CSSProperties = { ...base, background: 'transparent', color: '#9C9894' }
 
   return (
@@ -100,7 +101,7 @@ export function SkinToggle() {
         border: '1px solid #F0E7DC',
         borderRadius: 999,
         overflow: 'hidden',
-        background: '#fff',
+        background: BLANCO,
       }}
     >
       <button style={skin === 'neo' ? on : off} onClick={() => setSkin('neo')}>NEO</button>

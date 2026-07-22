@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, NAR_S } from '@/styles/neobrutal'
 /**
  * Sistema visual de la app móvil Binagre.
  * Estructura y DENSIDAD copiadas de Delasalud (tarjetas grandes, todo en rem,
@@ -9,8 +10,8 @@ export const OSW = 'Oswald, sans-serif'
 export const LEX = 'Lexend, sans-serif'
 
 export const T = {
-  ink: '#0a0a0a',
-  crema: '#FCEFD6',
+  ink: INK,
+  crema: NAR_S,
   crema2: '#F3D9A8',
   blanco: '#FFFDF7',
   track: '#ecdcb8',
@@ -20,7 +21,7 @@ export const T = {
   azul: '#2D5BFF',
   rosa: '#FF2E63',
   rojo: '#FF1E27',
-  granate: '#B01D23',
+  granate: GRANATE,
   gris: '#7d7060',
 }
 
@@ -81,7 +82,7 @@ export function FilaNav({ emoji, label, desc, color, onClick, pendiente }: {
         {desc && <span style={{ display: 'block', fontFamily: LEX, fontSize: '0.8rem', color: T.gris, marginTop: '0.15rem' }}>{desc}</span>}
       </span>
       {pendiente
-        ? <span style={{ ...eyebrow(T.granate, '#fff'), fontSize: '0.6rem' }}>Pend</span>
+        ? <span style={{ ...eyebrow(T.granate, BLANCO), fontSize: '0.6rem' }}>Pend</span>
         : <span style={{ ...titulo, fontSize: '1.4rem', opacity: 0.35 }}>›</span>}
     </button>
   )

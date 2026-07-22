@@ -11,7 +11,7 @@ import { RefreshCw, AlertTriangle, Pause, Play, X as XIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
 import { HORAS_FIJAS, bandaQueChoca, proximaOcurrencia } from '@/lib/papeleoHoras'
-import { OSW, LEX, INK, VERDE, NAR, ROJO, AMA, GRIS, SHADOW, BORDER_CARD } from '@/styles/neobrutal'
+import { OSW, LEX, INK, VERDE, NAR, ROJO, AMA, GRIS, SHADOW, BORDER_CARD, BLANCO } from '@/styles/neobrutal'
 
 interface Inventario {
   en_storage: number
@@ -269,7 +269,7 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
           onClick={comprobarInventario}
           disabled={comprobando}
           style={{
-            background: comprobando ? GRIS : VERDE, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW,
+            background: comprobando ? GRIS : VERDE, color: BLANCO, border: BORDER_CARD, boxShadow: SHADOW,
             padding: '10px 18px', fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1.5px',
             textTransform: 'uppercase', cursor: comprobando ? 'default' : 'pointer',
             display: 'flex', alignItems: 'center', gap: 8,
@@ -280,7 +280,7 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
         </button>
       ) : (
         <div style={{
-          background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px',
+          background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px',
           minWidth: 280, maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

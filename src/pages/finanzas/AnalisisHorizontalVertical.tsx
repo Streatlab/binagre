@@ -6,14 +6,9 @@
  * en el valor semántico, bordes 3px INK + SHADOW.
  */
 import React, { useMemo, useState } from "react";
+import { useAnalisisHV, BLOQUES_ORDEN, type FilaCategoria, } from "../../lib/finanzas/useAnalisisHV";
 import {
-  useAnalisisHV, BLOQUES_ORDEN,
-  type FilaCategoria,
-} from "../../lib/finanzas/useAnalisisHV";
-import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD,
-  GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow,
-} from "@/styles/neobrutal";
+  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
 import { fmtEur, fmtPct } from "@/lib/format";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -32,7 +27,7 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
 
   const añosDisponibles = useMemo(() => [añoActual, añoActual - 1, añoActual - 2], [añoActual]);
 
-  const card: React.CSSProperties = { background: "#fff", border: BORDER_CARD, boxShadow: SHADOW };
+  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW };
 
   if (hv.loading) {
     return (
@@ -57,7 +52,7 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
       <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         {!embedded && (
           <div>
-            <span style={eyebrow(NAR, "#fff")}>FINANZAS</span>
+            <span style={eyebrow(NAR, BLANCO)}>FINANZAS</span>
             <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
               ANÁLISIS HORIZONTAL / VERTICAL
             </h1>
@@ -67,7 +62,7 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
         <select
           value={año}
           onChange={e => setAño(Number(e.target.value))}
-          style={{ background: "#fff", border: `3px solid ${INK}`, color: INK, padding: "7px 14px", fontFamily: OSW, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer", outline: "none", boxShadow: SHADOW }}
+          style={{ background: BLANCO, border: `3px solid ${INK}`, color: INK, padding: "7px 14px", fontFamily: OSW, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer", outline: "none", boxShadow: SHADOW }}
         >
           {añosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
@@ -75,16 +70,16 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
 
       {/* Hero KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 20 }}>
-        <div style={{ ...card, padding: "16px 20px", background: hv.categoriaAlerta ? ROJO : "#fff" }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: hv.categoriaAlerta ? "#fff" : GRIS, marginBottom: 6 }}>
+        <div style={{ ...card, padding: "16px 20px", background: hv.categoriaAlerta ? ROJO : BLANCO }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: hv.categoriaAlerta ? BLANCO : GRIS, marginBottom: 6 }}>
             Gasto que más creció este mes
           </div>
           {hv.categoriaAlerta ? (
             <>
-              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, color: "#fff" }}>
+              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, color: BLANCO }}>
                 ⚠ {hv.categoriaAlerta.label}
               </div>
-              <div style={{ fontFamily: LEX, fontSize: 12, color: "#fff", marginTop: 6 }}>
+              <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
                 {fmtDeltaPP(hv.categoriaAlerta.deltaPP)} sobre ventas frente al mes anterior · se come el margen
               </div>
             </>
@@ -104,12 +99,12 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
           </div>
         </div>
 
-        <div style={{ ...card, padding: "16px 20px", background: mejora ? VERDE : empeora ? ROJO : "#fff" }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: mejora || empeora ? "#fff" : GRIS, marginBottom: 6 }}>Tendencia</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, color: mejora || empeora ? "#fff" : INK }}>
+        <div style={{ ...card, padding: "16px 20px", background: mejora ? VERDE : empeora ? ROJO : BLANCO }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: mejora || empeora ? BLANCO : GRIS, marginBottom: 6 }}>Tendencia</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, color: mejora || empeora ? BLANCO : INK }}>
             {deltaTendencia == null ? "—" : mejora ? "Mejora" : empeora ? "Empeora" : "Estable"}
           </div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: mejora || empeora ? "#fff" : GRIS, marginTop: 6 }}>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: mejora || empeora ? BLANCO : GRIS, marginTop: 6 }}>
             {deltaTendencia == null ? "Sin mes anterior para comparar" : `${fmtDeltaPP(deltaTendencia)} de gasto sobre ventas vs. mes anterior`}
           </div>
         </div>
@@ -123,7 +118,7 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
         ] as [Vista, string][]).map(([k, label]) => (
           <button key={k} onClick={() => setVista(k)} style={{
             padding: "8px 16px", border: `3px solid ${INK}`,
-            background: vista === k ? GRANATE : "#fff", color: vista === k ? "#fff" : INK,
+            background: vista === k ? GRANATE : BLANCO, color: vista === k ? BLANCO : INK,
             boxShadow: vista === k ? SHADOW : "none",
             fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", cursor: "pointer",
           }}>

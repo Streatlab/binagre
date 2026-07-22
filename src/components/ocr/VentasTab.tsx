@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
 import { useMultiSort } from '@/hooks/useMultiSort'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
@@ -409,13 +410,13 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
           {logs.map((l, i) => (
             <div key={i} style={{ marginBottom: 4, fontSize: 13 }}>
               <strong>{l.archivo}</strong> — {l.plataforma}: {l.nuevas} nuevas, {l.duplicadas} duplicadas, {l.actualizadas} actualizadas
-              {l.errores.length > 0 && <div style={{ color: '#B01D23', fontSize: 12 }}>{l.errores.join('; ')}</div>}
+              {l.errores.length > 0 && <div style={{ color: GRANATE, fontSize: 12 }}>{l.errores.join('; ')}</div>}
             </div>
           ))}
         </div>
       )}
       <VentasPlatosFranjas fechaDesde={fechaDesde} fechaHasta={fechaHasta} />
-      <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden', marginTop: 16 }}>
+      <div style={{ background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden', marginTop: 16 }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
             <tr>
@@ -428,20 +429,20 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
           </thead>
           <tbody>
             {filasPagina.length === 0 ? (
-              <tr><td colSpan={HEADERS.length} style={{ padding: '24px 16px', textAlign: 'center', color: '#7a8090' }}>Sin resultados</td></tr>
+              <tr><td colSpan={HEADERS.length} style={{ padding: '24px 16px', textAlign: 'center', color: GRIS }}>Sin resultados</td></tr>
             ) : filasPagina.map((f, idx) => {
               const isLast = idx === filasPagina.length - 1
               const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2' }
               return (
                 <tr key={f.id}>
-                  <td style={{ ...tdBase, color: '#7a8090', fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(f.fecha_deposito)}</td>
-                  <td style={{ ...tdBase, color: '#111' }}>{f.marca}</td>
-                  <td style={{ ...tdBase, color: '#3a4050', fontSize: 12, textTransform: 'capitalize' }}>{f.plataforma.replace('_', ' ')}</td>
+                  <td style={{ ...tdBase, color: GRIS, fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(f.fecha_deposito)}</td>
+                  <td style={{ ...tdBase, color: INK }}>{f.marca}</td>
+                  <td style={{ ...tdBase, color: OSC, fontSize: 12, textTransform: 'capitalize' }}>{f.plataforma.replace('_', ' ')}</td>
                   <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 13 }}>{fmtNumES(f.ventas_bruto, 2)}</td>
-                  <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 13, color: '#E24B4A' }}>{fmtNumES(f.comision, 2)}</td>
-                  <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, color: '#1D9E75' }}>{fmtNumES(f.pago_neto, 2)}</td>
-                  <td style={{ ...tdBase, fontSize: 12, color: f.estado === 'conciliada' ? '#1D9E75' : '#F26B1F', textTransform: 'capitalize' }}>{f.estado}</td>
-                  <td style={{ ...tdBase, fontSize: 12, color: '#7a8090' }}>{titulares.find(t => t.id === f.titular_id)?.nombre || '—'}</td>
+                  <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 13, color: ROJO }}>{fmtNumES(f.comision, 2)}</td>
+                  <td style={{ ...tdBase, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, color: VERDE }}>{fmtNumES(f.pago_neto, 2)}</td>
+                  <td style={{ ...tdBase, fontSize: 12, color: f.estado === 'conciliada' ? VERDE : NAR, textTransform: 'capitalize' }}>{f.estado}</td>
+                  <td style={{ ...tdBase, fontSize: 12, color: GRIS }}>{titulares.find(t => t.id === f.titular_id)?.nombre || '—'}</td>
                 </tr>
               )
             })}

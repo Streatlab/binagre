@@ -14,9 +14,7 @@ import { useFichaEmpleado } from '@/lib/equipo/useFichaEmpleado'
 import ModalRevisionEquipo from '@/components/equipo/ModalRevisionEquipo'
 import { fmtEur, fmtDate } from '@/lib/format'
 import {
-  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD,
-  GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, d,
-} from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, d, BLANCO } from '@/styles/neobrutal'
 
 interface Empleado { id: string; nombre: string }
 
@@ -62,7 +60,7 @@ type CandidatoMatch = {
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-const card: React.CSSProperties = { background: '#fff', border: BORDER_CARD, boxShadow: SHADOW }
+const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -239,14 +237,14 @@ export default function TabNominas() {
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Nóminas del año {selectedAnio}</div>
           <div style={{ ...d('34px'), lineHeight: 1 }}>{kpi.total}</div>
         </div>
-        <div style={{ ...card, padding: '16px 20px', background: kpi.revisar > 0 ? AMA : '#fff' }}>
+        <div style={{ ...card, padding: '16px 20px', background: kpi.revisar > 0 ? AMA : BLANCO }}>
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 6 }}>Pendientes de revisar</div>
           <div style={{ ...d('34px', INK), lineHeight: 1 }}>{kpi.revisar}</div>
         </div>
-        <div style={{ ...card, padding: '16px 20px', background: kpi.descuadreCount > 0 ? ROJO : '#fff' }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: kpi.descuadreCount > 0 ? '#fff' : GRIS, marginBottom: 6 }}>Diferencias sin cuadrar</div>
-          <div style={{ ...d('34px', kpi.descuadreCount > 0 ? '#fff' : INK), lineHeight: 1 }}>{kpi.descuadreCount}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: kpi.descuadreCount > 0 ? '#fff' : GRIS, marginTop: 4 }}>{fmtEur(kpi.sumaDiferencias, { decimals: 2 })}</div>
+        <div style={{ ...card, padding: '16px 20px', background: kpi.descuadreCount > 0 ? ROJO : BLANCO }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: kpi.descuadreCount > 0 ? BLANCO : GRIS, marginBottom: 6 }}>Diferencias sin cuadrar</div>
+          <div style={{ ...d('34px', kpi.descuadreCount > 0 ? BLANCO : INK), lineHeight: 1 }}>{kpi.descuadreCount}</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: kpi.descuadreCount > 0 ? BLANCO : GRIS, marginTop: 4 }}>{fmtEur(kpi.sumaDiferencias, { decimals: 2 })}</div>
         </div>
       </div>
 
@@ -266,7 +264,7 @@ export default function TabNominas() {
           htmlFor="upl-resumen"
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            border: `3px solid ${INK}`, boxShadow: SHADOW, background: GRANATE, color: '#fff',
+            border: `3px solid ${INK}`, boxShadow: SHADOW, background: GRANATE, color: BLANCO,
             fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase',
             padding: '8px 14px', cursor: uploadingResumen ? 'wait' : 'pointer',
           }}
@@ -344,7 +342,7 @@ export default function TabNominas() {
                 const nominasEmp = nominas.filter(n => n.empleado_id === emp.id).sort((a, b) => a.mes - b.mes)
                 return (
                   <Fragment key={emp.id}>
-                    <tr style={{ borderBottom: `2px solid ${INK}`, background: open ? CLARO : '#fff' }}>
+                    <tr style={{ borderBottom: `2px solid ${INK}`, background: open ? CLARO : BLANCO }}>
                       <td
                         onClick={() => toggleEmp(emp.id)}
                         style={{ ...td, textAlign: 'left', fontFamily: OSW, fontWeight: 600, fontSize: 13, padding: '10px 12px', cursor: 'pointer', userSelect: 'none' }}
@@ -353,7 +351,7 @@ export default function TabNominas() {
                           <span style={{ color: GRIS }}>{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
                           {emp.nombre}
                           {tieneCalc && (
-                            <span style={{ ...eyebrow(GRANATE, '#fff'), fontSize: 9, padding: '1px 6px' }}>Cálculo auto</span>
+                            <span style={{ ...eyebrow(GRANATE, BLANCO), fontSize: 9, padding: '1px 6px' }}>Cálculo auto</span>
                           )}
                         </span>
                       </td>
@@ -377,7 +375,7 @@ export default function TabNominas() {
                                 <span style={{
                                   fontFamily: OSW, fontSize: 9, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase',
                                   border: `2px solid ${INK}`, padding: '1px 5px', width: 'fit-content',
-                                  background: nom.estado === 'ok' ? VERDE : AMA, color: nom.estado === 'ok' ? '#fff' : INK,
+                                  background: nom.estado === 'ok' ? VERDE : AMA, color: nom.estado === 'ok' ? BLANCO : INK,
                                 }}>
                                   {nom.estado === 'ok' ? 'OK' : 'Revisar'}
                                 </span>
@@ -459,7 +457,7 @@ function PanelEmilio({ calcAnio, selectedAnio, hoverMes, setHoverMes, detalleMes
   }
   return (
     <div style={{ padding: '18px 16px' }}>
-      <span style={eyebrow(NAR, '#fff')}>SUELDO · CÁLCULO AUTOMÁTICO {selectedAnio}</span>
+      <span style={eyebrow(NAR, BLANCO)}>SUELDO · CÁLCULO AUTOMÁTICO {selectedAnio}</span>
       <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, margin: '10px 0 16px', maxWidth: 640 }}>
         Base 1.350 € − ingresos Uber / Glovo / Just Eat + gastos del negocio (Mercadona, proveedores…) = adeudado. Los traspasos a sueldo y Hacienda no cuentan. Pasa el ratón por un mes para ver sus ingresos y gastos.
       </div>
@@ -684,7 +682,7 @@ function NominaCard({ n, expanded, onToggle, onReload }: {
         <span style={{
           fontFamily: OSW, fontSize: 9, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase',
           border: `2px solid ${INK}`, padding: '2px 7px',
-          background: n.estado === 'ok' ? VERDE : AMA, color: n.estado === 'ok' ? '#fff' : INK,
+          background: n.estado === 'ok' ? VERDE : AMA, color: n.estado === 'ok' ? BLANCO : INK,
         }}>{n.estado === 'ok' ? 'OK' : 'Revisar'}</span>
         <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Bruto {fmtEur(n.importe_bruto, { decimals: 2 })}</span>
         <span style={{ fontFamily: LEX, fontSize: 12, color: INK, fontWeight: 600 }}>Neto {fmtEur(n.importe_neto, { decimals: 2 })}</span>
@@ -728,7 +726,7 @@ function NominaCard({ n, expanded, onToggle, onReload }: {
           </div>
 
           <div style={{ marginTop: 16 }}>
-            <span style={eyebrow(AZUL, '#fff')}>CRUCE CON BANCO</span>
+            <span style={eyebrow(AZUL, BLANCO)}>CRUCE CON BANCO</span>
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
               {n.pagos.length === 0 ? (
                 <div style={{ color: GRIS, fontFamily: LEX, fontSize: 12 }}>Sin pagos asociados todavía.</div>
@@ -739,14 +737,14 @@ function NominaCard({ n, expanded, onToggle, onReload }: {
                   <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12 }}>{fmtEur(p.importe_asociado, { decimals: 2 })}</span>
                   <span style={{
                     fontFamily: OSW, fontSize: 9, fontWeight: 600, textTransform: 'uppercase', border: `2px solid ${INK}`, padding: '1px 6px',
-                    background: p.confirmado ? VERDE : AMA, color: p.confirmado ? '#fff' : INK,
+                    background: p.confirmado ? VERDE : AMA, color: p.confirmado ? BLANCO : INK,
                   }}>{p.confirmado ? 'Confirmado' : 'Sin confirmar'}</span>
                   {!p.confirmado && (
-                    <button onClick={() => confirmar(p.conciliacion_id)} disabled={busy === p.conciliacion_id} style={{ ...btnMini, background: VERDE, color: '#fff' }}>
+                    <button onClick={() => confirmar(p.conciliacion_id)} disabled={busy === p.conciliacion_id} style={{ ...btnMini, background: VERDE, color: BLANCO }}>
                       <Check size={11} />
                     </button>
                   )}
-                  <button onClick={() => desasociar(p.conciliacion_id)} disabled={busy === p.conciliacion_id} style={{ ...btnMini, background: '#fff', color: ROJO, borderColor: ROJO }}>
+                  <button onClick={() => desasociar(p.conciliacion_id)} disabled={busy === p.conciliacion_id} style={{ ...btnMini, background: BLANCO, color: ROJO, borderColor: ROJO }}>
                     <X size={11} />
                   </button>
                 </div>
@@ -770,7 +768,7 @@ function NominaCard({ n, expanded, onToggle, onReload }: {
                     <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12 }}>{fmtEur(c.importe, { decimals: 2 })}</span>
                     <span style={{
                       fontFamily: OSW, fontSize: 9, fontWeight: 600, border: `2px solid ${INK}`, padding: '1px 6px',
-                      background: confColor(c.confianza), color: c.confianza >= 40 ? INK : '#fff',
+                      background: confColor(c.confianza), color: c.confianza >= 40 ? INK : BLANCO,
                     }}>{c.confianza}%</span>
                     <span style={{ fontFamily: LEX, fontSize: 10, color: GRIS, width: '100%' }}>{c.motivo}</span>
                   </div>
@@ -797,6 +795,6 @@ function NominaCard({ n, expanded, onToggle, onReload }: {
   )
 }
 
-const selectNeo: React.CSSProperties = { background: '#fff', border: `3px solid ${INK}`, color: INK, padding: '7px 12px', fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer', outline: 'none' }
-const inputNeo: React.CSSProperties = { padding: '8px 10px', background: '#fff', border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, outline: 'none', width: '100%' }
+const selectNeo: React.CSSProperties = { background: BLANCO, border: `3px solid ${INK}`, color: INK, padding: '7px 12px', fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer', outline: 'none' }
+const inputNeo: React.CSSProperties = { padding: '8px 10px', background: BLANCO, border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, outline: 'none', width: '100%' }
 const btnMini: React.CSSProperties = { fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', border: `2px solid ${INK}`, padding: '5px 10px', cursor: 'pointer', color: INK, whiteSpace: 'nowrap' }

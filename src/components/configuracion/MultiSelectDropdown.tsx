@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -44,10 +45,10 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
         onClick={() => setOpen(o => !o)}
         style={{
           padding: '8px 14px',
-          border: `1px solid ${selected.length > 0 ? '#B01D23' : T.brd}`,
+          border: `1px solid ${selected.length > 0 ? GRANATE : T.brd}`,
           borderRadius: 8,
           background: selected.length > 0 ? activeBg : T.card,
-          color: selected.length > 0 ? '#B01D23' : T.pri,
+          color: selected.length > 0 ? GRANATE : T.pri,
           fontFamily: FONT.heading,
           fontSize: 12,
           letterSpacing: '0.5px',
@@ -118,9 +119,9 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
                     width: 16,
                     height: 16,
                     borderRadius: 3,
-                    border: `1px solid ${on ? '#B01D23' : T.brd}`,
-                    background: on ? '#B01D23' : 'transparent',
-                    color: '#ffffff',
+                    border: `1px solid ${on ? GRANATE : T.brd}`,
+                    background: on ? GRANATE : 'transparent',
+                    color: BLANCO,
                     fontSize: 10,
                     lineHeight: 1,
                   }}
@@ -140,7 +141,7 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
                   width: '100%',
                   padding: '7px 12px',
                   fontSize: 11,
-                  color: '#B01D23',
+                  color: GRANATE,
                   background: 'transparent',
                   border: 'none',
                   borderRadius: 6,

@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
 import React, { useState, useEffect, useRef } from 'react'
 import { ChevronDown, Calendar as CalendarIcon } from 'lucide-react'
 import { fmtFechaCorta } from '@/styles/tokens'
@@ -35,7 +36,6 @@ interface SemanaItem { semanaISO: number; year: number; lunes: Date; domingo: Da
 const STORAGE_KEY_GLOBAL = 'selector_fecha_global'
 
 // tokens neobrutal · sombra única de 4px en todo el ERP
-const INK = '#140f08'
 const AMA = '#FFC400'
 const ROSA = '#FF2E63'
 const SHADOW = `4px 4px 0 ${INK}`
@@ -186,13 +186,13 @@ const OPCIONES: { id: Opcion; label: string }[] = [
 
 const btnStyle: React.CSSProperties = {
   padding: '9px 14px', borderRadius: 0, border: `3px solid ${INK}`,
-  background: '#ffffff', fontFamily: 'Lexend, sans-serif', fontSize: 14, fontWeight: 600,
+  background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 14, fontWeight: 600,
   color: INK, cursor: 'pointer', display: 'flex', alignItems: 'center',
   gap: 6, whiteSpace: 'nowrap', boxShadow: SHADOW,
 }
 const inputStyle: React.CSSProperties = {
   padding: '7px 26px 7px 10px', borderRadius: 0, border: `3px solid ${INK}`,
-  background: '#ffffff', fontFamily: 'Lexend, sans-serif', fontSize: 13,
+  background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13,
   color: INK, width: 110, outline: 'none',
 }
 const inputErrorStyle: React.CSSProperties = { ...inputStyle, borderColor: ROSA }
@@ -206,7 +206,7 @@ const hiddenDateStyle: React.CSSProperties = {
   opacity: 0, pointerEvents: 'none', border: 'none', padding: 0,
 }
 const menuStyle: React.CSSProperties = {
-  position: 'absolute', top: '100%', right: 0, background: '#fff',
+  position: 'absolute', top: '100%', right: 0, background: BLANCO,
   border: `3px solid ${INK}`, borderRadius: 0, width: 220, fontSize: 13,
   color: INK, boxShadow: SHADOW, zIndex: 50,
   maxHeight: '80vh', overflowY: 'auto', marginTop: 6,
@@ -446,7 +446,7 @@ export default function SelectorFechaUniversal({
               tabIndex={-1}
             />
           </div>
-          <button style={{ ...btnStyle, background: '#B01D23', color: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW }} onClick={applyPersonalizado}>
+          <button style={{ ...btnStyle, background: GRANATE, color: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW }} onClick={applyPersonalizado}>
             Aplicar
           </button>
         </div>

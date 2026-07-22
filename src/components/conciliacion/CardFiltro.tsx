@@ -1,3 +1,4 @@
+import { BLANCO, GRIS, ROJO, VERDE } from '@/styles/neobrutal'
 import React from 'react'
 import { fmtEur } from '@/utils/format'
 
@@ -10,7 +11,7 @@ interface CardFiltroProps {
 }
 
 const FILTER_BASE: React.CSSProperties = {
-  background: '#ffffff',
+  background: BLANCO,
   border: '0.5px solid #d0c8bc',
   borderRadius: 12,
   padding: '14px 16px',
@@ -26,9 +27,9 @@ const ACTIVE_STYLES: Record<string, React.CSSProperties> = {
 }
 
 const TYPE_COLOR: Record<string, string> = {
-  ingresos: '#1D9E75',
-  gastos: '#E24B4A',
-  pendientes: '#FF4757',
+  ingresos: VERDE,
+  gastos: ROJO,
+  pendientes: ROJO,
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -72,7 +73,7 @@ export default function CardFiltro({ tipo, count, importe, active, onClick }: Ca
         }}>
           {TYPE_LABEL[tipo]}
         </span>
-        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090' }}>
+        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: GRIS }}>
           {tipo === 'pendientes' ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <span style={{
@@ -81,8 +82,8 @@ export default function CardFiltro({ tipo, count, importe, active, onClick }: Ca
                 justifyContent: 'center',
                 padding: '2px 8px',
                 borderRadius: 9,
-                background: '#FF4757',
-                color: '#ffffff',
+                background: ROJO,
+                color: BLANCO,
                 fontFamily: 'Lexend, sans-serif',
                 fontSize: 10,
                 fontWeight: 500,
@@ -107,7 +108,7 @@ export default function CardFiltro({ tipo, count, importe, active, onClick }: Ca
       </div>
 
       {/* Descripcion */}
-      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 2 }}>
+      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: GRIS, marginTop: 2 }}>
         {TYPE_DESC[tipo]}
       </div>
     </div>

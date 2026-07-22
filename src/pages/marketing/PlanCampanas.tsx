@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { COLORS, FONT, CARDS, lbl, lblSm, kpiMid, TABS_PILL } from '@/components/panel/resumen/tokens'
@@ -63,7 +64,7 @@ function KpiCard({ label, value, sub, color }: { label: string; value: string; s
   )
 }
 function Pill({ text, bg, txt }: { text: string; bg: string; txt?: string }) {
-  return <span style={{ fontSize: 10, fontFamily: FONT.heading, letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 4, background: bg, color: txt ?? '#fff', textTransform: 'uppercase' }}>{text}</span>
+  return <span style={{ fontSize: 10, fontFamily: FONT.heading, letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 4, background: bg, color: txt ?? BLANCO, textTransform: 'uppercase' }}>{text}</span>
 }
 function Bar({ pct, color, h = 8 }: { pct: number; color: string; h?: number }) {
   return (
@@ -415,7 +416,7 @@ function TabCronograma({ camp }: { camp: Campana[] }) {
                 </div>
                 <div style={{ flex: 1, position: 'relative', height: 24, background: COLORS.group, borderRadius: 6 }}>
                   <div style={{ position: 'absolute', left: `${x1}%`, width: `${Math.max(4, x2 - x1)}%`, top: 2, bottom: 2, background: CANAL_COLOR[c.canal] || COLORS.mut, borderRadius: 5, display: 'flex', alignItems: 'center', paddingLeft: 8, overflow: 'hidden', opacity: c.estado === 'pausada' ? 0.4 : 1 }} title={`${c.nombre} · ${fmtEur(Number(c.presupuesto))} · ${c.estado}`}>
-                    <span style={{ fontFamily: FONT.heading, fontSize: 9, color: CANAL_TXT[c.canal] || '#fff', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || c.tipo}</span>
+                    <span style={{ fontFamily: FONT.heading, fontSize: 9, color: CANAL_TXT[c.canal] || BLANCO, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || c.tipo}</span>
                   </div>
                 </div>
               </div>

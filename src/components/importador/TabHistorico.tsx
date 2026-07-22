@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
 /**
  * T-M7-05 — Tab Histórico
  * Tabla imports_log con filtros: tipo, fecha (SelectorFechaUniversal), estado.
@@ -38,9 +39,9 @@ const TIPO_LEGIBLE: Record<string, string> = {
 }
 
 const ESTADO_CONFIG: Record<string, { label: string; color: string }> = {
-  procesado:          { label: 'Procesado',         color: '#06C167' },
-  pendiente_revision: { label: 'Pendiente revisión',color: '#e8f442' },
-  error:              { label: 'Error',              color: '#B01D23' },
+  procesado:          { label: 'Procesado',         color: VERDE },
+  pendiente_revision: { label: 'Pendiente revisión',color: LIMA },
+  error:              { label: 'Error',              color: GRANATE },
 }
 
 const TIPOS_DROPDOWN = [
@@ -68,10 +69,10 @@ function ModalDetalle({ log, onClose }: { log: ImportLog; onClose: () => void })
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: '#1a1a1a', borderRadius: 14, padding: 28, minWidth: 380, maxWidth: 560, width: '90%' }}
+        style={{ backgroundColor: INK, borderRadius: 14, padding: 28, minWidth: 380, maxWidth: 560, width: '90%' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#B01D23', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 18 }}>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRANATE, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 18 }}>
           Detalle import
         </div>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
@@ -84,14 +85,14 @@ function ModalDetalle({ log, onClose }: { log: ImportLog; onClose: () => void })
               ['Fecha subida', fmtDate(log.fecha_subida)],
             ].map(([label, value]) => (
               <tr key={label} style={{ borderBottom: '0.5px solid #2a2a2a' }}>
-                <td style={{ padding: '8px 10px', color: '#777777', width: 140, verticalAlign: 'top' }}>{label}</td>
-                <td style={{ padding: '8px 10px', color: '#ffffff' }}>{value}</td>
+                <td style={{ padding: '8px 10px', color: GRIS, width: 140, verticalAlign: 'top' }}>{label}</td>
+                <td style={{ padding: '8px 10px', color: BLANCO }}>{value}</td>
               </tr>
             ))}
             {log.detalle && (
               <tr style={{ borderBottom: '0.5px solid #2a2a2a' }}>
-                <td style={{ padding: '8px 10px', color: '#777777', verticalAlign: 'top' }}>Detalle</td>
-                <td style={{ padding: '8px 10px', color: '#cccccc', fontSize: 11 }}>
+                <td style={{ padding: '8px 10px', color: GRIS, verticalAlign: 'top' }}>Detalle</td>
+                <td style={{ padding: '8px 10px', color: GRIS, fontSize: 11 }}>
                   <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                     {JSON.stringify(log.detalle, null, 2)}
                   </pre>
@@ -105,14 +106,14 @@ function ModalDetalle({ log, onClose }: { log: ImportLog; onClose: () => void })
             href={log.archivo_url}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 16, color: '#66aaff', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 16, color: AZUL_CL, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}
           >
             <ExternalLink size={14} /> Ver archivo original
           </a>
         )}
         <button
           onClick={onClose}
-          style={{ marginTop: 20, background: '#222222', border: '1px solid #383838', borderRadius: 6, color: '#cccccc', fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer', display: 'block' }}
+          style={{ marginTop: 20, background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer', display: 'block' }}
         >
           Cerrar
         </button>
@@ -169,13 +170,13 @@ export default function TabHistorico({ refresh }: Props) {
     letterSpacing: 2,
     color: T.mut,
     fontWeight: 400,
-    background: '#0a0a0a',
+    background: INK,
     textAlign: 'left',
   }
   const td: CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
 
   const selectStyle: CSSProperties = {
-    background: '#1e1e1e',
+    background: INK,
     border: `1px solid ${T.brd}`,
     borderRadius: 6,
     color: T.pri,
@@ -229,7 +230,7 @@ export default function TabHistorico({ refresh }: Props) {
             </thead>
             <tbody>
               {logs.map(log => {
-                const estadoCfg = ESTADO_CONFIG[log.estado ?? ''] ?? { label: log.estado ?? '—', color: '#777777' }
+                const estadoCfg = ESTADO_CONFIG[log.estado ?? ''] ?? { label: log.estado ?? '—', color: GRIS }
                 return (
                   <tr
                     key={log.id}
@@ -254,7 +255,7 @@ export default function TabHistorico({ refresh }: Props) {
                     <td style={td}>
                       <button
                         onClick={(e) => { e.stopPropagation(); setDetalle(log) }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#66aaff', fontFamily: FONT.body, fontSize: 12 }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: AZUL_CL, fontFamily: FONT.body, fontSize: 12 }}
                       >
                         Ver
                       </button>

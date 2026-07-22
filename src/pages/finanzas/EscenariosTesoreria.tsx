@@ -1,19 +1,20 @@
+import { BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 
 /* ─── Design tokens ─────────────────────────────────────── */
 const C = {
-  bg: '#111111',
-  card: '#1a1a1a',
-  border: '#2a2a2a',
-  borderStrong: '#383838',
-  text: '#ffffff',
-  muted: '#777777',
-  secondary: '#cccccc',
-  rojo: '#B01D23',
-  amarillo: '#e8f442',
-  verde: '#1D9E75',
+  bg: INK,
+  card: INK,
+  border: INK,
+  borderStrong: INK,
+  text: BLANCO,
+  muted: GRIS,
+  secondary: GRIS,
+  rojo: GRANATE,
+  amarillo: LIMA,
+  verde: VERDE,
 }
 const LEXEND: React.CSSProperties = { fontFamily: 'Lexend, sans-serif' }
 const OSWALD: React.CSSProperties = { fontFamily: 'Oswald, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em' }
@@ -285,7 +286,7 @@ export function EscenariosTesoreria({ embedded = false }: { embedded?: boolean }
                     onChange={e => setSaldoManual(e.target.value)}
                     placeholder="0"
                     style={{
-                      backgroundColor: '#1e1e1e',
+                      backgroundColor: INK,
                       border: `1px solid ${C.borderStrong}`,
                       borderRadius: 4,
                       color: C.text,
@@ -371,7 +372,7 @@ export function EscenariosTesoreria({ embedded = false }: { embedded?: boolean }
                 onClick={() => exportCSV(rows)}
                 style={{
                   backgroundColor: C.amarillo,
-                  color: '#111111',
+                  color: INK,
                   border: 'none',
                   borderRadius: 4,
                   padding: '6px 14px',
@@ -387,7 +388,7 @@ export function EscenariosTesoreria({ embedded = false }: { embedded?: boolean }
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', ...LEXEND }}>
                 <thead>
-                  <tr style={{ backgroundColor: '#0a0a0a' }}>
+                  <tr style={{ backgroundColor: INK }}>
                     {(
                       ['Semana', 'Cobros previstos', 'Gastos fijos', 'Saldo al cierre', ''] as string[]
                     ).map((h, hi) => (

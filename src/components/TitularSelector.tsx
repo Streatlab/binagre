@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useTitular } from '@/contexts/TitularContext'
 import { useTheme, FONT } from '@/styles/tokens'
 
@@ -6,8 +7,8 @@ export default function TitularSelector() {
   const { filtro, setFiltro, titulares } = useTitular()
 
   const botones = [
-    { id: 'unificado', color: '#B01D23', label: 'SL' },
-    ...titulares.map((t) => ({ id: t.id, color: t.color || '#B01D23', label: t.nombre })),
+    { id: 'unificado', color: GRANATE, label: 'SL' },
+    ...titulares.map((t) => ({ id: t.id, color: t.color || GRANATE, label: t.nombre })),
   ]
 
   return (
@@ -31,8 +32,8 @@ export default function TitularSelector() {
               padding: '6px 12px',
               border: 'none',
               borderRadius: 6,
-              backgroundColor: active ? '#B01D23' : 'transparent',
-              color: active ? '#fff' : T.sec,
+              backgroundColor: active ? GRANATE : 'transparent',
+              color: active ? BLANCO : T.sec,
               fontFamily: FONT.heading,
               fontSize: 11,
               fontWeight: 500,

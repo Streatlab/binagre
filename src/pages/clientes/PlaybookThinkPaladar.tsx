@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
@@ -245,7 +246,7 @@ function BloqueChecklist() {
               return (
                 <div key={t.clave} onClick={() => avanzar(t.clave)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', marginBottom: 5, borderRadius: 8, border: `1px solid ${COLORS.group}`, background: COLORS.card, cursor: 'pointer' }}>
                   <span style={{ flex: 1, fontFamily: FONT.body, fontSize: 13.5, color: COLORS.pri }}>{t.texto}</span>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#fff', background: EST_COLOR[est], padding: '3px 9px', borderRadius: 12, whiteSpace: 'nowrap' }}>{EST_LABEL[est]}</span>
+                  <span style={{ fontFamily: FONT.heading, fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: BLANCO, background: EST_COLOR[est], padding: '3px 9px', borderRadius: 12, whiteSpace: 'nowrap' }}>{EST_LABEL[est]}</span>
                 </div>
               )
             })}

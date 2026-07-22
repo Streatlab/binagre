@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/utils/format'
@@ -82,7 +83,7 @@ function getNombreMes(fecha: string): string {
 function KpiCard({ label, value, badge }: { label: string; value: string; badge?: string }) {
   return (
     <div style={{
-      background: '#141414',
+      background: INK,
       border: '1px solid #2a2a2a',
       borderRadius: 10,
       padding: '20px 24px',
@@ -90,15 +91,15 @@ function KpiCard({ label, value, badge }: { label: string; value: string; badge?
       flexDirection: 'column',
       gap: 8,
     }}>
-      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, color: '#777777', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, color: GRIS, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 8 }}>
         {label}
         {badge && (
-          <span style={{ background: '#e8f442', color: '#111111', fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4 }}>
+          <span style={{ background: LIMA, color: INK, fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4 }}>
             {badge}
           </span>
         )}
       </div>
-      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, color: '#ffffff', fontWeight: 500 }}>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, color: BLANCO, fontWeight: 500 }}>
         {value}
       </div>
     </div>
@@ -294,10 +295,10 @@ export default function Gestoria() {
   ]
 
   const selectStyle: React.CSSProperties = {
-    background: '#1e1e1e',
+    background: INK,
     border: '1px solid #2a2a2a',
     borderRadius: 6,
-    color: '#ffffff',
+    color: BLANCO,
     fontFamily: 'Oswald, sans-serif',
     fontSize: 13,
     padding: '7px 12px',
@@ -306,8 +307,8 @@ export default function Gestoria() {
   }
 
   const btnStyle: React.CSSProperties = {
-    background: '#B01D23',
-    color: '#ffffff',
+    background: GRANATE,
+    color: BLANCO,
     border: 'none',
     borderRadius: 6,
     fontFamily: 'Oswald, sans-serif',
@@ -319,8 +320,8 @@ export default function Gestoria() {
   }
 
   const thStyle: React.CSSProperties = {
-    background: '#0a0a0a',
-    color: '#777777',
+    background: INK,
+    color: GRIS,
     fontFamily: 'Oswald, sans-serif',
     fontSize: 11,
     textTransform: 'uppercase',
@@ -333,19 +334,19 @@ export default function Gestoria() {
   const tdStyle: React.CSSProperties = {
     padding: '10px 12px',
     borderBottom: '1px solid #1a1a1a',
-    color: '#cccccc',
+    color: GRIS,
     fontFamily: 'Lexend, sans-serif',
     fontSize: 13,
   }
 
   return (
-    <div style={{ background: '#111111', minHeight: '100vh', padding: '28px 32px', color: '#ffffff' }}>
+    <div style={{ background: INK, minHeight: '100vh', padding: '28px 32px', color: BLANCO }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, color: '#ffffff', margin: 0, letterSpacing: '0.06em' }}>
+        <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, color: BLANCO, margin: 0, letterSpacing: '0.06em' }}>
           GESTORÍA — EXPORTS FISCALES
         </h1>
-        <p style={{ color: '#777777', fontFamily: 'Lexend, sans-serif', fontSize: 13, margin: '6px 0 0' }}>
+        <p style={{ color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, margin: '6px 0 0' }}>
           Resumen fiscal y exportación de datos para gestoría
         </p>
       </div>
@@ -353,7 +354,7 @@ export default function Gestoria() {
       {/* Selectores */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: '#777777', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Titular</label>
+          <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: GRIS, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Titular</label>
           <select value={selectedTitularId} onChange={e => setSelectedTitularId(e.target.value)} style={selectStyle}>
             <option value="todos">Todos</option>
             {titulares.map(t => (
@@ -363,34 +364,34 @@ export default function Gestoria() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: '#777777', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Año</label>
+          <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: GRIS, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Año</label>
           <select value={ano} onChange={e => setAno(Number(e.target.value))} style={selectStyle}>
             {ANOS.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: '#777777', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Período</label>
+          <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: GRIS, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Período</label>
           <select value={trimestre} onChange={e => setTrimestre(e.target.value)} style={selectStyle}>
             {TRIMESTRES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
 
-        <div style={{ color: '#777777', fontFamily: 'Lexend, sans-serif', fontSize: 12, paddingBottom: 8 }}>
+        <div style={{ color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 12, paddingBottom: 8 }}>
           {desde} → {hasta}
-          {loading && <span style={{ marginLeft: 12, color: '#e8f442' }}>Cargando...</span>}
+          {loading && <span style={{ marginLeft: 12, color: LIMA }}>Cargando...</span>}
         </div>
       </div>
 
       {/* Tabs pastilla */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, padding: 4, width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: INK, border: '1px solid #2a2a2a', borderRadius: 8, padding: 4, width: 'fit-content' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             style={{
-              background: activeTab === tab.key ? '#B01D23' : 'transparent',
-              color: activeTab === tab.key ? '#ffffff' : '#777777',
+              background: activeTab === tab.key ? GRANATE : 'transparent',
+              color: activeTab === tab.key ? BLANCO : GRIS,
               border: 'none',
               borderRadius: 6,
               fontFamily: 'Oswald, sans-serif',
@@ -417,15 +418,15 @@ export default function Gestoria() {
           </div>
           {selectedTitularId !== 'todos' && (
             <div style={{
-              background: '#141414',
+              background: INK,
               border: '1px solid #383838',
               borderRadius: 8,
               padding: '12px 16px',
-              color: '#777777',
+              color: GRIS,
               fontFamily: 'Lexend, sans-serif',
               fontSize: 12,
             }}>
-              Nota: los datos de <strong style={{ color: '#cccccc' }}>facturacion_diario</strong> (ingresos de plataformas) no tienen desglose por titular. Se muestra el total del período independientemente del titular seleccionado.
+              Nota: los datos de <strong style={{ color: GRIS }}>facturacion_diario</strong> (ingresos de plataformas) no tienen desglose por titular. Se muestra el total del período independientemente del titular seleccionado.
             </div>
           )}
         </div>
@@ -435,21 +436,21 @@ export default function Gestoria() {
       {activeTab === 'iva-soportado' && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#ffffff', margin: 0, letterSpacing: '0.05em' }}>
+            <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: BLANCO, margin: 0, letterSpacing: '0.05em' }}>
               FACTURAS DE GASTOS — IVA SOPORTADO
             </h2>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cccccc', fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={agruparMes}
                 onChange={e => setAgruparMes(e.target.checked)}
-                style={{ accentColor: '#e8f442' }}
+                style={{ accentColor: LIMA }}
               />
               Agrupar por mes
             </label>
           </div>
 
-          <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -465,7 +466,7 @@ export default function Gestoria() {
               <tbody>
                 {agruparMes ? (
                   facturasPorMes.length === 0 ? (
-                    <tr><td colSpan={7} style={{ ...tdStyle, textAlign: 'center', color: '#777777', padding: '32px' }}>Sin datos para el período</td></tr>
+                    <tr><td colSpan={7} style={{ ...tdStyle, textAlign: 'center', color: GRIS, padding: '32px' }}>Sin datos para el período</td></tr>
                   ) : (
                     facturasPorMes.map(grupo => (
                       <GrupoMesRows
@@ -478,7 +479,7 @@ export default function Gestoria() {
                   )
                 ) : (
                   facturas.length === 0 ? (
-                    <tr><td colSpan={7} style={{ ...tdStyle, textAlign: 'center', color: '#777777', padding: '32px' }}>Sin datos para el período</td></tr>
+                    <tr><td colSpan={7} style={{ ...tdStyle, textAlign: 'center', color: GRIS, padding: '32px' }}>Sin datos para el período</td></tr>
                   ) : (
                     facturas.map(f => (
                       <FacturaRow key={f.id} f={f} tdStyle={tdStyle} titularNombre={titularNombre} />
@@ -487,12 +488,12 @@ export default function Gestoria() {
                 )}
               </tbody>
               <tfoot>
-                <tr style={{ background: '#0a0a0a' }}>
-                  <td colSpan={2} style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontSize: 12, color: '#777777' }}>TOTALES</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: '#ffffff', fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalBaseFacturas)}</td>
+                <tr style={{ background: INK }}>
+                  <td colSpan={2} style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontSize: 12, color: GRIS }}>TOTALES</td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: BLANCO, fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalBaseFacturas)}</td>
                   <td style={tdStyle}></td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: '#B01D23', fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalIvaFacturas)}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: '#ffffff', fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalBaseFacturas + totalIvaFacturas)}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: GRANATE, fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalIvaFacturas)}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: BLANCO, fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalBaseFacturas + totalIvaFacturas)}</td>
                   <td style={tdStyle}></td>
                 </tr>
               </tfoot>
@@ -505,28 +506,28 @@ export default function Gestoria() {
       {activeTab === 'iva-repercutido' && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#ffffff', margin: 0, letterSpacing: '0.05em' }}>
+            <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: BLANCO, margin: 0, letterSpacing: '0.05em' }}>
               IVA REPERCUTIDO ESTIMADO
             </h2>
-            <span style={{ background: '#e8f442', color: '#111111', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, fontFamily: 'Oswald, sans-serif' }}>
+            <span style={{ background: LIMA, color: INK, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, fontFamily: 'Oswald, sans-serif' }}>
               #ESTIMADO
             </span>
           </div>
 
           <div style={{
-            background: '#141414',
+            background: INK,
             border: '1px solid #383838',
             borderRadius: 8,
             padding: '12px 16px',
             marginBottom: 20,
-            color: '#777777',
+            color: GRIS,
             fontFamily: 'Lexend, sans-serif',
             fontSize: 12,
           }}>
             Este cálculo es orientativo. Para modelo 303/130 real se requieren datos de facturación formal. El IVA se estima aplicando 21% sobre ventas brutas de plataformas.
           </div>
 
-          <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -538,7 +539,7 @@ export default function Gestoria() {
               </thead>
               <tbody>
                 {ventasPorMes.length === 0 ? (
-                  <tr><td colSpan={4} style={{ ...tdStyle, textAlign: 'center', color: '#777777', padding: '32px' }}>Sin datos para el período</td></tr>
+                  <tr><td colSpan={4} style={{ ...tdStyle, textAlign: 'center', color: GRIS, padding: '32px' }}>Sin datos para el período</td></tr>
                 ) : (
                   ventasPorMes.map(row => {
                     const base = row.ventas / 1.21
@@ -547,19 +548,19 @@ export default function Gestoria() {
                       <tr key={row.periodo}>
                         <td style={tdStyle}>{row.periodo}</td>
                         <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtEur(row.ventas)}</td>
-                        <td style={{ ...tdStyle, textAlign: 'right', color: '#cccccc' }}>{fmtEur(base)}</td>
-                        <td style={{ ...tdStyle, textAlign: 'right', color: '#e8f442' }}>{fmtEur(iva)}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right', color: GRIS }}>{fmtEur(base)}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right', color: LIMA }}>{fmtEur(iva)}</td>
                       </tr>
                     )
                   })
                 )}
               </tbody>
               <tfoot>
-                <tr style={{ background: '#0a0a0a' }}>
-                  <td style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontSize: 12, color: '#777777' }}>TOTALES</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: '#ffffff', fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalIngresos)}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: '#cccccc', fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalIngresos / 1.21)}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: '#e8f442', fontFamily: 'Oswald, sans-serif' }}>{fmtEur(ivaRepercutidoEstimado)}</td>
+                <tr style={{ background: INK }}>
+                  <td style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontSize: 12, color: GRIS }}>TOTALES</td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: BLANCO, fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalIngresos)}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: GRIS, fontFamily: 'Oswald, sans-serif' }}>{fmtEur(totalIngresos / 1.21)}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: LIMA, fontFamily: 'Oswald, sans-serif' }}>{fmtEur(ivaRepercutidoEstimado)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -570,24 +571,24 @@ export default function Gestoria() {
       {/* ── TAB EXPORTS ──────────────────────────────────────────────────────── */}
       {activeTab === 'exports' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#ffffff', margin: 0, letterSpacing: '0.05em' }}>
+          <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: BLANCO, margin: 0, letterSpacing: '0.05em' }}>
             EXPORTACIONES PARA GESTORÍA
           </h2>
 
           {/* Modelo 303 */}
-          <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 24px' }}>
+          <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: '#ffffff', marginBottom: 6 }}>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: BLANCO, marginBottom: 6 }}>
                   Modelo 303 — IVA Trimestral
                 </div>
-                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#777777', maxWidth: 500 }}>
+                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, maxWidth: 500 }}>
                   CSV con base imponible repercutida estimada, IVA repercutido estimado, base IVA soportado, IVA soportado y cuota diferencial.
                 </div>
                 <div style={{ marginTop: 10, display: 'flex', gap: 16, fontFamily: 'Lexend, sans-serif', fontSize: 12, flexWrap: 'wrap' }}>
-                  <span style={{ color: '#cccccc' }}>IVA rep. est.: <strong style={{ color: '#e8f442' }}>{fmtEur(ivaRepercutidoEstimado)}</strong></span>
-                  <span style={{ color: '#cccccc' }}>IVA soportado: <strong style={{ color: '#B01D23' }}>{fmtEur(ivaSoportado)}</strong></span>
-                  <span style={{ color: '#cccccc' }}>Cuota diferencial: <strong style={{ color: ivaRepercutidoEstimado - ivaSoportado >= 0 ? '#1D9E75' : '#B01D23' }}>{fmtEur(ivaRepercutidoEstimado - ivaSoportado)}</strong></span>
+                  <span style={{ color: GRIS }}>IVA rep. est.: <strong style={{ color: LIMA }}>{fmtEur(ivaRepercutidoEstimado)}</strong></span>
+                  <span style={{ color: GRIS }}>IVA soportado: <strong style={{ color: GRANATE }}>{fmtEur(ivaSoportado)}</strong></span>
+                  <span style={{ color: GRIS }}>Cuota diferencial: <strong style={{ color: ivaRepercutidoEstimado - ivaSoportado >= 0 ? VERDE : GRANATE }}>{fmtEur(ivaRepercutidoEstimado - ivaSoportado)}</strong></span>
                 </div>
               </div>
               <button onClick={exportarModelo303} style={btnStyle}>
@@ -597,17 +598,17 @@ export default function Gestoria() {
           </div>
 
           {/* Export gastos */}
-          <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 24px' }}>
+          <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: '#ffffff', marginBottom: 6 }}>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: BLANCO, marginBottom: 6 }}>
                   Export Gastos Completo
                 </div>
-                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#777777', maxWidth: 500 }}>
+                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, maxWidth: 500 }}>
                   Excel con todas las facturas de gastos del período seleccionado. Incluye proveedor, base, IVA, total y titular.
                 </div>
-                <div style={{ marginTop: 8, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#cccccc' }}>
-                  {facturas.length} facturas — Total IVA: <strong style={{ color: '#B01D23' }}>{fmtEur(totalIvaFacturas)}</strong>
+                <div style={{ marginTop: 8, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS }}>
+                  {facturas.length} facturas — Total IVA: <strong style={{ color: GRANATE }}>{fmtEur(totalIvaFacturas)}</strong>
                 </div>
               </div>
               <button onClick={exportarGastos} style={btnStyle}>
@@ -617,16 +618,16 @@ export default function Gestoria() {
           </div>
 
           {/* Export movimientos */}
-          <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 24px' }}>
+          <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: '#ffffff', marginBottom: 6 }}>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: BLANCO, marginBottom: 6 }}>
                   Export Movimientos Bancarios
                 </div>
-                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#777777', maxWidth: 500 }}>
+                <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, maxWidth: 500 }}>
                   Excel con todos los movimientos de conciliación del período. Incluye fecha, concepto, importe, categoría y titular.
                 </div>
-                <div style={{ marginTop: 8, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#cccccc' }}>
+                <div style={{ marginTop: 8, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS }}>
                   {conciliacion.length} movimientos
                 </div>
               </div>
@@ -647,8 +648,8 @@ type MesGroup = { mes: string; base: number; iva: number; filas: { id: string; p
 function GrupoMesRows({ grupo, tdStyle, titularNombre }: { grupo: MesGroup; tdStyle: React.CSSProperties; titularNombre: (id: string | null) => string }) {
   return (
     <>
-      <tr style={{ background: '#0a0a0a' }}>
-        <td colSpan={7} style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontSize: 12, color: '#e8f442', letterSpacing: '0.06em' }}>
+      <tr style={{ background: INK }}>
+        <td colSpan={7} style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontSize: 12, color: LIMA, letterSpacing: '0.06em' }}>
           {grupo.mes} — {grupo.filas.length} facturas
         </td>
       </tr>
@@ -678,10 +679,10 @@ function FacturaRow({
       <td style={tdStyle}>{fmtDate(f.fecha_factura)}</td>
       <td style={tdStyle}>{f.proveedor_nombre ?? '—'}</td>
       <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtEur(f.total_base)}</td>
-      <td style={{ ...tdStyle, color: '#777777' }}>{ivaPct}</td>
-      <td style={{ ...tdStyle, textAlign: 'right', color: '#B01D23' }}>{fmtEur(f.total_iva)}</td>
+      <td style={{ ...tdStyle, color: GRIS }}>{ivaPct}</td>
+      <td style={{ ...tdStyle, textAlign: 'right', color: GRANATE }}>{fmtEur(f.total_iva)}</td>
       <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtEur(f.total)}</td>
-      <td style={{ ...tdStyle, color: '#777777' }}>{titularNombre(f.titular_id)}</td>
+      <td style={{ ...tdStyle, color: GRIS }}>{titularNombre(f.titular_id)}</td>
     </tr>
   )
 }

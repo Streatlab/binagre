@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -25,7 +26,7 @@ export default function TabComprasEntradas() {
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ descripcion: '', cantidad: '', unidad: 'ud', precio: '', proveedor: '', fecha: new Date().toISOString().split('T')[0], ingrediente_id: '' })
 
-  const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: '#1e1e1e', color: T.pri, fontSize: 13, fontFamily: FONT.body }
+  const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body }
 
   const cargar = async () => {
     setLoading(true)
@@ -67,7 +68,7 @@ export default function TabComprasEntradas() {
     cargar()
   }
 
-  const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', background: '#0a0a0a', borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap' }
+  const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', background: INK, borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap' }
   const td: React.CSSProperties = { padding: '8px 12px', fontSize: 13, color: T.pri, borderBottom: `0.5px solid ${T.brd}`, fontFamily: FONT.body }
 
   return (
@@ -85,7 +86,7 @@ export default function TabComprasEntradas() {
             <option value="">Vincular a ingrediente...</option>
             {ings.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
           </select>
-          <button onClick={crearLinea} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#B01D23', color: '#fff', fontFamily: FONT.heading, fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer' }}>Añadir</button>
+          <button onClick={crearLinea} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer' }}>Añadir</button>
         </div>
       </div>
 

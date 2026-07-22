@@ -1,3 +1,4 @@
+import { AZUL, BLANCO, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip,
@@ -119,7 +120,7 @@ function Pill({ active, color, children, onClick }: { active: boolean; color: st
       padding: '5px 12px', borderRadius: 7,
       border: active ? 'none' : `0.5px solid ${COLORS.brd}`,
       background: active ? color : COLORS.card,
-      color: active ? '#fff' : COLORS.sec,
+      color: active ? BLANCO : COLORS.sec,
       fontFamily: FONT.body, fontSize: 12, fontWeight: 500, cursor: 'pointer',
     }}>{children}</button>
   )
@@ -302,7 +303,7 @@ export default function MenuEngineering() {
    Corte X: regla del 70% → (100/N)·0,70. Corte Y: margen medio.
    ══════════════════════════════════════════════════════ */
 type CuadB = 'estrella' | 'vaca' | 'puzzle' | 'perro'
-const B_COLOR: Record<CuadB, string> = { estrella: '#1D9E75', vaca: '#1E5BCC', puzzle: '#F26B1F', perro: '#E24B4A' }
+const B_COLOR: Record<CuadB, string> = { estrella: VERDE, vaca: AZUL, puzzle: NAR, perro: ROJO }
 const B_LABEL: Record<CuadB, string> = { estrella: 'Estrella', vaca: 'Vaca', puzzle: 'Puzzle', perro: 'Perro' }
 const B_ACTION: Record<CuadB, string> = {
   estrella: 'Mantener y destacar en carta',
@@ -385,7 +386,7 @@ function BTooltip({ active, payload }: { active?: boolean; payload?: Array<{ pay
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div style={{ background: '#fff', border: `0.5px solid ${COLORS.brd}`, borderRadius: 8, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 8, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 13, marginBottom: 2 }}>{d.nombre}</div>
       <div>Popularidad: {fmtDec(d.mix)}% {d.estimado && <span style={{ color: COLORS.warn }}>(est.)</span>}</div>
       <div>Margen: {fmtEur(d.margen)} ({fmtDec(d.margenPct * 100)}%)</div>
@@ -400,7 +401,7 @@ function BTooltip({ active, payload }: { active?: boolean; payload?: Array<{ pay
    Categorías: Primes / Standards / Sleepers / Problems
    ══════════════════════════════════════════════════════ */
 type CuadP = 'prime' | 'standard' | 'sleeper' | 'problem'
-const P_COLOR: Record<CuadP, string> = { prime: '#1D9E75', standard: '#1E5BCC', sleeper: '#F26B1F', problem: '#E24B4A' }
+const P_COLOR: Record<CuadP, string> = { prime: VERDE, standard: AZUL, sleeper: NAR, problem: ROJO }
 const P_LABEL: Record<CuadP, string> = { prime: 'Prime', standard: 'Standard', sleeper: 'Sleeper', problem: 'Problem' }
 const P_DESC: Record<CuadP, string> = {
   prime: 'Food cost bajo + margen ponderado alto → joya',
@@ -473,7 +474,7 @@ function PTooltip({ active, payload }: { active?: boolean; payload?: Array<{ pay
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div style={{ background: '#fff', border: `0.5px solid ${COLORS.brd}`, borderRadius: 8, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 8, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 13, marginBottom: 2 }}>{d.nombre}</div>
       <div>Food cost: {fmtDec(d.foodCostPct * 100)}%</div>
       <div>Margen pond.: {fmtEur(d.mcw)}</div>
@@ -510,7 +511,7 @@ function LeBruto({ dishes }: { dishes: Dish[] }) {
   const orden = ['P+ M+ %+', 'P+ M+ %-', 'P+ M- %+', 'P+ M- %-', 'P- M+ %+', 'P- M+ %-', 'P- M- %+', 'P- M- %-']
   const colorCelda = (k: string) => {
     const score = (k.includes('P+') ? 1 : 0) + (k.includes('M+') ? 1 : 0) + (k.includes('%+') ? 1 : 0)
-    return score === 3 ? '#1D9E75' : score === 2 ? '#1E5BCC' : score === 1 ? '#F26B1F' : '#E24B4A'
+    return score === 3 ? VERDE : score === 2 ? AZUL : score === 1 ? NAR : ROJO
   }
 
   return (

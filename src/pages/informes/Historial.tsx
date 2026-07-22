@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
 /**
  * Módulo Informes — Historial completo de envíos
  *
@@ -129,7 +130,7 @@ export default function Historial() {
                   <td style={td(T)}>
                     <Estado e={e.estado} T={T} />
                     {e.error_mensaje && (
-                      <div style={{ fontSize: 11, color: '#B01D23', marginTop: 2 }}>{e.error_mensaje}</div>
+                      <div style={{ fontSize: 11, color: GRANATE, marginTop: 2 }}>{e.error_mensaje}</div>
                     )}
                   </td>
                   <td style={td(T)}>
@@ -172,7 +173,7 @@ export default function Historial() {
             </pre>
             <button
               onClick={() => setVerContenido(null)}
-              style={{ marginTop: 12, background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}
+              style={{ marginTop: 12, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}
             >
               Cerrar
             </button>
@@ -185,9 +186,9 @@ export default function Historial() {
 
 function Estado({ e, T }: { e: 'pendiente' | 'enviado' | 'fallido'; T: ReturnType<typeof useTheme>['T'] }) {
   const cfg = e === 'enviado'
-    ? { bg: '#06C16720', fg: '#06C167', label: '✅ ENVIADO' }
+    ? { bg: '#06C16720', fg: VERDE, label: '✅ ENVIADO' }
     : e === 'fallido'
-      ? { bg: '#B01D2320', fg: '#B01D23', label: '❌ FALLIDO' }
+      ? { bg: '#B01D2320', fg: GRANATE, label: '❌ FALLIDO' }
       : { bg: T.brd, fg: T.mut, label: '⏳ PENDIENTE' }
   return (
     <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: cfg.bg, color: cfg.fg }}>

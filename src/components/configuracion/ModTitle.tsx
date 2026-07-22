@@ -1,3 +1,4 @@
+import { GRANATE } from '@/styles/neobrutal'
 import type { ReactNode } from 'react'
 
 export function ModTitle({ children }: { children: ReactNode }) {
@@ -8,7 +9,7 @@ export function ModTitle({ children }: { children: ReactNode }) {
         fontSize: 22,
         fontWeight: 700,
         letterSpacing: '0.22em',
-        color: '#B01D23',
+        color: GRANATE,
         textTransform: 'uppercase',
         marginBottom: 26,
       }}

@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useState } from 'react'
 import { useTheme, FONT } from '@/styles/tokens'
 import { ModTitle } from '@/components/configuracion/ModTitle'
@@ -42,9 +43,9 @@ export default function BancosPage() {
                 letterSpacing: '1.5px',
                 textTransform: 'uppercase',
                 fontWeight: isActive ? 600 : 500,
-                background: isActive ? '#B01D23' : T.card,
-                color: isActive ? '#ffffff' : T.sec,
-                border: `0.5px solid ${isActive ? '#B01D23' : T.brd}`,
+                background: isActive ? GRANATE : T.card,
+                color: isActive ? BLANCO : T.sec,
+                border: `0.5px solid ${isActive ? GRANATE : T.brd}`,
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}

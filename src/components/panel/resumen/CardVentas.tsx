@@ -1,3 +1,4 @@
+import { BLANCO, INK, OSC } from '@/styles/neobrutal'
 /**
  * CardVentas — Panel Global
  * Editable inline:
@@ -93,7 +94,7 @@ export default function CardVentas({
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#111111' }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: INK }}>
             {fmtEur(bruto, { showEuro: false, decimals: 2 })}
           </div>
           <div style={lblXs}>BRUTO</div>
@@ -223,7 +224,7 @@ function ObjetivoEditable({
         style={{
           width: 110, padding: '0 4px', border: `1px solid ${COLOR.verde}`,
           borderRadius: 3, fontFamily: 'inherit', fontSize: 'inherit',
-          color: '#3a4050', background: '#fff',
+          color: OSC, background: BLANCO,
         }}
       />
     )
@@ -235,7 +236,7 @@ function ObjetivoEditable({
       style={{
         borderBottom: '1px dashed #d0c8bc',
         cursor: 'text',
-        color: '#3a4050',
+        color: OSC,
         padding: '0 2px',
       }}
       title="Click para editar · vacío o 0 restaura el valor calculado"

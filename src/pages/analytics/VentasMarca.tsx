@@ -1,3 +1,4 @@
+import { GRANATE, NAR, VERDE } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -18,7 +19,7 @@ interface Row {
 }
 
 const MES = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-const PALETA = ['#B01D23', '#06C167', '#f5a623', '#6b7cff', '#9b59b6', '#1D9E75', '#e8617a', '#3aa8c1', '#c17d3a', '#5a5a5a']
+const PALETA = [GRANATE, VERDE, NAR, '#6b7cff', '#9b59b6', VERDE, '#e8617a', '#3aa8c1', '#c17d3a', '#5a5a5a']
 
 const card = CARDS.std
 const cardBig = CARDS.big

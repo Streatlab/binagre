@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useRef, useState, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import { useAuth } from '@/context/AuthContext'
@@ -6,7 +7,7 @@ const CARD = 'var(--sl-card)'
 const BRD = 'var(--sl-border)'
 const PRI = 'var(--sl-text-primary)'
 const MUT = 'var(--sl-text-muted)'
-const RED = '#B01D23'
+const RED = GRANATE
 const FONT_BODY = 'Lexend, sans-serif'
 const FONT_HEADING = 'Oswald, sans-serif'
 
@@ -203,7 +204,7 @@ export default function Login() {
               fontSize: 14,
               fontWeight: 700,
               backgroundColor: RED,
-              color: '#fff',
+              color: BLANCO,
               ...NEO_CARD,
               padding: '12px 0',
               minHeight: 44,

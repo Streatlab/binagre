@@ -1,3 +1,4 @@
+import { BLANCO, INK, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -154,7 +155,7 @@ export default function TabCanales() {
   const th: CSSProperties = {
     fontFamily: FONT.heading, fontSize: 11, fontWeight: 500, letterSpacing: '1.4px',
     textTransform: 'uppercase', color: T.mut, padding: '14px 12px',
-    background: isDark ? '#0a0a0a' : '#faf8f3',
+    background: isDark ? INK : '#faf8f3',
     borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap', textAlign: 'left',
   }
   const thR: CSSProperties = { ...th, textAlign: 'right' }
@@ -173,7 +174,7 @@ export default function TabCanales() {
   const cellEditableSec: CSSProperties = { ...cellEditable, color: T.sec, fontWeight: 500 }
   const inp: CSSProperties = {
     fontFamily: FONT.heading, fontSize: 16, fontWeight: 600,
-    background: '#fff', color: '#111',
+    background: BLANCO, color: INK,
     border: `1px solid ${T.brd}`, borderRadius: 6,
     padding: '5px 10px', width: 90, textAlign: 'right', outline: 'none',
   }
@@ -347,7 +348,7 @@ export default function TabCanales() {
                       <button onClick={() => toggleActivo(c.id, c.activo)}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
                         title={c.activo ? 'Activo (click para desactivar)' : 'Inactivo (click para activar)'}>
-                        <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', backgroundColor: c.activo ? '#06C167' : '#555' }} />
+                        <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', backgroundColor: c.activo ? VERDE : '#555' }} />
                       </button>
                     </td>
 

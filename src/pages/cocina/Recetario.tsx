@@ -1,3 +1,4 @@
+import { GRANATE } from '@/styles/neobrutal'
 import { useState, useEffect } from 'react'
 import { ChefHat } from 'lucide-react'
 import TabsPastilla from '@/components/ui/TabsPastilla'
@@ -20,8 +21,8 @@ export default function Recetario() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <ChefHat size={24} color="#B01D23" />
-        <div style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', textTransform: 'uppercase' }}>
+        <ChefHat size={24} color={GRANATE} />
+        <div style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: GRANATE, textTransform: 'uppercase' }}>
           Recetario
         </div>
       </div>

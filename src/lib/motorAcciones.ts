@@ -1,3 +1,4 @@
+import { NAR, ROJO, VERDE } from '@/styles/neobrutal'
 /**
  * T-F2-12 — Motor de acciones recomendadas basado en datos ventas_plataforma
  *
@@ -41,9 +42,9 @@ interface VentaAgregada {
 }
 
 const COLORES = {
-  alta:  '#E24B4A',
-  media: '#f5a623',
-  baja:  '#1D9E75',
+  alta:  ROJO,
+  media: NAR,
+  baja:  VERDE,
 }
 
 /**

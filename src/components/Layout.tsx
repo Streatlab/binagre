@@ -1,3 +1,4 @@
+import { NAR_S } from '@/styles/neobrutal'
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '@/components/Sidebar'
@@ -12,7 +13,7 @@ import { useTheme } from '@/styles/tokens'
 import ShellMovil from '@/mobile/ShellMovil'
 
 // Fondo del wrapper del ERP: crema en modo claro (mismo crema del sidebar).
-const CREMA_WRAP = '#FCEFD6'
+const CREMA_WRAP = NAR_S
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)

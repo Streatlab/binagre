@@ -10,9 +10,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  INK, OSC, CREMA, CLARO, AMA, VERDE, ROJO, NAR, AZUL, GRANATE, GRIS, TRACK,
-  OSW, LEX, PAD, SHADOW, d, eyebrow, EUR, E2, P0, P2, N,
-} from '@/styles/neobrutal'
+  INK, OSC, CREMA, CLARO, AMA, VERDE, ROJO, NAR, AZUL, GRANATE, GRIS, TRACK, OSW, LEX, PAD, SHADOW, d, eyebrow, EUR, E2, P0, P2, N, BLANCO } from '@/styles/neobrutal'
 
 type Fila = {
   id: number; marca: string; canal: 'glovo' | 'uber_eats' | 'just_eat'
@@ -29,18 +27,18 @@ type Fila = {
 }
 
 const CANAL_LABEL: Record<string, string> = { glovo: 'Glovo', uber_eats: 'Uber Eats', just_eat: 'Just Eat' }
-const CANAL_COLOR: Record<string, string> = { glovo: '#FFC244', uber_eats: '#06C167', just_eat: '#FF8000' }
+const CANAL_COLOR: Record<string, string> = { glovo: '#FFC244', uber_eats: VERDE, just_eat: '#FF8000' }
 const CANAL_CLARO: Record<string, boolean> = { glovo: true, uber_eats: true, just_eat: false }
 
 const th: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1.2px', textTransform: 'uppercase', color: '#6b5d45', fontWeight: 600, padding: '9px 10px', textAlign: 'left', borderBottom: `2px solid ${INK}` }
 const td: React.CSSProperties = { fontFamily: LEX, fontSize: 13.5, color: INK, padding: '9px 10px', borderBottom: `1px solid ${INK}22` }
-const inp: React.CSSProperties = { padding: '8px 10px', border: `2px solid ${INK}`, background: '#fff', color: INK, fontSize: 13, fontFamily: LEX, outline: 'none' }
+const inp: React.CSSProperties = { padding: '8px 10px', border: `2px solid ${INK}`, background: BLANCO, color: INK, fontSize: 13, fontFamily: LEX, outline: 'none' }
 const btn: React.CSSProperties = { padding: '9px 16px', border: `3px solid ${INK}`, boxShadow: SHADOW, background: AMA, color: INK, fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase', cursor: 'pointer' }
 const btnGhost: React.CSSProperties = { padding: '7px 12px', border: `2px solid ${INK}`, background: 'transparent', color: INK, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', cursor: 'pointer' }
 
 function Kpi({ label, value, sub, color = INK }: { label: string; value: string; sub?: string; color?: string }) {
   return (
-    <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px', flex: 1, minWidth: 160 }}>
+    <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px', flex: 1, minWidth: 160 }}>
       <div style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b5d45' }}>{label}</div>
       <div style={{ ...d('clamp(24px,3vw,34px)', color), margin: '6px 0 2px' }}>{value}</div>
       {sub && <div style={{ fontFamily: LEX, fontSize: 12, fontWeight: 600, color: '#6b5d45' }}>{sub}</div>}
@@ -124,7 +122,7 @@ export default function RendimientoAdsPromo() {
       <section style={{ background: AMA, borderBottom: `4px solid ${INK}`, padding: `30px ${PAD}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14 }}>
           <div>
-            <span style={eyebrow('#fff')}>Marketing</span>
+            <span style={eyebrow(BLANCO)}>Marketing</span>
             <div style={{ ...d('clamp(26px,3.6vw,44px)'), margin: '12px 0 6px' }}>Rendimiento Ads &amp; Promo</div>
             <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600 }}>Internalizado tras la ruptura con Think Paladar (30/06/2026) · inversión, ROI, ROAS y salud de cliente por canal</div>
           </div>
@@ -140,11 +138,11 @@ export default function RendimientoAdsPromo() {
         </div>
       </section>
 
-      {msg && <div style={{ background: VERDE, color: '#fff', borderBottom: `4px solid ${INK}`, padding: `10px ${PAD}`, fontFamily: OSW, fontSize: 13, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{msg}</div>}
+      {msg && <div style={{ background: VERDE, color: BLANCO, borderBottom: `4px solid ${INK}`, padding: `10px ${PAD}`, fontFamily: OSW, fontSize: 13, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{msg}</div>}
 
       {/* FORMULARIO ALTA MANUAL */}
       {mostrarForm && (
-        <section style={{ background: '#fff', borderBottom: `4px solid ${INK}`, padding: `26px ${PAD}` }}>
+        <section style={{ background: BLANCO, borderBottom: `4px solid ${INK}`, padding: `26px ${PAD}` }}>
           <div style={{ ...d('20px'), marginBottom: 14 }}>Nuevo registro de periodo</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 10 }}>
             <label style={lblForm}>Canal<select value={form.canal} onChange={e => setForm({ ...form, canal: e.target.value as Fila['canal'] })} style={inp}><option value="glovo">Glovo</option><option value="uber_eats">Uber Eats</option><option value="just_eat">Just Eat</option></select></label>
@@ -169,7 +167,7 @@ export default function RendimientoAdsPromo() {
 
       {filas.length === 0 ? (
         <section style={{ padding: `40px ${PAD}` }}>
-          <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: 24, fontFamily: LEX, fontWeight: 600 }}>Sin registros todavía. Pulsa «+ Nuevo registro» para cargar el primer periodo.</div>
+          <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: 24, fontFamily: LEX, fontWeight: 600 }}>Sin registros todavía. Pulsa «+ Nuevo registro» para cargar el primer periodo.</div>
         </section>
       ) : (
         <>
@@ -188,7 +186,7 @@ export default function RendimientoAdsPromo() {
           {tot.depMedio != null && tot.depMedio > 50 && (
             <section style={{ padding: `18px ${PAD} 0` }}>
               <div style={{ background: OSC, color: CREMA, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, fontFamily: OSW, fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                <span style={{ ...eyebrow(ROJO, '#fff'), fontSize: 11 }}>Riesgo</span>
+                <span style={{ ...eyebrow(ROJO, BLANCO), fontSize: 11 }}>Riesgo</span>
                 Más de la mitad de las ventas depende de promo ({P0(tot.depMedio)}). Sin fidelización real, cortar la inversión hunde las ventas.
               </div>
             </section>
@@ -207,8 +205,8 @@ export default function RendimientoAdsPromo() {
                 const roasMedio = roasVals.length ? roasVals.reduce((a, b) => a + b, 0) / roasVals.length : null
                 const col = CANAL_COLOR[canal]
                 return (
-                  <div key={canal} style={{ background: '#fff', border: `3px solid ${INK}`, borderLeft: `12px solid ${col}`, boxShadow: SHADOW, padding: '16px 18px' }}>
-                    <span style={{ ...eyebrow(col, CANAL_CLARO[canal] ? INK : '#fff'), fontSize: 13 }}>{CANAL_LABEL[canal]}</span>
+                  <div key={canal} style={{ background: BLANCO, border: `3px solid ${INK}`, borderLeft: `12px solid ${col}`, boxShadow: SHADOW, padding: '16px 18px' }}>
+                    <span style={{ ...eyebrow(col, CANAL_CLARO[canal] ? INK : BLANCO), fontSize: 13 }}>{CANAL_LABEL[canal]}</span>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginTop: 14 }}>
                       <div><div style={lblSm}>Inversión</div><div style={d('20px', AZUL)}>{EUR(inv)}</div></div>
                       <div><div style={lblSm}>Ventas generadas</div><div style={d('20px', GRANATE)}>{EUR(ventasC)}</div></div>
@@ -224,7 +222,7 @@ export default function RendimientoAdsPromo() {
           {/* TABLA DETALLE */}
           <section style={{ padding: `0 ${PAD} 36px` }}>
             <div style={{ ...d('20px'), marginBottom: 12 }}>Detalle por periodo</div>
-            <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, overflowX: 'auto' }}>
+            <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead><tr>
                   <th style={th}>Periodo</th><th style={th}>Canal</th>
@@ -237,7 +235,7 @@ export default function RendimientoAdsPromo() {
                   {filasPeriodo.map(f => (
                     <tr key={f.id}>
                       <td style={{ ...td, whiteSpace: 'nowrap', fontFamily: OSW, fontWeight: 600 }}>{f.periodo_inicio} → {f.periodo_fin}</td>
-                      <td style={td}><span style={{ ...eyebrow(CANAL_COLOR[f.canal], CANAL_CLARO[f.canal] ? INK : '#fff'), fontSize: 11 }}>{CANAL_LABEL[f.canal]}</span></td>
+                      <td style={td}><span style={{ ...eyebrow(CANAL_COLOR[f.canal], CANAL_CLARO[f.canal] ? INK : BLANCO), fontSize: 11 }}>{CANAL_LABEL[f.canal]}</span></td>
                       <td style={{ ...td, textAlign: 'right', fontFamily: OSW, fontWeight: 700 }}>{E2(f.ventas)} €</td>
                       <td style={{ ...td, textAlign: 'right' }}>{N(f.pedidos)}</td>
                       <td style={{ ...td, textAlign: 'right', color: AZUL }}>{E2(f.inversion_ads)} €</td>

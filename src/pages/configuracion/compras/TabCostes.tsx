@@ -1,3 +1,4 @@
+import { GRANATE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -72,7 +73,7 @@ export default function TabCostes() {
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
   if (error) {
     return (
-      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
+      <div style={{ padding: 16, background: '#B01D2320', color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>
         {error}
       </div>
     )
@@ -171,7 +172,7 @@ export default function TabCostes() {
               marginLeft: 'auto',
               background: 'transparent',
               border: 'none',
-              color: '#B01D23',
+              color: GRANATE,
               fontFamily: FONT.heading,
               fontSize: 11,
               letterSpacing: '0.06em',

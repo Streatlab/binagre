@@ -1,3 +1,4 @@
+import { BLANCO, VERDE } from '@/styles/neobrutal'
 /**
  * uiSL — primitivas visuales del skin SL (Ley Visual SL v2).
  * Escritas desde cero: no heredan nada de neobrutal.ts ni de tablaNeo.ts.
@@ -113,7 +114,7 @@ function HeroSpark({ puntos }: { puntos: number[] }) {
         <div key={i} style={{
           flex: 1,
           height: `${Math.max(6, (v / max) * 100)}%`,
-          background: i === puntos.length - 1 ? '#fff' : 'rgba(255,255,255,0.28)',
+          background: i === puntos.length - 1 ? BLANCO : 'rgba(255,255,255,0.28)',
           borderRadius: '3px 3px 0 0',
         }} />
       ))}
@@ -130,7 +131,7 @@ function Anillo({ pct, label }: { pct: number; label: string }) {
       <svg width="104" height="104" viewBox="0 0 104 104" style={{ transform: 'rotate(-90deg)' }}>
         <circle cx="52" cy="52" r={R} fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="11" />
         <circle
-          cx="52" cy="52" r={R} fill="none" stroke="#fff" strokeWidth="11" strokeLinecap="round"
+          cx="52" cy="52" r={R} fill="none" stroke={BLANCO} strokeWidth="11" strokeLinecap="round"
           strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - p / 100)}
         />
       </svg>
@@ -160,7 +161,7 @@ export function Hero({ eyebrow, titular, valor, sub, right, spark, objetivo }: {
   return (
     <section style={{
       background: `linear-gradient(115deg, ${C.rojoDeep}, ${C.rojo} 45%, ${C.naranja})`,
-      borderRadius: 20, padding: '20px 24px', color: '#fff', marginBottom: 12,
+      borderRadius: 20, padding: '20px 24px', color: BLANCO, marginBottom: 12,
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       gap: 22, flexWrap: 'wrap', boxShadow: C.shadow, position: 'relative', overflow: 'hidden',
     }}>
@@ -193,9 +194,9 @@ export function HeroPill({ children, solid }: { children: ReactNode; solid?: boo
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
-      background: solid ? '#fff' : 'rgba(255,255,255,0.16)',
-      border: `1px solid ${solid ? '#fff' : 'rgba(255,255,255,0.3)'}`,
-      color: solid ? '#951218' : '#fff',
+      background: solid ? BLANCO : 'rgba(255,255,255,0.16)',
+      border: `1px solid ${solid ? BLANCO : 'rgba(255,255,255,0.3)'}`,
+      color: solid ? '#951218' : BLANCO,
       padding: '6px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: 800,
       whiteSpace: 'nowrap', backdropFilter: solid ? undefined : 'blur(4px)',
     }}>{children}</span>
@@ -231,7 +232,7 @@ export function Atencion({ tono = 'rojo', cifra, children, accion, onAccion }: {
         <button
           onClick={onAccion}
           style={{
-            background: t.c, color: '#fff', border: 'none', borderRadius: 999,
+            background: t.c, color: BLANCO, border: 'none', borderRadius: 999,
             padding: '8px 15px', fontFamily: "'Nunito', sans-serif",
             fontWeight: 900, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
           }}
@@ -336,7 +337,7 @@ export function Euro({ base, tramos, frase }: {
               flex: pct, background: t.color, display: 'flex', alignItems: 'center',
               justifyContent: 'center', minWidth: 0, overflow: 'hidden',
               fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 12,
-              color: t.textoOscuro ? '#4a3a00' : '#fff',
+              color: t.textoOscuro ? '#4a3a00' : BLANCO,
             }}>
               {pct >= 4 ? `${pct.toFixed(1)}%` : ''}
             </div>
@@ -497,7 +498,7 @@ export function Barras({ datos, alto = 200, fmt = num0 }: {
 
 /* ── Colores de canal (marca) ── */
 export const CANAL_COLOR: Record<string, string> = {
-  uber: '#06C167', glovo: C.amarillo, je: C.naranja, web: C.rojo, dir: C.blu,
+  uber: VERDE, glovo: C.amarillo, je: C.naranja, web: C.rojo, dir: C.blu,
 }
 export const CANAL_LABEL: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', je: 'Just Eat', web: 'Web', dir: 'Directa',

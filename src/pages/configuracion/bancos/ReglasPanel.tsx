@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Wand2 } from 'lucide-react'
@@ -154,7 +155,7 @@ export default function ReglasPanel() {
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
   if (error) {
     return (
-      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
+      <div style={{ padding: 16, background: '#B01D2320', color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>
         {error}
       </div>
     )
@@ -177,7 +178,7 @@ export default function ReglasPanel() {
   const washBrd    = isDark ? 'rgba(250,199,117,0.28)' : '#FAC775'
   const washTxt    = isDark ? '#FAC775'                : '#412402'
   const washSub    = isDark ? '#F5C36B'                : '#854F0B'
-  const codeBg     = isDark ? 'rgba(255,255,255,0.06)' : '#ffffff'
+  const codeBg     = isDark ? 'rgba(255,255,255,0.06)' : BLANCO
   const codeBrd    = isDark ? 'rgba(250,199,117,0.22)' : '#E9D9A6'
 
   return (
@@ -270,8 +271,8 @@ export default function ReglasPanel() {
               padding: '7px 14px',
               borderRadius: 6,
               border: 'none',
-              background: '#B01D23',
-              color: '#ffffff',
+              background: GRANATE,
+              color: BLANCO,
               fontFamily: FONT.heading,
               fontSize: 11,
               letterSpacing: '1px',

@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -178,7 +179,7 @@ export default function ModalEditarFicha({ ficha, gamasAll, onClose, onSaved }: 
                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(f) }} />
                   </label>
                   {fotoUrl && (
-                    <button onClick={() => setFotoUrl(null)} style={{ background: 'none', border: 'none', color: '#B01D23', fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>Quitar foto</button>
+                    <button onClick={() => setFotoUrl(null)} style={{ background: 'none', border: 'none', color: GRANATE, fontSize: 12, cursor: 'pointer', textAlign: 'left' }}>Quitar foto</button>
                   )}
                 </div>
               </div>
@@ -195,7 +196,7 @@ export default function ModalEditarFicha({ ficha, gamasAll, onClose, onSaved }: 
                   <input value={i.cant} onChange={e => setIng(idx, 'cant', e.target.value)} className="ds-input" style={{ gridColumn: 'span 2' }} placeholder="Cant." />
                   <input value={i.ud} onChange={e => setIng(idx, 'ud', e.target.value)} className="ds-input" style={{ gridColumn: 'span 2' }} placeholder="ud" />
                   <input value={i.equivalencia} onChange={e => setIng(idx, 'equivalencia', e.target.value)} className="ds-input" style={{ gridColumn: 'span 2' }} placeholder="equiv." />
-                  <button onClick={() => delIng(idx)} style={{ gridColumn: 'span 1', background: 'transparent', border: '0.5px solid var(--sl-border)', borderRadius: 6, color: '#B01D23', cursor: 'pointer', padding: 7, display: 'flex', justifyContent: 'center' }}><Trash2 size={14} /></button>
+                  <button onClick={() => delIng(idx)} style={{ gridColumn: 'span 1', background: 'transparent', border: '0.5px solid var(--sl-border)', borderRadius: 6, color: GRANATE, cursor: 'pointer', padding: 7, display: 'flex', justifyContent: 'center' }}><Trash2 size={14} /></button>
                 </div>
               ))}
               <button onClick={addIng} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px dashed var(--sl-border)', borderRadius: 8, color: 'var(--sl-text-secondary)', padding: '7px 14px', fontSize: 13, cursor: 'pointer' }}>
@@ -212,7 +213,7 @@ export default function ModalEditarFicha({ ficha, gamasAll, onClose, onSaved }: 
                 <div key={idx} className="flex gap-2 items-start">
                   <span style={{ paddingTop: 9, fontSize: 13, color: 'var(--sl-text-muted)', width: 20 }}>{idx + 1}.</span>
                   <textarea value={p} onChange={e => setPaso(idx, e.target.value)} className="ds-input" style={{ flex: 1, minHeight: 38, resize: 'vertical' }} />
-                  <button onClick={() => delPaso(idx)} style={{ background: 'transparent', border: '0.5px solid var(--sl-border)', borderRadius: 6, color: '#B01D23', cursor: 'pointer', padding: 7, marginTop: 1 }}><Trash2 size={14} /></button>
+                  <button onClick={() => delPaso(idx)} style={{ background: 'transparent', border: '0.5px solid var(--sl-border)', borderRadius: 6, color: GRANATE, cursor: 'pointer', padding: 7, marginTop: 1 }}><Trash2 size={14} /></button>
                 </div>
               ))}
               <button onClick={addPaso} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px dashed var(--sl-border)', borderRadius: 8, color: 'var(--sl-text-secondary)', padding: '7px 14px', fontSize: 13, cursor: 'pointer' }}>
@@ -242,7 +243,7 @@ export default function ModalEditarFicha({ ficha, gamasAll, onClose, onSaved }: 
                 const on = alergenos.includes(a)
                 return (
                   <button key={a} type="button" onClick={() => toggleAlerg(a)}
-                    style={{ padding: '7px 14px', borderRadius: 99, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? '#B01D23' : 'transparent', color: on ? '#fff' : 'var(--sl-text-secondary)' }}>
+                    style={{ padding: '7px 14px', borderRadius: 99, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? GRANATE : 'transparent', color: on ? BLANCO : 'var(--sl-text-secondary)' }}>
                     {a}
                   </button>
                 )

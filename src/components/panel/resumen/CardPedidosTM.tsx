@@ -1,3 +1,4 @@
+import { AZUL, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 /**
  * CardPedidosTM — Ronda 7
  * R7-04: formato canales "1097 / 26,76 / 17,05" sin €, sin punto medio
@@ -18,9 +19,9 @@ interface Props {
 }
 
 const CANAL_VISUAL: Record<string, { label: string; color: string }> = {
-  uber:  { label: 'Uber Eats', color: '#06C167'  },
-  glovo: { label: 'Glovo',     color: '#e8f442'  },
-  je:    { label: 'Just Eat',  color: '#f5a623'  },
+  uber:  { label: 'Uber Eats', color: VERDE  },
+  glovo: { label: 'Glovo',     color: LIMA  },
+  je:    { label: 'Just Eat',  color: NAR  },
   web:   { label: 'Web',       color: '#8B5CF6'  },
   dir:   { label: 'Directa',   color: '#06B6D4'  },
 }
@@ -42,16 +43,16 @@ export default function CardPedidosTM({
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 24, marginTop: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#1E5BCC' }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: AZUL }}>
             {fmtNum(pedidos, 0)}
           </div>
-          <div style={{ ...lblXs, color: '#1E5BCC' }}>PEDIDOS</div>
+          <div style={{ ...lblXs, color: AZUL }}>PEDIDOS</div>
         </div>
         <div>
-          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: '#F26B1F' }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: NAR }}>
             {fmtEur(tmBruto, { showEuro: true, decimals: 2 })}
           </div>
-          <div style={{ ...lblXs, color: '#F26B1F' }}>TM BRUTO</div>
+          <div style={{ ...lblXs, color: NAR }}>TM BRUTO</div>
         </div>
         <div>
           <div style={{ fontFamily: OSWALD, fontSize: 38, fontWeight: 600, color: COLOR.verde }}>
@@ -96,9 +97,9 @@ export default function CardPedidosTM({
                 <span>● {visual.label}</span>
                 <span>
                   {/* R7-04: pedidos / TM bruto / TM neto sin €, separador / con espacios */}
-                  <b style={{ color: '#1E5BCC', fontWeight: 500 }}>{fmtNum(ped, 0)}</b>
+                  <b style={{ color: AZUL, fontWeight: 500 }}>{fmtNum(ped, 0)}</b>
                   {' / '}
-                  <span style={{ color: '#F26B1F' }}>{fmtNum(tBruto, 2)}</span>
+                  <span style={{ color: NAR }}>{fmtNum(tBruto, 2)}</span>
                   {' / '}
                   <span style={{ color: COLOR.verde }}>{fmtNum(tNeto, 2)}</span>
                 </span>

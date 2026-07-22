@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, LIMA } from '@/styles/neobrutal'
 import { useMemo, useState, useEffect } from 'react'
 import { useTheme, fmtFechaCorta } from '@/styles/tokens'
 import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
@@ -180,7 +181,7 @@ export default function Conciliacion({ periodoExterno }: { periodoExterno?: { de
       {!integrado && (
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h2 style={{ color: '#B01D23', fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>
+            <h2 style={{ color: GRANATE, fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>
               CONCILIACIÓN
             </h2>
             <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-muted)', display: 'block', marginTop: 4 }}>
@@ -240,9 +241,9 @@ export default function Conciliacion({ periodoExterno }: { periodoExterno?: { de
       />
 
       {ultimaPropagacion && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1e2233', color: '#fff', borderRadius: 10, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14, zIndex: 200, fontFamily: 'Lexend, sans-serif', fontSize: 13, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1e2233', color: BLANCO, borderRadius: 10, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14, zIndex: 200, fontFamily: 'Lexend, sans-serif', fontSize: 13, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
           <span>{ultimaPropagacion.length} movimiento{ultimaPropagacion.length > 1 ? 's' : ''} categorizados</span>
-          <button onClick={handleDeshacerPropagacion} style={{ background: '#e8f442', color: '#1e2233', border: 'none', borderRadius: 6, padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600 }}>Deshacer</button>
+          <button onClick={handleDeshacerPropagacion} style={{ background: LIMA, color: '#1e2233', border: 'none', borderRadius: 6, padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600 }}>Deshacer</button>
           <button onClick={() => setUltimaPropagacion(null)} style={{ background: 'transparent', color: 'var(--sl-text-muted)', border: 'none', fontSize: 16, cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
         </div>
       )}

@@ -1,3 +1,4 @@
+import { GRIS } from '@/styles/neobrutal'
 import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import ToastSL from '@/components/ui/ToastSL'
@@ -164,7 +165,7 @@ export default function ShellMovil() {
               {PROXIMAMENTE.map((p, i) => (
                 <div key={p.label} style={{
                   padding: '0.35rem 0.5rem', fontFamily: OSW, fontWeight: 600, fontSize: '0.75rem',
-                  textTransform: 'uppercase', color: '#9a8f78',
+                  textTransform: 'uppercase', color: GRIS,
                   borderTop: i > 0 ? '1.5px solid rgba(0,0,0,.12)' : 'none',
                   display: 'flex', gap: '0.35rem', alignItems: 'center',
                 }}>
@@ -175,7 +176,7 @@ export default function ShellMovil() {
           )}
 
           <button onClick={logout} style={{
-            width: '100%', background: GRANATE, color: '#fff', border: `3px solid ${INK}`,
+            width: '100%', background: GRANATE, color: BLANCO, border: `3px solid ${INK}`,
             boxShadow: `3px 3px 0 ${INK}`, padding: '0.5rem', cursor: 'pointer', borderRadius: 0,
             fontFamily: OSW, fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase',
           }}>Cerrar sesión</button>
@@ -254,7 +255,7 @@ export default function ShellMovil() {
                     <span style={{ display: 'block', fontSize: '0.78rem', opacity: 0.55 }}>{it.desc}</span>
                   </span>
                   {it.pendiente
-                    ? <span style={chip(GRANATE, '#fff', '', '0.6rem')}>PEND</span>
+                    ? <span style={chip(GRANATE, BLANCO, '', '0.6rem')}>PEND</span>
                     : <span style={{ opacity: 0.3, fontSize: '1.3rem', fontFamily: OSW }}>›</span>}
                 </button>
               )
@@ -286,7 +287,7 @@ export default function ShellMovil() {
                   }}>{d.emoji}</span>
                   {d.path === '/tareas' && tareasBadge > 0 && (
                     <span style={{
-                      position: 'absolute', top: '-0.2rem', right: '0.35rem', background: GRANATE, color: '#fff',
+                      position: 'absolute', top: '-0.2rem', right: '0.35rem', background: GRANATE, color: BLANCO,
                       border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700, fontSize: '0.6rem',
                       padding: '0 0.25rem', minWidth: '1.1rem', textAlign: 'center',
                     }}>{tareasBadge > 99 ? '99+' : tareasBadge}</span>

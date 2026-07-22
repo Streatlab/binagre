@@ -1,3 +1,4 @@
+import { GRANATE, LIMA, VERDE } from '@/styles/neobrutal'
 export function fmtNum(n: number | null | undefined, decimals = 2): string {
   if (n === null || n === undefined || isNaN(Number(n))) return '—';
   return Number(n).toLocaleString('es-ES', {
@@ -68,7 +69,7 @@ export function fmtSemana(numSemana: number, lunes: Date): string {
 //  - 0.01-50% → ámbar
 //  - >50%     → verde (50.01% ya pasa la mitad)
 export function colorSemaforo(pct: number): string {
-  if (pct <= 0) return '#B01D23';   // rojo
-  if (pct > 50) return '#1D9E75';   // verde
-  return '#e8f442';                 // ámbar
+  if (pct <= 0) return GRANATE;   // rojo
+  if (pct > 50) return VERDE;   // verde
+  return LIMA;                 // ámbar
 }

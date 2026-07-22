@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, INK, NAR, ROJO } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import { calcularFoodCostReal, type FoodCostResumen } from '@/lib/inventario/foodCostReal'
@@ -38,8 +39,8 @@ export default function TabAnalisisFoodCost() {
   const semaforoColor = (desv: number | null) => {
     if (desv === null) return T.sec
     if (desv <= 1) return '#4caf50'
-    if (desv <= 3) return '#f5a623'
-    return '#e24b4a'
+    if (desv <= 3) return NAR
+    return ROJO
   }
 
   const semaforoLabel = (desv: number | null) => {
@@ -69,7 +70,7 @@ export default function TabAnalisisFoodCost() {
           onChange={e => setPeriodo(e.target.value as PeriodoInventario)}
           style={{
             padding: '7px 12px', borderRadius: 8,
-            border: `0.5px solid ${T.brd}`, background: '#1e1e1e',
+            border: `0.5px solid ${T.brd}`, background: INK,
             color: T.pri, fontSize: 13, fontFamily: FONT.body, cursor: 'pointer',
           }}
         >
@@ -84,7 +85,7 @@ export default function TabAnalisisFoodCost() {
         <div style={{
           background: '#2a1a1a', border: '1px solid #B01D23',
           borderRadius: 8, padding: '12px 16px', marginBottom: 16,
-          color: '#e24b4a', fontFamily: FONT.body, fontSize: 13,
+          color: ROJO, fontFamily: FONT.body, fontSize: 13,
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <span style={{ fontSize: 18 }}>⚠</span>
@@ -99,7 +100,7 @@ export default function TabAnalisisFoodCost() {
           {/* 3 Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14, marginBottom: 24 }}>
             {/* Card 1: Teórico */}
-            <div style={cardBigStyle('#ffffff')}>
+            <div style={cardBigStyle(BLANCO)}>
               <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut }}>
                 Food cost teórico
               </div>
@@ -112,13 +113,13 @@ export default function TabAnalisisFoodCost() {
             </div>
 
             {/* Card 2: Real */}
-            <div style={cardBigStyle('#ffffff')}>
+            <div style={cardBigStyle(BLANCO)}>
               <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut }}>
                 Food cost real
               </div>
               <div style={{
                 fontFamily: FONT.heading, fontSize: '2.4rem', fontWeight: 700, lineHeight: 1,
-                color: data?.sinDatos ? T.mut : (data?.desviacion && data.desviacion > 3 ? '#e24b4a' : T.pri),
+                color: data?.sinDatos ? T.mut : (data?.desviacion && data.desviacion > 3 ? ROJO : T.pri),
               }}>
                 {data?.sinDatos ? '—' : fmtPctValue(data?.real ?? null)}
               </div>
@@ -128,7 +129,7 @@ export default function TabAnalisisFoodCost() {
             </div>
 
             {/* Card 3: Desviación */}
-            <div style={cardBigStyle('#ffffff')}>
+            <div style={cardBigStyle(BLANCO)}>
               <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut }}>
                 Desviación
               </div>
@@ -170,7 +171,7 @@ export default function TabAnalisisFoodCost() {
                     axisLine={false}
                   />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#1a1a1a', border: `1px solid ${T.brd}`, borderRadius: 8, fontFamily: FONT.body, fontSize: 12 }}
+                    contentStyle={{ backgroundColor: INK, border: `1px solid ${T.brd}`, borderRadius: 8, fontFamily: FONT.body, fontSize: 12 }}
                     labelStyle={{ color: T.sec }}
                     formatter={(value: unknown) => [typeof value === 'number' ? value.toFixed(1) + '%' : '—', '']}
                   />
@@ -180,7 +181,7 @@ export default function TabAnalisisFoodCost() {
                   <Line
                     type="monotone"
                     dataKey="teorico"
-                    stroke="#66aaff"
+                    stroke={AZUL_CL}
                     strokeWidth={2}
                     strokeDasharray="5 5"
                     dot={false}
@@ -190,9 +191,9 @@ export default function TabAnalisisFoodCost() {
                   <Line
                     type="monotone"
                     dataKey="real"
-                    stroke="#B01D23"
+                    stroke={GRANATE}
                     strokeWidth={2}
-                    dot={{ fill: '#B01D23', r: 3 }}
+                    dot={{ fill: GRANATE, r: 3 }}
                     name="Real"
                     connectNulls
                   />

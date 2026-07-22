@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -65,7 +66,7 @@ const INF_CATEGORIAS: Fila[] = [
   { etiqueta: 'Postres', u: 6 }, { etiqueta: 'Bebidas', u: 5 }, { etiqueta: 'Extras', u: 3 },
 ]
 
-const tooltipStyle = { background: COLORS.sidebar, border: 'none', borderRadius: 8, color: '#fff', fontFamily: LEXEND, fontSize: 12 }
+const tooltipStyle = { background: COLORS.sidebar, border: 'none', borderRadius: 8, color: BLANCO, fontFamily: LEXEND, fontSize: 12 }
 const tituloCard = { ...lbl, marginBottom: 12 }
 
 function descargarCSV(nombre: string, dim: string, data: Fila[]) {
@@ -80,12 +81,12 @@ function descargarCSV(nombre: string, dim: string, data: Fila[]) {
 function descargarPDF(nombre: string, titulo: string, periodo: string, dim: string, data: Fila[]) {
   const total = data.reduce((a, d) => a + d.u, 0) || 1
   const doc = new jsPDF()
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor('#B01D23')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(GRANATE)
   doc.text(titulo, 14, 18)
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor('#555')
   doc.text(`Periodo: ${periodo}`, 14, 25)
   let y = 36
-  doc.setFontSize(10); doc.setTextColor('#111'); doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10); doc.setTextColor(INK); doc.setFont('helvetica', 'bold')
   doc.text(dim, 14, y); doc.text('Unidades', 150, y); doc.text('%', 180, y)
   doc.setDrawColor('#ccc'); doc.line(14, y + 2, 196, y + 2)
   doc.setFont('helvetica', 'normal')
@@ -218,7 +219,7 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
 
   const btn = (activo: boolean): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
-    border: `0.5px solid ${COLORS.brd}`, background: '#fff', color: COLORS.sec,
+    border: `0.5px solid ${COLORS.brd}`, background: BLANCO, color: COLORS.sec,
     fontFamily: LEXEND, fontSize: 12, fontWeight: 500, cursor: activo ? 'pointer' : 'default', opacity: activo ? 1 : 0.5,
   })
 

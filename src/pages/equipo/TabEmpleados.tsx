@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { UserPlus, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -8,10 +9,10 @@ import { archivarEmpleado, reactivarEmpleado, eliminarEmpleadoDuro } from '@/com
 type EstadoEmpleado = 'activo' | 'baja' | 'vacaciones' | 'despedido' | 'inactivo'
 
 function estadoColor(estado: EstadoEmpleado): string {
-  if (estado === 'activo') return '#1D9E75'
+  if (estado === 'activo') return VERDE
   if (estado === 'baja') return '#888'
-  if (estado === 'vacaciones') return '#66aaff'
-  return '#B01D23'
+  if (estado === 'vacaciones') return AZUL_CL
+  return GRANATE
 }
 
 function esArchivado(estado: string): boolean {
@@ -32,9 +33,9 @@ function Avatar({ nombre, color, foto }: { nombre: string; color?: string; foto?
   return (
     <div style={{
       width: 36, height: 36, borderRadius: '50%',
-      background: color ?? '#B01D23', overflow: 'hidden',
+      background: color ?? GRANATE, overflow: 'hidden',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color: '#ffffff',
+      fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color: BLANCO,
       flexShrink: 0,
     }}>
       {foto ? <img src={foto} alt={nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
@@ -97,7 +98,7 @@ export default function TabEmpleados() {
         </span>
         <button
           onClick={() => setModal({ open: true, empleado: null })}
-          style={{ padding: '12px 16px', minHeight: 44, borderRadius: 8, border: 'none', background: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ padding: '12px 16px', minHeight: 44, borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <UserPlus size={14} />
           Nuevo empleado
@@ -164,10 +165,10 @@ export default function TabEmpleados() {
                     <div style={{ display: 'inline-flex', gap: 6 }}>
                       <button onClick={() => onArchivar(emp)} style={accionBtn}
                         title={archivado ? 'Reactivar' : 'Pasar a antiguos'}>
-                        {archivado ? <ArchiveRestore size={15} color="#1D9E75" /> : <Archive size={15} color={T.sec} />}
+                        {archivado ? <ArchiveRestore size={15} color={VERDE} /> : <Archive size={15} color={T.sec} />}
                       </button>
                       <button onClick={() => onBorrar(emp)} style={accionBtn} title="Borrar definitivamente">
-                        <Trash2 size={15} color="#B01D23" />
+                        <Trash2 size={15} color={GRANATE} />
                       </button>
                     </div>
                   </td>

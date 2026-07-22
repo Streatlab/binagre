@@ -1,10 +1,11 @@
+import { BLANCO, GRIS, INK, NAR, ROJO_S } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
 
 
-const BG_OPS = '#111111'
+const BG_OPS = INK
 type TipoBpm = 'apertura' | 'cierre' | 'BPM'
 
 interface Plantilla {
@@ -63,7 +64,7 @@ function fmtHora(iso: string | null): string {
 
 function progressColor(pct: number): string {
   if (pct < 30) return COLORS.redSL
-  if (pct < 70) return '#f5a623'
+  if (pct < 70) return NAR
   return COLORS.ok
 }
 
@@ -160,7 +161,7 @@ export default function BpmCalidad() {
   const pct = totalItems > 0 ? Math.round((completados / totalItems) * 100) : 0
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: BLANCO }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>BPM / CALIDAD</h1>
         <span style={{ fontSize: 13, color: COLOR.textMut }}>{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
@@ -168,13 +169,13 @@ export default function BpmCalidad() {
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
         {TIPOS.map(t => (
-          <button key={t} onClick={() => setActiveTab(t)} style={{ padding: '7px 18px', borderRadius: 20, border: 'none', background: activeTab === t ? COLORS.glovo : '#1e1e1e', color: activeTab === t ? BG_OPS : '#cccccc', fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
+          <button key={t} onClick={() => setActiveTab(t)} style={{ padding: '7px 18px', borderRadius: 20, border: 'none', background: activeTab === t ? COLORS.glovo : INK, color: activeTab === t ? BG_OPS : GRIS, fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
             {TIPO_LABELS[t]}
           </button>
         ))}
       </div>
 
-      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: '#ffaaaa', fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
       {loading && <div style={{ color: COLOR.textMut, fontSize: 13, padding: '20px 0' }}>Cargando…</div>}
 
       {!loading && !error && !modoEdicion && (
@@ -185,7 +186,7 @@ export default function BpmCalidad() {
                 <span style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Progreso</span>
                 <span style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: progressColor(pct) }}>{completados}/{totalItems} — {pct}%</span>
               </div>
-              <div style={{ background: '#2a2a2a', borderRadius: 6, height: 10, overflow: 'hidden' }}>
+              <div style={{ background: INK, borderRadius: 6, height: 10, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${pct}%`, background: progressColor(pct), borderRadius: 6, transition: 'width 0.4s ease' }} />
               </div>
             </div>
@@ -193,17 +194,17 @@ export default function BpmCalidad() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
             {items.map(item => (
-              <div key={item.id} onClick={() => toggleItem(item)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderRadius: 8, border: `1px solid ${item.completado ? '#1D9E7530' : '#2a2a2a'}`, background: item.completado ? '#1D9E7515' : '#141414', cursor: 'pointer', userSelect: 'none' }}>
-                <div style={{ width: 28, height: 28, borderRadius: 6, border: `2px solid ${item.completado ? COLORS.ok : '#383838'}`, background: item.completado ? COLORS.ok : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {item.completado && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L6 11L12 3" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+              <div key={item.id} onClick={() => toggleItem(item)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderRadius: 8, border: `1px solid ${item.completado ? '#1D9E7530' : INK}`, background: item.completado ? '#1D9E7515' : INK, cursor: 'pointer', userSelect: 'none' }}>
+                <div style={{ width: 28, height: 28, borderRadius: 6, border: `2px solid ${item.completado ? COLORS.ok : INK}`, background: item.completado ? COLORS.ok : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {item.completado && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L6 11L12 3" stroke={BLANCO} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                 </div>
-                <span style={{ flex: 1, fontSize: 14, color: item.completado ? COLOR.textMut : '#ffffff', textDecoration: item.completado ? 'line-through' : 'none' }}>{item.item_nombre}</span>
+                <span style={{ flex: 1, fontSize: 14, color: item.completado ? COLOR.textMut : BLANCO, textDecoration: item.completado ? 'line-through' : 'none' }}>{item.item_nombre}</span>
                 {item.completado_at && <span style={{ fontFamily: FONT.heading, fontSize: 12, color: COLORS.ok }}>{fmtHora(item.completado_at)}</span>}
               </div>
             ))}
           </div>
 
-          <button onClick={() => { setModoEdicion(true); cargarPlantillas(activeTab) }} style={{ padding: '8px 16px', background: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
+          <button onClick={() => { setModoEdicion(true); cargarPlantillas(activeTab) }} style={{ padding: '8px 16px', background: INK, border: '1px solid #383838', color: GRIS, borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
             Editar plantilla
           </button>
         </div>
@@ -213,13 +214,13 @@ export default function BpmCalidad() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <h2 style={{ fontFamily: FONT.heading, fontSize: 15, letterSpacing: '2px', textTransform: 'uppercase', color: COLORS.glovo, margin: 0 }}>EDITANDO — {TIPO_LABELS[activeTab].toUpperCase()}</h2>
-            <button onClick={() => setModoEdicion(false)} style={{ padding: '7px 16px', background: COLORS.redSL, color: '#ffffff', border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cerrar</button>
+            <button onClick={() => setModoEdicion(false)} style={{ padding: '7px 16px', background: COLORS.redSL, color: BLANCO, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cerrar</button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
             {plantillas.map((p, idx) => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8 }}>
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: INK, border: '1px solid #2a2a2a', borderRadius: 8 }}>
                 <span style={{ fontFamily: FONT.heading, fontSize: 12, color: COLOR.textMut, minWidth: 24, textAlign: 'right' }}>{idx + 1}</span>
-                <span style={{ flex: 1, fontSize: 13, color: '#cccccc' }}>{p.nombre}</span>
+                <span style={{ flex: 1, fontSize: 13, color: GRIS }}>{p.nombre}</span>
                 <button onClick={() => deleteItemPlantilla(p.id)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #B01D23', color: COLORS.redSL, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Eliminar</button>
               </div>
             ))}
@@ -228,9 +229,9 @@ export default function BpmCalidad() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <input type="text" value={nuevoItemNombre} onChange={e => setNuevoItemNombre(e.target.value)} onKeyDown={e => e.key === 'Enter' && addItemPlantilla()}
                 placeholder="Nombre del item..." autoFocus
-                style={{ flex: 1, minWidth: 200, padding: '8px 12px', background: '#1e1e1e', border: '1px solid #383838', borderRadius: 6, color: '#ffffff', fontSize: 13, outline: 'none' }} />
+                style={{ flex: 1, minWidth: 200, padding: '8px 12px', background: INK, border: '1px solid #383838', borderRadius: 6, color: BLANCO, fontSize: 13, outline: 'none' }} />
               <button onClick={addItemPlantilla} style={{ padding: '8px 16px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Añadir</button>
-              <button onClick={() => { setShowAddItem(false); setNuevoItemNombre('') }} style={{ padding: '8px 14px', background: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={() => { setShowAddItem(false); setNuevoItemNombre('') }} style={{ padding: '8px 14px', background: INK, border: '1px solid #383838', color: GRIS, borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
             </div>
           ) : (
             <button onClick={() => setShowAddItem(true)} style={{ padding: '8px 16px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>+ Añadir item</button>

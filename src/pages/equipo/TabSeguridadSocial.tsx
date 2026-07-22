@@ -8,9 +8,7 @@ import { Upload, ExternalLink, ChevronDown, ChevronRight, TriangleAlert } from '
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/lib/format'
 import {
-  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD,
-  AMA, VERDE, ROJO, AZUL, GRIS, d,
-} from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, AMA, VERDE, ROJO, AZUL, GRIS, d, BLANCO } from '@/styles/neobrutal'
 
 interface SSResumen {
   id: string
@@ -40,7 +38,7 @@ const TOLERANCIA_CUADRE = 0.5 // € — diferencias de céntimos por redondeo n
 
 const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-const card: React.CSSProperties = { background: '#fff', border: BORDER_CARD, boxShadow: SHADOW }
+const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -176,7 +174,7 @@ export default function TabSeguridadSocial() {
             <div style={{ fontFamily: OSW, fontSize: 22, color: GRIS }}>—</div>
           )}
         </div>
-        <div style={{ ...card, padding: '16px 20px', background: mesesSinResumen > 0 ? AMA : '#fff' }}>
+        <div style={{ ...card, padding: '16px 20px', background: mesesSinResumen > 0 ? AMA : BLANCO }}>
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 6 }}>Meses sin resumen ({selectedAnio})</div>
           <div style={{ ...d('34px', INK), lineHeight: 1 }}>{mesesSinResumen}</div>
         </div>
@@ -231,7 +229,7 @@ export default function TabSeguridadSocial() {
                       <span style={{
                         fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase',
                         border: `2px solid ${INK}`, padding: '3px 9px',
-                        background: r.estado === 'ok' ? VERDE : AMA, color: r.estado === 'ok' ? '#fff' : INK,
+                        background: r.estado === 'ok' ? VERDE : AMA, color: r.estado === 'ok' ? BLANCO : INK,
                       }}>
                         {r.estado === 'ok' ? 'OK' : 'Revisar'}
                       </span>
@@ -296,7 +294,7 @@ export default function TabSeguridadSocial() {
   )
 }
 
-const selectNeo: React.CSSProperties = { background: '#fff', border: `3px solid ${INK}`, color: INK, padding: '7px 12px', fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer', outline: 'none' }
+const selectNeo: React.CSSProperties = { background: BLANCO, border: `3px solid ${INK}`, color: INK, padding: '7px 12px', fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer', outline: 'none' }
 const btnPrim: React.CSSProperties = {
   fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase',
   border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '9px 16px',

@@ -1,3 +1,4 @@
+import { INK, LIMA, NAR, ROJO } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import { fmtNum, fmtEur } from '@/utils/format'
@@ -33,7 +34,7 @@ export default function TabMermas({ desde, hasta }: Props) {
     color: T.mut,
     padding: '8px 12px',
     textAlign: 'left',
-    background: '#0a0a0a',
+    background: INK,
     borderBottom: `1px solid ${T.brd}`,
     whiteSpace: 'nowrap',
   }
@@ -73,7 +74,7 @@ export default function TabMermas({ desde, hasta }: Props) {
           gap: 10,
         }}>
           <span style={{ fontSize: 18 }}>⚠</span>
-          <span style={{ color: '#e24b4a', fontFamily: FONT.body, fontSize: 13 }}>
+          <span style={{ color: ROJO, fontFamily: FONT.body, fontSize: 13 }}>
             <strong>{conAlerta.length} ingrediente{conAlerta.length !== 1 ? 's' : ''}</strong> con merma superior al 5% en este periodo.
             {' '}{conAlerta.map(m => m.nombre).slice(0, 3).join(', ')}{conAlerta.length > 3 ? '...' : ''}
           </span>
@@ -86,7 +87,7 @@ export default function TabMermas({ desde, hasta }: Props) {
           <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>
             Total merma €
           </div>
-          <div style={{ fontFamily: FONT.heading, fontSize: '2rem', fontWeight: 700, color: totalMermaEur > 0 ? '#e24b4a' : '#4caf50' }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: '2rem', fontWeight: 700, color: totalMermaEur > 0 ? ROJO : '#4caf50' }}>
             {fmtEur(totalMermaEur)}
           </div>
         </div>
@@ -102,7 +103,7 @@ export default function TabMermas({ desde, hasta }: Props) {
           <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>
             Alertas &gt;5%
           </div>
-          <div style={{ fontFamily: FONT.heading, fontSize: '2rem', fontWeight: 700, color: conAlerta.length > 0 ? '#e24b4a' : '#4caf50' }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: '2rem', fontWeight: 700, color: conAlerta.length > 0 ? ROJO : '#4caf50' }}>
             {conAlerta.length}
           </div>
         </div>
@@ -121,12 +122,12 @@ export default function TabMermas({ desde, hasta }: Props) {
                   <span style={{ fontFamily: FONT.heading, fontSize: 16, color: T.mut, minWidth: 20 }}>{i + 1}.</span>
                   <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{m.nombre}</span>
                   {m.merma_pct !== null && m.merma_pct > 5 && (
-                    <span style={{ fontSize: 10, background: '#2a1a1a', color: '#e24b4a', padding: '1px 6px', borderRadius: 4, fontFamily: FONT.heading }}>
+                    <span style={{ fontSize: 10, background: '#2a1a1a', color: ROJO, padding: '1px 6px', borderRadius: 4, fontFamily: FONT.heading }}>
                       {m.merma_pct.toFixed(1)}%
                     </span>
                   )}
                 </div>
-                <span style={{ fontFamily: FONT.heading, fontSize: 14, color: (m.merma_eur ?? 0) > 0 ? '#e24b4a' : '#4caf50' }}>
+                <span style={{ fontFamily: FONT.heading, fontSize: 14, color: (m.merma_eur ?? 0) > 0 ? ROJO : '#4caf50' }}>
                   {fmtEur(m.merma_eur ?? 0)}
                 </span>
               </div>
@@ -163,7 +164,7 @@ export default function TabMermas({ desde, hasta }: Props) {
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>
                   {m.merma !== null ? (
-                    <span style={{ color: m.merma > 0 ? '#e24b4a' : m.merma < 0 ? '#e8f442' : T.sec }}>
+                    <span style={{ color: m.merma > 0 ? ROJO : m.merma < 0 ? LIMA : T.sec }}>
                       {fmtNum(m.merma)}
                       {m.merma < 0 && <span title="Posible error de conteo" style={{ marginLeft: 4, fontSize: 10 }}>⚠</span>}
                     </span>
@@ -173,7 +174,7 @@ export default function TabMermas({ desde, hasta }: Props) {
                   {m.merma_pct !== null ? (
                     <span style={{
                       fontWeight: m.merma_pct > 5 ? 700 : 400,
-                      color: m.merma_pct > 5 ? '#e24b4a' : m.merma_pct > 2 ? '#f5a623' : T.sec,
+                      color: m.merma_pct > 5 ? ROJO : m.merma_pct > 2 ? NAR : T.sec,
                     }}>
                       {m.merma_pct.toFixed(1)}%
                     </span>
@@ -181,7 +182,7 @@ export default function TabMermas({ desde, hasta }: Props) {
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>
                   {m.merma_eur !== null ? (
-                    <span style={{ color: m.merma_eur > 0 ? '#e24b4a' : '#4caf50' }}>
+                    <span style={{ color: m.merma_eur > 0 ? ROJO : '#4caf50' }}>
                       {fmtEur(m.merma_eur)}
                     </span>
                   ) : '—'}

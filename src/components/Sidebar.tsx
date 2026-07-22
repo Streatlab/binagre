@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, NAR_S } from '@/styles/neobrutal'
 import { NavLink } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
@@ -26,10 +27,7 @@ import { useEsMovil } from '@/hooks/useEsMovil'
 // ── Variante B del mock (bloques de color sólido). FONDO del sidebar (header,
 // cuerpo y footer) en crema. Texto de módulos y submódulos grande (~85% ancho)
 // sin aumentar la altura de las celdas.
-const INK    = '#0a0a0a'
-const CREMA  = '#FCEFD6'
-const BLANCO = '#fff'
-const GRANATE = '#B01D23'
+const CREMA  = NAR_S
 const AMA    = '#FFC400'
 const LOGO_SRC = '/loco-icon.svg.svg'
 
@@ -145,15 +143,15 @@ const SECTIONS: NavSection[] = [
 
 // Variante B: cada sec-head con su color de fondo sólido (literal del mock)
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
-  finanzas:      { icon: TrendingUp,    headBg: '#0FB86B', headColor: '#fff'  },
-  cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: '#0a0a0a' },
-  operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: '#fff'  },
-  stock:         { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: '#fff'  },
-  analitica:     { icon: TrendingUp,    headBg: '#7C3AED', headColor: '#fff'  },
-  informes:      { icon: FileText,      headBg: '#B01D23', headColor: '#fff'  },
-  equipo:        { icon: Users,         headBg: '#FF2E63', headColor: '#fff'  },
-  mkt:           { icon: Megaphone,     headBg: '#1e2233', headColor: '#fff'  },
-  configuracion: { icon: Settings,      headBg: '#484f66', headColor: '#fff'  },
+  finanzas:      { icon: TrendingUp,    headBg: '#0FB86B', headColor: BLANCO  },
+  cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
+  operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: BLANCO  },
+  stock:         { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },
+  analitica:     { icon: TrendingUp,    headBg: '#7C3AED', headColor: BLANCO  },
+  informes:      { icon: FileText,      headBg: GRANATE, headColor: BLANCO  },
+  equipo:        { icon: Users,         headBg: '#FF2E63', headColor: BLANCO  },
+  mkt:           { icon: Megaphone,     headBg: '#1e2233', headColor: BLANCO  },
+  configuracion: { icon: Settings,      headBg: '#484f66', headColor: BLANCO  },
 }
 
 const OPEN_SECTIONS_LS_KEY = 'streatlab.sidebar.openSections'
@@ -360,7 +358,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 <>
                   <BellRing size={20} strokeWidth={2.4} color={isActive ? AMA : INK} />
                   {tareasBadge > 0 && (
-                    <span style={{ position: 'absolute', top: 6, right: 8, background: GRANATE, color: '#fff', borderRadius: '50%', fontSize: 9, width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                    <span style={{ position: 'absolute', top: 6, right: 8, background: GRANATE, color: BLANCO, borderRadius: '50%', fontSize: 9, width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                       {tareasBadge > 9 ? '9+' : tareasBadge}
                     </span>
                   )}
@@ -377,7 +375,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             const cfg    = SECTION_ICONS[section.key]
             const Icon   = cfg?.icon
             const headBg = cfg?.headBg ?? '#444'
-            const headCo = cfg?.headColor ?? '#fff'
+            const headCo = cfg?.headColor ?? BLANCO
 
             return (
               <div key={section.key}>
@@ -414,7 +412,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                           cursor: 'pointer', textDecoration: 'none',
                           borderTop: idx > 0 ? '1.5px solid rgba(0,0,0,.14)' : 'none',
                           background: isActive ? INK : BLANCO,
-                          color: isActive ? (section.key === 'cocina' ? AMA : '#fff') : INK,
+                          color: isActive ? (section.key === 'cocina' ? AMA : BLANCO) : INK,
                         })}
                       >
                         {({ isActive }) => (
@@ -425,7 +423,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                               <span
                                 title="Pendiente de construir"
                                 style={{
-                                  flexShrink: 0, background: isActive ? AMA : GRANATE, color: isActive ? INK : '#fff',
+                                  flexShrink: 0, background: isActive ? AMA : GRANATE, color: isActive ? INK : BLANCO,
                                   fontFamily: 'Oswald, sans-serif', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
                                   padding: '2px 5px', border: `1.5px solid ${isActive ? AMA : INK}`,
                                 }}

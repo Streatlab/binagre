@@ -1,3 +1,4 @@
+import { BLANCO, INK } from '@/styles/neobrutal'
 import { Fragment, useMemo, useState, type CSSProperties } from 'react'
 import { COLORS, FONT, CARDS } from '@/components/panel/resumen/tokens'
 import { fmtFechaCorta } from '@/styles/tokens'
@@ -96,7 +97,7 @@ export function KpiHeroMobile({ totals, dias, tm, tmNeto, netoEstimado, mediadia
       {/* Botones acción */}
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={onAdd}
-          style={{ flex: 2, minHeight: 44, padding: '12px 14px', ...NEO_CARD, background: COLORS.redSL, color: '#fff',
+          style={{ flex: 2, minHeight: 44, padding: '12px 14px', ...NEO_CARD, background: COLORS.redSL, color: BLANCO,
             fontFamily: FONT.heading, fontSize: 12, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <span style={{ fontSize: 16 }}>+</span> Añadir día
@@ -157,11 +158,11 @@ export function DayCardMobile({ row, cols, tipoDia, isSubtotal, subtotalAgg, onC
           </span>
         </div>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {today && <Badge color="#fff" bg={COLORS.redSL} solid label="HOY" />}
+          {today && <Badge color={BLANCO} bg={COLORS.redSL} solid label="HOY" />}
           {isSubtotal ? <Badge color={COLORS.lun} bg={`${COLORS.lun}18`} label="TODOS" /> : <ServicioBadgeMobile s={row.servicio} />}
-          {esCerrado && <Badge color="#fff" bg={COLORS.redSL} solid label="CERRADO" />}
-          {tipoDia === 'solo_comida' && <Badge color="#111" bg={COLORS.glovo} solid label="ALM" />}
-          {tipoDia === 'solo_cena' && <Badge color="#fff" bg={COLORS.je} solid label="CENA" />}
+          {esCerrado && <Badge color={BLANCO} bg={COLORS.redSL} solid label="CERRADO" />}
+          {tipoDia === 'solo_comida' && <Badge color={INK} bg={COLORS.glovo} solid label="ALM" />}
+          {tipoDia === 'solo_cena' && <Badge color={BLANCO} bg={COLORS.je} solid label="CENA" />}
         </div>
         <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 17, fontWeight: 700, color: COLORS.pri, lineHeight: 1 }}>
@@ -543,7 +544,7 @@ export function YearSelectorMobile({ years, selected, onChange }: YearSelectorPr
             border: `3px solid ${NEO_INK}`,
             boxShadow: selected === y ? NEO_SHADOW : 'none',
             background: selected === y ? COLORS.redSL : COLORS.card,
-            color: selected === y ? '#fff' : COLORS.mut,
+            color: selected === y ? BLANCO : COLORS.mut,
             fontFamily: FONT.heading, fontSize: 11, fontWeight: 700,
             letterSpacing: '1px', cursor: 'pointer',
           }}>

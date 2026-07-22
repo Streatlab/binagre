@@ -1,6 +1,7 @@
+import { BLANCO, INK } from '@/styles/neobrutal'
 export function AbvBadge({
   abv,
-  bg = '#1A1A1A',
+  bg = INK,
 }: {
   abv: string
   bg?: string
@@ -11,7 +12,7 @@ export function AbvBadge({
         display: 'inline-block',
         padding: '3px 8px',
         background: bg,
-        color: '#ffffff',
+        color: BLANCO,
         borderRadius: 4,
         fontSize: 10,
         letterSpacing: '0.04em',

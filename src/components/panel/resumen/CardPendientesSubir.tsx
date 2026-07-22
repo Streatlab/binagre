@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 import { COLOR, LEXEND, card, lblSm } from './tokens'
 import type { TareaPendienteItem } from './types'
 
@@ -25,7 +26,7 @@ export default function CardPendientesSubir({ items, onIrImportador }: Props) {
         <div style={lblSm}>PENDIENTES DE SUBIR</div>
         <span style={{
           background: COLOR.rojo,
-          color: '#fff',
+          color: BLANCO,
           fontSize: 11,
           padding: '1px 7px',
           borderRadius: 9,
@@ -59,7 +60,7 @@ export default function CardPendientesSubir({ items, onIrImportador }: Props) {
           width: '100%',
           padding: 8,
           background: COLOR.rojoAccent,
-          color: '#fff',
+          color: BLANCO,
           border: 'none',
           borderRadius: 6,
           fontFamily: LEXEND,

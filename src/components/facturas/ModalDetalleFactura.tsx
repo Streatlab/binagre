@@ -1,3 +1,4 @@
+import { BLANCO, INK, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -306,7 +307,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
                   href={datos.pdf_drive_url}
                   target="_blank"
                   rel="noopener"
-                  style={{ color: '#e8f442' }}
+                  style={{ color: LIMA }}
                 >
                   abrir externo
                 </a>
@@ -370,7 +371,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  backgroundColor: '#1e1e1e',
+                  backgroundColor: INK,
                   color: T.text,
                   border: `1px solid ${T.border}`,
                   borderRadius: 6,
@@ -445,7 +446,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
                     {fmtEur(Math.abs(m.conciliacion?.importe ?? m.importe_asociado))}
                   </span>
                   {m.confianza_match !== null && (
-                    <span style={{ color: '#e8f442' }}>{m.confianza_match}%</span>
+                    <span style={{ color: LIMA }}>{m.confianza_match}%</span>
                   )}
                 </div>
               </div>
@@ -495,7 +496,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
                 {datos.error_mensaje || 'El archivo no llegó a Drive. Re-sube para guardarlo en /carpetas/TITULAR/AÑO/…'}
               </div>
               {driveMsg && (
-                <div style={{ fontFamily: T.fontUi, fontSize: 11, color: driveMsg.startsWith('Error') ? '#ff8a8a' : '#1D9E75', marginTop: 4 }}>
+                <div style={{ fontFamily: T.fontUi, fontSize: 11, color: driveMsg.startsWith('Error') ? '#ff8a8a' : VERDE, marginTop: 4 }}>
                   {driveMsg}
                 </div>
               )}
@@ -513,7 +514,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
               style={{
                 padding: '8px 14px',
                 backgroundColor: '#A32D2D',
-                color: '#fff',
+                color: BLANCO,
                 border: 'none',
                 borderRadius: 8,
                 fontFamily: T.fontTitle,
@@ -604,8 +605,8 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
               onClick={aceptarMatchSugerido}
               style={{
                 padding: '9px 14px',
-                backgroundColor: '#1D9E75',
-                color: '#fff',
+                backgroundColor: VERDE,
+                color: BLANCO,
                 border: 'none',
                 borderRadius: 8,
                 fontFamily: T.fontTitle,
@@ -625,7 +626,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
               style={{
                 padding: '9px 14px',
                 backgroundColor: '#BA7517',
-                color: '#fff',
+                color: BLANCO,
                 border: 'none',
                 borderRadius: 8,
                 fontFamily: T.fontTitle,
@@ -663,7 +664,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
             style={{
               padding: '9px 14px',
               backgroundColor: T.accentRed,
-              color: '#fff',
+              color: BLANCO,
               border: 'none',
               borderRadius: 8,
               fontFamily: T.fontTitle,
@@ -742,7 +743,7 @@ function CampoEditable({
         style={{
           width: '100%',
           padding: '8px 12px',
-          backgroundColor: '#1e1e1e',
+          backgroundColor: INK,
           color: T.text,
           border: `1px solid ${T.border}`,
           borderRadius: 6,

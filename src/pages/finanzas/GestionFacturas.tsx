@@ -1,3 +1,4 @@
+import { AZUL, BLANCO, BORDE_SUAVE, GRANATE, INK, NAR, OSC, ROJO } from '@/styles/neobrutal'
 import { useMultiSort } from '@/hooks/useMultiSort'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
 /**
@@ -46,8 +47,8 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'exportar', label: 'Exportar' },
 ]
 
-const COLOR_RUBEN  = '#F26B1F'
-const COLOR_EMILIO = '#1E5BCC'
+const COLOR_RUBEN  = NAR
+const COLOR_EMILIO = AZUL
 
 const MESES_ES = ['', 'Enero','Febrero','Marzo','Abril','Mayo','Junio',
                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -322,7 +323,7 @@ export default function GestionFacturas() {
           <div style={{position:'absolute',top:'100%',right:0,background:T.card,border:`0.5px solid ${T.brd}`,borderRadius:8,zIndex:50,maxHeight:260,overflowY:'auto',boxShadow:'0 4px 12px rgba(0,0,0,0.06)',minWidth:180}}>
             {mesesDisp.map(m=>(
               <button key={m.valor} onClick={()=>{setMesSeleccionado(m.valor);setOpen(false)}}
-                style={{display:'block',width:'100%',textAlign:'left',padding:'8px 12px',background:m.valor===mesSeleccionado?'#FF475715':'transparent',color:m.valor===mesSeleccionado?'#FF4757':T.mut,fontFamily:FONT.body,fontSize:13,border:'none',cursor:'pointer'}}>
+                style={{display:'block',width:'100%',textAlign:'left',padding:'8px 12px',background:m.valor===mesSeleccionado?'#FF475715':'transparent',color:m.valor===mesSeleccionado?ROJO:T.mut,fontFamily:FONT.body,fontSize:13,border:'none',cursor:'pointer'}}>
                 {m.label}
               </button>
             ))}
@@ -346,13 +347,13 @@ export default function GestionFacturas() {
     <div style={{fontFamily:FONT.body,position:'relative'}}>
 
       {bannerVisible&&(
-        <div style={{background:'#fff3cd',border:'1px solid #ffc107',borderRadius:8,padding:'8px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:'#111111'}}>
+        <div style={{background:'#fff3cd',border:'1px solid #ffc107',borderRadius:8,padding:'8px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:INK}}>
           <span style={{flexShrink:0,fontSize:14}}>⚠️</span>
           <span style={{flex:1,fontSize:13}}>
             Plazo gestoría <strong>{mesLabel}</strong>: {plazoLabel}
           </span>
           <button onClick={()=>setActiveTab('exportar')}
-            style={{background:'#B01D23',color:'#ffffff',border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,fontFamily:'Oswald, sans-serif',fontWeight:600,cursor:'pointer',textTransform:'uppercase',letterSpacing:'0.05em',flexShrink:0}}>
+            style={{background:GRANATE,color:BLANCO,border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,fontFamily:'Oswald, sans-serif',fontWeight:600,cursor:'pointer',textTransform:'uppercase',letterSpacing:'0.05em',flexShrink:0}}>
             Exportar ZIP
           </button>
           <button onClick={()=>setBannerVisible(false)}
@@ -442,7 +443,7 @@ export default function GestionFacturas() {
                               </td>
                             ):(
                               <td style={tdDoc}>
-                                <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',minHeight:38,fontSize:18,lineHeight:1,color:'#F26B1F',fontWeight:600}}>✕</div>
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',minHeight:38,fontSize:18,lineHeight:1,color:NAR,fontWeight:600}}>✕</div>
                               </td>
                             )}
                             <td style={tdStyle}><span style={{background:est.bg,color:est.col,fontFamily:FONT.heading,fontSize:9,letterSpacing:'0.5px',padding:'2px 8px',borderRadius:9,fontWeight:500}}>{est.lbl}</span></td>
@@ -457,7 +458,7 @@ export default function GestionFacturas() {
                                     total:f.total, titular_id:f.titular_id,
                                   })}
                                   title="Descartar"
-                                  style={{background:'transparent',border:`0.5px solid ${COLORS.brd}`,borderRadius:6,color:'#F26B1F',cursor:'pointer',padding:'5px 9px',fontSize:11,fontFamily:FONT.body}}>
+                                  style={{background:'transparent',border:`0.5px solid ${COLORS.brd}`,borderRadius:6,color:NAR,cursor:'pointer',padding:'5px 9px',fontSize:11,fontFamily:FONT.body}}>
                                   Descartar
                                 </button>
                               )}
@@ -520,8 +521,8 @@ function ToggleTitular({titularKey,setTitularKey}:{titularKey:'ruben'|'emilio';s
     <div style={{display:'flex',gap:5}}>
       {(['ruben','emilio'] as const).map(t=>{
         const isActive=titularKey===t
-        const bg: string = isActive?(t==='ruben'?COLOR_RUBEN:COLOR_EMILIO):'#fff'
-        const clr: string = isActive?'#fff':'#3a4050'
+        const bg: string = isActive?(t==='ruben'?COLOR_RUBEN:COLOR_EMILIO):BLANCO
+        const clr: string = isActive?BLANCO:OSC
         const bd: string = isActive?'none':`0.5px solid ${COLORS.brd}`
         return(
           <button key={t} onClick={()=>setTitularKey(t)}
@@ -660,7 +661,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
         <button
           disabled={!todoOk||generando}
           onClick={handleGenerarZip}
-          style={{width:'100%',padding:'14px 20px',background:todoOk&&!generando?'#111':'#d0c8bc',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:500,fontFamily:FONT.body,cursor:todoOk&&!generando?'pointer':'not-allowed'}}>
+          style={{width:'100%',padding:'14px 20px',background:todoOk&&!generando?INK:BORDE_SUAVE,color:BLANCO,border:'none',borderRadius:8,fontSize:14,fontWeight:500,fontFamily:FONT.body,cursor:todoOk&&!generando?'pointer':'not-allowed'}}>
           {generando?'Generando ZIP…':`Generar paquete ZIP · ${mesLabel}`}
         </button>
       </div>
@@ -694,7 +695,7 @@ function NodoArbolItem({node,level,filtroActivo,expansionMap,titularColor,onSele
   else if(node.kind==='anio'){nodoBg=ANIO_BG;nodoColor='#7a1218';nodoFf=FONT.heading;nodoFw=600}
   else if(node.kind==='trim'&&node.trimNum){const p=TRIM_PALETTE[node.trimNum];nodoBg=p.bg;nodoColor=p.headDark;nodoFf=FONT.heading;nodoFw=700}
   else if(node.kind==='mes'&&node.trimNum){nodoBg=TRIM_PALETTE[node.trimNum].bg+'60'}
-  if(esActivo){nodoBg=node.kind==='trim'&&node.trimNum?TRIM_PALETTE[node.trimNum].headDark:titularColor;nodoColor='#fff';nodoFw=700;nodoBl=`3px solid ${nodoBg}`}
+  if(esActivo){nodoBg=node.kind==='trim'&&node.trimNum?TRIM_PALETTE[node.trimNum].headDark:titularColor;nodoColor=BLANCO;nodoFw=700;nodoBl=`3px solid ${nodoBg}`}
 
   return(
     <div>
@@ -710,7 +711,7 @@ function NodoArbolItem({node,level,filtroActivo,expansionMap,titularColor,onSele
         <button type="button" onClick={()=>onSelect(node.filtro)}
           style={{width:'100%',display:'flex',alignItems:'center',padding:'6px 8px',paddingLeft:6+level*12,background:nodoBg,border:'none',borderLeft:nodoBl,borderRadius:node.kind==='mes'?'0 4px 4px 0':'0 6px 6px 0',cursor:'pointer',fontFamily:nodoFf,fontSize:nodoFs,textAlign:'left',color:nodoColor,fontWeight:nodoFw,opacity:node.count===0&&!esActivo?0.5:1,marginBottom:node.kind==='titular'?4:1,letterSpacing:node.kind==='titular'?'1px':'normal',textTransform:node.kind==='titular'?'uppercase':'none'}}>
           <span style={{flex:1}}>{node.label}</span>
-          <span style={{color:esActivo?'#fff':COLORS.mut,fontSize:11,marginLeft:8,fontWeight:500,opacity:esActivo?0.9:1}}>{node.count>0?node.count:'—'}</span>
+          <span style={{color:esActivo?BLANCO:COLORS.mut,fontSize:11,marginLeft:8,fontWeight:500,opacity:esActivo?0.9:1}}>{node.count>0?node.count:'—'}</span>
         </button>
       </div>
       {expandido&&tieneHijos&&(

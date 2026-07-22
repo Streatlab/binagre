@@ -1,3 +1,4 @@
+import { BLANCO, INK } from '@/styles/neobrutal'
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import type { FacturasTokens } from '@/styles/facturasTheme'
@@ -28,7 +29,7 @@ export default function ModalPegarTexto({ T, onClose, onSubmit }: Props) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: '#1a1a1a',
+          backgroundColor: INK,
           borderRadius: 14,
           width: '100%',
           maxWidth: 600,
@@ -76,7 +77,7 @@ export default function ModalPegarTexto({ T, onClose, onSubmit }: Props) {
             style={{
               width: '100%',
               padding: 12,
-              backgroundColor: '#1e1e1e',
+              backgroundColor: INK,
               color: T.text,
               border: `1px solid ${T.border}`,
               borderRadius: 8,
@@ -101,7 +102,7 @@ export default function ModalPegarTexto({ T, onClose, onSubmit }: Props) {
             onClick={onClose}
             style={{
               padding: '9px 18px',
-              backgroundColor: '#222222',
+              backgroundColor: INK,
               color: T.text,
               border: `1px solid ${T.border}`,
               borderRadius: 8,
@@ -120,7 +121,7 @@ export default function ModalPegarTexto({ T, onClose, onSubmit }: Props) {
             style={{
               padding: '9px 18px',
               backgroundColor: T.accentRed,
-              color: '#fff',
+              color: BLANCO,
               border: 'none',
               borderRadius: 8,
               fontFamily: T.fontTitle,

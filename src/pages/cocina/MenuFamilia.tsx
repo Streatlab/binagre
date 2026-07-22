@@ -1,18 +1,18 @@
+import { AZUL, AZUL_CL, BLANCO, GRANATE, INK, NAR, NAR_S, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Plus, X, Trash2, Save, FolderOpen, ChevronLeft, ChevronRight, Printer, Eraser, GripVertical } from 'lucide-react'
 
 const OSWALD = "'Oswald', sans-serif"
 const LEXEND = "'Lexend', sans-serif"
-const INK = '#140f08'
-const PAGE_BG = '#FCEFD6'
+const PAGE_BG = NAR_S
 const SHADOW = `4px 4px 0 ${INK}`
 const SHADOW_SM = `3px 3px 0 ${INK}`
-const RED = '#B01D23'
+const RED = GRANATE
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 const DIA_CORTO = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
-const DIA_COLOR = ['#1E5BCC', '#06C167', '#f5a623', '#B01D23', '#66aaff', '#F26B1F', '#1D9E75']
+const DIA_COLOR = [AZUL, VERDE, NAR, GRANATE, AZUL_CL, NAR, VERDE]
 
 interface Plato { id: string; nombre: string; categoria: string | null; activo: boolean }
 interface Asign { id: string; semana_inicio: string; dia: number; plato_id: string | null; plato_nombre: string; orden: number }
@@ -144,23 +144,23 @@ export default function MenuFamilia() {
   }
 
   /* ── estilos brutalistas ── */
-  const btn = (bg: string, color = '#fff'): React.CSSProperties => ({
+  const btn = (bg: string, color = BLANCO): React.CSSProperties => ({
     background: bg, color, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW_SM,
     padding: '7px 13px', cursor: 'pointer', fontFamily: OSWALD, fontWeight: 600, fontSize: 12,
     letterSpacing: '0.5px', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 6,
   })
   const navBtn: React.CSSProperties = {
     width: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    background: '#fff', color: INK, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW_SM, cursor: 'pointer',
+    background: BLANCO, color: INK, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW_SM, cursor: 'pointer',
   }
   const inp: React.CSSProperties = {
-    background: '#fff', border: `2px solid ${INK}`, borderRadius: 0,
+    background: BLANCO, border: `2px solid ${INK}`, borderRadius: 0,
     padding: '5px 8px', color: INK, fontFamily: LEXEND, fontSize: 12, width: '100%',
   }
-  const card: React.CSSProperties = { background: '#fff', border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW, padding: 14 }
+  const card: React.CSSProperties = { background: BLANCO, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW, padding: 14 }
   const h3: React.CSSProperties = { fontFamily: OSWALD, fontWeight: 600, fontSize: 13, marginBottom: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK }
   const chip: React.CSSProperties = {
-    display: 'flex', alignItems: 'flex-start', gap: 5, background: '#fff', border: `2px solid ${INK}`,
+    display: 'flex', alignItems: 'flex-start', gap: 5, background: BLANCO, border: `2px solid ${INK}`,
     borderRadius: 0, padding: '4px 6px', cursor: 'grab',
   }
 
@@ -206,7 +206,7 @@ export default function MenuFamilia() {
           <div className="mf-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(124px, 1fr))', gap: 10, minWidth: 920 }}>
             {/* cabeceras */}
             {DIAS.map((_, i) => (
-              <div key={`h-${i}`} className="mf-head" style={{ background: DIA_COLOR[i], color: '#fff', border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW_SM, padding: '7px 4px', textAlign: 'center' }}>
+              <div key={`h-${i}`} className="mf-head" style={{ background: DIA_COLOR[i], color: BLANCO, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW_SM, padding: '7px 4px', textAlign: 'center' }}>
                 <div style={{ fontFamily: OSWALD, fontWeight: 700, fontSize: 15, letterSpacing: '1px' }}>{DIA_CORTO[i]}</div>
                 <div style={{ fontSize: 11, fontWeight: 600, fontFamily: LEXEND }}>{fmtNum(addDias(semana, i))}</div>
               </div>
@@ -224,7 +224,7 @@ export default function MenuFamilia() {
                   onDragOver={e => { e.preventDefault(); setOverDia(dia) }}
                   onDragLeave={() => setOverDia(o => (o === dia ? null : o))}
                   onDrop={() => onDropDia(dia)}
-                  style={{ background: over ? '#fff7e0' : '#fff', border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW, padding: 7, minHeight: 160, display: 'flex', flexDirection: 'column', gap: 5, outline: over ? `3px dashed ${DIA_COLOR[i]}` : 'none', outlineOffset: -6 }}
+                  style={{ background: over ? '#fff7e0' : BLANCO, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW, padding: 7, minHeight: 160, display: 'flex', flexDirection: 'column', gap: 5, outline: over ? `3px dashed ${DIA_COLOR[i]}` : 'none', outlineOffset: -6 }}
                 >
                   {items.length === 0 && <span className="mf-no-print" style={{ fontSize: 11, color: '#b0a690', fontStyle: 'italic' }}>arrastra un plato aquí</span>}
                   {items.map(a => (

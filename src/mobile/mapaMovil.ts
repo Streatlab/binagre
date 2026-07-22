@@ -1,3 +1,4 @@
+import { NAR_S } from '@/styles/neobrutal'
 /**
  * Mapa de navegación de la app móvil.
  * ESPEJO EXACTO del Sidebar de escritorio: mismas secciones, mismo orden,
@@ -24,7 +25,7 @@ export interface SeccionMovil {
 }
 
 export const INK = '#0a0a0a'
-export const CREMA = '#FCEFD6'
+export const CREMA = NAR_S
 export const CREMA2 = '#F3D9A8'
 export const BLANCO = '#FFFDF7'
 export const AMA = '#FFC400'
@@ -43,7 +44,7 @@ export const DIRECTOS: ItemMovil[] = [
 
 export const SECCIONES: SeccionMovil[] = [
   {
-    key: 'finanzas', label: 'Finanzas', emoji: '📈', color: VERDE, texto: '#fff', perfiles: ['admin'],
+    key: 'finanzas', label: 'Finanzas', emoji: '📈', color: VERDE, texto: BLANCO, perfiles: ['admin'],
     items: [
       { path: '/finanzas/papeleo?tab=bandeja', label: 'Papeleo', emoji: '📥', desc: 'Buzón y lectura de facturas', perfiles: ['admin'] },
       { path: '/finanzas/papeleo?tab=facturacion', label: 'Facturación', emoji: '🧾', desc: 'Facturas y conciliación', perfiles: ['admin'] },
@@ -87,7 +88,7 @@ export const SECCIONES: SeccionMovil[] = [
     ],
   },
   {
-    key: 'operaciones', label: 'Operaciones', emoji: '📋', color: NARANJA, texto: '#fff', perfiles: ['admin'],
+    key: 'operaciones', label: 'Operaciones', emoji: '📋', color: NARANJA, texto: BLANCO, perfiles: ['admin'],
     items: [
       { path: '/ops/checklists', label: 'Checklists', emoji: '✅', desc: 'Apertura y cierre', perfiles: ['admin'] },
       { path: '/ops/tareas', label: 'Tareas', emoji: '📝', desc: 'Del equipo', perfiles: ['admin'] },
@@ -106,7 +107,7 @@ export const SECCIONES: SeccionMovil[] = [
     ],
   },
   {
-    key: 'stock', label: 'Stock & Compras', emoji: '🛒', color: AZUL, texto: '#fff', perfiles: ['admin'],
+    key: 'stock', label: 'Stock & Compras', emoji: '🛒', color: AZUL, texto: BLANCO, perfiles: ['admin'],
     items: [
       { path: '/stock/inventario', label: 'Inventario', emoji: '📦', desc: 'Stock real', perfiles: ['admin'] },
       { path: '/stock/compras', label: 'Compras', emoji: '🛒', desc: 'Pedidos a proveedor', perfiles: ['admin'] },
@@ -114,7 +115,7 @@ export const SECCIONES: SeccionMovil[] = [
     ],
   },
   {
-    key: 'informes', label: 'Informes', emoji: '📄', color: GRANATE, texto: '#fff', perfiles: ['admin'],
+    key: 'informes', label: 'Informes', emoji: '📄', color: GRANATE, texto: BLANCO, perfiles: ['admin'],
     items: [
       { path: '/informes', label: 'Panel Informes', emoji: '📊', desc: 'Informes automáticos', perfiles: ['admin'] },
       { path: '/informes/destinatarios', label: 'Destinatarios', emoji: '👥', desc: 'Quién los recibe', perfiles: ['admin'] },
@@ -123,7 +124,7 @@ export const SECCIONES: SeccionMovil[] = [
     ],
   },
   {
-    key: 'equipo', label: 'Equipo', emoji: '👥', color: ROSA, texto: '#fff', perfiles: ['admin'],
+    key: 'equipo', label: 'Equipo', emoji: '👥', color: ROSA, texto: BLANCO, perfiles: ['admin'],
     items: [
       { path: '/equipo', label: 'Personas', emoji: '👥', desc: 'Fichas del equipo', perfiles: ['admin'] },
       { path: '/equipo/organigrama', label: 'Organigrama', emoji: '🏢', desc: 'Quién hace qué', perfiles: ['admin'] },
@@ -132,7 +133,7 @@ export const SECCIONES: SeccionMovil[] = [
     ],
   },
   {
-    key: 'mkt', label: 'MKT', emoji: '📣', color: '#1e2233', texto: '#fff', perfiles: ['admin'],
+    key: 'mkt', label: 'MKT', emoji: '📣', color: '#1e2233', texto: BLANCO, perfiles: ['admin'],
     items: [
       { path: '/marketing/panel', label: 'Panel MKT', emoji: '📣', desc: 'Vista general', perfiles: ['admin'] },
       { path: '/marketing/plan', label: 'Campañas y Promos', emoji: '🗓️', desc: 'Qué está activo', perfiles: ['admin'] },
@@ -145,7 +146,7 @@ export const SECCIONES: SeccionMovil[] = [
     ],
   },
   {
-    key: 'configuracion', label: 'Configuración', emoji: '🔧', color: GRIS, texto: '#fff', perfiles: ['admin'],
+    key: 'configuracion', label: 'Configuración', emoji: '🔧', color: GRIS, texto: BLANCO, perfiles: ['admin'],
     items: [
       { path: '/configuracion/compras/categorias', label: 'Catálogos · Compras', emoji: '🛒', desc: 'Categorías de compra', perfiles: ['admin'] },
       { path: '/configuracion/integraciones', label: 'Integraciones', emoji: '🔌', desc: 'Plataformas y robots', perfiles: ['admin'] },

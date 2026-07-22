@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import { OSW, LEX, INK, CLARO, TRACK, VERDE, ROJO, AMA, NAR, AZUL, GRANATE, GRIS, BORDER_CARD, SHADOW, eyebrow, d, EUR, E2 } from '@/styles/neobrutal'
+import { OSW, LEX, INK, CLARO, TRACK, VERDE, ROJO, AMA, NAR, AZUL, GRANATE, GRIS, BORDER_CARD, SHADOW, eyebrow, d, EUR, E2, BLANCO } from '@/styles/neobrutal'
 
 /* ══════════════ Tipos ══════════════ */
 type ItemPedido = { nombre: string; cantidad: number; precio: number; notas?: string; modificadores?: string[]; categoria?: string }
@@ -30,7 +30,7 @@ const btn = (bg: string, color: string): CSSProperties => ({
   fontFamily: OSW, fontWeight: 700, textTransform: 'uppercase', fontSize: 12,
   padding: '6px 12px', border: `2px solid ${INK}`, background: bg, color, cursor: 'pointer', boxShadow: `2px 2px 0 ${INK}`,
 })
-const input: CSSProperties = { fontFamily: LEX, fontSize: 14, padding: '8px 10px', border: `2px solid ${INK}`, background: '#fff', color: INK }
+const input: CSSProperties = { fontFamily: LEX, fontSize: 14, padding: '8px 10px', border: `2px solid ${INK}`, background: BLANCO, color: INK }
 
 /* ══════════════ Página ══════════════ */
 export default function POS() {
@@ -38,7 +38,7 @@ export default function POS() {
   return (
     <div style={{ fontFamily: LEX }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-        <span style={eyebrow(GRANATE, '#fff')}>POS</span>
+        <span style={eyebrow(GRANATE, BLANCO)}>POS</span>
         <span style={d('26px')}>Punto de venta</span>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
           {(['pedidos', 'venta', 'cierre', 'informes'] as const).map(t => (
@@ -128,7 +128,7 @@ function CardPedido({ p, onEstado }: { p: Pedido; onEstado: (p: Pedido, e: strin
       </div>
       <div style={{ padding: 14 }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 11, fontFamily: OSW, textTransform: 'uppercase', background: ORIGEN_COLOR[p.origen] ?? GRIS, color: '#fff', padding: '2px 8px', border: `2px solid ${INK}` }}>{p.origen}</span>
+          <span style={{ fontSize: 11, fontFamily: OSW, textTransform: 'uppercase', background: ORIGEN_COLOR[p.origen] ?? GRIS, color: BLANCO, padding: '2px 8px', border: `2px solid ${INK}` }}>{p.origen}</span>
           {p.marca && <span style={{ fontSize: 12, color: GRIS }}>{p.marca}</span>}
           {p.cliente_nombre && <span style={{ fontSize: 12, color: INK }}>{p.cliente_nombre}</span>}
         </div>
@@ -148,7 +148,7 @@ function CardPedido({ p, onEstado }: { p: Pedido; onEstado: (p: Pedido, e: strin
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, alignItems: 'center' }}>
           <span style={d('22px')}>{EUR(p.total)}</span>
           <div style={{ display: 'flex', gap: 6 }}>
-            {p.estado === 'nuevo' && <button onClick={() => onEstado(p, 'cancelado')} style={btn(ROJO, '#fff')}>✕</button>}
+            {p.estado === 'nuevo' && <button onClick={() => onEstado(p, 'cancelado')} style={btn(ROJO, BLANCO)}>✕</button>}
             {sig && <button onClick={() => onEstado(p, sig)} style={btn(AMA, INK)}>→ {ESTADOS.find(e => e.id === sig)?.label}</button>}
           </div>
         </div>
@@ -217,7 +217,7 @@ function TabVenta() {
       <div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
           {cats.map(c => <button key={c} onClick={() => setCat(c)} style={{ ...btn(cat === c ? AMA : CLARO, INK), fontSize: 11 }}>{c}</button>)}
-          <button onClick={() => setShowAlta(s => !s)} style={{ ...btn(VERDE, '#fff'), fontSize: 11, marginLeft: 'auto' }}>+ Producto</button>
+          <button onClick={() => setShowAlta(s => !s)} style={{ ...btn(VERDE, BLANCO), fontSize: 11, marginLeft: 'auto' }}>+ Producto</button>
         </div>
 
         {showAlta && (
@@ -226,7 +226,7 @@ function TabVenta() {
             <input style={input} placeholder="Categoría (Casera, Green…)" value={nuevo.categoria} onChange={e => setNuevo({ ...nuevo, categoria: e.target.value })} />
             <input style={input} placeholder="Marca" value={nuevo.marca} onChange={e => setNuevo({ ...nuevo, marca: e.target.value })} />
             <input style={input} placeholder="€" value={nuevo.precio} onChange={e => setNuevo({ ...nuevo, precio: e.target.value })} />
-            <button onClick={altaProducto} style={btn(GRANATE, '#fff')}>Guardar</button>
+            <button onClick={altaProducto} style={btn(GRANATE, BLANCO)}>Guardar</button>
           </div>
         )}
 
@@ -263,9 +263,9 @@ function TabVenta() {
           <span style={d('26px')}>{EUR(total)}</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 12 }}>
-          <button disabled={!carrito.length} onClick={() => cobrar('efectivo')} style={btn(VERDE, '#fff')}>Efectivo</button>
-          <button disabled={!carrito.length} onClick={() => cobrar('tarjeta')} style={btn(AZUL, '#fff')}>Tarjeta</button>
-          <button disabled={!carrito.length} onClick={() => cobrar('bizum')} style={btn(NAR, '#fff')}>Bizum</button>
+          <button disabled={!carrito.length} onClick={() => cobrar('efectivo')} style={btn(VERDE, BLANCO)}>Efectivo</button>
+          <button disabled={!carrito.length} onClick={() => cobrar('tarjeta')} style={btn(AZUL, BLANCO)}>Tarjeta</button>
+          <button disabled={!carrito.length} onClick={() => cobrar('bizum')} style={btn(NAR, BLANCO)}>Bizum</button>
         </div>
         {ok && <div style={{ marginTop: 10, fontFamily: OSW, textTransform: 'uppercase', color: VERDE }}>{ok}</div>}
       </div>
@@ -296,7 +296,7 @@ function TabCierre() {
 
   const Card = ({ label, valor, color }: { label: string; valor: number; color: string }) => (
     <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 18 }}>
-      <div style={{ ...eyebrow(color, '#fff'), marginBottom: 10 }}>{label}</div>
+      <div style={{ ...eyebrow(color, BLANCO), marginBottom: 10 }}>{label}</div>
       <div style={d('34px')}>{EUR(valor)}</div>
     </div>
   )
@@ -311,7 +311,7 @@ function TabCierre() {
         <Card label="Total día" valor={total} color={GRANATE} />
       </div>
       <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-        <button onClick={cerrar} style={{ ...btn(cerrado ? TRACK : GRANATE, cerrado ? INK : '#fff'), fontSize: 15, padding: '12px 22px' }}>
+        <button onClick={cerrar} style={{ ...btn(cerrado ? TRACK : GRANATE, cerrado ? INK : BLANCO), fontSize: 15, padding: '12px 22px' }}>
           {cerrado ? 'Actualizar cierre de hoy' : 'Cerrar caja de hoy'}
         </button>
         <span style={{ fontFamily: OSW, textTransform: 'uppercase', color: GRIS }}>{pedidos.length} tickets cobrados hoy</span>
@@ -394,13 +394,13 @@ function TabInformes() {
 
   const KPI = ({ label, valor, color }: { label: string; valor: string; color: string }) => (
     <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 18, flex: 1, minWidth: 160 }}>
-      <div style={{ ...eyebrow(color, '#fff'), marginBottom: 10 }}>{label}</div>
+      <div style={{ ...eyebrow(color, BLANCO), marginBottom: 10 }}>{label}</div>
       <div style={d('30px')}>{valor}</div>
     </div>
   )
   const Tabla = ({ titulo, filas, color, sufijo = '' }: { titulo: string; filas: [string, number][]; color: string; sufijo?: string }) => (
     <div style={{ border: BORDER_CARD, boxShadow: SHADOW, background: CLARO, padding: 18 }}>
-      <div style={{ ...eyebrow(color, '#fff'), marginBottom: 12 }}>{titulo}</div>
+      <div style={{ ...eyebrow(color, BLANCO), marginBottom: 12 }}>{titulo}</div>
       {filas.length === 0 && <div style={{ color: GRIS, fontSize: 13 }}>Sin datos en este rango</div>}
       {filas.slice(0, 12).map(([k, v]) => (
         <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${TRACK}`, color: INK }}>
@@ -431,7 +431,7 @@ function TabInformes() {
           <input type="time" style={input} value={horaIni} onChange={e => setHoraIni(e.target.value)} />
           <span style={{ color: GRIS }}>–</span>
           <input type="time" style={input} value={horaFin} onChange={e => setHoraFin(e.target.value)} />
-          <button onClick={consultar} style={{ ...btn(GRANATE, '#fff'), fontSize: 13, padding: '8px 18px' }}>Consultar</button>
+          <button onClick={consultar} style={{ ...btn(GRANATE, BLANCO), fontSize: 13, padding: '8px 18px' }}>Consultar</button>
         </div>
       </div>
 

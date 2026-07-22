@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
 import { fmtEur, fmtDate, fmtEurFactura } from '@/lib/format'
-import { OSW, LEX, INK, GRIS, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, d, eyebrow } from '@/styles/neobrutal'
+import { OSW, LEX, INK, GRIS, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, d, eyebrow, BLANCO } from '@/styles/neobrutal'
 import ModalDescartarFactura, { type FacturaDescartable } from '@/components/documentacion/ModalDescartarFactura'
 
 // ── Avisos autoaprendibles de Papeleo ────────────────────────────────────────
@@ -63,17 +63,17 @@ const ETIQUETA: Record<string, string> = {
 // azul = informativo, naranja = intermedio, rojo = alerta.
 const TIPO_ESTILO: Record<string, { bg: string; fg: string }> = {
   sin_categoria: { bg: AMA, fg: INK },
-  nif_nuevo: { bg: AZUL, fg: '#fff' },
-  titular_desconocido: { bg: NAR, fg: '#fff' },
-  posible_duplicado: { bg: ROJO, fg: '#fff' },
-  aviso_iva: { bg: ROJO, fg: '#fff' },
-  regla_desconocida: { bg: GRIS, fg: '#fff' },
-  destino_pendiente: { bg: NAR, fg: '#fff' },
-  lectura_fallida: { bg: ROJO, fg: '#fff' },
-  extracto_recibido: { bg: AZUL, fg: '#fff' },
-  doc_equipo_recibido: { bg: AZUL, fg: '#fff' },
+  nif_nuevo: { bg: AZUL, fg: BLANCO },
+  titular_desconocido: { bg: NAR, fg: BLANCO },
+  posible_duplicado: { bg: ROJO, fg: BLANCO },
+  aviso_iva: { bg: ROJO, fg: BLANCO },
+  regla_desconocida: { bg: GRIS, fg: BLANCO },
+  destino_pendiente: { bg: NAR, fg: BLANCO },
+  lectura_fallida: { bg: ROJO, fg: BLANCO },
+  extracto_recibido: { bg: AZUL, fg: BLANCO },
+  doc_equipo_recibido: { bg: AZUL, fg: BLANCO },
 }
-const estiloTipo = (tipo: string) => TIPO_ESTILO[tipo] ?? { bg: GRIS, fg: '#fff' }
+const estiloTipo = (tipo: string) => TIPO_ESTILO[tipo] ?? { bg: GRIS, fg: BLANCO }
 
 // Los botones que filtran la bandeja (orden fijo, siempre visibles)
 const TIPOS_FILTRO = ['sin_categoria', 'nif_nuevo', 'posible_duplicado', 'titular_desconocido', 'destino_pendiente', 'lectura_fallida']
@@ -118,10 +118,10 @@ function SelectorCategoria({ cats, value, onChange, disabled }: { cats: Categori
         }}
         disabled={disabled}
         placeholder="Buscar categoría (nombre o código)…"
-        style={{ fontFamily: LEX, fontSize: 12, padding: '7px 9px', border: `2px solid ${INK}`, background: disabled ? '#eee' : '#fff', color: INK, minWidth: 210, width: '100%' }}
+        style={{ fontFamily: LEX, fontSize: 12, padding: '7px 9px', border: `2px solid ${INK}`, background: disabled ? '#eee' : BLANCO, color: INK, minWidth: 210, width: '100%' }}
       />
       {open && (
-        <ul style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, background: '#fff', border: `2px solid ${INK}`, maxHeight: 220, overflowY: 'auto', margin: '2px 0 0', padding: 0, listStyle: 'none', boxShadow: SHADOW }}>
+        <ul style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, background: BLANCO, border: `2px solid ${INK}`, maxHeight: 220, overflowY: 'auto', margin: '2px 0 0', padding: 0, listStyle: 'none', boxShadow: SHADOW }}>
           {filtradas.length === 0 && (
             <li style={{ padding: '6px 9px', fontFamily: LEX, fontSize: 12, color: GRIS }}>Sin resultados</li>
           )}
@@ -129,7 +129,7 @@ function SelectorCategoria({ cats, value, onChange, disabled }: { cats: Categori
             <li key={c.id}
               onMouseDown={e => { e.preventDefault(); elegir(c.id) }}
               onMouseEnter={() => setHighlight(i)}
-              style={{ padding: '6px 9px', fontFamily: LEX, fontSize: 12, cursor: 'pointer', background: i === highlight ? AMA : '#fff', color: INK }}>
+              style={{ padding: '6px 9px', fontFamily: LEX, fontSize: 12, cursor: 'pointer', background: i === highlight ? AMA : BLANCO, color: INK }}>
               {c.id} · {c.nombre}
             </li>
           ))}
@@ -425,11 +425,11 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
   }
 
   return (
-    <div style={{ background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '16px 18px', marginBottom: 16 }}>
+    <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '16px 18px', marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={d('20px', GRANATE)}>Avisos</span>
-          <span style={eyebrow(ROJO, '#fff')}>{avisosReales.length}{truncado ? '+' : ''} dudas por resolver</span>
+          <span style={eyebrow(ROJO, BLANCO)}>{avisosReales.length}{truncado ? '+' : ''} dudas por resolver</span>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {TIPOS_FILTRO.map(tipo => {
@@ -441,7 +441,7 @@ export default function AvisosBandeja({ onResuelto }: { onResuelto?: () => void 
                 onClick={() => setFiltro(activo ? null : tipo)}
                 style={{
                   padding: '7px 14px', border: `3px solid ${INK}`,
-                  background: activo ? est.bg : '#fff', color: activo ? est.fg : INK,
+                  background: activo ? est.bg : BLANCO, color: activo ? est.fg : INK,
                   boxShadow: activo ? SHADOW : 'none',
                   fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer',
                 }}

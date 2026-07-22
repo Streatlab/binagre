@@ -1,3 +1,4 @@
+import { BLANCO, GRIS, INK } from '@/styles/neobrutal'
 import type { ReactNode } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -11,10 +12,10 @@ export function BigCard({
   children: ReactNode
 }) {
   const isDark = useIsDark()
-  const bg = isDark ? '#141414' : '#ffffff'
-  const border = isDark ? '#2a2a2a' : '#E9E1D0'
-  const titleColor = isDark ? '#777777' : '#9E9588'
-  const countColor = isDark ? '#cccccc' : '#1A1A1A'
+  const bg = isDark ? INK : BLANCO
+  const border = isDark ? INK : '#E9E1D0'
+  const titleColor = isDark ? GRIS : '#9E9588'
+  const countColor = isDark ? GRIS : INK
 
   return (
     <div

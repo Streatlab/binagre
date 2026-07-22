@@ -1,3 +1,4 @@
+import { VERDE } from '@/styles/neobrutal'
 /**
  * calcPorCobrar — "lo que te deben las plataformas a día de hoy".
  * Porta la lógica de la pestaña Cashflow (ciclos de pago por plataforma + frontera
@@ -33,7 +34,7 @@ export interface PorCobrarResult {
 
 const CIERRE_HIST = '2026-06-19'
 const CANALES = [
-  { id: 'uber', label: 'Uber Eats', color: '#06C167', bk: 'uber_bruto', pk: 'uber_pedidos' },
+  { id: 'uber', label: 'Uber Eats', color: VERDE, bk: 'uber_bruto', pk: 'uber_pedidos' },
   { id: 'glovo', label: 'Glovo', color: '#FFC244', bk: 'glovo_bruto', pk: 'glovo_pedidos' },
   { id: 'je', label: 'Just Eat', color: '#FF8000', bk: 'je_bruto', pk: 'je_pedidos' },
 ] as const

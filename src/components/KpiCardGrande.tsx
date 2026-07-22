@@ -1,3 +1,4 @@
+import { NAR, ROJO, VERDE } from '@/styles/neobrutal'
 import type { CSSProperties } from 'react'
 import { useTheme, FONT } from '@/styles/tokens'
 
@@ -33,9 +34,9 @@ interface Props {
 }
 
 const ACCENT: Record<KpiAccentGrande, string> = {
-  success: '#1D9E75',
-  danger:  '#E24B4A',
-  warning: '#f5a623',
+  success: VERDE,
+  danger:  ROJO,
+  warning: NAR,
   neutral: '',
 }
 

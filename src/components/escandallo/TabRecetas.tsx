@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { semaforoColor } from '@/styles/tokens'
 import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 import { useConfig } from '@/hooks/useConfig'
-import { INK, CREMA, OSW, LEX, AMA, GRANATE, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, OSW, LEX, AMA, GRANATE, GRIS, BLANCO } from '@/styles/neobrutal'
 import { th, thR, thC, td, tdNum, tdCod, zebra, BAND } from './estilosTabla'
 import CabeceraEscandallo from './CabeceraEscandallo'
 
@@ -142,7 +142,7 @@ export default function TabRecetas({ recetasList, busqueda = '', onBuscar, onSel
                         const col = semaforoColor(m)
                         return (
                           <td key={c.clave} style={{ ...td, padding: 0, textAlign: 'center' }}>
-                            <div style={{ background: col, color: '#ffffff', fontFamily: OSW, fontWeight: 700, fontSize: 15, padding: '6px 4px', borderLeft: `2px solid ${INK}`, borderRight: `2px solid ${INK}` }}>
+                            <div style={{ background: col, color: BLANCO, fontFamily: OSW, fontWeight: 700, fontSize: 15, padding: '6px 4px', borderLeft: `2px solid ${INK}`, borderRight: `2px solid ${INK}` }}>
                               {m.toFixed(0)}%
                             </div>
                           </td>

@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, LIMA, ROJO, ROJO_S, VERDE } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtDate } from '@/lib/format'
@@ -23,7 +24,7 @@ const MODULE_COLORS: Record<string, { bg: string; color: string }> = {
   recetas:       { bg: '#1a2d2d', color: '#22d3ee' },
   panel:         { bg: '#2d1a1a', color: '#f87171' },
   compras:       { bg: '#1a2520', color: '#34d399' },
-  configuracion: { bg: '#1e1e1e', color: '#9ca3af' },
+  configuracion: { bg: INK, color: '#9ca3af' },
 }
 
 function moduleBadge(mod: string) {
@@ -128,7 +129,7 @@ export default function AprendizajesPage() {
     color: '#9ba8c0',
     padding: '10px 12px',
     textAlign: 'left',
-    backgroundColor: '#0a0a0a',
+    backgroundColor: INK,
     borderBottom: '1px solid #2a2a2a',
     whiteSpace: 'nowrap',
   }
@@ -136,17 +137,17 @@ export default function AprendizajesPage() {
   const TD: React.CSSProperties = {
     fontFamily: FONT.body,
     fontSize: 13,
-    color: '#cccccc',
+    color: GRIS,
     padding: '10px 12px',
     borderBottom: '1px solid #1c1c1c',
     verticalAlign: 'top',
   }
 
   const inputStyle: React.CSSProperties = {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: INK,
     border: '1px solid #2a2a2a',
     borderRadius: 4,
-    color: '#ffffff',
+    color: BLANCO,
     fontFamily: FONT.body,
     fontSize: 13,
     padding: '7px 10px',
@@ -159,7 +160,7 @@ export default function AprendizajesPage() {
     <ConfigShell>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: 0 }}>
+        <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: GRANATE, fontWeight: 600, textTransform: 'uppercase', margin: 0 }}>
           Aprendizajes ERP
         </h1>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -171,7 +172,7 @@ export default function AprendizajesPage() {
           />
           <button
             onClick={() => { setShowForm(v => !v); setFeedback(null) }}
-            style={{ backgroundColor: '#e8f442', color: '#111111', border: 'none', borderRadius: 4, padding: '7px 16px', fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.5px', cursor: 'pointer', textTransform: 'uppercase' }}
+            style={{ backgroundColor: LIMA, color: INK, border: 'none', borderRadius: 4, padding: '7px 16px', fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.5px', cursor: 'pointer', textTransform: 'uppercase' }}
           >
             {showForm ? 'Cancelar' : '+ Añadir aprendizaje'}
           </button>
@@ -180,15 +181,15 @@ export default function AprendizajesPage() {
 
       {/* Feedback */}
       {feedback && (
-        <div style={{ backgroundColor: feedback.ok ? '#0d2d1a' : '#2d1515', border: `1px solid ${feedback.ok ? '#1d9e75' : '#aa3030'}`, color: feedback.ok ? '#4ade80' : '#ffaaaa', borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontFamily: FONT.body, fontSize: 13 }}>
+        <div style={{ backgroundColor: feedback.ok ? '#0d2d1a' : '#2d1515', border: `1px solid ${feedback.ok ? VERDE : ROJO}`, color: feedback.ok ? '#4ade80' : ROJO_S, borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontFamily: FONT.body, fontSize: 13 }}>
           {feedback.msg}
         </div>
       )}
 
       {/* Form inline */}
       {showForm && (
-        <div style={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 6, padding: 20, marginBottom: 20 }}>
-          <h2 style={{ fontFamily: FONT.heading, fontSize: 15, color: '#e8f442', letterSpacing: '1px', textTransform: 'uppercase', margin: '0 0 16px' }}>Nuevo aprendizaje</h2>
+        <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 6, padding: 20, marginBottom: 20 }}>
+          <h2 style={{ fontFamily: FONT.heading, fontSize: 15, color: LIMA, letterSpacing: '1px', textTransform: 'uppercase', margin: '0 0 16px' }}>Nuevo aprendizaje</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
               <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: '#9ba8c0', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Síntoma *</label>
@@ -215,13 +216,13 @@ export default function AprendizajesPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              style={{ backgroundColor: '#B01D23', color: '#ffffff', border: 'none', borderRadius: 4, padding: '8px 20px', fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.5px', cursor: saving ? 'not-allowed' : 'pointer', textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
+              style={{ backgroundColor: GRANATE, color: BLANCO, border: 'none', borderRadius: 4, padding: '8px 20px', fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.5px', cursor: saving ? 'not-allowed' : 'pointer', textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
             >
               {saving ? 'Guardando…' : 'Guardar'}
             </button>
             <button
               onClick={() => { setShowForm(false); setForm({ ...FORM_EMPTY }) }}
-              style={{ backgroundColor: '#222222', color: '#cccccc', border: '1px solid #383838', borderRadius: 4, padding: '8px 16px', fontFamily: FONT.heading, fontSize: 13, cursor: 'pointer', textTransform: 'uppercase' }}
+              style={{ backgroundColor: INK, color: GRIS, border: '1px solid #383838', borderRadius: 4, padding: '8px 16px', fontFamily: FONT.heading, fontSize: 13, cursor: 'pointer', textTransform: 'uppercase' }}
             >
               Cancelar
             </button>
@@ -230,7 +231,7 @@ export default function AprendizajesPage() {
       )}
 
       {/* Table */}
-      <div style={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 6, overflow: 'hidden' }}>
+      <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 6, overflow: 'hidden' }}>
         {loading ? (
           <div style={{ padding: 32, textAlign: 'center', color: '#777', fontFamily: FONT.body }}>Cargando…</div>
         ) : filtered.length === 0 ? (
@@ -254,8 +255,8 @@ export default function AprendizajesPage() {
                   <tr key={row.id} style={{ transition: 'background 0.1s' }}>
                     <td style={{ ...TD, color: '#777', fontSize: 12, whiteSpace: 'nowrap' }}>{row.fecha ? fmtDate(row.fecha) : '—'}</td>
                     <td style={TD}>{moduleBadge(row.modulo)}</td>
-                    <td style={{ ...TD, maxWidth: 320, color: '#ffffff' }}>{row.sintoma || '—'}</td>
-                    <td style={{ ...TD, maxWidth: 380, color: '#cccccc', fontSize: 12 }}>{row.regla_preventiva || '—'}</td>
+                    <td style={{ ...TD, maxWidth: 320, color: BLANCO }}>{row.sintoma || '—'}</td>
+                    <td style={{ ...TD, maxWidth: 380, color: GRIS, fontSize: 12 }}>{row.regla_preventiva || '—'}</td>
                     <td style={{ ...TD, color: '#777', fontSize: 12 }}>{row.origen || '—'}</td>
                   </tr>
                 ))}

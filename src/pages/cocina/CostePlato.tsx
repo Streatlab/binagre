@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 /**
  * CostePlato — A2 + A4 · Enlaza cada plato que vendes con su receta costeada,
  * y limpia los platos duplicados.
@@ -268,7 +269,7 @@ export default function CostePlato() {
                             onClick={() => fusionar(d, canon, otro)}
                             style={{
                               padding: '7px 13px', borderRadius: 999, cursor: 'pointer',
-                              border: 'none', background: C.verde, color: '#fff',
+                              border: 'none', background: C.verde, color: BLANCO,
                               fontFamily: "'Nunito', sans-serif", fontSize: 11.5, fontWeight: 900,
                             }}
                           >{busy ? 'Uniendo…' : 'Sí, es el mismo'}</button>

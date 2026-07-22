@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
@@ -112,19 +113,19 @@ interface Props {
    CONSTANTES COLORES
    ═══════════════════════════════════════════════════════════ */
 
-const VERDE_OK   = '#1D9E75'
+const VERDE_OK   = VERDE
 const ROJO       = '#A32D2D'
 
 const COLOR_CANAL: Record<string, string> = {
-  'Uber Eats': '#06C167',
-  'Glovo':     '#e8f442',
-  'Just Eat':  '#f5a623',
-  'Web':       '#B01D23',
-  'Directa':   '#66aaff',
+  'Uber Eats': VERDE,
+  'Glovo':     LIMA,
+  'Just Eat':  NAR,
+  'Web':       GRANATE,
+  'Directa':   AZUL_CL,
 }
 
 const COLOR_CATEGORIA: Record<string, string> = {
-  'RRHH':         '#B01D23',
+  'RRHH':         GRANATE,
   'Proveedores':  '#D85A30',
   'Alquiler':     '#F59E0B',
   'Suministros':  '#7F77DD',
@@ -184,7 +185,7 @@ function BadgeEjemplo({ texto = 'EJEMPLO' }: { texto?: string }) {
   return (
     <span style={{
       fontFamily: FONT.heading, fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
-      color: '#fff', background: '#B01D23', padding: '1px 5px', marginLeft: 6,
+      color: BLANCO, background: GRANATE, padding: '1px 5px', marginLeft: 6,
       textTransform: 'uppercase', verticalAlign: 'middle', borderRadius: 3,
     }}>
       {texto}
@@ -394,7 +395,7 @@ function PresupuestoVsRealSection() {
         {data.map(cat => {
           const pct = cat.presupuesto > 0 ? Math.round((cat.real / cat.presupuesto) * 100) : 0
           const pctCap = Math.min(pct, 100)
-          const barColor = pct > 100 ? '#E24B4A' : pct > 85 ? '#f5a623' : '#1D9E75'
+          const barColor = pct > 100 ? ROJO : pct > 85 ? NAR : VERDE
           return (
             <div key={cat.grupo} style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, padding: '14px 16px' }}>
               <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>{cat.label}</div>

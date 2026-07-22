@@ -1,3 +1,4 @@
+import { BLANCO, GRIS, INK, OSC, ROJO } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo, useRef, Suspense, lazy } from 'react'
 import { ChevronDown } from 'lucide-react'
 import TabsPastilla from '@/components/ui/TabsPastilla'
@@ -74,12 +75,12 @@ function PastillaPlataforma({ plataforma }: { plataforma: string }) {
 // ── Multi-selector (mismo patrón que Panel Global) ─────────────────────────
 const dropdownBtn: React.CSSProperties = {
   padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc',
-  background: '#ffffff', fontSize: 13, fontFamily: 'Lexend, sans-serif', color: '#111111',
+  background: BLANCO, fontSize: 13, fontFamily: 'Lexend, sans-serif', color: INK,
   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', position: 'relative',
 }
 const menuStyle: React.CSSProperties = {
-  position: 'absolute', top: 38, right: 0, background: '#ffffff', border: '0.5px solid #d0c8bc',
-  borderRadius: 8, width: 260, fontSize: 12, color: '#3a4050', boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+  position: 'absolute', top: 38, right: 0, background: BLANCO, border: '0.5px solid #d0c8bc',
+  borderRadius: 8, width: 260, fontSize: 12, color: OSC, boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
   zIndex: 100, maxHeight: 360, overflowY: 'auto', paddingTop: 2, paddingBottom: 2,
 }
 
@@ -112,7 +113,7 @@ function MultiSelect({
             style={{
               display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
               background: 'transparent', border: 'none', fontSize: 13, fontFamily: 'Lexend, sans-serif',
-              color: '#7a8090', cursor: 'pointer', borderBottom: '0.5px solid #ebe8e2',
+              color: GRIS, cursor: 'pointer', borderBottom: '0.5px solid #ebe8e2',
             }}
             onClick={() => { onAll(); setOpen(false) }}
           >Todos</button>
@@ -123,10 +124,10 @@ function MultiSelect({
             <label key={o.id} style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '2px 10px', cursor: 'pointer', lineHeight: 1.3,
               background: selected.includes(o.id) ? '#FF475715' : 'transparent',
-              color: selected.includes(o.id) ? '#FF4757' : '#7a8090',
+              color: selected.includes(o.id) ? ROJO : GRIS,
               fontFamily: 'Lexend, sans-serif', fontSize: 12, whiteSpace: 'nowrap',
             }}>
-              <input type="checkbox" checked={selected.includes(o.id)} onChange={() => onToggle(o.id)} style={{ accentColor: '#FF4757' }} />
+              <input type="checkbox" checked={selected.includes(o.id)} onChange={() => onToggle(o.id)} style={{ accentColor: ROJO }} />
               {o.label}
             </label>
           ))}
@@ -241,8 +242,8 @@ function Pildora({ activo, children, onClick }: { activo: boolean; children: Rea
     <button onClick={onClick} style={{
       padding: '6px 12px', borderRadius: 999, cursor: 'pointer',
       border: `0.5px solid ${activo ? COLORS.redSL : COLORS.brd}`,
-      background: activo ? COLORS.redSL : '#ffffff',
-      color: activo ? '#ffffff' : COLORS.sec,
+      background: activo ? COLORS.redSL : BLANCO,
+      color: activo ? BLANCO : COLORS.sec,
       fontFamily: OSWALD, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', whiteSpace: 'nowrap',
     }}>{children}</button>
   )

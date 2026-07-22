@@ -1,3 +1,4 @@
+import { GRIS, INK } from '@/styles/neobrutal'
 import React, { Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
@@ -117,7 +118,7 @@ const ConfiguracionInformes = React.lazy(() => import('@/pages/informes/Configur
 
 function LoadingFallback() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#111111', color: '#777777', fontFamily: 'Lexend, sans-serif', fontSize: 14 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: INK, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 14 }}>
       Cargando...
     </div>
   )

@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, ROJO } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -103,7 +104,7 @@ export default function TabMovimientos({ desde, hasta }: Props) {
     color: T.mut,
     padding: '8px 12px',
     textAlign: 'left',
-    background: '#0a0a0a',
+    background: INK,
     borderBottom: `1px solid ${T.brd}`,
     whiteSpace: 'nowrap',
   }
@@ -128,7 +129,7 @@ export default function TabMovimientos({ desde, hasta }: Props) {
           onChange={e => setBusqueda(e.target.value)}
           style={{
             padding: '7px 12px', borderRadius: 8,
-            border: `0.5px solid ${T.brd}`, background: '#1e1e1e',
+            border: `0.5px solid ${T.brd}`, background: INK,
             color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 200,
           }}
         />
@@ -137,7 +138,7 @@ export default function TabMovimientos({ desde, hasta }: Props) {
           onChange={e => setFiltroIngrediente(e.target.value)}
           style={{
             padding: '7px 12px', borderRadius: 8,
-            border: `0.5px solid ${T.brd}`, background: '#1e1e1e',
+            border: `0.5px solid ${T.brd}`, background: INK,
             color: T.pri, fontSize: 13, fontFamily: FONT.body,
           }}
         >
@@ -154,8 +155,8 @@ export default function TabMovimientos({ desde, hasta }: Props) {
               style={{
                 padding: '6px 14px', borderRadius: 6,
                 border: `0.5px solid ${T.brd}`,
-                background: filtroTipo === t ? '#B01D23' : 'transparent',
-                color: filtroTipo === t ? '#ffffff' : T.sec,
+                background: filtroTipo === t ? GRANATE : 'transparent',
+                color: filtroTipo === t ? BLANCO : T.sec,
                 fontSize: 12, fontFamily: FONT.heading, fontWeight: 600,
                 letterSpacing: '0.5px', textTransform: 'uppercase',
                 cursor: 'pointer',
@@ -198,7 +199,7 @@ export default function TabMovimientos({ desde, hasta }: Props) {
                     <span style={{
                       fontSize: 11, padding: '2px 8px', borderRadius: 4,
                       background: m.tipo === 'entrada' ? '#1a2a1a' : '#2a1a1a',
-                      color: m.tipo === 'entrada' ? '#4caf50' : '#e24b4a',
+                      color: m.tipo === 'entrada' ? '#4caf50' : ROJO,
                       fontFamily: FONT.heading, letterSpacing: '0.5px', textTransform: 'uppercase',
                     }}>
                       {m.tipo}

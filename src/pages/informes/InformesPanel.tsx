@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
 /**
  * Módulo Informes — Panel principal
  *
@@ -221,8 +222,8 @@ export default function InformesPanel() {
               <button
                 onClick={() => toggleActivo(c.id, c.activo)}
                 style={{
-                  background: c.activo ? '#06C167' : T.brd,
-                  color: '#fff',
+                  background: c.activo ? VERDE : T.brd,
+                  color: BLANCO,
                   border: 'none',
                   borderRadius: 999,
                   padding: '4px 10px',
@@ -261,8 +262,8 @@ export default function InformesPanel() {
                   disabled={!!enviando}
                   style={{
                     flex: 1,
-                    background: enviando === `${c.tipo}:wa` ? T.mut : '#06C167',
-                    color: '#fff',
+                    background: enviando === `${c.tipo}:wa` ? T.mut : VERDE,
+                    color: BLANCO,
                     border: 'none',
                     borderRadius: 8,
                     padding: '10px 8px',
@@ -280,8 +281,8 @@ export default function InformesPanel() {
                   disabled={!!enviando}
                   style={{
                     flex: 1,
-                    background: enviando === `${c.tipo}:em` ? T.mut : '#B01D23',
-                    color: '#fff',
+                    background: enviando === `${c.tipo}:em` ? T.mut : GRANATE,
+                    color: BLANCO,
                     border: 'none',
                     borderRadius: 8,
                     padding: '10px 8px',
@@ -369,7 +370,7 @@ export default function InformesPanel() {
                       <span style={{
                         padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
                         background: e.estado === 'enviado' ? '#06C16720' : e.estado === 'fallido' ? '#B01D2320' : T.brd,
-                        color: e.estado === 'enviado' ? '#06C167' : e.estado === 'fallido' ? '#B01D23' : T.mut,
+                        color: e.estado === 'enviado' ? VERDE : e.estado === 'fallido' ? GRANATE : T.mut,
                       }}>
                         {e.estado.toUpperCase()}
                       </span>
@@ -456,8 +457,8 @@ export default function InformesPanel() {
                 onClick={confirmarEnvioWhatsApp}
                 disabled={modalWA.cargando || modalWA.seleccion.size === 0}
                 style={{
-                  background: modalWA.seleccion.size === 0 ? T.mut : '#06C167',
-                  color: '#fff', border: 'none', borderRadius: 8,
+                  background: modalWA.seleccion.size === 0 ? T.mut : VERDE,
+                  color: BLANCO, border: 'none', borderRadius: 8,
                   padding: '10px 18px', cursor: modalWA.seleccion.size === 0 ? 'not-allowed' : 'pointer',
                   fontSize: 14, fontWeight: 600, fontFamily: FONT.heading,
                 }}
