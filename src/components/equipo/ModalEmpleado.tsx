@@ -1,9 +1,13 @@
-import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
-import { ORG_DORADO, SIN_DATO_GRIS, COBERTURA_VERDE } from '@/styles/palettes'
+import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, VERDE, GRIS, AMA, OSW } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
-import { X, Trash2, Upload, FileText as FileIcon, ExternalLink } from 'lucide-react'
+import { X, Trash2, Upload, FileText as FileIcon, ExternalLink, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
+import { useNominasCompletas } from '@/lib/equipo/useNominasCompletas'
+import type { NominaCompleta } from '@/lib/equipo/useNominasCompletas'
+import FichaEmpleadoAcumulados from '@/components/equipo/FichaEmpleadoAcumulados'
+import { MESES_LARGO, clasifColor, clasifLabel, ModalVerNomina } from '@/components/equipo/NominaSoloLectura'
+import { fmtEur } from '@/lib/format'
 
 interface DatosPersonales {
   fecha_nacimiento?: string
@@ -30,6 +34,7 @@ export interface Empleado {
   email?: string
   foto_url?: string | null
   dias_vacaciones_anuales?: number | null
+  tipo_relacion?: 'plantilla' | 'extra' | 'socio'
 }
 
 interface Vacacion { id: string; fecha_inicio: string; fecha_fin: string; dias: number; estado: string; nota: string | null }
@@ -37,26 +42,26 @@ interface Permiso { id: string; tipo: string; fecha_inicio: string; fecha_fin: s
 interface Anticipo { id: string; fecha: string; importe: number; mes_descuento: string | null; estado: string; nota: string | null }
 interface Documento { id: string; tipo: string; nombre: string; url: string | null; fecha: string | null }
 
-interface Props { empleado: Empleado | null; onClose: () => void; onSaved: () => void }
+interface Props { empleado: Empleado | null; onClose: () => void; onSaved: () => void; tabInicial?: TabKey }
 
 const ESTADOS = ['activo', 'baja', 'vacaciones', 'despedido'] as const
 const eur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n || 0)
 
 function estadoColor(e: string): string {
   if (['aprobada', 'disfrutada', 'pagado', 'activo'].includes(e)) return VERDE
-  if (['solicitada', 'solicitado'].includes(e)) return ORG_DORADO
-  if (['rechazada', 'descontado'].includes(e)) return SIN_DATO_GRIS
+  if (['solicitada', 'solicitado'].includes(e)) return AMA
+  if (['rechazada', 'descontado'].includes(e)) return GRIS
   return AZUL_CL
 }
 
-type TabKey = 'personales' | 'laborales' | 'foto' | 'documentos' | 'vacaciones' | 'permisos' | 'anticipos'
+type TabKey = 'personales' | 'laborales' | 'foto' | 'nominas' | 'documentos' | 'vacaciones' | 'permisos' | 'anticipos'
 
-export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
+export default function ModalEmpleado({ empleado, onClose, onSaved, tabInicial }: Props) {
   const { T, isDark } = useTheme()
   const isNew = !empleado?.id
   const empId = empleado?.id
 
-  const [tab, setTab] = useState<TabKey>('personales')
+  const [tab, setTab] = useState<TabKey>(tabInicial ?? 'personales')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -156,12 +161,13 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
   }
 
   const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
-  const calcStyle: React.CSSProperties = { background: COBERTURA_VERDE + '20', border: `1px solid ${COBERTURA_VERDE}`, color: VERDE, padding: '8px 10px', borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }
+  const calcStyle: React.CSSProperties = { background: `${VERDE}20`, border: `1px solid ${VERDE}`, color: VERDE, padding: '8px 10px', borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'personales', label: 'Personales' },
     { key: 'laborales', label: 'Laborales' },
     { key: 'foto', label: 'Foto' },
+    { key: 'nominas', label: 'Nóminas' },
     { key: 'documentos', label: 'Documentos' },
     { key: 'vacaciones', label: 'Vacaciones' },
     { key: 'permisos', label: 'Permisos' },
@@ -188,7 +194,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
                   <Chip color={estadoColor(estado)}>{estado}</Chip>
                   {antiguedad && <Chip color={AZUL_CL}>{antiguedad}</Chip>}
                   <Chip color={vacRestantes < 0 ? GRANATE : VERDE}>{vacRestantes} días vac.</Chip>
-                  {anticiposPend > 0 && <Chip color={ORG_DORADO}>{eur(anticiposPend)} anticipo</Chip>}
+                  {anticiposPend > 0 && <Chip color={AMA}>{eur(anticiposPend)} anticipo</Chip>}
                 </div>
               )}
             </div>
@@ -242,6 +248,10 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
             </div>
           )}
 
+          {tab === 'nominas' && (
+            needsSave ? <SaveFirst T={T} /> : <TabFichaFinanciera empId={empId!} />
+          )}
+
           {tab === 'documentos' && (
             needsSave ? <SaveFirst T={T} /> : (
               <div>
@@ -284,7 +294,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
           {tab === 'anticipos' && (
             needsSave ? <SaveFirst T={T} /> : (
               <div>
-                <div style={{ marginBottom: 14 }}><MiniKpi T={T} label="Pendiente de descontar" value={eur(anticiposPend)} accent={anticiposPend > 0 ? ORG_DORADO : T.pri} /></div>
+                <div style={{ marginBottom: 14 }}><MiniKpi T={T} label="Pendiente de descontar" value={eur(anticiposPend)} accent={anticiposPend > 0 ? AMA : T.pri} /></div>
                 <AltaAnticipo empId={empId!} onSaved={fetchHijos} inputStyle={inputStyle} T={T} />
                 <ListaHijos T={T} vacios="Sin anticipos registrados" filas={anticipos.map(a => ({
                   id: a.id, izq: `${a.fecha}${a.mes_descuento ? ` · desc. ${a.mes_descuento}` : ''}`, centro: eur(Number(a.importe)), estado: a.estado, nota: a.nota,
@@ -294,7 +304,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
             )
           )}
 
-          {error && <div style={{ marginTop: 12, padding: '8px 12px', background: '#B01D2320', color: GRANATE, borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
+          {error && <div style={{ marginTop: 12, padding: '8px 12px', background: `${GRANATE}20`, color: GRANATE, borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
         </div>
 
         <div style={{ padding: '16px 24px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
@@ -328,6 +338,57 @@ function SaveFirst({ T }: { T: any }) {
   return <div style={{ padding: '24px 0', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>Guarda primero el empleado para gestionar este apartado.</div>
 }
 
+/** Nóminas del año + acumulados reales del empleado (kit Neobrutal Alegre claro,
+ *  igual que Nóminas/Costes: aquí manda ese estilo aunque el resto del modal use
+ *  el tema T genérico). Reutiliza useNominasCompletas/useFichaEmpleado, no
+ *  duplica su lógica. */
+function TabFichaFinanciera({ empId }: { empId: string }) {
+  const anioActual = new Date().getFullYear()
+  const [anio, setAnio] = useState(anioActual)
+  const { loading, nominas } = useNominasCompletas(anio)
+  const [verNomina, setVerNomina] = useState<NominaCompleta | null>(null)
+
+  const nominasEmp = nominas.filter(n => n.empleado_id === empId).sort((a, b) => a.mes - b.mes)
+
+  return (
+    <div>
+      <select
+        value={anio} onChange={e => setAnio(parseInt(e.target.value))}
+        style={{ background: BLANCO, border: `3px solid ${INK}`, color: INK, padding: '6px 10px', fontFamily: OSW, fontSize: 12, fontWeight: 600, marginBottom: 14, cursor: 'pointer', outline: 'none' }}
+      >
+        {[anioActual - 1, anioActual, anioActual + 1].map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
+
+      <FichaEmpleadoAcumulados empleadoId={empId} anio={anio} />
+
+      {loading ? (
+        <div style={{ padding: 20, textAlign: 'center', color: GRIS, fontFamily: FONT.body, fontSize: 13 }}>Cargando…</div>
+      ) : nominasEmp.length === 0 ? (
+        <div style={{ padding: 20, textAlign: 'center', color: GRIS, fontFamily: FONT.body, fontSize: 13 }}>Sin nóminas cargadas en {anio}.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {nominasEmp.map(n => (
+            <div
+              key={n.id} onClick={() => setVerNomina(n)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexWrap: 'wrap',
+                border: `2px solid ${INK}`, borderLeft: `6px solid ${clasifColor(n.clasificacion)}`, padding: '8px 12px', background: BLANCO,
+              }}
+            >
+              <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12, minWidth: 80 }}>{MESES_LARGO[n.mes - 1]}</span>
+              <span style={{ fontFamily: FONT.body, fontSize: 12, color: GRIS }}>Neto {fmtEur(n.importe_neto, { decimals: 2 })}</span>
+              <span style={{ marginLeft: 'auto', fontFamily: OSW, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: clasifColor(n.clasificacion) }}>{clasifLabel(n.clasificacion)}</span>
+              <ChevronRight size={14} color={GRIS} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {verNomina && <ModalVerNomina n={verNomina} onClose={() => setVerNomina(null)} />}
+    </div>
+  )
+}
+
 function ListaHijos({ T, filas, vacios }: { T: any; vacios: string; filas: { id: string; izq: string; centro: string; estado: string; nota: string | null; onDel: () => void }[] }) {
   if (!filas.length) return <div style={{ padding: '18px 0', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>{vacios}</div>
   return (
@@ -348,7 +409,7 @@ function ListaHijos({ T, filas, vacios }: { T: any; vacios: string; filas: { id:
 
 function ListaDocumentos({ T, docs, onDel }: { T: any; docs: Documento[]; onDel: (id: string) => void }) {
   if (!docs.length) return <div style={{ padding: '18px 0', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>Sin documentos. Sube el contrato, nóminas, bajas…</div>
-  const tipoColor: Record<string, string> = { Contrato: AZUL_CL, 'Nómina': VERDE, Baja: ORG_DORADO, Otro: SIN_DATO_GRIS }
+  const tipoColor: Record<string, string> = { Contrato: AZUL_CL, 'Nómina': VERDE, Baja: AMA, Otro: GRIS }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
       {docs.map(d => (
@@ -358,7 +419,7 @@ function ListaDocumentos({ T, docs, onDel }: { T: any; docs: Documento[]; onDel:
             <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.nombre}</div>
             <div style={{ fontSize: 11, color: T.mut, marginTop: 2 }}>{d.fecha ?? ''}</div>
           </div>
-          <Chip color={tipoColor[d.tipo] ?? SIN_DATO_GRIS}>{d.tipo}</Chip>
+          <Chip color={tipoColor[d.tipo] ?? GRIS}>{d.tipo}</Chip>
           {d.url && <a href={d.url} target="_blank" rel="noreferrer" style={{ color: AZUL_CL, display: 'flex', padding: 4 }}><ExternalLink size={14} /></a>}
           <button onClick={() => onDel(d.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GRANATE, padding: 4 }}><Trash2 size={14} /></button>
         </div>

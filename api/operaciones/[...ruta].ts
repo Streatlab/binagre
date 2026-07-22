@@ -20,6 +20,7 @@ import nominasSubir from '../_puertas/nominas-subir.js'
 import nominasIdAction from '../_puertas/nominas-id-action.js'
 import nominasResumenSubir from '../_puertas/nominas-resumen-subir.js'
 import nominasSegsocialSubir from '../_puertas/nominas-segsocial-subir.js'
+import nominasBarrido from '../_puertas/nominas-barrido.js'
 
 // Config unificada: subidas de documentos hasta 20mb y lecturas con IA de hasta 60s.
 export const config = {
@@ -59,6 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (b === 'subir') return nominasSubir(req, res)
     if (b === 'resumen' && c === 'subir') return nominasResumenSubir(req, res)
     if (b === 'segsocial' && c === 'subir') return nominasSegsocialSubir(req, res)
+    if (b === 'barrido') return nominasBarrido(req, res)
     if (b && c) {
       req.query.id = b
       req.query.action = c

@@ -16,6 +16,7 @@ import { extraerNominaAnthropicTexto } from './extraerNomina.js'
 import { extraerSegSocialAnthropicTexto } from './extraerSegSocialResumen.js'
 import { extraerResumenNominasTexto, type FilaResumenNomina } from './extraerResumenNominas.js'
 import { extraerRntTexto, type FilaRnt } from './extraerRnt.js'
+import { extraerAutonomoCuotaTexto } from './extraerAutonomoCuota.js'
 import { cargarCandidatosEmpleados, resolverEmpleado } from './matchEmpleado.js'
 
 export interface ResultadoProceso {
@@ -471,6 +472,73 @@ export async function procesarRnt(
       insertadas,
       ya_existia: yaExistia,
       revisar_identidad: revisarIdentidad,
+    },
+  }
+}
+
+/** Núcleo de la cuota mensual de autónomos (RETA/TGSS) de un titular ya resuelto
+ *  (Rubén o Emilio, id + nombre conocidos por NIF). LEY-PRUDENCIA-01: se guarda
+ *  siempre como 'comprometido' — el cruce con banco (por titular_id + importe
+ *  exacto + ventana TGSS) la pasa a 'pagado' desde Costes, no aquí. */
+export async function procesarAutonomoCuota(
+  buffer: Buffer,
+  nombreOriginal: string,
+  titularId: string,
+  nombreTitular: string,
+  mesBody: number | null,
+  anioBody: number | null,
+): Promise<ResultadoProceso> {
+  let texto = ''
+  try { texto = await extraerTextoPDF(buffer) } catch { texto = '' }
+  const resultado = await extraerAutonomoCuotaTexto(texto)
+
+  const mesFinal = mesBody ?? resultado.mes
+  const anioFinal = anioBody ?? resultado.anio
+  if (!mesFinal || !anioFinal) {
+    return {
+      status: 400,
+      body: {
+        error: 'No se pudo determinar mes/año de la cuota de autónomos; indícalos manualmente.',
+        motivo_extraccion: resultado.motivo,
+      },
+    }
+  }
+
+  const ext = (nombreOriginal.split('.').pop() || 'pdf').toLowerCase()
+  const mesPad = String(mesFinal).padStart(2, '0')
+  const nombreArchivo = `cuota_${anioFinal}-${mesPad}.${ext}`
+  // EQUIPO/AUTONOMOS/<TITULAR>/<AÑO>/cuota_<AÑO>-<MES>.pdf
+  const niveles = ['EQUIPO', 'AUTONOMOS', slug(nombreTitular), String(anioFinal)]
+  const archivado = await archivarEquipo(buffer, nombreArchivo, niveles, ext)
+
+  const { data: fila, error: errUpsert } = await supabaseAdmin
+    .from('autonomos_cuotas')
+    .upsert({
+      titular_id: titularId,
+      mes: mesFinal,
+      anio: anioFinal,
+      importe: resultado.importe,
+      fecha_cargo: resultado.fecha_cargo,
+      estado: 'comprometido',
+      pdf_url: archivado.driveUrl,
+      pdf_drive_id: archivado.driveUrl,
+      drive_pendiente: archivado.drivePendiente,
+      drive_error: archivado.driveError,
+      drive_niveles: archivado.niveles,
+      drive_nombre_archivo: archivado.nombreArchivo,
+    }, { onConflict: 'titular_id,mes,anio' })
+    .select()
+    .maybeSingle()
+
+  if (errUpsert) return { status: 500, body: { error: errUpsert.message } }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      motivo: resultado.motivo,
+      drive_pendiente: archivado.drivePendiente,
+      cuota: fila,
     },
   }
 }

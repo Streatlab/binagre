@@ -16,7 +16,7 @@ import { subirArchivoACarpetaExacta } from '../_lib/google-drive.js'
 import { extraerTextoPDF, pdfTieneTexto } from '../_lib/extractores.js'
 import { extraerTextoOCRGratis } from '../_lib/ocr-tesseract.js'
 import { clasificarDocEquipoTexto, type ClasificacionDocEquipo } from '../_lib/clasificarDocEquipo.js'
-import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen, procesarRnt } from '../_lib/subidaDocEquipo.js'
+import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen, procesarRnt, procesarAutonomoCuota } from '../_lib/subidaDocEquipo.js'
 import { cargarCandidatosEmpleados, resolverEmpleado, resolverEmpleadoEnTexto, resolverEmpleadosEnTexto } from '../_lib/matchEmpleado.js'
 import { contarRecibos, partirNominas } from '../_lib/splitNominas.js'
 import { extraerNominaAnthropicTexto } from '../_lib/extraerNomina.js'
@@ -192,6 +192,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { status, body: out } = await procesarRnt(buffer, nombreOriginal, null, null)
     if (status === 200) return res.status(200).json({ ok: true, destino: 'seguridad_social_rnt', clasificacion: clasif, resultado: out })
     return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar la RNT')))
+  }
+
+  if (clasif.tipo === 'cuota_autonomos') {
+    const { data: titular } = await supabaseAdmin.from('titulares').select('id, nombre').eq('nif', clasif.nif_titular).maybeSingle()
+    if (!titular) {
+      return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, `Recibo de cuota de autónomos sin titular identificado (NIF "${clasif.nif_titular || 'no detectado'}" no coincide con ningún titular activo)`))
+    }
+    const { status, body: out } = await procesarAutonomoCuota(buffer, nombreOriginal, titular.id, titular.nombre, null, null)
+    if (status === 200) return res.status(200).json({ ok: true, destino: 'autonomos_cuotas', clasificacion: clasif, resultado: out })
+    return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar la cuota de autónomos')))
   }
 
   // 'desconocido': a revisión con el motivo.
