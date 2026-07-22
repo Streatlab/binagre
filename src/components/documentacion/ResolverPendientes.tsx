@@ -7,11 +7,11 @@
  * de papeleo_tareas y reaparece solo con tareas activas.
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { RefreshCw, AlertTriangle, Pause, Play, X as XIcon } from 'lucide-react'
+import { RefreshCw, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
 import { HORAS_FIJAS, bandaQueChoca, proximaOcurrencia } from '@/lib/papeleoHoras'
-import { OSW, LEX, INK, VERDE, NAR, ROJO, AMA, GRIS, SHADOW, BORDER_CARD, BLANCO } from '@/styles/neobrutal'
+import { OSW, LEX, INK, VERDE, ROJO, AMA, GRIS, SHADOW, BORDER_CARD, BLANCO } from '@/styles/neobrutal'
 
 interface Inventario {
   en_storage: number
@@ -73,7 +73,6 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
   const [errorHora, setErrorHora] = useState<string | null>(null)
 
   const [tareas, setTareas] = useState<TareaFila[]>([])
-  const [accionando, setAccionando] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Ids de todas las tareas que hemos visto activas en esta tanda: al vaciarse
   // las activas, consultamos su estado FINAL real para no cantar "resuelto"
@@ -217,50 +216,11 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
     }
   }
 
-  async function pausarTodo() {
-    setAccionando(true)
-    try {
-      const ids = tareas.filter((t) => t.estado === 'programada' || t.estado === 'en_curso').map((t) => t.id)
-      if (ids.length > 0) await supabase.from('papeleo_tareas').update({ estado: 'pausada' }).in('id', ids)
-      await cargarTareas()
-    } finally { setAccionando(false) }
-  }
-
-  async function reanudarTodo() {
-    setAccionando(true)
-    try {
-      const ids = tareas.filter((t) => t.estado === 'pausada').map((t) => t.id)
-      if (ids.length > 0) {
-        await supabase.from('papeleo_tareas').update({ estado: 'programada', programada_para: new Date().toISOString() }).in('id', ids)
-        jget('/api/facturas?action=agenda-tick').catch(() => {})
-      }
-      await cargarTareas()
-    } finally { setAccionando(false) }
-  }
-
-  async function cancelarTodo() {
-    setAccionando(true)
-    try {
-      const ids = tareas.filter((t) => t.estado !== 'completada').map((t) => t.id)
-      if (ids.length > 0) await supabase.from('papeleo_tareas').update({ estado: 'error', detalle: 'cancelada por Rubén' }).in('id', ids)
-      await cargarTareas()
-    } finally { setAccionando(false) }
-  }
-
-  const hayEnCurso = tareas.some((t) => t.estado === 'en_curso')
-  const hayProgramadas = tareas.some((t) => t.estado === 'programada')
   const hayPausadas = tareas.some((t) => t.estado === 'pausada')
   const motorAtascado = tareas.some((t) => {
     const ref = t.estado === 'en_curso' ? t.ultimo_latido : t.estado === 'programada' ? t.programada_para : null
     return !!ref && (Date.now() - new Date(ref).getTime()) > MOTOR_ATASCADO_MS
   }) && !hayPausadas
-  const procesadosTotal = tareas.reduce((a, t) => a + num(t.procesados), 0)
-  const proximaHora = (() => {
-    const prox = tareas.find((t) => t.estado === 'programada' && t.programada_para)
-    if (!prox?.programada_para) return null
-    const d = new Date(prox.programada_para)
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  })()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
@@ -278,49 +238,17 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
           <RefreshCw size={16} strokeWidth={2.6} style={comprobando ? { animation: 'sl-spin 1s linear infinite' } : undefined} />
           {comprobando ? 'Comprobando…' : 'Resolver pendientes'}
         </button>
-      ) : (
+      ) : motorAtascado ? (
         <div style={{
-          background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px',
-          minWidth: 280, maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 8,
+          background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '10px 14px',
+          minWidth: 260, maxWidth: 360, display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {motorAtascado
-              ? <AlertTriangle size={16} strokeWidth={2.6} color={AMA} style={{ flexShrink: 0 }} />
-              : hayEnCurso
-                ? <RefreshCw size={16} strokeWidth={2.6} color={NAR} style={{ animation: 'sl-spin 1s linear infinite', flexShrink: 0 }} />
-                : hayPausadas
-                  ? <Pause size={16} strokeWidth={2.6} color={GRIS} style={{ flexShrink: 0 }} />
-                  : <RefreshCw size={16} strokeWidth={2.6} color={AMA} style={{ flexShrink: 0 }} />}
-            <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12.5, letterSpacing: '0.5px', color: INK, textTransform: 'uppercase' }}>
-              {motorAtascado ? 'Reanudando' : hayPausadas && !hayEnCurso ? 'Pausado' : hayEnCurso ? 'Resolviendo pendientes' : 'Programado'}
-            </span>
-          </div>
+          <AlertTriangle size={16} strokeWidth={2.6} color={AMA} style={{ flexShrink: 0 }} />
           <span style={{ fontFamily: LEX, fontSize: 12.5, color: INK }}>
-            {motorAtascado
-              ? 'Tardó en responder; reanudando solo. No hace falta que hagas nada.'
-              : hayEnCurso || hayPausadas
-                ? `Tarea ${tareas.filter((t) => t.estado === 'completada').length + 1} de ${tareas.length} · ${procesadosTotal} procesados · reanuda solo si se corta`
-                : hayProgramadas && proximaHora
-                  ? `Programado para las ${proximaHora}`
-                  : 'En cola'}
+            Una tarea tardó en responder; se reanuda sola. No hace falta que hagas nada.
           </span>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {hayPausadas
-              ? (
-                <button onClick={reanudarTodo} disabled={accionando} style={btnMini(VERDE)}>
-                  <Play size={13} strokeWidth={2.6} /> Reanudar
-                </button>
-              ) : (
-                <button onClick={pausarTodo} disabled={accionando} style={btnMini(GRIS)}>
-                  <Pause size={13} strokeWidth={2.6} /> Pausar
-                </button>
-              )}
-            <button onClick={cancelarTodo} disabled={accionando} style={btnMini(ROJO)}>
-              <XIcon size={13} strokeWidth={2.6} /> Cancelar
-            </button>
-          </div>
         </div>
-      )}
+      ) : null}
 
       {modalAbierto && inventario && (
         <div
@@ -422,13 +350,6 @@ function btnGrande(bg: string): React.CSSProperties {
   }
 }
 
-function btnMini(bg: string): React.CSSProperties {
-  return {
-    background: bg, color: '#fff', border: `1px solid ${INK}`, padding: '5px 10px',
-    fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase',
-    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
-  }
-}
 
 function chipHora(activa: boolean): React.CSSProperties {
   return {
