@@ -43,6 +43,7 @@ Vercel cobra/limita por build; cada commit con `[deploy]` dispara uno. Regla dur
 - **NUNCA** usar el prefijo `[deploy]` en el mensaje de commit salvo que Rubén lo pida explícitamente o el commit sea el cierre de una tanda de trabajo.
 - Agrupar: **un solo `[deploy]` al final de cada tanda de trabajo** (varias instrucciones/fixes seguidos), no uno por commit ni uno por instrucción.
 - Si Rubén dice "para los deploys" / "sin deploy" / referencia el límite diario agotado: esta norma queda activa hasta que él diga lo contrario, en cualquier sesión.
+- Todo el mundo trabaja siempre en la rama `trabajo`. `master` es producción: solo Rubén decide cuándo se mergea/publica ahí, nunca por iniciativa propia de una sesión.
 
 ## 4. Lógica de negocio
 - Escandallo, EPS, IDING, INGREDIENTES viven dentro del ERP (NO es Apps Script)

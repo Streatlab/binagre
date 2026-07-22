@@ -28,6 +28,10 @@
 4. Cuando se reanude: 1 push agrupado por tanda, objetivo 1-3 pushes/sesión máximo.
 5. Tras un push si toca verificar: 1 sola consulta a Vercel, reportar READY o fallo sin preguntar.
 
+## Rama de trabajo (obligatorio)
+- Todo el mundo (todas las sesiones) trabaja SIEMPRE en la rama `trabajo`. `master` es producción.
+- Nadie mergea ni publica a `master` por iniciativa propia, nunca. Solo se mergea/publica cuando Rubén lo pide explícitamente.
+
 ## Aislamiento absoluto
 - Este repo = Binagre / Streat Lab. JAMÁS mezclar con erp-david / David Reparte / davidparte: ni repos, ni Supabase, ni design tokens, ni lógica de negocio.
 

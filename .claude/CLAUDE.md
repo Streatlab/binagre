@@ -12,7 +12,7 @@ Supabase: eryauogxcpbgdryeimdq.supabase.co
 3. fmtNum acepta solo 1 argumento — nunca pasar segundo argumento
 4. Campos calculados: NUNCA input disabled — SIEMPRE div con style={{backgroundColor:'#2d1515',border:'1px solid #aa3030',color:'#ffaaaa'}}
 5. Fondos modal: SIEMPRE style inline style={{backgroundColor:'#1a1a1a'}} — nunca clase Tailwind
-6. Commit siempre al final: git add . && git commit -m "descripcion" && git push origin master
+6. Rama de trabajo SIEMPRE `trabajo`, nunca `master`. Commit siempre al final: git add . && git commit -m "descripcion" && git push origin trabajo. `master` = producción: solo Rubén ordena merge/push ahí. Ver CLAUDE.md raíz sección Deploy para el estado del freeze de pushes.
 
 ## DESIGN SYSTEM
 Fondos:   app #111111 | sidebar #000000 | modal #1a1a1a | card-alt #141414 | thead #0a0a0a
