@@ -22,7 +22,7 @@ function labelMes(mesKey: string): string {
   return `${MESES_LARGO[m - 1]} ${y}`
 }
 
-export default function FondoManiobra() {
+export function FondoManiobra({ embedded = false }: { embedded?: boolean } = {}) {
   const {
     loading, error,
     caja, cajaOrigen,
@@ -57,17 +57,19 @@ export default function FondoManiobra() {
   }
 
   return (
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
+    <div style={{ fontFamily: LEX, padding: embedded ? 0 : 28, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : '100vh', color: INK }}>
 
-      <div style={{ marginBottom: 20 }}>
-        <span style={eyebrow(NAR, '#fff')}>FINANZAS</span>
-        <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
-          FONDO DE MANIOBRA
-        </h1>
-        <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>
-          FM = activo corriente − pasivo corriente · NOF = necesidades operativas de fondos (versión operativa, sin caja)
-        </span>
-      </div>
+      {!embedded && (
+        <div style={{ marginBottom: 20 }}>
+          <span style={eyebrow(NAR, '#fff')}>FINANZAS</span>
+          <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
+            SALUD FINANCIERA
+          </h1>
+          <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>
+            FM = activo corriente − pasivo corriente · NOF = necesidades operativas de fondos (versión operativa, sin caja)
+          </span>
+        </div>
+      )}
 
       {/* Hero KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 20 }}>
@@ -203,3 +205,5 @@ export default function FondoManiobra() {
 
 const thStyle: React.CSSProperties = { padding: '10px 12px', textAlign: 'left', fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, whiteSpace: 'nowrap' }
 const tdStyle: React.CSSProperties = { padding: '10px 12px' }
+
+export default FondoManiobra

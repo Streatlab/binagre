@@ -305,7 +305,7 @@ export default function PagosCobros() {
 
 // ─── Tab Calendario ──────────────────────────────────────────────────────────
 
-function TabCalendario() {
+export function TabCalendario() {
   const [items, setItems] = useState<CalendarioItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -443,7 +443,7 @@ const emptyForm: FormGasto = {
   estimado: false,
 }
 
-function TabGastos() {
+export function TabGastos() {
   const [gastos, setGastos] = useState<GastoFijo[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -657,7 +657,7 @@ function TabGastos() {
 
 type FiltroHistorial = 'todos' | 'ingreso' | 'pago'
 
-function TabHistorial() {
+export function TabHistorial() {
   const [movs, setMovs] = useState<HistorialItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filtro, setFiltro] = useState<FiltroHistorial>('todos')

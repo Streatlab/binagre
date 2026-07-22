@@ -26,7 +26,6 @@ const CostePlato = React.lazy(() => import('@/pages/cocina/CostePlato'))
 // Pantallas con interruptor NEO / SL: la ruta decide cual se ve
 const EscandalloSwitch = React.lazy(() => import('@/pages/switch/EscandalloSwitch'))
 const ConciliacionSwitch = React.lazy(() => import('@/pages/switch/ConciliacionSwitch'))
-const TesoreriaSwitch = React.lazy(() => import('@/pages/switch/TesoreriaSwitch'))
 const PanelSwitch = React.lazy(() => import('@/pages/switch/PanelSwitch'))
 
 const ReglasPage = React.lazy(() => import('@/pages/configuracion/reglas/ReglasPage'))
@@ -53,17 +52,15 @@ const CalcNetoAprendizajePage = React.lazy(() => import('@/pages/configuracion/C
 
 const Objetivos = React.lazy(() => import('@/pages/finanzas/Objetivos'))
 const Running = React.lazy(() => import('@/pages/finanzas/Running'))
-const PagosCobros = React.lazy(() => import('@/pages/PagosCobros'))
+const TesoreriaPage = React.lazy(() => import('@/pages/finanzas/TesoreriaPage'))
 const ImportarPlataformas = React.lazy(() => import('@/pages/finanzas/ImportarPlataformas'))
 const PuntoEquilibrio = React.lazy(() => import('@/pages/finanzas/PuntoEquilibrio'))
 const GestionFacturas = React.lazy(() => import('@/pages/finanzas/GestionFacturas'))
 const Gestoria = React.lazy(() => import('@/pages/finanzas/Gestoria'))
-const EscenariosTesoreria = React.lazy(() => import('@/pages/finanzas/EscenariosTesoreria'))
 const Documentacion = React.lazy(() => import('@/pages/finanzas/Documentacion'))
 const BandejaPendientes = React.lazy(() => import('@/pages/BandejaPendientes'))
 const Ventas = React.lazy(() => import('@/pages/finanzas/Ventas'))
 
-const FondoManiobra = React.lazy(() => import('@/pages/finanzas/FondoManiobra'))
 const EstadosFinancieros = React.lazy(() => import('@/pages/finanzas/EstadosFinancieros'))
 const BreakEvenCanal = React.lazy(() => import('@/pages/finanzas/BreakEvenCanal'))
 const AnalisisHorizontalVertical = React.lazy(() => import('@/pages/finanzas/AnalisisHorizontalVertical'))
@@ -217,19 +214,20 @@ function AppRoutes() {
           <Route path="finanzas/ventas" element={<ProtectedRoute solo={['admin']}><Ventas /></ProtectedRoute>} />
           <Route path="finanzas/gestion-facturas" element={<ProtectedRoute solo={['admin']}><GestionFacturas /></ProtectedRoute>} />
           <Route path="finanzas/listado-facturas" element={<Navigate to="/finanzas/gestion-facturas" replace />} />
-          <Route path="finanzas/pagos-cobros" element={<ProtectedRoute solo={['admin']}><PagosCobros /></ProtectedRoute>} />
+          <Route path="finanzas/tesoreria" element={<ProtectedRoute solo={['admin']}><TesoreriaPage /></ProtectedRoute>} />
+          <Route path="finanzas/pagos-cobros" element={<Navigate to="/finanzas/tesoreria?tab=calendario" replace />} />
           <Route path="finanzas/gestoria" element={<ProtectedRoute solo={['admin']}><Gestoria /></ProtectedRoute>} />
-          <Route path="finanzas/escenarios-tesoreria" element={<ProtectedRoute solo={['admin']}><EscenariosTesoreria /></ProtectedRoute>} />
+          <Route path="finanzas/escenarios-tesoreria" element={<Navigate to="/finanzas/tesoreria?tab=escenarios" replace />} />
 
-          <Route path="finanzas/tesoreria-13-semanas" element={<ProtectedRoute solo={['admin']}><TesoreriaSwitch /></ProtectedRoute>} />
-          <Route path="finanzas/fondo-maniobra" element={<ProtectedRoute solo={['admin']}><FondoManiobra /></ProtectedRoute>} />
+          <Route path="finanzas/tesoreria-13-semanas" element={<Navigate to="/finanzas/tesoreria?tab=13semanas" replace />} />
+          <Route path="finanzas/fondo-maniobra" element={<Navigate to="/finanzas/tesoreria?tab=salud" replace />} />
           <Route path="finanzas/estados-financieros" element={<ProtectedRoute solo={['admin']}><EstadosFinancieros /></ProtectedRoute>} />
           <Route path="finanzas/break-even" element={<ProtectedRoute solo={['admin']}><BreakEvenCanal /></ProtectedRoute>} />
           <Route path="finanzas/analisis-horizontal-vertical" element={<ProtectedRoute solo={['admin']}><AnalisisHorizontalVertical /></ProtectedRoute>} />
           <Route path="finanzas/panel-alertas" element={<ProtectedRoute solo={['admin']}><PanelAlertas /></ProtectedRoute>} />
           <Route path="finanzas/repeticion-clientes" element={<ProtectedRoute solo={['admin']}><RepeticionClientes /></ProtectedRoute>} />
           <Route path="finanzas/roi-canal" element={<ProtectedRoute solo={['admin']}><RoiCanal /></ProtectedRoute>} />
-          <Route path="finanzas/reservas" element={<Navigate to="/finanzas/pagos-cobros?tab=reserva" replace />} />
+          <Route path="finanzas/reservas" element={<Navigate to="/finanzas/tesoreria?tab=reserva" replace />} />
           <Route path="finanzas/pyg" element={<ProtectedRoute solo={['admin']}><PyG /></ProtectedRoute>} />
           <Route path="finanzas/rentabilidad-franja" element={<ProtectedRoute solo={['admin']}><RentabilidadFranja /></ProtectedRoute>} />
           <Route path="finanzas/ticket-medio" element={<ProtectedRoute solo={['admin']}><TicketMedio /></ProtectedRoute>} />

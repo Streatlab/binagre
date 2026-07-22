@@ -137,7 +137,7 @@ function semaforo(saldo: number): { color: string; title: string } {
 }
 
 /* ─── Component ──────────────────────────────────────────── */
-export default function EscenariosTesoreria() {
+export function EscenariosTesoreria({ embedded = false }: { embedded?: boolean } = {}) {
   const [loading, setLoading] = useState(true)
   const [saldoInicial, setSaldoInicial] = useState<number>(0)
   const [saldoManual, setSaldoManual] = useState<string>('')
@@ -246,17 +246,18 @@ export default function EscenariosTesoreria() {
   }
 
   return (
-    <div style={{ backgroundColor: C.bg, minHeight: '100vh', padding: '24px 32px', color: C.text, ...LEXEND }}>
+    <div style={{ backgroundColor: embedded ? 'transparent' : C.bg, minHeight: embedded ? 'auto' : '100vh', padding: embedded ? 0 : '24px 32px', color: C.text, ...LEXEND }}>
 
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ ...OSWALD, fontSize: 22, color: C.text, margin: 0 }}>
-          Escenarios de Tesorería
-        </h1>
-        <p style={{ color: C.muted, fontSize: 13, margin: '4px 0 0', ...LEXEND }}>
-          Proyección a 90 días desde hoy — cashflow semanal estimado
-        </p>
-      </div>
+      {!embedded && (
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ ...OSWALD, fontSize: 22, color: C.text, margin: 0 }}>
+            Escenarios de Tesorería
+          </h1>
+          <p style={{ color: C.muted, fontSize: 13, margin: '4px 0 0', ...LEXEND }}>
+            Proyección a 90 días desde hoy — cashflow semanal estimado
+          </p>
+        </div>
+      )}
 
       {loading && (
         <p style={{ color: C.muted }}>Cargando datos...</p>
@@ -451,3 +452,5 @@ export default function EscenariosTesoreria() {
     </div>
   )
 }
+
+export default EscenariosTesoreria
