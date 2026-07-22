@@ -1,4 +1,4 @@
-import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, VERDE, GRIS, OSW } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, VERDE, GRIS, AMA, OSW } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { X, Trash2, Upload, FileText as FileIcon, ExternalLink, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -49,8 +49,8 @@ const eur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', c
 
 function estadoColor(e: string): string {
   if (['aprobada', 'disfrutada', 'pagado', 'activo'].includes(e)) return VERDE
-  if (['solicitada', 'solicitado'].includes(e)) return '#e8b341'
-  if (['rechazada', 'descontado'].includes(e)) return '#888'
+  if (['solicitada', 'solicitado'].includes(e)) return AMA
+  if (['rechazada', 'descontado'].includes(e)) return GRIS
   return AZUL_CL
 }
 
@@ -161,7 +161,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved, tabInicial }
   }
 
   const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
-  const calcStyle: React.CSSProperties = { background: '#1D9E7520', border: '1px solid #1D9E75', color: VERDE, padding: '8px 10px', borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }
+  const calcStyle: React.CSSProperties = { background: `${VERDE}20`, border: `1px solid ${VERDE}`, color: VERDE, padding: '8px 10px', borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'personales', label: 'Personales' },
@@ -194,7 +194,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved, tabInicial }
                   <Chip color={estadoColor(estado)}>{estado}</Chip>
                   {antiguedad && <Chip color={AZUL_CL}>{antiguedad}</Chip>}
                   <Chip color={vacRestantes < 0 ? GRANATE : VERDE}>{vacRestantes} días vac.</Chip>
-                  {anticiposPend > 0 && <Chip color="#e8b341">{eur(anticiposPend)} anticipo</Chip>}
+                  {anticiposPend > 0 && <Chip color={AMA}>{eur(anticiposPend)} anticipo</Chip>}
                 </div>
               )}
             </div>
@@ -294,7 +294,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved, tabInicial }
           {tab === 'anticipos' && (
             needsSave ? <SaveFirst T={T} /> : (
               <div>
-                <div style={{ marginBottom: 14 }}><MiniKpi T={T} label="Pendiente de descontar" value={eur(anticiposPend)} accent={anticiposPend > 0 ? '#e8b341' : T.pri} /></div>
+                <div style={{ marginBottom: 14 }}><MiniKpi T={T} label="Pendiente de descontar" value={eur(anticiposPend)} accent={anticiposPend > 0 ? AMA : T.pri} /></div>
                 <AltaAnticipo empId={empId!} onSaved={fetchHijos} inputStyle={inputStyle} T={T} />
                 <ListaHijos T={T} vacios="Sin anticipos registrados" filas={anticipos.map(a => ({
                   id: a.id, izq: `${a.fecha}${a.mes_descuento ? ` · desc. ${a.mes_descuento}` : ''}`, centro: eur(Number(a.importe)), estado: a.estado, nota: a.nota,
@@ -304,7 +304,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved, tabInicial }
             )
           )}
 
-          {error && <div style={{ marginTop: 12, padding: '8px 12px', background: '#B01D2320', color: GRANATE, borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
+          {error && <div style={{ marginTop: 12, padding: '8px 12px', background: `${GRANATE}20`, color: GRANATE, borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
         </div>
 
         <div style={{ padding: '16px 24px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
@@ -409,7 +409,7 @@ function ListaHijos({ T, filas, vacios }: { T: any; vacios: string; filas: { id:
 
 function ListaDocumentos({ T, docs, onDel }: { T: any; docs: Documento[]; onDel: (id: string) => void }) {
   if (!docs.length) return <div style={{ padding: '18px 0', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>Sin documentos. Sube el contrato, nóminas, bajas…</div>
-  const tipoColor: Record<string, string> = { Contrato: AZUL_CL, 'Nómina': VERDE, Baja: '#e8b341', Otro: '#888' }
+  const tipoColor: Record<string, string> = { Contrato: AZUL_CL, 'Nómina': VERDE, Baja: AMA, Otro: GRIS }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
       {docs.map(d => (
@@ -419,7 +419,7 @@ function ListaDocumentos({ T, docs, onDel }: { T: any; docs: Documento[]; onDel:
             <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.nombre}</div>
             <div style={{ fontSize: 11, color: T.mut, marginTop: 2 }}>{d.fecha ?? ''}</div>
           </div>
-          <Chip color={tipoColor[d.tipo] ?? '#888'}>{d.tipo}</Chip>
+          <Chip color={tipoColor[d.tipo] ?? GRIS}>{d.tipo}</Chip>
           {d.url && <a href={d.url} target="_blank" rel="noreferrer" style={{ color: AZUL_CL, display: 'flex', padding: 4 }}><ExternalLink size={14} /></a>}
           <button onClick={() => onDel(d.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GRANATE, padding: 4 }}><Trash2 size={14} /></button>
         </div>
