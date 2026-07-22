@@ -670,7 +670,7 @@ const FICHA_CSS = `
   .print-ficha .ficha-meta .cell { border-color: #ccc !important; }
   .print-ficha .ficha-meta .lbl { color: #555 !important; }
   .print-ficha .ficha-meta .val { color: #111 !important; }
-  .print-ficha .ficha-meta .val-calc { background: #fff !important; border-color: #B01D23 !important; color: #111 !important; }
+  .print-ficha .ficha-meta .val-calc { background: #fff !important; border-color: #111 !important; color: #111 !important; }
   .print-ficha .ficha-section { border-color: #ccc !important; padding: 4mm 6mm; }
   .print-ficha .ficha-seclabel { color: #444 !important; border-color: #111 !important; }
   .print-ficha .ficha-grupo { color: #666 !important; border-color: #111 !important; }
