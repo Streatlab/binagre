@@ -17,7 +17,7 @@ import { extraerTextoPDF, pdfTieneTexto } from '../_lib/extractores.js'
 import { extraerTextoOCRGratis } from '../_lib/ocr-tesseract.js'
 import { clasificarDocEquipoTexto, type ClasificacionDocEquipo } from '../_lib/clasificarDocEquipo.js'
 import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen, procesarRnt } from '../_lib/subidaDocEquipo.js'
-import { cargarCandidatosEmpleados, resolverEmpleado, resolverEmpleadoEnTexto } from '../_lib/matchEmpleado.js'
+import { cargarCandidatosEmpleados, resolverEmpleado, resolverEmpleadoEnTexto, resolverEmpleadosEnTexto } from '../_lib/matchEmpleado.js'
 import { contarRecibos, partirNominas } from '../_lib/splitNominas.js'
 
 interface BodySubirEquipo {
@@ -107,14 +107,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `El PDF contiene ${nRecibos} nóminas juntas y no se pudo partir automáticamente (texto ilegible o dos recibos en la misma página)`))
     }
     const candidatos = await cargarCandidatosEmpleados(supabaseAdmin)
+    // Ruido del empleador: el nombre de la empresa/autónomo sale en TODAS las páginas.
+    // Un empleado que aparezca en TODOS los segmentos se descarta como candidato de
+    // cada segmento (salvo que sea el ÚNICO que aparece: entonces es SU nómina).
+    const matchesPorSegmento = segmentos.map(seg => resolverEmpleadosEnTexto(seg.texto, candidatos))
+    const idsComunes = new Set(
+      (matchesPorSegmento[0] ?? [])
+        .map(m => m.empleado_id)
+        .filter(id => matchesPorSegmento.every(ms => ms.some(m => m.empleado_id === id)))
+    )
     let ok = 0
     const detalles: unknown[] = []
     for (let i = 0; i < segmentos.length; i++) {
       const seg = segmentos[i]
       const clasifSeg = await clasificarDocEquipoTexto(seg.texto)
       const nombreSeg = nombreOriginal.replace(/\.pdf$/i, '') + `_parte${i + 1}.pdf`
+      const enTexto = matchesPorSegmento[i]
+      const sinRuido = enTexto.filter(m => !idsComunes.has(m.empleado_id))
+      const porTexto = sinRuido.length === 1 ? sinRuido[0]
+        : (sinRuido.length === 0 && enTexto.length === 1 ? enTexto[0] : null)
       const resolucion = resolverEmpleado(clasifSeg.empleado_nombre, clasifSeg.nif_trabajador, candidatos)
-        || resolverEmpleadoEnTexto(seg.texto, candidatos)
+        || porTexto
       if (resolucion) {
         const { status, body: out } = await procesarNominaIndividual(seg.buffer, nombreSeg, resolucion.empleado_id, resolucion.nombre, null, null)
         if (status === 200) { ok++; detalles.push({ parte: i + 1, empleado: resolucion.nombre, ok: true }); continue }

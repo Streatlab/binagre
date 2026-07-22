@@ -13,26 +13,6 @@
    puede pisarlos. Es la única forma de adaptarlas sin reescribir cada pantalla.
    ========================================================================== */
 
-/* ---------- Interruptor NEO / SL flotante ---------- */
-.sl-toggle-flotante {
-  position: fixed;
-  top: 14px;
-  right: 20px;
-  z-index: 400;
-  border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
-}
-
-@media (max-width: 768px) {
-  /* En móvil baja abajo a la derecha: arriba tapaba la cabecera. */
-  .sl-toggle-flotante {
-    top: auto;
-    bottom: 18px;
-    right: 14px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
-  }
-}
-
 /* ---------- Tablet ---------- */
 @media (max-width: 1024px) and (min-width: 769px) {
   .sl-skin [style*="grid-template-columns"] {

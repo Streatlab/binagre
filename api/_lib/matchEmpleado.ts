@@ -173,6 +173,34 @@ export function resolverEmpleadoEnTexto(
 }
 
 /**
+ * Variante plural: devuelve TODOS los empleados que aparecen en el texto. La usa el
+ * flujo multi-nómina para descartar el "ruido del empleador": en el PDF único de la
+ * gestoría, el nombre de la empresa/autónomo aparece en TODAS las páginas — si ese
+ * nombre coincide con un empleado (p.ej. Rubén), casaba en todos los segmentos y
+ * bloqueaba la identificación del trabajador real.
+ */
+export function resolverEmpleadosEnTexto(
+  texto: string,
+  candidatos: CandidatoEmpleado[],
+): ResolucionEmpleado[] {
+  const textoNorm = normalizarNombrePersona(texto)
+  if (!textoNorm) return []
+  const encontrados: ResolucionEmpleado[] = []
+  for (const c of candidatos) {
+    const nombres = [c.nombre, c.nombre_oficial, ...c.aliases].filter(Boolean) as string[]
+    for (const candidato of nombres) {
+      const palabras = [...palabrasSignificativas(candidato)]
+      if (palabras.length < 2) continue
+      if (palabras.every(p => textoNorm.includes(p))) {
+        encontrados.push({ empleado_id: c.id, nombre: c.nombre, metodo: 'palabras', motivo: `El documento nombra a "${candidato}"` })
+        break
+      }
+    }
+  }
+  return encontrados
+}
+
+/**
  * Autoaprendizaje: guarda el nombre tal cual venía en el documento como alias del
  * empleado, si no coincide ya literalmente con su nombre/nombre_oficial/algún alias
  * existente. No se vuelve a preguntar la próxima vez que aparezca ese mismo nombre.

@@ -8,7 +8,7 @@ import type { CSSProperties } from 'react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { TabCalendario, TabGastos, TabHistorial } from '@/pages/PagosCobros'
 import { FondoReserva } from '@/components/tesoreria/FondoReserva'
-import TesoreriaSwitch from '@/pages/switch/TesoreriaSwitch'
+import Tesoreria13Semanas from '@/pages/finanzas/Tesoreria13Semanas'
 import { EscenariosTesoreria } from '@/pages/finanzas/EscenariosTesoreria'
 import { FondoManiobra } from '@/pages/finanzas/FondoManiobra'
 
@@ -86,7 +86,7 @@ export default function TesoreriaPage() {
       {tab === 'gastos' && <TabGastos />}
       {tab === 'reserva' && <FondoReserva embedded />}
       {tab === 'historial' && <TabHistorial />}
-      {tab === '13semanas' && <TesoreriaSwitch />}
+      {tab === '13semanas' && <Tesoreria13Semanas />}
       {tab === 'escenarios' && <EscenariosTesoreria embedded />}
       {tab === 'salud' && <FondoManiobra embedded />}
     </div>
