@@ -1,0 +1,22 @@
+name: merge tanda cocina (un solo uso)
+on:
+  push:
+    branches: [trabajo]
+jobs:
+  merge:
+    if: contains(github.event.head_commit.message, 'workflow de un solo uso')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: trabajo
+          fetch-depth: 0
+      - name: merge rama de la tanda
+        run: |
+          git config user.name "Claude"
+          git config user.email "noreply@anthropic.com"
+          git fetch origin claude/tanda-cocina-platos-margen-dxugu9
+          git merge --no-ff origin/claude/tanda-cocina-platos-margen-dxugu9 -m "Merge Tanda Cocina Única (hub de platos + Hoy + menú dos bloques + margen dinámico) [deploy]"
+          git push origin trabajo
