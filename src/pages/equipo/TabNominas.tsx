@@ -125,7 +125,9 @@ export default function TabNominas() {
 
   async function fetchBase() {
     const [e, c, dt] = await Promise.all([
-      supabase.from('empleados').select('id, nombre').eq('estado', 'activo').order('nombre'),
+      // Los EXTRA (tipo_relacion='extra') no van en nómina: fuera del selector y
+      // de la parrilla de cobertura (se pagan por Bizum/transferencia).
+      supabase.from('empleados').select('id, nombre').eq('estado', 'activo').neq('tipo_relacion', 'extra').order('nombre'),
       supabase.from('v_nomina_emilio').select('*'),
       supabase.from('v_nomina_emilio_detalle').select('*'),
     ])
@@ -186,6 +188,7 @@ export default function TabNominas() {
         insertadas: data.insertadas ?? [], ya_existia: data.ya_existia ?? [], revisar_identidad: data.revisar_identidad ?? [],
       })
       await reload()
+      await cargarPendientesRevision()
     } catch (e) {
       alert('Error al subir el resumen: ' + (e instanceof Error ? e.message : String(e)))
     } finally {
@@ -306,7 +309,7 @@ export default function TabNominas() {
           {resumenResultado.revisar_identidad.length > 0 && (
             <div style={{ marginTop: 10, borderTop: `2px solid ${INK}`, paddingTop: 10 }}>
               <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: ROJO, marginBottom: 6 }}>
-                No se pudo identificar con seguridad — no guardado, complétalo a mano
+                Trabajadores sin reconocer — quedan en "documentos por revisar": asígnalos ahí en un clic
               </div>
               {resumenResultado.revisar_identidad.map((f, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, fontFamily: LEX, fontSize: 12, padding: '3px 0', flexWrap: 'wrap' }}>
