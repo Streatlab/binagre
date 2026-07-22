@@ -1,7 +1,7 @@
 name: merge tanda cocina (un solo uso)
 # Fusiona claude/tanda-cocina-platos-margen-dxugu9 en trabajo resolviendo los 5
 # conflictos conocidos (union Equipo QA + Tanda Cocina), valida con tsc+vitest+build
-# y se retira solo. Solo se dispara al tocar ESTE archivo.
+# y se retira solo. Solo se dispara al tocar ESTE archivo. Lanzamiento: 2
 on:
   push:
     branches: [trabajo]
