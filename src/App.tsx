@@ -22,6 +22,8 @@ const TabDrive = React.lazy(() => import('@/pages/configuracion/marcas/TabDrive'
 const MapeoMarcas = React.lazy(() => import('@/pages/configuracion/MapeoMarcas'))
 // A2 · Coste por plato (enlaza venta con receta costeada)
 const CostePlato = React.lazy(() => import('@/pages/cocina/CostePlato'))
+// B6 · Plato maestro (catálogo, alias, fusiones, cola por euros)
+const PlatosMaestros = React.lazy(() => import('@/pages/cocina/PlatosMaestros'))
 
 
 // Pantallas con interruptor NEO / SL: la ruta decide cual se ve
@@ -399,6 +401,8 @@ function AppRoutes() {
           <Route path="cocina/recetas" element={<CocinaRecetas />} />
           {/* A2 · Coste por plato: enlaza lo que vendes con la receta que lo cuesta */}
           <Route path="cocina/coste-plato" element={<ProtectedRoute solo={['admin']}><CostePlato /></ProtectedRoute>} />
+          {/* B6 · Plato maestro: catálogo, alias, fusiones, cola de recetas por crear */}
+          <Route path="cocina/platos-maestros" element={<ProtectedRoute solo={['admin']}><PlatosMaestros /></ProtectedRoute>} />
           {/* ── D·Tanda 3 · Menú Engineering ← Menú Engineering + Pareto Ingredientes ── */}
           <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Menú Engineering" tabs={[
             { to: '.', label: 'Menú Engineering', end: true },

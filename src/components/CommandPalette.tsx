@@ -50,6 +50,7 @@ const ITEMS: Item[] = [
   { label: 'Menu Engineering', path: '/cocina/menu-engineering', group: 'Cocina' },
   { label: 'Inventario cocina', path: '/cocina/inventario', group: 'Cocina' },
   { label: 'Libro de Recetas', path: '/cocina/recetario', group: 'Cocina' },
+  { label: 'Plato Maestro', path: '/cocina/platos-maestros', group: 'Cocina' },
   { label: 'Esquemas', path: '/cocina/esquemas', group: 'Cocina' },
   { label: 'Producción', path: '/cocina/produccion', group: 'Cocina' },
   { label: 'Menú familia', path: '/cocina/menu-familia', group: 'Cocina' },
