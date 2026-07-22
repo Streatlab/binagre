@@ -192,6 +192,28 @@ export async function procesarResumenNominas(
     }
 
     if (!resolucion) {
+      // Cero pérdidas: la fila no reconocida queda en la cola de revisión con sus
+      // importes en payload. Rubén la asigna en un clic (aprende alias) y se crea
+      // la nómina desde el payload — no hace falta re-subir el resumen.
+      await supabaseAdmin.from('equipo_docs_revision').insert({
+        nombre_archivo: `${nombreOriginal} · fila "${fila.trabajador}"`,
+        tipo_detectado: 'nomina',
+        confianza: 0,
+        motivo: `Trabajador del resumen no reconocido: "${fila.trabajador}". Asigna el empleado para crear su nómina de ${mesFinal}/${anioFinal}.`,
+        mes: mesFinal,
+        anio: anioFinal,
+        empleado_nombre: fila.trabajador,
+        drive_url: archivado.driveUrl,
+        storage_path: null,
+        estado: 'pendiente',
+        payload: {
+          origen: 'resumen_nominas',
+          bruto: fila.bruto, neto: fila.neto, irpf: fila.irpf,
+          ss_total: fila.ss_total, coste_empresa: fila.coste_empresa,
+          drive_url: archivado.driveUrl,
+          drive_pendiente: archivado.drivePendiente,
+        },
+      })
       revisarIdentidad.push(filaOut)
       continue
     }
