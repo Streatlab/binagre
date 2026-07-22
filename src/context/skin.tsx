@@ -1,12 +1,6 @@
-import { BLANCO, GRANATE } from '@/styles/neobrutal'
 /**
- * skin — interruptor entre el estilo Neobrutal (antiguo) y el estilo SL (canon).
- *
- * jul-26 · Ley Visual SL v2 APROBADA: SL es el estilo por defecto.
- * El interruptor se mantiene para comparar mientras quedan pantallas sin migrar.
- *
- * Aislado a propósito: no toca ningún token ni componente neobrutal.
- * Sin provider: cualquier pantalla puede llamar a useSkin() y colocar <SkinToggle />.
+ * skin — sistema visual ÚNICO: SL (canon). El interruptor NEO/SL se retiró
+ * (C30): neobrutal es ya solo el alias del kit. `skin` siempre vale 'sl'.
  */
 import { useEffect, useState } from 'react'
 import '@/styles/sl.css'
@@ -17,9 +11,9 @@ export type Skin = 'neo' | 'sl'
 const KEY = 'sl_skin'
 const EVT = 'sl_skin:changed'
 
-/** Canon: SL. Solo se sirve neobrutal si el usuario lo pide expresamente. */
+/** Canon único: SL. Ya no se sirve la variante neobrutal antigua. */
 function leer(): Skin {
-  try { return localStorage.getItem(KEY) === 'neo' ? 'neo' : 'sl' } catch { return 'sl' }
+  return 'sl'
 }
 
 export function useSkin() {
@@ -66,46 +60,9 @@ export function useEsMovil(corte = 768) {
 }
 
 /**
- * Interruptor NEO / SL. Se coloca en la barra superior de cada pantalla migrada.
- * Estilos en línea a propósito: así ninguna regla global (neobrutal, index.css)
- * puede pisarle el color. El activo va SIEMPRE en granate de marca.
+ * Interruptor NEO / SL retirado (C30). Se mantiene el export como no-op para no
+ * romper las pantallas que aún colocan <SkinToggle />; no renderiza nada.
  */
 export function SkinToggle() {
-  const { skin, setSkin } = useSkin()
-  const esMovil = useEsMovil()
-
-  const base: React.CSSProperties = {
-    border: 'none',
-    cursor: 'pointer',
-    padding: esMovil ? '9px 16px' : '7px 14px',
-    fontFamily: "'Nunito', system-ui, sans-serif",
-    fontSize: esMovil ? 12 : 11,
-    fontWeight: 800,
-    letterSpacing: '0.6px',
-    lineHeight: 1.2,
-    borderRadius: 0,
-    boxShadow: 'none',
-    minHeight: esMovil ? 40 : undefined,
-  }
-  const on: React.CSSProperties = { ...base, background: GRANATE, color: BLANCO }
-  const off: React.CSSProperties = { ...base, background: 'transparent', color: '#9C9894' }
-
-  return (
-    <div
-      role="group"
-      aria-label="Estilo visual"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 0,
-        border: '1px solid #F0E7DC',
-        borderRadius: 999,
-        overflow: 'hidden',
-        background: BLANCO,
-      }}
-    >
-      <button style={skin === 'neo' ? on : off} onClick={() => setSkin('neo')}>NEO</button>
-      <button style={skin === 'sl' ? on : off} onClick={() => setSkin('sl')}>SL</button>
-    </div>
-  )
+  return null
 }
