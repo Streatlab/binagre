@@ -44,13 +44,19 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    key: 'cocina', label: 'Cocina', perfiles: ['admin', 'cocina'],
+    key: 'cocina_num', label: 'Cocina · Números', perfiles: ['admin'],
     items: [
-      { path: '/escandallo',              label: 'Escandallo',       emoji: '⚖️', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/recetario',        label: 'Recetario',        emoji: '📋', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/produccion',       label: 'Producción',       emoji: '📋', perfiles: ['admin', 'cocina'] },
-      { path: '/carta',                   label: 'Carta',            emoji: '🍽️', perfiles: ['admin'] },
-      { path: '/cocina/menu-engineering', label: 'Menú Engineering', emoji: '⚙️', perfiles: ['admin'] },
+      { path: '/cocina/numeros/hoy',           label: 'Hoy',           emoji: '🏠', perfiles: ['admin'] },
+      { path: '/cocina/numeros/datos',         label: 'Datos',         emoji: '⚖️', perfiles: ['admin'] },
+      { path: '/cocina/numeros/plato-maestro', label: 'Plato Maestro', emoji: '🍲', perfiles: ['admin'] },
+      { path: '/cocina/numeros/analisis',      label: 'Análisis',      emoji: '📊', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'cocina_ops', label: 'Cocina · Operativa', perfiles: ['admin', 'cocina'],
+    items: [
+      { path: '/cocina/operativa/recetas',    label: 'Libro de Recetas', emoji: '📋', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/operativa/produccion', label: 'Producción',       emoji: '🏭', perfiles: ['admin', 'cocina'] },
     ],
   },
   {
@@ -95,7 +101,8 @@ const SECTIONS: NavSection[] = [
 // Variante B: cada sec-head con su color de fondo sólido (literal del mock)
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
   finanzas:      { icon: TrendingUp,    headBg: '#0FB86B', headColor: BLANCO  },
-  cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
+  cocina_num:    { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
+  cocina_ops:    { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
   operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: BLANCO  },
   compras:       { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },
   ventas:        { icon: TrendingUp,    headBg: '#7C3AED', headColor: BLANCO  },
@@ -360,7 +367,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                           cursor: 'pointer', textDecoration: 'none',
                           borderTop: idx > 0 ? '1.5px solid rgba(0,0,0,.14)' : 'none',
                           background: isActive ? INK : BLANCO,
-                          color: isActive ? (section.key === 'cocina' ? AMA : BLANCO) : INK,
+                          color: isActive ? (section.key.startsWith('cocina') ? AMA : BLANCO) : INK,
                         })}
                       >
                         {({ isActive }) => (

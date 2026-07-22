@@ -16,6 +16,7 @@ import { BLANCO } from '@/styles/neobrutal'
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { vincularPlato, desvincularPlato } from '@/lib/cocina/vincularCliente'
 import {
   C, Card, CardHead, Hero, HeroPill, Kpi, KpiGrid, Pill, Nota, Vacio, Atencion, InBar,
   eur0, eur2, num0, pct1,
@@ -30,6 +31,7 @@ interface Fila {
   confianza: number | null
   euros: number
   unidades: number
+  plato_maestro_id: number | null
 }
 interface Receta { id: string; nombre: string; coste_rac: number | null }
 interface Dup {
@@ -74,14 +76,22 @@ export default function CostePlato() {
 
   useEffect(() => { cargar() }, [cargar])
 
+  // LEY-PLATO-01: el vínculo se hace sobre el plato maestro (único vinculador) y se
+  // refleja a la vez en análisis, Carta, Pareto y aquí. Fallback al mapeo si aún no
+  // hay identidad (no debería tras la migración).
   const enlazar = useCallback(async (fila: Fila, recetaId: string) => {
     setGuardando(fila.plato_norm)
-    await supabase.from('mapeo_plato_receta').update({
-      receta_id: recetaId || null,
-      origen: recetaId ? 'manual' : 'pendiente',
-      confianza: recetaId ? 1 : null,
-      updated_at: new Date().toISOString(),
-    }).eq('id', fila.id)
+    if (fila.plato_maestro_id != null) {
+      if (recetaId) await vincularPlato(fila.plato_maestro_id, recetaId)
+      else await desvincularPlato(fila.plato_maestro_id)
+    } else {
+      await supabase.from('mapeo_plato_receta').update({
+        receta_id: recetaId || null,
+        origen: recetaId ? 'manual' : 'pendiente',
+        confianza: recetaId ? 1 : null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', fila.id)
+    }
     setGuardando(null)
     await cargar()
   }, [cargar])
