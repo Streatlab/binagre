@@ -24,28 +24,28 @@ export function EditModal({
         style={{ width: `${width}px`, maxWidth: '92vw' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-[#E9E1D0]">
-          <h2 className="text-[15px] font-bold text-[#1A1A1A] uppercase tracking-[0.12em]">{title}</h2>
+        <div className="px-6 py-4 border-b border-config-borde">
+          <h2 className="text-[15px] font-bold text-config-text uppercase tracking-[0.12em]">{title}</h2>
         </div>
         <div className="px-6 py-5 space-y-4">{children}</div>
-        <div className="px-6 py-4 border-t border-[#E9E1D0] flex items-center gap-2">
+        <div className="px-6 py-4 border-t border-config-borde flex items-center gap-2">
           {onDelete && (
             <button
               onClick={onDelete}
               disabled={saving}
-              className="px-4 py-2 text-xs font-medium text-[#B01D23] hover:bg-[#FCE0E2] rounded-lg disabled:opacity-50"
+              className="px-4 py-2 text-xs font-medium text-accent-red hover:bg-config-rojo-wash rounded-lg disabled:opacity-50"
             >Eliminar</button>
           )}
           <div className="flex-1" />
           <button
             onClick={onCancel}
             disabled={saving}
-            className="px-4 py-2 text-xs font-medium text-[#6E6656] hover:bg-[#F1EADD] rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-xs font-medium text-config-mut-alt hover:bg-config-hover rounded-lg disabled:opacity-50"
           >Cancelar</button>
           <button
             onClick={onSave}
             disabled={saving || !canSave}
-            className="px-4 py-2 text-xs font-medium bg-[#B01D23] text-white rounded-lg hover:bg-[#901A1E] disabled:opacity-50"
+            className="px-4 py-2 text-xs font-medium bg-accent-red text-white rounded-lg hover:bg-granate-hover disabled:opacity-50"
           >{saving ? 'Guardando...' : 'Guardar'}</button>
         </div>
       </div>
@@ -56,7 +56,7 @@ export function EditModal({
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <label className="block text-[11px] tracking-[0.14em] uppercase text-[#9E9588] mb-1 font-medium">{label}</label>
+      <label className="block text-[11px] tracking-[0.14em] uppercase text-config-mut mb-1 font-medium">{label}</label>
       {children}
     </div>
   )

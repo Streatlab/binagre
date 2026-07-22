@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, GRIS, INK } from '@/styles/neobrutal'
+import { CONFIG_BORDE, CONFIG_MUT } from '@/styles/palettes'
 import type { ReactNode, InputHTMLAttributes, ButtonHTMLAttributes } from 'react'
 import { Search } from 'lucide-react'
 import { useIsDark } from '@/hooks/useIsDark'
@@ -63,7 +64,7 @@ export function BtnGhost({ children, ...rest }: ButtonHTMLAttributes<HTMLButtonE
         letterSpacing: '0.04em',
         background: isDark ? INK : BLANCO,
         color: isDark ? BLANCO : INK,
-        border: `1px solid ${isDark ? INK : '#E9E1D0'}`,
+        border: `1px solid ${isDark ? INK : CONFIG_BORDE}`,
         cursor: 'pointer',
         fontFamily: 'Oswald, sans-serif',
         textTransform: 'uppercase',
@@ -88,14 +89,14 @@ export function SearchInput(props: InputHTMLAttributes<HTMLInputElement>) {
     >
       <Search
         size={14}
-        color={isDark ? GRIS : '#9E9588'}
+        color={isDark ? GRIS : CONFIG_MUT}
         style={{ position: 'absolute', left: 10, pointerEvents: 'none' }}
       />
       <input
         {...props}
         style={{
           background: isDark ? INK : BLANCO,
-          border: `1px solid ${isDark ? INK : '#E9E1D0'}`,
+          border: `1px solid ${isDark ? INK : CONFIG_BORDE}`,
           borderRadius: 8,
           padding: '8px 12px 8px 30px',
           fontSize: 13,

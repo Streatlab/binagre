@@ -20,7 +20,7 @@ export function InlineSelect({ value, options, onSubmit, placeholder }: Props) {
         defaultValue={value ?? ''}
         onChange={async (e) => { await onSubmit(e.target.value); setEditing(false) }}
         onBlur={() => setEditing(false)}
-        className="w-full px-2 py-1 rounded-md border-2 border-[#B01D23] bg-white text-[13.5px] font-medium focus:outline-none"
+        className="w-full px-2 py-1 rounded-md border-2 border-accent-red bg-white text-[13.5px] font-medium focus:outline-none"
       >
         <option value="">—</option>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -30,7 +30,7 @@ export function InlineSelect({ value, options, onSubmit, placeholder }: Props) {
   return (
     <span
       onClick={() => setEditing(true)}
-      className="inline-block w-full cursor-pointer rounded-md px-2 py-1 hover:bg-[#FAF4E4]"
+      className="inline-block w-full cursor-pointer rounded-md px-2 py-1 hover:bg-config-hover-alt"
       title="Click para cambiar"
     >
       {current || placeholder || '—'}

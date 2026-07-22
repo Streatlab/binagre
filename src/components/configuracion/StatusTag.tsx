@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
+import { STATUSTAG, TABCOSTES_MANUAL_BG_DARK, TABCOSTES_MANUAL_BG_LIGHT, TABCOSTES_MANUAL_FG_DARK, TABCOSTES_MANUAL_FG_LIGHT, TABCOSTES_AUTO_BG_DARK, TABCOSTES_AUTO_BG_LIGHT, TABCOSTES_AUTO_FG_DARK, TABCOSTES_AUTO_FG_LIGHT } from '@/styles/palettes'
 
 type Variant =
   | 'ok' | 'off'
@@ -16,15 +17,15 @@ export function StatusTag({
   const isDark = useIsDark()
 
   const styles: Record<Variant, { bg: string; color: string }> = {
-    ok:     { bg: isDark ? 'rgba(29,158,117,0.22)' : '#D4F0E0', color: isDark ? '#5DCAA5' : '#027b4b' },
-    off:    { bg: isDark ? 'rgba(255,255,255,0.08)' : '#ebe5d8', color: isDark ? '#9ba8c0' : '#9E9588' },
-    admin:  { bg: isDark ? 'rgba(176,29,35,0.28)'  : '#FCEBEB', color: isDark ? '#F09595' : '#A32D2D' },
-    gestor: { bg: isDark ? 'rgba(12,68,124,0.30)'  : '#E6F1FB', color: isDark ? '#89B5DF' : '#0C447C' },
-    cocina: { bg: isDark ? 'rgba(186,117,23,0.26)' : '#FAEEDA', color: isDark ? '#F5C36B' : '#854F0B' },
-    fijo:   { bg: isDark ? 'rgba(90,74,191,0.26)'  : '#E6DFFF', color: isDark ? '#B7A8F5' : '#5A4ABF' },
-    var:    { bg: isDark ? 'rgba(184,86,31,0.22)'  : '#FFE6D9', color: isDark ? '#F5A983' : '#B8561F' },
-    pers:   { bg: isDark ? 'rgba(31,108,184,0.26)' : '#D9EFFF', color: isDark ? '#89BFF0' : '#1F6CB8' },
-    mkt:    { bg: isDark ? 'rgba(184,38,110,0.22)' : '#FFD9E9', color: isDark ? '#F092B6' : '#B8266E' },
+    ok:     { bg: isDark ? STATUSTAG.ok.bgDark : STATUSTAG.ok.bgLight, color: isDark ? STATUSTAG.ok.fgDark : STATUSTAG.ok.fgLight },
+    off:    { bg: isDark ? STATUSTAG.off.bgDark : STATUSTAG.off.bgLight, color: isDark ? STATUSTAG.off.fgDark : STATUSTAG.off.fgLight },
+    admin:  { bg: isDark ? TABCOSTES_MANUAL_BG_DARK : TABCOSTES_MANUAL_BG_LIGHT, color: isDark ? TABCOSTES_MANUAL_FG_DARK : TABCOSTES_MANUAL_FG_LIGHT },
+    gestor: { bg: isDark ? TABCOSTES_AUTO_BG_DARK : TABCOSTES_AUTO_BG_LIGHT, color: isDark ? TABCOSTES_AUTO_FG_DARK : TABCOSTES_AUTO_FG_LIGHT },
+    cocina: { bg: isDark ? STATUSTAG.cocina.bgDark : STATUSTAG.cocina.bgLight, color: isDark ? STATUSTAG.cocina.fgDark : STATUSTAG.cocina.fgLight },
+    fijo:   { bg: isDark ? STATUSTAG.fijo.bgDark : STATUSTAG.fijo.bgLight, color: isDark ? STATUSTAG.fijo.fgDark : STATUSTAG.fijo.fgLight },
+    var:    { bg: isDark ? STATUSTAG.var.bgDark : STATUSTAG.var.bgLight, color: isDark ? STATUSTAG.var.fgDark : STATUSTAG.var.fgLight },
+    pers:   { bg: isDark ? STATUSTAG.pers.bgDark : STATUSTAG.pers.bgLight, color: isDark ? STATUSTAG.pers.fgDark : STATUSTAG.pers.fgLight },
+    mkt:    { bg: isDark ? STATUSTAG.mkt.bgDark : STATUSTAG.mkt.bgLight, color: isDark ? STATUSTAG.mkt.fgDark : STATUSTAG.mkt.fgLight },
   }
   const s = styles[variant]
 

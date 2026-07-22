@@ -11,6 +11,8 @@ import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import ConfigGroupCard from './ConfigGroupCard'
 import { InlineEdit } from './InlineEdit'
+import { GRANATE, LIMA } from '@/styles/neobrutal'
+import { BOTON_ANADIR_TXT } from '@/styles/palettes'
 
 interface Props {
   /** Clave en configuracion.clave cuyo valor es un JSON array de strings. */
@@ -97,7 +99,7 @@ export default function EditorListaConfigJson({ clave, titulo, placeholder = 'Nu
   return (
     <ConfigGroupCard title={titulo} subtitle={`${items.length}`}>
       {error && (
-        <div style={{ margin: '0 22px 10px', padding: '8px 12px', background: '#B01D2320', color: '#B01D23', borderRadius: 8, fontFamily: FONT.body, fontSize: 12.5 }}>
+        <div style={{ margin: '0 22px 10px', padding: '8px 12px', background: GRANATE + '20', color: GRANATE, borderRadius: 8, fontFamily: FONT.body, fontSize: 12.5 }}>
           {error}
         </div>
       )}
@@ -140,7 +142,7 @@ export default function EditorListaConfigJson({ clave, titulo, placeholder = 'Nu
                   <button
                     onClick={() => eliminar(idx)}
                     style={{ background: 'transparent', border: 'none', color: T.mut, fontSize: 11, cursor: 'pointer', fontFamily: FONT.heading, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600, padding: 0 }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#B01D23')}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = GRANATE)}
                     onMouseLeave={(e) => (e.currentTarget.style.color = T.mut)}
                   >Eliminar</button>
                 </td>
@@ -159,7 +161,7 @@ export default function EditorListaConfigJson({ clave, titulo, placeholder = 'Nu
         />
         <button
           onClick={async () => { await crear(nuevo); setNuevo('') }}
-          style={{ padding: '7px 14px', borderRadius: 6, border: 'none', background: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
+          style={{ padding: '7px 14px', borderRadius: 6, border: 'none', background: LIMA, color: BOTON_ANADIR_TXT, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
         >+ Añadir</button>
       </div>
     </ConfigGroupCard>

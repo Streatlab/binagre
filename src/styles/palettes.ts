@@ -193,6 +193,45 @@ export const COLORES_EMPLEADO_HORARIOS = [
 /** Botón "Guardando…" (Cuadrante Horarios): verde apagado mientras persiste. */
 export const VERDE_GUARDANDO = '#7a8'
 
+/* ── Configuración · micro-sistema visual propio (claro fijo + oscuro=kit) ──
+ * Todo components/configuracion/* comparte este patrón: isDark ? INK/GRIS : hex. */
+export const CONFIG_BORDE = '#E9E1D0'
+export const CONFIG_BORDE_ALT = '#DDD4BF'
+export const CONFIG_BORDE_ALT2 = '#F0E8D5'
+export const CONFIG_MUT = '#9E9588'
+export const CONFIG_MUT_ALT = '#6E6656'
+export const CONFIG_TEXT_FUERTE = '#1A1A1A'
+export const CONFIG_HOVER_CREMA = '#F1EADD'
+export const CONFIG_HOVER_CREMA_ALT = '#FAF4E4'
+export const CONFIG_ROJO_WASH = '#FCE0E2'
+export const CONFIG_ROJO_WASH_DARK = 'rgba(176,29,35,0.22)'
+/** Granate en hover (botones primarios de Configuración). */
+export const GRANATE_HOVER = '#901A1E'
+/** Verde "positivo" distinto de COBERTURA_VERDE (KpiCard subTone). */
+export const KPI_POS_VERDE = '#22B573'
+
+/** StatusTag: 9 categorías, cada una con {bg,fg} oscuro/claro. admin/gestor
+ * coinciden exactamente con TabCostes (manual/auto) — mismo origen visual. */
+export const STATUSTAG = {
+  ok:     { bgDark: 'rgba(29,158,117,0.22)', bgLight: '#D4F0E0', fgDark: '#5DCAA5', fgLight: '#027b4b' },
+  off:    { bgDark: 'rgba(255,255,255,0.08)', bgLight: '#ebe5d8', fgDark: '#9ba8c0', fgLight: '#9E9588' },
+  cocina: { bgDark: 'rgba(186,117,23,0.26)', bgLight: '#FAEEDA', fgDark: '#F5C36B', fgLight: '#854F0B' },
+  fijo:   { bgDark: 'rgba(90,74,191,0.26)', bgLight: '#E6DFFF', fgDark: '#B7A8F5', fgLight: '#5A4ABF' },
+  var:    { bgDark: 'rgba(184,86,31,0.22)', bgLight: '#FFE6D9', fgDark: '#F5A983', fgLight: '#B8561F' },
+  pers:   { bgDark: 'rgba(31,108,184,0.26)', bgLight: '#D9EFFF', fgDark: '#89BFF0', fgLight: '#1F6CB8' },
+  mkt:    { bgDark: 'rgba(184,38,110,0.22)', bgLight: '#FFD9E9', fgDark: '#F092B6', fgLight: '#B8266E' },
+} as const
+
+/** Ctag: único valor sin equivalente ya tokenizado (el resto reusa STATUSTAG/TABCOSTES). */
+export const CTAG_LIMA_TXT_LIGHT = '#5c550d'
+
+/** CanalCard: filas de mix por canal (Uber/Glovo/Just Eat), color de dato. */
+export const CANALCARD = {
+  ue: { bg: '#DCEFE0', border: '#22B573', text: '#027b4b', val: '#22B573' },
+  gl: { bg: '#F4EEBC', border: '#DCCF2A', text: '#5c550d', val: '#8a7d00' },
+  je: { bg: '#F9E8CC', border: '#E89A2B', text: '#B8561F', val: '#E89A2B' },
+} as const
+
 export const INCENTIVOS_PRINT = {
   borde: '#eee',
   texto: '#111',

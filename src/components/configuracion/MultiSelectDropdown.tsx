@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE } from '@/styles/neobrutal'
+import { CONFIG_ROJO_WASH, CONFIG_ROJO_WASH_DARK } from '@/styles/palettes'
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -35,7 +36,7 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
       ? options.find(o => o.value === selected[0])?.label ?? label
       : `${label} (${selected.length})`
 
-  const activeBg = isDark ? 'rgba(176,29,35,0.22)' : '#FCE0E2'
+  const activeBg = isDark ? CONFIG_ROJO_WASH_DARK : CONFIG_ROJO_WASH
   const hoverBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'
 
   return (
