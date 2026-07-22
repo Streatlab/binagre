@@ -1,3 +1,4 @@
+import React from 'react'
 import { BLANCO, GRANATE, INK, NAR_S } from '@/styles/neobrutal'
 import { NavLink } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
@@ -29,7 +30,7 @@ const CREMA  = NAR_S
 const AMA    = '#FFC400'
 const LOGO_SRC = '/loco-icon.svg.svg'
 
-interface NavItem   { path: string; label: string; emoji: string; perfiles: string[]; pendiente?: boolean }
+interface NavItem   { path: string; label: string; emoji: string; perfiles: string[]; pendiente?: boolean; grupo?: string }
 interface NavSection { key: string; label: string; perfiles: string[]; items: NavItem[] }
 interface SectionIconConfig { icon: LucideIcon; headBg: string; headColor: string }
 
@@ -45,19 +46,14 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    key: 'cocina_num', label: 'Cocina · Números', perfiles: ['admin'],
+    key: 'cocina', label: 'Cocina', perfiles: ['admin', 'cocina'],
     items: [
-      { path: '/cocina/numeros/hoy',           label: 'Hoy',           emoji: '🏠', perfiles: ['admin'] },
-      { path: '/cocina/numeros/datos',         label: 'Datos',         emoji: '⚖️', perfiles: ['admin'] },
-      { path: '/cocina/numeros/plato-maestro', label: 'Plato Maestro', emoji: '🍲', perfiles: ['admin'] },
-      { path: '/cocina/numeros/analisis',      label: 'Análisis',      emoji: '📊', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'cocina_ops', label: 'Cocina · Operativa', perfiles: ['admin', 'cocina'],
-    items: [
-      { path: '/cocina/operativa/recetas',    label: 'Libro de Recetas', emoji: '📋', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/operativa/produccion', label: 'Producción',       emoji: '🏭', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/numeros/hoy',           label: 'Hoy',           emoji: '🏠', perfiles: ['admin'], grupo: 'Números' },
+      { path: '/cocina/numeros/datos',         label: 'Datos',         emoji: '⚖️', perfiles: ['admin'], grupo: 'Números' },
+      { path: '/cocina/numeros/plato-maestro', label: 'Plato Maestro', emoji: '🍲', perfiles: ['admin'], grupo: 'Números' },
+      { path: '/cocina/numeros/analisis',      label: 'Análisis',      emoji: '📊', perfiles: ['admin'], grupo: 'Números' },
+      { path: '/cocina/operativa/recetas',    label: 'Libro de Recetas', emoji: '📋', perfiles: ['admin', 'cocina'], grupo: 'Operativa' },
+      { path: '/cocina/operativa/produccion', label: 'Producción',       emoji: '🏭', perfiles: ['admin', 'cocina'], grupo: 'Operativa' },
     ],
   },
   {
@@ -114,8 +110,7 @@ const SECTIONS: NavSection[] = [
 // Variante B: cada sec-head con su color de fondo sólido (literal del mock)
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
   finanzas:      { icon: TrendingUp,    headBg: '#0FB86B', headColor: BLANCO  },
-  cocina_num:    { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
-  cocina_ops:    { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
+  cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
   operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: BLANCO  },
   equipo:        { icon: Users,         headBg: '#D6336C', headColor: BLANCO  },
   compras:       { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },
@@ -142,7 +137,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const perfil      = usuario?.perfil ?? ''
   const esMovilDisp = useEsMovil()
 
-  const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections())
+  const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections().map(k => (k === 'cocina_num' || k === 'cocina_ops') ? 'cocina' : k))
   const [tareasBadge, setTareasBadge] = useState(0)
 
   useEffect(() => {
@@ -374,7 +369,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 {!collapsed && isOpen && (
                   <div style={{ background: BLANCO, borderBottom: `3px solid ${INK}` }}>
                     {visibleItems.map((item, idx) => (
-                      <NavLink key={`${item.path}-${idx}`} to={item.path} end onClick={onClose}
+                      <React.Fragment key={`${item.path}-${idx}`}>
+                      {item.grupo && (idx === 0 || visibleItems[idx - 1].grupo !== item.grupo) && (
+                        <div style={{ padding: '6px 16px 3px 18px', background: BLANCO, borderTop: idx > 0 ? `1.5px solid ${INK}` : 'none', fontFamily: FONT.heading, fontWeight: 800, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: GRANATE }}>
+                          {item.grupo}
+                        </div>
+                      )}
+                      <NavLink to={item.path} end onClick={onClose}
                         style={({ isActive }) => ({
                           fontFamily: FONT.heading, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.01em', fontSize: 16,
                           padding: '8px 16px 8px 18px', display: 'flex', alignItems: 'center', gap: 9,
@@ -403,6 +404,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                           </>
                         )}
                       </NavLink>
+                      </React.Fragment>
                     ))}
                   </div>
                 )}
