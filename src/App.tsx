@@ -332,11 +332,18 @@ function AppRoutes() {
               todo como pestañas internas de una única barra (Equipo.tsx). Sin
               ProtectedRoute solo=admin aquí: un empleado no-admin necesita llegar a su
               Portal — Equipo.tsx decide internamente qué ve cada perfil. */}
-          <Route path="equipo" element={<Equipo />} />
-          <Route path="equipo/organigrama" element={<Navigate to="/equipo?tab=organigrama" replace />} />
-          <Route path="equipo/horarios" element={<Navigate to="/equipo?tab=horarios" replace />} />
-          <Route path="equipo/presencia" element={<Navigate to="/equipo?tab=presencia" replace />} />
-          <Route path="equipo/portal" element={<Navigate to="/equipo?tab=portal" replace />} />
+          <Route path="equipo" element={<Navigate to="/equipo/personas" replace />} />
+          <Route path="equipo/personas" element={<Equipo grupo="personas" />} />
+          <Route path="equipo/dinero" element={<Equipo grupo="dinero" />} />
+          <Route path="equipo/dia-a-dia" element={<Equipo grupo="dia" />} />
+          <Route path="equipo/documentos" element={<Equipo grupo="documentos" />} />
+          <Route path="equipo/incentivos" element={<Navigate to="/equipo/personas?tab=incentivos" replace />} />
+          <Route path="equipo/nominas" element={<Navigate to="/equipo/dinero?tab=nominas" replace />} />
+          <Route path="equipo/costes" element={<Navigate to="/equipo/dinero?tab=costes" replace />} />
+          <Route path="equipo/organigrama" element={<Navigate to="/equipo/personas?tab=organigrama" replace />} />
+          <Route path="equipo/horarios" element={<Navigate to="/equipo/dia-a-dia?tab=horarios" replace />} />
+          <Route path="equipo/presencia" element={<Navigate to="/equipo/dia-a-dia?tab=presencia" replace />} />
+          <Route path="equipo/portal" element={<Navigate to="/equipo/personas?tab=portal" replace />} />
 
           <Route path="ops/reembolsos" element={<ReclamacionReembolsos />} />
           <Route path="ops/reuniones" element={<ProtectedRoute solo={['admin']}><ReunionesEquipo /></ProtectedRoute>} />
