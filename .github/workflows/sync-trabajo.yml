@@ -1,0 +1,23 @@
+name: Sincronizar trabajo con master
+
+# Un solo uso: pone la rama `trabajo` al dia con master (avance limpio, sin conflictos).
+# Borrar este fichero despues de usarlo.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/sync-trabajo.yml'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+      - name: Avanzar trabajo hasta master
+        run: git push origin master:trabajo
