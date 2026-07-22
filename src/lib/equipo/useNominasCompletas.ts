@@ -35,6 +35,7 @@ export interface NominaCompleta {
   coste_empresa: number | null
   estado: string
   pdf_url: string | null
+  pdf_storage_path: string | null
   origen_extraccion: string
   pagos: PagoAsociado[]
   totalPagado: number
@@ -58,6 +59,7 @@ interface NominaRow {
   coste_empresa: number | null
   estado: string | null
   pdf_url: string | null
+  pdf_storage_path: string | null
   origen_extraccion: string | null
   empleados: { nombre: string } | { nombre: string }[] | null
 }
@@ -100,7 +102,7 @@ export function useNominasCompletas(anio: number): { loading: boolean; error: st
       try {
         const { data: nominasData, error: errN } = await supabase
           .from('nominas')
-          .select('id, empleado_id, mes, anio, importe_bruto, importe_neto, irpf_retenido, ss_trabajador, ss_empresa, coste_empresa, estado, pdf_url, origen_extraccion, empleados(nombre)')
+          .select('id, empleado_id, mes, anio, importe_bruto, importe_neto, irpf_retenido, ss_trabajador, ss_empresa, coste_empresa, estado, pdf_url, pdf_storage_path, origen_extraccion, empleados(nombre)')
           .eq('anio', anio)
           .order('mes', { ascending: true })
         if (errN) throw errN
@@ -160,6 +162,7 @@ export function useNominasCompletas(anio: number): { loading: boolean; error: st
             coste_empresa: n.coste_empresa != null ? Number(n.coste_empresa) : null,
             estado: n.estado ?? '',
             pdf_url: n.pdf_url,
+            pdf_storage_path: n.pdf_storage_path,
             origen_extraccion: n.origen_extraccion ?? '',
             pagos,
             totalPagado,

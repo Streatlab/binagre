@@ -4,9 +4,12 @@
  * la ficha financiera del empleado (ModalEmpleado): una sola fuente de verdad
  * para no repetir el mismo mini-componente en dos sitios.
  */
+import { useState } from 'react'
 import type { NominaCompleta, PagoAsociado } from '@/lib/equipo/useNominasCompletas'
+import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/lib/format'
-import { Download } from 'lucide-react'
+import { Check } from 'lucide-react'
+import VisorPdf from '@/components/equipo/VisorPdf'
 import { OSW, LEX, INK, CREMA, CLARO, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, AZUL, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal'
 
 export const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
@@ -68,7 +71,69 @@ export function DesgloseSoloLectura({ n }: { n: NominaCompleta }) {
   )
 }
 
-export function ModalVerNomina({ n, onClose }: { n: NominaCompleta; onClose: () => void }) {
+// Frase de estado de pago, sin alarmar cuando la causa real es que aún no hay
+// extracto importado (clasificacion='sin_pago' con 0 pagos no es un error).
+function fraseEstadoPago(n: NominaCompleta): string {
+  if (n.clasificacion === 'sin_pago') return 'Comprometida · aún sin ver en banco'
+  return `${clasifLabel(n.clasificacion)} · diferencia ${fmtEur(n.diferencia, { decimals: 2, signed: true })}`
+}
+
+const CAMPOS_DESGLOSE: [keyof CamposNomina, string][] = [
+  ['importe_bruto', 'Bruto'], ['importe_neto', 'Neto'], ['irpf_retenido', 'IRPF'],
+  ['ss_trabajador', 'SS trabajador'], ['ss_empresa', 'SS empresa'], ['coste_empresa', 'Coste empresa'],
+]
+
+interface CamposNomina {
+  importe_bruto: number
+  importe_neto: number
+  irpf_retenido: number
+  ss_trabajador: number
+  ss_empresa: number
+  coste_empresa: number
+}
+
+/** Desglose editable — solo se usa dentro del flujo "Confirmar importes" de una
+ *  nómina en 'revisar'. Edición inline, sin subir nada; al confirmar guarda los
+ *  valores y pasa estado a 'ok'. */
+function DesgloseConfirmable({ vals, onChange }: { vals: CamposNomina; onChange: (campo: keyof CamposNomina, valor: number) => void }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
+      {CAMPOS_DESGLOSE.map(([campo, label]) => (
+        <div key={campo}>
+          <label style={{ display: 'block', fontFamily: OSW, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS, marginBottom: 3 }}>{label}</label>
+          <input
+            type="number" step="0.01" value={vals[campo]}
+            onChange={e => onChange(campo, parseFloat(e.target.value) || 0)}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', border: `2px solid ${AMA}`, fontFamily: LEX, fontSize: 13, background: BLANCO, color: INK, outline: 'none' }}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function ModalVerNomina({ n, onClose, onConfirmado }: { n: NominaCompleta; onClose: () => void; onConfirmado?: () => void }) {
+  const porConfirmar = n.estado === 'revisar'
+  const [vals, setVals] = useState<CamposNomina>({
+    importe_bruto: n.importe_bruto ?? 0,
+    importe_neto: n.importe_neto ?? 0,
+    irpf_retenido: n.irpf_retenido ?? 0,
+    ss_trabajador: n.ss_trabajador ?? 0,
+    ss_empresa: n.ss_empresa ?? 0,
+    coste_empresa: n.coste_empresa ?? 0,
+  })
+  const [confirmando, setConfirmando] = useState(false)
+
+  async function confirmarImportes() {
+    setConfirmando(true)
+    try {
+      const { error } = await supabase.from('nominas').update({ ...vals, estado: 'ok' }).eq('id', n.id)
+      if (!error) { onConfirmado?.(); onClose() }
+    } finally {
+      setConfirmando(false)
+    }
+  }
+
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 130, padding: 16 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: CREMA, border: BORDER_CARD, boxShadow: '8px 8px 0 rgba(0,0,0,0.25)', padding: 24, width: '100%', maxWidth: 720, maxHeight: '85vh', overflowY: 'auto' }}>
@@ -77,28 +142,37 @@ export function ModalVerNomina({ n, onClose }: { n: NominaCompleta; onClose: () 
             <div style={{ fontFamily: OSW, fontSize: 15, letterSpacing: '2px', textTransform: 'uppercase', color: GRANATE }}>
               {n.empleado_nombre} · {MESES_LARGO[n.mes - 1]} {n.anio}
             </div>
-            <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: clasifColor(n.clasificacion), marginTop: 4 }}>
-              {clasifLabel(n.clasificacion)} · diferencia {fmtEur(n.diferencia, { decimals: 2, signed: true })}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: clasifColor(n.clasificacion) }}>
+                {fraseEstadoPago(n)}
+              </span>
+              {porConfirmar && <span style={{ ...eyebrow(AMA, INK), fontSize: 9 }}>Por confirmar</span>}
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: GRIS, fontFamily: LEX, fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
         </div>
 
-        {n.pdf_url ? (
-          <div style={{ marginBottom: 16 }}>
-            <iframe src={n.pdf_url} title="Nómina PDF" style={{ width: '100%', height: 380, border: `2px solid ${INK}` }} />
-            <a href={n.pdf_url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, color: AZUL, fontFamily: LEX, fontSize: 12, textDecoration: 'none' }}>
-              <Download size={12} /> Abrir PDF en pestaña nueva
-            </a>
-          </div>
-        ) : (
-          <div style={{ color: GRIS, fontFamily: LEX, fontSize: 12, marginBottom: 16 }}>Sin PDF asociado.</div>
-        )}
-
-        <span style={eyebrow(CLARO, INK)}>DESGLOSE</span>
-        <div style={{ marginTop: 8, marginBottom: 16 }}>
-          <DesgloseSoloLectura n={n} />
+        <div style={{ marginBottom: 16 }}>
+          <VisorPdf storagePath={n.pdf_storage_path} driveUrl={n.pdf_url} />
         </div>
+
+        <span style={eyebrow(CLARO, INK)}>DESGLOSE{porConfirmar ? ' · edita antes de confirmar' : ''}</span>
+        <div style={{ marginTop: 8, marginBottom: porConfirmar ? 10 : 16 }}>
+          {porConfirmar ? <DesgloseConfirmable vals={vals} onChange={(campo, valor) => setVals(v => ({ ...v, [campo]: valor }))} /> : <DesgloseSoloLectura n={n} />}
+        </div>
+        {porConfirmar && (
+          <button
+            onClick={confirmarImportes} disabled={confirmando}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16,
+              border: `3px solid ${INK}`, background: VERDE, color: BLANCO,
+              fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase',
+              padding: '8px 14px', cursor: confirmando ? 'wait' : 'pointer',
+            }}
+          >
+            <Check size={13} /> {confirmando ? 'Confirmando…' : 'Confirmar importes'}
+          </button>
+        )}
 
         <span style={eyebrow(AZUL, BLANCO)}>PAGOS DEL BANCO</span>
         <div style={{ marginTop: 8 }}>

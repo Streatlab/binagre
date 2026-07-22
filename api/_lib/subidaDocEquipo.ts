@@ -47,20 +47,25 @@ interface ResultadoArchivado {
   driveError: string | null
   niveles: string[]
   nombreArchivo: string
+  /** Ruta en el bucket propio 'facturas' — el visor la usa para servir el PDF con
+   *  signed URL, sin depender de permisos de Google Drive (nunca un iframe de Drive). */
+  storagePath: string | null
 }
 
 /** Archiva en la ruta EXACTA de EQUIPO. Nunca lanza: si Drive falla, driveUrl queda
- *  null y drivePendiente=true — el llamador guarda el dato de todas formas. */
+ *  null y drivePendiente=true — el llamador guarda el dato de todas formas. El
+ *  respaldo en Storage propio (storagePath) se hace SIEMPRE antes de tocar Drive,
+ *  así que sigue disponible aunque Drive falle o no esté configurado. */
 async function archivarEquipo(buffer: Buffer, nombreArchivo: string, niveles: string[], ext: string): Promise<ResultadoArchivado> {
   try {
     const drive = await subirArchivoACarpetaExacta(buffer, nombreArchivo, niveles, ext)
     if (drive.driveOk) {
-      return { driveUrl: drive.webViewLink || null, drivePendiente: false, driveError: null, niveles, nombreArchivo }
+      return { driveUrl: drive.webViewLink || null, drivePendiente: false, driveError: null, niveles, nombreArchivo, storagePath: drive.storagePath }
     }
-    return { driveUrl: null, drivePendiente: true, driveError: 'Drive no disponible en el momento de la subida (documento a salvo en Storage)', niveles, nombreArchivo }
+    return { driveUrl: null, drivePendiente: true, driveError: 'Drive no disponible en el momento de la subida (documento a salvo en Storage)', niveles, nombreArchivo, storagePath: drive.storagePath }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    return { driveUrl: null, drivePendiente: true, driveError: msg, niveles, nombreArchivo }
+    return { driveUrl: null, drivePendiente: true, driveError: msg, niveles, nombreArchivo, storagePath: null }
   }
 }
 
@@ -121,6 +126,7 @@ export async function procesarNominaIndividual(
     drive_error: archivado.driveError,
     drive_niveles: archivado.niveles,
     drive_nombre_archivo: archivado.nombreArchivo,
+    pdf_storage_path: archivado.storagePath,
   }
   const { data: previa } = await supabaseAdmin
     .from('nominas').select('id')
@@ -275,6 +281,7 @@ export async function procesarResumenNominas(
       drive_error: archivado.driveError,
       drive_niveles: archivado.niveles,
       drive_nombre_archivo: archivado.nombreArchivo,
+      pdf_storage_path: archivado.storagePath,
     })
 
     if (errInsert) {
@@ -346,6 +353,7 @@ export async function procesarSegSocialResumen(
       drive_error: archivado.driveError,
       drive_niveles: archivado.niveles,
       drive_nombre_archivo: archivado.nombreArchivo,
+      pdf_storage_path: archivado.storagePath,
     }, { onConflict: 'mes,anio' })
     .select()
     .maybeSingle()
@@ -452,6 +460,7 @@ export async function procesarRnt(
       drive_error: archivado.driveError,
       drive_niveles: archivado.niveles,
       drive_nombre_archivo: archivado.nombreArchivo,
+      pdf_storage_path: archivado.storagePath,
     })
 
     if (errInsert) {
@@ -526,6 +535,7 @@ export async function procesarAutonomoCuota(
       drive_error: archivado.driveError,
       drive_niveles: archivado.niveles,
       drive_nombre_archivo: archivado.nombreArchivo,
+      pdf_storage_path: archivado.storagePath,
     }, { onConflict: 'titular_id,mes,anio' })
     .select()
     .maybeSingle()

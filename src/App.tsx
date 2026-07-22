@@ -101,10 +101,6 @@ const MarcasSimple = React.lazy(() => import('@/pages/Marcas'))
 const Inventario = React.lazy(() => import('@/pages/stock/Inventario'))
 
 const Equipo = React.lazy(() => import('@/pages/Equipo'))
-const Horarios = React.lazy(() => import('@/pages/equipo/Horarios'))
-const ControlPresencia = React.lazy(() => import('@/pages/equipo/ControlPresencia'))
-const Organigrama = React.lazy(() => import('@/pages/equipo/Organigrama'))
-const PortalEmpleado = React.lazy(() => import('@/pages/equipo/PortalEmpleado'))
 
 const ClubFidelizacion = React.lazy(() => import('@/pages/clientes/ClubFidelizacion'))
 const CrmTiendaPropia = React.lazy(() => import('@/pages/clientes/CrmTiendaPropia'))
@@ -337,20 +333,15 @@ function AppRoutes() {
             <Route index element={<ProtectedRoute solo={['admin']}><BpmCalidad /></ProtectedRoute>} />
             <Route path="manuales" element={<ManualesOperaciones />} />
           </Route>
-          {/* Equipo ← Personas + Organigrama + Horarios + Presencia + Portal del empleado */}
-          <Route path="equipo" element={<TabsContainer title="Equipo" tabs={[
-            { to: '.', label: 'Personas', end: true },
-            { to: 'organigrama', label: 'Organigrama' },
-            { to: 'horarios', label: 'Horarios' },
-            { to: 'presencia', label: 'Presencia' },
-            { to: 'portal', label: 'Portal del empleado' },
-          ]} />}>
-            <Route index element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
-            <Route path="organigrama" element={<ProtectedRoute solo={['admin']}><Organigrama /></ProtectedRoute>} />
-            <Route path="horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
-            <Route path="presencia" element={<ProtectedRoute solo={['admin']}><ControlPresencia /></ProtectedRoute>} />
-            <Route path="portal" element={<PortalEmpleado />} />
-          </Route>
+          {/* Equipo ← Personas + Organigrama + Horarios + Presencia + Portal del empleado,
+              todo como pestañas internas de una única barra (Equipo.tsx). Sin
+              ProtectedRoute solo=admin aquí: un empleado no-admin necesita llegar a su
+              Portal — Equipo.tsx decide internamente qué ve cada perfil. */}
+          <Route path="equipo" element={<Equipo />} />
+          <Route path="equipo/organigrama" element={<Navigate to="/equipo?tab=organigrama" replace />} />
+          <Route path="equipo/horarios" element={<Navigate to="/equipo?tab=horarios" replace />} />
+          <Route path="equipo/presencia" element={<Navigate to="/equipo?tab=presencia" replace />} />
+          <Route path="equipo/portal" element={<Navigate to="/equipo?tab=portal" replace />} />
 
           <Route path="ops/reembolsos" element={<ReclamacionReembolsos />} />
           <Route path="ops/reuniones" element={<ProtectedRoute solo={['admin']}><ReunionesEquipo /></ProtectedRoute>} />
