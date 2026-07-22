@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { OSW, INK, CREMA, CLARO, VERDE, ROJO, AMA, NAR, GRANATE, GRIS, SHADOW } from '@/styles/neobrutal'
+import { OSW, INK, CREMA, CLARO, VERDE, ROJO, NAR, GRANATE, GRIS, SHADOW } from '@/styles/neobrutal'
 
 type Tarea = {
   id: string
