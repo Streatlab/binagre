@@ -1,74 +1,124 @@
-# RELEVO · Bloque V (restyling visual al kit v5-B)
+# RELEVO · Bloque V — COMPLETO (V1→V8)
 
-> Documento de continuidad. Lo escribe la sesión que se agota para que la siguiente
-> retome sin perder contexto. Rama de trabajo: **`trabajo`** (nunca master, nunca PR).
+> Documento de continuidad. Rama de trabajo: **`trabajo`** (nunca master, nunca PR).
 
-## Última pantalla terminada
-**V1 · Finanzas — todo `src/pages/finanzas/` a CERO hex y al kit.** Migradas en esta tanda:
-1. Papeleo·**Gestor Documental** (`GestionFacturas.tsx`) — estados de factura a lavados del kit; árbol Drive a `palettes.ts`.
-2. Papeleo·**Gestoría** (`Gestoria.tsx`) — conversión dark→kit claro completa.
-3. **Objetivos** (`Objetivos.tsx`) — theme-aware por `T.*`; tintes de día a `palettes.ts`. (Además arreglado bug F1: guardado de presupuestos idempotente.)
-4. **PyG** (`PyG.tsx`) — dark→kit claro.
-5. **Running / TicketMedio / PanelAlertas / PanelInteligenciaVentas** — hex sueltos a tokens.
-6. Chrome de pestañas de **VentasPage / TesoreriaPage / ResultadosPage / RentabilidadPage** → `var(--sl-yellow)` / `var(--sl-text-nav)`.
-7. **Ventas / Cashflow / PuntoEquilibrio** — chips de canal, paletas terrosas y de grupo a tokens.
+## Estado: Bloque V CERRADO
 
-Comprobación: `grep -rInE "#[0-9a-fA-F]{3,6}" src/pages/finanzas` → **0**.
+Las 8 tandas (V1→V8) están completas y verificadas con gate verde (`tsc -b && vitest run && vite build`)
+en cada commit. Resumen por tanda:
 
-## Siguiente pantalla (retomar aquí)
-V1 aún tiene sus **componentes** (no las páginas) con hex. Por orden de peso:
-1. `src/components/tesoreria/FondoReserva.tsx` (~50 hex) — pestaña Tesorería·Fondo & Reserva.
-2. Resto de Tesorería (`src/components/tesoreria/*`, `src/pages/finanzas/TesoreriaPage` ya hecho).
-3. Estados Financieros: componentes de `ResultadosPage` (P&G ya en `PyG.tsx`; faltan Estados/Evolución en `src/components/panel/*`).
-4. `src/components/panel/resumen/tokens.ts` (22 hex) — **OJO**: es un módulo de tokens compartido (`COLORS`, `FONT`). Tokenízalo/muévelo a `src/styles/` con cuidado: lo usan MUCHAS pantallas.
-5. Panel de Alertas (la página ya está; revisar su componente si tiene hex).
+- **V1 · Finanzas**: `pages/finanzas/*` completo + `components/tesoreria/FondoReserva`,
+  `components/panel/TabEvolucion`/`TabFinanzas` → 0 hex.
+- **V2 · Portada y transversales**: Home, PanelGlobal, todo `components/panel/*`
+  (incl. `resumen/tokens.ts` — módulo compartido, tokenizado con cuidado), Tareas,
+  Command Palette → 0 hex.
+- **V3 · Ventas y Clientes**: Marketing, Analytics (5), Clientes, `finanzas/Ventas` → 0 hex.
+- **V4 · Cocina**: Escandallo completo (5 tablas + 6 modales + auxiliares), MenuFamilia,
+  Pareto/MenuEngineering/CocinaInventario, chrome de Producción/Esquemas/ListaCompra/
+  TabHojaInventario (hoja intacta, es marco) → 0 hex.
+- **V5 · Compras**: `components/compras/*`, `components/inventario/*`, Proveedores,
+  TabCostes → 0 hex (excepto el campo calculado oficial, ver abajo).
+- **V6 · Operaciones + Equipo**: `pages/ops/*` (10 pantallas), `pages/equipo/*`,
+  `components/equipo/*` (incl. Horarios) → 0 hex.
+- **V7 · Ajustes**: `components/configuracion/*` (base compartida) + `pages/configuracion/*`
+  (8 apartados: Usuarios, Bancos y Cuentas, Calendario, Aprendizajes, calcNeto, Mapeo
+  Marcas, Reglas, Cocina/Cuentas) → 0 hex. Contenedor de Informes: ya estaba a 0
+  (su contenido es zona prohibida, no se tocó).
+- **V8 · Pieles de zona prohibida**: OCR (9 archivos), Conciliación
+  (`TabMovimientos` + `ModalDetalleMovimiento`, solo los 2 nombrados), Importador
+  (6 archivos) → 0 hex. **Cero líneas de lógica tocadas** en ninguno.
 
-Luego seguir el orden fijado: **V2** (Home/"Hoy", Panel Global, Tareas, Command Palette) → V3 Ventas y Clientes → V4 Cocina → V5 Compras → V6 Operaciones → V7 Ajustes → V8 pieles.
-Nota: hay **otra sesión trabajando EQUIPO (V6)** en paralelo sobre `trabajo`. Coordina para no colisionar; haz rebase antes de cada push.
+## Excepciones documentadas (correctas, no son huecos)
 
-## Reglas vivas (kit v5-B)
+1. **Campo calculado oficial** (regla dura `.claude/CLAUDE.md` #4): `backgroundColor:'#2d1515', border:'1px solid #aa3030', color:'#ffaaaa'`.
+   Aparece intacto en `TabConteos.tsx` (inventario) y era el único hex legítimo en
+   `TareasOperativas.tsx` antes de mi paso — **nunca tocar este triplete exacto**.
+2. **CSS embebido del marco** (`FICHA_CSS`/`PRINT_CSS`/`CSS` en `Produccion.tsx`,
+   `ListaCompra.tsx`, `TabHojaInventario.tsx`, `TabFichas.tsx`): usa `var(--m-*)` +
+   algunos `#fff`/`#111` fijos de impresión — es el sistema de marco, fuera de alcance.
+3. **`src/lib/marcoDoc.ts`**: define los propios tokens `--m-*`; contiene hex porque
+   ES la fuente de esos tokens. No tocar.
+
+## Lo que queda FUERA del Bloque V (no era parte de las 8 tandas)
+
+Un barrido global (`grep hex src/ fuera de styles/ y marco/`) tras cerrar V8 muestra
+~53 archivos con hex restante. Se dejaron **deliberadamente sin tocar** porque no
+pertenecen a ninguna de las 8 áreas numeradas (V1-V8) ni a los 2 archivos de
+Conciliación explícitamente nombrados:
+
+- **Chrome transversal fuera de las áreas**: `Sidebar.tsx`, `NavIcon.tsx`,
+  `ThemeToggle.tsx`, `ToastSL.tsx`, `SidebarBadge.tsx`, `TabsPastilla.tsx`,
+  `SortableHeader.tsx`, `EditableInline.tsx`, `SelectorFechaUniversal.tsx`,
+  `IVAToggle.tsx`, `CardFiltro.tsx`, `MargenBanner.tsx`.
+- **`src/mobile/*`** (LEY MÓVIL): `mapaMovil.ts`, `kit.tsx`, `pwa.tsx`,
+  `usePanelMovil.ts`, `PantallasMovil.tsx`.
+- **Zona prohibida fuera de la lista explícita de V8** (informes/robots/papeleo-
+  mantenimiento — lógica Y piel intocables salvo lo ya nombrado): `Facturacion.tsx`,
+  `PagosCobros.tsx`, `Conciliacion.tsx` (página contenedora, distinta de
+  `TabMovimientos`/`ModalDetalleMovimiento`), `Ocr.tsx`, `BandejaEntrada.tsx`,
+  `ResolverPendientes.tsx`, `ModalDescartarFactura.tsx`, `AvisosBandeja.tsx`,
+  `ColaRevisionFichas.tsx`, `ChuletaPlataformas.tsx`, `Destinatarios.tsx`,
+  `ConfiguracionInformes.tsx`.
+- **Otros archivos sueltos de página/lib** con 1-8 hex cada uno: `Login.tsx`,
+  `Carta.tsx`, `Escandallo.tsx`, `CocinaRecetas.tsx`, `PanelDireccion.tsx`,
+  `Placeholder.tsx`, `BandejaPendientes.tsx`, `running.ts`, `calcPorCobrar.ts`,
+  `impresion.ts`.
+
+**Si una futura sesión quiere seguir puliendo**: el chrome transversal (Sidebar,
+NavIcon, ThemeToggle, etc.) y `mobile/*` son candidatos naturales de "V9" o
+ampliación de V2 (son fundacionales, no zona prohibida). Los archivos de zona
+prohibida fuera de la lista de V8 **no deben tocarse** sin una orden explícita
+nueva que los nombre, igual que se hizo con OCR/Conciliación/Importador en V8.
+
+## Reglas vivas (kit v5-B) — para cualquier trabajo futuro
 
 ### Fuente de verdad del color
-- Tokens estructurales y semánticos: **`src/styles/neobrutal.ts`** (theme-aware vía `var(--neo-*)`). `src/styles/kit.ts` es la capa de compat (reexporta + helpers `cardWash`, `pill`, `chip`, `fmtPct`, `CANAL_TAG`).
-- Componentes del kit: `src/components/kit/` → `HeroTocho`, `FraseHero` (+ `Resaltado`, `Sub`), `TabsContainer`.
-- **Paletas de DATOS** (colores que codifican datos/estado sin equivalente semántico en el kit: trimestres, festivos, canales, grises de PDF, tablas terrosas): van a **`src/styles/palettes.ts`** (creado en esta tanda). Así el componente queda a 0 hex y el color vive en `src/styles/` (que el grep de cierre excluye).
+- Tokens estructurales y semánticos: **`src/styles/neobrutal.ts`** (theme-aware vía `var(--neo-*)`).
+- `src/styles/kit.ts`: capa de compat + helpers (`cardWash`, `pill`, `chip`, `fmtPct`, `CANAL_TAG`).
+- Componentes del kit: `src/components/kit/` → `HeroTocho`, `FraseHero`, `TabsContainer`.
+- **`src/styles/palettes.ts`**: paletas de DATOS sin equivalente semántico en el kit
+  (trimestres, festivos, canales, badges de estado, washes oscuros, etc.). Creado
+  en V1, creció a ~90 tokens a lo largo de V1-V8. **Revisar este archivo antes de
+  crear un token nuevo — puede que el color ya exista** (p.ej. `GRANATE`=`#B01D23`,
+  `COBERTURA_VERDE`=`#1D9E75`, `CORP.glovo`/`CORP.je` para canales).
+- Puentes Tailwind en `src/index.css` (`@theme`): para clases arbitrarias con hex
+  (`bg-[#xxxxxx]`) que resultan ser snapshots congelados de tokens ya theme-aware
+  (`--color-ink`→`var(--neo-ink)`, `--color-crema`→`var(--neo-bg)`) o valores fijos
+  reutilizables (`--color-config-*`, `--color-margenok-bg`, etc.).
 
-### Método por pantalla (idéntico siempre)
-a) Cabecera con patrón del molde (título, frase insight, acciones).
-b) KPIs/cards con helpers del kit (`cardWash`, `card`, `HeroTocho`), no cards artesanales.
-c) Tablas: cuerpo claro; cabecera y filas de totales como **banda oscura** (`background: INK` + texto `CREMA`/`BLANCO`) — patrón usado en Gestoría y PyG.
-d) Botones/pills/pestañas/modales del kit. Botón guardar `GRANATE`/blanco; secundario/Cancelar `CLARO` + `BORDER_FINO`.
-e) Cero maquetación heredada: adaptar al patrón más cercano del molde.
-f) **Cero hex al terminar**: cada hex → token. Si no hay token, créalo en `neobrutal.ts` (estructural/semántico) o `palettes.ts` (dato).
-g) Móvil: LEY MÓVIL (una columna, táctil, sin scroll horizontal).
+### Método por pantalla
+a) Cabecera con patrón del molde. b) KPIs/cards con helpers del kit. c) Tablas:
+cuerpo claro, cabecera/totales como banda oscura (`INK`+`CREMA`/`BLANCO`).
+d) Botones/pills/pestañas/modales del kit. e) Cero maquetación heredada.
+f) Cero hex al terminar. g) LEY MÓVIL.
 
-### Conversión dark→kit claro (patrón probado en Gestoría/PyG)
-- `background: INK` (card oscura) → `BLANCO` + `BORDER_CARD` + `boxShadow: SHADOW`.
-- Texto `BLANCO` sobre card → `INK`. `color: GRIS` (muted) se mantiene.
-- **No** flipear cabeceras `thead` ni filas de totales: se dejan oscuras (banda de énfasis del kit).
-- Pares theme-aware `isDark ? '#dark' : '#light'` → usar el token de tema `T.card` / `T.brd` (de `useTheme()`), que ya es theme-aware.
-- Acentos `LIMA` como TEXTO sobre fondo claro → no contrastan: usar `NAR`/`AMA` (estimado) o `INK`. `LIMA` sí vale sobre banda oscura o como fondo de badge con texto `INK`.
+### Conversión dark→kit claro
+`background: INK` → `BLANCO`+`BORDER_CARD`+`SHADOW`. Texto `BLANCO`→`INK`. No
+flipear cabeceras/totales (quedan oscuros). `isDark ? hex : hex` → sustituir por
+el token de tema (`T.card`/`T.brd`) si existe, o por un par de tokens dedicados en
+`palettes.ts` si no.
 
-### Marco de documentos (NO usar el kit)
-Toda superficie imprimible va con `HojaDoc` + tokens `--m-*`, nunca el rojo de marca dentro de la hoja. Ya migradas (no pisar): Producción, Esquemas, Lista de Compra, Ficha EP/Receta. Archivos marco: `src/lib/marcoDoc.ts`, `src/components/marco/HojaDoc.tsx`.
+### Marco de documentos (NO tocar)
+`HojaDoc` + tokens `--m-*`. Ya migradas: Producción, Esquemas, Lista de Compra,
+Ficha EP/Receta. Archivos: `src/lib/marcoDoc.ts`, `src/components/marco/HojaDoc.tsx`.
 
-### Zona prohibida (lógica intocable; SOLO su piel visual)
-Robots (Uber/Glovo/JustEat/Rushour/Sinqro/ingesta/turno), informes y sus envíos, WhatsApp, Papeleo-mantenimiento (Resolver pendientes/Drive/OCR/dormidos), crons de `vercel.json`, `.github/workflows`, `auto_match_factura` + LEY_CONCILIACION, `netoResolver.ts` + LEY_NETO, `src/lib/marcoDoc.ts`, `src/components/marco/HojaDoc.tsx`.
-En V8 se toca SOLO la piel de: OCR/subida, Conciliación (`TabMovimientos`, `ModalDetalleMovimiento`), Importador. Si piel y lógica están mezcladas, cambiar solo estilos; ante la duda, no tocar y anotar.
+### Zona prohibida (lógica intocable)
+Robots, informes y sus envíos, WhatsApp, Papeleo-mantenimiento, crons, LEY_CONCILIACION,
+LEY_NETO, marco. V8 tocó SOLO la piel de OCR/Conciliación(2 archivos)/Importador —
+cualquier otra pantalla de zona prohibida necesita una orden explícita nueva.
 
-### Aislamiento
-Binagre nunca toca David/Cade ni sus tokens (`#16355C`, `#F26B1F`) ni su Supabase (`idclhnxttdbwayxeowrm`).
-
-## Gate (verde antes de cada commit `[deploy]`)
+## Gate
 ```
 npx tsc -b && npx vitest run && npx vite build
 ```
-Commits pequeños, uno por pantalla. Push con rebase (sesión concurrente activa):
+Push con rebase (puede haber sesiones concurrentes):
 ```
 git fetch origin trabajo && git rebase origin/trabajo && git push origin trabajo
 ```
 
-## Estado numérico (al cerrar esta sesión)
-- `src/pages/finanzas/`: **0 hex**.
-- Global `src/` (fuera de `styles/` y `marco/`): ~**184 archivos** con hex aún. Zonas top pendientes: `pages/configuracion` (26), `components/escandallo` (18), `components/configuracion` (14), `components/panel` (11), `pages/ops` (10).
-- Bugs: **F1 cerrado**. F2 (Running visual) y F3 (Alt+K, ya con test `tests/palette-destinos.test.ts`) — F3 verificado; F2 pendiente de repaso visual. R2 cubierto por test. E1–E4 y R1 quedan para después de V.
+## Siguiente bloque (según la orden original)
+**E** (4 automatizaciones: alerta precio→margen, retención 48-72h, círculo venta→
+escandallo→inventario→lista de compra, cargo sin factura), **R1** (barrido de
+huérfanas/duplicados de la reconciliación), **F2** (verificar Running visual tras
+el restyling — F1 y F3 ya cerrados con fix/test). Bloque V terminado, no se toca
+salvo pulido opcional del chrome transversal listado arriba.
