@@ -1,4 +1,5 @@
 import { AZUL_CL, BLANCO, GRANATE, NAR, ROJO, VERDE } from '@/styles/neobrutal'
+import { CORREO_ERROR_BORDE, COBERTURA_VERDE } from '@/styles/palettes'
 import { useState, useCallback } from 'react';
 import { parseUberGanancias, type EstadisticaPrimePromo } from '../lib/parsers/parserUberGanancias';
 import { parseGlovoOrderDetails } from '../lib/parsers/parserGlovoOrderDetails';
@@ -206,14 +207,14 @@ export default function ImportarVentas() {
 
       {/* Error */}
       {error && (
-        <div style={{ background: '#E24B4A18', border: '3px solid #E24B4A', borderRadius: 0, boxShadow: NEO_SHADOW, padding: 16, marginBottom: 20, color: ROJO, fontSize: 13, fontWeight: 600, whiteSpace: 'pre-wrap' }}>
+        <div style={{ background: CORREO_ERROR_BORDE + '18', border: `3px solid ${CORREO_ERROR_BORDE}`, borderRadius: 0, boxShadow: NEO_SHADOW, padding: 16, marginBottom: 20, color: ROJO, fontSize: 13, fontWeight: 600, whiteSpace: 'pre-wrap' }}>
           {error}
         </div>
       )}
 
       {/* Resultado */}
       {resultado && (
-        <div style={{ background: '#1D9E7518', border: '3px solid #1D9E75', borderRadius: 0, boxShadow: NEO_SHADOW, padding: 16, marginBottom: 20, color: VERDE, fontSize: 14, fontWeight: 700 }}>
+        <div style={{ background: COBERTURA_VERDE + '18', border: `3px solid ${COBERTURA_VERDE}`, borderRadius: 0, boxShadow: NEO_SHADOW, padding: 16, marginBottom: 20, color: VERDE, fontSize: 14, fontWeight: 700 }}>
           {resultado}
         </div>
       )}

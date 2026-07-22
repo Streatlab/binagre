@@ -1,4 +1,4 @@
-import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA } from '@/styles/neobrutal'
 /**
  * T-M7-06 — Tab Pendientes
  * Lista imports pendiente_revision o error.
@@ -74,7 +74,7 @@ function ModalEditar({
 
   const inputStyle: CSSProperties = {
     background: INK,
-    border: '1px solid #2a2a2a',
+    border: `1px solid ${BORDE_SUAVE}`,
     borderRadius: 6,
     color: BLANCO,
     fontFamily: 'Lexend, sans-serif',
@@ -129,7 +129,7 @@ function ModalEditar({
           </button>
           <button
             onClick={onClose}
-            style={{ background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
+            style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
           >
             Cancelar
           </button>

@@ -1,4 +1,5 @@
 import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA, NAR, ROJO_S, VERDE } from '@/styles/neobrutal'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE, PLATAFORMA_GLOVO_TXT, PLATAFORMA_RUSHOUR } from '@/styles/palettes'
 /**
  * T-M7-04 — Tab Subir
  * Dropzone único multi-formato. Detección automática del tipo de archivo.
@@ -332,7 +333,7 @@ export default function TabSubir({ onUploadSuccess }: Props) {
 
       {/* Selector manual de tipo si no detectado */}
       {mostrarManual && (
-        <div style={{ ...cardStyle(T), marginBottom: 20, border: `1px solid #aa3030`, backgroundColor: '#2d1515' }}>
+        <div style={{ ...cardStyle(T), marginBottom: 20, border: `1px solid ${ERROR_BANNER_BORDE}`, backgroundColor: ERROR_BANNER_BG }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 11, color: ROJO_S, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 10 }}>
             Tipo no detectado automaticamente — asignar manualmente
           </div>
@@ -397,8 +398,8 @@ export default function TabSubir({ onUploadSuccess }: Props) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginBottom: 24 }}>
         {[
           { id: 'uber',     label: 'Uber / Portier',  nif: 'B88515200',  color: VERDE, formatos: 'PDF factura · CSV resumen' },
-          { id: 'glovo',    label: 'Glovo',            nif: 'B67282871',  color: '#aabc00', formatos: 'PDF (formato A/B)' },
-          { id: 'rushour',  label: 'RushHour',         nif: 'Francés',    color: '#7F77DD', formatos: 'PDF · CTR-SW' },
+          { id: 'glovo',    label: 'Glovo',            nif: 'B67282871',  color: PLATAFORMA_GLOVO_TXT, formatos: 'PDF (formato A/B)' },
+          { id: 'rushour',  label: 'RushHour',         nif: 'Francés',    color: PLATAFORMA_RUSHOUR, formatos: 'PDF · CTR-SW' },
           { id: 'just_eat', label: 'Just Eat',         nif: 'Pendiente',  color: NAR, formatos: 'Sin parser aún' },
           { id: 'banco',    label: 'Extracto BBVA',    nif: 'CSV',        color: AZUL_CL, formatos: 'CSV FECHA;CONCEPTO' },
           { id: 'resumen',  label: 'Resumen Plataforma',nif: 'XLSX',      color: LIMA, formatos: 'Mes+Plataforma+Marca' },

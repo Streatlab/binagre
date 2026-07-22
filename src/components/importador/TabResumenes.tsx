@@ -1,4 +1,5 @@
-import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, NAR, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, VERDE } from '@/styles/neobrutal'
+import { PLATAFORMA_GLOVO_TXT, PLATAFORMA_RUSHOUR } from '@/styles/palettes'
 /**
  * T-M7-07 — Tab Resúmenes plataforma
  * Tabla ventas_plataforma_marca_mensual con filtros.
@@ -35,9 +36,9 @@ const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov'
 
 const PLATAFORMA_COLOR: Record<string, string> = {
   uber:     VERDE,
-  glovo:    '#aabc00',
+  glovo:    PLATAFORMA_GLOVO_TXT,
   just_eat: NAR,
-  rushour:  '#7F77DD',
+  rushour:  PLATAFORMA_RUSHOUR,
 }
 
 /* ─── modal detalle ─────────────────────────────────────────────────────────── */
@@ -72,7 +73,7 @@ function ModalDetalle({ row, onClose }: { row: ResumenRow; onClose: () => void }
               ['ADS', fmtEur(row.ads ?? 0)],
               ['Neto cobrado', fmtEur(row.neto_cobrado ?? 0)],
             ].map(([label, value]) => (
-              <tr key={label} style={{ borderBottom: '0.5px solid #2a2a2a' }}>
+              <tr key={label} style={{ borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
                 <td style={{ padding: '8px 10px', color: GRIS, width: 160 }}>{label}</td>
                 <td style={{ padding: '8px 10px', color: BLANCO, textAlign: 'right' }}>{value}</td>
               </tr>
@@ -100,13 +101,13 @@ function ModalDetalle({ row, onClose }: { row: ResumenRow; onClose: () => void }
           </button>
           <button
             onClick={() => { navigate(`/configuracion/marcas?plataforma=${row.plataforma}&mes=${row.mes}&anio=${row.anio}`); onClose() }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: GRIS, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}
           >
             <Tag size={14} /> Ver en Panel Marcas
           </button>
           <button
             onClick={onClose}
-            style={{ background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
+            style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
           >
             Cerrar
           </button>
