@@ -1,4 +1,5 @@
 import { AZUL, BLANCO, NAR, ROJO, VERDE } from '@/styles/neobrutal'
+import { PARETO_WARN_BG, PARETO_WARN_TXT } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip,
@@ -260,7 +261,7 @@ export default function MenuEngineering() {
 
       {/* Aviso estimado */}
       {hayEstimados && (
-        <div style={{ background: '#fff8e6', border: `0.5px solid ${COLORS.warn}`, borderRadius: 10, padding: '8px 14px', fontFamily: FONT.body, fontSize: 12, color: '#8a6d1f', marginBottom: 14 }}>
+        <div style={{ background: PARETO_WARN_BG, border: `0.5px solid ${COLORS.warn}`, borderRadius: 10, padding: '8px 14px', fontFamily: FONT.body, fontSize: 12, color: PARETO_WARN_TXT, marginBottom: 14 }}>
           ⚠ Popularidad <strong>estimada</strong> (placeholder). Se sustituirá automáticamente al cargar ventas reales (Excel / resumen / POS). El margen y los precios sí son reales.
         </div>
       )}

@@ -76,7 +76,7 @@ const S: Record<string, React.CSSProperties> = {
   th:    { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase' as const, color: 'var(--sl-text-muted)', padding: '8px 12px', textAlign: 'left' as const, backgroundColor: 'var(--sl-thead)', borderBottom: '2px solid var(--neo-ink)', whiteSpace: 'nowrap' as const },
   td:    { padding: '8px 12px', fontSize: 13, color: 'var(--sl-text-primary)', borderBottom: '0.5px solid var(--sl-border)', fontFamily: FONT.body, verticalAlign: 'middle' as const },
   inp:   { padding: '6px 10px', borderRadius: 0, border: '2px solid var(--sl-border)', backgroundColor: 'var(--sl-input-edit)', color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: FONT.body, outline: 'none' },
-  calc:  { backgroundColor: '#B01D2318', border: '1px solid #B01D23', color: GRANATE, padding: '4px 10px', borderRadius: 0, fontSize: 13, fontFamily: FONT.body, display: 'inline-block', textAlign: 'right' as const, minWidth: 70 },
+  calc:  { backgroundColor: GRANATE + '18', border: `1px solid ${GRANATE}`, color: GRANATE, padding: '4px 10px', borderRadius: 0, fontSize: 13, fontFamily: FONT.body, display: 'inline-block', textAlign: 'right' as const, minWidth: 70 },
 }
 
 function tabBtn(active: boolean): React.CSSProperties {

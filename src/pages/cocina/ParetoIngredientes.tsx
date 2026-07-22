@@ -1,4 +1,5 @@
 import { BLANCO } from '@/styles/neobrutal'
+import { PARETO_WARN_BG, PARETO_WARN_TXT } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -219,7 +220,7 @@ export default function ParetoIngredientes() {
       )}
 
       {/* Nota metodología */}
-      <div style={{ background: '#fff8e6', border: `0.5px solid ${COLORS.warn}`, borderRadius: 10, padding: '8px 14px', fontFamily: FONT.body, fontSize: 12, color: '#8a6d1f', marginBottom: 14 }}>
+      <div style={{ background: PARETO_WARN_BG, border: `0.5px solid ${COLORS.warn}`, borderRadius: 10, padding: '8px 14px', fontFamily: FONT.body, fontSize: 12, color: PARETO_WARN_TXT, marginBottom: 14 }}>
         {notaVista}
       </div>
 

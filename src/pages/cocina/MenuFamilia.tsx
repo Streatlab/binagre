@@ -1,4 +1,4 @@
-import { AZUL, AZUL_CL, BLANCO, GRANATE, INK, NAR, NAR_S, VERDE } from '@/styles/neobrutal'
+import { AMA_S, AZUL, AZUL_CL, BLANCO, GRANATE, GRIS, INK, NAR, NAR_S, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Plus, X, Trash2, Save, FolderOpen, ChevronLeft, ChevronRight, Printer, Eraser, GripVertical } from 'lucide-react'
@@ -174,14 +174,14 @@ export default function MenuFamilia() {
           .mf-grid, .mf-cell, .mf-head { box-shadow: none !important; }
           .mf-cell { break-inside: avoid; }
           @page { size: A4 landscape; margin: 12mm; }
-          body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          body { background: ${BLANCO} !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
 
       <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 700, color: INK, letterSpacing: 3, textTransform: 'uppercase' }}>
         Menú Familia
       </div>
-      <div style={{ fontFamily: LEXEND, fontSize: 13, color: '#6b5d45', marginTop: 2, marginBottom: 16 }}>
+      <div style={{ fontFamily: LEXEND, fontSize: 13, color: GRIS, marginTop: 2, marginBottom: 16 }}>
         Comidas del personal · planificación semanal
       </div>
 
@@ -191,7 +191,7 @@ export default function MenuFamilia() {
         <button onClick={() => setSemana(lunesDe(new Date()))} style={{ ...navBtn, width: 'auto', padding: '0 12px', fontFamily: OSWALD, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase' }}>Hoy</button>
         <button onClick={() => setSemana(s => addDias(s, 7))} style={navBtn}><ChevronRight size={16} /></button>
         <div style={{ flex: 1 }} />
-        <button style={btn('#0FB86B')} onClick={guardarPlantilla}><Save size={15} />Plantilla</button>
+        <button style={btn(VERDE)} onClick={guardarPlantilla}><Save size={15} />Plantilla</button>
         <button style={btn(RED)} onClick={limpiarSemana}><Eraser size={15} />Vaciar</button>
         <button style={btn(INK)} onClick={() => window.print()}><Printer size={15} />Imprimir</button>
       </div>
@@ -224,9 +224,9 @@ export default function MenuFamilia() {
                   onDragOver={e => { e.preventDefault(); setOverDia(dia) }}
                   onDragLeave={() => setOverDia(o => (o === dia ? null : o))}
                   onDrop={() => onDropDia(dia)}
-                  style={{ background: over ? '#fff7e0' : BLANCO, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW, padding: 7, minHeight: 160, display: 'flex', flexDirection: 'column', gap: 5, outline: over ? `3px dashed ${DIA_COLOR[i]}` : 'none', outlineOffset: -6 }}
+                  style={{ background: over ? AMA_S : BLANCO, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW, padding: 7, minHeight: 160, display: 'flex', flexDirection: 'column', gap: 5, outline: over ? `3px dashed ${DIA_COLOR[i]}` : 'none', outlineOffset: -6 }}
                 >
-                  {items.length === 0 && <span className="mf-no-print" style={{ fontSize: 11, color: '#b0a690', fontStyle: 'italic' }}>arrastra un plato aquí</span>}
+                  {items.length === 0 && <span className="mf-no-print" style={{ fontSize: 11, color: GRIS, fontStyle: 'italic' }}>arrastra un plato aquí</span>}
                   {items.map(a => (
                     <div
                       key={a.id}
@@ -234,9 +234,9 @@ export default function MenuFamilia() {
                       onDragStart={() => { dragRef.current = { tipo: 'mov', id: a.id, nombre: a.plato_nombre } }}
                       style={chip}
                     >
-                      <GripVertical className="mf-no-print" size={13} style={{ color: '#b0a690', flexShrink: 0, marginTop: 1 }} />
+                      <GripVertical className="mf-no-print" size={13} style={{ color: GRIS, flexShrink: 0, marginTop: 1 }} />
                       <span style={{ flex: 1, fontSize: 13, lineHeight: 1.25, fontFamily: LEXEND }}>{a.plato_nombre}</span>
-                      <X className="mf-no-print" size={13} style={{ cursor: 'pointer', color: '#999', flexShrink: 0, marginTop: 1 }} onClick={() => quitarAsign(a.id)} />
+                      <X className="mf-no-print" size={13} style={{ cursor: 'pointer', color: GRIS, flexShrink: 0, marginTop: 1 }} onClick={() => quitarAsign(a.id)} />
                     </div>
                   ))}
                   <div className="mf-no-print" style={{ display: 'flex', gap: 3, marginTop: 'auto' }}>
@@ -275,12 +275,12 @@ export default function MenuFamilia() {
                 onDragStart={() => { dragRef.current = { tipo: 'cat', nombre: p.nombre, platoId: p.id } }}
                 style={chip}
               >
-                <GripVertical size={14} style={{ color: '#b0a690', flexShrink: 0 }} />
+                <GripVertical size={14} style={{ color: GRIS, flexShrink: 0 }} />
                 <span style={{ flex: 1, fontSize: 13 }}>{p.nombre}</span>
-                <Trash2 size={14} style={{ cursor: 'pointer', color: '#999' }} onClick={() => borrarPlato(p.id)} />
+                <Trash2 size={14} style={{ cursor: 'pointer', color: GRIS }} onClick={() => borrarPlato(p.id)} />
               </div>
             ))}
-            {!platos.length && !loading && <span style={{ fontSize: 12, color: '#b0a690' }}>Sin platos todavía.</span>}
+            {!platos.length && !loading && <span style={{ fontSize: 12, color: GRIS }}>Sin platos todavía.</span>}
           </div>
         </div>
 
@@ -290,11 +290,11 @@ export default function MenuFamilia() {
             {plantillas.map(t => (
               <div key={t.id} style={{ ...chip, cursor: 'default' }}>
                 <span style={{ flex: 1, fontSize: 13 }}>{t.nombre}</span>
-                <FolderOpen size={15} style={{ cursor: 'pointer', color: '#0FB86B' }} onClick={() => aplicarPlantilla(t)} />
-                <Trash2 size={14} style={{ cursor: 'pointer', color: '#999' }} onClick={() => borrarPlantilla(t.id)} />
+                <FolderOpen size={15} style={{ cursor: 'pointer', color: VERDE }} onClick={() => aplicarPlantilla(t)} />
+                <Trash2 size={14} style={{ cursor: 'pointer', color: GRIS }} onClick={() => borrarPlantilla(t.id)} />
               </div>
             ))}
-            {!plantillas.length && <span style={{ fontSize: 12, color: '#b0a690' }}>Sin plantillas. Monta una semana y pulsa "Plantilla".</span>}
+            {!plantillas.length && <span style={{ fontSize: 12, color: GRIS }}>Sin plantillas. Monta una semana y pulsa "Plantilla".</span>}
           </div>
         </div>
       </div>

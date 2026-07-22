@@ -21,6 +21,7 @@ import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
+import { GRANATE, BLANCO, VERDE, AMA, ROJO } from '@/styles/neobrutal'
 import { fmtEur, fmtNum, fmtDate } from '@/utils/format'
 
 const API = '/api/papeleo/escandallo-auto'
@@ -244,7 +245,7 @@ export default function TabHojaInventario() {
   }
 
   const btnGhost: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: T.card, color: T.pri, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer' }
-  const btnPrimary: React.CSSProperties = { ...btnGhost, background: '#B01D23', color: '#ffffff', border: 'none' }
+  const btnPrimary: React.CSSProperties = { ...btnGhost, background: GRANATE, color: BLANCO, border: 'none' }
 
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
 
@@ -262,7 +263,7 @@ export default function TabHojaInventario() {
       `}</style>
 
       {msg && (
-        <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#B01D2320', color: '#B01D23', fontFamily: FONT.body, fontSize: 13 }}>{msg}</div>
+        <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: GRANATE + '20', color: GRANATE, fontFamily: FONT.body, fontSize: 13 }}>{msg}</div>
       )}
 
       {!inventario ? (
@@ -285,7 +286,7 @@ export default function TabHojaInventario() {
                   onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(f); e.currentTarget.value = '' }} />
               </label>
               {!!invLineas.length && (
-                <button style={{ ...btnPrimary, background: '#0FB86B' }} disabled={busy === 'confirmar'} onClick={confirmar}>
+                <button style={{ ...btnPrimary, background: VERDE }} disabled={busy === 'confirmar'} onClick={confirmar}>
                   {busy === 'confirmar' ? 'Confirmando…' : `Confirmar inventario (${invLineas.length - sinVincular} líneas · ${fmtEur(valorTotal)})`}
                 </button>
               )}
@@ -329,7 +330,7 @@ export default function TabHojaInventario() {
                     const ing = l.ingrediente_id ? ingPorId.get(l.ingrediente_id) : undefined
                     const valor = l.cantidad * precioVigente(ing)
                     const conf = l.ingrediente_id ? (l.confianza ?? 0) : 0
-                    const col = conf >= 1 ? '#0FB86B' : conf > 0 ? '#FFC400' : '#FF1E27'
+                    const col = conf >= 1 ? VERDE : conf > 0 ? AMA : ROJO
                     return (
                       <tr key={l.id} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
                         <td style={{ padding: '10px 14px', fontSize: 12, color: T.mut }}>{l.texto_leido ?? ''}</td>
