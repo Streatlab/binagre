@@ -8,6 +8,7 @@ import ResponsiveTables from '@/components/ResponsiveTables'
 import OcrCompletadoGlobal from '@/components/ocr/OcrCompletadoGlobal'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
 import CommandPalette from '@/components/CommandPalette'
+import ProgresoGlobal from '@/components/kit/ProgresoGlobal'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useTheme } from '@/styles/tokens'
 import ShellMovil from '@/mobile/ShellMovil'
@@ -55,6 +56,7 @@ export default function Layout() {
       <OcrUploadToast />
       <OcrCompletadoGlobal />
       <CommandPalette />
+      <ProgresoGlobal />
     </div>
   )
 }
