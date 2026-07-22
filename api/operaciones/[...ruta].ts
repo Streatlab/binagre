@@ -4,6 +4,11 @@
 // /api/nominas/*) siguen funcionando vía rewrites en vercel.json.
 // REGLA PERMANENTE: ninguna función API nueva como archivo suelto — siempre un
 // handler en _puertas + una rama aquí.
+// FIX 22-jul: en los rewrites de Vercel, req.url dentro de la función conserva la
+// URL ORIGINAL (p.ej. /api/equipo/subir), no el destino (/api/operaciones/equipo/subir).
+// El parser antiguo solo quitaba el prefijo /api/operaciones/ → toda URL antigua
+// reescrita llegaba como ['api','equipo','subir'] y caía en 404. Mismo fallo que
+// ya se corrigió en la puerta papeleo el 20-jul. Ahora normaliza ambos formatos.
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import posPedidos from '../_puertas/pos-pedidos.js'
 import peAction from '../_puertas/pe-action.js'
@@ -24,7 +29,10 @@ export const config = {
 
 function segmentos(req: VercelRequest): string[] {
   const pathname = (req.url || '').split('?')[0]
-  return pathname.replace(/^\/api\/operaciones\/?/, '').split('/').filter(Boolean).map(decodeURIComponent)
+  let segs = pathname.split('/').filter(Boolean).map(decodeURIComponent)
+  if (segs[0] === 'api') segs = segs.slice(1)          // URL original de un rewrite
+  if (segs[0] === 'operaciones') segs = segs.slice(1)  // URL directa a la puerta
+  return segs
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
