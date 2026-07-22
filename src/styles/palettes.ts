@@ -26,3 +26,12 @@ export const OBJ_ROW_HOY_FESTIVO_BG = '#ffffff15'  // hoy + festivo (blanco 8%)
 export const OBJ_FESTIVO_BORDE = '#c8d400'
 export const OBJ_FESTIVO_TXT = '#5c5c00'
 export const OBJ_FESTIVO_PILL_TXT = '#1a1a00'
+
+/** Grises para dibujar en PDF (jsPDF, fuera del sistema de tema). */
+export const PDF_TEXT_GRAY = '#555'
+export const PDF_LINE_GRAY = '#ccc'
+
+/** Running (P&L anual) · paleta terrosa de la tabla oscura (sin equivalente kit). */
+export const RUNNING_MUT = '#5a4f3a'
+export const RUNNING_EST_TXT = '#3d362a'
+export const RUNNING_BORDER = '#4a3f2c'

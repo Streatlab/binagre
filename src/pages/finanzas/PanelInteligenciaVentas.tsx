@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
+import { PDF_TEXT_GRAY, PDF_LINE_GRAY } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -83,12 +84,12 @@ function descargarPDF(nombre: string, titulo: string, periodo: string, dim: stri
   const doc = new jsPDF()
   doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(GRANATE)
   doc.text(titulo, 14, 18)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor('#555')
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(PDF_TEXT_GRAY)
   doc.text(`Periodo: ${periodo}`, 14, 25)
   let y = 36
   doc.setFontSize(10); doc.setTextColor(INK); doc.setFont('helvetica', 'bold')
   doc.text(dim, 14, y); doc.text('Unidades', 150, y); doc.text('%', 180, y)
-  doc.setDrawColor('#ccc'); doc.line(14, y + 2, 196, y + 2)
+  doc.setDrawColor(PDF_LINE_GRAY); doc.line(14, y + 2, 196, y + 2)
   doc.setFont('helvetica', 'normal')
   data.forEach((r, i) => {
     y += 7

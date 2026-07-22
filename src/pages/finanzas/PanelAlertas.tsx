@@ -17,7 +17,7 @@ export function AlertasBanner() {
   if (loading || error || alertas.length === 0) return null;
 
   const color = rojas.length > 0 ? ROJO : AMA;
-  const fg = rojas.length > 0 ? '#fff' : INK;
+  const fg = rojas.length > 0 ? BLANCO : INK;
 
   return (
     <Link to="/finanzas/panel-alertas" style={{

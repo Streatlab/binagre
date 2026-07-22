@@ -1,15 +1,16 @@
 import{useState,useMemo,useRef,useEffect}from'react'
 import{useRunningAnual,sumMeses,sumCatMeses,calcNetoCanal}from'@/hooks/useRunningAnual'
 import{calcDesglosePorCanal,type DesgloseCanal}from'@/lib/panel/calcNetoPlataforma'
-import{OSW,LEX,INK,CREMA,CLARO,VERDE,ROJO,NAR,AZUL,AMA,GRANATE,GRIS,SHADOW,BORDER_CARD,CORP,CLARA,eyebrow}from'@/styles/neobrutal'
+import{OSW,LEX,INK,CREMA,CLARO,VERDE,ROJO,NAR,AZUL,AMA,GRANATE,GRIS,SHADOW,BORDER_CARD,CORP,CLARA,eyebrow,BLANCO}from'@/styles/neobrutal'
 import{supabase}from'@/lib/supabase'
+import{RUNNING_MUT,RUNNING_EST_TXT,RUNNING_BORDER}from'@/styles/palettes'
 const MN=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 const QM:Record<number,number[]>={1:[1,2,3],2:[4,5,6],3:[7,8,9],4:[10,11,12]}
 const ALL=[1,2,3,4,5,6,7,8,9,10,11,12]
 const BM:Record<string,string>={'2.1':'PRODUCTO','2.2':'RRHH','2.3':'ALQUILER','2.4':'CONTROLABLES'}
 const LBL:Record<string,string>={'2.1':'Producto','2.2':'Equipo','2.3':'Local','2.4':'Controlables'}
 const RATIO_COLORS:Record<string,string>={'margen':VERDE,'food':NAR,'labor':AZUL,'ratio':GRANATE,'coste':ROJO,'neto':VERDE,'directo':NAR}
-const BLANCO='#ffffff',MUT='#5a4f3a'
+const MUT=RUNNING_MUT
 const BRD_V='2px solid rgba(20,15,8,.14)'
 const DESV_PCT=5
 const semColor=(pct:number)=>pct>=50?VERDE:pct>=25?NAR:ROJO
@@ -19,7 +20,7 @@ const fP=(v:number)=>v?`${v.toFixed(1)}%`:'—'
 const po=(p:number,t:number)=>t?(p/t)*100:0
 type Col={label:string;ms:number[];isQ?:boolean;qn?:number;isY?:boolean}
 type ResRow={plataforma:string;mes:number;año:number;bruto:number;comisiones:number;fees:number;cargos_promocion:number;neto_real_cobrado:number;pedidos?:number}
-const EstB=()=><span style={{fontFamily:OSW,fontSize:9,fontWeight:700,border:'1.5px solid #5a4f3a',color:'#3d362a',padding:'0 3px',marginLeft:3,textTransform:'uppercase',verticalAlign:'middle'}}>est</span>
+const EstB=()=><span style={{fontFamily:OSW,fontSize:9,fontWeight:700,border:`1.5px solid ${RUNNING_MUT}`,color:RUNNING_EST_TXT,padding:'0 3px',marginLeft:3,textTransform:'uppercase',verticalAlign:'middle'}}>est</span>
 export function Running({ embedded = false }: { embedded?: boolean } = {}){
 const[año,sA]=useState(2026)
 const[buscar,sBu]=useState('')
@@ -81,9 +82,9 @@ const cN2=useMemo(()=>categorias.filter(c=>c.nivel===2),[categorias])
 const cCh=(pid:string)=>categorias.filter(c=>c.parent_id===pid&&c.nivel===3).sort((a,b)=>sumMeses(gastos[b.id]||{},ALL)-sumMeses(gastos[a.id]||{},ALL))
 const W_LABEL=280
 // Cabecera: todo INK texto crema (patrón homogéneo ERP). Trimestre/año: negrita, no color de fondo
-const th1:React.CSSProperties={fontFamily:OSW,fontSize:12,fontWeight:700,letterSpacing:'1.5px',color:CREMA,textTransform:'uppercase',textAlign:'left',padding:'10px 12px',background:INK,borderRight:'2px solid #4a3f2c',whiteSpace:'nowrap',position:'sticky',left:0,zIndex:6,minWidth:W_LABEL,width:W_LABEL}
+const th1:React.CSSProperties={fontFamily:OSW,fontSize:12,fontWeight:700,letterSpacing:'1.5px',color:CREMA,textTransform:'uppercase',textAlign:'left',padding:'10px 12px',background:INK,borderRight:`2px solid ${RUNNING_BORDER}`,whiteSpace:'nowrap',position:'sticky',left:0,zIndex:6,minWidth:W_LABEL,width:W_LABEL}
 const t1:React.CSSProperties={padding:'9px 12px',fontSize:13,fontFamily:LEX,color:INK,borderBottom:`2px solid ${INK}`,borderRight:`3px solid ${INK}`,whiteSpace:'nowrap',textAlign:'left',position:'sticky',left:0,zIndex:5,verticalAlign:'middle',background:BLANCO,minWidth:W_LABEL,width:W_LABEL}
-const thC=(c:Col):React.CSSProperties=>({fontFamily:OSW,fontSize:12,fontWeight:c.isQ||c.isY?700:600,letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'10px 8px',background:INK,borderRight:'2px solid #4a3f2c',whiteSpace:'nowrap',userSelect:'none',color:c.isY?AMA:c.isQ?BLANCO:CREMA})
+const thC=(c:Col):React.CSSProperties=>({fontFamily:OSW,fontSize:12,fontWeight:c.isQ||c.isY?700:600,letterSpacing:'1.5px',textTransform:'uppercase',textAlign:'right',padding:'10px 8px',background:INK,borderRight:`2px solid ${RUNNING_BORDER}`,whiteSpace:'nowrap',userSelect:'none',color:c.isY?AMA:c.isQ?BLANCO:CREMA})
 const thP=(c:Col):React.CSSProperties=>({...thC(c),fontSize:9,minWidth:28,padding:'10px 2px'})
 // Celdas de datos: SIEMPRE fondo blanco. Color solo en el texto (semántico). Cero fondos pastel
 const tdBase=(cl?:string,zona?:'pyg'|'det'):React.CSSProperties=>({padding:'8px 8px',fontSize:14,fontFamily:OSW,color:cl||(zona==='det'?INK:AZUL),borderBottom:`2px solid ${INK}`,borderRight:BRD_V,whiteSpace:'nowrap',textAlign:'right',verticalAlign:'middle',fontVariantNumeric:'tabular-nums',lineHeight:1.2,fontWeight:600,background:BLANCO})

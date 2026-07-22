@@ -7,7 +7,7 @@ import React, { useMemo } from "react";
 import { useTicketMedio } from "@/lib/finanzas/useTicketMedio";
 import type { CanalTicket } from "@/lib/finanzas/useTicketMedio";
 import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, CORP, eyebrow, d, DELTA, BLANCO } from '@/styles/neobrutal';
+  OSW, LEX, INK, CREMA, TRACK, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, CORP, eyebrow, d, DELTA, BLANCO } from '@/styles/neobrutal';
 import { fmtEur, fmtNum } from "@/lib/format";
 
 const CANAL_CORP_KEY: Record<CanalTicket, string> = {
@@ -97,7 +97,7 @@ export function TicketMedio({ embedded = false }: { embedded?: boolean } = {}) {
                 return (
                   <div key={c.canal} style={{ display: "grid", gridTemplateColumns: "110px 1fr 100px", alignItems: "center", gap: 10 }}>
                     <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", color: INK }}>{c.label}</span>
-                    <div style={{ background: "#f0ece0", border: `2px solid ${INK}`, height: 18, position: "relative" }}>
+                    <div style={{ background: TRACK, border: `2px solid ${INK}`, height: 18, position: "relative" }}>
                       <div style={{ background: color, width: `${widthPct}%`, height: "100%" }} />
                     </div>
                     <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, textAlign: "right", color: c.pedidos > 0 ? INK : GRIS }}>

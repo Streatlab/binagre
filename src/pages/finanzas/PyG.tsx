@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, GRIS, INK, LIMA } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, INK, LIMA, CREMA, BORDER_CARD, BORDER_FINO, BORDE_SUAVE, SHADOW } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, pageTitleStyle, FONT } from '@/styles/tokens'
@@ -144,21 +144,21 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
   const years = [now.getFullYear() - 1, now.getFullYear()]
 
   const sel: React.CSSProperties = {
-    background: INK, border: '1px solid #2a2a2a', borderRadius: 6,
-    color: BLANCO, padding: '6px 10px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer',
+    background: BLANCO, border: BORDER_FINO, borderRadius: 6,
+    color: INK, padding: '6px 10px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer',
   }
   const card: React.CSSProperties = {
-    background: INK, border: '1px solid #2a2a2a', borderRadius: 8, padding: '18px 20px',
+    background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 8, padding: '18px 20px',
   }
   const kpiCard: React.CSSProperties = {
-    background: INK, border: '1px solid #2a2a2a', borderRadius: 8, padding: '16px 20px',
+    background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 8, padding: '16px 20px',
   }
   const kpiLbl: React.CSSProperties = {
     fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '2px',
     textTransform: 'uppercase', color: GRIS, marginBottom: 6,
   }
   const kpiVal: React.CSSProperties = {
-    fontFamily: 'Oswald,sans-serif', fontSize: '1.9rem', fontWeight: 600, lineHeight: 1, color: BLANCO,
+    fontFamily: 'Oswald,sans-serif', fontSize: '1.9rem', fontWeight: 600, lineHeight: 1, color: INK,
   }
   const secTitle: React.CSSProperties = {
     fontFamily: 'Oswald,sans-serif', fontSize: 13, letterSpacing: '2px',
@@ -168,15 +168,15 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
   const th: React.CSSProperties = {
     fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '1.5px',
     textTransform: 'uppercase', color: GRIS, padding: '8px 12px',
-    textAlign: 'left', borderBottom: '1px solid #2a2a2a', background: INK,
+    textAlign: 'left', borderBottom: `1px solid ${CREMA}`, background: INK,
   }
   const thR: React.CSSProperties = { ...th, textAlign: 'right' }
-  const td: React.CSSProperties = { padding: '8px 12px', borderBottom: '1px solid #1e1e1e', color: GRIS }
+  const td: React.CSSProperties = { padding: '8px 12px', borderBottom: `1px solid ${BORDE_SUAVE}`, color: INK }
   const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
   const empty: React.CSSProperties = { color: GRIS, fontSize: 13, padding: '12px 0' }
 
   return (
-    <div style={{ padding: embedded ? 0 : 28, fontFamily: FONT.body, background: embedded ? 'transparent' : INK, minHeight: embedded ? 'auto' : '100vh' }}>
+    <div style={{ padding: embedded ? 0 : 28, fontFamily: FONT.body, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : '100vh' }}>
       {!embedded && <h1 style={pageTitleStyle(T)}>Cuenta de Resultados</h1>}
 
       {/* Selector */}
