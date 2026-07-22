@@ -1,4 +1,5 @@
-import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, OSC, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, CLARO, GRANATE, GRIS, INK, NAR, OSC, VERDE } from '@/styles/neobrutal'
+import { OCR_ROJO_WASH_CLARO, COBERTURA_VERDE, CANAL_UBER_DARK } from '@/styles/palettes'
 import { useState } from 'react'
 
 // Alerta de pendientes (paso 6-9 del flujo OCR).
@@ -53,9 +54,9 @@ function Grupo({ titulo, color, items }: { titulo: string; color: string; items:
         <span style={{ fontSize: 11, color: GRIS }}>{abierto ? '▲' : '▼'}</span>
       </button>
       {abierto && (
-        <div style={{ marginTop: 8, border: '0.5px solid #ebe8e2', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ marginTop: 8, border: `0.5px solid ${CLARO}`, borderRadius: 10, overflow: 'hidden' }}>
           {items.map((p, i) => (
-            <div key={p.factura_id} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 12px', borderTop: i === 0 ? 'none' : '0.5px solid #ebe8e2', background: BLANCO }}>
+            <div key={p.factura_id} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 12px', borderTop: i === 0 ? 'none' : `0.5px solid ${CLARO}`, background: BLANCO }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK }}>
                 <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.proveedor || p.archivo || 'Sin identificar'}</span>
                 <span style={{ flexShrink: 0, color: GRIS }}>{p.fecha ?? ''}{p.total != null ? ` · ${p.total.toFixed(2)}€` : ''}</span>
@@ -115,7 +116,7 @@ export default function PendientesAlerta({ desde, hasta, onReconciliado }: Props
       </div>
 
       {error && (
-        <div style={{ marginTop: 10, background: '#fff5f5', border: `0.5px solid ${ROJO}`, borderRadius: 8, padding: '8px 12px', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: ROJO }}>{error}</div>
+        <div style={{ marginTop: 10, background: OCR_ROJO_WASH_CLARO, border: `0.5px solid ${ROJO}`, borderRadius: 8, padding: '8px 12px', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: ROJO }}>{error}</div>
       )}
 
       {informe && (
@@ -127,7 +128,7 @@ export default function PendientesAlerta({ desde, hasta, onReconciliado }: Props
           </div>
 
           {informe.cien_por_cien ? (
-            <div style={{ marginTop: 10, background: '#1D9E7510', border: `0.5px solid ${VERDE}`, borderRadius: 8, padding: '10px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: '1px', color: '#0F6E56', textTransform: 'uppercase' }}>
+            <div style={{ marginTop: 10, background: COBERTURA_VERDE + '10', border: `0.5px solid ${VERDE}`, borderRadius: 8, padding: '10px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: '1px', color: CANAL_UBER_DARK, textTransform: 'uppercase' }}>
               ✓ 100% conciliado
             </div>
           ) : (

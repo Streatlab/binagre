@@ -281,6 +281,18 @@ export const CATEGORIAS_N1_LIGHT = '#A32D2D'
 export const CATEGORIAS_ING_LIGHT = '#3B6D11'
 /** Titulares (Config·Bancos) · fondo claro fijo, casi blanco. */
 export const TITULARES_BG_LIGHT = '#fafafa'
+
+/** OCR (piel, V8) · beige/navy propios de VentasPlatosFranjas y wash rojo muy claro. */
+export const OCR_BEIGE = '#edecea'
+export const OCR_ROJO_WASH_CLARO = '#fff5f5'
+export const OCR_NAR_WASH_BG = '#FFF7ED'
+export const OCR_NAR_WASH_TXT = '#9a4a12'
+export const OCR_FOOTER_BG = '#fafaf7'
+export const OCR_TOAST_GRANATE_OSCURO = '#7a0d12'
+export const OCR_TOAST_AMBER_BG = '#FFF3E0'
+export const OCR_TOAST_AMBER_TXT = '#8a4b00'
+export const OCR_TOAST_VERDE_WASH = '#EAF7F1'
+export const OCR_TOAST_ROJO_WASH = '#FDECEC'
 /** Granate en hover (botones primarios de Configuración). */
 export const GRANATE_HOVER = '#901A1E'
 /** Verde "positivo" distinto de COBERTURA_VERDE (KpiCard subTone). */

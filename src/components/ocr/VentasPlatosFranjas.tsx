@@ -1,4 +1,5 @@
-import { BLANCO, GRANATE, GRIS } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS } from '@/styles/neobrutal'
+import { PANEL_SIDEBAR_BG, OCR_BEIGE } from '@/styles/palettes'
 // VentasPlatosFranjas — módulo de aprendizaje de ventas: qué platos se venden y
 // en qué franjas horarias, por marca y plataforma. Lee las vistas de agregación
 // v_ventas_plato y v_ventas_franja (que resumen pedidos_plataforma).
@@ -24,8 +25,8 @@ const PLATAFORMAS: { id: string; label: string }[] = [
 ]
 
 const ROJO = GRANATE
-const NAVY = '#1e2233'
-const BEIGE = '#edecea'
+const NAVY = PANEL_SIDEBAR_BG
+const BEIGE = OCR_BEIGE
 
 export default function VentasPlatosFranjas({ fechaDesde, fechaHasta }: Props) {
   const [sub, setSub] = useState<'platos' | 'franjas'>('platos')
@@ -95,11 +96,11 @@ export default function VentasPlatosFranjas({ fechaDesde, fechaHasta }: Props) {
   const maxPedidos = Math.max(1, ...porHora.map(x => x.pedidos))
   const hayDatos = platos.length > 0 || franjas.length > 0
 
-  const selStyle: React.CSSProperties = { padding: '8px 12px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: NAVY, cursor: 'pointer' }
+  const selStyle: React.CSSProperties = { padding: '8px 12px', borderRadius: 10, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: NAVY, cursor: 'pointer' }
   const tabStyle = (active: boolean): React.CSSProperties => ({ padding: '8px 16px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600, background: active ? ROJO : BEIGE, color: active ? BLANCO : NAVY })
 
   return (
-    <div style={{ marginTop: 16, background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '16px 18px' }}>
+    <div style={{ marginTop: 16, background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 14, padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: ROJO, marginRight: 'auto' }}>Qué se vende y cuándo</div>
         <button onClick={() => setSub('platos')} style={tabStyle(sub === 'platos')}>Platos</button>
