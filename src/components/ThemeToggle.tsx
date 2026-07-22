@@ -1,7 +1,7 @@
 import { Sun, Moon } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 
-// Botón cuadrado neobrutal 40x40, sombra única 4px, acento rosa — uniforme con los iconos del sidebar.
+// Botón cuadrado neobrutal 40x40 SIN sombra (CANTERA ALEGRE: el cromo del sidebar no lleva sombra).
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
@@ -21,7 +21,6 @@ export function ThemeToggle() {
         justifyContent: 'center',
         width: 40,
         height: 40,
-        boxShadow: '4px 4px 0 #0a0a0a',
         transition: 'background 0.15s',
       }}
     >
