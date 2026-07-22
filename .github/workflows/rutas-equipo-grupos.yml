@@ -1,0 +1,54 @@
+name: rutas-equipo-grupos
+on:
+  push:
+    paths:
+      - '.github/workflows/rutas-equipo-grupos.yml'
+permissions:
+  contents: write
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: trabajo
+      - name: Una ruta por grupo de Equipo
+        run: |
+          python3 - <<'PYEOF'
+          p = 'src/App.tsx'
+          s = open(p, encoding='utf-8').read()
+          viejo = '''          <Route path="equipo" element={<Equipo />} />
+          <Route path="equipo/organigrama" element={<Navigate to="/equipo?tab=organigrama" replace />} />
+          <Route path="equipo/horarios" element={<Navigate to="/equipo?tab=horarios" replace />} />
+          <Route path="equipo/presencia" element={<Navigate to="/equipo?tab=presencia" replace />} />
+          <Route path="equipo/portal" element={<Navigate to="/equipo?tab=portal" replace />} />'''
+          nuevo = '''          {/* Equipo: seccion propia del sidebar con 4 entradas, cada una con sus
+              pestanas. Las rutas viejas siguen funcionando y llevan a su nuevo sitio. */}
+          <Route path="equipo" element={<Navigate to="/equipo/personas" replace />} />
+          <Route path="equipo/personas" element={<Equipo grupo="personas" />} />
+          <Route path="equipo/dinero" element={<Equipo grupo="dinero" />} />
+          <Route path="equipo/dia-a-dia" element={<Equipo grupo="dia" />} />
+          <Route path="equipo/documentos" element={<Equipo grupo="documentos" />} />
+          <Route path="equipo/organigrama" element={<Navigate to="/equipo/personas?tab=organigrama" replace />} />
+          <Route path="equipo/incentivos" element={<Navigate to="/equipo/personas?tab=incentivos" replace />} />
+          <Route path="equipo/nominas" element={<Navigate to="/equipo/dinero?tab=nominas" replace />} />
+          <Route path="equipo/costes" element={<Navigate to="/equipo/dinero?tab=costes" replace />} />
+          <Route path="equipo/horarios" element={<Navigate to="/equipo/dia-a-dia?tab=horarios" replace />} />
+          <Route path="equipo/presencia" element={<Navigate to="/equipo/dia-a-dia?tab=presencia" replace />} />
+          <Route path="equipo/portal" element={<Navigate to="/equipo/personas?tab=portal" replace />} />'''
+          assert viejo in s, 'rutas de equipo no encontradas'
+          open(p, 'w', encoding='utf-8').write(s.replace(viejo, nuevo))
+          print('OK')
+          PYEOF
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Gate y push
+        run: |
+          npm ci
+          npx tsc --noEmit -p tsconfig.json
+          npm run build
+          git config user.name "Claude"
+          git config user.email "noreply@anthropic.com"
+          git commit -am "Equipo: una ruta por grupo (personas/dinero/dia-a-dia/documentos) + redirecciones [deploy]"
+          git push origin trabajo
