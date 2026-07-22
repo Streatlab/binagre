@@ -62,7 +62,9 @@ export default function CostePlato() {
   const cargar = useCallback(async () => {
     setCargando(true)
     const [{ data: dic }, { data: rec }, { data: dup }] = await Promise.all([
-      supabase.from('mapeo_plato_receta').select('*').order('euros', { ascending: false }),
+      supabase.from('v_mapeo_resuelto')
+        .select('id, plato_norm, plato_muestra, receta_id:receta_efectiva, origen:origen_manual, confianza:confianza_manual, euros, unidades')
+        .order('euros', { ascending: false }),
       supabase.from('recetas').select('id, nombre, coste_rac').order('nombre'),
       supabase.from('platos_duplicados').select('*').eq('decision', 'pendiente').order('euros_a', { ascending: false }),
     ])
