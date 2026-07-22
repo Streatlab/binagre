@@ -7,15 +7,16 @@ import TabMermas from '@/components/escandallo/TabMermas'
 import TabEPS from '@/components/escandallo/TabEPS'
 import TabRecetas from '@/components/escandallo/TabRecetas'
 import TabAuto from '@/components/escandallo/TabAuto'
+import TabEquivalencias from '@/components/escandallo/TabEquivalencias'
 import ModalEPS from '@/components/escandallo/ModalEPS'
 import ModalReceta from '@/components/escandallo/ModalReceta'
 import ModalIngrediente from '@/components/escandallo/ModalIngrediente'
 import ModalMerma from '@/components/escandallo/ModalMerma'
 import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, ROSA, GRANATE, ROJO } from '@/styles/neobrutal'
 
-type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas' | 'auto'
+type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas' | 'equivalencias' | 'auto'
 const TAB_KEY = 'sl_fichas_tab'
-const esTab = (v: string | null): v is Tab => v === 'indice' || v === 'ingredientes' || v === 'mermas' || v === 'eps' || v === 'recetas' || v === 'auto'
+const esTab = (v: string | null): v is Tab => v === 'indice' || v === 'ingredientes' || v === 'mermas' || v === 'eps' || v === 'recetas' || v === 'equivalencias' || v === 'auto'
 
 const TABS: { id: Tab; label: string; count: (d: Data) => number }[] = [
   { id: 'indice', label: 'Índice', count: d => d.epsList.length + d.recetasList.length },
@@ -23,6 +24,7 @@ const TABS: { id: Tab; label: string; count: (d: Data) => number }[] = [
   { id: 'mermas', label: 'Mermas', count: d => d.mermas.length },
   { id: 'eps', label: 'EPS', count: d => d.epsList.length },
   { id: 'recetas', label: 'Recetas', count: d => d.recetasList.length },
+  { id: 'equivalencias', label: 'Equivalencias', count: d => d.equivalenciasCount },
   { id: 'auto', label: 'Auto', count: d => d.ingredientes.filter(i => (i as any).borrador).length },
 ]
 
@@ -31,6 +33,7 @@ interface Data {
   mermas: Merma[]
   epsList: EPS[]
   recetasList: Receta[]
+  equivalenciasCount: number
 }
 
 export default function Escandallo() {
@@ -41,6 +44,7 @@ export default function Escandallo() {
   const [mermas, setMermas] = useState<Merma[]>([])
   const [epsList, setEpsList] = useState<EPS[]>([])
   const [recetasList, setRecetasList] = useState<Receta[]>([])
+  const [equivalenciasCount, setEquivalenciasCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState(() => localStorage.getItem('sl_fichas_busqueda') ?? '')
@@ -51,7 +55,7 @@ export default function Escandallo() {
   const [modalIng, setModalIng] = useState<{ open: boolean; ing: Ingrediente | null }>({ open: false, ing: null })
   const [modalMerma, setModalMerma] = useState<{ open: boolean; merma: Merma | null }>({ open: false, merma: null })
 
-  const data: Data = { ingredientes, mermas, epsList, recetasList }
+  const data: Data = { ingredientes, mermas, epsList, recetasList, equivalenciasCount }
 
   const fetchData = async () => {
     setLoading(true)
@@ -64,6 +68,8 @@ export default function Escandallo() {
         supabase.from('recetas').select('*').order('codigo', { nullsFirst: false }).order('nombre'),
         supabase.from('recetas_lineas').select('eps_id').not('eps_id', 'is', null),
       ])
+      supabase.from('producto_ingrediente_map').select('id', { count: 'exact', head: true })
+        .then(r => setEquivalenciasCount(r.count ?? 0))
       if (ingRes.error) throw ingRes.error
       if (merRes.error) throw merRes.error
       if (epsRes.error) throw epsRes.error
@@ -189,6 +195,9 @@ export default function Escandallo() {
                 onSelect={receta => setModalReceta({ open: true, receta })}
                 onNew={() => setModalReceta({ open: true, receta: null })}
               />
+            )}
+            {tab === 'equivalencias' && (
+              <TabEquivalencias ingredientes={ingredientes} />
             )}
             {tab === 'auto' && (
               <TabAuto onOpenIngrediente={ing => setModalIng({ open: true, ing })} />

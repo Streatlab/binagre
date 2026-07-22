@@ -175,25 +175,6 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
 
   useEffect(() => { cargar() }, [cargar])
 
-  const TRAD_ESTADO: Record<string, string> = {
-    extraidas: 'líneas extraídas y cruzadas',
-    sin_detalle_lineas: 'la factura no desglosa artículos, o no cuadra al céntimo',
-    fallo_lectura: 'no se pudo leer el PDF',
-    error: 'error al procesar',
-  }
-
-  /* ── Fase A: procesa 1 factura (síncrona) y muestra el resultado ── */
-  const procesarUna = async () => {
-    setBusy('lote'); setMsg('Procesando factura… (puede tardar hasta un minuto, no cierres la pestaña)')
-    try {
-      const r = await fetch(`${API}/extraer-lineas`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}) })
-      const j = await r.json()
-      if (j.error) throw new Error(j.error)
-      if (j.vacio) { setMsg('No quedan facturas de materia prima pendientes.'); await cargar(); return }
-      setMsg(`Factura de ${j.proveedor ?? '—'}: ${TRAD_ESTADO[j.estado] ?? j.estado} (${j.lineas} líneas). Revisa abajo y pulsa otra vez para la siguiente.`)
-      await cargar()
-    } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
-  }
 
   /* ── SUPERPERSISTENCIA: el trabajo corre en el servidor (cron empujador). La UI solo
      lo pinta con polling a motor-estado; sobrevive a F5, cambio de módulo y cierre. ── */
@@ -380,9 +361,6 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <button style={btn(AMA)} disabled={busy === 'motor' || driveOff || (pendientes ?? 0) === 0} onClick={arrancarMotor}>
               Procesar todo (en 2º plano){pendientes != null ? ` · ${pendientes} pendiente(s)` : ''}
-            </button>
-            <button style={btn('var(--sl-card)')} disabled={busy === 'lote' || driveOff} onClick={procesarUna}>
-              {busy === 'lote' ? 'Procesando…' : 'Procesar 1 factura'}
             </button>
             {motor?.ultimo_mensaje && !motorActivo && (
               <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{motor.ultimo_mensaje}</span>
