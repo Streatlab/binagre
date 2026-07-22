@@ -1,4 +1,5 @@
-import { AZUL, BLANCO, GRANATE, GRIS, INK, LIMA, NAR, ROJO, VERDE } from '@/styles/neobrutal'
+import { AZUL, BLANCO, BORDER_FINO, CLARO, GRANATE, GRIS, INK, LIMA, NAR, ROJO, VERDE } from '@/styles/neobrutal'
+import { OBJ_ROW_FINDE_BG, OBJ_ROW_HOY_BG, OBJ_ROW_HOY_FESTIVO_BG, OBJ_FESTIVO_BORDE, OBJ_FESTIVO_TXT, OBJ_FESTIVO_PILL_TXT } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNumES } from '@/utils/format'
@@ -63,8 +64,8 @@ const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov'
 
 // Festivo Madrid — amarillo SL sólido + texto oscuro legible
 const FESTIVO_BG = LIMA
-const FESTIVO_BORDE = '#c8d400'
-const FESTIVO_TXT = '#5c5c00'
+const FESTIVO_BORDE = OBJ_FESTIVO_BORDE
+const FESTIVO_TXT = OBJ_FESTIVO_TXT
 
 function barColor(pct: number): string {
   return pct > 0 ? VERDE : ROJO
@@ -423,8 +424,8 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
   const KPI_SIZE = 36
 
   const inputSelectStyle = {
-    background: isDark ? '#3a4058' : BLANCO,
-    border: `1px solid ${isDark ? '#4a5270' : GRIS}`,
+    background: T.card,
+    border: `1px solid ${T.brd}`,
     color: T.pri, fontFamily: FONT.body, fontSize: 12, borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
   }
   const sectionLabel = { fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase' as const, color: T.mut, margin: '24px 0 10px' }
@@ -445,7 +446,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
           onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditingId(null) }}
           autoFocus placeholder="vacío o 0 = restaurar"
-          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: isDark ? '#3a4058' : BLANCO, border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 110, textAlign: 'right' }}
+          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: T.card, border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 110, textAlign: 'right' }}
         />
       )
     }
@@ -591,9 +592,9 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                   const esCerrado = tipoDiaActual === 'cerrado' || tipoDiaActual === 'festivo' || tipoDiaActual === 'vacaciones'
 
                   let rowBg = 'transparent', rowBorderLeft = '3px solid transparent', diaColor = T.sec
-                  if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = VERDE }
+                  if (finde) { rowBg = OBJ_ROW_FINDE_BG; rowBorderLeft = `3px solid ${VERDE}`; diaColor = VERDE }
                   if (festivo) { rowBg = FESTIVO_BG; rowBorderLeft = `3px solid ${FESTIVO_BORDE}`; diaColor = FESTIVO_TXT }
-                  if (hoyFl) { rowBorderLeft = '3px solid #1E5BCC'; if (!festivo) rowBg = '#ffffff15' }
+                  if (hoyFl) { rowBorderLeft = `3px solid ${AZUL}`; if (!festivo) rowBg = OBJ_ROW_HOY_FESTIVO_BG }
 
                   const fechaStr = `${fechaDiaD.getDate()} ${fechaDiaD.toLocaleDateString('es-ES', { month: 'short' })}`
                   const editId = `dia-${dia}`
@@ -613,7 +614,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                         </div>
                         <div style={{ fontFamily: FONT.body, fontSize: 10, color: textoFecha, marginTop: 1, fontWeight: festivo || hoyFl ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                           {fechaStr}{hoyFl ? ' · HOY' : ''}
-                          {festivo && <span style={{ backgroundColor: FESTIVO_BORDE, color: '#1a1a00', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, fontWeight: 700 }} title={festNombre ?? undefined}>FESTIVO</span>}
+                          {festivo && <span style={{ backgroundColor: FESTIVO_BORDE, color: OBJ_FESTIVO_PILL_TXT, padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, fontWeight: 700 }} title={festNombre ?? undefined}>FESTIVO</span>}
                           {esCerrado && !festivo && <span style={{ backgroundColor: GRANATE, color: BLANCO, padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CERRADO</span>}
                           {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: LIMA, color: INK, padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>ALM</span>}
                           {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: NAR, color: BLANCO, padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CENA</span>}
@@ -636,11 +637,11 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                               if (e.key === 'Escape') setEditingId(null)
                             }}
                             autoFocus
-                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: T.pri, background: isDark ? '#3a4058' : BLANCO, border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 72, textAlign: 'right' }}
+                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: T.pri, background: T.card, border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 72, textAlign: 'right' }}
                           />
                         ) : (
                           <span onClick={() => { setEditingId(editId); setEditValue(String(Math.round(importe))) }}
-                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: hoyFl || festivo ? 700 : 600, color: festivo ? '#1a1a00' : T.pri, cursor: 'pointer' }}>
+                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: hoyFl || festivo ? 700 : 600, color: festivo ? OBJ_FESTIVO_PILL_TXT : T.pri, cursor: 'pointer' }}>
                             {fmtNumES(importe, 0)}
                           </span>
                         )}
@@ -690,7 +691,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
               const pctDesv = h.objetivo > 0 ? Math.round(((h.real - h.objetivo) / h.objetivo) * 100) : 0
               const enCurso = (h as any).enCurso === true
               return (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${T.brd}` : 'none', background: enCurso ? '#1E5BCC10' : 'transparent', borderLeft: enCurso ? '3px solid #1E5BCC' : '3px solid transparent', paddingLeft: enCurso ? 8 : 0, marginLeft: enCurso ? -8 : 0, borderRadius: enCurso ? 4 : 0 }}>
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${T.brd}` : 'none', background: enCurso ? OBJ_ROW_HOY_BG : 'transparent', borderLeft: enCurso ? `3px solid ${AZUL}` : '3px solid transparent', paddingLeft: enCurso ? 8 : 0, marginLeft: enCurso ? -8 : 0, borderRadius: enCurso ? 4 : 0 }}>
                   <span style={{ fontFamily: FONT.body, fontSize: 13, color: enCurso ? AZUL : T.pri, fontWeight: enCurso ? 600 : 400 }}>{h.label}</span>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <div style={{ flex: 1, height: 8, background: T.brd, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
@@ -717,7 +718,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
               {[hoy.getFullYear() - 1, hoy.getFullYear(), hoy.getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
             </select>
             <button onClick={copiarAnioAnterior} disabled={presSaving}
-              style={{ background: '#222', color: T.sec, border: `1px solid #383838`, borderRadius: 6, padding: '5px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: presSaving ? 'default' : 'pointer', opacity: presSaving ? 0.5 : 1 }}>
+              style={{ background: CLARO, color: T.sec, border: BORDER_FINO, borderRadius: 6, padding: '5px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: presSaving ? 'default' : 'pointer', opacity: presSaving ? 0.5 : 1 }}>
               Copiar año anterior
             </button>
             {presSaving && <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>Guardando…</span>}
@@ -758,7 +759,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                                       onBlur={() => commitPresEdit(cat.codigo, mes)}
                                       onKeyDown={e => { if (e.key === 'Enter') commitPresEdit(cat.codigo, mes); if (e.key === 'Escape') setPresEditing(null) }}
                                       autoFocus
-                                      style={{ fontFamily: FONT.heading, fontSize: 11, color: T.pri, background: INK, border: `1px solid #e8f442`, borderRadius: 4, padding: '3px 5px', width: 66, textAlign: 'right' }}
+                                      style={{ fontFamily: FONT.heading, fontSize: 11, color: T.pri, background: INK, border: `1px solid ${LIMA}`, borderRadius: 4, padding: '3px 5px', width: 66, textAlign: 'right' }}
                                     />
                                   ) : (
                                     <span onClick={() => { setPresEditing(cellKey); setPresEditVal(String(val)) }}
@@ -775,8 +776,8 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                             </td>
                           </tr>
                         ))}
-                        <tr style={{ borderTop: `2px solid ${T.brd}`, background: '#0d0d0d' }}>
-                          <td style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', color: LIMA, padding: '8px 12px', textTransform: 'uppercase', position: 'sticky', left: 0, background: '#0d0d0d', zIndex: 1 }}>
+                        <tr style={{ borderTop: `2px solid ${T.brd}`, background: INK }}>
+                          <td style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', color: LIMA, padding: '8px 12px', textTransform: 'uppercase', position: 'sticky', left: 0, background: INK, zIndex: 1 }}>
                             Total {grupo.label.split(' ')[0]}
                           </td>
                           {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => (

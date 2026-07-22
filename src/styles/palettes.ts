@@ -17,3 +17,12 @@ export const DRIVE_TRIM: Record<number, { bg: string; headDark: string }> = {
 /** Fondo y texto del nodo "año" en el árbol Drive. */
 export const DRIVE_ANIO_BG = '#fbe5e8'
 export const DRIVE_ANIO_TEXT = '#7a1218'
+
+/** Objetivos · tintes translúcidos de fila por estado de día (no hay token de kit). */
+export const OBJ_ROW_FINDE_BG = '#1D9E7510'        // fila de fin de semana (verde 6%)
+export const OBJ_ROW_HOY_BG = '#1E5BCC10'          // fila de hoy / en curso (azul 6%)
+export const OBJ_ROW_HOY_FESTIVO_BG = '#ffffff15'  // hoy + festivo (blanco 8%)
+/** Objetivos · color de día festivo (oliva-lima, dato de calendario sin equivalente kit). */
+export const OBJ_FESTIVO_BORDE = '#c8d400'
+export const OBJ_FESTIVO_TXT = '#5c5c00'
+export const OBJ_FESTIVO_PILL_TXT = '#1a1a00'
