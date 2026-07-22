@@ -1,5 +1,8 @@
 name: fix-tabnominas-plantilla
-on: workflow_dispatch
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-tabnominas.yml'
 permissions:
   contents: write
 jobs:
