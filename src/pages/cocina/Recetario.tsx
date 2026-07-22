@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { ChefHat } from 'lucide-react'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabFichas from '@/components/escandallo/TabFichas'
+import ColaRevisionFichas from '@/components/escandallo/ColaRevisionFichas'
 import { useTheme, FONT } from '@/styles/tokens'
 
 type Tab = 'eps' | 'recetas'
@@ -40,6 +41,8 @@ export default function Recetario() {
           onChange={e => setBusqueda(e.target.value)}
         />
       </div>
+
+      <ColaRevisionFichas />
 
       <TabFichas busqueda={busqueda} tipo={tab === 'eps' ? 'ep' : 'receta'} />
     </div>
