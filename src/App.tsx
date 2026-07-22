@@ -25,8 +25,8 @@ const CostePlato = React.lazy(() => import('@/pages/cocina/CostePlato'))
 
 
 // Pantallas con interruptor NEO / SL: la ruta decide cual se ve
-const EscandalloSwitch = React.lazy(() => import('@/pages/switch/EscandalloSwitch'))
-const PanelSwitch = React.lazy(() => import('@/pages/switch/PanelSwitch'))
+const Escandallo = React.lazy(() => import('@/pages/Escandallo'))
+const PanelGlobal = React.lazy(() => import('@/pages/PanelGlobal'))
 
 const ReglasPage = React.lazy(() => import('@/pages/configuracion/reglas/ReglasPage'))
 const TabReglasIngredientes = React.lazy(() => import('@/pages/configuracion/reglas/TabReglasIngredientes'))
@@ -146,7 +146,7 @@ function AppRoutes() {
         <Route path="/login" element={usuario ? <Navigate to="/" replace /> : <Login />} />
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Home />} />
-          <Route path="escandallo" element={<EscandalloSwitch />} />
+          <Route path="escandallo" element={<Escandallo />} />
           {/* ── D·Tanda 3 · Carta ← Carta + Menú Familia (facturación permanece en Finanzas·Papeleo) ── */}
           <Route path="carta" element={<TabsContainer title="Carta" tabs={[
             { to: '.', label: 'Carta', end: true },
@@ -285,7 +285,7 @@ function AppRoutes() {
             <Route path="playbook" element={<PlaybookThinkPaladar />} />
           </Route>
 
-          <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelSwitch /></ProtectedRoute>} />
+          <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelGlobal /></ProtectedRoute>} />
           <Route path="panel-direccion" element={<ProtectedRoute solo={['admin']}><PanelDireccion /></ProtectedRoute>} />
 
           <Route path="importador" element={<Navigate to="/finanzas/papeleo?tab=bandeja" replace />} />
