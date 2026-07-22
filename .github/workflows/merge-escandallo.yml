@@ -1,0 +1,82 @@
+name: Fusionar escandallo (resolucion de conflictos)
+
+# Un solo uso: fusiona claude/escandallo-auto-ingesta-2tu34i en master resolviendo
+# los 3 conflictos conocidos (uber.ts, ModalIngrediente.tsx, TabIngredientes.tsx).
+# Solo empuja si el build pasa. Borrar este fichero despues de usarlo.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/merge-escandallo.yml'
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Merge con resolucion
+        run: |
+          git config user.name "Claude"
+          git config user.email "noreply@anthropic.com"
+          git fetch origin claude/escandallo-auto-ingesta-2tu34i
+          git merge --no-commit --no-ff origin/claude/escandallo-auto-ingesta-2tu34i || true
+
+          # uber.ts: nos quedamos con la version de la rama (H4, 22-jul: backoff de recogida)
+          git checkout --theirs scripts/robot-ingesta/uber.ts
+          git add scripts/robot-ingesta/uber.ts
+
+          python3 - <<'PY'
+          import re
+
+          def bloques(path):
+              s = open(path, encoding='utf-8').read()
+              return s, list(re.finditer(r'<<<<<<< [^\n]*\n(.*?)\n=======\n(.*?)\n>>>>>>> [^\n]*\n', s, re.S))
+
+          # ModalIngrediente: los dos lados son declaraciones nuevas independientes -> se conservan ambas
+          p = 'src/components/escandallo/ModalIngrediente.tsx'
+          s, ms = bloques(p)
+          for m in reversed(ms):
+              s = s[:m.start()] + m.group(1) + '\n' + m.group(2) + '\n' + s[m.end():]
+          open(p, 'w', encoding='utf-8').write(s)
+
+          # TabIngredientes: un lado aporta la funcion derivar, el otro la firma con onOpenCategorias
+          p = 'src/components/escandallo/TabIngredientes.tsx'
+          s, ms = bloques(p)
+          for m in reversed(ms):
+              lados = [m.group(1), m.group(2)]
+              con_derivar = next((l for l in lados if 'function derivar' in l), None)
+              firma = next((l for l in lados if 'onOpenCategorias' in l and 'export default function' in l), None)
+              if con_derivar and firma:
+                  cuerpo = con_derivar.rsplit('export default function TabIngredientes', 1)[0].rstrip()
+                  nuevo = cuerpo + '\n\n' + firma
+              else:
+                  nuevo = lados[0] + '\n' + lados[1]
+              s = s[:m.start()] + nuevo + '\n' + s[m.end():]
+          open(p, 'w', encoding='utf-8').write(s)
+          PY
+
+          if grep -rn '<<<<<<<' --include='*.ts' --include='*.tsx' src api scripts; then
+            echo "Quedan marcadores de conflicto"; exit 1
+          fi
+          git add -A
+
+      - name: Build de seguridad
+        run: |
+          npm ci
+          npm run build
+
+      - name: Publicar
+        run: |
+          git commit -m "Merge rama escandallo en master (conflictos resueltos automaticamente)"
+          git push origin master
