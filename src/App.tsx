@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { TitularProvider } from '@/contexts/TitularContext'
 import Layout from '@/components/Layout'
 import Login from '@/pages/Login'
+import { TabsContainer } from '@/components/kit/TabsContainer'
 
 const Home = React.lazy(() => import('@/pages/Home'))
 const PapeleoPage = React.lazy(() => import('@/pages/finanzas/PapeleoPage'))
