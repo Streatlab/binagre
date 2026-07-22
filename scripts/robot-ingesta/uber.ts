@@ -251,24 +251,37 @@ async function informes(page: Page, periodo: string): Promise<boolean> {
       pedidos = 2; // crearReporte marca DOS informes (resumen + nivel articulo)
     }
   }
-  // 18-jul (Ruben: Uber tarda MINUTOS, no horas): reintentos cortos volviendo a
-  // la lista y descargando, en vez de una espera bloqueante que agota el runner.
-  // 8 vueltas x 45s = 6 min; si a los 6 min no esta, se deja pedido y la
-  // siguiente pasada lo baja (ya estara "Disponible").
-  await log(P, 'aviso', `${pedidos} informe(s) solicitados; reintento la descarga cada 45s durante ~6 min`);
+  // 22-jul (H4): reintento de recogida con backoff hasta un máximo configurable.
+  // El spec pide "hasta 2h", pero un runner de GitHub Actions tiene timeout de 55 min
+  // y comparte matriz con los demás robots; una espera de 2h en una sola corrida es
+  // inviable/cara. Diseño: se insiste dentro de la corrida hasta UBER_RECOGIDA_MAX_MIN
+  // (por defecto 45 min, seguro bajo el timeout del job) con espera creciente; si a esos
+  // minutos no está, se deja PEDIDO y lo recoge la pasada siguiente o el reintento del
+  // martes — cubriendo de facto la ventana de 2h a lo largo de varias corridas.
+  // En CADA intento se vuelca la lista de informes a robot_debug para AUDITAR si se está
+  // mirando la fila/botón correctos (comparar el DOM real entre intentos).
+  const maxMin = Number(process.env.UBER_RECOGIDA_MAX_MIN || 45);
+  const limiteMs = Math.max(6, maxMin) * 60_000;
+  await log(P, 'aviso', `${pedidos} informe(s) solicitados; reintento la recogida con backoff hasta ~${maxMin} min (y arrastre a la siguiente pasada si no llega)`);
 
-  for (let vuelta = 0; vuelta < 8; vuelta++) {
-    await page.waitForTimeout(45000);
+  const t0 = Date.now();
+  let vuelta = 0;
+  let espera = 45_000; // arranca en 45s y crece hasta un tope de 5 min
+  while (Date.now() - t0 < limiteMs) {
+    await page.waitForTimeout(espera);
     await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForTimeout(6000);
     await quitarEstorbos(page);
+    // Auditoría H4: foto del DOM de la lista en cada intento, para cotejar filas/botones.
+    await volcar(`uber_recogida_intento_${vuelta}`, await page.content().catch(() => ''));
     bajadas += await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas');
     if (bajadas >= Math.max(pedidos, 2)) return true;
+    vuelta++;
+    espera = Math.min(espera + 30_000, 300_000);
   }
   if (bajadas > 0) return true;
-  // 18-jul DIAGNÓSTICO: volcado también al agotar los reintentos, con la lista tal cual quedó.
   await volcar('uber_lista_informes_fin', await page.content().catch(() => ''));
-  await log(P, 'aviso', 'el informe seguía preparándose tras ~6 min; se bajará en la próxima pasada (ya quedó pedido)');
+  await log(P, 'aviso', `el informe seguía preparándose tras ~${maxMin} min; se bajará en la próxima pasada (ya quedó pedido)`);
   return false;
 }
 
