@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE } from '@/styles/neobrutal'
+import { CONFIG_AMBER_WASH } from '@/styles/palettes'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Wand2 } from 'lucide-react'
@@ -174,12 +175,12 @@ export default function ReglasPanel() {
   }
   const td: CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
 
-  const washBg     = isDark ? 'rgba(186,117,23,0.18)'  : '#FAEEDA'
-  const washBrd    = isDark ? 'rgba(250,199,117,0.28)' : '#FAC775'
-  const washTxt    = isDark ? '#FAC775'                : '#412402'
-  const washSub    = isDark ? '#F5C36B'                : '#854F0B'
+  const washBg     = isDark ? CONFIG_AMBER_WASH.bgDark : CONFIG_AMBER_WASH.bgLight
+  const washBrd    = isDark ? CONFIG_AMBER_WASH.brdDark : CONFIG_AMBER_WASH.brdLight
+  const washTxt    = isDark ? CONFIG_AMBER_WASH.txtStrongDark : CONFIG_AMBER_WASH.txtStrongLight
+  const washSub    = isDark ? CONFIG_AMBER_WASH.txtSubDark : CONFIG_AMBER_WASH.txtSubLight
   const codeBg     = isDark ? 'rgba(255,255,255,0.06)' : BLANCO
-  const codeBrd    = isDark ? 'rgba(250,199,117,0.22)' : '#E9D9A6'
+  const codeBrd    = isDark ? CONFIG_AMBER_WASH.brdCodeDark : CONFIG_AMBER_WASH.brdCodeLight
 
   return (
     <>

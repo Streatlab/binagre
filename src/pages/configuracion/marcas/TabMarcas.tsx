@@ -1,4 +1,5 @@
 import { AZUL, AZUL_CL, BLANCO, GRANATE, INK, VERDE } from '@/styles/neobrutal'
+import { MARCA_GLOVO, MARCA_JE, ROJO_WASH_BG_DARK, CONFIG_ROJO_WASH } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { Trash2, Edit3, Power, Plus, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -20,8 +21,8 @@ interface MarcaRow {
 
 const PILL_COLORS: Record<string, { bg: string; text: string }> = {
   UE:  { bg: VERDE, text: BLANCO },
-  GL:  { bg: '#FFC107', text: INK },
-  JE:  { bg: '#F36805', text: BLANCO },
+  GL:  { bg: MARCA_GLOVO, text: INK },
+  JE:  { bg: MARCA_JE, text: BLANCO },
   WEB: { bg: GRANATE, text: BLANCO },
   DIR: { bg: AZUL_CL, text: BLANCO },
 }
@@ -29,8 +30,8 @@ const PLATAFORMAS: CanalAbv[] = ['UE', 'GL', 'JE', 'WEB', 'DIR']
 
 const CANAL_DEFS = [
   { id: 'uber',  label: 'Uber Eats',  color: VERDE, bru: 'uber_bruto',    ped: 'uber_pedidos',    cfgName: 'Uber Eats' },
-  { id: 'glovo', label: 'Glovo',      color: '#FFC107', bru: 'glovo_bruto',   ped: 'glovo_pedidos',   cfgName: 'Glovo' },
-  { id: 'je',    label: 'Just Eat',   color: '#F36805', bru: 'je_bruto',      ped: 'je_pedidos',      cfgName: 'Just Eat' },
+  { id: 'glovo', label: 'Glovo',      color: MARCA_GLOVO, bru: 'glovo_bruto',   ped: 'glovo_pedidos',   cfgName: 'Glovo' },
+  { id: 'je',    label: 'Just Eat',   color: MARCA_JE, bru: 'je_bruto',      ped: 'je_pedidos',      cfgName: 'Just Eat' },
   { id: 'web',   label: 'Web propia', color: GRANATE, bru: 'web_bruto',     ped: 'web_pedidos',     cfgName: 'Web Propia' },
   { id: 'dir',   label: 'Directa',    color: AZUL_CL, bru: 'directa_bruto', ped: 'directa_pedidos', cfgName: 'Venta Directa' },
 ]
@@ -277,7 +278,7 @@ export default function TabMarcas() {
   const pctOf = (n: number, total: number) => total > 0 ? `${((n / total) * 100).toFixed(2)}%` : '—'
 
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
-  if (error) return <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>{error}</div>
+  if (error) return <div style={{ padding: 16, background: isDark ? ROJO_WASH_BG_DARK : CONFIG_ROJO_WASH, color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>{error}</div>
 
   const thStyle: React.CSSProperties = { padding: '14px 16px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', color: T.mut, fontWeight: 400, background: T.group, textAlign: 'left' }
   const thCenterStyle: React.CSSProperties = { ...thStyle, textAlign: 'center' }
@@ -586,7 +587,7 @@ export default function TabMarcas() {
                 <div style={{ fontSize: 11, color: T.mut }}>Marca se oculta pero conserva todos los datos.</div>
               </button>
               <button onClick={() => setConfirmDelete({ marca: delModal, mode: 'total' })}
-                style={{ width: '100%', padding: '14px 16px', background: 'transparent', border: '1px solid #B01D23', borderRadius: 8, textAlign: 'left', cursor: 'pointer', fontFamily: FONT.body }}>
+                style={{ width: '100%', padding: '14px 16px', background: 'transparent', border: `1px solid ${GRANATE}`, borderRadius: 8, textAlign: 'left', cursor: 'pointer', fontFamily: FONT.body }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: GRANATE, marginBottom: 4 }}>🗑 Borrar todo (sin vuelta atrás)</div>
                 <div style={{ fontSize: 11, color: T.mut }}>Elimina marca y TODOS sus datos.</div>
               </button>

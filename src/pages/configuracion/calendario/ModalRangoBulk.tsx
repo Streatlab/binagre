@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, INK, LIMA, ROJO_S } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, CLARO, GRANATE, GRIS, INK, LIMA, ROJO_S } from '@/styles/neobrutal'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -75,59 +75,59 @@ export default function ModalRangoBulk({ onClose }: Props) {
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 12, padding: '28px 32px', width: 420, maxWidth: '95vw' }}
+        style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 12, padding: '28px 32px', width: 420, maxWidth: '95vw' }}
         onClick={e => e.stopPropagation()}
       >
         <h2 style={{ margin: '0 0 4px', fontFamily: FONT.heading, fontSize: 16, color: LIMA, letterSpacing: 1, textTransform: 'uppercase' }}>
           Marcar rango
         </h2>
-        <p style={{ margin: '0 0 20px', fontFamily: FONT.body, fontSize: 12, color: '#777' }}>
+        <p style={{ margin: '0 0 20px', fontFamily: FONT.body, fontSize: 12, color: GRIS }}>
           Aplica un tipo a todas las fechas del rango seleccionado.
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           <div>
-            <label style={{ fontFamily: FONT.heading, fontSize: 11, color: '#aaa', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Desde</label>
+            <label style={{ fontFamily: FONT.heading, fontSize: 11, color: GRIS, letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Desde</label>
             <input
               type="date"
               value={desde}
               onChange={e => setDesde(e.target.value)}
               min="2026-01-01"
               max="2027-12-31"
-              style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }}
             />
           </div>
           <div>
-            <label style={{ fontFamily: FONT.heading, fontSize: 11, color: '#aaa', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Hasta</label>
+            <label style={{ fontFamily: FONT.heading, fontSize: 11, color: GRIS, letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Hasta</label>
             <input
               type="date"
               value={hasta}
               onChange={e => setHasta(e.target.value)}
               min="2026-01-01"
               max="2027-12-31"
-              style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }}
             />
           </div>
         </div>
 
-        <label style={{ fontFamily: FONT.heading, fontSize: 11, color: '#aaa', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Tipo</label>
+        <label style={{ fontFamily: FONT.heading, fontSize: 11, color: GRIS, letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Tipo</label>
         <select
           value={tipo}
           onChange={e => setTipo(e.target.value as TipoDia)}
-          style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 16 }}
+          style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 16 }}
         >
           {TODOS_TIPOS.map(t => (
             <option key={t} value={t}>{TIPO_LABEL[t]}</option>
           ))}
         </select>
 
-        <label style={{ fontFamily: FONT.heading, fontSize: 11, color: '#aaa', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Nota (opcional)</label>
+        <label style={{ fontFamily: FONT.heading, fontSize: 11, color: GRIS, letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Nota (opcional)</label>
         <input
           type="text"
           value={nota}
           onChange={e => setNota(e.target.value)}
           placeholder="Ej: Vacaciones agosto"
-          style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 20, boxSizing: 'border-box' }}
+          style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 20, boxSizing: 'border-box' }}
         />
 
         {error && <div style={{ color: ROJO_S, fontFamily: FONT.body, fontSize: 12, marginBottom: 12 }}>{error}</div>}
@@ -140,7 +140,7 @@ export default function ModalRangoBulk({ onClose }: Props) {
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button
             onClick={onClose}
-            style={{ padding: '9px 18px', backgroundColor: '#222', border: '1px solid #383838', borderRadius: 8, color: '#ccc', fontFamily: FONT.heading, fontSize: 12, cursor: 'pointer', letterSpacing: 1, textTransform: 'uppercase' }}
+            style={{ padding: '9px 18px', backgroundColor: CLARO, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 8, color: GRIS, fontFamily: FONT.heading, fontSize: 12, cursor: 'pointer', letterSpacing: 1, textTransform: 'uppercase' }}
           >
             {ok !== null ? 'Cerrar' : 'Cancelar'}
           </button>

@@ -1,4 +1,4 @@
-import { GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { BORDE_SUAVE, CLARO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
@@ -67,7 +67,7 @@ export default function CuentasPage() {
                       {c.saldo_actual != null ? fmtEur(c.saldo_actual) : '—'}
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: c.activa ? VERDE : '#555' }} />
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: c.activa ? VERDE : GRIS }} />
                     </td>
                   </tr>
                 ))}
@@ -103,7 +103,7 @@ export default function CuentasPage() {
             href={`https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`}
             target="_blank"
             rel="noreferrer"
-            style={{ marginLeft: 'auto', background: '#222', color: T.sec, border: `1px solid #383838`, borderRadius: 6, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, textDecoration: 'none', cursor: 'pointer' }}
+            style={{ marginLeft: 'auto', background: CLARO, color: T.sec, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, padding: '6px 14px', fontFamily: FONT.heading, fontSize: 11, textDecoration: 'none', cursor: 'pointer' }}
           >
             Abrir Drive
           </a>

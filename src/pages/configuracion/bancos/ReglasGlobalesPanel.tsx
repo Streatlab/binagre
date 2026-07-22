@@ -1,4 +1,5 @@
-import { AZUL, BLANCO, GRANATE, GRIS, INK } from '@/styles/neobrutal'
+import { AZUL, BLANCO, BORDE_SUAVE, CLARO, CREMA, GRANATE, GRIS, INK } from '@/styles/neobrutal'
+import { CONFIG_AMBER_WASH, CANAL_UBER_DARK } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT, useTheme } from '@/styles/tokens'
@@ -96,7 +97,7 @@ export default function ReglasGlobalesPanel() {
 
   const moduloColor = {
     ocr: AZUL,
-    conciliacion: '#0F6E56',
+    conciliacion: CANAL_UBER_DARK,
     global: GRANATE,
   }
   const moduloLabel = {
@@ -114,8 +115,8 @@ export default function ReglasGlobalesPanel() {
         title="Reglas globales del sistema"
         subtitle={`${reglas.length} reglas activas — políticas de comportamiento OCR / Conciliación`}
       >
-        <div style={{ margin: '0 22px 14px', padding: 14, background: '#FAEEDA', border: '1px solid #FAC775', borderRadius: 8, fontSize: 12.5, color: '#854F0B', fontFamily: FONT.body }}>
-          <strong style={{ color: '#412402' }}>Cómo funcionan:</strong> Las reglas con <em>Bloqueante = sí</em> se aplican vía triggers en BBDD y no se pueden saltar. Las reglas con <em>Bloqueante = no</em> son políticas que la UI y los procesos respetan pero pueden tener excepciones. Cualquier chat o agente que toque OCR/Conciliación debe leer estas reglas antes de actuar.
+        <div style={{ margin: '0 22px 14px', padding: 14, background: CONFIG_AMBER_WASH.bgLight, border: `1px solid ${CONFIG_AMBER_WASH.brdLight}`, borderRadius: 8, fontSize: 12.5, color: CONFIG_AMBER_WASH.txtSubLight, fontFamily: FONT.body }}>
+          <strong style={{ color: CONFIG_AMBER_WASH.txtStrongLight }}>Cómo funcionan:</strong> Las reglas con <em>Bloqueante = sí</em> se aplican vía triggers en BBDD y no se pueden saltar. Las reglas con <em>Bloqueante = no</em> son políticas que la UI y los procesos respetan pero pueden tener excepciones. Cualquier chat o agente que toque OCR/Conciliación debe leer estas reglas antes de actuar.
         </div>
 
         {(['ocr', 'conciliacion', 'global'] as const).map(modulo => {
@@ -123,11 +124,11 @@ export default function ReglasGlobalesPanel() {
           if (items.length === 0) return null
           return (
             <div key={modulo} style={{ marginBottom: 18 }}>
-              <div style={{ padding: '8px 22px', background: '#f5f3ef', borderTop: '0.5px solid #d0c8bc', borderBottom: '0.5px solid #d0c8bc', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: moduloColor[modulo] }}>
+              <div style={{ padding: '8px 22px', background: CREMA, borderTop: `0.5px solid ${BORDE_SUAVE}`, borderBottom: `0.5px solid ${BORDE_SUAVE}`, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: moduloColor[modulo] }}>
                 {moduloLabel[modulo]} — {items.length} regla{items.length !== 1 ? 's' : ''}
               </div>
               {items.map(r => (
-                <div key={r.id} onClick={() => open(r)} style={{ padding: '12px 22px', borderBottom: '0.5px solid #ebe8e2', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 14, background: BLANCO }}>
+                <div key={r.id} onClick={() => open(r)} style={{ padding: '12px 22px', borderBottom: `0.5px solid ${CLARO}`, cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 14, background: BLANCO }}>
                   <div style={{ flexShrink: 0, fontFamily: FONT.heading, fontSize: 11, fontWeight: 500, color: moduloColor[modulo], letterSpacing: '1px', width: 70 }}>
                     {r.codigo}
                   </div>
@@ -150,7 +151,7 @@ export default function ReglasGlobalesPanel() {
           )
         })}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 22px 18px', borderTop: '0.5px solid #d0c8bc', background: '#f5f3ef' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 22px 18px', borderTop: `0.5px solid ${BORDE_SUAVE}`, background: CREMA }}>
           <button onClick={() => open()} style={{ padding: '7px 14px', borderRadius: 6, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>+ Nueva regla</button>
         </div>
       </ConfigGroupCard>

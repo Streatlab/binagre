@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
+import { TITULARES_BG_LIGHT } from '@/styles/palettes'
 import { useCallback, useEffect, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -237,7 +238,7 @@ export default function CuentasBancarias() {
                       alignItems: 'center',
                       gap: 10,
                       padding: '14px 18px',
-                      background: isDark ? INK : '#fafafa',
+                      background: isDark ? INK : TITULARES_BG_LIGHT,
                       border: `2px dashed ${T.brd}`,
                       borderRadius: 10,
                       cursor: isSubiendo ? 'wait' : 'pointer',

@@ -233,6 +233,54 @@ export const USUARIOS_ROL_SOLO_LECTURA = { bgDark: 'rgba(90,104,128,0.22)', bgLi
 export const USUARIOS_ROL_EMPLEADO = { bgDark: 'rgba(155,89,182,0.22)', bgLight: '#F0E8F8', fgDark: '#C39FDE', fgLight: '#6B3A8F' }
 export const USUARIOS_ROL_DEFAULT = { bg: '#333', fg: '#888' }
 export const USUARIOS_ROL_SIN_DATO = '#7080a8'
+
+/** Conciliación bancaria (Config) · pestaña activa ámbar, dark+light. */
+export const CONCILIACION_ACTIVE_BG_DARK = '#2a2600'
+export const CONCILIACION_ACTIVE_BG_LIGHT = '#FFF3B8'
+export const CONCILIACION_ACTIVE_BORDE_DARK = '#4a4000'
+export const CONCILIACION_ACTIVE_BORDE_LIGHT = '#E8D066'
+export const CONCILIACION_ACTIVE_TXT_LIGHT = '#5a4d0a'
+/** Wash de error dark (distinto de DARK_WASH_ROJO_BG, tono ligeramente más rojo). */
+export const ROJO_WASH_BG_DARK = '#3a1a1a'
+export const ROJO_TXT_DARK = '#ff8080'
+
+/** Calendario Laboral (Config) · tipo de día festivo/vacaciones (cerrado usa
+ * ERROR_BANNER_BG / ROJO / ROJO_S ya existentes). bg reusa PANEL_SIDEBAR_BG y PANEL_MODAL_BG. */
+export const CALENDARIO_FESTIVO_BORDE = '#3a4060'
+export const CALENDARIO_VACACIONES_BORDE = '#6070aa'
+/** Modal "Cambiar tipo de día": panel navy oscuro. */
+export const CALENDARIO_MODAL_BG = '#131928'
+export const CALENDARIO_MODAL_BORDE = '#2a3050'
+
+/** Mapeo de Marcas (Config) · variante de color de canal propia de esta pantalla. */
+export const MARCA_GLOVO = '#FFC107'
+export const MARCA_JE = '#F36805'
+/** Fondo claro fijo de TabCanales (distinto de CREMA). */
+export const TABCANALES_BG_LIGHT = '#faf8f3'
+
+/** Diccionario NIF (Config) · badge "Plantilla" (azul distinto de AZUL del kit). */
+export const DICCIONARIO_PLANTILLA_AZUL = '#3b82f6'
+
+/** Reglas/Categorías (Config·Bancos) · wash ámbar de aviso informativo, reusado
+ * en ReglasGlobalesPanel/CategoriasPanel/ReglasPanel con las mismas 3 gamas de
+ * borde (normal, código). */
+export const CONFIG_AMBER_WASH = {
+  bgLight: '#FAEEDA',
+  bgDark: 'rgba(186,117,23,0.18)',
+  brdLight: '#FAC775',
+  brdDark: 'rgba(250,199,117,0.28)',
+  brdCodeDark: 'rgba(250,199,117,0.22)',
+  brdCodeLight: '#E9D9A6',
+  txtStrongLight: '#412402',
+  txtStrongDark: '#FAC775',
+  txtSubLight: '#854F0B',
+  txtSubDark: '#F5C36B',
+}
+/** Categorías (Config·Bancos) · acento nivel 1 / ingreso, dark+light. */
+export const CATEGORIAS_N1_LIGHT = '#A32D2D'
+export const CATEGORIAS_ING_LIGHT = '#3B6D11'
+/** Titulares (Config·Bancos) · fondo claro fijo, casi blanco. */
+export const TITULARES_BG_LIGHT = '#fafafa'
 /** Granate en hover (botones primarios de Configuración). */
 export const GRANATE_HOVER = '#901A1E'
 /** Verde "positivo" distinto de COBERTURA_VERDE (KpiCard subTone). */
