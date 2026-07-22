@@ -1,4 +1,5 @@
 import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, ROJO_S } from '@/styles/neobrutal'
+import { DARK_WASH_VERDE_BG, DARK_WASH_AZUL_BG, VERDE_POSITIVO } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -252,8 +253,8 @@ export default function TabConteos({ desde, hasta }: Props) {
                       fontSize: 11,
                       padding: '2px 7px',
                       borderRadius: 4,
-                      background: c.periodicidad === 'mensual' ? '#1a2a1a' : '#1a1a2a',
-                      color: c.periodicidad === 'mensual' ? '#4caf50' : AZUL_CL,
+                      background: c.periodicidad === 'mensual' ? DARK_WASH_VERDE_BG : DARK_WASH_AZUL_BG,
+                      color: c.periodicidad === 'mensual' ? VERDE_POSITIVO : AZUL_CL,
                       fontFamily: FONT.heading,
                       letterSpacing: '0.5px',
                       textTransform: 'uppercase',

@@ -1,4 +1,5 @@
-import { BLANCO, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE, LIBRO_SELECTED_BG } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -111,11 +112,11 @@ export default function LibroEquipos() {
         </button>
       </div>
 
-      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
 
       {showForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 12, padding: '28px', width: '100%', maxWidth: 480 }}>
+          <div style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 12, padding: '28px', width: '100%', maxWidth: 480 }}>
             <h2 style={{ fontFamily: FONT.heading, fontSize: 16, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, margin: '0 0 20px' }}>
               {editData.id ? 'EDITAR EQUIPO' : 'NUEVO EQUIPO'}
             </h2>
@@ -132,12 +133,12 @@ export default function LibroEquipos() {
                 <input type={f.type}
                   value={(editData as Record<string, unknown>)[f.key] as string ?? ''}
                   onChange={e => setEditData(p => ({ ...p, [f.key]: f.type === 'number' ? (e.target.value ? parseFloat(e.target.value) : null) : e.target.value }))}
-                  style={{ width: '100%', padding: '8px 10px', background: INK, border: '1px solid #2a2a2a', borderRadius: 6, color: BLANCO, fontSize: 13, boxSizing: 'border-box' }} />
+                  style={{ width: '100%', padding: '8px 10px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontSize: 13, boxSizing: 'border-box' }} />
               </div>
             ))}
             <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => { setShowForm(false); setEditData(EMPTY_EQUIPO) }}
-                style={{ padding: '8px 16px', background: INK, border: '1px solid #383838', color: GRIS, borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Cancelar</button>
+                style={{ padding: '8px 16px', background: INK, border: `1px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Cancelar</button>
               <button onClick={saveEquipo} disabled={saving}
                 style={{ padding: '8px 18px', background: COLORS.redSL, color: BLANCO, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Guardando…' : 'Guardar'}
@@ -156,7 +157,7 @@ export default function LibroEquipos() {
                 const coste = mants.reduce((s, m) => s + (m.coste ?? 0), 0)
                 return (
                   <div key={eq.id} onClick={() => setSelectedId(eq.id === selectedId ? null : eq.id)}
-                    style={{ background: selectedId === eq.id ? '#1a1f2e' : INK, border: `1px solid ${selectedId === eq.id ? COLORS.redSL : INK}`, borderRadius: 10, padding: '16px 18px', cursor: 'pointer', opacity: eq.activo ? 1 : 0.5 }}>
+                    style={{ background: selectedId === eq.id ? LIBRO_SELECTED_BG : INK, border: `1px solid ${selectedId === eq.id ? COLORS.redSL : INK}`, borderRadius: 10, padding: '16px 18px', cursor: 'pointer', opacity: eq.activo ? 1 : 0.5 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                       <div>
                         <div style={{ fontFamily: FONT.heading, fontSize: 15, letterSpacing: '1px', color: BLANCO, marginBottom: 4 }}>{eq.nombre}</div>
@@ -170,14 +171,14 @@ export default function LibroEquipos() {
                           {eq.estado ?? (eq.activo ? 'ACTIVO' : 'INACTIVO')}
                         </span>
                         <button onClick={e => { e.stopPropagation(); setEditData({ ...eq }); setShowForm(true) }}
-                          style={{ padding: '4px 10px', background: 'transparent', border: '1px solid #383838', color: GRIS, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Editar</button>
+                          style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>Editar</button>
                         <button onClick={e => { e.stopPropagation(); toggleActivo(eq) }}
                           style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${eq.activo ? COLORS.redSL : COLORS.ok}`, color: eq.activo ? COLORS.redSL : COLORS.ok, borderRadius: 4, fontSize: 11, cursor: 'pointer' }}>
                           {eq.activo ? 'Desactivar' : 'Activar'}
                         </button>
                       </div>
                     </div>
-                    <div style={{ marginTop: 8, display: 'flex', gap: 16, fontSize: 12, color: '#555555' }}>
+                    <div style={{ marginTop: 8, display: 'flex', gap: 16, fontSize: 12, color: GRIS }}>
                       <span>{mants.length} mantenimiento{mants.length !== 1 ? 's' : ''}</span>
                       <span>Coste acum.: {fmtEurLocal(coste)}</span>
                     </div>
@@ -189,7 +190,7 @@ export default function LibroEquipos() {
           </div>
 
           {selectedEquipo && (
-            <div style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px' }}>
+            <div style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 10, padding: '20px' }}>
               <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 12 }}>
                 HISTORIAL — {selectedEquipo.nombre}
               </div>
@@ -200,9 +201,9 @@ export default function LibroEquipos() {
                 </div>
               </div>
               {eqMantenimientos.length === 0 ? (
-                <div style={{ color: '#555555', fontSize: 13 }}>Sin mantenimientos registrados.</div>
+                <div style={{ color: GRIS, fontSize: 13 }}>Sin mantenimientos registrados.</div>
               ) : eqMantenimientos.map(m => (
-                <div key={m.id} style={{ borderBottom: '1px solid #222222', padding: '10px 0', fontSize: 13 }}>
+                <div key={m.id} style={{ borderBottom: `1px solid ${BORDE_SUAVE}`, padding: '10px 0', fontSize: 13 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                     <span style={{ color: GRIS }}>{m.descripcion ?? '—'}</span>
                     <span style={{ color: COLOR.textMut, whiteSpace: 'nowrap' }}>{fmtFecha(m.fecha)}</span>

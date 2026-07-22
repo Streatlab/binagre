@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, INK, ROJO } from '@/styles/neobrutal'
+import { DARK_WASH_VERDE_BG, DARK_WASH_ROJO_BG, VERDE_POSITIVO } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -198,8 +199,8 @@ export default function TabMovimientos({ desde, hasta }: Props) {
                   <td style={tdStyle}>
                     <span style={{
                       fontSize: 11, padding: '2px 8px', borderRadius: 4,
-                      background: m.tipo === 'entrada' ? '#1a2a1a' : '#2a1a1a',
-                      color: m.tipo === 'entrada' ? '#4caf50' : ROJO,
+                      background: m.tipo === 'entrada' ? DARK_WASH_VERDE_BG : DARK_WASH_ROJO_BG,
+                      color: m.tipo === 'entrada' ? VERDE_POSITIVO : ROJO,
                       fontFamily: FONT.heading, letterSpacing: '0.5px', textTransform: 'uppercase',
                     }}>
                       {m.tipo}

@@ -1,4 +1,8 @@
 import { GRANATE } from '@/styles/neobrutal'
+import {
+  TABCOSTES_MANUAL_BG_DARK, TABCOSTES_MANUAL_BG_LIGHT, TABCOSTES_MANUAL_FG_DARK, TABCOSTES_MANUAL_FG_LIGHT,
+  TABCOSTES_AUTO_BG_DARK, TABCOSTES_AUTO_BG_LIGHT, TABCOSTES_AUTO_FG_DARK, TABCOSTES_AUTO_FG_LIGHT,
+} from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -84,11 +88,11 @@ export default function TabCostes() {
   const valorEfectivo = row.coste_estructura_override ?? parseFloat(row.valor ?? '30') ?? 30
 
   const tagBg = esManual
-    ? (isDark ? 'rgba(176,29,35,0.28)' : '#FCEBEB')
-    : (isDark ? 'rgba(102,160,214,0.22)' : '#E6F1FB')
+    ? (isDark ? TABCOSTES_MANUAL_BG_DARK : TABCOSTES_MANUAL_BG_LIGHT)
+    : (isDark ? TABCOSTES_AUTO_BG_DARK : TABCOSTES_AUTO_BG_LIGHT)
   const tagFg = esManual
-    ? (isDark ? '#F09595' : '#A32D2D')
-    : (isDark ? '#89B5DF' : '#0C447C')
+    ? (isDark ? TABCOSTES_MANUAL_FG_DARK : TABCOSTES_MANUAL_FG_LIGHT)
+    : (isDark ? TABCOSTES_AUTO_FG_DARK : TABCOSTES_AUTO_FG_LIGHT)
 
   return (
     <ConfigGroupCard title="Coste estructura" padded>

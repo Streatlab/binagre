@@ -128,3 +128,39 @@ export const ESCANDALLO_TH_BORDE = '#4a3f2c'
 
 /** Menú Engineering · cuadrante "Caballo" (naranja distinto de NAR del kit). */
 export const ME_CABALLO = '#f5a623'
+
+/** Inventario · washes oscuros de alerta (verde/rojo/azul sobre fondo dark, fijos). */
+export const DARK_WASH_ROJO_BG = '#2a1a1a'
+export const DARK_WASH_VERDE_BG = '#1a2a1a'
+export const DARK_WASH_AZUL_BG = '#1a1a2a'
+export const DARK_WASH_AMA_BG = '#2a2a1a'
+
+/** TabCostes (Config·Compras) · tag "manual" (rojo) vs "auto" (azul), claro/oscuro. */
+export const TABCOSTES_MANUAL_BG_DARK = 'rgba(176,29,35,0.28)'
+export const TABCOSTES_MANUAL_BG_LIGHT = '#FCEBEB'
+export const TABCOSTES_MANUAL_FG_DARK = '#F09595'
+export const TABCOSTES_MANUAL_FG_LIGHT = '#A32D2D'
+export const TABCOSTES_AUTO_BG_DARK = 'rgba(102,160,214,0.22)'
+export const TABCOSTES_AUTO_BG_LIGHT = '#E6F1FB'
+export const TABCOSTES_AUTO_FG_DARK = '#89B5DF'
+export const TABCOSTES_AUTO_FG_LIGHT = '#0C447C'
+
+/** Botón primario granate en estado disabled (Tareas Operativas). */
+export const GRANATE_DISABLED = '#6b1015'
+
+/** Manuales de Operaciones · categorías con color propio (fuera de la paleta kit). */
+export const MANUALES_CAT_EMERGENCIA = '#ff4444'
+export const MANUALES_CAT_RRHH = '#cc88ff'
+/** Texto rojo claro de acción "peligrosa" sobre fondo oscuro (Archivar). */
+export const MANUALES_DANGER_TXT = '#ff7777'
+
+/** Banner de error (Operaciones): mismo lenguaje visual que el campo calculado
+ * oficial pero es un componente DISTINTO (alerta, no dato calculado) — token
+ * propio para no acoplarse a la regla de campos calculados de CLAUDE.md. */
+export const ERROR_BANNER_BG = '#2d1515'
+export const ERROR_BANNER_BORDE = '#aa3030'
+
+/** Fila/tarjeta seleccionada en Libro de Equipos (navy oscuro). */
+export const LIBRO_SELECTED_BG = '#1a1f2e'
+/** Verde "positivo" Material (distinto de VERDE del kit), usado en Inventario. */
+export const VERDE_POSITIVO = '#4caf50'

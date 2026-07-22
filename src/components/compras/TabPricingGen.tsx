@@ -1,4 +1,5 @@
 import { INK, LIMA, ROJO } from '@/styles/neobrutal'
+import { DARK_WASH_VERDE_BG, DARK_WASH_AMA_BG, DARK_WASH_ROJO_BG, VERDE_POSITIVO } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -42,9 +43,9 @@ export default function TabPricingGen() {
 
   const semaforo = (fc: number | null) => {
     if (fc == null) return { txt: 'Sin PVP', bg: INK, color: T.mut }
-    if (fc <= 30) return { txt: 'Sano', bg: '#1a2a1a', color: '#4caf50' }
-    if (fc <= 38) return { txt: 'Justo', bg: '#2a2a1a', color: LIMA }
-    return { txt: 'Pierde margen', bg: '#2a1a1a', color: ROJO }
+    if (fc <= 30) return { txt: 'Sano', bg: DARK_WASH_VERDE_BG, color: VERDE_POSITIVO }
+    if (fc <= 38) return { txt: 'Justo', bg: DARK_WASH_AMA_BG, color: LIMA }
+    return { txt: 'Pierde margen', bg: DARK_WASH_ROJO_BG, color: ROJO }
   }
 
   const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', background: INK, borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap' }

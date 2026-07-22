@@ -1,4 +1,5 @@
 import { INK, LIMA } from '@/styles/neobrutal'
+import { DARK_WASH_AMA_BG } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -84,7 +85,7 @@ export default function TabPatronesPrecio() {
                   <td style={{ ...td, textAlign: 'right', color: T.mut }}>{r.meses}</td>
                   <td style={td}>
                     {idx === 0 && arr.length > 1 && (
-                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#2a2a1a', color: LIMA, fontFamily: FONT.heading, textTransform: 'uppercase' }}>Precio ganador</span>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: DARK_WASH_AMA_BG, color: LIMA, fontFamily: FONT.heading, textTransform: 'uppercase' }}>Precio ganador</span>
                     )}
                   </td>
                 </tr>

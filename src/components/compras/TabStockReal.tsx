@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, INK, ROJO } from '@/styles/neobrutal'
+import { DARK_WASH_VERDE_BG, DARK_WASH_ROJO_BG, VERDE_POSITIVO } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -67,7 +68,7 @@ export default function TabStockReal() {
         </div>
         <div style={{ ...cardStyle(T), padding: '14px 20px', minWidth: 180 }}>
           <div style={{ fontSize: 11, color: T.mut, fontFamily: FONT.heading, textTransform: 'uppercase', letterSpacing: '1px' }}>Bajo mínimo</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: nBajo > 0 ? ROJO : '#4caf50', fontFamily: FONT.heading }}>{nBajo}</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: nBajo > 0 ? ROJO : VERDE_POSITIVO, fontFamily: FONT.heading }}>{nBajo}</div>
         </div>
         <div style={{ ...cardStyle(T), padding: '14px 20px', minWidth: 180 }}>
           <div style={{ fontSize: 11, color: T.mut, fontFamily: FONT.heading, textTransform: 'uppercase', letterSpacing: '1px' }}>Referencias</div>
@@ -104,14 +105,14 @@ export default function TabStockReal() {
                     {editando === r.id ? (
                       <input autoFocus value={nuevoValor} onChange={e => setNuevoValor(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') guardarConteo(r); if (e.key === 'Escape') setEditando(null) }}
-                        style={{ width: 70, padding: '4px 6px', borderRadius: 6, border: `1px solid #B01D23`, background: INK, color: T.pri, textAlign: 'right' }} />
+                        style={{ width: 70, padding: '4px 6px', borderRadius: 6, border: `1px solid ${GRANATE}`, background: INK, color: T.pri, textAlign: 'right' }} />
                     ) : fmtNum(r.stock_actual)}
                   </td>
                   <td style={{ ...td, textAlign: 'right', color: T.mut }}>{fmtNum(r.stock_minimo)}</td>
                   <td style={{ ...td, color: T.mut }}>{r.ud_std || ''}</td>
                   <td style={{ ...td, textAlign: 'right' }}>{fmtEur(r.valor_stock)}</td>
                   <td style={td}>
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: r.bajo_minimo ? '#2a1a1a' : '#1a2a1a', color: r.bajo_minimo ? ROJO : '#4caf50', fontFamily: FONT.heading, textTransform: 'uppercase' }}>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: r.bajo_minimo ? DARK_WASH_ROJO_BG : DARK_WASH_VERDE_BG, color: r.bajo_minimo ? ROJO : VERDE_POSITIVO, fontFamily: FONT.heading, textTransform: 'uppercase' }}>
                       {r.bajo_minimo ? 'Reponer' : 'OK'}
                     </span>
                   </td>

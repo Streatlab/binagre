@@ -1,4 +1,5 @@
-import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { MANUALES_CAT_EMERGENCIA, MANUALES_CAT_RRHH, MANUALES_DANGER_TXT, PANEL_SIDEBAR_BG } from '@/styles/palettes'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtDate } from '@/utils/format'
@@ -57,9 +58,9 @@ const CAT_COLORS: Record<Categoria, string> = {
   recepcion_pedidos: VERDE,
   atencion_cliente:  NAR,
   cocina:            GRANATE,
-  emergencias:       '#ff4444',
-  rrhh:              '#cc88ff',
-  general:           '#444444',
+  emergencias:       MANUALES_CAT_EMERGENCIA,
+  rrhh:              MANUALES_CAT_RRHH,
+  general:           GRIS,
 }
 
 const EMPTY_DRAFT: ManualDraft = {
@@ -112,7 +113,7 @@ const S = {
   btnSecondary: {
     backgroundColor: INK,
     color: GRIS,
-    border: '1px solid #383838',
+    border: `1px solid ${BORDE_SUAVE}`,
     borderRadius: 6,
     padding: '8px 16px',
     fontFamily: FONT.heading,
@@ -146,7 +147,7 @@ const S = {
 
   searchInput: {
     backgroundColor: INK,
-    border: '1px solid #2a2a2a',
+    border: `1px solid ${BORDE_SUAVE}`,
     borderRadius: 6,
     color: BLANCO,
     padding: '6px 12px',
@@ -164,7 +165,7 @@ const S = {
 
   card: {
     backgroundColor: INK,
-    border: '1px solid #2a2a2a',
+    border: `1px solid ${BORDE_SUAVE}`,
     borderRadius: 8,
     padding: 16,
     display: 'flex',
@@ -205,7 +206,7 @@ const S = {
 
   modal: {
     backgroundColor: INK,
-    border: '1px solid #2a2a2a',
+    border: `1px solid ${BORDE_SUAVE}`,
     borderRadius: 10,
     padding: 28,
     width: '90%',
@@ -240,7 +241,7 @@ const S = {
   input: {
     width: '100%',
     backgroundColor: INK,
-    border: '1px solid #2a2a2a',
+    border: `1px solid ${BORDE_SUAVE}`,
     borderRadius: 6,
     color: BLANCO,
     padding: '8px 12px',
@@ -253,7 +254,7 @@ const S = {
   select: {
     width: '100%',
     backgroundColor: INK,
-    border: '1px solid #2a2a2a',
+    border: `1px solid ${BORDE_SUAVE}`,
     borderRadius: 6,
     color: BLANCO,
     padding: '8px 12px',
@@ -266,7 +267,7 @@ const S = {
   textarea: {
     width: '100%',
     backgroundColor: INK,
-    border: '1px solid #2a2a2a',
+    border: `1px solid ${BORDE_SUAVE}`,
     borderRadius: 6,
     color: BLANCO,
     padding: '8px 12px',
@@ -288,7 +289,7 @@ const S = {
 
   viewContent: {
     backgroundColor: INK,
-    border: '1px solid #2a2a2a',
+    border: `1px solid ${BORDE_SUAVE}`,
     borderRadius: 6,
     padding: '12px 16px',
     color: GRIS,
@@ -319,7 +320,7 @@ function pillStyle(active: boolean): React.CSSProperties {
     letterSpacing: '0.5px',
     textTransform: 'uppercase',
     cursor: 'pointer',
-    border: active ? '1px solid #e8f442' : '1px solid #383838',
+    border: active ? `1px solid ${LIMA}` : `1px solid ${BORDE_SUAVE}`,
     backgroundColor: active ? LIMA : INK,
     color: active ? INK : GRIS,
   }
@@ -344,14 +345,14 @@ function catBadgeStyle(cat: Categoria): React.CSSProperties {
 
 function btnSmall(variant: 'view' | 'edit' | 'archive'): React.CSSProperties {
   const map = {
-    view:    { bg: '#1e2233', color: LIMA },
+    view:    { bg: PANEL_SIDEBAR_BG, color: LIMA },
     edit:    { bg: INK, color: BLANCO },
     archive: { bg: INK, color: GRIS },
   }
   return {
     backgroundColor: map[variant].bg,
     color: map[variant].color,
-    border: '1px solid #383838',
+    border: `1px solid ${BORDE_SUAVE}`,
     borderRadius: 4,
     padding: '4px 10px',
     fontSize: 11,
@@ -536,7 +537,7 @@ export default function ManualesOperaciones() {
         <p style={{ color: GRIS, fontFamily: FONT.body, fontSize: 13 }}>Cargando...</p>
       )}
       {error && (
-        <p style={{ color: '#ff4444', fontFamily: FONT.body, fontSize: 13 }}>Error: {error}</p>
+        <p style={{ color: MANUALES_CAT_EMERGENCIA, fontFamily: FONT.body, fontSize: 13 }}>Error: {error}</p>
       )}
       {!loading && !error && filtered.length === 0 && (
         <div style={S.emptyState}>
@@ -606,14 +607,14 @@ export default function ManualesOperaciones() {
                 </div>
 
                 <div style={S.viewContent}>
-                  {selected.contenido || <em style={{ color: '#555555' }}>Sin contenido</em>}
+                  {selected.contenido || <em style={{ color: GRIS }}>Sin contenido</em>}
                 </div>
 
                 <div style={S.modalActions}>
                   {selected.activo && (
                     <>
                       <button style={S.btnSecondary} onClick={() => abrirEditar(selected)}>Editar</button>
-                      <button style={{ ...S.btnSecondary, color: '#ff7777' }} onClick={() => archivar(selected)}>Archivar</button>
+                      <button style={{ ...S.btnSecondary, color: MANUALES_DANGER_TXT }} onClick={() => archivar(selected)}>Archivar</button>
                     </>
                   )}
                   <button style={S.btnSecondary} onClick={cerrarModal}>Cerrar</button>
@@ -666,7 +667,7 @@ export default function ManualesOperaciones() {
                   <label style={S.label}>
                     Contenido
                     {modalMode === 'edit' && selected && (
-                      <span style={{ marginLeft: 8, color: '#555555', textTransform: 'none', letterSpacing: 0 }}>
+                      <span style={{ marginLeft: 8, color: GRIS, textTransform: 'none', letterSpacing: 0 }}>
                         (guardar sube a v{selected.version + 1})
                       </span>
                     )}
@@ -682,7 +683,7 @@ export default function ManualesOperaciones() {
                 <div style={S.modalActions}>
                   {modalMode === 'edit' && selected?.activo && (
                     <button
-                      style={{ ...S.btnSecondary, color: '#ff7777', marginRight: 'auto' }}
+                      style={{ ...S.btnSecondary, color: MANUALES_DANGER_TXT, marginRight: 'auto' }}
                       onClick={() => archivar(selected)}
                     >
                       Archivar

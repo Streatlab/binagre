@@ -1,4 +1,5 @@
-import { BLANCO, GRANATE, GRIS, INK, LIMA, NAR, ROJO_S, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, NAR, ROJO_S, VERDE } from '@/styles/neobrutal'
+import { GRANATE_DISABLED } from '@/styles/palettes'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -81,7 +82,7 @@ const labelSt: React.CSSProperties = {
 const inputSt: React.CSSProperties = {
   width: '100%',
   background: INK,
-  border: '0.5px solid #2a2a2a',
+  border: `0.5px solid ${BORDE_SUAVE}`,
   borderRadius: 6,
   color: BLANCO,
   fontFamily: 'Lexend,sans-serif',
@@ -269,7 +270,7 @@ export default function TareasOperativas() {
         onDragEnd={() => { dragId.current = null }}
         style={{
           background: INK,
-          border: '0.5px solid #2a2a2a',
+          border: `0.5px solid ${BORDE_SUAVE}`,
           borderRadius: 8,
           padding: '12px',
           marginBottom: 8,
@@ -345,7 +346,7 @@ export default function TareasOperativas() {
           background: INK, fontFamily: 'Oswald,sans-serif', fontSize: 11,
           letterSpacing: '1.5px', textTransform: 'uppercase', color: active ? LIMA : GRIS,
           padding: '10px 12px', textAlign: 'left', cursor: 'pointer', whiteSpace: 'nowrap',
-          borderBottom: '0.5px solid #2a2a2a',
+          borderBottom: `0.5px solid ${BORDE_SUAVE}`,
         }}
       >
         {label} {active ? (sortDir === 1 ? '↑' : '↓') : ''}
@@ -368,7 +369,7 @@ export default function TareasOperativas() {
             onClick={() => setVista('kanban')}
             style={{
               padding: '6px 14px', borderRadius: 6,
-              border: vista === 'kanban' ? 'none' : '0.5px solid #2a2a2a',
+              border: vista === 'kanban' ? 'none' : `0.5px solid ${BORDE_SUAVE}`,
               background: vista === 'kanban' ? GRANATE : 'transparent',
               color: BLANCO, fontFamily: 'Oswald,sans-serif', fontSize: 13,
               cursor: 'pointer', letterSpacing: '1px',
@@ -378,7 +379,7 @@ export default function TareasOperativas() {
             onClick={() => setVista('lista')}
             style={{
               padding: '6px 14px', borderRadius: 6,
-              border: vista === 'lista' ? 'none' : '0.5px solid #2a2a2a',
+              border: vista === 'lista' ? 'none' : `0.5px solid ${BORDE_SUAVE}`,
               background: vista === 'lista' ? GRANATE : 'transparent',
               color: BLANCO, fontFamily: 'Oswald,sans-serif', fontSize: 13,
               cursor: 'pointer', letterSpacing: '1px',
@@ -413,12 +414,12 @@ export default function TareasOperativas() {
               placeholder="Buscar..."
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              style={{ background: INK, border: '0.5px solid #2a2a2a', borderRadius: 6, color: BLANCO, fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', width: 200, outline: 'none' }}
+              style={{ background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', width: 200, outline: 'none' }}
             />
             <select
               value={filtroPrioridad}
               onChange={e => setFiltroPrioridad(e.target.value as Prioridad | '')}
-              style={{ background: INK, border: '0.5px solid #2a2a2a', borderRadius: 6, color: filtroPrioridad ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '7px 10px', outline: 'none' }}
+              style={{ background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 6, color: filtroPrioridad ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '7px 10px', outline: 'none' }}
             >
               <option value="">Prioridad</option>
               <option value="urgente">Urgente</option>
@@ -429,7 +430,7 @@ export default function TareasOperativas() {
             {(busqueda || filtroPrioridad) && (
               <button
                 onClick={() => { setBusqueda(''); setFiltroPrioridad('') }}
-                style={{ background: 'transparent', border: '0.5px solid #383838', color: GRIS, borderRadius: 6, padding: '7px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
+                style={{ background: 'transparent', border: `0.5px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, padding: '7px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
               >Limpiar</button>
             )}
           </div>
@@ -449,7 +450,7 @@ export default function TareasOperativas() {
                   flex: '1 1 280px',
                   minWidth: 260,
                   background: INK,
-                  border: isDragTarget ? '2px dashed #e8f442' : '0.5px solid #2a2a2a',
+                  border: isDragTarget ? `2px dashed ${LIMA}` : `0.5px solid ${BORDE_SUAVE}`,
                   borderRadius: 12,
                   overflow: 'hidden',
                   transition: 'border 150ms',
@@ -475,7 +476,7 @@ export default function TareasOperativas() {
                 <div style={{ padding: '12px 12px 4px' }}>
                   {colTareas.length === 0 && (
                     <div style={{
-                      color: '#3a3a3a', fontFamily: FONT.body, fontSize: 12,
+                      color: GRIS, fontFamily: FONT.body, fontSize: 12,
                       textAlign: 'center', padding: '16px 0', fontStyle: 'italic',
                     }}>Sin tareas</div>
                   )}
@@ -486,7 +487,7 @@ export default function TareasOperativas() {
                     onClick={() => abrirNueva(col.key)}
                     style={{
                       width: '100%', padding: '7px', borderRadius: 6,
-                      border: '0.5px dashed #2a2a2a', background: 'transparent',
+                      border: `0.5px dashed ${BORDE_SUAVE}`, background: 'transparent',
                       color: GRIS, fontFamily: 'Oswald,sans-serif',
                       fontSize: 12, letterSpacing: '1px', cursor: 'pointer',
                     }}
@@ -509,7 +510,7 @@ export default function TareasOperativas() {
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               style={{
-                background: INK, border: '0.5px solid #2a2a2a', borderRadius: 8,
+                background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 8,
                 color: BLANCO, fontFamily: FONT.body, fontSize: 13,
                 padding: '8px 12px', width: 280, outline: 'none',
               }}
@@ -517,7 +518,7 @@ export default function TareasOperativas() {
             <select
               value={filtroPrioridad}
               onChange={e => setFiltroPrioridad(e.target.value as Prioridad | '')}
-              style={{ background: INK, border: '0.5px solid #2a2a2a', borderRadius: 8, color: filtroPrioridad ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
+              style={{ background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 8, color: filtroPrioridad ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
             >
               <option value="">Todas las prioridades</option>
               <option value="urgente">Urgente</option>
@@ -528,7 +529,7 @@ export default function TareasOperativas() {
             <select
               value={filtroColumna}
               onChange={e => setFiltroColumna(e.target.value as Columna | '')}
-              style={{ background: INK, border: '0.5px solid #2a2a2a', borderRadius: 8, color: filtroColumna ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
+              style={{ background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 8, color: filtroColumna ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
             >
               <option value="">Todos los estados</option>
               <option value="pendiente">Pendiente</option>
@@ -540,12 +541,12 @@ export default function TareasOperativas() {
               placeholder="Asignado a..."
               value={filtroAsignado}
               onChange={e => setFiltroAsignado(e.target.value)}
-              style={{ background: INK, border: '0.5px solid #2a2a2a', borderRadius: 8, color: BLANCO, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', width: 160, outline: 'none' }}
+              style={{ background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 8, color: BLANCO, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', width: 160, outline: 'none' }}
             />
             {(busqueda || filtroPrioridad || filtroColumna || filtroAsignado) && (
               <button
                 onClick={() => { setBusqueda(''); setFiltroPrioridad(''); setFiltroColumna(''); setFiltroAsignado('') }}
-                style={{ background: 'transparent', border: '0.5px solid #383838', color: GRIS, borderRadius: 6, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
+                style={{ background: 'transparent', border: `0.5px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
               >
                 Limpiar filtros
               </button>
@@ -563,7 +564,7 @@ export default function TareasOperativas() {
                   <th style={{
                     background: INK, fontFamily: 'Oswald,sans-serif', fontSize: 11,
                     letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS,
-                    padding: '10px 12px', borderBottom: '0.5px solid #2a2a2a',
+                    padding: '10px 12px', borderBottom: `0.5px solid ${BORDE_SUAVE}`,
                   }}>Acciones</th>
                 </tr>
               </thead>
@@ -579,7 +580,7 @@ export default function TareasOperativas() {
                   const colConf = COL_CONFIG.find(c => c.key === t.columna)
                   return (
                     <tr key={t.id} style={{ background: i % 2 === 0 ? INK : INK }}>
-                      <td style={{ padding: '10px 12px', color: BLANCO, fontFamily: FONT.body, fontSize: 13, borderBottom: '0.5px solid #1a1a1a' }}>
+                      <td style={{ padding: '10px 12px', color: BLANCO, fontFamily: FONT.body, fontSize: 13, borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
                         {t.titulo}
                         {t.etiqueta && (
                           <span style={{
@@ -589,15 +590,15 @@ export default function TareasOperativas() {
                           }}>{t.etiqueta}</span>
                         )}
                       </td>
-                      <td style={{ padding: '10px 12px', borderBottom: '0.5px solid #1a1a1a' }}>
+                      <td style={{ padding: '10px 12px', borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
                         <span style={{
-                          background: colConf?.headerBg ?? '#777',
+                          background: colConf?.headerBg ?? GRIS,
                           color: BLANCO, fontFamily: 'Oswald,sans-serif',
                           fontSize: 10, padding: '2px 7px', borderRadius: 3,
                           letterSpacing: '0.5px', textTransform: 'uppercase',
                         }}>{t.columna.replace('_', ' ')}</span>
                       </td>
-                      <td style={{ padding: '10px 12px', borderBottom: '0.5px solid #1a1a1a' }}>
+                      <td style={{ padding: '10px 12px', borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
                         <span style={{
                           background: PRIORIDAD_COLOR[t.prioridad],
                           color: PRIORIDAD_TEXT[t.prioridad],
@@ -606,10 +607,10 @@ export default function TareasOperativas() {
                           letterSpacing: '0.5px', textTransform: 'uppercase',
                         }}>{t.prioridad}</span>
                       </td>
-                      <td style={{ padding: '10px 12px', color: GRIS, fontFamily: FONT.body, fontSize: 13, borderBottom: '0.5px solid #1a1a1a' }}>
+                      <td style={{ padding: '10px 12px', color: GRIS, fontFamily: FONT.body, fontSize: 13, borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
                         {t.asignado_a ?? '—'}
                       </td>
-                      <td style={{ padding: '10px 12px', borderBottom: '0.5px solid #1a1a1a' }}>
+                      <td style={{ padding: '10px 12px', borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
                         {t.fecha_limite ? (
                           <span style={{
                             color: isVencida(t.fecha_limite) ? GRANATE : GRIS,
@@ -618,9 +619,9 @@ export default function TareasOperativas() {
                           }}>
                             {t.fecha_limite.slice(0, 10).split('-').reverse().join('/')}
                           </span>
-                        ) : <span style={{ color: '#3a3a3a' }}>—</span>}
+                        ) : <span style={{ color: GRIS }}>—</span>}
                       </td>
-                      <td style={{ padding: '10px 12px', borderBottom: '0.5px solid #1a1a1a' }}>
+                      <td style={{ padding: '10px 12px', borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button
                             onClick={() => abrirEditar(t)}
@@ -666,7 +667,7 @@ export default function TareasOperativas() {
             onClick={e => e.stopPropagation()}
             style={{
               backgroundColor: INK,
-              border: '0.5px solid #2a2a2a',
+              border: `0.5px solid ${BORDE_SUAVE}`,
               borderRadius: 12,
               padding: '28px 24px',
               width: '100%',
@@ -763,7 +764,7 @@ export default function TareasOperativas() {
                 onClick={cerrarModal}
                 style={{
                   padding: '8px 18px', borderRadius: 6,
-                  border: '0.5px solid #383838', background: INK,
+                  border: `0.5px solid ${BORDE_SUAVE}`, background: INK,
                   color: GRIS, fontFamily: 'Oswald,sans-serif',
                   fontSize: 13, letterSpacing: '1px', cursor: 'pointer',
                 }}
@@ -773,7 +774,7 @@ export default function TareasOperativas() {
                 disabled={saving || !form.titulo.trim()}
                 style={{
                   padding: '8px 18px', borderRadius: 6, border: 'none',
-                  background: saving || !form.titulo.trim() ? '#6b1015' : GRANATE,
+                  background: saving || !form.titulo.trim() ? GRANATE_DISABLED : GRANATE,
                   color: BLANCO, fontFamily: 'Oswald,sans-serif',
                   fontSize: 13, letterSpacing: '1px',
                   cursor: saving || !form.titulo.trim() ? 'not-allowed' : 'pointer',
@@ -798,7 +799,7 @@ export default function TareasOperativas() {
             onClick={e => e.stopPropagation()}
             style={{
               backgroundColor: INK,
-              border: '0.5px solid #383838',
+              border: `0.5px solid ${BORDE_SUAVE}`,
               borderRadius: 12, padding: '28px 24px',
               width: '100%', maxWidth: 360, textAlign: 'center',
             }}
@@ -811,7 +812,7 @@ export default function TareasOperativas() {
                 onClick={() => setConfirmDelete(null)}
                 style={{
                   padding: '8px 18px', borderRadius: 6,
-                  border: '0.5px solid #383838', background: INK,
+                  border: `0.5px solid ${BORDE_SUAVE}`, background: INK,
                   color: GRIS, fontFamily: 'Oswald,sans-serif',
                   fontSize: 13, letterSpacing: '1px', cursor: 'pointer',
                 }}
