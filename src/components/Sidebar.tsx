@@ -1,5 +1,5 @@
 import React from 'react'
-import { BLANCO, GRANATE, INK, NAR_S } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, INK, NAR_S, VERDE, AMA as AMA_TOK, NAR, AZUL, ROSA, GRIS } from '@/styles/neobrutal'
 import { NavLink } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
@@ -27,7 +27,7 @@ import { useEsMovil } from '@/hooks/useEsMovil'
 // cuerpo y footer) en crema. Texto de módulos y submódulos grande (~85% ancho)
 // sin aumentar la altura de las celdas.
 const CREMA  = NAR_S
-const AMA    = '#FFC400'
+const AMA    = AMA_TOK
 const LOGO_SRC = '/loco-icon.svg.svg'
 
 interface NavItem   { path: string; label: string; emoji: string; perfiles: string[]; pendiente?: boolean; grupo?: string }
@@ -104,15 +104,17 @@ const SECTIONS: NavSection[] = [
   },
 ]
 
-// Variante B: cada sec-head con su color de fondo sólido (literal del mock)
+// CANTERA ALEGRE v1.0: cabeceras de sección con los tokens de área del sistema
+// (Finanzas verde · Cocina amarillo/tinta · Operaciones naranja · Equipo tinta ·
+//  Compras azul · Ventas y Clientes rosa · Ajustes gris neutro). Cero hex sueltos.
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
-  finanzas:      { icon: TrendingUp,    headBg: '#0FB86B', headColor: BLANCO  },
-  cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
-  operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: BLANCO  },
-  equipo:        { icon: Users,         headBg: '#D6336C', headColor: BLANCO  },
-  compras:       { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },
-  ventas:        { icon: TrendingUp,    headBg: '#7C3AED', headColor: BLANCO  },
-  ajustes:       { icon: Settings,      headBg: '#484f66', headColor: BLANCO  },
+  finanzas:      { icon: TrendingUp,    headBg: VERDE,   headColor: BLANCO },
+  cocina:        { icon: ChefHat,       headBg: AMA_TOK, headColor: INK },
+  operaciones:   { icon: ClipboardList, headBg: NAR,     headColor: BLANCO },
+  equipo:        { icon: Users,         headBg: INK,     headColor: BLANCO },
+  compras:       { icon: ShoppingCart,  headBg: AZUL,    headColor: BLANCO },
+  ventas:        { icon: TrendingUp,    headBg: ROSA,    headColor: BLANCO },
+  ajustes:       { icon: Settings,      headBg: GRIS,    headColor: INK },
 }
 
 const OPEN_SECTIONS_LS_KEY = 'streatlab.sidebar.openSections'
@@ -335,7 +337,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             const isOpen = openSections.includes(section.key)
             const cfg    = SECTION_ICONS[section.key]
             const Icon   = cfg?.icon
-            const headBg = cfg?.headBg ?? '#444'
+            const headBg = cfg?.headBg ?? INK
             const headCo = cfg?.headColor ?? BLANCO
 
             return (
