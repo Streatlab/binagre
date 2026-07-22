@@ -35,3 +35,12 @@ Bloque A+B es muy grande; lo que falta, itemizado para no dar por hecho lo que n
   diccionario local, sin IA externa), B5 (herencia de alérgenos a EPS/recetas), B6/B7 (scroll
   horizontal + tooltips + columnas), B8 (ordenación por columnas reutilizando `SortableHeader`
   de Papeleo), B10 (separadores de miles — ya se usa `fmtEur`/`fmtNum` en el módulo).
+
+---
+
+## A/B CERRADO (todos los grupos)
+
+- **Grupo 1 (tabla usable):** B3 paginación cliente 60/pág · B8 ordenación por columnas (hook canónico useMultiSort) · B6/B7 tooltips + scroll/anchos · B10 separadores de miles (ya cumplía).
+- **Grupo 2:** A3 campos por revisar en ámbar (categoría/formato/unidades) · A4 pre-creados como tabla densa paginada 20/pág con chips ámbar.
+- **Grupo 3:** A1 parte 2 — propuestas por similitud (fn_procesar_linea_factura crea PROPUESTA si hay candidato claro, nunca pre-crea; fn_aceptar/rechazar_propuesta; UI en Equivalencias).
+- **Grupo 4:** B2 usos agregado (sin N+1) · B4 alérgenos por diccionario local (sin IA externa) · B1 dictado por voz Web Speech (MicDictado, oculto si no soporta) · B5 herencia de alérgenos ingrediente→EPS→receta con triggers.
