@@ -1,4 +1,5 @@
-import { AZUL, BLANCO, BORDE_SUAVE, GRANATE, INK, NAR, OSC, ROJO } from '@/styles/neobrutal'
+import { AMA, AMA_S, AZUL, BLANCO, BORDE_SUAVE, CLARO, GRANATE, GRIS, INK, NAR, OSC, ROJO, ROSA_S, VERDE, VERDE_S } from '@/styles/neobrutal'
+import { DRIVE_TRIM, DRIVE_ANIO_BG, DRIVE_ANIO_TEXT } from '@/styles/palettes'
 import { useMultiSort } from '@/hooks/useMultiSort'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
 /**
@@ -54,13 +55,8 @@ const MESES_ES = ['', 'Enero','Febrero','Marzo','Abril','Mayo','Junio',
                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 const MESES_POR_TRIM: Record<number, number[]> = { 1:[1,2,3], 2:[4,5,6], 3:[7,8,9], 4:[10,11,12] }
-const TRIM_PALETTE: Record<number, {bg:string;headDark:string}> = {
-  1:{bg:'#dde8f4',headDark:'#3a5f80'},
-  2:{bg:'#dee9d4',headDark:'#3d6027'},
-  3:{bg:'#f4e8c8',headDark:'#7d5a1a'},
-  4:{bg:'#e3d8eb',headDark:'#4a3163'},
-}
-const ANIO_BG = '#fbe5e8'
+const TRIM_PALETTE = DRIVE_TRIM
+const ANIO_BG = DRIVE_ANIO_BG
 
 function fmtFechaCorta(iso: string|null): string {
   if (!iso) return '—'
@@ -91,16 +87,16 @@ function generarMeses(desdeISO: string): {valor: string; label: string}[] {
 // TODO: migrar a v_estado_documento — leer estado de facturas desde la vista en vez de la columna estado directa
 function colorEstado(estado: string|null): {bg:string;col:string;lbl:string} {
   switch (estado) {
-    case 'asociada':                 return {bg:'#e8f5ec',col:COLORS.ok,   lbl:'CONCILIADA'}
-    case 'pendiente_revision':       return {bg:'#fcf0dc',col:COLORS.warn, lbl:'PEND. REV.'}
-    case 'pendiente_titular_manual': return {bg:'#fcf0dc',col:COLORS.warn, lbl:'FALTA TITULAR'}
-    case 'sin_match':                return {bg:'#fce8e8',col:COLORS.redSL,lbl:'SIN MATCH'}
-    case 'historica':                return {bg:'#eef0f4',col:COLORS.mut,  lbl:'HISTÓRICA'}
-    case 'duplicada':                return {bg:'#fce8e8',col:COLORS.redSL,lbl:'DUPLICADA'}
-    case 'no_conciliable':           return {bg:'#eef0f4',col:COLORS.mut,  lbl:'DESCARTADA'}
-    case 'error':                    return {bg:'#fce8e8',col:COLORS.redSL,lbl:'ERROR'}
-    case 'procesando':               return {bg:'#eef0f4',col:COLORS.mut,  lbl:'PROCESANDO'}
-    default:                         return {bg:'#eef0f4',col:COLORS.mut,  lbl:(estado||'—').toUpperCase()}
+    case 'asociada':                 return {bg:VERDE_S,col:COLORS.ok,   lbl:'CONCILIADA'}
+    case 'pendiente_revision':       return {bg:AMA_S,  col:COLORS.warn, lbl:'PEND. REV.'}
+    case 'pendiente_titular_manual': return {bg:AMA_S,  col:COLORS.warn, lbl:'FALTA TITULAR'}
+    case 'sin_match':                return {bg:ROSA_S, col:COLORS.redSL,lbl:'SIN MATCH'}
+    case 'historica':                return {bg:CLARO,  col:COLORS.mut,  lbl:'HISTÓRICA'}
+    case 'duplicada':                return {bg:ROSA_S, col:COLORS.redSL,lbl:'DUPLICADA'}
+    case 'no_conciliable':           return {bg:CLARO,  col:COLORS.mut,  lbl:'DESCARTADA'}
+    case 'error':                    return {bg:ROSA_S, col:COLORS.redSL,lbl:'ERROR'}
+    case 'procesando':               return {bg:CLARO,  col:COLORS.mut,  lbl:'PROCESANDO'}
+    default:                         return {bg:CLARO,  col:COLORS.mut,  lbl:(estado||'—').toUpperCase()}
   }
 }
 
@@ -323,7 +319,7 @@ export default function GestionFacturas() {
           <div style={{position:'absolute',top:'100%',right:0,background:T.card,border:`0.5px solid ${T.brd}`,borderRadius:8,zIndex:50,maxHeight:260,overflowY:'auto',boxShadow:'0 4px 12px rgba(0,0,0,0.06)',minWidth:180}}>
             {mesesDisp.map(m=>(
               <button key={m.valor} onClick={()=>{setMesSeleccionado(m.valor);setOpen(false)}}
-                style={{display:'block',width:'100%',textAlign:'left',padding:'8px 12px',background:m.valor===mesSeleccionado?'#FF475715':'transparent',color:m.valor===mesSeleccionado?ROJO:T.mut,fontFamily:FONT.body,fontSize:13,border:'none',cursor:'pointer'}}>
+                style={{display:'block',width:'100%',textAlign:'left',padding:'8px 12px',background:m.valor===mesSeleccionado?CLARO:'transparent',color:m.valor===mesSeleccionado?ROJO:T.mut,fontFamily:FONT.body,fontSize:13,border:'none',cursor:'pointer'}}>
                 {m.label}
               </button>
             ))}
@@ -347,7 +343,7 @@ export default function GestionFacturas() {
     <div style={{fontFamily:FONT.body,position:'relative'}}>
 
       {bannerVisible&&(
-        <div style={{background:'#fff3cd',border:'1px solid #ffc107',borderRadius:8,padding:'8px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:INK}}>
+        <div style={{background:AMA_S,border:`2px solid ${AMA}`,borderRadius:8,padding:'8px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:INK}}>
           <span style={{flexShrink:0,fontSize:14}}>⚠️</span>
           <span style={{flex:1,fontSize:13}}>
             Plazo gestoría <strong>{mesLabel}</strong>: {plazoLabel}
@@ -357,7 +353,7 @@ export default function GestionFacturas() {
             Exportar ZIP
           </button>
           <button onClick={()=>setBannerVisible(false)}
-            style={{background:'none',border:'none',cursor:'pointer',color:'#666',fontSize:16,padding:'0 4px',flexShrink:0,lineHeight:1}}
+            style={{background:'none',border:'none',cursor:'pointer',color:GRIS,fontSize:16,padding:'0 4px',flexShrink:0,lineHeight:1}}
             title="Cerrar">×</button>
         </div>
       )}
@@ -617,21 +613,21 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
             Antes de exportar
           </p>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:facturasConfirmadas?'#EAF3DE':'#FCEBEB',borderRadius:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:facturasConfirmadas?VERDE_S:ROSA_S,borderRadius:8}}>
               <input type="checkbox" checked={facturasConfirmadas} onChange={e=>setFacturasConfirmadas(e.target.checked)}
-                style={{width:18,height:18,accentColor:'#639922',cursor:'pointer',flexShrink:0}}/>
-              <span style={{flex:1,fontSize:13,color:facturasConfirmadas?'#173404':'#501313',fontWeight:500}}>
+                style={{width:18,height:18,accentColor:VERDE,cursor:'pointer',flexShrink:0}}/>
+              <span style={{flex:1,fontSize:13,color:facturasConfirmadas?VERDE:GRANATE,fontWeight:500}}>
                 Todas las facturas del mes importadas
               </span>
-              <span style={{fontSize:12,color:facturasConfirmadas?'#3B6D11':'#A32D2D'}}>{numFacturas} facturas</span>
+              <span style={{fontSize:12,color:facturasConfirmadas?VERDE:ROJO}}>{numFacturas} facturas</span>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:ventasConfirmadas?'#EAF3DE':'#FCEBEB',borderRadius:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:ventasConfirmadas?VERDE_S:ROSA_S,borderRadius:8}}>
               <input type="checkbox" checked={ventasConfirmadas} onChange={e=>setVentasConfirmadas(e.target.checked)}
-                style={{width:18,height:18,accentColor:'#639922',cursor:'pointer',flexShrink:0}}/>
-              <span style={{flex:1,fontSize:13,color:ventasConfirmadas?'#173404':'#501313',fontWeight:500}}>
+                style={{width:18,height:18,accentColor:VERDE,cursor:'pointer',flexShrink:0}}/>
+              <span style={{flex:1,fontSize:13,color:ventasConfirmadas?VERDE:GRANATE,fontWeight:500}}>
                 Ventas Uber Eats subidas
               </span>
-              <span style={{fontSize:12,color:ventasConfirmadas?'#3B6D11':'#A32D2D'}}>
+              <span style={{fontSize:12,color:ventasConfirmadas?VERDE:ROJO}}>
                 {checkingUber?'Comprobando…':`${numResumenesUber} resúmenes`}
               </span>
             </div>
@@ -653,7 +649,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
         </div>
 
         {errorZip&&(
-          <div style={{background:'#fce8e8',border:'1px solid #f5c2c7',borderRadius:8,padding:'10px 14px',fontSize:13,color:COLORS.redSL,fontFamily:FONT.body,wordBreak:'break-word'}}>
+          <div style={{background:ROSA_S,border:`2px solid ${ROJO}`,borderRadius:8,padding:'10px 14px',fontSize:13,color:COLORS.redSL,fontFamily:FONT.body,wordBreak:'break-word'}}>
             ⚠️ {errorZip}
           </div>
         )}
@@ -692,7 +688,7 @@ function NodoArbolItem({node,level,filtroActivo,expansionMap,titularColor,onSele
   let nodoBl: string = '3px solid transparent'
 
   if(node.kind==='titular'){nodoColor=titularColor;nodoFf=FONT.heading;nodoFs=14;nodoFw=600;nodoBl=`3px solid ${titularColor}`}
-  else if(node.kind==='anio'){nodoBg=ANIO_BG;nodoColor='#7a1218';nodoFf=FONT.heading;nodoFw=600}
+  else if(node.kind==='anio'){nodoBg=ANIO_BG;nodoColor=DRIVE_ANIO_TEXT;nodoFf=FONT.heading;nodoFw=600}
   else if(node.kind==='trim'&&node.trimNum){const p=TRIM_PALETTE[node.trimNum];nodoBg=p.bg;nodoColor=p.headDark;nodoFf=FONT.heading;nodoFw=700}
   else if(node.kind==='mes'&&node.trimNum){nodoBg=TRIM_PALETTE[node.trimNum].bg+'60'}
   if(esActivo){nodoBg=node.kind==='trim'&&node.trimNum?TRIM_PALETTE[node.trimNum].headDark:titularColor;nodoColor=BLANCO;nodoFw=700;nodoBl=`3px solid ${nodoBg}`}
