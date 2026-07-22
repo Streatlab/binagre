@@ -3,8 +3,11 @@ import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtNum, fmtEur, fmtPct } from '@/utils/format'
 import { useConfig } from '@/hooks/useConfig'
+import { useVentasRealesListas, useRatiosCalibrados } from '@/lib/panel/netoResolver'
+import { useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
+import { comisionEfectivaCanal } from '@/lib/escandallo/comisionEfectiva'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
-import { UNIDADES, n } from './types'
+import { UNIDADES, n, precioNeto } from './types'
 import { INK, AMA, GRANATE, AZUL, ROJO, NAR, VERDE, GRIS, OSW, LEX, BLANCO, NAR_S } from '@/styles/neobrutal'
 import ModalIngrediente from './ModalIngrediente'
 import MicDictado from './MicDictado'
@@ -54,6 +57,11 @@ function colorAlpha(hex: string, alpha: number): string {
 
 export default function ModalReceta({ receta, initialNombre, ingredientes, epsList, onClose, onSaved, onDelete }: Props) {
   const cfg = useConfig()
+  // Precarga cachés de netoResolver (LEY-NETO-01) para que comisionEfectivaCanal
+  // resuelva con dato real/calibrado en vez de caer siempre a la comisión base.
+  useVentasRealesListas()
+  useRatiosCalibrados()
+  useConfigCanales()
   const todayISO = new Date().toISOString().split('T')[0]
 
   const [nombre, setNombre] = useState(receta?.nombre ?? initialNombre ?? '')
@@ -146,7 +154,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     didTaperRef.current = true
     setLineas(prev => {
       if (prev.some(l => l.tipo === 'ENV')) return prev
-      const taperLine: RecetaLinea = { linea: 1, tipo: 'ENV', ingrediente_nombre: taper.nombre, ingrediente_id: taper.id, eps_id: null, cantidad: 1, unidad: 'ud.', eur_ud_neta: n(taper.eur_min) || n(taper.eur_std) }
+      const taperLine: RecetaLinea = { linea: 1, tipo: 'ENV', ingrediente_nombre: taper.nombre, ingrediente_id: taper.id, eps_id: null, cantidad: 1, unidad: 'ud.', eur_ud_neta: precioNeto(taper) }
       return [taperLine, ...prev.filter(l => l.ingrediente_nombre !== '')]
     })
   }, [ingredientes, receta])
@@ -223,7 +231,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     const l = lineas[idx]
     if (l.tipo === 'ING' || l.tipo === 'ENV') {
       const ing = ingredientes.find(i => i.nombre === val)
-      if (ing) updateLinea(idx, { ingrediente_nombre: ing.nombre, ingrediente_id: ing.id, eps_id: null, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std), unidad: ing.ud_min ?? ing.ud_std ?? (l.tipo === 'ENV' ? 'ud.' : 'gr.') })
+      if (ing) updateLinea(idx, { ingrediente_nombre: ing.nombre, ingrediente_id: ing.id, eps_id: null, eur_ud_neta: precioNeto(ing), unidad: ing.ud_min ?? ing.ud_std ?? (l.tipo === 'ENV' ? 'ud.' : 'gr.') })
       else updateLinea(idx, { ingrediente_nombre: val, ingrediente_id: null, eps_id: null })
     } else {
       const ep = epsList.find(e => e.nombre === val)
@@ -260,7 +268,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
       for (const item of parsed) {
         const matchIng = ingredientes.find(i => i.nombre.toLowerCase().includes(item.nombre.toLowerCase()) || item.nombre.toLowerCase().includes(i.nombre.toLowerCase()))
         const matchEps = epsList.find(e => e.nombre.toLowerCase().includes(item.nombre.toLowerCase()) || item.nombre.toLowerCase().includes(e.nombre.toLowerCase()))
-        if (matchIng) { lineasNuevas.push({ linea: 0, tipo: 'ING', ingrediente_id: matchIng.id, eps_id: null, ingrediente_nombre: matchIng.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchIng.eur_min) || n(matchIng.eur_std) }) }
+        if (matchIng) { lineasNuevas.push({ linea: 0, tipo: 'ING', ingrediente_id: matchIng.id, eps_id: null, ingrediente_nombre: matchIng.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: precioNeto(matchIng) }) }
         else if (matchEps) { lineasNuevas.push({ linea: 0, tipo: 'EPS', ingrediente_id: null, eps_id: matchEps.id, ingrediente_nombre: matchEps.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchEps.coste_rac) }) }
         else { noEncontrados.push(item) }
       }
@@ -291,10 +299,14 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
   const channelData = canalesActivos.map(cid => {
     const ch = CHANNELS.find(c => c.id === cid)!
     const cfgCanal = cfg.canales.find(c => c.canal === ch.canalName)
-    const comision = norm(cfgCanal?.comision_pct ?? 0)
+    const comisionBase = norm(cfgCanal?.comision_pct ?? 0)
+    const pvp = pvpCanal[ch.pvpKey] || 0
+    // Tanda D2 · divergencias D+E: comisión real por canal (fees fijos + neto real vía
+    // netoResolver), no la tarifa base. Cae a comisionBase si no hay dato resoluble.
+    const comision = comisionEfectivaCanal(ch.id, pvp, comisionBase)
     const estructura = norm(cfg.estructura_pct ?? 20)
     const margenDeseado = norm(cfgCanal?.margen_deseado_pct ?? cfg.margen_deseado_pct ?? 0)
-    const w = computeWaterfall(costeMP, pvpCanal[ch.pvpKey] || 0, comision, estructura, margenDeseado)
+    const w = computeWaterfall(costeMP, pvp, comision, estructura, margenDeseado)
     return { ch, comision, margenDeseado, w }
   })
 
@@ -461,7 +473,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     <button onClick={() => { setConflictos(prev => prev.filter((_, i) => i !== idx)); setShowModalCrearIng({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad }) }} style={{ background: GRANATE, color: BLANCO, border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ CREAR ING</button>
                     <button onClick={() => { setConflictos(prev => prev.filter((_, i) => i !== idx)); setShowModalCrearEps({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad }) }} style={{ background: BLANCO, color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ CREAR EPS</button>
-                    <select defaultValue="" onChange={e => { if (!e.target.value) return; const [tipo, id] = e.target.value.split('::'); if (tipo === 'ING') { const ing = ingredientes.find(i => i.id === id); if (ing) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } else if (tipo === 'ENV') { const ing = ingredientes.find(i => i.id === id); if (ing) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ENV', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: 1, unidad: 'ud.', eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } else { const ep = epsList.find(e => e.id === id); if (ep) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'EPS', ingrediente_id: null, eps_id: ep.id, ingrediente_nombre: ep.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ep.coste_rac) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } }} style={{ background: BLANCO, border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 12, borderRadius: 0, padding: '6px 8px', flex: 1, minWidth: 120, cursor: 'pointer' }}>
+                    <select defaultValue="" onChange={e => { if (!e.target.value) return; const [tipo, id] = e.target.value.split('::'); if (tipo === 'ING') { const ing = ingredientes.find(i => i.id === id); if (ing) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: precioNeto(ing) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } else if (tipo === 'ENV') { const ing = ingredientes.find(i => i.id === id); if (ing) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ENV', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: 1, unidad: 'ud.', eur_ud_neta: precioNeto(ing) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } else { const ep = epsList.find(e => e.id === id); if (ep) { setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'EPS', ingrediente_id: null, eps_id: ep.id, ingrediente_nombre: ep.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ep.coste_rac) }]); setConflictos(prev => prev.filter((_, i) => i !== idx)) } } }} style={{ background: BLANCO, border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 12, borderRadius: 0, padding: '6px 8px', flex: 1, minWidth: 120, cursor: 'pointer' }}>
                       <option value="">Elegir existente...</option>
                       <optgroup label="INGREDIENTES">{ingredientes.filter(i => !/_ENV$/.test(i.nombre ?? '')).map(i => <option key={i.id} value={`ING::${i.id}`}>{i.nombre}</option>)}</optgroup>
                       <optgroup label="EPS">{epsList.map(e => <option key={e.id} value={`EPS::${e.id}`}>{e.nombre}</option>)}</optgroup>
@@ -475,7 +487,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
         )}
       </div>
     </div>
-    {showModalCrearIng && (<ModalIngrediente ingrediente={null} initialNombre={showModalCrearIng.nombre} onClose={() => setShowModalCrearIng(null)} onSaved={async () => { const itemRef = showModalCrearIng; setShowModalCrearIng(null); if (!itemRef) return; const { data } = await supabase.from('ingredientes').select('*').ilike('nombre_base', `%${itemRef.nombre}%`).order('id', { ascending: false }).limit(1); if (data?.[0]) { const ing = data[0] as Ingrediente; setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: itemRef.cantidad, unidad: itemRef.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }]) } }} />)}
+    {showModalCrearIng && (<ModalIngrediente ingrediente={null} initialNombre={showModalCrearIng.nombre} onClose={() => setShowModalCrearIng(null)} onSaved={async () => { const itemRef = showModalCrearIng; setShowModalCrearIng(null); if (!itemRef) return; const { data } = await supabase.from('ingredientes').select('*').ilike('nombre_base', `%${itemRef.nombre}%`).order('id', { ascending: false }).limit(1); if (data?.[0]) { const ing = data[0] as Ingrediente; setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'ING', ingrediente_id: ing.id, eps_id: null, ingrediente_nombre: ing.nombre, cantidad: itemRef.cantidad, unidad: itemRef.unidad, eur_ud_neta: precioNeto(ing) }]) } }} />)}
     {showModalCrearEps && (<ModalEPS eps={null} initialNombre={showModalCrearEps.nombre} ingredientes={ingredientes} onClose={() => setShowModalCrearEps(null)} onSaved={async () => { const itemRef = showModalCrearEps; setShowModalCrearEps(null); if (!itemRef) return; const { data } = await supabase.from('eps').select('*').ilike('nombre', `%${itemRef.nombre}%`).order('id', { ascending: false }).limit(1); if (data?.[0]) { const ep = data[0] as EPS; setIsDirty(true); setLineas(prev => [...prev, { linea: prev.length + 1, tipo: 'EPS', ingrediente_id: null, eps_id: ep.id, ingrediente_nombre: ep.nombre, cantidad: itemRef.cantidad, unidad: itemRef.unidad, eur_ud_neta: n(ep.coste_rac) }]) } }} />)}
     </>
   )

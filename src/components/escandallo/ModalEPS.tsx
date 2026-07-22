@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente, EPS, EPSLinea } from './types'
-import { UNIDADES, n } from './types'
+import { UNIDADES, n, precioNeto } from './types'
 import { fmtNum, fmtEur } from '@/utils/format'
 import { INK, AMA, GRANATE, GRIS, NAR, OSW, LEX, BLANCO, NAR_S } from '@/styles/neobrutal'
 import ModalIngrediente from './ModalIngrediente'
@@ -207,7 +207,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
     if (ing) { updateLinea(idx, {
       ingrediente_nombre: ing.nombre,
       ingrediente_id: ing.id,
-      eur_ud_neta: n(ing.eur_min) || n(ing.eur_std),
+      eur_ud_neta: precioNeto(ing),
       unidad: ing.ud_min ?? ing.ud_std ?? 'gr.',
     }); return }
     const ep = todasEps.find((x: any) => x.nombre === val)
@@ -251,7 +251,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
           item.nombre.toLowerCase().includes(i.nombre?.toLowerCase() ?? '')
         )
         if (matchIng) {
-          lineasNuevas.push({ linea: 0, ingrediente_id: matchIng.id, ingrediente_nombre: matchIng.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchIng.eur_min) || n(matchIng.eur_std) })
+          lineasNuevas.push({ linea: 0, ingrediente_id: matchIng.id, ingrediente_nombre: matchIng.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: precioNeto(matchIng) })
           continue
         }
         const matchEps = todasEps.find((e: any) =>
@@ -577,7 +577,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                             const ing = todosIngredientes.find((i: any) => i.id === id)
                             if (ing) {
                               setIsDirty(true)
-                              setLineas(prev => [...prev, { linea: prev.length + 1, ingrediente_id: ing.id, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }])
+                              setLineas(prev => [...prev, { linea: prev.length + 1, ingrediente_id: ing.id, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: precioNeto(ing) }])
                               setConflictos(prev => prev.filter((_, i) => i !== idx))
                             }
                           } else if (type === 'eps') {
@@ -641,7 +641,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                 ingrediente_nombre: ing.nombre,
                 cantidad: itemRef.cantidad,
                 unidad: itemRef.unidad,
-                eur_ud_neta: n(ing.eur_min) || n(ing.eur_std),
+                eur_ud_neta: precioNeto(ing),
               }])
             }
           }}
