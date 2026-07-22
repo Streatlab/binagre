@@ -53,6 +53,7 @@ interface CalendarioItem {
   tipo: 'COBRO' | 'PAGO'
   concepto: string
   importe: number
+  estadoNomina?: 'COMPROMETIDO' | 'PAGADO'
 }
 
 interface GastoFijo {
@@ -63,6 +64,21 @@ interface GastoFijo {
   proxima_fecha_pago: string
   activo: boolean
   estimado: boolean
+  origen: string | null
+  origen_ref: string | null
+}
+
+/**
+ * LEY-PRUDENCIA-01 · Parte B: para las filas de gastos_fijos generadas desde una
+ * nómina (origen='nomina'), resuelve si ya hay un pago confirmado cruzando con
+ * nominas_pagos (motor real en api/_lib/matchNomina.ts, no se duplica aquí, solo
+ * se lee). Sin pago confirmado → COMPROMETIDO (sale igual en la agenda: lo manda
+ * la ley). Con pago confirmado → PAGADO.
+ */
+function estadoNominaDe(g: { origen: string | null; origen_ref: string | null }, nominasPagadas: Set<string>): 'COMPROMETIDO' | 'PAGADO' | undefined {
+  if (g.origen !== 'nomina') return undefined
+  const nominaId = g.origen_ref?.split(':')[1]
+  return nominaId && nominasPagadas.has(nominaId) ? 'PAGADO' : 'COMPROMETIDO'
 }
 
 interface HistorialItem {
@@ -181,7 +197,7 @@ function calcJECobros(rows: FacturacionRow[], hoy: Date, hasta: Date): Calendari
   return items
 }
 
-function calcGastosPagos(gastos: GastoFijo[], hoy: Date, hasta: Date): CalendarioItem[] {
+function calcGastosPagos(gastos: GastoFijo[], hoy: Date, hasta: Date, nominasPagadas: Set<string>): CalendarioItem[] {
   const items: CalendarioItem[] = []
   for (const g of gastos) {
     if (!g.activo) continue
@@ -206,6 +222,7 @@ function calcGastosPagos(gastos: GastoFijo[], hoy: Date, hasta: Date): Calendari
         tipo: 'PAGO',
         concepto: g.concepto,
         importe: Number(g.importe),
+        estadoNomina: estadoNominaDe(g, nominasPagadas),
       })
     }
   }
@@ -307,7 +324,8 @@ export default function PagosCobros() {
 // ─── Tab Calendario ──────────────────────────────────────────────────────────
 
 export function TabCalendario() {
-  const [items, setItems] = useState<CalendarioItem[]>([])
+  const [pagos, setPagos] = useState<CalendarioItem[]>([])
+  const [cobros, setCobros] = useState<CalendarioItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -336,17 +354,29 @@ export function TabCalendario() {
 
         if (gastosErr) throw gastosErr
 
+        // Cruce de nóminas ya pagadas (ver estadoNominaDe): solo lee nominas_pagos,
+        // no duplica el motor de matchNomina.ts.
+        const { data: pagosData, error: pagosErr } = await supabase
+          .from('nominas_pagos')
+          .select('nomina_id')
+          .eq('confirmado', true)
+
+        if (pagosErr) throw pagosErr
+
         const rows: FacturacionRow[] = (facData || []) as FacturacionRow[]
         const gastos: GastoFijo[] = (gastosData || []) as GastoFijo[]
+        const nominasPagadas = new Set(((pagosData || []) as Array<{ nomina_id: string }>).map(p => p.nomina_id))
 
-        const all = [
+        const cobrosCalc = [
           ...calcUberCobros(rows, hoy, hasta),
           ...calcGlovoCobros(rows, hoy, hasta),
           ...calcJECobros(rows, hoy, hasta),
-          ...calcGastosPagos(gastos, hoy, hasta),
         ]
-        all.sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
-        setItems(all)
+        const pagosCalc = calcGastosPagos(gastos, hoy, hasta, nominasPagadas)
+        cobrosCalc.sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
+        pagosCalc.sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
+        setCobros(cobrosCalc)
+        setPagos(pagosCalc)
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Error cargando datos')
       } finally {
@@ -356,9 +386,10 @@ export function TabCalendario() {
     load()
   }, [])
 
-  const totalCobros = items.filter(i => i.tipo === 'COBRO').reduce((s, i) => s + i.importe, 0)
-  const totalPagos = items.filter(i => i.tipo === 'PAGO').reduce((s, i) => s + i.importe, 0)
-  const balance = totalCobros - totalPagos
+  // LEY-PRUDENCIA-01: los pagos comprometidos NUNCA se compensan con cobros
+  // todavía no llegados. Cero KPI "Balance".
+  const totalPagos = pagos.reduce((s, i) => s + i.importe, 0)
+  const totalCobros = cobros.reduce((s, i) => s + i.importe, 0)
 
   if (loading) return <LoadingSpinner />
   if (error) return <ErrorMsg msg={error} />
@@ -366,22 +397,26 @@ export function TabCalendario() {
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 28 }}>
-        <KpiCard label="Cobros pendientes" value={fmtEur(totalCobros)} color={VERDE} />
-        <KpiCard label="Pagos pendientes" value={fmtEur(totalPagos)} color={GRANATE} />
-        <KpiCard label="Balance" value={fmtEur(balance)} color={balance >= 0 ? VERDE : GRANATE} />
+        <KpiCard label="Pagos comprometidos" value={fmtEur(totalPagos)} color={GRANATE} />
+        <KpiCard label="Cobros previstos (aún no han llegado)" value={fmtEur(totalCobros)} color={VERDE} />
       </div>
 
-      {items.length === 0 ? (
-        <div style={{ color: 'var(--sl-text-muted)', fontSize: 13, textAlign: 'center', padding: 40 }}>
-          No hay cobros ni pagos proyectados en los próximos 90 días.
+      {/* ── Pagos: en firme ── */}
+      <div style={{ marginBottom: 12 }}>
+        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: GRANATE }}>Pagos comprometidos</span>
+        <p style={{ fontSize: 12, color: 'var(--sl-text-muted)', margin: '2px 0 0' }}>Salidas conocidas, aunque todavía no hayan salido del banco.</p>
+      </div>
+      {pagos.length === 0 ? (
+        <div style={{ color: 'var(--sl-text-muted)', fontSize: 13, textAlign: 'center', padding: 24, marginBottom: 28 }}>
+          No hay pagos comprometidos en los próximos 90 días.
         </div>
       ) : (
-        <div style={{ background: 'var(--sl-card)', ...NEO_CARD, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--sl-card)', ...NEO_CARD, overflow: 'hidden', marginBottom: 28 }}>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
             <thead>
               <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
-                {['Fecha', 'Tipo', 'Concepto', 'Importe estimado', 'Estado'].map(h => (
+                {['Fecha', 'Concepto', 'Importe', 'Estado'].map(h => (
                   <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}>
                     {h}
                   </th>
@@ -389,7 +424,7 @@ export function TabCalendario() {
               </tr>
             </thead>
             <tbody>
-              {items.map(item => (
+              {pagos.map(item => (
                 <tr
                   key={item.id}
                   style={{ borderTop: '0.5px solid var(--sl-border)' }}
@@ -399,9 +434,6 @@ export function TabCalendario() {
                   <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)', whiteSpace: 'nowrap' }}>
                     {item.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                   </td>
-                  <td style={{ padding: '12px 16px' }}>
-                    <TipoBadge tipo={item.tipo} />
-                  </td>
                   <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)' }}>
                     {item.concepto}
                   </td>
@@ -409,9 +441,49 @@ export function TabCalendario() {
                     {fmtEur(item.importe)}
                   </td>
                   <td style={{ padding: '12px 16px' }}>
-                    <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, backgroundColor: '#e8f44220', color: LIMA, fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
-                      PENDIENTE
-                    </span>
+                    <EstadoNominaBadge estado={item.estadoNomina} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cobros previstos: informativos, nunca compensan pagos ── */}
+      <div style={{ marginBottom: 12 }}>
+        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: VERDE }}>Cobros previstos (aún no han llegado)</span>
+        <p style={{ fontSize: 12, color: 'var(--sl-text-muted)', margin: '2px 0 0' }}>Información de planificación. No es caja: solo cuentan cuando el banco los confirma.</p>
+      </div>
+      {cobros.length === 0 ? (
+        <div style={{ color: 'var(--sl-text-muted)', fontSize: 13, textAlign: 'center', padding: 24 }}>
+          No hay cobros previstos en los próximos 90 días.
+        </div>
+      ) : (
+        <div style={{ background: 'var(--sl-card)', border: `3px dashed ${NEO_INK}`, borderRadius: 0, opacity: 0.85, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+            <thead>
+              <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
+                {['Fecha', 'Concepto', 'Importe estimado'].map(h => (
+                  <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {cobros.map(item => (
+                <tr key={item.id} style={{ borderTop: '0.5px dashed var(--sl-border)' }}>
+                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-muted)', whiteSpace: 'nowrap' }}>
+                    {item.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                  </td>
+                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-muted)' }}>
+                    {item.concepto}
+                  </td>
+                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-muted)', fontFamily: 'Oswald, sans-serif', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {fmtEur(item.importe)}
                   </td>
                 </tr>
               ))}
@@ -446,6 +518,7 @@ const emptyForm: FormGasto = {
 
 export function TabGastos() {
   const [gastos, setGastos] = useState<GastoFijo[]>([])
+  const [nominasPagadas, setNominasPagadas] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<FormGasto>(emptyForm)
@@ -455,11 +528,12 @@ export function TabGastos() {
 
   async function cargar() {
     setLoading(true)
-    const { data } = await supabase
-      .from('gastos_fijos')
-      .select('*')
-      .order('concepto', { ascending: true })
+    const [{ data }, { data: pagosData }] = await Promise.all([
+      supabase.from('gastos_fijos').select('*').order('concepto', { ascending: true }),
+      supabase.from('nominas_pagos').select('nomina_id').eq('confirmado', true),
+    ])
     setGastos((data || []) as GastoFijo[])
+    setNominasPagadas(new Set(((pagosData || []) as Array<{ nomina_id: string }>).map(p => p.nomina_id)))
     setLoading(false)
   }
 
@@ -616,6 +690,7 @@ export function TabGastos() {
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     {g.concepto}
                     <EstimadoBadge estimado={g.estimado} />
+                    <EstadoNominaBadge estado={estadoNominaDe(g, nominasPagadas)} />
                   </span>
                 </td>
                 <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)', fontFamily: 'Oswald, sans-serif', whiteSpace: 'nowrap' }}>{fmtEur(g.importe)}</td>
@@ -793,6 +868,30 @@ function EstimadoBadge({ estimado }: { estimado: boolean }) {
       whiteSpace: 'nowrap',
     }}>
       {estimado ? '🟡 Estimado' : '🟢 Fijo'}
+    </span>
+  )
+}
+
+/** LEY-PRUDENCIA-01 · Parte B: estado de las filas de gastos_fijos que vienen de una nómina. */
+function EstadoNominaBadge({ estado }: { estado?: 'COMPROMETIDO' | 'PAGADO' }) {
+  if (!estado) return null
+  const pagado = estado === 'PAGADO'
+  return (
+    <span style={{
+      fontSize: 10,
+      padding: '2px 7px',
+      borderRadius: 0,
+      border: `2px solid ${pagado ? '#1D9E75' : '#e8f442'}`,
+      backgroundColor: pagado ? '#1D9E7522' : '#e8f44222',
+      color: pagado ? '#1D9E75' : '#aabc00',
+      fontFamily: 'Oswald, sans-serif',
+      fontWeight: 600,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      whiteSpace: 'nowrap',
+      marginLeft: 6,
+    }}>
+      {pagado ? '🟢 Pagado' : '🟡 Comprometido'}
     </span>
   )
 }
