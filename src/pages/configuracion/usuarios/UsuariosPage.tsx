@@ -1,4 +1,11 @@
 import { AZUL_CL, BLANCO, GRANATE, LIMA, VERDE } from '@/styles/neobrutal'
+import {
+  PERMISO_RETRIBUIDO, KPI_POS_VERDE, USUARIOS_ROL_SIN_DATO, USUARIOS_ROL_DEFAULT,
+  USUARIOS_ROL_REPARTIDOR, USUARIOS_ROL_SOLO_LECTURA, USUARIOS_ROL_EMPLEADO,
+  TABCOSTES_MANUAL_BG_DARK, TABCOSTES_MANUAL_BG_LIGHT, TABCOSTES_MANUAL_FG_DARK, TABCOSTES_MANUAL_FG_LIGHT,
+  TABCOSTES_AUTO_BG_DARK, TABCOSTES_AUTO_BG_LIGHT, TABCOSTES_AUTO_FG_DARK, TABCOSTES_AUTO_FG_LIGHT,
+  STATUSTAG,
+} from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -42,8 +49,8 @@ function rolColor(rol: Rol | null): string {
   if (rol === 'gestor') return AZUL_CL
   if (rol === 'cocina') return LIMA
   if (rol === 'repartidor') return VERDE
-  if (rol === 'empleado') return '#9b59b6'
-  return '#7080a8'
+  if (rol === 'empleado') return PERMISO_RETRIBUIDO
+  return USUARIOS_ROL_SIN_DATO
 }
 
 export default function UsuariosPage() {
@@ -58,7 +65,7 @@ export default function UsuariosPage() {
   const [fNombre, setFNombre] = useState('')
   const [fRol, setFRol] = useState<Rol>('cocina')
   const [fPin, setFPin] = useState('')
-  const [fColor, setFColor] = useState('#22B573')
+  const [fColor, setFColor] = useState(KPI_POS_VERDE)
   const [saving, setSaving] = useState(false)
   const [empleados, setEmpleados] = useState<{ id: string; nombre: string }[]>([])
   const [fEmpleadoId, setFEmpleadoId] = useState<string>('')
@@ -87,11 +94,11 @@ export default function UsuariosPage() {
   function open(u?: Usuario) {
     if (u) {
       setEditing(u); setCreating(false)
-      setFNombre(u.nombre); setFRol((u.rol ?? 'cocina') as Rol); setFPin(u.pin ?? ''); setFColor(u.avatar_color ?? '#22B573')
+      setFNombre(u.nombre); setFRol((u.rol ?? 'cocina') as Rol); setFPin(u.pin ?? ''); setFColor(u.avatar_color ?? KPI_POS_VERDE)
       setFEmpleadoId(u.empleado_id ?? '')
     } else {
       setCreating(true); setEditing(null)
-      setFNombre(''); setFRol('cocina'); setFPin(''); setFColor('#22B573')
+      setFNombre(''); setFRol('cocina'); setFPin(''); setFColor(KPI_POS_VERDE)
       setFEmpleadoId('')
     }
   }
@@ -167,8 +174,8 @@ export default function UsuariosPage() {
   }
   const td: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
 
-  const okBg = isDark ? 'rgba(34, 181, 115, 0.22)' : '#D4F0E0'
-  const okFg = isDark ? '#22B573' : '#027b4b'
+  const okBg = isDark ? STATUSTAG.ok.bgDark : STATUSTAG.ok.bgLight
+  const okFg = isDark ? STATUSTAG.ok.fgDark : STATUSTAG.ok.fgLight
   const offBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
 
   return (
@@ -324,18 +331,18 @@ export default function UsuariosPage() {
 }
 
 function RolPill({ rol, isDark }: { rol: Rol | null; isDark: boolean }) {
-  if (!rol) return <span style={{ color: '#7080a8' }}>—</span>
+  if (!rol) return <span style={{ color: USUARIOS_ROL_SIN_DATO }}>—</span>
   const label = rol === 'solo_lectura' ? 'Solo lectura' : rol.charAt(0).toUpperCase() + rol.slice(1)
   const palette: Record<Rol, { bg: string; fg: string }> = {
-    admin:       { bg: isDark ? 'rgba(176,29,35,0.28)' : '#FCEBEB', fg: isDark ? '#F09595' : '#A32D2D' },
-    socio:       { bg: isDark ? 'rgba(176,29,35,0.28)' : '#FCEBEB', fg: isDark ? '#F09595' : '#A32D2D' },
-    gestor:      { bg: isDark ? 'rgba(12,68,124,0.30)' : '#E6F1FB', fg: isDark ? '#89B5DF' : '#0C447C' },
-    cocina:      { bg: isDark ? 'rgba(186,117,23,0.26)' : '#FAEEDA', fg: isDark ? '#F5C36B' : '#854F0B' },
-    repartidor:  { bg: isDark ? 'rgba(29,158,117,0.22)' : '#D4F0E4', fg: isDark ? '#5DD8A8' : '#027b4b' },
-    solo_lectura:{ bg: isDark ? 'rgba(90,104,128,0.22)' : '#EAEDF2', fg: isDark ? '#8A98B8' : '#445570' },
-    empleado:    { bg: isDark ? 'rgba(155,89,182,0.22)' : '#F0E8F8', fg: isDark ? '#C39FDE' : '#6B3A8F' },
+    admin:       { bg: isDark ? TABCOSTES_MANUAL_BG_DARK : TABCOSTES_MANUAL_BG_LIGHT, fg: isDark ? TABCOSTES_MANUAL_FG_DARK : TABCOSTES_MANUAL_FG_LIGHT },
+    socio:       { bg: isDark ? TABCOSTES_MANUAL_BG_DARK : TABCOSTES_MANUAL_BG_LIGHT, fg: isDark ? TABCOSTES_MANUAL_FG_DARK : TABCOSTES_MANUAL_FG_LIGHT },
+    gestor:      { bg: isDark ? TABCOSTES_AUTO_BG_DARK : TABCOSTES_AUTO_BG_LIGHT, fg: isDark ? TABCOSTES_AUTO_FG_DARK : TABCOSTES_AUTO_FG_LIGHT },
+    cocina:      { bg: isDark ? STATUSTAG.cocina.bgDark : STATUSTAG.cocina.bgLight, fg: isDark ? STATUSTAG.cocina.fgDark : STATUSTAG.cocina.fgLight },
+    repartidor:  { bg: isDark ? USUARIOS_ROL_REPARTIDOR.bgDark : USUARIOS_ROL_REPARTIDOR.bgLight, fg: isDark ? USUARIOS_ROL_REPARTIDOR.fgDark : USUARIOS_ROL_REPARTIDOR.fgLight },
+    solo_lectura:{ bg: isDark ? USUARIOS_ROL_SOLO_LECTURA.bgDark : USUARIOS_ROL_SOLO_LECTURA.bgLight, fg: isDark ? USUARIOS_ROL_SOLO_LECTURA.fgDark : USUARIOS_ROL_SOLO_LECTURA.fgLight },
+    empleado:    { bg: isDark ? USUARIOS_ROL_EMPLEADO.bgDark : USUARIOS_ROL_EMPLEADO.bgLight, fg: isDark ? USUARIOS_ROL_EMPLEADO.fgDark : USUARIOS_ROL_EMPLEADO.fgLight },
   }
-  const p = palette[rol] ?? { bg: '#333', fg: '#888' }
+  const p = palette[rol] ?? USUARIOS_ROL_DEFAULT
   return (
     <span
       style={{

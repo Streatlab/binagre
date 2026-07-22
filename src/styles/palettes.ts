@@ -205,6 +205,34 @@ export const CONFIG_HOVER_CREMA = '#F1EADD'
 export const CONFIG_HOVER_CREMA_ALT = '#FAF4E4'
 export const CONFIG_ROJO_WASH = '#FCE0E2'
 export const CONFIG_ROJO_WASH_DARK = 'rgba(176,29,35,0.22)'
+
+/** Aprendizajes (Config) · badge de módulo, 8 colores distintos (dark bg + texto saturado). */
+export const APRENDIZAJES_MODULO = {
+  facturacion:   { bg: '#1a2d1a', color: '#4ade80' },
+  conciliacion:  { bg: '#1a1a2d', color: '#818cf8' },
+  ocr:           { bg: '#2d1a2d', color: '#e879f9' },
+  ingredientes:  { bg: '#2d2a1a', color: '#fbbf24' },
+  recetas:       { bg: '#1a2d2d', color: '#22d3ee' },
+  panel:         { bg: '#2d1a1a', color: '#f87171' },
+  compras:       { bg: '#1a2520', color: '#34d399' },
+} as const
+export const APRENDIZAJES_MODULO_DEFAULT = { bg: '#222', color: '#ccc' }
+export const APRENDIZAJES_MODULO_CONFIG_TXT = '#9ca3af'
+export const APRENDIZAJES_SEC = '#9ba8c0'
+export const APRENDIZAJES_OK_BG = '#0d2d1a'
+export const APRENDIZAJES_OK_TXT = '#4ade80'
+
+/** CalcNeto Aprendizaje (Config) · badge "ESTIMADO"/"EST" sobre PANEL_MODAL_BG. */
+export const ESTIMADO_BADGE_TXT = '#d0d8ff'
+/** Wash de alerta ámbar oscuro (fila con estado "alerta"). */
+export const ALERTA_WASH_BG = '#2d2800'
+
+/** Usuarios (Config) · badge de rol — roles sin equivalente en STATUSTAG. */
+export const USUARIOS_ROL_REPARTIDOR = { bgDark: 'rgba(29,158,117,0.22)', bgLight: '#D4F0E4', fgDark: '#5DD8A8', fgLight: '#027b4b' }
+export const USUARIOS_ROL_SOLO_LECTURA = { bgDark: 'rgba(90,104,128,0.22)', bgLight: '#EAEDF2', fgDark: '#8A98B8', fgLight: '#445570' }
+export const USUARIOS_ROL_EMPLEADO = { bgDark: 'rgba(155,89,182,0.22)', bgLight: '#F0E8F8', fgDark: '#C39FDE', fgLight: '#6B3A8F' }
+export const USUARIOS_ROL_DEFAULT = { bg: '#333', fg: '#888' }
+export const USUARIOS_ROL_SIN_DATO = '#7080a8'
 /** Granate en hover (botones primarios de Configuración). */
 export const GRANATE_HOVER = '#901A1E'
 /** Verde "positivo" distinto de COBERTURA_VERDE (KpiCard subTone). */

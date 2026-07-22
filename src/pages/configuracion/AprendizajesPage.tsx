@@ -1,9 +1,13 @@
-import { BLANCO, GRANATE, GRIS, INK, LIMA, ROJO, ROJO_S, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, ROJO, ROJO_S, VERDE } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtDate } from '@/lib/format'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
 import { FONT } from '@/styles/tokens'
+import {
+  APRENDIZAJES_MODULO, APRENDIZAJES_MODULO_DEFAULT, APRENDIZAJES_MODULO_CONFIG_TXT,
+  APRENDIZAJES_SEC, APRENDIZAJES_OK_BG, APRENDIZAJES_OK_TXT, ERROR_BANNER_BG, ERROR_BANNER_BORDE,
+} from '@/styles/palettes'
 
 interface Aprendizaje {
   id: number
@@ -17,19 +21,13 @@ interface Aprendizaje {
 }
 
 const MODULE_COLORS: Record<string, { bg: string; color: string }> = {
-  facturacion:   { bg: '#1a2d1a', color: '#4ade80' },
-  conciliacion:  { bg: '#1a1a2d', color: '#818cf8' },
-  ocr:           { bg: '#2d1a2d', color: '#e879f9' },
-  ingredientes:  { bg: '#2d2a1a', color: '#fbbf24' },
-  recetas:       { bg: '#1a2d2d', color: '#22d3ee' },
-  panel:         { bg: '#2d1a1a', color: '#f87171' },
-  compras:       { bg: '#1a2520', color: '#34d399' },
-  configuracion: { bg: INK, color: '#9ca3af' },
+  ...APRENDIZAJES_MODULO,
+  configuracion: { bg: INK, color: APRENDIZAJES_MODULO_CONFIG_TXT },
 }
 
 function moduleBadge(mod: string) {
   const key = (mod || '').toLowerCase().trim()
-  const c = MODULE_COLORS[key] ?? { bg: '#222', color: '#ccc' }
+  const c = MODULE_COLORS[key] ?? APRENDIZAJES_MODULO_DEFAULT
   return (
     <span style={{
       backgroundColor: c.bg,
@@ -126,11 +124,11 @@ export default function AprendizajesPage() {
     fontSize: 11,
     letterSpacing: '1px',
     textTransform: 'uppercase',
-    color: '#9ba8c0',
+    color: APRENDIZAJES_SEC,
     padding: '10px 12px',
     textAlign: 'left',
     backgroundColor: INK,
-    borderBottom: '1px solid #2a2a2a',
+    borderBottom: `1px solid ${BORDE_SUAVE}`,
     whiteSpace: 'nowrap',
   }
 
@@ -139,13 +137,13 @@ export default function AprendizajesPage() {
     fontSize: 13,
     color: GRIS,
     padding: '10px 12px',
-    borderBottom: '1px solid #1c1c1c',
+    borderBottom: `1px solid ${BORDE_SUAVE}`,
     verticalAlign: 'top',
   }
 
   const inputStyle: React.CSSProperties = {
     backgroundColor: INK,
-    border: '1px solid #2a2a2a',
+    border: `1px solid ${BORDE_SUAVE}`,
     borderRadius: 4,
     color: BLANCO,
     fontFamily: FONT.body,
@@ -181,34 +179,34 @@ export default function AprendizajesPage() {
 
       {/* Feedback */}
       {feedback && (
-        <div style={{ backgroundColor: feedback.ok ? '#0d2d1a' : '#2d1515', border: `1px solid ${feedback.ok ? VERDE : ROJO}`, color: feedback.ok ? '#4ade80' : ROJO_S, borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontFamily: FONT.body, fontSize: 13 }}>
+        <div style={{ backgroundColor: feedback.ok ? APRENDIZAJES_OK_BG : ERROR_BANNER_BG, border: `1px solid ${feedback.ok ? VERDE : ERROR_BANNER_BORDE}`, color: feedback.ok ? APRENDIZAJES_OK_TXT : ROJO_S, borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontFamily: FONT.body, fontSize: 13 }}>
           {feedback.msg}
         </div>
       )}
 
       {/* Form inline */}
       {showForm && (
-        <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 6, padding: 20, marginBottom: 20 }}>
+        <div style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, padding: 20, marginBottom: 20 }}>
           <h2 style={{ fontFamily: FONT.heading, fontSize: 15, color: LIMA, letterSpacing: '1px', textTransform: 'uppercase', margin: '0 0 16px' }}>Nuevo aprendizaje</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
-              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: '#9ba8c0', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Síntoma *</label>
+              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: APRENDIZAJES_SEC, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Síntoma *</label>
               <textarea rows={3} value={form.sintoma} onChange={e => setForm(f => ({ ...f, sintoma: e.target.value }))} style={inputStyle} />
             </div>
             <div>
-              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: '#9ba8c0', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Módulo *</label>
+              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: APRENDIZAJES_SEC, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Módulo *</label>
               <input value={form.modulo} onChange={e => setForm(f => ({ ...f, modulo: e.target.value }))} style={{ ...inputStyle, resize: undefined }} placeholder="facturacion, ocr, conciliacion…" />
             </div>
             <div>
-              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: '#9ba8c0', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Causa raíz</label>
+              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: APRENDIZAJES_SEC, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Causa raíz</label>
               <textarea rows={3} value={form.causa_raiz} onChange={e => setForm(f => ({ ...f, causa_raiz: e.target.value }))} style={inputStyle} />
             </div>
             <div>
-              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: '#9ba8c0', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Regla preventiva</label>
+              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: APRENDIZAJES_SEC, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Regla preventiva</label>
               <textarea rows={3} value={form.regla_preventiva} onChange={e => setForm(f => ({ ...f, regla_preventiva: e.target.value }))} style={inputStyle} />
             </div>
             <div>
-              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: '#9ba8c0', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Fecha</label>
+              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: APRENDIZAJES_SEC, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Fecha</label>
               <input type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} style={{ ...inputStyle, resize: undefined }} />
             </div>
           </div>
@@ -222,7 +220,7 @@ export default function AprendizajesPage() {
             </button>
             <button
               onClick={() => { setShowForm(false); setForm({ ...FORM_EMPTY }) }}
-              style={{ backgroundColor: INK, color: GRIS, border: '1px solid #383838', borderRadius: 4, padding: '8px 16px', fontFamily: FONT.heading, fontSize: 13, cursor: 'pointer', textTransform: 'uppercase' }}
+              style={{ backgroundColor: INK, color: GRIS, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 4, padding: '8px 16px', fontFamily: FONT.heading, fontSize: 13, cursor: 'pointer', textTransform: 'uppercase' }}
             >
               Cancelar
             </button>
@@ -231,11 +229,11 @@ export default function AprendizajesPage() {
       )}
 
       {/* Table */}
-      <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 6, overflow: 'hidden' }}>
+      <div style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: '#777', fontFamily: FONT.body }}>Cargando…</div>
+          <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: FONT.body }}>Cargando…</div>
         ) : filtered.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: '#777', fontFamily: FONT.body }}>
+          <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: FONT.body }}>
             {search ? 'Sin resultados para la búsqueda.' : 'No hay aprendizajes registrados aún.'}
           </div>
         ) : (
@@ -253,11 +251,11 @@ export default function AprendizajesPage() {
               <tbody>
                 {filtered.map(row => (
                   <tr key={row.id} style={{ transition: 'background 0.1s' }}>
-                    <td style={{ ...TD, color: '#777', fontSize: 12, whiteSpace: 'nowrap' }}>{row.fecha ? fmtDate(row.fecha) : '—'}</td>
+                    <td style={{ ...TD, color: GRIS, fontSize: 12, whiteSpace: 'nowrap' }}>{row.fecha ? fmtDate(row.fecha) : '—'}</td>
                     <td style={TD}>{moduleBadge(row.modulo)}</td>
                     <td style={{ ...TD, maxWidth: 320, color: BLANCO }}>{row.sintoma || '—'}</td>
                     <td style={{ ...TD, maxWidth: 380, color: GRIS, fontSize: 12 }}>{row.regla_preventiva || '—'}</td>
-                    <td style={{ ...TD, color: '#777', fontSize: 12 }}>{row.origen || '—'}</td>
+                    <td style={{ ...TD, color: GRIS, fontSize: 12 }}>{row.origen || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -265,7 +263,7 @@ export default function AprendizajesPage() {
           </div>
         )}
       </div>
-      <div style={{ marginTop: 8, color: '#555', fontSize: 11, fontFamily: FONT.body }}>
+      <div style={{ marginTop: 8, color: GRIS, fontSize: 11, fontFamily: FONT.body }}>
         {filtered.length} registro{filtered.length !== 1 ? 's' : ''}
         {search ? ` (filtrado de ${rows.length})` : ''}
       </div>

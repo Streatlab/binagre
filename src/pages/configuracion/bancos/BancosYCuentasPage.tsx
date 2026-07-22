@@ -1,4 +1,5 @@
-import { BLANCO, GRANATE, GRIS, INK, OSC, ROJO } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, CLARO, CREMA, GRANATE, GRIS, INK, OSC, ROJO } from '@/styles/neobrutal'
+import { CORREO_ALERTA_BORDE } from '@/styles/palettes'
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
@@ -69,7 +70,7 @@ export default function BancosYCuentasPage() {
   }
 
   return (
-    <div style={{ background: '#f5f3ef', padding: '24px 28px' }}>
+    <div style={{ background: CREMA, padding: '24px 28px' }}>
 
       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', marginBottom: 4 }}>
         Configuración
@@ -94,7 +95,7 @@ export default function BancosYCuentasPage() {
               style={{
                 padding: '5px 12px',
                 borderRadius: 6,
-                border: isActive ? 'none' : '0.5px solid #d0c8bc',
+                border: isActive ? 'none' : `0.5px solid ${BORDE_SUAVE}`,
                 background: isActive ? ROJO : BLANCO,
                 color: isActive ? BLANCO : OSC,
                 fontFamily: 'Lexend, sans-serif',
@@ -139,13 +140,13 @@ function TabCategorias({
   )
 
   return (
-    <div style={{ background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '24px 28px' }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 14, padding: '24px 28px' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', textAlign: 'left', padding: '12px 0', borderBottom: '0.5px solid #d0c8bc', width: 90 }}>ID</th>
-            <th style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', textAlign: 'left', padding: '12px 0', borderBottom: '0.5px solid #d0c8bc' }}>Nombre</th>
-            <th style={{ width: 80, borderBottom: '0.5px solid #d0c8bc' }}></th>
+            <th style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', textAlign: 'left', padding: '12px 0', borderBottom: `0.5px solid ${BORDE_SUAVE}`, width: 90 }}>ID</th>
+            <th style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', textAlign: 'left', padding: '12px 0', borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>Nombre</th>
+            <th style={{ width: 80, borderBottom: `0.5px solid ${BORDE_SUAVE}` }}></th>
           </tr>
         </thead>
         <tbody>
@@ -153,36 +154,36 @@ function TabCategorias({
             if (cat.nivel === 1) {
               return (
                 <tr key={cat.id}>
-                  <td style={{ padding: '18px 0 10px', borderBottom: '0.5px solid #ebe8e2', fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, color: GRANATE, letterSpacing: '2px' }}>
+                  <td style={{ padding: '18px 0 10px', borderBottom: `0.5px solid ${CLARO}`, fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, color: GRANATE, letterSpacing: '2px' }}>
                     {cat.id}
                   </td>
-                  <td style={{ padding: '18px 0 10px', borderBottom: '0.5px solid #ebe8e2', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, letterSpacing: '2.5px', color: INK, textTransform: 'uppercase' }}>
+                  <td style={{ padding: '18px 0 10px', borderBottom: `0.5px solid ${CLARO}`, fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, letterSpacing: '2.5px', color: INK, textTransform: 'uppercase' }}>
                     {stripBanda(cat.nombre)}
                   </td>
-                  <td style={{ padding: '18px 0 10px', borderBottom: '0.5px solid #ebe8e2' }}></td>
+                  <td style={{ padding: '18px 0 10px', borderBottom: `0.5px solid ${CLARO}` }}></td>
                 </tr>
               )
             }
             if (cat.nivel === 2) {
               return (
                 <tr key={cat.id}>
-                  <td style={{ padding: '14px 0 8px', borderBottom: '0.5px solid #ebe8e2', fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, color: OSC, letterSpacing: '1.5px' }}>
+                  <td style={{ padding: '14px 0 8px', borderBottom: `0.5px solid ${CLARO}`, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, color: OSC, letterSpacing: '1.5px' }}>
                     {cat.id}
                   </td>
-                  <td style={{ padding: '14px 0 8px', borderBottom: '0.5px solid #ebe8e2', fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: OSC, textTransform: 'uppercase' }}>
+                  <td style={{ padding: '14px 0 8px', borderBottom: `0.5px solid ${CLARO}`, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: OSC, textTransform: 'uppercase' }}>
                     {stripBanda(cat.nombre)}
                   </td>
-                  <td style={{ padding: '14px 0 8px', borderBottom: '0.5px solid #ebe8e2' }}></td>
+                  <td style={{ padding: '14px 0 8px', borderBottom: `0.5px solid ${CLARO}` }}></td>
                 </tr>
               )
             }
             const valEdit = editValues[cat.id] ?? cat.nombre
             return (
               <tr key={cat.id}>
-                <td style={{ padding: '12px 0', borderBottom: '0.5px solid #ebe8e2', fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 500, color: GRIS, letterSpacing: '1px', whiteSpace: 'nowrap' }}>
+                <td style={{ padding: '12px 0', borderBottom: `0.5px solid ${CLARO}`, fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 500, color: GRIS, letterSpacing: '1px', whiteSpace: 'nowrap' }}>
                   {cat.id}
                 </td>
-                <td style={{ padding: '12px 0', borderBottom: '0.5px solid #ebe8e2' }}>
+                <td style={{ padding: '12px 0', borderBottom: `0.5px solid ${CLARO}` }}>
                   <input
                     value={valEdit}
                     onChange={e => setEditValues(prev => ({ ...prev, [cat.id]: e.target.value }))}
@@ -197,7 +198,7 @@ function TabCategorias({
                     }}
                     onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                     onFocus={e => {
-                      e.target.style.borderBottom = '1px dashed #FF4757'
+                      e.target.style.borderBottom = `1px dashed ${CORREO_ALERTA_BORDE}`
                       e.target.style.background = '#FF475708'
                     }}
                     style={{
@@ -212,7 +213,7 @@ function TabCategorias({
                     }}
                   />
                 </td>
-                <td style={{ padding: '12px 0', borderBottom: '0.5px solid #ebe8e2', textAlign: 'right', width: 80 }}>
+                <td style={{ padding: '12px 0', borderBottom: `0.5px solid ${CLARO}`, textAlign: 'right', width: 80 }}>
                   <span
                     onClick={() => onDelete(cat)}
                     style={{ fontSize: 13, color: GRIS, cursor: 'pointer', padding: '4px 6px', borderRadius: 4, display: 'inline-block' }}

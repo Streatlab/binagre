@@ -1,4 +1,8 @@
-import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA, NAR, ROJO, ROJO_S, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, NAR, ROJO, ROJO_S, VERDE } from '@/styles/neobrutal'
+import {
+  APRENDIZAJES_SEC, APRENDIZAJES_OK_BG, APRENDIZAJES_OK_TXT, ERROR_BANNER_BG, ERROR_BANNER_BORDE,
+  PANEL_MODAL_BG, ESTIMADO_BADGE_TXT, ALERTA_WASH_BG, SIN_DATO_GRIS, COBERTURA_VERDE, DARK_WASH_ROJO_BG,
+} from '@/styles/palettes'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtPct } from '@/lib/format'
@@ -101,11 +105,11 @@ const TH: React.CSSProperties = {
   fontSize: 11,
   letterSpacing: '1px',
   textTransform: 'uppercase',
-  color: '#9ba8c0',
+  color: APRENDIZAJES_SEC,
   padding: '10px 12px',
   textAlign: 'left',
   backgroundColor: INK,
-  borderBottom: '1px solid #2a2a2a',
+  borderBottom: `1px solid ${BORDE_SUAVE}`,
   whiteSpace: 'nowrap',
 }
 
@@ -114,7 +118,7 @@ const TD: React.CSSProperties = {
   fontSize: 13,
   color: GRIS,
   padding: '9px 12px',
-  borderBottom: '1px solid #1c1c1c',
+  borderBottom: `1px solid ${BORDE_SUAVE}`,
   verticalAlign: 'middle',
 }
 
@@ -263,7 +267,7 @@ export default function CalcNetoAprendizajePage() {
           <select
             value={anio}
             onChange={e => setAnio(Number(e.target.value))}
-            style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 4, color: BLANCO, fontFamily: 'Lexend,sans-serif', fontSize: 13, padding: '6px 10px', cursor: 'pointer' }}
+            style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 4, color: BLANCO, fontFamily: 'Lexend,sans-serif', fontSize: 13, padding: '6px 10px', cursor: 'pointer' }}
           >
             {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
@@ -279,7 +283,7 @@ export default function CalcNetoAprendizajePage() {
 
       {/* Feedback */}
       {feedback && (
-        <div style={{ backgroundColor: '#0d2d1a', border: '1px solid #1d9e75', color: '#4ade80', borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>
+        <div style={{ backgroundColor: APRENDIZAJES_OK_BG, border: `1px solid ${COBERTURA_VERDE}`, color: APRENDIZAJES_OK_TXT, borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>
           {feedback}
         </div>
       )}
@@ -293,26 +297,26 @@ export default function CalcNetoAprendizajePage() {
         ].map(l => (
           <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: l.color }} />
-            <span style={{ fontFamily: 'Lexend,sans-serif', fontSize: 11, color: '#9ba8c0' }}>{l.label}</span>
+            <span style={{ fontFamily: 'Lexend,sans-serif', fontSize: 11, color: APRENDIZAJES_SEC }}>{l.label}</span>
           </div>
         ))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ backgroundColor: '#484f66', color: '#d0d8ff', fontSize: 10, padding: '1px 6px', borderRadius: 3, fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px' }}>ESTIMADO</span>
-          <span style={{ fontFamily: 'Lexend,sans-serif', fontSize: 11, color: '#9ba8c0' }}>neto teórico calculado por fórmula</span>
+          <span style={{ backgroundColor: PANEL_MODAL_BG, color: ESTIMADO_BADGE_TXT, fontSize: 10, padding: '1px 6px', borderRadius: 3, fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px' }}>ESTIMADO</span>
+          <span style={{ fontFamily: 'Lexend,sans-serif', fontSize: 11, color: APRENDIZAJES_SEC }}>neto teórico calculado por fórmula</span>
         </div>
       </div>
 
       {/* Tabla comparativa */}
       {loading ? (
-        <div style={{ padding: 32, textAlign: 'center', color: '#777', fontFamily: 'Lexend,sans-serif' }}>Calculando…</div>
+        <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: 'Lexend,sans-serif' }}>Calculando…</div>
       ) : error ? (
-        <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: ROJO_S, borderRadius: 4, padding: '12px 16px', fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>
+        <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, color: ROJO_S, borderRadius: 4, padding: '12px 16px', fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>
           Error: {error}
         </div>
       ) : (
-        <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 6, overflowX: 'auto', marginBottom: 32 }}>
+        <div style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, overflowX: 'auto', marginBottom: 32 }}>
           {filasConUmbral.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', color: '#777', fontFamily: 'Lexend,sans-serif' }}>No hay datos para {anio}.</div>
+            <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: 'Lexend,sans-serif' }}>No hay datos para {anio}.</div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -330,9 +334,9 @@ export default function CalcNetoAprendizajePage() {
               </thead>
               <tbody>
                 {filasConUmbral.map((f, i) => {
-                  const canalColor = CANAL_COLOR[f.canal] ?? '#888'
+                  const canalColor = CANAL_COLOR[f.canal] ?? SIN_DATO_GRIS
                   const rowBg = f.estado === 'rojo'
-                    ? '#2a1515'
+                    ? DARK_WASH_ROJO_BG
                     : i % 2 === 0 ? INK : INK
                   return (
                     <tr key={`${f.canal}_${f.mes}`} style={{ backgroundColor: rowBg }}>
@@ -342,11 +346,11 @@ export default function CalcNetoAprendizajePage() {
                           <span style={{ color: BLANCO }}>{CANAL_LABEL[f.canal] ?? f.canal}</span>
                         </span>
                       </td>
-                      <td style={{ ...TD, color: '#9ba8c0' }}>{MESES[f.mes - 1]}</td>
+                      <td style={{ ...TD, color: APRENDIZAJES_SEC }}>{MESES[f.mes - 1]}</td>
                       <td style={{ ...TD, textAlign: 'right', color: GRIS }}>{fmtEur(f.bruto, { decimals: 0 })}</td>
                       <td style={{ ...TD, textAlign: 'right' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ backgroundColor: '#484f66', color: '#d0d8ff', fontSize: 9, padding: '1px 5px', borderRadius: 3, fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px' }}>EST</span>
+                          <span style={{ backgroundColor: PANEL_MODAL_BG, color: ESTIMADO_BADGE_TXT, fontSize: 9, padding: '1px 5px', borderRadius: 3, fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px' }}>EST</span>
                           <span style={{ color: GRIS }}>{fmtEur(f.netoTeorico, { decimals: 0 })}</span>
                         </span>
                       </td>
@@ -355,8 +359,8 @@ export default function CalcNetoAprendizajePage() {
                       <td style={{ ...TD, textAlign: 'right', color: desvColor(f.desvPct), fontWeight: 600 }}>{fmtPct(f.desvPct)}</td>
                       <td style={TD}>
                         <span style={{
-                          backgroundColor: f.estado === 'ok' ? '#0d2d1a' : f.estado === 'alerta' ? '#2d2800' : '#2d1515',
-                          color: f.estado === 'ok' ? '#4ade80' : f.estado === 'alerta' ? LIMA : ROJO_S,
+                          backgroundColor: f.estado === 'ok' ? APRENDIZAJES_OK_BG : f.estado === 'alerta' ? ALERTA_WASH_BG : ERROR_BANNER_BG,
+                          color: f.estado === 'ok' ? APRENDIZAJES_OK_TXT : f.estado === 'alerta' ? LIMA : ROJO_S,
                           border: `1px solid ${f.estado === 'ok' ? VERDE : f.estado === 'alerta' ? '#e8f44233' : ROJO}`,
                           fontSize: 10, padding: '2px 8px', borderRadius: 3,
                           fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px', textTransform: 'uppercase',
@@ -395,11 +399,11 @@ export default function CalcNetoAprendizajePage() {
           Propuestas pendientes
         </h2>
         {loadingProp ? (
-          <div style={{ color: '#777', fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>Cargando propuestas…</div>
+          <div style={{ color: GRIS, fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>Cargando propuestas…</div>
         ) : propuestas.length === 0 ? (
-          <div style={{ color: '#555', fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>No hay propuestas pendientes.</div>
+          <div style={{ color: GRIS, fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>No hay propuestas pendientes.</div>
         ) : (
-          <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 6, overflowX: 'auto' }}>
+          <div style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -416,7 +420,7 @@ export default function CalcNetoAprendizajePage() {
                 {propuestas.map((p, i) => (
                   <tr key={p.id} style={{ backgroundColor: i % 2 === 0 ? INK : INK }}>
                     <td style={{ ...TD, color: BLANCO }}>{CANAL_LABEL[p.canal] ?? p.canal}</td>
-                    <td style={{ ...TD, color: '#9ba8c0' }}>{MESES[p.mes - 1]} {p.anio}</td>
+                    <td style={{ ...TD, color: APRENDIZAJES_SEC }}>{MESES[p.mes - 1]} {p.anio}</td>
                     <td style={{ ...TD, textAlign: 'right' }}>{fmtEur(p.neto_teorico, { decimals: 0 })}</td>
                     <td style={{ ...TD, textAlign: 'right', color: BLANCO }}>{fmtEur(p.neto_real, { decimals: 0 })}</td>
                     <td style={{ ...TD, textAlign: 'right', color: desvColor(p.desviacion_pct) }}>{fmtEur(p.desviacion_eur, { decimals: 0, signed: true })}</td>
@@ -431,7 +435,7 @@ export default function CalcNetoAprendizajePage() {
                         </button>
                         <button
                           onClick={() => actualizarEstado(p.id, 'descartado')}
-                          style={{ backgroundColor: INK, color: GRIS, border: '1px solid #383838', borderRadius: 4, padding: '5px 12px', fontFamily: 'Oswald,sans-serif', fontSize: 11, cursor: 'pointer', textTransform: 'uppercase' }}
+                          style={{ backgroundColor: INK, color: GRIS, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 4, padding: '5px 12px', fontFamily: 'Oswald,sans-serif', fontSize: 11, cursor: 'pointer', textTransform: 'uppercase' }}
                         >
                           Descartar
                         </button>
