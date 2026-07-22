@@ -55,7 +55,6 @@ const BandejaPendientes = React.lazy(() => import('@/pages/BandejaPendientes'))
 
 const PanelAlertas = React.lazy(() => import('@/pages/finanzas/PanelAlertas'))
 
-const PanelGlobal = React.lazy(() => import('@/pages/PanelGlobal'))
 const PanelDireccion = React.lazy(() => import('@/pages/PanelDireccion'))
 const Tareas = React.lazy(() => import('@/pages/Tareas'))
 const Carta = React.lazy(() => import('@/pages/Carta'))

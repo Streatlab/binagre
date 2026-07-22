@@ -144,7 +144,7 @@ function BloqueRealidad() {
       <Seccion titulo="La realidad ahora mismo (datos del ERP)">
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 4 }}>
           <KpiCard label="Rating medio" value={kpi ? kpi.rating.toFixed(2) : '—'} sub={kpi ? `${fmtNumES(kpi.resenas)} reseñas · ${kpi.marcas} marcas` : ''} color={kpi && kpi.rating >= 4.5 ? COLORS.ok : COLORS.warn} onClick={() => nav('/clientes/resenas')} />
-          <KpiCard label="Facturación 30d" value={factMes != null ? fmtEur(factMes) : '—'} sub="toca para ver Ventas" onClick={() => nav('/finanzas/ventas')} />
+          <KpiCard label="Facturación 30d" value={factMes != null ? fmtEur(factMes) : '—'} sub="toca para ver Ventas" onClick={() => nav('/finanzas/ventas-panel?tab=ventas')} />
           <KpiCard label="KPI Inés mes 2" value={fmtEur(15000)} sub="objetivo facturación Binagre" color={ACCENT} />
         </div>
         <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>Las tarjetas con datos enlazan al módulo de origen. El rating sale de Panel Reseñas; la facturación, de Ventas.</div>

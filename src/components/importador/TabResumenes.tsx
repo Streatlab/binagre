@@ -92,7 +92,7 @@ function ModalDetalle({ row, onClose }: { row: ResumenRow; onClose: () => void }
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
-            onClick={() => { navigate(`/finanzas/running?plataforma=${row.plataforma}&mes=${row.mes}&anio=${row.anio}`); onClose() }}
+            onClick={() => { navigate('/finanzas/resultados?tab=running'); onClose() }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#B01D23', border: 'none', borderRadius: 6, color: '#ffffff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}
           >
             <TrendingUp size={14} /> Ir a Running
