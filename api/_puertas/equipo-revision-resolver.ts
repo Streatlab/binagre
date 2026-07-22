@@ -33,7 +33,7 @@ async function handlerInterno(req: VercelRequest, res: VercelResponse) {
 
   const { data: fila, error: errFila } = await supabaseAdmin
     .from('equipo_docs_revision')
-    .select('id, nombre_archivo, mes, anio, empleado_nombre, storage_path, estado')
+    .select('id, nombre_archivo, mes, anio, empleado_nombre, storage_path, estado, payload')
     .eq('id', id)
     .maybeSingle()
   if (errFila || !fila) return res.status(404).json({ error: errFila?.message || 'No encontrado' })
@@ -43,6 +43,40 @@ async function handlerInterno(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: true })
   }
 
+  const mesFinal = body.mes ?? (fila.mes as number | null)
+  const anioFinal = body.anio ?? (fila.anio as number | null)
+
+  // Fila procedente de un resumen de nóminas (sin archivo propio): sus importes
+  // viven en payload. Al asignar el empleado se crea la nómina directamente
+  // desde esos datos y se aprende el alias — no hay nada que "reprocesar".
+  const payload = fila.payload as Record<string, unknown> | null
+  if (payload && payload.origen === 'resumen_nominas' && body.tipo_correcto === 'nomina') {
+    if (!body.empleado_id) return res.status(400).json({ ok: false, error: 'Elige el empleado antes de reprocesar.' })
+    if (!mesFinal || !anioFinal) return res.status(400).json({ ok: false, error: 'Falta mes/año de la nómina.' })
+    const { data: empleado, error: errEmpleado } = await supabaseAdmin
+      .from('empleados').select('id, nombre').eq('id', body.empleado_id).maybeSingle()
+    if (errEmpleado || !empleado) return res.status(404).json({ ok: false, error: errEmpleado?.message || 'Empleado no encontrado' })
+    const num = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number(v))
+    const { error: errUpsert } = await supabaseAdmin.from('nominas').upsert({
+      empleado_id: empleado.id,
+      mes: mesFinal,
+      anio: anioFinal,
+      importe_bruto: num(payload.bruto),
+      importe_neto: num(payload.neto),
+      irpf_retenido: num(payload.irpf),
+      ss_trabajador: null,
+      ss_empresa: num(payload.ss_total),
+      coste_empresa: num(payload.coste_empresa),
+      estado: [payload.bruto, payload.neto].every(v => v != null) ? 'ok' : 'revisar',
+      pdf_url: (payload.drive_url as string | null) ?? null,
+      origen_extraccion: 'ocr_auto_resumen',
+    }, { onConflict: 'empleado_id,anio,mes' })
+    if (errUpsert) return res.status(500).json({ ok: false, error: errUpsert.message })
+    await aprenderAlias(supabaseAdmin, empleado.id as string, fila.empleado_nombre as string | null)
+    await supabaseAdmin.from('equipo_docs_revision').update({ estado: 'resuelto' }).eq('id', id)
+    return res.status(200).json({ ok: true, resultado: { desde_payload: true, empleado: empleado.nombre, mes: mesFinal, anio: anioFinal } })
+  }
+
   if (!fila.storage_path) {
     return res.status(400).json({ ok: false, error: 'El archivo original ya no está guardado. Vuelve a subirlo por Papeleo → EQUIPO.' })
   }
@@ -50,8 +84,6 @@ async function handlerInterno(req: VercelRequest, res: VercelResponse) {
   if (!buffer) return res.status(500).json({ ok: false, error: 'No se pudo descargar la copia de respaldo del documento. Vuelve a subirlo por Papeleo → EQUIPO.' })
 
   const nombreArchivo = (fila.nombre_archivo as string) || 'documento.pdf'
-  const mesFinal = body.mes ?? (fila.mes as number | null)
-  const anioFinal = body.anio ?? (fila.anio as number | null)
 
   let resultado: { status: number; body: Record<string, unknown> }
   if (body.tipo_correcto === 'nomina') {
