@@ -25,6 +25,14 @@
 //   1) vercel.json incluye node_modules/pdfjs-dist/legacy/build/** en la función.
 //   2) si aun así no resuelve, limpiamos workerSrc en vez de dejar el heredado.
 //
+// FIX 22/07/26 (definitivo del mismatch): la causa raíz era que en el MISMO
+// proceso conviven DOS pdfjs: el 4.10.38 de pdfjs-dist (usado aquí para
+// rasterizar) y el 4.6.82 que unpdf lleva EMPAQUETADO DENTRO (usado por
+// extraerTextoPDF, que siempre corre antes). Alinear workers era parchear el
+// síntoma. Ahora el rasterizado usa el MISMO pdfjs de unpdf
+// (getResolvedPDFJS): una sola versión en todo el proceso, build serverless
+// sin worker externo — el mismatch es imposible por construcción.
+//
 // DIAGNÓSTICO 12/07/26 (task 2): auditoría = "Tesseract 0 lecturas históricas".
 // Las libs están instaladas (tesseract.js 5, pdfjs-dist, @napi-rs/canvas) y el flag
 // OCR_TESSERACT_ACTIVO está ENCENDIDO por defecto, así que no es config ni falta de
@@ -36,13 +44,6 @@
 // la 2ª factura del proveedor se lee gratis) y se hace VISIBLE el caso en
 // procesarArchivo (console diagnóstico cuando Tesseract dio texto pero no se extrajo
 // NIF/total), en vez de un 0 silencioso.
-//
-// FIX 22/07/26 (definitivo, ver desactivarWorkerPdfjs): el mismatch de versión
-// seguía en producción tras los dos fixes anteriores (confirmado en Runtime
-// Errors de Vercel: 40 ocurrencias en 7 días, la última el mismo 22/07). En vez
-// de seguir intentando resolver la ruta EXACTA del worker, se desactiva el
-// worker por completo (pdfjs cae a su FakeWorker de un solo hilo) — elimina la
-// clase entera de fallo, no solo el síntoma observado hasta ahora.
 
 const MAX_PAGINAS_OCR = 3      // facturas suelen ser 1-2 pág; tope anti-timeout
 const ESCALA_RASTER = 2.0      // 2x: legibilidad sin disparar memoria
@@ -68,42 +69,13 @@ export async function ocrImagen(buffer: Buffer): Promise<string> {
   }
 }
 
-// FIX 04/07 → 08/07 → 12/07/26: tres intentos de RESOLVER el .mjs del worker
-// exacto de la misma versión instalada (por createRequire) fallaron en
-// producción con el mismo síntoma: "API version 4.10.38 does not match Worker
-// version 4.6.82" — 40 veces en 7 días, la última hoy mismo (22/07 20:19).
-// El intento de resolver un workerSrc "no lanzaba excepción" (por eso el
-// fallback a fake-worker del catch nunca se disparaba) pero el worker real que
-// arrancaba Vercel en su lambda seguía siendo uno de otra versión — muy
-// probablemente un artefacto de caché de build de Vercel para ese asset
-// estático (`includeFiles`), no reproducible en local, y no reparable desde
-// aquí sin forzar un deploy.
-//
-// FIX 22/07/26 (definitivo): en vez de seguir intentando ACERTAR la ruta del
-// worker correcto, se DESACTIVA el worker por completo. Con workerSrc='' y
-// workerPort=null, pdfjs-dist cae directo a su FakeWorker (ejecuta el parseo
-// en el mismo hilo/proceso, sin Worker de verdad) — más lento en PDFs grandes,
-// pero estructuralmente IMPOSIBLE que compruebe versión API-vs-Worker, porque
-// no hay un segundo contexto que reporte una versión distinta. Ya limitado a
-// 3 páginas (MAX_PAGINAS_OCR) y 60s de tope, así que el coste es asumible.
-function desactivarWorkerPdfjs(pdfjs: any): void {
-  try {
-    if (pdfjs?.GlobalWorkerOptions) {
-      pdfjs.GlobalWorkerOptions.workerSrc = ''
-      pdfjs.GlobalWorkerOptions.workerPort = null
-    }
-  } catch (e) {
-    console.error('[desactivarWorkerPdfjs] no se pudo desactivar el worker:', e instanceof Error ? e.message : String(e))
-  }
-}
-
 // Rasteriza un PDF escaneado a PNG (primeras páginas) y le pasa Tesseract.
 export async function ocrPdfEscaneado(buffer: Buffer): Promise<string> {
   try {
-    // import dinámico con cast a any: la subruta legacy de pdfjs no expone
-    // typings y romperia `tsc -b`. En runtime resuelve perfectamente.
-    const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
-    desactivarWorkerPdfjs(pdfjs)
+    // MISMO pdfjs que la lectura directa de texto (el empaquetado en unpdf):
+    // una sola versión de pdfjs en el proceso => sin mismatch API/worker.
+    const { getResolvedPDFJS } = await import('unpdf')
+    const pdfjs: any = await getResolvedPDFJS()
     const canvasMod: any = await import('@napi-rs/canvas')
     const createCanvas = canvasMod.createCanvas
 
