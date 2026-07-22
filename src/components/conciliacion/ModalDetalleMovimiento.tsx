@@ -1,4 +1,5 @@
-import { AZUL, BLANCO, GRIS, INK, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
+import { AZUL, BLANCO, BORDE_SUAVE, CLARO, CREMA, GRIS, INK, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
+import { OCR_FOOTER_BG, CORREO_ALERTA_BORDE, CANAL_UBER_DARK, CONCILIACION_VIOLETA_CLARO } from '@/styles/palettes'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/utils/format'
@@ -384,7 +385,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
       onClick={onClose}
     >
       <div
-        style={{ background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '28px 32px', maxWidth: 640, width: '92%', boxShadow: '0 8px 30px rgba(0,0,0,0.06)', maxHeight: '92vh', overflowY: 'auto' }}
+        style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 14, padding: '28px 32px', maxWidth: 640, width: '92%', boxShadow: '0 8px 30px rgba(0,0,0,0.06)', maxHeight: '92vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
@@ -402,7 +403,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           <button onClick={onClose} style={{ fontSize: 18, color: GRIS, cursor: 'pointer', background: 'transparent', border: 'none', padding: 0 }}>✕</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px', marginBottom: 22, fontSize: 13, padding: '14px 0', borderTop: '0.5px solid #ebe8e2', borderBottom: '0.5px solid #ebe8e2' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px', marginBottom: 22, fontSize: 13, padding: '14px 0', borderTop: `0.5px solid ${CLARO}`, borderBottom: `0.5px solid ${CLARO}` }}>
           <div style={{ color: GRIS, fontFamily: 'Lexend, sans-serif' }}>Importe</div>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 500, letterSpacing: '0.5px', color: movimiento.importe >= 0 ? VERDE : ROJO, textAlign: 'right' }}>
             {movimiento.importe >= 0 ? '+' : ''}{fmtEur(movimiento.importe)}
@@ -415,7 +416,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
 
         {/* Punto 25: datos enriquecidos del extracto bancario */}
         {hayDatosExtracto && (
-          <div style={{ marginBottom: 22, padding: '12px 14px', background: '#fafaf7', border: '0.5px solid #ebe8e2', borderRadius: 10 }}>
+          <div style={{ marginBottom: 22, padding: '12px 14px', background: OCR_FOOTER_BG, border: `0.5px solid ${CLARO}`, borderRadius: 10 }}>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', marginBottom: 10 }}>Datos del extracto</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 13, fontFamily: 'Lexend, sans-serif' }}>
               {extracto?.fecha_valor && (<>
@@ -442,18 +443,18 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', marginBottom: 8 }}>Categoría</label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
             <select value={selectedBloque} onChange={e => { setSelectedBloque(e.target.value); setSelectedSubgrupo(''); setSelectedDetalle('') }}
-              style={{ padding: '9px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: BLANCO, color: INK, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', width: '100%', boxSizing: 'border-box' }}>
+              style={{ padding: '9px 12px', borderRadius: 8, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, color: INK, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', width: '100%', boxSizing: 'border-box' }}>
               <option value="">Categoría</option>
               {bloques.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
             </select>
             <select value={selectedSubgrupo} onChange={e => { setSelectedSubgrupo(e.target.value); setSelectedDetalle('') }}
               disabled={!selectedBloque || subgrupos.length === 0}
-              style={{ padding: '9px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: BLANCO, color: INK, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', width: '100%', boxSizing: 'border-box', opacity: (!selectedBloque || subgrupos.length === 0) ? 0.5 : 1 }}>
+              style={{ padding: '9px 12px', borderRadius: 8, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, color: INK, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', width: '100%', boxSizing: 'border-box', opacity: (!selectedBloque || subgrupos.length === 0) ? 0.5 : 1 }}>
               <option value="">Grupo</option>
               {subgrupos.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
             </select>
             <select value={selectedDetalle} onChange={e => setSelectedDetalle(e.target.value)} disabled={!selectedBloque}
-              style={{ padding: '9px 12px', borderRadius: 8, border: selectedDetalle ? '0.5px solid #FF4757' : '0.5px solid #d0c8bc', background: selectedDetalle ? '#FF475710' : BLANCO, color: selectedDetalle ? ROJO : INK, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', width: '100%', boxSizing: 'border-box' }}>
+              style={{ padding: '9px 12px', borderRadius: 8, border: selectedDetalle ? `0.5px solid ${CORREO_ALERTA_BORDE}` : `0.5px solid ${BORDE_SUAVE}`, background: selectedDetalle ? CORREO_ALERTA_BORDE + '10' : BLANCO, color: selectedDetalle ? ROJO : INK, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', width: '100%', boxSizing: 'border-box' }}>
               <option value="">Detalle</option>
               {detalles.map(d => <option key={d.id} value={d.id}>{d.id} · {d.nombre}</option>)}
             </select>
@@ -463,7 +464,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
         <div style={{ marginBottom: 18 }}>
           <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', marginBottom: 8 }}>Contraparte (no editable)</label>
           <div
-            style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fafaf7', color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, boxSizing: 'border-box' }}>
+            style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `0.5px solid ${BORDE_SUAVE}`, background: OCR_FOOTER_BG, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, boxSizing: 'border-box' }}>
             {contraparte || facturasAsociadas[0]?.factura_proveedor || '—'}
           </div>
         </div>
@@ -481,7 +482,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
               const activeColor = isR ? NAR : AZUL
               return (
                 <button key={t.id} onClick={() => setTitularId(isActive ? '' : t.id)}
-                  style={{ padding: 10, borderRadius: 8, border: isActive ? 'none' : '0.5px solid #d0c8bc', background: isActive ? activeColor : BLANCO, color: isActive ? BLANCO : OSC, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}>
+                  style={{ padding: 10, borderRadius: 8, border: isActive ? 'none' : `0.5px solid ${BORDE_SUAVE}`, background: isActive ? activeColor : BLANCO, color: isActive ? BLANCO : OSC, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}>
                   {t.nombre}
                 </button>
               )
@@ -495,13 +496,13 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
               Facturas asociadas ({facturasAsociadas.length})
             </label>
             <button onClick={() => setMostrarBuscador(v => !v)}
-              style={{ padding: '5px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 11, color: OSC, cursor: 'pointer' }}>
+              style={{ padding: '5px 12px', borderRadius: 6, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 11, color: OSC, cursor: 'pointer' }}>
               {mostrarBuscador ? 'Cerrar' : '+ Asociar'}
             </button>
           </div>
 
           {facturasAsociadas.length === 0 && !mostrarBuscador && (
-            <div style={{ padding: 16, textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, background: '#fafaf7', borderRadius: 8, border: '0.5px dashed #d0c8bc' }}>
+            <div style={{ padding: 16, textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, background: OCR_FOOTER_BG, borderRadius: 8, border: `0.5px dashed ${BORDE_SUAVE}` }}>
               Sin facturas asociadas
             </div>
           )}
@@ -511,7 +512,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
               {facturasAsociadas.map(f => (
                 <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#1D9E7510', border: '0.5px solid #1D9E7540', borderRadius: 8, fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#0F6E56', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ color: CANAL_UBER_DARK, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {f.factura_numero} · {f.factura_proveedor}
                     </div>
                     <div style={{ color: GRIS, fontSize: 11 }}>
@@ -521,7 +522,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                     {f.factura_pdf_url && (
                       <a href={f.factura_pdf_url} target="_blank" rel="noreferrer"
-                        style={{ padding: '3px 8px', background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 6, color: OSC, textDecoration: 'none', fontSize: 11 }}>
+                        style={{ padding: '3px 8px', background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 6, color: OSC, textDecoration: 'none', fontSize: 11 }}>
                         📎 PDF
                       </a>
                     )}
@@ -536,10 +537,10 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           )}
 
           {mostrarBuscador && (
-            <div style={{ background: '#fafaf7', borderRadius: 8, padding: 12, border: '0.5px solid #d0c8bc' }}>
+            <div style={{ background: OCR_FOOTER_BG, borderRadius: 8, padding: 12, border: `0.5px solid ${BORDE_SUAVE}` }}>
               <input type="text" value={busquedaFactura} onChange={e => setBusquedaFactura(e.target.value)}
                 placeholder="Buscar factura por nº o proveedor (vacío = match según reglas de proveedor)"
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 12, marginBottom: 10, boxSizing: 'border-box', outline: 'none' }} />
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 12, marginBottom: 10, boxSizing: 'border-box', outline: 'none' }} />
 
               {cargandoCandidatas && (
                 <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: GRIS }}>Buscando…</div>
@@ -554,7 +555,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
               {!cargandoCandidatas && candidatas.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
                   {candidatas.map(c => (
-                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>
+                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ color: INK, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {c.numero_factura} · {c.proveedor_nombre}
@@ -567,7 +568,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
                         <input type="text" value={importeAsociar[c.id] ?? ''}
                           onChange={e => setImporteAsociar(p => ({ ...p, [c.id]: e.target.value }))}
                           placeholder={String(Math.min(restante, c.importe_restante).toFixed(2))}
-                          style={{ width: 70, padding: '4px 8px', borderRadius: 5, border: '0.5px solid #d0c8bc', fontSize: 11, fontFamily: 'Oswald, sans-serif', textAlign: 'right' }} />
+                          style={{ width: 70, padding: '4px 8px', borderRadius: 5, border: `0.5px solid ${BORDE_SUAVE}`, fontSize: 11, fontFamily: 'Oswald, sans-serif', textAlign: 'right' }} />
                         <button onClick={() => handleAsociar(c)}
                           style={{ padding: '4px 10px', background: ROJO, border: 'none', borderRadius: 5, color: BLANCO, cursor: 'pointer', fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>
                           Asociar
@@ -581,29 +582,29 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           )}
         </div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: OSC, cursor: 'pointer', marginBottom: 12, padding: '10px 12px', background: '#f5f3ef', borderRadius: 8 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: OSC, cursor: 'pointer', marginBottom: 12, padding: '10px 12px', background: CREMA, borderRadius: 8 }}>
           <input type="checkbox" checked={noRequiere} onChange={e => setNoRequiere(e.target.checked)}
             style={{ width: 16, height: 16, accentColor: ROJO, margin: 0 }} />
           <span>No requiere documento</span>
         </label>
 
         {/* Puntos 9/10: marcar el movimiento como NO conciliable (comisión banco, traspaso…) */}
-        <div style={{ marginBottom: 22, padding: '10px 12px', background: noConciliable ? '#8a7df010' : '#f5f3ef', border: noConciliable ? '0.5px solid #8a7df0' : '0.5px solid transparent', borderRadius: 8 }}>
+        <div style={{ marginBottom: 22, padding: '10px 12px', background: noConciliable ? CONCILIACION_VIOLETA_CLARO + '10' : CREMA, border: noConciliable ? `0.5px solid ${CONCILIACION_VIOLETA_CLARO}` : '0.5px solid transparent', borderRadius: 8 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: OSC, cursor: 'pointer' }}>
             <input type="checkbox" checked={noConciliable} onChange={e => setNoConciliable(e.target.checked)}
-              style={{ width: 16, height: 16, accentColor: '#8a7df0', margin: 0 }} />
+              style={{ width: 16, height: 16, accentColor: CONCILIACION_VIOLETA_CLARO, margin: 0 }} />
             <span>No conciliable (no se cruza con factura: comisión del banco, traspaso entre cuentas…)</span>
           </label>
           {noConciliable && (
             <input type="text" value={motivoNoConc} onChange={e => setMotivoNoConc(e.target.value)}
               placeholder="Motivo (ej. traspaso entre cuentas, comisión bancaria)"
-              style={{ width: '100%', marginTop: 10, padding: '8px 12px', borderRadius: 6, border: '0.5px solid #d0c8bc', background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 12, boxSizing: 'border-box', outline: 'none' }} />
+              style={{ width: '100%', marginTop: 10, padding: '8px 12px', borderRadius: 6, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 12, boxSizing: 'border-box', outline: 'none' }} />
           )}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={onClose}
-            style={{ padding: '8px 18px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: 'transparent', color: OSC, fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+            style={{ padding: '8px 18px', borderRadius: 8, border: `0.5px solid ${BORDE_SUAVE}`, background: 'transparent', color: OSC, fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
             Cancelar
           </button>
           <button onClick={handleGuardar} disabled={saving}

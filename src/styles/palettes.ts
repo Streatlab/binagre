@@ -293,6 +293,10 @@ export const OCR_TOAST_AMBER_BG = '#FFF3E0'
 export const OCR_TOAST_AMBER_TXT = '#8a4b00'
 export const OCR_TOAST_VERDE_WASH = '#EAF7F1'
 export const OCR_TOAST_ROJO_WASH = '#FDECEC'
+
+/** Conciliación (piel, V8) · badge "no conciliable" (violeta propio). */
+export const CONCILIACION_VIOLETA = '#6a5acd'
+export const CONCILIACION_VIOLETA_CLARO = '#8a7df0'
 /** Granate en hover (botones primarios de Configuración). */
 export const GRANATE_HOVER = '#901A1E'
 /** Verde "positivo" distinto de COBERTURA_VERDE (KpiCard subTone). */
