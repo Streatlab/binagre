@@ -1,0 +1,159 @@
+name: equipo-sidebar-grupos
+on:
+  push:
+    paths:
+      - '.github/workflows/equipo-sidebar-grupos.yml'
+permissions:
+  contents: write
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: trabajo
+      - name: Equipo como seccion propia del sidebar con 4 entradas
+        shell: python
+        run: |
+          # ── 1) SIDEBAR: Equipo deja de ser un item suelto dentro de Operaciones
+          #    y vuelve a ser seccion propia (rosa) con 4 entradas.
+          p = 'src/components/Sidebar.tsx'
+          s = open(p, encoding='utf-8').read()
+          s = s.replace("  ClipboardList,\n  Compass,\n} from 'lucide-react'",
+                        "  ClipboardList,\n  Compass,\n  Users,\n} from 'lucide-react'")
+          s = s.replace("      { path: '/equipo',              label: 'Equipo',           emoji: '\U0001F465', perfiles: ['admin'] },\n", "")
+          viejo = "  {\n    key: 'compras', label: 'Compras', perfiles: ['admin'],"
+          nuevo = (
+            "  {\n"
+            "    // Equipo vuelve a ser seccion propia del sidebar (antes era un item suelto\n"
+            "    // dentro de Operaciones que abria una pantalla con 12 pesta\u00f1as seguidas:\n"
+            "    // inusable). Cada entrada agrupa sus pesta\u00f1as por sentido: quienes son /\n"
+            "    // que cuestan / como trabajan / que papeles hay.\n"
+            "    key: 'equipo', label: 'Equipo', perfiles: ['admin'],\n"
+            "    items: [\n"
+            "      { path: '/equipo/personas',   label: 'Personas',   emoji: '\U0001F465', perfiles: ['admin'] },\n"
+            "      { path: '/equipo/dinero',     label: 'Dinero',     emoji: '\U0001F4B6', perfiles: ['admin'] },\n"
+            "      { path: '/equipo/dia-a-dia',  label: 'D\u00eda a d\u00eda',  emoji: '\U0001F5D3\uFE0F', perfiles: ['admin'] },\n"
+            "      { path: '/equipo/documentos', label: 'Documentos', emoji: '\U0001F4C1', perfiles: ['admin'] },\n"
+            "    ],\n"
+            "  },\n"
+            "  {\n    key: 'compras', label: 'Compras', perfiles: ['admin'],"
+          )
+          assert viejo in s, 'seccion compras no encontrada'
+          s = s.replace(viejo, nuevo, 1)
+          s = s.replace("  compras:       { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },",
+                        "  equipo:        { icon: Users,         headBg: '#D6336C', headColor: BLANCO  },\n  compras:       { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },")
+          open(p, 'w', encoding='utf-8').write(s)
+
+          # ── 2) EQUIPO.TSX: las 12 pesta\u00f1as se reparten en 4 grupos.
+          p = 'src/pages/Equipo.tsx'
+          s = open(p, encoding='utf-8').read()
+          ini = s.index('type TabKey')
+          fin = s.index('const tabBase')
+          nuevos_tabs = '''type TabKey = 'empleados' | 'nominas' | 'costes' | 'segsocial' | 'documentos' | 'incentivos' | 'calendario' | 'permisos' | 'horarios' | 'presencia' | 'organigrama' | 'portal'
+          export type GrupoEquipo = 'personas' | 'dinero' | 'dia' | 'documentos'
+
+          // Equipo es una seccion propia del sidebar con 4 entradas; cada una trae solo
+          // SUS pesta\u00f1as. Antes eran 12 seguidas en una sola pantalla y no se podia
+          // trabajar. Agrupacion: quienes son / que cuestan / como trabajan / papeles.
+          const GRUPOS: Record<GrupoEquipo, { titulo: string; tabs: { key: TabKey; label: string }[] }> = {
+            personas: {
+              titulo: 'Equipo \u00b7 Personas',
+              tabs: [
+                { key: 'empleados',   label: 'Fichas' },
+                { key: 'organigrama', label: 'Organigrama' },
+                { key: 'incentivos',  label: 'Incentivos' },
+                { key: 'portal',      label: 'Portal del empleado' },
+              ],
+            },
+            dinero: {
+              titulo: 'Equipo \u00b7 Dinero',
+              tabs: [
+                { key: 'nominas',   label: 'N\u00f3minas' },
+                { key: 'costes',    label: 'Costes' },
+                { key: 'segsocial', label: 'Seguridad Social y aut\u00f3nomos' },
+              ],
+            },
+            dia: {
+              titulo: 'Equipo \u00b7 D\u00eda a d\u00eda',
+              tabs: [
+                { key: 'horarios',   label: 'Horarios' },
+                { key: 'presencia',  label: 'Fichajes' },
+                { key: 'calendario', label: 'Calendario laboral' },
+                { key: 'permisos',   label: 'Permisos y vacaciones' },
+              ],
+            },
+            documentos: {
+              titulo: 'Equipo \u00b7 Documentos',
+              tabs: [
+                { key: 'documentos', label: 'Documentos' },
+              ],
+            },
+          }
+
+          '''
+          nuevos_tabs = '\n'.join(l[10:] if l.startswith('          ') else l for l in nuevos_tabs.split('\n'))
+          s = s[:ini] + nuevos_tabs + s[fin:]
+          s = s.replace('export default function Equipo() {',
+                        "export default function Equipo({ grupo = 'personas' }: { grupo?: GrupoEquipo }) {")
+          s = s.replace("""  const raw = params.get('tab') as TabKey | null
+            const activeTab: TabKey = TABS.some(t => t.key === raw) ? raw! : 'empleados'""".replace('\n            ', '\n  '),
+          """  const { titulo, tabs } = GRUPOS[grupo]
+            const raw = params.get('tab') as TabKey | null
+            const activeTab: TabKey = tabs.some(t => t.key === raw) ? raw! : tabs[0].key""".replace('\n            ', '\n  '))
+          s = s.replace("fontSize: 'clamp(22px, 5vw, 30px)' }}>Personas</h1>", "fontSize: 'clamp(22px, 5vw, 30px)' }}>{titulo}</h1>")
+          s = s.replace("""      <div style={{ display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 4 }}>
+                  {TABS.map(t => {""".replace('\n            ', '\n  '),
+          """      {tabs.length > 1 && (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 4 }}>
+                  {tabs.map(t => {""".replace('\n            ', '\n  '))
+          s = s.replace("""          )
+                  })}
+                </div>
+
+                {/* Tab content */}""".replace('\n          ', '\n  '),
+          """          )
+                  })}
+                </div>
+                )}
+
+                {/* Tab content */}""".replace('\n          ', '\n  '))
+          assert 'GRUPOS[grupo]' in s and 'tabs.length > 1' in s, 'reemplazos de Equipo.tsx incompletos'
+          open(p, 'w', encoding='utf-8').write(s)
+
+          # ── 3) APP.TSX: una ruta por grupo + redirecciones de las rutas viejas.
+          p = 'src/App.tsx'
+          s = open(p, encoding='utf-8').read()
+          viejo = '''          <Route path="equipo" element={<Equipo />} />
+          <Route path="equipo/organigrama" element={<Navigate to="/equipo?tab=organigrama" replace />} />
+          <Route path="equipo/horarios" element={<Navigate to="/equipo?tab=horarios" replace />} />
+          <Route path="equipo/presencia" element={<Navigate to="/equipo?tab=presencia" replace />} />
+          <Route path="equipo/portal" element={<Navigate to="/equipo?tab=portal" replace />} />'''
+          nuevo = '''          {/* Equipo: seccion propia del sidebar con 4 entradas, cada una con sus
+              pestanas (antes: 12 pestanas en una sola pantalla). Las rutas viejas
+              siguen funcionando y llevan a su nuevo sitio. */}
+          <Route path="equipo" element={<Navigate to="/equipo/personas" replace />} />
+          <Route path="equipo/personas" element={<Equipo grupo="personas" />} />
+          <Route path="equipo/dinero" element={<Equipo grupo="dinero" />} />
+          <Route path="equipo/dia-a-dia" element={<Equipo grupo="dia" />} />
+          <Route path="equipo/documentos" element={<Equipo grupo="documentos" />} />
+          <Route path="equipo/organigrama" element={<Navigate to="/equipo/personas?tab=organigrama" replace />} />
+          <Route path="equipo/incentivos" element={<Navigate to="/equipo/personas?tab=incentivos" replace />} />
+          <Route path="equipo/nominas" element={<Navigate to="/equipo/dinero?tab=nominas" replace />} />
+          <Route path="equipo/costes" element={<Navigate to="/equipo/dinero?tab=costes" replace />} />
+          <Route path="equipo/horarios" element={<Navigate to="/equipo/dia-a-dia?tab=horarios" replace />} />
+          <Route path="equipo/presencia" element={<Navigate to="/equipo/dia-a-dia?tab=presencia" replace />} />
+          <Route path="equipo/portal" element={<Navigate to="/equipo/personas?tab=portal" replace />} />'''
+          assert viejo in s, 'rutas de equipo no encontradas'
+          s = s.replace(viejo, nuevo)
+          open(p, 'w', encoding='utf-8').write(s)
+          print('OK')
+      - name: Gate y push
+        run: |
+          npm ci
+          npx tsc --noEmit -p tsconfig.json
+          npm run build
+          git config user.name "Claude"
+          git config user.email "noreply@anthropic.com"
+          git commit -am "Equipo: seccion propia del sidebar (rosa) con 4 entradas - Personas / Dinero / Dia a dia / Documentos, cada una con sus pestanas [deploy]"
+          git push origin trabajo
