@@ -97,29 +97,37 @@ export async function procesarNominaIndividual(
 
   const estadoNomina: 'ok' | 'revisar' = resultado.estado === 'ok' ? 'ok' : 'revisar'
 
-  const { data: fila, error: errUpsert } = await supabaseAdmin
-    .from('nominas')
-    .upsert({
-      empleado_id: empleadoId,
-      mes: mesFinal,
-      anio: anioFinal,
-      importe_bruto: resultado.importe_bruto,
-      importe_neto: resultado.importe_neto,
-      irpf_retenido: resultado.irpf_retenido,
-      ss_trabajador: resultado.ss_trabajador,
-      ss_empresa: resultado.ss_empresa,
-      coste_empresa: resultado.coste_empresa,
-      estado: estadoNomina,
-      pdf_url: archivado.driveUrl,
-      pdf_drive_url: archivado.driveUrl,
-      origen_extraccion: 'ocr_auto',
-      drive_pendiente: archivado.drivePendiente,
-      drive_error: archivado.driveError,
-      drive_niveles: archivado.niveles,
-      drive_nombre_archivo: archivado.nombreArchivo,
-    }, { onConflict: 'empleado_id,anio,mes' })
-    .select()
+  // Insert/update manual en vez de upsert(onConflict): el upsert dependía de que
+  // PostgREST tuviera la restricción única en su caché de esquema y el 22-jul,
+  // tras un día de muchas migraciones, devolvió "no unique or exclusion constraint
+  // matching the ON CONFLICT specification" con la restricción existiendo en BD.
+  // El camino select→update/insert no depende de esa caché y es determinista.
+  const datosNomina = {
+    empleado_id: empleadoId,
+    mes: mesFinal,
+    anio: anioFinal,
+    importe_bruto: resultado.importe_bruto,
+    importe_neto: resultado.importe_neto,
+    irpf_retenido: resultado.irpf_retenido,
+    ss_trabajador: resultado.ss_trabajador,
+    ss_empresa: resultado.ss_empresa,
+    coste_empresa: resultado.coste_empresa,
+    estado: estadoNomina,
+    pdf_url: archivado.driveUrl,
+    pdf_drive_url: archivado.driveUrl,
+    origen_extraccion: 'ocr_auto',
+    drive_pendiente: archivado.drivePendiente,
+    drive_error: archivado.driveError,
+    drive_niveles: archivado.niveles,
+    drive_nombre_archivo: archivado.nombreArchivo,
+  }
+  const { data: previa } = await supabaseAdmin
+    .from('nominas').select('id')
+    .eq('empleado_id', empleadoId).eq('anio', anioFinal).eq('mes', mesFinal)
     .maybeSingle()
+  const { data: fila, error: errUpsert } = previa
+    ? await supabaseAdmin.from('nominas').update(datosNomina).eq('id', previa.id).select().maybeSingle()
+    : await supabaseAdmin.from('nominas').insert(datosNomina).select().maybeSingle()
 
   if (errUpsert) return { status: 500, body: { error: errUpsert.message } }
 
