@@ -48,12 +48,9 @@ const SECTIONS: NavSection[] = [
   {
     key: 'cocina', label: 'Cocina', perfiles: ['admin', 'cocina'],
     items: [
-      { path: '/cocina/numeros/hoy',           label: 'Hoy',           emoji: '🏠', perfiles: ['admin'], grupo: 'Números' },
-      { path: '/cocina/numeros/datos',         label: 'Datos',         emoji: '⚖️', perfiles: ['admin'], grupo: 'Números' },
-      { path: '/cocina/numeros/plato-maestro', label: 'Plato Maestro', emoji: '🍲', perfiles: ['admin'], grupo: 'Números' },
-      { path: '/cocina/numeros/analisis',      label: 'Análisis',      emoji: '📊', perfiles: ['admin'], grupo: 'Números' },
-      { path: '/cocina/operativa/recetas',    label: 'Libro de Recetas', emoji: '📋', perfiles: ['admin', 'cocina'], grupo: 'Operativa' },
-      { path: '/cocina/operativa/produccion', label: 'Producción',       emoji: '🏭', perfiles: ['admin', 'cocina'], grupo: 'Operativa' },
+      { path: '/cocina/hoy',       label: 'Hoy',       emoji: '🏠', perfiles: ['admin'] },
+      { path: '/cocina/operativa', label: 'Operativa', emoji: '🍳', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/dinero',    label: 'Dinero',    emoji: '💶', perfiles: ['admin'] },
     ],
   },
   {
