@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 export function Avatar({
   letter,
   color,
@@ -14,12 +15,12 @@ export function Avatar({
         borderRadius: '50%',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#ffffff',
+        color: BLANCO,
         fontWeight: 700,
         fontSize: 12,
         marginRight: 10,
         verticalAlign: 'middle',
-        background: color ?? '#B01D23',
+        background: color ?? GRANATE,
         fontFamily: 'Lexend, sans-serif',
       }}
     >

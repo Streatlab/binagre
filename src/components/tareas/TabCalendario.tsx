@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { useTheme } from '@/styles/tokens'
 import { supabase } from '@/lib/supabase'
@@ -89,9 +90,9 @@ export default function TabCalendario() {
     : []
 
   const estadoColor: Record<string, string> = {
-    cumplida: '#1D9E75',
-    pendiente: '#f5a623',
-    atrasada: '#B01D23',
+    cumplida: VERDE,
+    pendiente: NAR,
+    atrasada: GRANATE,
   }
 
   return (
@@ -139,7 +140,7 @@ export default function TabCalendario() {
               style={{
                 minHeight: 64,
                 borderRadius: 6,
-                border: `1px solid ${esHoy ? '#e8f442' : T.brd}`,
+                border: `1px solid ${esHoy ? LIMA : T.brd}`,
                 background: esHoy ? 'rgba(232,244,66,0.06)' : T.card,
                 padding: '6px 8px',
                 cursor: hasTareas ? 'pointer' : 'default',
@@ -149,7 +150,7 @@ export default function TabCalendario() {
               <div style={{
                 fontFamily: 'Lexend, sans-serif',
                 fontSize: 12,
-                color: esHoy ? '#e8f442' : T.pri,
+                color: esHoy ? LIMA : T.pri,
                 fontWeight: esHoy ? 700 : 400,
                 marginBottom: 4,
               }}>{dia}</div>
@@ -182,11 +183,11 @@ export default function TabCalendario() {
           onClick={() => setModalDia(null)}
         >
           <div
-            style={{ backgroundColor: '#1a1a1a', border: `1px solid #383838`, borderRadius: 12, padding: 24, minWidth: 320, maxWidth: 480 }}
+            style={{ backgroundColor: INK, border: `1px solid #383838`, borderRadius: 12, padding: 24, minWidth: 320, maxWidth: 480 }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#B01D23', fontWeight: 600 }}>
+              <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRANATE, fontWeight: 600 }}>
                 Tareas del {modalDia}
               </span>
               <button onClick={() => setModalDia(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#777', fontSize: 18 }}>×</button>
@@ -204,12 +205,12 @@ export default function TabCalendario() {
                       gap: 10,
                       padding: '8px 12px',
                       borderRadius: 6,
-                      background: '#141414',
+                      background: INK,
                       border: `1px solid #2a2a2a`,
                     }}
                   >
                     <div style={{ width: 10, height: 10, borderRadius: '50%', background: estadoColor[t.estado] ?? '#888', flexShrink: 0 }} />
-                    <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#ffffff' }}>{t.nombre}</span>
+                    <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: BLANCO }}>{t.nombre}</span>
                     <span style={{
                       marginLeft: 'auto',
                       fontSize: 11,

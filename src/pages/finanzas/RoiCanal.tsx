@@ -5,9 +5,7 @@
 import React, { useState } from 'react'
 import { useRoiCanal, MESES_ROI, type PeriodoRoi, type CanalRoi } from '@/lib/finanzas/useRoiCanal'
 import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD,
-  GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow,
-} from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal'
 import { fmtEur } from '@/lib/format'
 
 /** Formato "veces": 1 decimal, coma es_ES, sufijo "x". Sin datos → "—". */
@@ -24,7 +22,7 @@ export function RoiCanal({ embedded = false }: { embedded?: boolean } = {}) {
   const { loading, error, canales, mejor, peor, roiMedio } = useRoiCanal(periodo, año)
 
   const hayEmpate = !!mejor && !!peor && mejor.plataforma === peor.plataforma
-  const card: React.CSSProperties = { background: '#fff', border: BORDER_CARD, boxShadow: SHADOW }
+  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
 
   if (loading) {
     return (
@@ -43,7 +41,7 @@ export function RoiCanal({ embedded = false }: { embedded?: boolean } = {}) {
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         {!embedded && (
           <div>
-            <span style={eyebrow(NAR, '#fff')}>FINANZAS</span>
+            <span style={eyebrow(NAR, BLANCO)}>FINANZAS</span>
             <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
               ROI POR CANAL
             </h1>
@@ -56,7 +54,7 @@ export function RoiCanal({ embedded = false }: { embedded?: boolean } = {}) {
           {(['ultimo_mes', 'año_actual'] as PeriodoRoi[]).map(p => (
             <button key={p} onClick={() => setPeriodo(p)} style={{
               padding: '8px 16px', border: `3px solid ${INK}`,
-              background: periodo === p ? GRANATE : '#fff', color: periodo === p ? '#fff' : INK,
+              background: periodo === p ? GRANATE : BLANCO, color: periodo === p ? BLANCO : INK,
               boxShadow: periodo === p ? SHADOW : 'none',
               fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer',
             }}>
@@ -74,14 +72,14 @@ export function RoiCanal({ embedded = false }: { embedded?: boolean } = {}) {
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 20 }}>
             <div style={{ ...card, padding: '16px 20px', background: VERDE }}>
-              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Mejor canal</div>
-              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, color: '#fff', textTransform: 'uppercase' }}>{mejor ? mejor.label : '—'}</div>
-              <div style={{ fontFamily: LEX, fontSize: 13, color: '#fff', marginTop: 6 }}>{mejor ? fmtRoi(mejor.roi) : 'Sin datos de ROI'}</div>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Mejor canal</div>
+              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, color: BLANCO, textTransform: 'uppercase' }}>{mejor ? mejor.label : '—'}</div>
+              <div style={{ fontFamily: LEX, fontSize: 13, color: BLANCO, marginTop: 6 }}>{mejor ? fmtRoi(mejor.roi) : 'Sin datos de ROI'}</div>
             </div>
             <div style={{ ...card, padding: '16px 20px', background: ROJO }}>
-              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Peor canal</div>
-              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, color: '#fff', textTransform: 'uppercase' }}>{peor ? peor.label : '—'}</div>
-              <div style={{ fontFamily: LEX, fontSize: 13, color: '#fff', marginTop: 6 }}>{peor ? fmtRoi(peor.roi) : 'Sin datos de ROI'}</div>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Peor canal</div>
+              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, color: BLANCO, textTransform: 'uppercase' }}>{peor ? peor.label : '—'}</div>
+              <div style={{ fontFamily: LEX, fontSize: 13, color: BLANCO, marginTop: 6 }}>{peor ? fmtRoi(peor.roi) : 'Sin datos de ROI'}</div>
             </div>
             <div style={{ ...card, padding: '16px 20px', background: AMA }}>
               <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 6 }}>ROI medio ponderado</div>
@@ -130,7 +128,7 @@ export function RoiCanal({ embedded = false }: { embedded?: boolean } = {}) {
           </div>
 
           <div style={{ ...card, marginTop: 18, padding: '14px 18px' }}>
-            <span style={eyebrow(NAR, '#fff')}>REFERENCIA CONFIGURADA</span>
+            <span style={eyebrow(NAR, BLANCO)}>REFERENCIA CONFIGURADA</span>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 12 }}>
               {canales.map((c: CanalRoi) => (
                 <div key={c.plataforma} style={{ fontFamily: LEX, fontSize: 12, color: INK, borderLeft: `3px solid ${c.color}`, paddingLeft: 10 }}>

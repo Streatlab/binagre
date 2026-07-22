@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, LIMA, ROJO_S } from '@/styles/neobrutal'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -74,10 +75,10 @@ export default function ModalRangoBulk({ onClose }: Props) {
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 12, padding: '28px 32px', width: 420, maxWidth: '95vw' }}
+        style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 12, padding: '28px 32px', width: 420, maxWidth: '95vw' }}
         onClick={e => e.stopPropagation()}
       >
-        <h2 style={{ margin: '0 0 4px', fontFamily: FONT.heading, fontSize: 16, color: '#e8f442', letterSpacing: 1, textTransform: 'uppercase' }}>
+        <h2 style={{ margin: '0 0 4px', fontFamily: FONT.heading, fontSize: 16, color: LIMA, letterSpacing: 1, textTransform: 'uppercase' }}>
           Marcar rango
         </h2>
         <p style={{ margin: '0 0 20px', fontFamily: FONT.body, fontSize: 12, color: '#777' }}>
@@ -93,7 +94,7 @@ export default function ModalRangoBulk({ onClose }: Props) {
               onChange={e => setDesde(e.target.value)}
               min="2026-01-01"
               max="2027-12-31"
-              style={{ width: '100%', padding: '8px 12px', backgroundColor: '#1e1e1e', color: '#fff', border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }}
             />
           </div>
           <div>
@@ -104,7 +105,7 @@ export default function ModalRangoBulk({ onClose }: Props) {
               onChange={e => setHasta(e.target.value)}
               min="2026-01-01"
               max="2027-12-31"
-              style={{ width: '100%', padding: '8px 12px', backgroundColor: '#1e1e1e', color: '#fff', border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }}
             />
           </div>
         </div>
@@ -113,7 +114,7 @@ export default function ModalRangoBulk({ onClose }: Props) {
         <select
           value={tipo}
           onChange={e => setTipo(e.target.value as TipoDia)}
-          style={{ width: '100%', padding: '8px 12px', backgroundColor: '#1e1e1e', color: '#fff', border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 16 }}
+          style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 16 }}
         >
           {TODOS_TIPOS.map(t => (
             <option key={t} value={t}>{TIPO_LABEL[t]}</option>
@@ -126,12 +127,12 @@ export default function ModalRangoBulk({ onClose }: Props) {
           value={nota}
           onChange={e => setNota(e.target.value)}
           placeholder="Ej: Vacaciones agosto"
-          style={{ width: '100%', padding: '8px 12px', backgroundColor: '#1e1e1e', color: '#fff', border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 20, boxSizing: 'border-box' }}
+          style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 20, boxSizing: 'border-box' }}
         />
 
-        {error && <div style={{ color: '#ffaaaa', fontFamily: FONT.body, fontSize: 12, marginBottom: 12 }}>{error}</div>}
+        {error && <div style={{ color: ROJO_S, fontFamily: FONT.body, fontSize: 12, marginBottom: 12 }}>{error}</div>}
         {ok !== null && (
-          <div style={{ color: '#e8f442', fontFamily: FONT.body, fontSize: 12, marginBottom: 12 }}>
+          <div style={{ color: LIMA, fontFamily: FONT.body, fontSize: 12, marginBottom: 12 }}>
             {ok} días actualizados correctamente.
           </div>
         )}
@@ -147,7 +148,7 @@ export default function ModalRangoBulk({ onClose }: Props) {
             <button
               onClick={aplicar}
               disabled={saving}
-              style={{ padding: '9px 18px', backgroundColor: '#B01D23', border: 'none', borderRadius: 8, color: '#fff', fontFamily: FONT.heading, fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer', letterSpacing: 1, textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
+              style={{ padding: '9px 18px', backgroundColor: GRANATE, border: 'none', borderRadius: 8, color: BLANCO, fontFamily: FONT.heading, fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer', letterSpacing: 1, textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
             >
               {saving ? 'Aplicando...' : 'Aplicar'}
             </button>

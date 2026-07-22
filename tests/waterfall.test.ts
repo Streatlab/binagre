@@ -72,6 +72,38 @@ describe('computeWaterfall: coherencia interna (real y cash)', () => {
   })
 })
 
+describe('Tanda D2 · divergencia B: la merma entra en el coste de la línea', () => {
+  it('coste_neto_std = eur_std / (1 - merma%): la línea con merma cuesta más que el bruto', () => {
+    const eurStd = 10
+    const mermaPct = 20
+    const costeNetoStd = eurStd / (1 - mermaPct / 100)
+    expect(cerca(costeNetoStd, 12.5)).toBe(true)
+    // costeRacion con el neto (la línea real que ahora cargan ModalEPS/ModalReceta)
+    // da más coste que con el bruto — la merma ya no se pierde en el food cost.
+    const conNeto = costeRacion([{ cantidad: 1, eur_ud_neta: costeNetoStd }], 1)
+    const conBruto = costeRacion([{ cantidad: 1, eur_ud_neta: eurStd }], 1)
+    expect(conNeto).toBeGreaterThan(conBruto)
+  })
+  it('merma 0% deja el neto igual al bruto (no penaliza ingredientes sin merma)', () => {
+    expect(cerca(10 / (1 - 0 / 100), 10)).toBe(true)
+  })
+})
+
+describe('Tanda D2 · divergencias D+E: comisión efectiva (fees fijos + neto real) alimenta computeWaterfall igual que la base', () => {
+  it('una comisión efectiva derivada de (pvp-neto)/pvp reproduce el mismo waterfall que pasarla directa', () => {
+    const pvp = 10
+    const netoResuelto = 6.8 // ej.: neto real de un canal para ese pvp, ya con fees fijos/IVA/mezcla incluidos
+    const comisionEfectiva = (pvp - netoResuelto) / pvp
+    const w = computeWaterfall(2, pvp, comisionEfectiva, 0.20, 0.25)
+    // coherencia interna de siempre: coste_total = mp + plataforma + estructura
+    expect(cerca(w.costeTotalC, 2 + w.costePlatC + w.costeEstrC)).toBe(true)
+    // la comisión efectiva (34,9%) es más alta que la base típica (30%): el margen cash
+    // baja frente al que saldría con la comisión base, tal y como pide la Tanda D2.
+    const wBase = computeWaterfall(2, pvp, 0.30, 0.20, 0.25)
+    expect(w.margenC).toBeLessThan(wBase.margenC)
+  })
+})
+
 describe('computeWaterfall: determinismo y bordes', () => {
   it('misma entrada → misma salida', () => {
     expect(computeWaterfall(2, 10, 0.3, 0.2, 0.25)).toEqual(computeWaterfall(2, 10, 0.3, 0.2, 0.25))

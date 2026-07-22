@@ -9,9 +9,7 @@ import { Link } from "react-router-dom";
 import { usePanelAlertas } from "../../lib/finanzas/usePanelAlertas";
 import type { Alerta } from "../../lib/finanzas/usePanelAlertas";
 import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD,
-  GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow,
-} from "@/styles/neobrutal";
+  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
 
 /** Bloque compacto para la portada "Hoy": si no hay alertas, no ocupa espacio. */
 export function AlertasBanner() {
@@ -39,7 +37,7 @@ export function AlertasBanner() {
 export default function PanelAlertas() {
   const { alertas, rojas, ambar, masUrgente, loading, error } = usePanelAlertas();
 
-  const card: React.CSSProperties = { background: "#fff", border: BORDER_CARD, boxShadow: SHADOW };
+  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW };
 
   if (loading) {
     return (
@@ -58,7 +56,7 @@ export default function PanelAlertas() {
     <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: "100vh", color: INK }}>
 
       <div style={{ marginBottom: 20 }}>
-        <span style={eyebrow(NAR, "#fff")}>FINANZAS</span>
+        <span style={eyebrow(NAR, BLANCO)}>FINANZAS</span>
         <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
           PANEL DE ALERTAS
         </h1>
@@ -68,15 +66,15 @@ export default function PanelAlertas() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 24 }}>
-        <div style={{ ...card, padding: "16px 20px", background: rojas.length > 0 ? ROJO : "#fff" }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: rojas.length > 0 ? "#fff" : INK, marginBottom: 6 }}>
+        <div style={{ ...card, padding: "16px 20px", background: rojas.length > 0 ? ROJO : BLANCO }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: rojas.length > 0 ? BLANCO : INK, marginBottom: 6 }}>
             Alertas rojas
           </div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: rojas.length > 0 ? "#fff" : INK }}>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: rojas.length > 0 ? BLANCO : INK }}>
             {rojas.length}
           </div>
         </div>
-        <div style={{ ...card, padding: "16px 20px", background: ambar.length > 0 ? AMA : "#fff" }}>
+        <div style={{ ...card, padding: "16px 20px", background: ambar.length > 0 ? AMA : BLANCO }}>
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: INK, marginBottom: 6 }}>
             Alertas ámbar
           </div>
@@ -122,7 +120,7 @@ function FilaAlerta({ alerta, card }: { alerta: Alerta; card: React.CSSPropertie
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
             <span style={{
-              background: color, color: alerta.severidad === "roja" ? "#fff" : INK,
+              background: color, color: alerta.severidad === "roja" ? BLANCO : INK,
               border: `2px solid ${INK}`, padding: "2px 8px", fontSize: 10,
               fontFamily: OSW, fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase",
             }}>

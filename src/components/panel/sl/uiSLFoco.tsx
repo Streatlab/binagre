@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 /**
  * uiSLFoco — acento oliva del kit SL (Ley Visual SL v2).
  *
@@ -35,7 +36,7 @@ export function KpiFoco({ label, valor, accion, onAccion, pie }: {
       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.9px', color: OLIVA.claro }}>
         {label.toUpperCase()}
       </div>
-      <div className="slnum" style={{ fontSize: 27, fontWeight: 800, color: '#fff', letterSpacing: '-1px' }}>
+      <div className="slnum" style={{ fontSize: 27, fontWeight: 800, color: BLANCO, letterSpacing: '-1px' }}>
         {valor}
       </div>
       {accion && (
@@ -106,7 +107,7 @@ export function BotonFoco({ children, onClick }: { children: ReactNode; onClick?
     <button
       onClick={onClick}
       style={{
-        background: OLIVA.hondo, color: '#fff', border: 'none', borderRadius: 999,
+        background: OLIVA.hondo, color: BLANCO, border: 'none', borderRadius: 999,
         padding: '5px 12px', cursor: onClick ? 'pointer' : 'default',
         fontFamily: "'Nunito', sans-serif", fontSize: 11, fontWeight: 900,
       }}
@@ -132,7 +133,7 @@ export function ChipsFoco<T extends string>({ opciones, activo, onChange }: {
               padding: '6px 12px', borderRadius: 999, cursor: 'pointer',
               border: `1px solid ${on ? 'transparent' : C.line}`,
               background: on ? OLIVA.hondo : C.card,
-              color: on ? '#fff' : C.grisCl,
+              color: on ? BLANCO : C.grisCl,
               fontFamily: "'Nunito', sans-serif", fontSize: 11.5, fontWeight: 800,
               display: 'inline-flex', alignItems: 'center', gap: 6,
             }}
@@ -158,7 +159,7 @@ export function AnilloHero({ pct, label }: { pct: number; label: string }) {
         cx="48" cy="48" r={r} fill="none" stroke={OLIVA.claro} strokeWidth={11} strokeLinecap="round"
         strokeDasharray={`${on} ${c - on}`} transform="rotate(-90 48 48)"
       />
-      <text x="48" y="45" textAnchor="middle" fontFamily="'JetBrains Mono', monospace" fontSize="19" fontWeight="700" fill="#fff">
+      <text x="48" y="45" textAnchor="middle" fontFamily="'JetBrains Mono', monospace" fontSize="19" fontWeight="700" fill={BLANCO}>
         {Math.round(pct)}%
       </text>
       <text x="48" y="60" textAnchor="middle" fontFamily="Nunito, sans-serif" fontSize="9" fontWeight="800" fill="rgba(255,255,255,0.8)">

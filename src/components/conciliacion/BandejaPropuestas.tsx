@@ -1,3 +1,4 @@
+import { BLANCO, LIMA } from '@/styles/neobrutal'
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { COLORS, OSWALD, LEXEND, CARDS, DROPDOWN_BTN } from '@/components/panel/resumen/tokens'
@@ -284,7 +285,7 @@ export function BandejaPropuestas() {
             left: '50%',
             transform: 'translateX(-50%)',
             background: COLORS.sidebar,
-            color: '#fff',
+            color: BLANCO,
             borderRadius: 10,
             padding: '10px 18px',
             display: 'flex',
@@ -301,7 +302,7 @@ export function BandejaPropuestas() {
           <button
             onClick={handleDeshacerUltima}
             style={{
-              background: '#e8f442',
+              background: LIMA,
               color: COLORS.sidebar,
               border: 'none',
               borderRadius: 6,
@@ -501,7 +502,7 @@ function FilaPropuesta({
             borderRadius: 8,
             border: 'none',
             background: COLORS.ok,
-            color: '#fff',
+            color: BLANCO,
             fontFamily: OSWALD,
             fontSize: 11,
             letterSpacing: '1px',

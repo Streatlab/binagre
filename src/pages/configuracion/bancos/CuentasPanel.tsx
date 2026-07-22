@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { Star, Landmark } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -104,7 +105,7 @@ export default function CuentasPanel() {
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
   if (error) {
     return (
-      <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>
+      <div style={{ padding: 16, background: '#B01D2320', color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>
         {error}
       </div>
     )
@@ -205,8 +206,8 @@ export default function CuentasPanel() {
               padding: '7px 14px',
               borderRadius: 6,
               border: 'none',
-              background: '#B01D23',
-              color: '#ffffff',
+              background: GRANATE,
+              color: BLANCO,
               fontFamily: FONT.heading,
               fontSize: 11,
               letterSpacing: '1px',

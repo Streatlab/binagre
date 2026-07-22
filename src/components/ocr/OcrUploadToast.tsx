@@ -1,3 +1,4 @@
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 // OcrUploadToast v11 — aviso visible durante subida (no cerrar a media subida)
 import { useState, useEffect } from 'react'
 import { useOcrUpload, cargarResumenManifiesto, reintentarPendientes } from '@/lib/ocrUploadStore'
@@ -23,7 +24,7 @@ function AchtungBanner({ session }: { session: OcrSession }) {
   return (
     <div style={{
       background: 'linear-gradient(135deg, #B01D23, #7a0d12)',
-      color: '#fff',
+      color: BLANCO,
       padding: '14px 16px',
       borderRadius: 10,
       marginBottom: 10,
@@ -43,7 +44,7 @@ function AchtungBanner({ session }: { session: OcrSession }) {
           href="/api/oauth/google?action=start"
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10,
-            padding: '8px 14px', borderRadius: 8, background: '#fff', color: '#B01D23',
+            padding: '8px 14px', borderRadius: 8, background: BLANCO, color: GRANATE,
             textDecoration: 'none', fontFamily: 'Oswald, sans-serif', fontSize: 11,
             letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700,
           }}
@@ -65,7 +66,7 @@ function SubiendoBanner({ session }: { session: OcrSession }) {
   return (
     <div style={{
       background: '#FFF3E0',
-      border: '1px solid #F26B1F',
+      border: `1px solid ${NAR}`,
       color: '#8a4b00',
       padding: '10px 12px',
       borderRadius: 8,
@@ -83,12 +84,12 @@ function SubiendoBanner({ session }: { session: OcrSession }) {
 // Pastilla mini: icono + contador. Toca para expandir al toast completo.
 function MiniToast({ session, onExpandir }: { session: OcrSession; onExpandir: () => void }) {
   const esAbortReal = !!session.achtungMensaje && (session.achtungTipo === 'creditos' || session.achtungTipo === 'api_key' || session.achtungTipo === 'modelo' || (session.achtungMensaje || '').includes('DRIVE'))
-  const color = session.cancelado ? '#7a8090' : (esAbortReal ? '#B01D23' : (session.pausada ? '#F26B1F' : (session.procesando ? '#B01D23' : '#1D9E75')))
+  const color = session.cancelado ? GRIS : (esAbortReal ? GRANATE : (session.pausada ? NAR : (session.procesando ? GRANATE : VERDE)))
   const icono = esAbortReal ? '⚠' : session.cancelado ? '⊘' : session.pausada ? '⏸' : session.procesando ? '⏳' : '✓'
   const girando = session.procesando && !session.pausada && !esAbortReal
   return (
     <button onClick={onExpandir} title="Ver detalle"
-      style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: `1px solid ${color}`, borderRadius: 999, padding: '8px 14px', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', fontFamily: 'Oswald, sans-serif' }}>
+      style={{ display: 'flex', alignItems: 'center', gap: 8, background: BLANCO, border: `1px solid ${color}`, borderRadius: 999, padding: '8px 14px', cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', fontFamily: 'Oswald, sans-serif' }}>
       <span style={{ fontSize: 15, color, display: 'inline-block', animation: girando ? 'ocrSpin 1.6s linear infinite' : 'none' }}>{icono}</span>
       <span style={{ fontSize: 13, fontWeight: 600, color, letterSpacing: '0.5px' }}>{session.enviados}/{session.total}</span>
     </button>
@@ -113,7 +114,7 @@ function ResumenManifiestoPanel({ grupoId }: { grupoId: string }) {
   if (!resumen || resumen.subidos === 0) return null
 
   const r = resumen
-  const muted = '#7a8090'
+  const muted = GRIS
   const okFaltan = r.faltan === 0
   const linea = `Subidos ${r.subidos} · Únicos ${r.unicos} · Leídos ${r.leidos} · Lectura manual ${r.lecturaManual} · Ignorados ${r.ignorados} · Duplicados ${r.duplicados} · Errores ${r.errores} · FALTAN ${r.faltan}`
 
@@ -124,18 +125,18 @@ function ResumenManifiestoPanel({ grupoId }: { grupoId: string }) {
   }
 
   return (
-    <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: okFaltan ? '#EAF7F1' : '#FDECEC', border: `1px solid ${okFaltan ? '#1D9E75' : '#E24B4A'}` }}>
-      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10.5, letterSpacing: '0.5px', lineHeight: 1.5, color: '#111', fontWeight: 600 }}>
+    <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: okFaltan ? '#EAF7F1' : '#FDECEC', border: `1px solid ${okFaltan ? VERDE : ROJO}` }}>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10.5, letterSpacing: '0.5px', lineHeight: 1.5, color: INK, fontWeight: 600 }}>
         {linea}
       </div>
       {!okFaltan && r.faltantes.length > 0 && (
         <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 10.5, color: '#E24B4A', fontWeight: 700, marginBottom: 4, fontFamily: 'Oswald, sans-serif', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 10.5, color: ROJO, fontWeight: 700, marginBottom: 4, fontFamily: 'Oswald, sans-serif', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
             Sin resolver ({r.faltantes.length})
           </div>
           <div style={{ maxHeight: 130, overflowY: 'auto' }}>
             {r.faltantes.slice(0, 50).map((f, i) => (
-              <div key={i} style={{ fontSize: 10.5, color: '#111', lineHeight: 1.4, padding: '2px 0', wordBreak: 'break-word' }}>
+              <div key={i} style={{ fontSize: 10.5, color: INK, lineHeight: 1.4, padding: '2px 0', wordBreak: 'break-word' }}>
                 <span style={{ fontWeight: 600 }}>{f.nombre}</span>
                 <span style={{ color: muted }}> — {f.estado === 'error_subida' ? 'no se subió' : f.estado === 'registrado' || f.estado === 'en_storage' ? 'sin procesar' : 'error'}{f.detalle ? `: ${f.detalle}` : ''}</span>
               </div>
@@ -143,7 +144,7 @@ function ResumenManifiestoPanel({ grupoId }: { grupoId: string }) {
           </div>
           {r.reencolables > 0 && (
             <button onClick={onRetomar} disabled={retomando}
-              style={{ marginTop: 8, width: '100%', background: retomando ? '#999' : '#B01D23', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 10px', cursor: retomando ? 'default' : 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>
+              style={{ marginTop: 8, width: '100%', background: retomando ? '#999' : GRANATE, color: BLANCO, border: 'none', borderRadius: 6, padding: '8px 10px', cursor: retomando ? 'default' : 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>
               {retomando ? 'Retomando…' : `↻ Retomar pendientes (${r.reencolables})`}
             </button>
           )}
@@ -164,11 +165,11 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
   const pct = session.total > 0 ? Math.round((session.enviados / session.total) * 100) : 0
   const tieneAchtung = esAbortReal
 
-  const bgPrincipal = '#fff'
+  const bgPrincipal = BLANCO
   const bgSubtle = '#f5f3ef'
-  const bordeColor = tieneAchtung ? '#B01D23' : '#d0c8bc'
-  const textoPrincipal = '#111'
-  const textoMuted = '#7a8090'
+  const bordeColor = tieneAchtung ? GRANATE : BORDE_SUAVE
+  const textoPrincipal = INK
+  const textoMuted = GRIS
 
   return (
     <div style={{
@@ -189,7 +190,7 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{
           fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase',
-          color: session.cancelado ? '#7a8090' : (tieneAchtung ? '#B01D23' : (session.pausada ? '#F26B1F' : (session.procesando ? '#B01D23' : '#1D9E75'))),
+          color: session.cancelado ? GRIS : (tieneAchtung ? GRANATE : (session.pausada ? NAR : (session.procesando ? GRANATE : VERDE))),
           fontWeight: 600,
         }}>
           {session.cancelado
@@ -206,28 +207,28 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
           {session.procesando && !confirmarCancelar && (
             session.pausada
               ? <button onClick={onReanudar}
-                  style={{ background: '#F26B1F', border: 'none', color: '#fff', cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
+                  style={{ background: NAR, border: 'none', color: BLANCO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
                   ▶ Reanudar
                 </button>
               : <button onClick={onPausar}
-                  style={{ background: 'transparent', border: '0.5px solid #F26B1F', color: '#F26B1F', cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  style={{ background: 'transparent', border: `0.5px solid ${NAR}`, color: NAR, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
                   ⏸ Pausar
                 </button>
           )}
           {session.procesando && !confirmarCancelar && (
             <button onClick={() => setConfirmarCancelar(true)}
-              style={{ background: 'transparent', border: '0.5px solid #d0c8bc', color: '#E24B4A', cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              style={{ background: 'transparent', border: '0.5px solid #d0c8bc', color: ROJO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
               Cancelar
             </button>
           )}
           {session.procesando && confirmarCancelar && (
             <>
               <button onClick={() => setConfirmarCancelar(false)}
-                style={{ background: '#fff', border: '0.5px solid #d0c8bc', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>
+                style={{ background: BLANCO, border: '0.5px solid #d0c8bc', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>
                 No
               </button>
               <button onClick={() => { onCancelar(); setConfirmarCancelar(false) }}
-                style={{ background: '#E24B4A', border: 'none', color: '#fff', cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
+                style={{ background: ROJO, border: 'none', color: BLANCO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
                 Sí, cancelar
               </button>
             </>
@@ -237,26 +238,26 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
             ? <button onClick={onOcultar} title="Ocultar (sigue procesando en segundo plano)" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>–</button>
             : (confirmarCerrar
                 ? <>
-                    <button onClick={() => setConfirmarCerrar(false)} style={{ background: '#fff', border: '0.5px solid #d0c8bc', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>No</button>
-                    <button onClick={onCerrar} style={{ background: '#E24B4A', border: 'none', color: '#fff', cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>Sí, cerrar</button>
+                    <button onClick={() => setConfirmarCerrar(false)} style={{ background: BLANCO, border: '0.5px solid #d0c8bc', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>No</button>
+                    <button onClick={onCerrar} style={{ background: ROJO, border: 'none', color: BLANCO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>Sí, cerrar</button>
                   </>
                 : <button onClick={() => setConfirmarCerrar(true)} title="Cerrar" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', width: 22, height: 22, borderRadius: '50%', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>)
           }
         </div>
       </div>
       <div style={{ display: 'flex', gap: 14, fontSize: 12, marginBottom: 8 }}>
-        <span style={{ color: '#1D9E75', fontWeight: 500 }}>✓ {session.ok}</span>
-        <span style={{ color: '#F26B1F', fontWeight: 500 }}>⏳ {session.pendientes}</span>
+        <span style={{ color: VERDE, fontWeight: 500 }}>✓ {session.ok}</span>
+        <span style={{ color: NAR, fontWeight: 500 }}>⏳ {session.pendientes}</span>
         <span style={{ color: textoMuted }}>= {session.duplicados}</span>
         {session.ignorados > 0 && <span style={{ color: textoMuted }} title="Ignorados (no son factura)">⊝ {session.ignorados}</span>}
-        {session.errores > 0 && <span style={{ color: '#E24B4A', fontWeight: 500 }}>✕ {session.errores}</span>}
-        {session.achtung > 0 && <span style={{ color: '#B01D23', fontWeight: 700 }}>⚠ {session.achtung}</span>}
+        {session.errores > 0 && <span style={{ color: ROJO, fontWeight: 500 }}>✕ {session.errores}</span>}
+        {session.achtung > 0 && <span style={{ color: GRANATE, fontWeight: 700 }}>⚠ {session.achtung}</span>}
         {session.cancelados > 0 && <span style={{ color: textoMuted }}>⊘ {session.cancelados}</span>}
       </div>
       <div style={{ height: 4, background: bgSubtle, borderRadius: 2, overflow: 'hidden' }}>
         <div style={{
           width: `${pct}%`, height: '100%',
-          background: session.cancelado ? '#7a8090' : (tieneAchtung ? '#B01D23' : (session.pausada ? '#F26B1F' : (session.procesando ? '#B01D23' : '#1D9E75'))),
+          background: session.cancelado ? GRIS : (tieneAchtung ? GRANATE : (session.pausada ? NAR : (session.procesando ? GRANATE : VERDE))),
           transition: 'width 0.4s'
         }} />
       </div>
@@ -274,8 +275,8 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
             <div style={{ marginTop: 6, maxHeight: 240, overflowY: 'auto', background: bgSubtle, borderRadius: 6, padding: '8px 10px' }}>
               {[...session.log].reverse().map((entry, idx) => {
                 const colors: Record<string, string> = {
-                  ok: '#1D9E75', duplicado: textoMuted, ignorada: textoMuted, pendiente: '#F26B1F',
-                  error: '#E24B4A', achtung: '#B01D23', cancelado: textoMuted,
+                  ok: VERDE, duplicado: textoMuted, ignorada: textoMuted, pendiente: NAR,
+                  error: ROJO, achtung: GRANATE, cancelado: textoMuted,
                 }
                 const esCritico = entry.status === 'error' || entry.status === 'achtung'
                 return (

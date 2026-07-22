@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK } from '@/styles/neobrutal'
 import type { ReactNode, InputHTMLAttributes, ButtonHTMLAttributes } from 'react'
 import { Search } from 'lucide-react'
 import { useIsDark } from '@/hooks/useIsDark'
@@ -32,8 +33,8 @@ export function BtnRed({ children, ...rest }: ButtonHTMLAttributes<HTMLButtonEle
         fontSize: 12,
         fontWeight: 600,
         letterSpacing: '0.04em',
-        background: '#B01D23',
-        color: '#ffffff',
+        background: GRANATE,
+        color: BLANCO,
         border: 'none',
         cursor: 'pointer',
         fontFamily: 'Oswald, sans-serif',
@@ -60,9 +61,9 @@ export function BtnGhost({ children, ...rest }: ButtonHTMLAttributes<HTMLButtonE
         fontSize: 12,
         fontWeight: 600,
         letterSpacing: '0.04em',
-        background: isDark ? '#141414' : '#ffffff',
-        color: isDark ? '#ffffff' : '#1A1A1A',
-        border: `1px solid ${isDark ? '#2a2a2a' : '#E9E1D0'}`,
+        background: isDark ? INK : BLANCO,
+        color: isDark ? BLANCO : INK,
+        border: `1px solid ${isDark ? INK : '#E9E1D0'}`,
         cursor: 'pointer',
         fontFamily: 'Oswald, sans-serif',
         textTransform: 'uppercase',
@@ -87,18 +88,18 @@ export function SearchInput(props: InputHTMLAttributes<HTMLInputElement>) {
     >
       <Search
         size={14}
-        color={isDark ? '#777777' : '#9E9588'}
+        color={isDark ? GRIS : '#9E9588'}
         style={{ position: 'absolute', left: 10, pointerEvents: 'none' }}
       />
       <input
         {...props}
         style={{
-          background: isDark ? '#1e1e1e' : '#ffffff',
-          border: `1px solid ${isDark ? '#2a2a2a' : '#E9E1D0'}`,
+          background: isDark ? INK : BLANCO,
+          border: `1px solid ${isDark ? INK : '#E9E1D0'}`,
           borderRadius: 8,
           padding: '8px 12px 8px 30px',
           fontSize: 13,
-          color: isDark ? '#ffffff' : '#1A1A1A',
+          color: isDark ? BLANCO : INK,
           fontFamily: 'Lexend, sans-serif',
           outline: 'none',
           minWidth: 260,

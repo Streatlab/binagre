@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, NAR, OSC, ROJO } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo } from 'react'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
@@ -145,22 +146,22 @@ export default function OcrEditModal({ factura, categoriasPyg, onClose, onSaved,
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: 'min(560px, 100%)', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.18)' }}>
+      <div style={{ background: BLANCO, borderRadius: 14, width: 'min(560px, 100%)', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.18)' }}>
         <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #d0c8bc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 4 }}>Editar factura (datos no editables)</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 500, color: '#111' }}>{factura.proveedor_nombre || '—'}</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 2 }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 4 }}>Editar factura (datos no editables)</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 500, color: INK }}>{factura.proveedor_nombre || '—'}</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, marginTop: 2 }}>
               {fmtDate(factura.fecha_factura)} · {fmtEur(factura.total)} {factura.numero_factura ? `· Nº ${factura.numero_factura}` : ''}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: '#7a8090', cursor: 'pointer', padding: 0, width: 28, height: 28 }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: GRIS, cursor: 'pointer', padding: 0, width: 28, height: 28 }}>×</button>
         </div>
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
           {tienePdf && (
             <div>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 6 }}>Documento</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Documento</div>
               <a href={factura.pdf_drive_url!} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, background: '#1D9E7515', color: '#0F6E56', textDecoration: 'none', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500 }}>
                 📎 Abrir en Drive
               </a>
@@ -168,30 +169,30 @@ export default function OcrEditModal({ factura, categoriasPyg, onClose, onSaved,
           )}
 
           <div>
-            <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 6 }}>Categoría</label>
+            <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Categoría</label>
             <select value={categoria} onChange={e => setCategoria(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}>
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK, cursor: 'pointer' }}>
               <option value="">— Sin categoría —</option>
               {catNivel3.map(c => (<option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>))}
             </select>
             {factura.nif_emisor && (
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 6, fontStyle: 'italic' }}>
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: GRIS, marginTop: 6, fontStyle: 'italic' }}>
                 Al guardar, se aplica la categoría a todas las facturas futuras del mismo NIF ({factura.nif_emisor})
               </div>
             )}
           </div>
 
           <div>
-            <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 6 }}>Movimiento bancario</label>
+            <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Movimiento bancario</label>
             {cargandoMovs ? (
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>Buscando candidatos…</div>
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS }}>Buscando candidatos…</div>
             ) : movsCandidatos.length === 0 ? (
-              <div style={{ padding: '10px 12px', borderRadius: 8, background: '#f5f3ef', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>
+              <div style={{ padding: '10px 12px', borderRadius: 8, background: '#f5f3ef', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS }}>
                 No hay movimientos del mismo titular con importe {fmtEur(-Math.abs(factura.total))} dentro de ±30 días
               </div>
             ) : (
               <select value={movimientoId} onChange={e => setMovimientoId(e.target.value)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111', cursor: 'pointer' }}>
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK, cursor: 'pointer' }}>
                 <option value="">— Sin asociar —</option>
                 {movsCandidatos.map(m => (
                   <option key={m.id} value={m.id}>
@@ -201,14 +202,14 @@ export default function OcrEditModal({ factura, categoriasPyg, onClose, onSaved,
               </select>
             )}
             {movActual && movimientoId !== movActual && (
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#F26B1F', marginTop: 6, fontStyle: 'italic' }}>
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: NAR, marginTop: 6, fontStyle: 'italic' }}>
                 Vas a cambiar el movimiento asociado
               </div>
             )}
           </div>
 
           {error && (
-            <div style={{ padding: '10px 12px', borderRadius: 8, background: '#fff5f5', border: '0.5px solid #E24B4A', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23' }}>
+            <div style={{ padding: '10px 12px', borderRadius: 8, background: '#fff5f5', border: '0.5px solid #E24B4A', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRANATE }}>
               {error}
             </div>
           )}
@@ -217,29 +218,29 @@ export default function OcrEditModal({ factura, categoriasPyg, onClose, onSaved,
         <div style={{ padding: '14px 24px', borderTop: '0.5px solid #d0c8bc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: '#fafaf7' }}>
           {!confirmarBorrar ? (
             <button onClick={() => setConfirmarBorrar(true)} disabled={guardando || borrando}
-              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #E24B4A', background: '#fff', color: '#E24B4A', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>
+              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #E24B4A', background: BLANCO, color: ROJO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>
               Borrar factura
             </button>
           ) : (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23', fontWeight: 500 }}>¿Seguro?</span>
+              <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRANATE, fontWeight: 500 }}>¿Seguro?</span>
               <button onClick={() => setConfirmarBorrar(false)} disabled={borrando}
-                style={{ padding: '8px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
+                style={{ padding: '8px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: BLANCO, color: OSC, fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
                 Cancelar
               </button>
               <button onClick={handleBorrar} disabled={borrando}
-                style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrando ? 0.6 : 1 }}>
+                style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: ROJO, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrando ? 0.6 : 1 }}>
                 {borrando ? 'Borrando…' : 'Sí, borrar'}
               </button>
             </div>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onClose} disabled={guardando || borrando}
-              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer' }}>
+              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: BLANCO, color: OSC, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer' }}>
               Cancelar
             </button>
             <button onClick={handleGuardar} disabled={guardando || borrando}
-              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600, opacity: guardando ? 0.6 : 1 }}>
+              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: GRANATE, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600, opacity: guardando ? 0.6 : 1 }}>
               {guardando ? 'Guardando…' : 'Guardar'}
             </button>
           </div>

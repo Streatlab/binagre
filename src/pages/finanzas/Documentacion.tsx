@@ -3,9 +3,7 @@ import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { supabase } from '@/lib/supabase'
 import { fechaLocalStr } from '@/utils/fechaLocal'
 import {
-  OSW, LEX, INK, CREMA, CLARO, VERDE, NAR, ROJO, AMA, GRANATE, GRIS,
-  SHADOW, BORDER, BORDER_CARD, d, eyebrow,
-} from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, CLARO, VERDE, NAR, ROJO, AMA, GRANATE, GRIS, SHADOW, BORDER, BORDER_CARD, d, eyebrow, BLANCO } from '@/styles/neobrutal'
 import BandejaEntrada from '@/components/documentacion/BandejaEntrada'
 import ResolverPendientes from '@/components/documentacion/ResolverPendientes'
 
@@ -18,15 +16,22 @@ import ResolverPendientes from '@/components/documentacion/ResolverPendientes'
 const OcrConToast = lazy(() => import('@/pages/OcrConToast'))
 const Conciliacion = lazy(() => import('@/pages/Conciliacion'))
 const GestionFacturas = lazy(() => import('@/pages/finanzas/GestionFacturas'))
+const Facturacion = lazy(() => import('@/pages/Facturacion'))
+const Gestoria = lazy(() => import('@/pages/finanzas/Gestoria'))
 
-type Tab = 'bandeja' | 'facturas' | 'conciliacion' | 'documental'
+type Tab = 'bandeja' | 'facturas' | 'conciliacion' | 'documental' | 'facturacion' | 'gestoria'
+const VALID_TABS: Tab[] = ['bandeja', 'facturas', 'conciliacion', 'documental', 'facturacion', 'gestoria']
 
 const STORAGE_KEY = 'documentacion:tab'
 
 function loadTab(): Tab {
   try {
+    const q = new URLSearchParams(window.location.search).get('tab')
+    if (q && (VALID_TABS as string[]).includes(q)) return q as Tab
+  } catch { /* swallow */ }
+  try {
     const r = sessionStorage.getItem(STORAGE_KEY)
-    if (r === 'bandeja' || r === 'facturas' || r === 'conciliacion' || r === 'documental') return r
+    if (r && (VALID_TABS as string[]).includes(r)) return r as Tab
   } catch { /* swallow */ }
   return 'bandeja'
 }
@@ -91,6 +96,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'facturas', label: 'Facturas' },
   { id: 'conciliacion', label: 'Conciliación' },
   { id: 'documental', label: 'Gestor documental' },
+  { id: 'facturacion', label: 'Facturación' },
+  { id: 'gestoria', label: 'Gestoría' },
 ]
 
 function TabsNeo({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
@@ -100,8 +107,8 @@ function TabsNeo({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
         const activo = t.id === tab
         return (
           <button key={t.id} onClick={() => onChange(t.id)} style={{
-            background: activo ? GRANATE : '#fff',
-            color: activo ? '#fff' : INK,
+            background: activo ? GRANATE : BLANCO,
+            color: activo ? BLANCO : INK,
             border: BORDER_CARD,
             boxShadow: activo ? `2px 2px 0 ${INK}` : SHADOW,
             transform: activo ? 'translate(2px, 2px)' : 'none',
@@ -119,7 +126,15 @@ function TabsNeo({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
 
 export default function Documentacion() {
   const [tab, setTab] = useState<Tab>(loadTab())
-  const cambiar = (t: Tab) => { setTab(t); try { sessionStorage.setItem(STORAGE_KEY, t) } catch { /* swallow */ } }
+  const cambiar = (t: Tab) => {
+    setTab(t)
+    try { sessionStorage.setItem(STORAGE_KEY, t) } catch { /* swallow */ }
+    try {
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', t)
+      window.history.replaceState({}, '', url)
+    } catch { /* swallow */ }
+  }
 
   const [desde, setDesde] = useState<Date>(new Date())
   const [hasta, setHasta] = useState<Date>(new Date())
@@ -174,6 +189,8 @@ export default function Documentacion() {
         {tab === 'facturas' && <OcrConToast periodoExterno={{ desde, hasta }} />}
         {tab === 'conciliacion' && <Conciliacion periodoExterno={{ desde, hasta }} />}
         {tab === 'documental' && <GestionFacturas />}
+        {tab === 'facturacion' && <Facturacion embedded />}
+        {tab === 'gestoria' && <Gestoria embedded />}
       </Suspense>
     </div>
   )

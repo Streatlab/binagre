@@ -44,10 +44,11 @@ function palabrasSignificativas(s: string): Set<string> {
   return new Set(normalizarNombrePersona(s).split(' ').filter(p => p.length >= 3))
 }
 
-/** Carga todos los empleados activos con su nombre oficial, NIF y alias. */
+/** Carga todos los empleados activos (de plantilla: los EXTRA no van en nómina)
+ *  con su nombre oficial, NIF y alias — incluidos los alias de la propia ficha. */
 export async function cargarCandidatosEmpleados(): Promise<CandidatoEmpleado[]> {
   const [{ data: empleados }, { data: alias }] = await Promise.all([
-    supabase.from('empleados').select('id, nombre, nombre_oficial, nif').eq('estado', 'activo'),
+    supabase.from('empleados').select('id, nombre, nombre_oficial, nif, aliases, tipo_relacion').eq('estado', 'activo').neq('tipo_relacion', 'extra'),
     supabase.from('empleado_alias').select('empleado_id, alias'),
   ])
   const aliasPorEmpleado = new Map<string, string[]>()
@@ -56,12 +57,12 @@ export async function cargarCandidatosEmpleados(): Promise<CandidatoEmpleado[]> 
     arr.push(a.alias)
     aliasPorEmpleado.set(a.empleado_id, arr)
   }
-  return ((empleados ?? []) as { id: string; nombre: string; nombre_oficial: string | null; nif: string | null }[]).map(e => ({
+  return ((empleados ?? []) as { id: string; nombre: string; nombre_oficial: string | null; nif: string | null; aliases: string[] | null }[]).map(e => ({
     id: e.id,
     nombre: e.nombre,
     nombre_oficial: e.nombre_oficial,
     nif: e.nif,
-    aliases: aliasPorEmpleado.get(e.id) ?? [],
+    aliases: [...new Set([...(aliasPorEmpleado.get(e.id) ?? []), ...((e.aliases ?? []) as string[])])],
   }))
 }
 

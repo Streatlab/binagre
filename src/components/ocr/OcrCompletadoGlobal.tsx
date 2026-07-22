@@ -1,3 +1,4 @@
+import { BLANCO, GRIS, INK, ROJO, VERDE } from '@/styles/neobrutal'
 // OcrCompletadoGlobal v5 — aviso GRANDE y veraz fuera de Papeleo al terminar un lote.
 // v5: TOAST ÚNICO — OcrUploadToast (montado una sola vez en Layout) ya avisa de todo
 //     lote con visible=true, en cualquier página. Este componente solo debe cubrir el
@@ -99,7 +100,7 @@ export default function OcrCompletadoGlobal() {
     }}>
       {notifs.map(n => {
         const hayError = n.errores > 0
-        const acento = hayError ? '#E24B4A' : '#1D9E75'
+        const acento = hayError ? ROJO : VERDE
         // Mensaje veraz: cada categoría se nombra por lo que es. Duplicada = "ya estaban".
         const partes: string[] = []
         if (n.ok > 0) partes.push(`${n.ok} ${n.ok === 1 ? 'nueva' : 'nuevas'}`)
@@ -111,7 +112,7 @@ export default function OcrCompletadoGlobal() {
         const detalle = partes.length > 0 ? partes.join(' · ') : 'sin novedades'
         return (
           <div key={n.id} style={{
-            background: '#fff',
+            background: BLANCO,
             borderRadius: 14,
             padding: '16px 18px',
             minWidth: 300,
@@ -123,7 +124,7 @@ export default function OcrCompletadoGlobal() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <span style={{
                 width: 30, height: 30, borderRadius: '50%', background: acento,
-                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: BLANCO, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 17, fontWeight: 700, flexShrink: 0,
               }}>{hayError ? '!' : '✓'}</span>
               <span style={{
@@ -132,17 +133,17 @@ export default function OcrCompletadoGlobal() {
               }}>Lote OCR terminado</span>
               <button
                 onClick={() => setNotifs(prev => prev.filter(x => x.id !== n.id))}
-                style={{ background: 'none', border: 'none', color: '#7a8090', cursor: 'pointer', fontSize: 16, marginLeft: 'auto', padding: '0 2px' }}
+                style={{ background: 'none', border: 'none', color: GRIS, cursor: 'pointer', fontSize: 16, marginLeft: 'auto', padding: '0 2px' }}
               >×</button>
             </div>
-            <div style={{ fontSize: 13, color: '#111', marginBottom: 12, lineHeight: 1.4 }}>
+            <div style={{ fontSize: 13, color: INK, marginBottom: 12, lineHeight: 1.4 }}>
               {totalTxt}: {detalle}.
               <br />Ve a revisar el resultado.
             </div>
             <button
               onClick={() => { setNotifs(prev => prev.filter(x => x.id !== n.id)); navigate('/finanzas/papeleo?tab=bandeja') }}
               style={{
-                width: '100%', background: acento, color: '#fff', border: 'none',
+                width: '100%', background: acento, color: BLANCO, border: 'none',
                 borderRadius: 8, padding: '10px 12px', cursor: 'pointer',
                 fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px',
                 textTransform: 'uppercase', fontWeight: 700,

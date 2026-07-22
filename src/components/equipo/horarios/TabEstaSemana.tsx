@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, GRIS, NAR, VERDE } from '@/styles/neobrutal'
 import { useCallback, useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileDown, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -81,14 +82,14 @@ export default function TabEstaSemana() {
     return { width: 32, height: 32, borderRadius: 8, border: `0.5px solid ${T.brd}`, background: T.card, color: T.sec, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
   }
   function actionBtn(): React.CSSProperties {
-    return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: '#B01D23', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
+    return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: GRANATE, color: BLANCO, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
   }
 
   const fuenteLabel: Record<Fuente, string> = {
     bd: 'Datos reales BD', historico: 'Histórico registrado', plantilla: 'Plantilla estimada', vacio: 'Sin datos',
   }
   const fuenteColor: Record<Fuente, string> = {
-    bd: '#1D9E75', historico: '#66aaff', plantilla: '#f5a623', vacio: '#777777',
+    bd: VERDE, historico: AZUL_CL, plantilla: NAR, vacio: GRIS,
   }
 
   // Lo que se exporta: los turnos guardados si los hay; si no, la base cargada.
@@ -98,7 +99,7 @@ export default function TabEstaSemana() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, fontWeight: 600, color: '#B01D23', letterSpacing: '3px', textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, fontWeight: 600, color: GRANATE, letterSpacing: '3px', textTransform: 'uppercase' }}>
             Rota S{numeroSemanaISO(lunes)} · {fmtRangoSemana(lunes)}
           </div>
           {!loading && (

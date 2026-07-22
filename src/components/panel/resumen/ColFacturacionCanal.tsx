@@ -1,3 +1,4 @@
+import { INK, OSC } from '@/styles/neobrutal'
 /**
  * ColFacturacionCanal — fórmula unificada
  * - Si hay OCR con neto_real_cobrado: usa ese valor (es el real cobrado)
@@ -182,10 +183,10 @@ function CardCanal({ label, bg, border, borderWidth = '0.5px', boxShadow, colorL
     }}>
       <div>
         <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
-        <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: '#111111', marginTop: 2 }}>
+        <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: INK, marginTop: 2 }}>
           {fmtEur(brutoVal, { showEuro: false, decimals: 2 })}
         </div>
-        <div style={{ fontSize: 11, color: '#3a4050', fontFamily: LEXEND }}>Bruto</div>
+        <div style={{ fontSize: 11, color: OSC, fontFamily: LEXEND }}>Bruto</div>
       </div>
       <div style={{ textAlign: 'right' }}>
         <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 600, color: COLOR.verde }}>
@@ -213,7 +214,7 @@ function CardCanalMini({ label, bg, border, colorLabel, datos }: Omit<CardCanalP
       padding: '10px 12px',
     }}>
       <div style={{ ...lblXs, color: colorLabel }}>{label}</div>
-      <div style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: '#111111', marginTop: 2 }}>
+      <div style={{ fontFamily: OSWALD, fontSize: 15, fontWeight: 600, color: INK, marginTop: 2 }}>
         {fmtEur(brutoVal, { showEuro: false, decimals: 2 })}
       </div>
       <div style={{ fontSize: 10, color: COLOR.textMut, fontFamily: LEXEND }}>

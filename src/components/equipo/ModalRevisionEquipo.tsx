@@ -8,7 +8,7 @@
  */
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, AZUL, GRIS } from '@/styles/neobrutal'
+import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, AZUL, GRIS, BLANCO } from '@/styles/neobrutal'
 
 interface FilaRevision {
   id: string
@@ -150,7 +150,7 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
               const fm = form[f.id] || { tipo: 'nomina', empleadoId: '', mes: '' as const, anio: '' as const }
               const sinArchivo = !f.storage_path
               return (
-                <div key={f.id} style={{ background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: 14 }}>
+                <div key={f.id} style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: 14 }}>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
                     <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, color: INK, flex: 1, minWidth: 160, wordBreak: 'break-all' }}>{f.nombre_archivo}</span>
                     <span style={{ fontFamily: OSW, fontSize: 9, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', border: `2px solid ${INK}`, padding: '2px 7px', background: AMA, color: INK }}>
@@ -170,7 +170,7 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
                       <button
                         disabled={procesando === f.id}
                         onClick={() => descartar(f.id)}
-                        style={{ ...btnMini, background: '#fff', color: ROJO, borderColor: ROJO }}
+                        style={{ ...btnMini, background: BLANCO, color: ROJO, borderColor: ROJO }}
                       >
                         Descartar
                       </button>
@@ -204,14 +204,14 @@ export default function ModalRevisionEquipo({ onClose, onResuelto }: { onClose: 
                       <button
                         disabled={procesando === f.id}
                         onClick={() => reprocesar(f.id)}
-                        style={{ ...btnMini, background: VERDE, color: '#fff', cursor: procesando === f.id ? 'wait' : 'pointer' }}
+                        style={{ ...btnMini, background: VERDE, color: BLANCO, cursor: procesando === f.id ? 'wait' : 'pointer' }}
                       >
                         {procesando === f.id ? 'Procesando…' : 'Reprocesar'}
                       </button>
                       <button
                         disabled={procesando === f.id}
                         onClick={() => descartar(f.id)}
-                        style={{ ...btnMini, background: '#fff', color: ROJO, borderColor: ROJO }}
+                        style={{ ...btnMini, background: BLANCO, color: ROJO, borderColor: ROJO }}
                       >
                         Descartar
                       </button>

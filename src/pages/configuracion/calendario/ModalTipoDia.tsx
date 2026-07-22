@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, LIMA, ROJO_S } from '@/styles/neobrutal'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -43,10 +44,10 @@ export default function ModalTipoDia({ fecha, tipoActual, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 12, padding: '28px 32px', width: 380, maxWidth: '95vw' }}
+        style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 12, padding: '28px 32px', width: 380, maxWidth: '95vw' }}
         onClick={e => e.stopPropagation()}
       >
-        <h2 style={{ margin: '0 0 4px', fontFamily: FONT.heading, fontSize: 16, color: '#e8f442', letterSpacing: 1, textTransform: 'uppercase' }}>
+        <h2 style={{ margin: '0 0 4px', fontFamily: FONT.heading, fontSize: 16, color: LIMA, letterSpacing: 1, textTransform: 'uppercase' }}>
           Tipo de día
         </h2>
         <p style={{ margin: '0 0 20px', fontFamily: FONT.body, fontSize: 12, color: '#777' }}>{fmt}</p>
@@ -57,7 +58,7 @@ export default function ModalTipoDia({ fecha, tipoActual, onClose }: Props) {
         <select
           value={tipo}
           onChange={e => setTipo(e.target.value as TipoDia)}
-          style={{ width: '100%', padding: '8px 12px', backgroundColor: '#1e1e1e', color: '#fff', border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 16 }}
+          style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 16 }}
         >
           {TODOS_TIPOS.map(t => (
             <option key={t} value={t}>{TIPO_LABEL[t]}</option>
@@ -72,11 +73,11 @@ export default function ModalTipoDia({ fecha, tipoActual, onClose }: Props) {
           value={nota}
           onChange={e => setNota(e.target.value)}
           placeholder="Ej: Festivo local San Isidro"
-          style={{ width: '100%', padding: '8px 12px', backgroundColor: '#1e1e1e', color: '#fff', border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 20, boxSizing: 'border-box' }}
+          style={{ width: '100%', padding: '8px 12px', backgroundColor: INK, color: BLANCO, border: '1px solid #383838', borderRadius: 6, fontFamily: FONT.body, fontSize: 13, marginBottom: 20, boxSizing: 'border-box' }}
         />
 
         {error && (
-          <div style={{ color: '#ffaaaa', fontFamily: FONT.body, fontSize: 12, marginBottom: 12 }}>{error}</div>
+          <div style={{ color: ROJO_S, fontFamily: FONT.body, fontSize: 12, marginBottom: 12 }}>{error}</div>
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -89,7 +90,7 @@ export default function ModalTipoDia({ fecha, tipoActual, onClose }: Props) {
           <button
             onClick={guardar}
             disabled={saving}
-            style={{ padding: '9px 18px', backgroundColor: '#B01D23', border: 'none', borderRadius: 8, color: '#fff', fontFamily: FONT.heading, fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer', letterSpacing: 1, textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
+            style={{ padding: '9px 18px', backgroundColor: GRANATE, border: 'none', borderRadius: 8, color: BLANCO, fontFamily: FONT.heading, fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer', letterSpacing: 1, textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
           >
             {saving ? 'Guardando...' : 'Guardar'}
           </button>

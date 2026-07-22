@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, NAR, OSC, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { fmtNumES } from '../../../utils/format'
@@ -71,27 +72,27 @@ export default function CardSaludOcr() {
     : []
 
   return (
-    <div style={{ background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '16px 16px' }}>
+    <div style={{ background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '16px 16px' }}>
       <div style={{ marginBottom: 8 }}>
-        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>Salud OCR</span>
+        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase' }}>Salud OCR</span>
       </div>
 
-      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: INK }}>
         {s ? fmtNumES(total) : '—'}
       </div>
-      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4, marginBottom: 12 }}>
+      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: GRIS, marginTop: 4, marginBottom: 12 }}>
         han entrado
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11.5, color: '#3a4050' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11.5, color: OSC }}>
         {filas.map((f) => {
           const p = pct(f.valor)
-          const color = p >= 95 ? '#1D9E75' : p >= 70 ? '#F26B1F' : '#B01D23'
+          const color = p >= 95 ? VERDE : p >= 70 ? NAR : GRANATE
           return (
             <div key={f.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-              <span style={{ color: '#7a8090' }}>{f.label}</span>
+              <span style={{ color: GRIS }}>{f.label}</span>
               <span style={{ whiteSpace: 'nowrap' }}>
-                <span style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: '#111' }}>{fmtNumES(f.valor)}</span>
+                <span style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: INK }}>{fmtNumES(f.valor)}</span>
                 <span style={{ color, fontWeight: 600, marginLeft: 6 }}>{p}%</span>
               </span>
             </div>

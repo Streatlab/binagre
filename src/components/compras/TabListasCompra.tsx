@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -60,13 +61,13 @@ export default function TabListasCompra() {
     setPropuesta(p => p.map((it, i) => i === idx ? { ...it, cantidad: isNaN(n) ? 0 : n } : it))
   }
 
-  const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', background: '#0a0a0a', borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap' }
+  const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', background: INK, borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap' }
   const td: React.CSSProperties = { padding: '8px 12px', fontSize: 13, color: T.pri, borderBottom: `0.5px solid ${T.brd}`, fontFamily: FONT.body }
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
-        <button onClick={generar} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#B01D23', color: '#fff', fontFamily: FONT.heading, fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer' }}>
+        <button onClick={generar} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer' }}>
           Generar lista desde stock
         </button>
         {propuesta.length > 0 && (
@@ -94,7 +95,7 @@ export default function TabListasCompra() {
                   <td style={td}>{it.nombre}</td>
                   <td style={{ ...td, textAlign: 'right' }}>
                     <input value={it.cantidad} onChange={e => cambiarCantidad(idx, e.target.value)}
-                      style={{ width: 70, padding: '4px 6px', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: '#1e1e1e', color: T.pri, textAlign: 'right' }} />
+                      style={{ width: 70, padding: '4px 6px', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, textAlign: 'right' }} />
                   </td>
                   <td style={{ ...td, color: T.mut }}>{it.unidad}</td>
                   <td style={{ ...td, textAlign: 'right' }}>{fmtEur(it.cantidad * it.precio_est)}</td>

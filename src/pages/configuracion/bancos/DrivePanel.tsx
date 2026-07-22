@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useTheme, FONT } from '@/styles/tokens'
 import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
@@ -50,8 +51,8 @@ export default function DrivePanel() {
 
   const btnPrimario: CSSProperties = {
     padding: '8px 14px',
-    background: '#B01D23',
-    color: '#fff',
+    background: GRANATE,
+    color: BLANCO,
     border: 'none',
     borderRadius: 8,
     fontFamily: FONT.heading,
@@ -90,7 +91,7 @@ export default function DrivePanel() {
             padding: 12,
             borderRadius: 8,
             background: msg.startsWith('❌') ? '#A32D2D22' : '#1D9E7522',
-            borderLeft: `3px solid ${msg.startsWith('❌') ? '#A32D2D' : '#1D9E75'}`,
+            borderLeft: `3px solid ${msg.startsWith('❌') ? '#A32D2D' : VERDE}`,
             fontFamily: FONT.body, fontSize: 12, color: T.pri,
             marginBottom: 14,
           }}>{msg}</div>

@@ -4,18 +4,11 @@
  * Conectado en real: al meter un reembolso verifica el pedido en pedidos_plataforma.
  */
 import React, { useMemo, useState } from "react";
-import {
-  useReclamaciones, computeMetricas, computeMetricasPorCanal,
-  verificarPedido,
-  CANAL_LABELS, TIPO_LABELS, ESTADO_LABELS,
-} from "../../lib/reclamaciones/useReclamaciones";
+import { useReclamaciones, computeMetricas, computeMetricasPorCanal, verificarPedido, CANAL_LABELS, TIPO_LABELS, ESTADO_LABELS, } from "../../lib/reclamaciones/useReclamaciones";
 import type {
-  Reclamacion, Canal, EstadoReclamacion, TipoReclamacion, PedidoVerificado,
-} from "../../lib/reclamaciones/useReclamaciones";
+  Reclamacion, Canal, EstadoReclamacion, TipoReclamacion, PedidoVerificado, } from "../../lib/reclamaciones/useReclamaciones";
 import {
-  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD,
-  GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow,
-} from "@/styles/neobrutal";
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
 
 type TabKey = "todas" | "pendiente" | "reclamada" | "cobrada" | "cobrada_doble" | "rechazada" | "incobrable";
 
@@ -34,11 +27,11 @@ const canalColor = (c: Canal) =>
 const estadoColor = (e: EstadoReclamacion): { bg: string; fg: string } => {
   switch (e) {
     case "pendiente":     return { bg: AMA,   fg: INK };
-    case "reclamada":     return { bg: AZUL,  fg: "#fff" };
-    case "cobrada":       return { bg: VERDE, fg: "#fff" };
-    case "cobrada_doble": return { bg: NAR,   fg: "#fff" };
-    case "rechazada":     return { bg: ROJO,  fg: "#fff" };
-    case "incobrable":    return { bg: GRIS,  fg: "#fff" };
+    case "reclamada":     return { bg: AZUL,  fg: BLANCO };
+    case "cobrada":       return { bg: VERDE, fg: BLANCO };
+    case "cobrada_doble": return { bg: NAR,   fg: BLANCO };
+    case "rechazada":     return { bg: ROJO,  fg: BLANCO };
+    case "incobrable":    return { bg: GRIS,  fg: BLANCO };
   }
 };
 
@@ -70,11 +63,11 @@ export default function ReclamacionReembolsos() {
   const mGL  = useMemo(() => computeMetricasPorCanal(data, "glovo"), [data]);
   const mJE  = useMemo(() => computeMetricasPorCanal(data, "just_eat"), [data]);
 
-  const card: React.CSSProperties = { background: "#fff", border: BORDER_CARD, boxShadow: SHADOW };
+  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW };
   const btnPrim: React.CSSProperties = {
     fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: "1px", textTransform: "uppercase",
     border: `3px solid ${INK}`, boxShadow: SHADOW, padding: "9px 16px", cursor: "pointer",
-    background: GRANATE, color: "#fff",
+    background: GRANATE, color: BLANCO,
   };
 
   if (loading) return <div style={{ padding: 40, color: GRIS, fontFamily: OSW, textTransform: "uppercase", letterSpacing: "1px" }}>Cargando reembolsos…</div>;
@@ -85,7 +78,7 @@ export default function ReclamacionReembolsos() {
 
       <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <span style={eyebrow(NAR, "#fff")}>OPERACIONES</span>
+          <span style={eyebrow(NAR, BLANCO)}>OPERACIONES</span>
           <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
             REEMBOLSOS
           </h1>
@@ -103,9 +96,9 @@ export default function ReclamacionReembolsos() {
           </div>
         </div>
         <div style={{ ...card, padding: "16px 20px", background: VERDE }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: "#fff", marginBottom: 6 }}>Recuperado 2026</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: "#fff" }}>{fmtEur(m.cobrado)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: "#fff", marginTop: 6 }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: BLANCO, marginBottom: 6 }}>Recuperado 2026</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: BLANCO }}>{fmtEur(m.cobrado)}</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
             {m.cobradas} cobradas · {m.tasaResolucion}% de éxito · perdido {fmtEur(m.perdido)}
           </div>
         </div>
@@ -129,7 +122,7 @@ export default function ReclamacionReembolsos() {
         ] as [TabKey, string, number][]).map(([k, label, count]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             padding: "8px 16px", border: `3px solid ${INK}`,
-            background: tab === k ? GRANATE : "#fff", color: tab === k ? "#fff" : INK,
+            background: tab === k ? GRANATE : BLANCO, color: tab === k ? BLANCO : INK,
             boxShadow: tab === k ? SHADOW : "none",
             fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", cursor: "pointer",
           }}>
@@ -194,7 +187,7 @@ export default function ReclamacionReembolsos() {
                       : <span style={{ color: GRIS }}>—</span>}
                   </td>
                   <td style={{ padding: "10px 12px" }}>
-                    <button onClick={() => setEditing(r)} style={{ padding: "4px 10px", background: "#fff", border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 11, textTransform: "uppercase", cursor: "pointer" }}>Editar</button>
+                    <button onClick={() => setEditing(r)} style={{ padding: "4px 10px", background: BLANCO, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 11, textTransform: "uppercase", cursor: "pointer" }}>Editar</button>
                   </td>
                 </tr>
               );
@@ -230,7 +223,7 @@ function CanalCard({ label, color, data, card }: {
 }) {
   return (
     <div style={{ ...card, padding: "12px 16px" }}>
-      <div style={{ display: "inline-block", background: color, color: "#fff", border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", padding: "2px 8px", marginBottom: 10 }}>{label}</div>
+      <div style={{ display: "inline-block", background: color, color: BLANCO, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", padding: "2px 8px", marginBottom: 10 }}>{label}</div>
       {data.count === 0 ? (
         <div style={{ color: GRIS, fontSize: 12, fontFamily: LEX, padding: "6px 0" }}>Sin reembolsos</div>
       ) : (
@@ -329,7 +322,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
         </div>
         <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
 
-          <span style={eyebrow(NAR, "#fff")}>PEDIDO</span>
+          <span style={eyebrow(NAR, BLANCO)}>PEDIDO</span>
           <div style={grid2}>
             <Field label="Plataforma">
               <select style={inputNeo} value={canal} onChange={e => setCanal(e.target.value as Canal)}>
@@ -346,7 +339,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
           </div>
 
           {verif && (
-            <div style={{ border: `3px solid ${INK}`, boxShadow: SHADOW, padding: "10px 14px", background: verif.encontrado ? VERDE : ROJO, color: "#fff", fontFamily: LEX, fontSize: 13 }}>
+            <div style={{ border: `3px solid ${INK}`, boxShadow: SHADOW, padding: "10px 14px", background: verif.encontrado ? VERDE : ROJO, color: BLANCO, fontFamily: LEX, fontSize: 13 }}>
               {verif.encontrado ? (
                 <span><strong>Pedido encontrado</strong>{verif.marca ? ` · ${verif.marca}` : ""}{verif.fecha ? ` · ${fmtFechaCorta(verif.fecha)}` : ""}{verif.importe_pedido != null ? ` · pedido de ${fmtEur(verif.importe_pedido)}` : ""}. Vino en la factura de origen.</span>
               ) : (
@@ -377,7 +370,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
             <textarea style={{ ...inputNeo, resize: "vertical", minHeight: 55 }} value={descripcion || ""} onChange={e => setDescripcion(e.target.value)} placeholder="Producto que falta, mal estado, etc." />
           </Field>
 
-          <span style={eyebrow(NAR, "#fff")}>EVIDENCIA</span>
+          <span style={eyebrow(NAR, BLANCO)}>EVIDENCIA</span>
           {existing?.foto_url && !file && (
             <div style={{ fontSize: 12, color: GRIS, fontFamily: LEX }}>Foto actual: <a href={existing.foto_url} target="_blank" rel="noreferrer" style={{ color: GRANATE }}>ver</a></div>
           )}
@@ -386,7 +379,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
             {file && <div style={{ fontSize: 11, color: VERDE, marginTop: 4, fontFamily: LEX }}>Seleccionado: {file.name}</div>}
           </div>
 
-          <span style={eyebrow(NAR, "#fff")}>ESTADO</span>
+          <span style={eyebrow(NAR, BLANCO)}>ESTADO</span>
           <div style={grid2}>
             <Field label="Estado">
               <select style={inputNeo} value={estado} onChange={e => setEstado(e.target.value as EstadoReclamacion)}>
@@ -426,14 +419,14 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
             </>
           )}
 
-          {err && <div style={{ background: ROJO, color: "#fff", padding: 10, fontFamily: LEX, fontSize: 13, border: `3px solid ${INK}` }}>{err}</div>}
+          {err && <div style={{ background: ROJO, color: BLANCO, padding: 10, fontFamily: LEX, fontSize: 13, border: `3px solid ${INK}` }}>{err}</div>}
         </div>
         <div style={modalFooter}>
           {existing && onDelete && (
-            <button onClick={onDelete} disabled={saving} style={{ ...btnMini, background: "#fff", color: ROJO, border: `3px solid ${ROJO}`, marginRight: "auto" }}>Eliminar</button>
+            <button onClick={onDelete} disabled={saving} style={{ ...btnMini, background: BLANCO, color: ROJO, border: `3px solid ${ROJO}`, marginRight: "auto" }}>Eliminar</button>
           )}
-          <button onClick={onClose} disabled={saving} style={{ ...btnMini, background: "#fff" }}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving} style={{ ...btnMini, background: GRANATE, color: "#fff" }}>{saving ? "Guardando…" : "Guardar"}</button>
+          <button onClick={onClose} disabled={saving} style={{ ...btnMini, background: BLANCO }}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving} style={{ ...btnMini, background: GRANATE, color: BLANCO }}>{saving ? "Guardando…" : "Guardar"}</button>
         </div>
       </div>
     </div>
@@ -449,8 +442,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-const selectNeo: React.CSSProperties = { background: "#fff", border: `3px solid ${INK}`, color: INK, padding: "7px 12px", fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer", outline: "none" };
-const inputNeo: React.CSSProperties = { padding: "8px 11px", background: "#fff", border: `3px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 14, outline: "none", width: "100%" };
+const selectNeo: React.CSSProperties = { background: BLANCO, border: `3px solid ${INK}`, color: INK, padding: "7px 12px", fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer", outline: "none" };
+const inputNeo: React.CSSProperties = { padding: "8px 11px", background: BLANCO, border: `3px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 14, outline: "none", width: "100%" };
 const btnMini: React.CSSProperties = { fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: "0.5px", textTransform: "uppercase", border: `3px solid ${INK}`, padding: "8px 14px", cursor: "pointer", color: INK, whiteSpace: "nowrap" };
 const grid2: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 };
 const overlay: React.CSSProperties = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 };

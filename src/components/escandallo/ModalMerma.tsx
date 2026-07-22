@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
-import { INK, AMA, CREMA, AZUL, GRANATE, GRIS, OSW, LEX } from '@/styles/neobrutal'
+import { INK, AMA, CREMA, AZUL, GRANATE, GRIS, OSW, LEX, BLANCO } from '@/styles/neobrutal'
 
 const btnSaveStyle: CSSProperties = {
   backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '1px',
@@ -8,7 +8,7 @@ const btnSaveStyle: CSSProperties = {
   boxShadow: `3px 3px 0 ${INK}`, cursor: 'pointer', minHeight: 44, fontSize: 14,
 }
 const btnCancelStyle: CSSProperties = {
-  backgroundColor: '#ffffff', color: INK, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700,
+  backgroundColor: BLANCO, color: INK, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700,
   letterSpacing: '1px', textTransform: 'uppercase', padding: '11px 28px', borderRadius: 0, cursor: 'pointer', minHeight: 44, fontSize: 14,
 }
 import { supabase } from '@/lib/supabase'
@@ -269,11 +269,11 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
           <div>
             <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase', color: INK }}>{isEdit ? 'Editar merma' : 'Nueva merma'}</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-              <span style={{ background: '#fff', border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: INK, padding: '3px 10px' }}>{nombreCompleto}</span>
-              {f.abv && <span style={{ background: AZUL, color: '#fff', border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '3px 10px' }}>{f.abv}</span>}
+              <span style={{ background: BLANCO, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: INK, padding: '3px 10px' }}>{nombreCompleto}</span>
+              {f.abv && <span style={{ background: AZUL, color: BLANCO, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '3px 10px' }}>{f.abv}</span>}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: '#fff', border: `2px solid ${INK}`, width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
+          <button onClick={onClose} style={{ background: BLANCO, border: `2px solid ${INK}`, width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
         </div>
 
         <div className="p-5 space-y-4">
@@ -345,7 +345,7 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
         </div>
 
         {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 24px', borderTop: `4px solid ${INK}`, background: '#fff', position: 'sticky', bottom: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 24px', borderTop: `4px solid ${INK}`, background: BLANCO, position: 'sticky', bottom: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {isEdit && !confirmEliminar && (
               <button onClick={() => setConfirmEliminar(true)} style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '11px 18px', borderRadius: 0, fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: 44 }}>ELIMINAR</button>
@@ -353,7 +353,7 @@ export default function ModalMerma({ merma, onClose, onSaved, onDelete }: Props)
             {isEdit && confirmEliminar && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 12, color: GRANATE, fontFamily: LEX }}>¿Eliminar definitivamente?</span>
-                <button onClick={handleEliminar} disabled={deleting} style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, padding: '7px 12px', borderRadius: 0, cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>{deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}</button>
+                <button onClick={handleEliminar} disabled={deleting} style={{ background: GRANATE, color: BLANCO, border: `2px solid ${INK}`, padding: '7px 12px', borderRadius: 0, cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>{deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}</button>
                 <button onClick={() => setConfirmEliminar(false)} style={{ background: 'transparent', border: `2px solid ${INK}`, color: INK, padding: '7px 12px', borderRadius: 0, cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem' }}>CANCELAR</button>
               </div>
             )}

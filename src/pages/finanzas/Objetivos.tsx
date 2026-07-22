@@ -1,3 +1,4 @@
+import { AZUL, BLANCO, GRANATE, GRIS, INK, LIMA, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNumES } from '@/utils/format'
@@ -61,12 +62,12 @@ const BLOQUES_PRESUPUESTO = Object.keys(BLOQUE_LABEL)
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 // Festivo Madrid — amarillo SL sólido + texto oscuro legible
-const FESTIVO_BG = '#e8f442'
+const FESTIVO_BG = LIMA
 const FESTIVO_BORDE = '#c8d400'
 const FESTIVO_TXT = '#5c5c00'
 
 function barColor(pct: number): string {
-  return pct > 0 ? '#1D9E75' : '#E24B4A'
+  return pct > 0 ? VERDE : ROJO
 }
 
 export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
@@ -264,12 +265,22 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
 
   const savePresupuesto = async (codigo: string, mes: number, val: number) => {
     setPresSaving(true)
-    const existing = presData.find(p => p.categoria_codigo === codigo && p.mes === mes && p.anio === presAnio)
     try {
-      if (existing) {
-        const { error } = await supabase.from('objetivos').update({ importe: val, updated_at: new Date().toISOString() }).eq('id', existing.id)
+      // Resolver la fila existente contra BD, no solo contra presData: si allCodigos
+      // aún no estaba listo al cargar, presData puede estar vacío y un insert ciego
+      // crearía duplicados o perdería la edición. Consulta puntual = idempotente.
+      const { data: found, error: findErr } = await supabase.from('objetivos')
+        .select('id').eq('tipo', 'presupuesto').eq('categoria_codigo', codigo)
+        .eq('anio', presAnio).eq('mes', mes).limit(1)
+      if (findErr) throw findErr
+      const existingId = found?.[0]?.id
+        ?? presData.find(p => p.categoria_codigo === codigo && p.mes === mes && p.anio === presAnio)?.id
+      if (existingId) {
+        const { error } = await supabase.from('objetivos').update({ importe: val, updated_at: new Date().toISOString() }).eq('id', existingId)
         if (error) throw error
-        setPresData(prev => prev.map(p => p.id === existing.id ? { ...p, importe: val } : p))
+        setPresData(prev => prev.some(p => p.id === existingId)
+          ? prev.map(p => p.id === existingId ? { ...p, importe: val } : p)
+          : [...prev, { id: existingId, categoria_codigo: codigo, anio: presAnio, mes, importe: val }])
       } else {
         const { data, error } = await supabase.from('objetivos').insert({ tipo: 'presupuesto', categoria_codigo: codigo, anio: presAnio, mes, importe: val }).select()
         if (error) throw error
@@ -408,13 +419,12 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
   const pctMes = objMensual > 0 ? Math.round((ventasMes     / objMensual) * 100) : 0
   const pctAno = objAnual   > 0 ? Math.round((ventasAno     / objAnual)   * 100) : 0
 
-  const INCUMPLIDO = '#E24B4A'
-  const VERDE = '#1D9E75'
+  const INCUMPLIDO = ROJO
   const KPI_SIZE = 36
 
   const inputSelectStyle = {
-    background: isDark ? '#3a4058' : '#ffffff',
-    border: `1px solid ${isDark ? '#4a5270' : '#cccccc'}`,
+    background: isDark ? '#3a4058' : BLANCO,
+    border: `1px solid ${isDark ? '#4a5270' : GRIS}`,
     color: T.pri, fontFamily: FONT.body, fontSize: 12, borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
   }
   const sectionLabel = { fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase' as const, color: T.mut, margin: '24px 0 10px' }
@@ -435,7 +445,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
           onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditingId(null) }}
           autoFocus placeholder="vacío o 0 = restaurar"
-          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 110, textAlign: 'right' }}
+          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: isDark ? '#3a4058' : BLANCO, border: `1px solid ${T.brd}`, borderRadius: 6, padding: '2px 6px', width: 110, textAlign: 'right' }}
         />
       )
     }
@@ -491,7 +501,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
   return (
     <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 16, padding: '24px 28px', width: '100%', position: 'relative' }}>
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, background: toast.ok ? '#1D9E75' : '#B01D23', color: '#fff', padding: '10px 18px', borderRadius: 8, fontFamily: FONT.body, fontSize: 13, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'opacity 0.3s' }}>
+        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, background: toast.ok ? VERDE : GRANATE, color: BLANCO, padding: '10px 18px', borderRadius: 8, fontFamily: FONT.body, fontSize: 13, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'opacity 0.3s' }}>
           {toast.msg}
         </div>
       )}
@@ -520,7 +530,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                 ) || 1) * diasOperativosSemana
               : null
             return (
-              <div style={{ backgroundColor: '#e8f442', color: '#111111', padding: '10px 16px', borderRadius: 8, marginBottom: 12, fontFamily: FONT.heading, fontSize: 13, letterSpacing: 0.5 }}>
+              <div style={{ backgroundColor: LIMA, color: INK, padding: '10px 16px', borderRadius: 8, marginBottom: 12, fontFamily: FONT.heading, fontSize: 13, letterSpacing: 0.5 }}>
                 Esta semana hay {nDiasCerradosSemana} día{nDiasCerradosSemana > 1 ? 's' : ''} cerrado{nDiasCerradosSemana > 1 ? 's' : ''}, objetivo ajustado a {objAjustado != null ? fmtNumES(objAjustado, 2) : '—'}
               </div>
             )
@@ -581,13 +591,13 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                   const esCerrado = tipoDiaActual === 'cerrado' || tipoDiaActual === 'festivo' || tipoDiaActual === 'vacaciones'
 
                   let rowBg = 'transparent', rowBorderLeft = '3px solid transparent', diaColor = T.sec
-                  if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = '#1D9E75' }
+                  if (finde) { rowBg = '#1D9E7510'; rowBorderLeft = '3px solid #1D9E75'; diaColor = VERDE }
                   if (festivo) { rowBg = FESTIVO_BG; rowBorderLeft = `3px solid ${FESTIVO_BORDE}`; diaColor = FESTIVO_TXT }
                   if (hoyFl) { rowBorderLeft = '3px solid #1E5BCC'; if (!festivo) rowBg = '#ffffff15' }
 
                   const fechaStr = `${fechaDiaD.getDate()} ${fechaDiaD.toLocaleDateString('es-ES', { month: 'short' })}`
                   const editId = `dia-${dia}`
-                  const textoFecha = festivo ? FESTIVO_TXT : (hoyFl ? '#1E5BCC' : T.mut)
+                  const textoFecha = festivo ? FESTIVO_TXT : (hoyFl ? AZUL : T.mut)
                   void esCerrado
 
                   return (
@@ -598,15 +608,15 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                       borderRadius: hoyFl ? 8 : 0,
                     }}>
                       <div>
-                        <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: festivo ? FESTIVO_TXT : (hoyFl ? '#1E5BCC' : diaColor), textTransform: 'uppercase', fontWeight: festivo || hoyFl ? 700 : 500 }}>
+                        <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: festivo ? FESTIVO_TXT : (hoyFl ? AZUL : diaColor), textTransform: 'uppercase', fontWeight: festivo || hoyFl ? 700 : 500 }}>
                           {NOMBRES_DIA[dia - 1]}
                         </div>
                         <div style={{ fontFamily: FONT.body, fontSize: 10, color: textoFecha, marginTop: 1, fontWeight: festivo || hoyFl ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                           {fechaStr}{hoyFl ? ' · HOY' : ''}
                           {festivo && <span style={{ backgroundColor: FESTIVO_BORDE, color: '#1a1a00', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading, fontWeight: 700 }} title={festNombre ?? undefined}>FESTIVO</span>}
-                          {esCerrado && !festivo && <span style={{ backgroundColor: '#B01D23', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CERRADO</span>}
-                          {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: '#e8f442', color: '#111', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>ALM</span>}
-                          {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: '#f5a623', color: '#fff', padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CENA</span>}
+                          {esCerrado && !festivo && <span style={{ backgroundColor: GRANATE, color: BLANCO, padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CERRADO</span>}
+                          {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: LIMA, color: INK, padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>ALM</span>}
+                          {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: NAR, color: BLANCO, padding: '1px 5px', borderRadius: 3, fontSize: 9, fontFamily: FONT.heading }}>CENA</span>}
                         </div>
                       </div>
                       <div style={{ height: 5, background: T.brd, borderRadius: 3, display: 'flex', overflow: 'hidden' }}>
@@ -626,7 +636,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                               if (e.key === 'Escape') setEditingId(null)
                             }}
                             autoFocus
-                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: T.pri, background: isDark ? '#3a4058' : '#fff', border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 72, textAlign: 'right' }}
+                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: T.pri, background: isDark ? '#3a4058' : BLANCO, border: `1px solid ${T.brd}`, borderRadius: 6, padding: '3px 6px', width: 72, textAlign: 'right' }}
                           />
                         ) : (
                           <span onClick={() => { setEditingId(editId); setEditValue(String(Math.round(importe))) }}
@@ -676,12 +686,12 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
               const sc = semaforoColor(pct)
               const bc = barColor(pct)
               const desv = h.real - h.objetivo
-              const desvColor = desv >= 0 ? VERDE : '#E24B4A'
+              const desvColor = desv >= 0 ? VERDE : ROJO
               const pctDesv = h.objetivo > 0 ? Math.round(((h.real - h.objetivo) / h.objetivo) * 100) : 0
               const enCurso = (h as any).enCurso === true
               return (
                 <div key={idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${T.brd}` : 'none', background: enCurso ? '#1E5BCC10' : 'transparent', borderLeft: enCurso ? '3px solid #1E5BCC' : '3px solid transparent', paddingLeft: enCurso ? 8 : 0, marginLeft: enCurso ? -8 : 0, borderRadius: enCurso ? 4 : 0 }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: enCurso ? '#1E5BCC' : T.pri, fontWeight: enCurso ? 600 : 400 }}>{h.label}</span>
+                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: enCurso ? AZUL : T.pri, fontWeight: enCurso ? 600 : 400 }}>{h.label}</span>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <div style={{ flex: 1, height: 8, background: T.brd, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
                       <div style={{ height: 8, background: bc, width: `${pctCap}%` }} />
@@ -721,12 +731,12 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
               const totalGrupoAnual = () => grupo.codigos.reduce((a, c) => a + totalCodigo(c.codigo), 0)
               return (
                 <div key={grupo.grupo} style={{ marginBottom: 28 }}>
-                  <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#e8f442', marginBottom: 8 }}>{grupo.label}</div>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: LIMA, marginBottom: 8 }}>{grupo.label}</div>
                   <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, overflow: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                       <thead>
-                        <tr style={{ background: '#0a0a0a' }}>
-                          <th style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', position: 'sticky', left: 0, background: '#0a0a0a', zIndex: 1, minWidth: 160 }}>Categoría</th>
+                        <tr style={{ background: INK }}>
+                          <th style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', position: 'sticky', left: 0, background: INK, zIndex: 1, minWidth: 160 }}>Categoría</th>
                           {MESES.map(m => <th key={m} style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, padding: '8px 6px', textAlign: 'right', minWidth: 72 }}>{m}</th>)}
                           <th style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, padding: '8px 10px', textAlign: 'right', minWidth: 90 }}>Total</th>
                         </tr>
@@ -735,7 +745,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                         {grupo.codigos.map(cat => (
                           <tr key={cat.codigo} style={{ borderTop: `1px solid ${T.brd}` }}>
                             <td style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, padding: '7px 12px', position: 'sticky', left: 0, background: T.card, zIndex: 1 }}>
-                              <span style={{ fontFamily: FONT.heading, fontSize: 10, color: '#e8f442', marginRight: 6 }}>{cat.codigo}</span>
+                              <span style={{ fontFamily: FONT.heading, fontSize: 10, color: LIMA, marginRight: 6 }}>{cat.codigo}</span>
                               {cat.nombre}
                             </td>
                             {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => {
@@ -748,7 +758,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                                       onBlur={() => commitPresEdit(cat.codigo, mes)}
                                       onKeyDown={e => { if (e.key === 'Enter') commitPresEdit(cat.codigo, mes); if (e.key === 'Escape') setPresEditing(null) }}
                                       autoFocus
-                                      style={{ fontFamily: FONT.heading, fontSize: 11, color: T.pri, background: '#1e1e1e', border: `1px solid #e8f442`, borderRadius: 4, padding: '3px 5px', width: 66, textAlign: 'right' }}
+                                      style={{ fontFamily: FONT.heading, fontSize: 11, color: T.pri, background: INK, border: `1px solid #e8f442`, borderRadius: 4, padding: '3px 5px', width: 66, textAlign: 'right' }}
                                     />
                                   ) : (
                                     <span onClick={() => { setPresEditing(cellKey); setPresEditVal(String(val)) }}
@@ -760,21 +770,21 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                                 </td>
                               )
                             })}
-                            <td style={{ fontFamily: FONT.heading, fontSize: 11, color: '#e8f442', padding: '7px 10px', textAlign: 'right', fontWeight: 600 }}>
+                            <td style={{ fontFamily: FONT.heading, fontSize: 11, color: LIMA, padding: '7px 10px', textAlign: 'right', fontWeight: 600 }}>
                               {fmtEur(totalCodigo(cat.codigo))}
                             </td>
                           </tr>
                         ))}
                         <tr style={{ borderTop: `2px solid ${T.brd}`, background: '#0d0d0d' }}>
-                          <td style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', color: '#e8f442', padding: '8px 12px', textTransform: 'uppercase', position: 'sticky', left: 0, background: '#0d0d0d', zIndex: 1 }}>
+                          <td style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', color: LIMA, padding: '8px 12px', textTransform: 'uppercase', position: 'sticky', left: 0, background: '#0d0d0d', zIndex: 1 }}>
                             Total {grupo.label.split(' ')[0]}
                           </td>
                           {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => (
-                            <td key={mes} style={{ fontFamily: FONT.heading, fontSize: 11, color: '#e8f442', padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>
+                            <td key={mes} style={{ fontFamily: FONT.heading, fontSize: 11, color: LIMA, padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>
                               {fmtEur(totalGrupoMes(mes))}
                             </td>
                           ))}
-                          <td style={{ fontFamily: FONT.heading, fontSize: 12, color: '#e8f442', padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>
+                          <td style={{ fontFamily: FONT.heading, fontSize: 12, color: LIMA, padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>
                             {fmtEur(totalGrupoAnual())}
                           </td>
                         </tr>
@@ -790,14 +800,14 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
             <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, overflow: 'auto', marginTop: 4 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                 <tbody>
-                  <tr style={{ background: '#111' }}>
-                    <td style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: '#e8f442', padding: '10px 12px', textTransform: 'uppercase', minWidth: 160 }}>Total gastos {presAnio}</td>
+                  <tr style={{ background: INK }}>
+                    <td style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: LIMA, padding: '10px 12px', textTransform: 'uppercase', minWidth: 160 }}>Total gastos {presAnio}</td>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => (
                       <td key={mes} style={{ fontFamily: FONT.heading, fontSize: 11, color: T.pri, padding: '10px 6px', textAlign: 'right', fontWeight: 600, minWidth: 72 }}>
                         {fmtEur(totalMesPres(mes))}
                       </td>
                     ))}
-                    <td style={{ fontFamily: FONT.heading, fontSize: 13, color: '#e8f442', padding: '10px 10px', textAlign: 'right', fontWeight: 700, minWidth: 90 }}>
+                    <td style={{ fontFamily: FONT.heading, fontSize: 13, color: LIMA, padding: '10px 10px', textAlign: 'right', fontWeight: 700, minWidth: 90 }}>
                       {fmtEur(totalAnual())}
                     </td>
                   </tr>

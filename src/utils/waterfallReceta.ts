@@ -3,11 +3,12 @@
 // poder blindarlo con test (Bloque D). La cadena de coste es:
 //   eur_ud_neta por línea → coste por ración (EP o receta) → coste_mp del waterfall → margen.
 //
-// NOTA (auditoría D): existen implementaciones huérfanas divergentes en
-// src/utils/calcWaterfall.ts y src/hooks/useConfig.ts que NO se usan. Esta es la viva.
-// Las divergencias de fórmula (merma que no entra en coste_mp, fees fijos ignorados,
-// comisión base vs real por canal) están documentadas en docs/BLOQUE_D_WATERFALL.md y
-// son decisiones de pricing pendientes de Rubén — este módulo NO las cambia.
+// (Tanda D2, docs/BLOQUE_D2_COSTE_REAL.md): las huérfanas de docs/BLOQUE_D_WATERFALL.md
+// (src/utils/calcWaterfall.ts y el calcWaterfall() de useConfig.ts) ya se han borrado.
+// Las divergencias B/D/E/F de esa auditoría están cerradas: la merma entra en coste_mp
+// vía precioNeto() en ModalEPS/ModalReceta, los fees fijos y la comisión real por canal
+// llegan aquí ya resueltos en `comision` (ver comisionEfectivaCanal en ModalReceta.tsx).
+// Este módulo sigue siendo puro/testeable: no llama a Supabase ni a netoResolver.
 
 export interface Waterfall {
   costePlatR: number; costeEstrR: number; costeTotalR: number; margenR: number; margenPctR: number; ivaRepercutido: number

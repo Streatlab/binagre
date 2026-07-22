@@ -1,0 +1,70 @@
+/**
+ * Redirecciones de rutas viejas → nueva pestaña (Bloque D · cierre punto 10).
+ * Fuente ÚNICA: App las renderiza desde aquí y el test las recorre todas.
+ * Cada par [vieja, nueva]. La nueva SIEMPRE es absoluta y NO puede ser a su vez
+ * una ruta vieja (sin cadenas de redirección).
+ */
+export const REDIRECTS: [string, string][] = [
+  // ── Tanda 1 · Finanzas (5 módulos: Papeleo/Ventas/Tesorería/Resultados/Rentabilidad) ──
+  ['finanzas/pagos-cobros', '/finanzas/tesoreria?tab=calendario'],
+  ['finanzas/reservas', '/finanzas/tesoreria?tab=reserva'],
+  ['finanzas/fondo-maniobra', '/finanzas/tesoreria?tab=salud'],
+  ['finanzas/escenarios-tesoreria', '/finanzas/tesoreria?tab=escenarios'],
+  ['finanzas/tesoreria-13-semanas', '/finanzas/tesoreria?tab=13semanas'],
+  ['finanzas/pyg', '/finanzas/resultados?tab=pyg'],
+  ['finanzas/running', '/finanzas/resultados?tab=running'],
+  ['finanzas/analisis-horizontal-vertical', '/finanzas/resultados?tab=evolucion'],
+  ['finanzas/punto-equilibrio', '/finanzas/rentabilidad?tab=equilibrio'],
+  ['finanzas/break-even', '/finanzas/rentabilidad?tab=marca-canal'],
+  ['finanzas/objetivos', '/finanzas/ventas-panel?tab=objetivos'],
+  ['finanzas/importar-plataformas', '/finanzas/papeleo?tab=bandeja'],
+  ['finanzas/documentacion', '/finanzas/papeleo?tab=bandeja'],
+  ['finanzas/gestion-facturas', '/finanzas/papeleo?tab=documental'],
+  ['finanzas/listado-facturas', '/finanzas/papeleo?tab=documental'],
+  ['finanzas/gestoria', '/finanzas/papeleo?tab=gestoria'],
+  ['finanzas/estados-financieros', '/finanzas/resultados?tab=estados'],
+  ['facturacion', '/finanzas/papeleo?tab=facturacion'],
+  ['facturacion/conciliacion', '/finanzas/papeleo?tab=conciliacion'],
+  // ── Tanda 2 · Ventas y Clientes ── ("/ventas" reutiliza Finanzas·Ventas, ya con pestañas)
+  ['finanzas/ventas', '/finanzas/ventas-panel?tab=ventas'],
+  ['finanzas/ticket-medio', '/finanzas/ventas-panel?tab=ticket'],
+  ['finanzas/roi-canal', '/finanzas/rentabilidad?tab=roi'],
+  ['finanzas/rentabilidad-franja', '/finanzas/rentabilidad?tab=franja'],
+  ['finanzas/repeticion-clientes', '/finanzas/ventas-panel?tab=repeticion'],
+  ['ventas', '/finanzas/ventas-panel'],
+  ['ventas/ticket-medio', '/finanzas/ventas-panel?tab=ticket'],
+  ['ventas/roi-canal', '/finanzas/rentabilidad?tab=roi'],
+  ['ventas/rentabilidad-franja', '/finanzas/rentabilidad?tab=franja'],
+  ['ventas/repeticion-clientes', '/finanzas/ventas-panel?tab=repeticion'],
+  ['analytics/revenue', '/ventas/analitica/revenue'],
+  ['analytics/margen', '/ventas/analitica'],
+  ['analytics/ventas-marca', '/ventas/analitica/ventas-marca'],
+  ['analytics/demanda', '/ventas/analitica/demanda'],
+  ['analytics/pareto-ventas', '/ventas/analitica/pareto'],
+  ['clientes/club', '/ventas/clientes/club'],
+  ['clientes/crm', '/ventas/clientes'],
+  ['clientes/resenas', '/ventas/marketing/resenas'],
+  ['clientes/playbook-tp', '/ventas/marketing/playbook'],
+  ['clientes/benchmark', '/ventas/marketing/benchmark'],
+  ['marketing/panel', '/ventas/marketing'],
+  ['marketing/plan', '/ventas/marketing/campanas'],
+  ['marketing/rendimiento-ads-promo', '/ventas/marketing/rendimiento'],
+  // ── Tanda 3 · Cocina ──
+  ['cocina/menu-familia', '/carta/menu-familia'],
+  ['cocina/pareto-ingredientes', '/cocina/menu-engineering/pareto'],
+  // ── Tanda 4 · Compras ──
+  ['stock/proveedores', '/compras/proveedores'],
+  ['stock/inventario', '/compras/inventario'],
+  ['cocina/lista-compra', '/compras'],
+  // ── Tanda 5 · Operaciones ──
+  ['ops/checklists', '/ops/registro-diario'],
+  ['ops/tareas', '/ops/registro-diario/tareas'],
+  ['ops/temperaturas', '/ops/registro-diario/temperaturas'],
+  ['ops/bitacora', '/ops/registro-diario/bitacora'],
+  ['ops/pulso', '/ops/registro-diario/pulso'],
+  ['ops/equipos', '/ops/mantenimiento'],
+  ['ops/danos', '/ops/mantenimiento/danos'],
+  ['ops/pedidos-menaje', '/ops/mantenimiento/pedidos-menaje'],
+  ['ops/bpm', '/ops/calidad'],
+  ['ops/manuales', '/ops/calidad/manuales'],
+]

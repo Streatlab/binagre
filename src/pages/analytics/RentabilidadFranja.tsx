@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 /**
  * RentabilidadFranja — B3 · A qué horas y qué días ganas dinero.
  *
@@ -280,7 +281,7 @@ export function RentabilidadFranja({ embedded = false }: { embedded?: boolean } 
                           border: 'none', padding: 0, height: 30, minWidth: 34,
                           borderRadius: 7,
                           background: v === 0 ? C.track : `rgba(176,29,35,${0.10 + int * 0.85})`,
-                          color: int > 0.55 ? '#fff' : C.gris,
+                          color: int > 0.55 ? BLANCO : C.gris,
                           textAlign: 'center', fontSize: 9.5, fontWeight: 800,
                           fontFamily: "'JetBrains Mono', monospace",
                         }}>

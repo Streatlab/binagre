@@ -1,3 +1,4 @@
+import { BLANCO, BORDE_SUAVE, GRIS, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
 /**
  * TabSubirV2 — FASE C
  * Dropzone multi-archivo con subtabs Facturas / Extractos bancarios,
@@ -54,20 +55,20 @@ function PillTag({ ok, total }: { ok: number; total: number }) {
       display: 'inline-flex',
       alignItems: 'center',
       gap: 6,
-      background: '#ffffff',
+      background: BLANCO,
       border: '0.5px solid #d0c8bc',
       borderRadius: 99,
       padding: '3px 10px',
       fontFamily: 'Lexend',
       fontSize: 12,
       fontWeight: 500,
-      color: '#3a4050',
+      color: OSC,
     }}>
       <span style={{
         width: 6,
         height: 6,
         borderRadius: '50%',
-        background: '#FF4757',
+        background: ROJO,
         display: 'inline-block',
         animation: 'pulse-dot 1.2s ease-in-out infinite',
       }} />
@@ -86,10 +87,10 @@ function BarraProgreso({ ok, err, total }: { ok: number; err: number; total: num
       height: 6,
       borderRadius: 3,
       overflow: 'hidden',
-      background: '#ebe8e2',
+      background: BORDE_SUAVE,
     }}>
-      <div style={{ width: `${pctOk}%`, background: '#1D9E75', transition: 'width 300ms' }} />
-      <div style={{ width: `${pctErr}%`, background: '#E24B4A', transition: 'width 300ms' }} />
+      <div style={{ width: `${pctOk}%`, background: VERDE, transition: 'width 300ms' }} />
+      <div style={{ width: `${pctErr}%`, background: ROJO, transition: 'width 300ms' }} />
     </div>
   )
 }
@@ -102,12 +103,12 @@ function BadgeEstado({ estado }: { estado: EstadoFila }) {
           width: 60,
           height: 5,
           borderRadius: 3,
-          background: '#ebe8e2',
+          background: BORDE_SUAVE,
           overflow: 'hidden',
         }}>
-          <div style={{ width: `${estado.pct}%`, height: '100%', background: '#3a4050', transition: 'width 300ms' }} />
+          <div style={{ width: `${estado.pct}%`, height: '100%', background: OSC, transition: 'width 300ms' }} />
         </div>
-        <span style={{ fontFamily: 'Oswald', fontSize: 11, fontWeight: 500, color: '#3a4050' }}>
+        <span style={{ fontFamily: 'Oswald', fontSize: 11, fontWeight: 500, color: OSC }}>
           {estado.pct}%
         </span>
       </div>
@@ -117,7 +118,7 @@ function BadgeEstado({ estado }: { estado: EstadoFila }) {
     return (
       <span style={{
         background: '#1D9E7515',
-        color: '#1D9E75',
+        color: VERDE,
         fontFamily: 'Lexend',
         fontSize: 10,
         fontWeight: 500,
@@ -131,8 +132,8 @@ function BadgeEstado({ estado }: { estado: EstadoFila }) {
   if (estado.tag === 'revision') {
     return (
       <span style={{
-        background: '#E24B4A',
-        color: '#ffffff',
+        background: ROJO,
+        color: BLANCO,
         fontFamily: 'Lexend',
         fontSize: 10,
         fontWeight: 500,
@@ -146,8 +147,8 @@ function BadgeEstado({ estado }: { estado: EstadoFila }) {
   // duplicada
   return (
     <span style={{
-      background: '#f5a623',
-      color: '#ffffff',
+      background: NAR,
+      color: BLANCO,
       fontFamily: 'Lexend',
       fontSize: 10,
       fontWeight: 500,
@@ -380,11 +381,11 @@ export default function TabSubirV2() {
         onClick={() => !procesando && inputRef.current?.click()}
         style={{
           border: '2px dashed',
-          borderColor: dragOver ? '#FF4757' : '#d0c8bc',
+          borderColor: dragOver ? ROJO : BORDE_SUAVE,
           borderRadius: 14,
           padding: '28px 20px',
           textAlign: 'center',
-          background: dragOver ? '#ffffff' : '#fafaf7',
+          background: dragOver ? BLANCO : '#fafaf7',
           transition: 'all 200ms',
           cursor: 'pointer',
           marginBottom: 14,
@@ -402,7 +403,7 @@ export default function TabSubirV2() {
           fontFamily: 'Oswald',
           fontSize: 32,
           lineHeight: 1,
-          color: '#d0c8bc',
+          color: BORDE_SUAVE,
         }}>
           ⬆
         </div>
@@ -410,7 +411,7 @@ export default function TabSubirV2() {
           fontFamily: 'Lexend',
           fontSize: 14,
           fontWeight: 500,
-          color: '#3a4050',
+          color: OSC,
           marginTop: 8,
         }}>
           Arrastra archivos o pulsa para seleccionar
@@ -426,21 +427,21 @@ export default function TabSubirV2() {
           flexWrap: 'wrap',
           marginBottom: 14,
         }}>
-          <span style={{ fontFamily: 'Lexend', fontSize: 13, color: '#7a8090' }}>
+          <span style={{ fontFamily: 'Lexend', fontSize: 13, color: GRIS }}>
             Procesando:
           </span>
           <PillTag ok={stats.ok + stats.err + stats.dup} total={stats.total} />
           <BarraProgreso ok={stats.ok} err={stats.err} total={stats.total} />
-          <span style={{ fontFamily: 'Oswald', fontSize: 13, fontWeight: 600, color: '#3a4050' }}>
+          <span style={{ fontFamily: 'Oswald', fontSize: 13, fontWeight: 600, color: OSC }}>
             {pct}%
           </span>
-          <span style={{ fontFamily: 'Lexend', fontSize: 12, fontWeight: 500, color: '#1D9E75' }}>
+          <span style={{ fontFamily: 'Lexend', fontSize: 12, fontWeight: 500, color: VERDE }}>
             {stats.ok} OK
           </span>
-          <span style={{ fontFamily: 'Lexend', fontSize: 12, color: '#E24B4A' }}>
+          <span style={{ fontFamily: 'Lexend', fontSize: 12, color: ROJO }}>
             {stats.err} revisión
           </span>
-          <span style={{ fontFamily: 'Lexend', fontSize: 12, color: '#7a8090' }}>
+          <span style={{ fontFamily: 'Lexend', fontSize: 12, color: GRIS }}>
             {stats.dup} duplicadas
           </span>
         </div>
@@ -451,14 +452,14 @@ export default function TabSubirV2() {
         <div style={{ ...CARDS.big, padding: 0, overflow: 'hidden', marginBottom: 14 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#ebe8e2' }}>
+              <tr style={{ background: BORDE_SUAVE }}>
                 {['Archivo', 'Tipo detectado', 'Contraparte', 'Importe', 'Categoría', 'Estado'].map(col => (
                   <th key={col} style={{
                     fontFamily: 'Oswald',
                     fontSize: 11,
                     fontWeight: 500,
                     letterSpacing: '0.5px',
-                    color: '#7a8090',
+                    color: GRIS,
                     textTransform: 'uppercase',
                     padding: '10px 14px',
                     textAlign: 'left',
@@ -472,19 +473,19 @@ export default function TabSubirV2() {
             <tbody>
               {filas.map((fila) => (
                 <tr key={fila.id} style={{ borderBottom: '0.5px solid #ebe8e2' }}>
-                  <td style={{ padding: '10px 14px', fontFamily: 'Lexend', fontSize: 12, color: '#3a4050', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '10px 14px', fontFamily: 'Lexend', fontSize: 12, color: OSC, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {fila.nombre}
                   </td>
-                  <td style={{ padding: '10px 14px', fontFamily: 'Lexend', fontSize: 12, color: '#3a4050' }}>
+                  <td style={{ padding: '10px 14px', fontFamily: 'Lexend', fontSize: 12, color: OSC }}>
                     {fila.tipoDetectado}
                   </td>
-                  <td style={{ padding: '10px 14px', fontFamily: 'Lexend', fontSize: 12, color: '#3a4050' }}>
+                  <td style={{ padding: '10px 14px', fontFamily: 'Lexend', fontSize: 12, color: OSC }}>
                     {fila.contraparte}
                   </td>
-                  <td style={{ padding: '10px 14px', fontFamily: 'Lexend', fontSize: 12, color: '#3a4050' }}>
+                  <td style={{ padding: '10px 14px', fontFamily: 'Lexend', fontSize: 12, color: OSC }}>
                     {fila.importe}
                   </td>
-                  <td style={{ padding: '10px 14px', fontFamily: 'Lexend', fontSize: 12, color: '#3a4050' }}>
+                  <td style={{ padding: '10px 14px', fontFamily: 'Lexend', fontSize: 12, color: OSC }}>
                     {fila.categoria}
                   </td>
                   <td style={{ padding: '10px 14px' }}>
@@ -500,7 +501,7 @@ export default function TabSubirV2() {
                     background: '#fafaf7',
                     fontFamily: 'Lexend',
                     fontSize: 12,
-                    color: '#7a8090',
+                    color: GRIS,
                     fontStyle: 'italic',
                   }}>
                     + {Math.max(0, stats.total - filas.length)} archivos en cola
@@ -518,7 +519,7 @@ export default function TabSubirV2() {
             borderTop: '0.5px solid #d0c8bc',
             background: '#fafaf7',
           }}>
-            <span style={{ fontFamily: 'Lexend', fontSize: 12, color: '#7a8090' }}>
+            <span style={{ fontFamily: 'Lexend', fontSize: 12, color: GRIS }}>
               Última tanda · resumen disponible 8s
             </span>
             <button
@@ -526,11 +527,11 @@ export default function TabSubirV2() {
               style={{
                 padding: '5px 12px',
                 border: '0.5px solid #d0c8bc',
-                background: '#ffffff',
+                background: BLANCO,
                 borderRadius: 6,
                 fontFamily: 'Lexend',
                 fontSize: 12,
-                color: '#3a4050',
+                color: OSC,
                 cursor: 'pointer',
               }}
             >

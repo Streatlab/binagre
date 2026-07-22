@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, LIMA, NAR, ROJO_S, VERDE } from '@/styles/neobrutal'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -37,23 +38,23 @@ function isVencida(fecha: string | null): boolean {
 }
 
 const PRIORIDAD_COLOR: Record<Prioridad, string> = {
-  urgente: '#B01D23',
-  alta: '#f5a623',
-  normal: '#e8f442',
-  baja: '#777777',
+  urgente: GRANATE,
+  alta: NAR,
+  normal: LIMA,
+  baja: GRIS,
 }
 
 const PRIORIDAD_TEXT: Record<Prioridad, string> = {
-  urgente: '#ffffff',
-  alta: '#111111',
-  normal: '#111111',
-  baja: '#ffffff',
+  urgente: BLANCO,
+  alta: INK,
+  normal: INK,
+  baja: BLANCO,
 }
 
 const COL_CONFIG: { key: Columna; label: string; headerBg: string }[] = [
-  { key: 'pendiente',   label: 'PENDIENTE',   headerBg: '#B01D23' },
-  { key: 'en_progreso', label: 'EN PROGRESO', headerBg: '#f5a623' },
-  { key: 'hecho',       label: 'HECHO',       headerBg: '#1D9E75' },
+  { key: 'pendiente',   label: 'PENDIENTE',   headerBg: GRANATE },
+  { key: 'en_progreso', label: 'EN PROGRESO', headerBg: NAR },
+  { key: 'hecho',       label: 'HECHO',       headerBg: VERDE },
 ]
 
 const FORM_EMPTY = {
@@ -73,16 +74,16 @@ const labelSt: React.CSSProperties = {
   fontSize: 11,
   letterSpacing: '1.5px',
   textTransform: 'uppercase',
-  color: '#777777',
+  color: GRIS,
   marginBottom: 5,
 }
 
 const inputSt: React.CSSProperties = {
   width: '100%',
-  background: '#1e1e1e',
+  background: INK,
   border: '0.5px solid #2a2a2a',
   borderRadius: 6,
-  color: '#ffffff',
+  color: BLANCO,
   fontFamily: 'Lexend,sans-serif',
   fontSize: 13,
   padding: '8px 10px',
@@ -267,7 +268,7 @@ export default function TareasOperativas() {
         }}
         onDragEnd={() => { dragId.current = null }}
         style={{
-          background: '#1a1a1a',
+          background: INK,
           border: '0.5px solid #2a2a2a',
           borderRadius: 8,
           padding: '12px',
@@ -277,19 +278,19 @@ export default function TareasOperativas() {
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-          <span style={{ fontFamily: FONT.body, fontSize: 13, color: '#ffffff', flex: 1, lineHeight: 1.4 }}>
+          <span style={{ fontFamily: FONT.body, fontSize: 13, color: BLANCO, flex: 1, lineHeight: 1.4 }}>
             {t.titulo}
           </span>
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
             <button
               onClick={() => abrirEditar(t)}
               title="Editar"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, padding: '2px 4px', color: '#777777', lineHeight: 1 }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, padding: '2px 4px', color: GRIS, lineHeight: 1 }}
             >&#x270F;</button>
             <button
               onClick={() => setConfirmDelete(t.id)}
               title="Borrar"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, padding: '2px 4px', color: '#777777', lineHeight: 1 }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, padding: '2px 4px', color: GRIS, lineHeight: 1 }}
             >&#x1F5D1;</button>
           </div>
         </div>
@@ -306,7 +307,7 @@ export default function TareasOperativas() {
           }}>{t.prioridad}</span>
           {t.etiqueta && (
             <span style={{
-              background: '#2a2a2a', color: '#cccccc',
+              background: INK, color: GRIS,
               fontFamily: 'Oswald,sans-serif', fontSize: 10,
               padding: '1px 6px', borderRadius: 3, letterSpacing: '0.5px',
             }}>{t.etiqueta}</span>
@@ -315,14 +316,14 @@ export default function TareasOperativas() {
         {(t.asignado_a || t.fecha_limite) && (
           <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {t.asignado_a && (
-              <span style={{ fontFamily: FONT.body, fontSize: 11, color: '#777777' }}>
+              <span style={{ fontFamily: FONT.body, fontSize: 11, color: GRIS }}>
                 {t.asignado_a}
               </span>
             )}
             {t.fecha_limite && (
               <span style={{
                 fontFamily: FONT.body, fontSize: 11,
-                color: isVencida(t.fecha_limite) ? '#B01D23' : '#777777',
+                color: isVencida(t.fecha_limite) ? GRANATE : GRIS,
                 fontWeight: isVencida(t.fecha_limite) ? 600 : 400,
               }}>
                 {t.fecha_limite.slice(0, 10).split('-').reverse().join('/')}
@@ -341,8 +342,8 @@ export default function TareasOperativas() {
       <th
         onClick={() => toggleSort(k)}
         style={{
-          background: '#0a0a0a', fontFamily: 'Oswald,sans-serif', fontSize: 11,
-          letterSpacing: '1.5px', textTransform: 'uppercase', color: active ? '#e8f442' : '#777777',
+          background: INK, fontFamily: 'Oswald,sans-serif', fontSize: 11,
+          letterSpacing: '1.5px', textTransform: 'uppercase', color: active ? LIMA : GRIS,
           padding: '10px 12px', textAlign: 'left', cursor: 'pointer', whiteSpace: 'nowrap',
           borderBottom: '0.5px solid #2a2a2a',
         }}
@@ -354,13 +355,13 @@ export default function TareasOperativas() {
 
   /* ─── Render ─── */
   return (
-    <div style={{ padding: '28px', background: '#111111', minHeight: '100vh', fontFamily: FONT.body }}>
+    <div style={{ padding: '28px', background: INK, minHeight: '100vh', fontFamily: FONT.body }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{
           fontFamily: 'Oswald,sans-serif', fontSize: 22, letterSpacing: '3px',
-          color: '#B01D23', fontWeight: 600, textTransform: 'uppercase', margin: 0,
+          color: GRANATE, fontWeight: 600, textTransform: 'uppercase', margin: 0,
         }}>TAREAS Y KANBAN</h1>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
@@ -368,8 +369,8 @@ export default function TareasOperativas() {
             style={{
               padding: '6px 14px', borderRadius: 6,
               border: vista === 'kanban' ? 'none' : '0.5px solid #2a2a2a',
-              background: vista === 'kanban' ? '#B01D23' : 'transparent',
-              color: '#ffffff', fontFamily: 'Oswald,sans-serif', fontSize: 13,
+              background: vista === 'kanban' ? GRANATE : 'transparent',
+              color: BLANCO, fontFamily: 'Oswald,sans-serif', fontSize: 13,
               cursor: 'pointer', letterSpacing: '1px',
             }}
           >KANBAN</button>
@@ -378,8 +379,8 @@ export default function TareasOperativas() {
             style={{
               padding: '6px 14px', borderRadius: 6,
               border: vista === 'lista' ? 'none' : '0.5px solid #2a2a2a',
-              background: vista === 'lista' ? '#B01D23' : 'transparent',
-              color: '#ffffff', fontFamily: 'Oswald,sans-serif', fontSize: 13,
+              background: vista === 'lista' ? GRANATE : 'transparent',
+              color: BLANCO, fontFamily: 'Oswald,sans-serif', fontSize: 13,
               cursor: 'pointer', letterSpacing: '1px',
             }}
           >LISTA</button>
@@ -390,14 +391,14 @@ export default function TareasOperativas() {
       {error && (
         <div style={{
           background: '#2d1515', border: '1px solid #aa3030', borderRadius: 8,
-          padding: '10px 16px', marginBottom: 16, color: '#ffaaaa',
+          padding: '10px 16px', marginBottom: 16, color: ROJO_S,
           fontFamily: FONT.body, fontSize: 13,
         }}>{error}</div>
       )}
 
       {/* Loading */}
       {loading && (
-        <div style={{ color: '#777777', fontFamily: FONT.body, fontSize: 14, textAlign: 'center', padding: 40 }}>
+        <div style={{ color: GRIS, fontFamily: FONT.body, fontSize: 14, textAlign: 'center', padding: 40 }}>
           Cargando tareas...
         </div>
       )}
@@ -412,12 +413,12 @@ export default function TareasOperativas() {
               placeholder="Buscar..."
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              style={{ background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 6, color: '#ffffff', fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', width: 200, outline: 'none' }}
+              style={{ background: INK, border: '0.5px solid #2a2a2a', borderRadius: 6, color: BLANCO, fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', width: 200, outline: 'none' }}
             />
             <select
               value={filtroPrioridad}
               onChange={e => setFiltroPrioridad(e.target.value as Prioridad | '')}
-              style={{ background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 6, color: filtroPrioridad ? '#ffffff' : '#777777', fontFamily: FONT.body, fontSize: 13, padding: '7px 10px', outline: 'none' }}
+              style={{ background: INK, border: '0.5px solid #2a2a2a', borderRadius: 6, color: filtroPrioridad ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '7px 10px', outline: 'none' }}
             >
               <option value="">Prioridad</option>
               <option value="urgente">Urgente</option>
@@ -428,7 +429,7 @@ export default function TareasOperativas() {
             {(busqueda || filtroPrioridad) && (
               <button
                 onClick={() => { setBusqueda(''); setFiltroPrioridad('') }}
-                style={{ background: 'transparent', border: '0.5px solid #383838', color: '#777777', borderRadius: 6, padding: '7px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
+                style={{ background: 'transparent', border: '0.5px solid #383838', color: GRIS, borderRadius: 6, padding: '7px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
               >Limpiar</button>
             )}
           </div>
@@ -447,7 +448,7 @@ export default function TareasOperativas() {
                 style={{
                   flex: '1 1 280px',
                   minWidth: 260,
-                  background: '#141414',
+                  background: INK,
                   border: isDragTarget ? '2px dashed #e8f442' : '0.5px solid #2a2a2a',
                   borderRadius: 12,
                   overflow: 'hidden',
@@ -463,10 +464,10 @@ export default function TareasOperativas() {
                 }}>
                   <span style={{
                     fontFamily: 'Oswald,sans-serif', fontSize: 13, letterSpacing: '1.5px',
-                    color: '#ffffff', fontWeight: 600,
+                    color: BLANCO, fontWeight: 600,
                   }}>{col.label}</span>
                   <span style={{
-                    background: 'rgba(0,0,0,0.3)', color: '#ffffff',
+                    background: 'rgba(0,0,0,0.3)', color: BLANCO,
                     fontFamily: 'Oswald,sans-serif', fontSize: 11,
                     padding: '2px 8px', borderRadius: 10,
                   }}>{colTareas.length}</span>
@@ -486,7 +487,7 @@ export default function TareasOperativas() {
                     style={{
                       width: '100%', padding: '7px', borderRadius: 6,
                       border: '0.5px dashed #2a2a2a', background: 'transparent',
-                      color: '#777777', fontFamily: 'Oswald,sans-serif',
+                      color: GRIS, fontFamily: 'Oswald,sans-serif',
                       fontSize: 12, letterSpacing: '1px', cursor: 'pointer',
                     }}
                   >+ ANADIR</button>
@@ -508,15 +509,15 @@ export default function TareasOperativas() {
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               style={{
-                background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 8,
-                color: '#ffffff', fontFamily: FONT.body, fontSize: 13,
+                background: INK, border: '0.5px solid #2a2a2a', borderRadius: 8,
+                color: BLANCO, fontFamily: FONT.body, fontSize: 13,
                 padding: '8px 12px', width: 280, outline: 'none',
               }}
             />
             <select
               value={filtroPrioridad}
               onChange={e => setFiltroPrioridad(e.target.value as Prioridad | '')}
-              style={{ background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 8, color: filtroPrioridad ? '#ffffff' : '#777777', fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
+              style={{ background: INK, border: '0.5px solid #2a2a2a', borderRadius: 8, color: filtroPrioridad ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
             >
               <option value="">Todas las prioridades</option>
               <option value="urgente">Urgente</option>
@@ -527,7 +528,7 @@ export default function TareasOperativas() {
             <select
               value={filtroColumna}
               onChange={e => setFiltroColumna(e.target.value as Columna | '')}
-              style={{ background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 8, color: filtroColumna ? '#ffffff' : '#777777', fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
+              style={{ background: INK, border: '0.5px solid #2a2a2a', borderRadius: 8, color: filtroColumna ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
             >
               <option value="">Todos los estados</option>
               <option value="pendiente">Pendiente</option>
@@ -539,12 +540,12 @@ export default function TareasOperativas() {
               placeholder="Asignado a..."
               value={filtroAsignado}
               onChange={e => setFiltroAsignado(e.target.value)}
-              style={{ background: '#1e1e1e', border: '0.5px solid #2a2a2a', borderRadius: 8, color: '#ffffff', fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', width: 160, outline: 'none' }}
+              style={{ background: INK, border: '0.5px solid #2a2a2a', borderRadius: 8, color: BLANCO, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', width: 160, outline: 'none' }}
             />
             {(busqueda || filtroPrioridad || filtroColumna || filtroAsignado) && (
               <button
                 onClick={() => { setBusqueda(''); setFiltroPrioridad(''); setFiltroColumna(''); setFiltroAsignado('') }}
-                style={{ background: 'transparent', border: '0.5px solid #383838', color: '#777777', borderRadius: 6, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
+                style={{ background: 'transparent', border: '0.5px solid #383838', color: GRIS, borderRadius: 6, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
               >
                 Limpiar filtros
               </button>
@@ -560,8 +561,8 @@ export default function TareasOperativas() {
                   <ThSortable label="Asignado" k="asignado_a" />
                   <ThSortable label="Fecha limite" k="fecha_limite" />
                   <th style={{
-                    background: '#0a0a0a', fontFamily: 'Oswald,sans-serif', fontSize: 11,
-                    letterSpacing: '1.5px', textTransform: 'uppercase', color: '#777777',
+                    background: INK, fontFamily: 'Oswald,sans-serif', fontSize: 11,
+                    letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS,
                     padding: '10px 12px', borderBottom: '0.5px solid #2a2a2a',
                   }}>Acciones</th>
                 </tr>
@@ -569,7 +570,7 @@ export default function TareasOperativas() {
               <tbody>
                 {tareasOrdenadas.length === 0 && (
                   <tr>
-                    <td colSpan={6} style={{ padding: 32, textAlign: 'center', color: '#777777', fontFamily: FONT.body, fontSize: 13 }}>
+                    <td colSpan={6} style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: FONT.body, fontSize: 13 }}>
                       No hay tareas
                     </td>
                   </tr>
@@ -577,12 +578,12 @@ export default function TareasOperativas() {
                 {tareasOrdenadas.map((t, i) => {
                   const colConf = COL_CONFIG.find(c => c.key === t.columna)
                   return (
-                    <tr key={t.id} style={{ background: i % 2 === 0 ? '#111111' : '#141414' }}>
-                      <td style={{ padding: '10px 12px', color: '#ffffff', fontFamily: FONT.body, fontSize: 13, borderBottom: '0.5px solid #1a1a1a' }}>
+                    <tr key={t.id} style={{ background: i % 2 === 0 ? INK : INK }}>
+                      <td style={{ padding: '10px 12px', color: BLANCO, fontFamily: FONT.body, fontSize: 13, borderBottom: '0.5px solid #1a1a1a' }}>
                         {t.titulo}
                         {t.etiqueta && (
                           <span style={{
-                            marginLeft: 8, background: '#2a2a2a', color: '#cccccc',
+                            marginLeft: 8, background: INK, color: GRIS,
                             fontFamily: 'Oswald,sans-serif', fontSize: 10,
                             padding: '1px 5px', borderRadius: 3,
                           }}>{t.etiqueta}</span>
@@ -591,7 +592,7 @@ export default function TareasOperativas() {
                       <td style={{ padding: '10px 12px', borderBottom: '0.5px solid #1a1a1a' }}>
                         <span style={{
                           background: colConf?.headerBg ?? '#777',
-                          color: '#ffffff', fontFamily: 'Oswald,sans-serif',
+                          color: BLANCO, fontFamily: 'Oswald,sans-serif',
                           fontSize: 10, padding: '2px 7px', borderRadius: 3,
                           letterSpacing: '0.5px', textTransform: 'uppercase',
                         }}>{t.columna.replace('_', ' ')}</span>
@@ -605,13 +606,13 @@ export default function TareasOperativas() {
                           letterSpacing: '0.5px', textTransform: 'uppercase',
                         }}>{t.prioridad}</span>
                       </td>
-                      <td style={{ padding: '10px 12px', color: '#cccccc', fontFamily: FONT.body, fontSize: 13, borderBottom: '0.5px solid #1a1a1a' }}>
+                      <td style={{ padding: '10px 12px', color: GRIS, fontFamily: FONT.body, fontSize: 13, borderBottom: '0.5px solid #1a1a1a' }}>
                         {t.asignado_a ?? '—'}
                       </td>
                       <td style={{ padding: '10px 12px', borderBottom: '0.5px solid #1a1a1a' }}>
                         {t.fecha_limite ? (
                           <span style={{
-                            color: isVencida(t.fecha_limite) ? '#B01D23' : '#cccccc',
+                            color: isVencida(t.fecha_limite) ? GRANATE : GRIS,
                             fontFamily: FONT.body, fontSize: 13,
                             fontWeight: isVencida(t.fecha_limite) ? 600 : 400,
                           }}>
@@ -642,7 +643,7 @@ export default function TareasOperativas() {
               onClick={() => abrirNueva('pendiente')}
               style={{
                 padding: '8px 18px', borderRadius: 6, border: 'none',
-                background: '#e8f442', color: '#111111',
+                background: LIMA, color: INK,
                 fontFamily: 'Oswald,sans-serif', fontSize: 13,
                 letterSpacing: '1px', cursor: 'pointer',
               }}
@@ -664,7 +665,7 @@ export default function TareasOperativas() {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              backgroundColor: '#1a1a1a',
+              backgroundColor: INK,
               border: '0.5px solid #2a2a2a',
               borderRadius: 12,
               padding: '28px 24px',
@@ -674,7 +675,7 @@ export default function TareasOperativas() {
           >
             <h2 style={{
               fontFamily: 'Oswald,sans-serif', fontSize: 16, letterSpacing: '2px',
-              color: '#B01D23', textTransform: 'uppercase', margin: '0 0 20px',
+              color: GRANATE, textTransform: 'uppercase', margin: '0 0 20px',
             }}>
               {editTarea ? 'EDITAR TAREA' : 'NUEVA TAREA'}
             </h2>
@@ -762,8 +763,8 @@ export default function TareasOperativas() {
                 onClick={cerrarModal}
                 style={{
                   padding: '8px 18px', borderRadius: 6,
-                  border: '0.5px solid #383838', background: '#222222',
-                  color: '#cccccc', fontFamily: 'Oswald,sans-serif',
+                  border: '0.5px solid #383838', background: INK,
+                  color: GRIS, fontFamily: 'Oswald,sans-serif',
                   fontSize: 13, letterSpacing: '1px', cursor: 'pointer',
                 }}
               >CANCELAR</button>
@@ -772,8 +773,8 @@ export default function TareasOperativas() {
                 disabled={saving || !form.titulo.trim()}
                 style={{
                   padding: '8px 18px', borderRadius: 6, border: 'none',
-                  background: saving || !form.titulo.trim() ? '#6b1015' : '#B01D23',
-                  color: '#ffffff', fontFamily: 'Oswald,sans-serif',
+                  background: saving || !form.titulo.trim() ? '#6b1015' : GRANATE,
+                  color: BLANCO, fontFamily: 'Oswald,sans-serif',
                   fontSize: 13, letterSpacing: '1px',
                   cursor: saving || !form.titulo.trim() ? 'not-allowed' : 'pointer',
                 }}
@@ -796,13 +797,13 @@ export default function TareasOperativas() {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              backgroundColor: '#1a1a1a',
+              backgroundColor: INK,
               border: '0.5px solid #383838',
               borderRadius: 12, padding: '28px 24px',
               width: '100%', maxWidth: 360, textAlign: 'center',
             }}
           >
-            <p style={{ fontFamily: FONT.body, fontSize: 14, color: '#ffffff', margin: '0 0 20px' }}>
+            <p style={{ fontFamily: FONT.body, fontSize: 14, color: BLANCO, margin: '0 0 20px' }}>
               Borrar esta tarea? La accion no se puede deshacer.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
@@ -810,8 +811,8 @@ export default function TareasOperativas() {
                 onClick={() => setConfirmDelete(null)}
                 style={{
                   padding: '8px 18px', borderRadius: 6,
-                  border: '0.5px solid #383838', background: '#222222',
-                  color: '#cccccc', fontFamily: 'Oswald,sans-serif',
+                  border: '0.5px solid #383838', background: INK,
+                  color: GRIS, fontFamily: 'Oswald,sans-serif',
                   fontSize: 13, letterSpacing: '1px', cursor: 'pointer',
                 }}
               >CANCELAR</button>
@@ -819,7 +820,7 @@ export default function TareasOperativas() {
                 onClick={() => borrar(confirmDelete)}
                 style={{
                   padding: '8px 18px', borderRadius: 6, border: 'none',
-                  background: '#B01D23', color: '#ffffff',
+                  background: GRANATE, color: BLANCO,
                   fontFamily: 'Oswald,sans-serif', fontSize: 13,
                   letterSpacing: '1px', cursor: 'pointer',
                 }}

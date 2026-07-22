@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { COLORS, FONT, CARDS, lbl, lblSm, kpiMid, TABS_PILL } from '@/components/panel/resumen/tokens'
@@ -22,7 +23,7 @@ const TABS = [
 ] as const
 
 const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: `0.5px solid ${COLORS.brd}`, background: COLORS.card, color: COLORS.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none', width: '100%' }
-const btnPri: React.CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.accent, color: '#fff', fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
+const btnPri: React.CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.accent, color: BLANCO, fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
 const btnGhost: React.CSSProperties = { padding: '4px 10px', borderRadius: 6, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
 const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500, padding: '8px 10px', textAlign: 'left', borderBottom: `1px solid ${COLORS.brd}` }
 const td: React.CSSProperties = { fontFamily: FONT.body, fontSize: 13, color: COLORS.sec, padding: '8px 10px', borderBottom: `1px solid ${COLORS.group}` }
@@ -161,7 +162,7 @@ function TabSocios({ socios, niveles, movimientos, config, onSaved }: { socios: 
                   <>
                     <tr key={s.id}>
                       <td style={td}>{s.nombre || s.email || s.telefono || '—'}</td>
-                      <td style={td}>{n ? <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '2px 8px', borderRadius: 4, background: n.color, color: '#fff' }}>{n.nombre}</span> : '—'}</td>
+                      <td style={td}>{n ? <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '2px 8px', borderRadius: 4, background: n.color, color: BLANCO }}>{n.nombre}</span> : '—'}</td>
                       <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, color: COLORS.redSL, fontWeight: 600 }}>{fmtNumES(s.puntos_actuales)}</td>
                       <td style={{ ...td, textAlign: 'right' }}>{fmtNumES(s.puntos_historicos)}</td>
                       <td style={td}>{s.ultima_actividad || '—'}</td>

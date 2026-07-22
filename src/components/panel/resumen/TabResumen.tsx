@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 /**
  * Tab Resumen v8 — Panel Global
  * Lógica de cálculo (la presentación está en ResumenLanding).
@@ -837,7 +838,7 @@ export default function TabResumen({
         {toasts.map(t => (
           <div key={t.id} style={{
             background: t.type === 'success' ? COLOR.verde : COLOR.ambar,
-            color: '#fff', padding: '8px 16px', border: '3px solid #140f08', fontSize: 13, fontFamily: LEXEND,
+            color: BLANCO, padding: '8px 16px', border: '3px solid #140f08', fontSize: 13, fontFamily: LEXEND,
             boxShadow: '4px 4px 0 #140f08',
           }}>{t.msg}</div>
         ))}

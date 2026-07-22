@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -65,9 +66,9 @@ export default function TabCorreoOcr() {
   }
 
   const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
-  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
+  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
   const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
-  const chip = (activo: boolean): React.CSSProperties => ({ padding: '8px 14px', borderRadius: 8, border: `1px solid ${activo ? '#B01D23' : T.brd}`, background: activo ? '#B01D23' : 'transparent', color: activo ? '#fff' : T.sec, fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' })
+  const chip = (activo: boolean): React.CSSProperties => ({ padding: '8px 14px', borderRadius: 8, border: `1px solid ${activo ? GRANATE : T.brd}`, background: activo ? GRANATE : 'transparent', color: activo ? BLANCO : T.sec, fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' })
 
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
 
@@ -85,9 +86,9 @@ export default function TabCorreoOcr() {
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        {kpi(<Mail size={13} />, 'Buzón', estado?.buzon_conectado ? 'Conectado' : 'Sin conectar', estado?.buzon_conectado ? '#06C167' : '#999')}
+        {kpi(<Mail size={13} />, 'Buzón', estado?.buzon_conectado ? 'Conectado' : 'Sin conectar', estado?.buzon_conectado ? VERDE : '#999')}
         {kpi(<BarChart3 size={13} />, 'Procesados hoy', String(estado?.procesados_hoy ?? 0))}
-        {kpi(<HelpCircle size={13} />, 'Por clasificar', String(estado?.pendientes_clasificar ?? 0), (estado?.pendientes_clasificar ?? 0) > 0 ? '#B01D23' : undefined)}
+        {kpi(<HelpCircle size={13} />, 'Por clasificar', String(estado?.pendientes_clasificar ?? 0), (estado?.pendientes_clasificar ?? 0) > 0 ? GRANATE : undefined)}
         {kpi(<FileText size={13} />, 'Último barrido', estado?.ultimo_barrido ? new Date(estado.ultimo_barrido).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—')}
       </div>
 
@@ -119,18 +120,18 @@ export default function TabCorreoOcr() {
                 <td style={{ padding: '10px 14px', color: T.pri }}>{r.remitente ?? '—'}</td>
                 <td style={{ padding: '10px 14px', color: T.sec }}>{r.asunto_contiene ?? '—'}</td>
                 <td style={{ padding: '10px 14px' }}>
-                  <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: r.destino === 'factura' ? 'rgba(176,29,35,0.12)' : 'rgba(6,193,103,0.12)', color: r.destino === 'factura' ? '#B01D23' : '#06C167' }}>
+                  <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: r.destino === 'factura' ? 'rgba(176,29,35,0.12)' : 'rgba(6,193,103,0.12)', color: r.destino === 'factura' ? GRANATE : VERDE }}>
                     {r.destino === 'factura' ? 'Facturas' : 'Resúmenes ventas'}
                   </span>
                 </td>
                 <td style={{ textAlign: 'center', color: T.sec }}>{r.veces_confirmada}</td>
                 <td style={{ textAlign: 'center' }}>
                   <button onClick={() => toggleActiva(r.id, r.activa)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-                    <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? '#06C167' : '#999' }} />
+                    <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? VERDE : '#999' }} />
                   </button>
                 </td>
                 <td style={{ padding: '10px 14px' }}>
-                  <button onClick={() => borrar(r.id)} style={{ ...ico, color: '#B01D23' }}><Trash2 size={13} /></button>
+                  <button onClick={() => borrar(r.id)} style={{ ...ico, color: GRANATE }}><Trash2 size={13} /></button>
                 </td>
               </tr>
             ))}

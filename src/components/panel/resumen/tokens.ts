@@ -1,3 +1,4 @@
+import { AZUL, AZUL_CL, BLANCO, GRANATE, GRIS, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 /**
  * Tokens del Panel Global — mockups validados.
  *
@@ -29,46 +30,46 @@ export const COLORS = {
   sec: 'var(--sl-text-secondary)',
   mut: 'var(--sl-text-muted)',
   // Marca
-  redSL: '#B01D23',
+  redSL: GRANATE,
   sidebar: '#1e2233',
   modal: '#484f66',
   // Acción
   accent: '#FF2E63',
   // Semáforo
-  ok: '#1D9E75',
-  warn: '#f5a623',
-  err: '#E24B4A',
+  ok: VERDE,
+  warn: NAR,
+  err: ROJO,
   // Canales
-  uber: '#06C167',
+  uber: VERDE,
   uberDark: '#0F6E56',
   glovo: '#FFC244',
   glovoDark: '#8a5b00',
   glovoText: 'var(--neo-ink)',
   je: '#FF8000',
   jeDark: '#a34e00',
-  web: '#B01D23',
+  web: GRANATE,
   webDark: '#791F1F',
-  directa: '#66aaff',
+  directa: AZUL_CL,
   directaDark: '#185FA5',
   // Días semana
-  lun: '#1E5BCC',
-  mar: '#06C167',
-  mie: '#f5a623',
-  jue: '#B01D23',
-  vie: '#66aaff',
-  sab: '#F26B1F',
-  dom: '#1D9E75',
+  lun: AZUL,
+  mar: VERDE,
+  mie: NAR,
+  jue: GRANATE,
+  vie: AZUL_CL,
+  sab: NAR,
+  dom: VERDE,
   // Plan contable
   catPrd: '#7B4F2A',
   catEqp: '#4A5980',
   catLoc: '#5A8A6F',
   catCtr: '#A87C3D',
-  catPlt: '#06C167',
-  catIng: '#1D9E75',
-  catInt: '#7a8090',
+  catPlt: VERDE,
+  catIng: VERDE,
+  catInt: GRIS,
   // Titulares
-  ruben: '#F26B1F',
-  emilio: '#1E5BCC',
+  ruben: NAR,
+  emilio: AZUL,
   // Alias
   glovoAccent: '#FFC244',
 } as const
@@ -149,7 +150,7 @@ export const TABS_PILL = {
     borderRadius: 0,
     border: '2px solid var(--neo-ink)',
     background: '#0FB86B',
-    color: '#ffffff',
+    color: BLANCO,
     fontFamily: "'Oswald', sans-serif",
     fontSize: 12,
     fontWeight: 600,
@@ -181,7 +182,7 @@ export const SUBTABS = {
     borderRadius: 0,
     border: '2px solid var(--neo-ink)',
     background: '#0FB86B',
-    color: '#ffffff',
+    color: BLANCO,
     fontFamily: "'Oswald', sans-serif",
     fontSize: 12,
     fontWeight: 600,
@@ -428,11 +429,11 @@ export interface BadgeCanal {
 }
 
 export const BADGE_CANAL: Record<string, BadgeCanal> = {
-  uber:  { bg: COLORS.uber,    texto: '#fff',          abrev: 'UE'  },
+  uber:  { bg: COLORS.uber,    texto: BLANCO,          abrev: 'UE'  },
   glovo: { bg: COLORS.glovo,   texto: COLORS.glovoText, abrev: 'GL'  },
-  je:    { bg: COLORS.je,      texto: '#fff',          abrev: 'JE'  },
-  web:   { bg: COLORS.web,     texto: '#fff',          abrev: 'WEB' },
-  dir:   { bg: COLORS.directa, texto: '#fff',          abrev: 'DIR' },
+  je:    { bg: COLORS.je,      texto: BLANCO,          abrev: 'JE'  },
+  web:   { bg: COLORS.web,     texto: BLANCO,          abrev: 'WEB' },
+  dir:   { bg: COLORS.directa, texto: BLANCO,          abrev: 'DIR' },
 }
 
 /* ── Fecha corta es-ES (dd mmm) ───────────────────── */

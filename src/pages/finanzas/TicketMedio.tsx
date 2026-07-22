@@ -7,9 +7,7 @@ import React, { useMemo } from "react";
 import { useTicketMedio } from "@/lib/finanzas/useTicketMedio";
 import type { CanalTicket } from "@/lib/finanzas/useTicketMedio";
 import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD,
-  GRANATE, AMA, VERDE, ROJO, NAR, GRIS, CORP, eyebrow, d, DELTA,
-} from "@/styles/neobrutal";
+  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, CORP, eyebrow, d, DELTA, BLANCO } from '@/styles/neobrutal';
 import { fmtEur, fmtNum } from "@/lib/format";
 
 const CANAL_CORP_KEY: Record<CanalTicket, string> = {
@@ -33,7 +31,7 @@ export function TicketMedio({ embedded = false }: { embedded?: boolean } = {}) {
     [porCanal],
   );
 
-  const card: React.CSSProperties = { background: "#fff", border: BORDER_CARD, boxShadow: SHADOW };
+  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW };
 
   if (loading) return <div style={{ padding: 40, color: GRIS, fontFamily: OSW, textTransform: "uppercase", letterSpacing: "1px" }}>Cargando ticket medio…</div>;
   if (error) return <div style={{ padding: 40, color: ROJO, fontFamily: LEX }}>Error: {error}</div>;
@@ -46,7 +44,7 @@ export function TicketMedio({ embedded = false }: { embedded?: boolean } = {}) {
 
       {!embedded && (
         <div style={{ marginBottom: 20 }}>
-          <span style={eyebrow(NAR, "#fff")}>FINANZAS</span>
+          <span style={eyebrow(NAR, BLANCO)}>FINANZAS</span>
           <h1 style={{ ...d("34px", GRANATE), margin: "10px 0 6px" }}>TICKET MEDIO</h1>
           <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Por marca, por canal y global · palanca de crecimiento sin más pedidos</span>
         </div>
@@ -64,7 +62,7 @@ export function TicketMedio({ embedded = false }: { embedded?: boolean } = {}) {
           </div>
         </div>
 
-        <div style={{ ...card, padding: "16px 20px", background: "#fff" }}>
+        <div style={{ ...card, padding: "16px 20px", background: BLANCO }}>
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: GRIS, marginBottom: 6 }}>Mejor marca por ticket</div>
           <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1.1, color: INK }}>
             {mejorMarca ? mejorMarca.marca : "—"}
@@ -74,12 +72,12 @@ export function TicketMedio({ embedded = false }: { embedded?: boolean } = {}) {
           </div>
         </div>
 
-        <div style={{ ...card, padding: "16px 20px", background: tendenciaColor, color: "#fff" }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: "#fff", marginBottom: 6 }}>Tendencia</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: "#fff" }}>
+        <div style={{ ...card, padding: "16px 20px", background: tendenciaColor, color: BLANCO }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: BLANCO, marginBottom: 6 }}>Tendencia</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: BLANCO }}>
             {DELTA(tendenciaPct)}
           </div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: "#fff", marginTop: 6 }}>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
             Mes actual vs mes anterior
           </div>
         </div>
@@ -87,7 +85,7 @@ export function TicketMedio({ embedded = false }: { embedded?: boolean } = {}) {
 
       {/* Por canal — mini gráfico de barras */}
       <div style={{ marginBottom: 22 }}>
-        <span style={eyebrow(NAR, "#fff")}>POR CANAL</span>
+        <span style={eyebrow(NAR, BLANCO)}>POR CANAL</span>
         <div style={{ ...card, padding: "16px 20px", marginTop: 10 }}>
           {porCanal.every(c => c.pedidos === 0) ? (
             <div style={{ color: GRIS, fontSize: 13, fontFamily: LEX }}>Sin datos de canal.</div>
@@ -115,7 +113,7 @@ export function TicketMedio({ embedded = false }: { embedded?: boolean } = {}) {
 
       {/* Por marca */}
       <div style={{ marginBottom: 22 }}>
-        <span style={eyebrow(NAR, "#fff")}>POR MARCA</span>
+        <span style={eyebrow(NAR, BLANCO)}>POR MARCA</span>
         <div style={{ ...card, overflowX: "auto", marginTop: 10 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: LEX }}>
             <thead>
@@ -144,7 +142,7 @@ export function TicketMedio({ embedded = false }: { embedded?: boolean } = {}) {
 
       {/* Evolución temporal */}
       <div style={{ marginBottom: 10 }}>
-        <span style={eyebrow(NAR, "#fff")}>EVOLUCIÓN · ÚLTIMOS 12 MESES</span>
+        <span style={eyebrow(NAR, BLANCO)}>EVOLUCIÓN · ÚLTIMOS 12 MESES</span>
         <div style={{ ...card, overflowX: "auto", marginTop: 10 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: LEX }}>
             <thead>

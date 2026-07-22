@@ -4,14 +4,10 @@
  * src/pages/finanzas/PuntoEquilibrio.tsx para el punto de equilibrio global de la empresa.
  */
 import React, { useMemo, useState } from 'react'
-import {
-  useBreakEvenCanal, computeBreakEvenKpis, CANAL_LABELS,
-} from '../../lib/finanzas/useBreakEvenCanal'
+import { useBreakEvenCanal, computeBreakEvenKpis, CANAL_LABELS, } from '../../lib/finanzas/useBreakEvenCanal'
 import type { CanalId, ComboBreakEven } from '../../lib/finanzas/useBreakEvenCanal'
 import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD,
-  GRANATE, AMA, VERDE, ROJO, GRIS, CORP, eyebrow,
-} from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, GRIS, CORP, eyebrow, BLANCO } from '@/styles/neobrutal'
 import { fmtEur, fmtPct, fmtMes } from '@/lib/format'
 
 type CanalFiltro = CanalId | 'all'
@@ -37,10 +33,10 @@ const ESTADO_LABEL: Record<Estado, string> = {
 
 const estadoColor = (e: Estado): { bg: string; fg: string } => {
   switch (e) {
-    case 'encima':        return { bg: VERDE, fg: '#fff' }
-    case 'debajo':        return { bg: ROJO,  fg: '#fff' }
-    case 'no_alcanzable': return { bg: ROJO,  fg: '#fff' }
-    case 'sin_dato':      return { bg: GRIS,  fg: '#fff' }
+    case 'encima':        return { bg: VERDE, fg: BLANCO }
+    case 'debajo':        return { bg: ROJO,  fg: BLANCO }
+    case 'no_alcanzable': return { bg: ROJO,  fg: BLANCO }
+    case 'sin_dato':      return { bg: GRIS,  fg: BLANCO }
   }
 }
 
@@ -71,7 +67,7 @@ export function BreakEvenCanal({ embedded = false }: { embedded?: boolean } = {}
     return ordenarPorGap(base)
   }, [combos, filtroCanal])
 
-  const card: React.CSSProperties = { background: '#fff', border: BORDER_CARD, boxShadow: SHADOW }
+  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
 
   if (loading) {
     return <div style={{ padding: 40, color: GRIS, fontFamily: OSW, textTransform: 'uppercase', letterSpacing: '1px' }}>Cargando break-even…</div>
@@ -113,36 +109,36 @@ export function BreakEvenCanal({ embedded = false }: { embedded?: boolean } = {}
             </div>
 
             <div style={{ ...card, padding: '16px 20px', background: ROJO }}>
-              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Marca más lejos del equilibrio</div>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Marca más lejos del equilibrio</div>
               {kpis.peorCombo ? (
                 <>
-                  <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1.1, color: '#fff' }}>
+                  <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1.1, color: BLANCO }}>
                     {kpis.peorCombo.marca} · {CANAL_LABELS[kpis.peorCombo.canal]}
                   </div>
-                  <div style={{ fontFamily: LEX, fontSize: 12, color: '#fff', marginTop: 6 }}>
+                  <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
                     {kpis.peorCombo.alcanzable && kpis.peorCombo.gap != null
                       ? `Gap: ${fmtEur(kpis.peorCombo.gap, { signed: true, decimals: 2 })}`
                       : 'No alcanzable con el margen de contribución actual'}
                   </div>
                 </>
               ) : (
-                <div style={{ fontFamily: LEX, fontSize: 13, color: '#fff' }}>Sin datos suficientes</div>
+                <div style={{ fontFamily: LEX, fontSize: 13, color: BLANCO }}>Sin datos suficientes</div>
               )}
             </div>
 
             <div style={{ ...card, padding: '16px 20px', background: VERDE }}>
-              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Canal más rentable</div>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Canal más rentable</div>
               {kpis.canalMasRentable ? (
                 <>
-                  <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 30, lineHeight: 1, color: '#fff' }}>
+                  <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 30, lineHeight: 1, color: BLANCO }}>
                     {CANAL_LABELS[kpis.canalMasRentable.canal]}
                   </div>
-                  <div style={{ fontFamily: LEX, fontSize: 12, color: '#fff', marginTop: 6 }}>
+                  <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
                     Margen de contribución medio: {fmtPct(kpis.canalMasRentable.margenMedioPct, 2)}
                   </div>
                 </>
               ) : (
-                <div style={{ fontFamily: LEX, fontSize: 13, color: '#fff' }}>Sin datos suficientes</div>
+                <div style={{ fontFamily: LEX, fontSize: 13, color: BLANCO }}>Sin datos suficientes</div>
               )}
             </div>
           </div>
@@ -200,6 +196,6 @@ export function BreakEvenCanal({ embedded = false }: { embedded?: boolean } = {}
   )
 }
 
-const selectNeo: React.CSSProperties = { background: '#fff', border: `3px solid ${INK}`, color: INK, padding: '7px 12px', fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer', outline: 'none' }
+const selectNeo: React.CSSProperties = { background: BLANCO, border: `3px solid ${INK}`, color: INK, padding: '7px 12px', fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer', outline: 'none' }
 
 export default BreakEvenCanal

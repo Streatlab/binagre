@@ -1,3 +1,4 @@
+import { INK, LIMA } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -42,14 +43,14 @@ export default function TabPatronesPrecio() {
       .sort((a, b) => b.length - a.length)
   }, [rows, busqueda])
 
-  const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', background: '#0a0a0a', borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap' }
+  const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', background: INK, borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap' }
   const td: React.CSSProperties = { padding: '8px 12px', fontSize: 13, color: T.pri, borderBottom: `0.5px solid ${T.brd}`, fontFamily: FONT.body }
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
         <input type="text" placeholder="Buscar plato..." value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          style={{ padding: '7px 12px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: '#1e1e1e', color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 220 }} />
+          style={{ padding: '7px 12px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 220 }} />
         <span style={{ color: T.mut, fontSize: 12, marginLeft: 'auto' }}>Cada fila = un precio probado. El que más vende al mes gana.</span>
       </div>
 
@@ -83,7 +84,7 @@ export default function TabPatronesPrecio() {
                   <td style={{ ...td, textAlign: 'right', color: T.mut }}>{r.meses}</td>
                   <td style={td}>
                     {idx === 0 && arr.length > 1 && (
-                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#2a2a1a', color: '#e8f442', fontFamily: FONT.heading, textTransform: 'uppercase' }}>Precio ganador</span>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#2a2a1a', color: LIMA, fontFamily: FONT.heading, textTransform: 'uppercase' }}>Precio ganador</span>
                     )}
                   </td>
                 </tr>

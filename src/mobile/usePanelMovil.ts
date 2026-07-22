@@ -1,3 +1,4 @@
+import { GRANATE, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { resolverNetoCanal, useVentasRealesListas } from '@/lib/panel/netoResolver'
@@ -28,10 +29,10 @@ export interface PanelData {
 }
 
 const CANALES = [
-  { id: 'uber', nombre: 'Uber Eats', color: '#06C167', bruto: 'uber_bruto', ped: 'uber_pedidos' },
-  { id: 'glovo', nombre: 'Glovo', color: '#e8f442', bruto: 'glovo_bruto', ped: 'glovo_pedidos' },
-  { id: 'je', nombre: 'Just Eat', color: '#f5a623', bruto: 'je_bruto', ped: 'je_pedidos' },
-  { id: 'web', nombre: 'Web propia', color: '#B01D23', bruto: 'web_bruto', ped: 'web_pedidos' },
+  { id: 'uber', nombre: 'Uber Eats', color: VERDE, bruto: 'uber_bruto', ped: 'uber_pedidos' },
+  { id: 'glovo', nombre: 'Glovo', color: LIMA, bruto: 'glovo_bruto', ped: 'glovo_pedidos' },
+  { id: 'je', nombre: 'Just Eat', color: NAR, bruto: 'je_bruto', ped: 'je_pedidos' },
+  { id: 'web', nombre: 'Web propia', color: GRANATE, bruto: 'web_bruto', ped: 'web_pedidos' },
   { id: 'directa', nombre: 'Venta directa', color: '#484f66', bruto: 'directa_bruto', ped: 'directa_pedidos' },
 ] as const
 

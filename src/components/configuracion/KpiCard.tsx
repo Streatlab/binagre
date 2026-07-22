@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK } from '@/styles/neobrutal'
 import type { ReactNode } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -17,14 +18,14 @@ export function KpiCard({
   subTone?: SubTone
 }) {
   const isDark = useIsDark()
-  const cardBg = isDark ? '#141414' : '#ffffff'
-  const border = isDark ? '#2a2a2a' : '#E9E1D0'
-  const labelColor = isDark ? '#777777' : '#9E9588'
-  const valueColor = isDark ? '#ffffff' : '#1A1A1A'
+  const cardBg = isDark ? INK : BLANCO
+  const border = isDark ? INK : '#E9E1D0'
+  const labelColor = isDark ? GRIS : '#9E9588'
+  const valueColor = isDark ? BLANCO : INK
 
   const subColor =
     subTone === 'pos' ? '#22B573' :
-    subTone === 'neg' ? '#B01D23' :
+    subTone === 'neg' ? GRANATE :
     labelColor
   const subPrefix = subTone === 'pos' ? '▲ ' : subTone === 'neg' ? '▼ ' : ''
 

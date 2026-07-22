@@ -1,3 +1,4 @@
+import { AZUL_CL, GRANATE, LIMA, ROJO, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -15,7 +16,7 @@ interface EventoLaboral {
 
 // Colores por empleado (top 5 + fallback)
 // Colores empleados en calendario — paleta distinta de tokens David/Marino (#16355C, #F26B1F prohibidos)
-const EMP_COLORS = ['#B01D23', '#1E88CC', '#1D9E75', '#9b59b6', '#e67e22', '#27ae60']
+const EMP_COLORS = [GRANATE, '#1E88CC', VERDE, '#9b59b6', '#e67e22', '#27ae60']
 
 const TIPO_LABELS: Record<string, string> = {
   festivo: 'Festivo',
@@ -26,10 +27,10 @@ const TIPO_LABELS: Record<string, string> = {
 }
 
 const TIPO_COLORES: Record<string, string> = {
-  festivo: '#e8f442',
+  festivo: LIMA,
   vacaciones: '', // color por empleado
-  baja_medica: '#aa3030',
-  asuntos_propios: '#66aaff',
+  baja_medica: ROJO,
+  asuntos_propios: AZUL_CL,
   permiso_retribuido: '#9b59b6',
 }
 
@@ -117,11 +118,11 @@ export default function TabCalendarioLaboral() {
           </div>
         ))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontFamily: FONT.body, color: T.sec }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: '#e8f442' }} />
+          <div style={{ width: 10, height: 10, borderRadius: 2, background: LIMA }} />
           Festivo
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontFamily: FONT.body, color: T.sec }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: '#aa3030' }} />
+          <div style={{ width: 10, height: 10, borderRadius: 2, background: ROJO }} />
           Baja médica
         </div>
       </div>
@@ -148,7 +149,7 @@ export default function TabCalendarioLaboral() {
               onClick={e => { e.stopPropagation(); setDropdown(d => d?.fecha === fecha ? null : { fecha, x: e.clientX, y: e.clientY }) }}
               title={festNombre ?? undefined}
               style={{
-                minHeight: 64, borderRadius: 6, border: `1px solid ${isToday ? '#B01D23' : T.brd}`,
+                minHeight: 64, borderRadius: 6, border: `1px solid ${isToday ? GRANATE : T.brd}`,
                 background: esFest ? '#e8f44215' : T.card,
                 cursor: 'pointer', padding: 4, position: 'relative',
                 boxShadow: isToday ? `0 0 0 2px #B01D23` : 'none',
@@ -156,7 +157,7 @@ export default function TabCalendarioLaboral() {
             >
               <div style={{
                 fontFamily: FONT.heading, fontSize: 12, fontWeight: isToday ? 700 : 400,
-                color: esFest ? '#9a9a1e' : isToday ? '#B01D23' : T.sec,
+                color: esFest ? '#9a9a1e' : isToday ? GRANATE : T.sec,
                 marginBottom: 3,
               }}>
                 {day}
@@ -173,9 +174,9 @@ export default function TabCalendarioLaboral() {
                     title={`${TIPO_LABELS[ev.tipo]} — ${empleados.find(e => e.id === ev.empleado_id)?.nombre ?? 'General'}`}
                     style={{
                       width: 8, height: 8, borderRadius: '50%',
-                      background: ev.tipo === 'festivo' ? '#e8f442'
-                        : ev.tipo === 'baja_medica' ? '#aa3030'
-                        : ev.tipo === 'asuntos_propios' ? '#66aaff'
+                      background: ev.tipo === 'festivo' ? LIMA
+                        : ev.tipo === 'baja_medica' ? ROJO
+                        : ev.tipo === 'asuntos_propios' ? AZUL_CL
                         : ev.tipo === 'permiso_retribuido' ? '#9b59b6'
                         : empColor(ev.empleado_id ?? ''),
                     }}

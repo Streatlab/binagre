@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -36,11 +37,11 @@ const ROLES: { value: Rol; label: string }[] = [
 ]
 
 function rolColor(rol: Rol | null): string {
-  if (rol === 'admin') return '#B01D23'
-  if (rol === 'socio') return '#B01D23'
-  if (rol === 'gestor') return '#66aaff'
-  if (rol === 'cocina') return '#e8f442'
-  if (rol === 'repartidor') return '#1D9E75'
+  if (rol === 'admin') return GRANATE
+  if (rol === 'socio') return GRANATE
+  if (rol === 'gestor') return AZUL_CL
+  if (rol === 'cocina') return LIMA
+  if (rol === 'repartidor') return VERDE
   if (rol === 'empleado') return '#9b59b6'
   return '#7080a8'
 }
@@ -141,7 +142,7 @@ export default function UsuariosPage() {
     return (
       <ConfigShell>
         <ModTitle>Usuarios</ModTitle>
-        <div style={{ padding: 16, background: '#B01D2320', color: '#B01D23', borderRadius: 10, fontFamily: FONT.body }}>{error}</div>
+        <div style={{ padding: 16, background: '#B01D2320', color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>{error}</div>
       </ConfigShell>
     )
   }
@@ -227,8 +228,8 @@ export default function UsuariosPage() {
                 padding: '7px 14px',
                 borderRadius: 6,
                 border: 'none',
-                background: '#B01D23',
-                color: '#ffffff',
+                background: GRANATE,
+                color: BLANCO,
                 fontFamily: FONT.heading,
                 fontSize: 11,
                 letterSpacing: '1px',

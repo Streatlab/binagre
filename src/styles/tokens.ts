@@ -261,7 +261,7 @@ export const DIAS_SEMANA: Record<string, string> = {
   Mi: '#f5a623',
   Ju: '#B01D23',
   Vi: '#66aaff',
-  Sa: '#F26B1F',
+  Sa: '#FF6A1A',
   Do: '#1D9E75',
 }
 

@@ -54,7 +54,9 @@ function palabrasSignificativas(s: string): Set<string> {
  *  un ex-empleado acababan siempre en la cola de revisión). */
 export async function cargarCandidatosEmpleados(supabase: SupabaseClient): Promise<CandidatoEmpleado[]> {
   const [{ data: empleados }, { data: alias }] = await Promise.all([
-    supabase.from('empleados').select('id, nombre, nombre_oficial, nif'),
+    // Los EXTRA (tipo_relacion='extra') no tienen nómina: se excluyen del matching
+    // para que ni casen por error ni cuenten como "falta su nómina".
+    supabase.from('empleados').select('id, nombre, nombre_oficial, nif, aliases, tipo_relacion').neq('tipo_relacion', 'extra'),
     supabase.from('empleado_alias').select('empleado_id, alias'),
   ])
   const aliasPorEmpleado = new Map<string, string[]>()
@@ -63,12 +65,15 @@ export async function cargarCandidatosEmpleados(supabase: SupabaseClient): Promi
     arr.push(a.alias)
     aliasPorEmpleado.set(a.empleado_id, arr)
   }
-  return ((empleados ?? []) as { id: string; nombre: string; nombre_oficial: string | null; nif: string | null }[]).map(e => ({
+  return ((empleados ?? []) as { id: string; nombre: string; nombre_oficial: string | null; nif: string | null; aliases: string[] | null }[]).map(e => ({
     id: e.id,
     nombre: e.nombre,
     nombre_oficial: e.nombre_oficial,
     nif: e.nif,
-    aliases: aliasPorEmpleado.get(e.id) ?? [],
+    // Alias = union de la tabla empleado_alias Y la columna empleados.aliases
+    // (la ficha guarda ahí p.ej. el nombre legal de Ray: "Juan Ramón Méndez Melo";
+    // antes solo se leía la tabla y esos alias se ignoraban).
+    aliases: [...new Set([...(aliasPorEmpleado.get(e.id) ?? []), ...((e.aliases ?? []) as string[])])],
   }))
 }
 

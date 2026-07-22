@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -98,7 +99,7 @@ export default function TabPortal() {
   if (isAdmin && !empleadoIdFromUser) {
     return (
       <div style={{ padding: 32, background: T.card, borderRadius: 10, border: `1px solid ${T.brd}` }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: '#e8f442', marginBottom: 10 }}>Vista Portal — Modo administrador</div>
+        <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: LIMA, marginBottom: 10 }}>Vista Portal — Modo administrador</div>
         <p style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec }}>
           Para ver la vista del portal de un empleado, vincula tu usuario a un registro de empleado en <strong>Configuración → Usuarios</strong>.
         </p>
@@ -110,7 +111,7 @@ export default function TabPortal() {
   if (!isAdmin && !empleadoIdFromUser) {
     return (
       <div style={{ padding: 32, background: T.card, borderRadius: 10, border: `1px solid ${T.brd}` }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 14, color: '#B01D23' }}>Sin acceso al Portal</div>
+        <div style={{ fontFamily: FONT.heading, fontSize: 14, color: GRANATE }}>Sin acceso al Portal</div>
         <p style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginTop: 8 }}>Tu usuario no está vinculado a ningún empleado. Contacta con el administrador.</p>
       </div>
     )
@@ -123,7 +124,7 @@ export default function TabPortal() {
       {/* Header empleado */}
       {empleado && (
         <div style={{ marginBottom: 20, padding: '16px 20px', background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#B01D23', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: '#fff' }}>
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: GRANATE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: BLANCO }}>
             {empleado.nombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
           </div>
           <div>
@@ -164,15 +165,15 @@ export default function TabPortal() {
                     const isFuture = h.fecha > new Date().toISOString().slice(0, 10)
                     return (
                       <tr key={h.id} style={{ borderBottom: `1px solid ${T.brd}`, background: isToday ? '#B01D2310' : 'transparent' }}>
-                        <td style={{ ...td, fontWeight: isToday ? 700 : 400, color: isToday ? '#B01D23' : isFuture ? T.pri : T.sec }}>
+                        <td style={{ ...td, fontWeight: isToday ? 700 : 400, color: isToday ? GRANATE : isFuture ? T.pri : T.sec }}>
                           {new Date(h.fecha + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
-                          {isToday && <span style={{ marginLeft: 8, fontSize: 10, color: '#B01D23', fontFamily: FONT.heading }}>HOY</span>}
+                          {isToday && <span style={{ marginLeft: 8, fontSize: 10, color: GRANATE, fontFamily: FONT.heading }}>HOY</span>}
                         </td>
                         <td style={td}>
                           <span style={{
                             padding: '3px 8px', borderRadius: 4, fontSize: 10,
                             background: h.turno_tipo === 'comida' ? '#1D9E7520' : '#f5a62320',
-                            color: h.turno_tipo === 'comida' ? '#1D9E75' : '#f5a623',
+                            color: h.turno_tipo === 'comida' ? VERDE : NAR,
                             fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase',
                           }}>
                             {h.turno_tipo}
@@ -193,7 +194,7 @@ export default function TabPortal() {
       {activeTab === 'permisos' && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-            <button onClick={() => setModalPermiso(true)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#e8f442', color: '#111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>
+            <button onClick={() => setModalPermiso(true)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>
               + Solicitar permiso
             </button>
           </div>
@@ -209,7 +210,7 @@ export default function TabPortal() {
                       <td style={{ ...td, fontSize: 12 }}>{s.fecha_inicio === s.fecha_fin ? s.fecha_inicio : `${s.fecha_inicio} → ${s.fecha_fin}`}</td>
                       <td style={td}>{TIPO_LABELS[s.tipo] ?? s.tipo}</td>
                       <td style={td}>
-                        <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', background: s.estado === 'aprobado' ? '#1D9E7520' : s.estado === 'rechazado' ? '#B01D2320' : '#f5a62320', color: s.estado === 'aprobado' ? '#1D9E75' : s.estado === 'rechazado' ? '#B01D23' : '#f5a623' }}>
+                        <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', background: s.estado === 'aprobado' ? '#1D9E7520' : s.estado === 'rechazado' ? '#B01D2320' : '#f5a62320', color: s.estado === 'aprobado' ? VERDE : s.estado === 'rechazado' ? GRANATE : NAR }}>
                           {s.estado}
                         </span>
                       </td>
@@ -237,10 +238,10 @@ export default function TabPortal() {
                     <tr key={n.id} style={{ borderBottom: `1px solid ${T.brd}` }}>
                       <td style={td}>{MESES[n.mes - 1]} {n.anio}</td>
                       <td style={{ ...td, color: T.sec }}>{fmtEur(n.importe_bruto)}</td>
-                      <td style={{ ...td, color: '#1D9E75', fontWeight: 600 }}>{fmtEur(n.importe_neto)}</td>
+                      <td style={{ ...td, color: VERDE, fontWeight: 600 }}>{fmtEur(n.importe_neto)}</td>
                       <td style={td}>
                         {n.pdf_url ? (
-                          <a href={n.pdf_url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#66aaff', fontSize: 12, textDecoration: 'none' }}>
+                          <a href={n.pdf_url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: AZUL_CL, fontSize: 12, textDecoration: 'none' }}>
                             <Download size={12} /> Descargar
                           </a>
                         ) : <span style={{ color: T.mut, fontSize: 12 }}>—</span>}
@@ -275,7 +276,7 @@ export default function TabPortal() {
                 href={`https://drive.google.com/drive/folders/${empleado.drive_folder_id}`}
                 target="_blank"
                 rel="noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, background: '#1e1e1e', border: `1px solid ${T.brd}`, color: '#66aaff', textDecoration: 'none', fontFamily: FONT.body, fontSize: 13 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, background: INK, border: `1px solid ${T.brd}`, color: AZUL_CL, textDecoration: 'none', fontFamily: FONT.body, fontSize: 13 }}
               >
                 Abrir carpeta Drive
               </a>

@@ -11,10 +11,10 @@
  *  - Cabecera INK alta, separadores negros 3px entre filas.
  */
 import type { CSSProperties } from 'react'
-import { INK, CREMA, OSW, LEX, VERDE, NAR, ROJO, GRIS } from '@/styles/neobrutal'
+import { INK, CREMA, OSW, LEX, VERDE, NAR, ROJO, GRIS, BLANCO } from '@/styles/neobrutal'
 
 /* ── Fondos de fila (zebra cálida on-brand) ── */
-export const ZEBRA_A = '#ffffff'
+export const ZEBRA_A = BLANCO
 export const ZEBRA_B = '#F7EACE'
 export const zebra = (i: number): string => (i % 2 ? ZEBRA_B : ZEBRA_A)
 

@@ -1,3 +1,4 @@
+import { INK, LIMA } from '@/styles/neobrutal'
 import React, { useState } from 'react'
 import { X } from 'lucide-react'
 
@@ -12,8 +13,8 @@ export default function BannerPendientes({ mensaje, onIrImportador }: Props) {
 
   return (
     <div style={{
-      background: '#e8f442',
-      color: '#111111',
+      background: LIMA,
+      color: INK,
       padding: '6px 14px',
       fontSize: 12,
       fontFamily: 'Lexend, sans-serif',
@@ -33,8 +34,8 @@ export default function BannerPendientes({ mensaje, onIrImportador }: Props) {
               padding: '4px 10px',
               fontSize: 11,
               fontFamily: 'Oswald, sans-serif',
-              background: '#111111',
-              color: '#e8f442',
+              background: INK,
+              color: LIMA,
               border: 'none',
               borderRadius: 5,
               cursor: 'pointer',
@@ -48,7 +49,7 @@ export default function BannerPendientes({ mensaje, onIrImportador }: Props) {
         )}
         <button
           onClick={() => setVisible(false)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#111111', padding: 2, display: 'flex', alignItems: 'center' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: INK, padding: 2, display: 'flex', alignItems: 'center' }}
         >
           <X size={14} />
         </button>

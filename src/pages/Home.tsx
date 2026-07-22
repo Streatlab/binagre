@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 /**
  * Home "HOY" — portada del ERP · kit oficial Neobrutal Alegre (18-jul-2026).
  * Fuentes reales: v_facturacion_diario_unificada (robots + en vivo, misma fuente que Panel Global) + tareas_pendientes.
@@ -126,7 +127,7 @@ export default function Home() {
       {/* Cabecera */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
         <div>
-          <span style={{ ...eyebrow, background: VERDE, color: '#fff', display: 'inline-block', padding: '2px 10px', border: `2px solid ${INK}`, boxShadow: `2px 2px 0 ${INK}` }}>PORTADA</span>
+          <span style={{ ...eyebrow, background: VERDE, color: BLANCO, display: 'inline-block', padding: '2px 10px', border: `2px solid ${INK}`, boxShadow: `2px 2px 0 ${INK}` }}>PORTADA</span>
           <h1 style={{ fontFamily: OSW, fontSize: 'clamp(26px, 4vw, 34px)', fontWeight: 700, letterSpacing: '0.04em', margin: '4px 0 0', textTransform: 'uppercase' }}>Hoy</h1>
         </div>
         <span style={{ ...eyebrow, color: '#6b5d45' }}>
@@ -191,7 +192,7 @@ export default function Home() {
 
       {/* Bloques */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 12 }}>
-        <div style={{ background: '#fff', border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
+        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
           <div style={cardHead(AZUL)}>📊 AYER POR CANAL</div>
           <div style={{ display: 'grid', gap: 8, fontSize: 13, fontWeight: 600, padding: '12px 14px' }}>
             {canales.map(c => {
@@ -203,7 +204,7 @@ export default function Home() {
                     <span>{c.nombre}</span>
                     <span style={{ fontFamily: OSW }}>{cargando ? '…' : `${eur(v)}${pct != null ? ` · ${pct.toFixed(0)}%` : ''}`}</span>
                   </div>
-                  <div style={{ height: 13, border: `2px solid ${INK}`, marginTop: 2, background: '#fff' }}>
+                  <div style={{ height: 13, border: `2px solid ${INK}`, marginTop: 2, background: BLANCO }}>
                     <div style={{ width: `${Math.min(pct ?? 0, 100)}%`, height: '100%', background: c.color, borderRight: pct ? `2px solid ${INK}` : 'none' }} />
                   </div>
                 </div>
@@ -212,10 +213,10 @@ export default function Home() {
           </div>
         </div>
 
-        <div style={{ background: '#fff', border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
+        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
           <div style={{ ...cardHead(NARANJA), display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>🔔 PENDIENTES</span>
-            <Link to="/tareas" style={{ color: '#fff', textDecoration: 'underline', fontSize: 11 }}>VER TODAS →</Link>
+            <Link to="/tareas" style={{ color: BLANCO, textDecoration: 'underline', fontSize: 11 }}>VER TODAS →</Link>
           </div>
           <div style={{ padding: '10px 14px' }}>
             {cargando ? '…' : tareas.length === 0 ? (

@@ -2,9 +2,9 @@ import type { CSSProperties } from 'react'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente, EPS, EPSLinea } from './types'
-import { UNIDADES, n } from './types'
+import { UNIDADES, n, precioNeto } from './types'
 import { fmtNum, fmtEur } from '@/utils/format'
-import { INK, AMA, GRANATE, GRIS, NAR, OSW, LEX } from '@/styles/neobrutal'
+import { INK, AMA, GRANATE, GRIS, NAR, OSW, LEX, BLANCO, NAR_S } from '@/styles/neobrutal'
 import ModalIngrediente from './ModalIngrediente'
 import MicDictado from './MicDictado'
 import BuscadorItem from './BuscadorItem'
@@ -25,7 +25,7 @@ const btnSaveStyle: CSSProperties = {
   minHeight: '40px',
 }
 const btnCancelStyle: CSSProperties = {
-  backgroundColor: '#ffffff',
+  backgroundColor: BLANCO,
   color: INK,
   border: `2px solid ${INK}`,
   fontFamily: OSW,
@@ -207,7 +207,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
     if (ing) { updateLinea(idx, {
       ingrediente_nombre: ing.nombre,
       ingrediente_id: ing.id,
-      eur_ud_neta: n(ing.eur_min) || n(ing.eur_std),
+      eur_ud_neta: precioNeto(ing),
       unidad: ing.ud_min ?? ing.ud_std ?? 'gr.',
     }); return }
     const ep = todasEps.find((x: any) => x.nombre === val)
@@ -251,7 +251,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
           item.nombre.toLowerCase().includes(i.nombre?.toLowerCase() ?? '')
         )
         if (matchIng) {
-          lineasNuevas.push({ linea: 0, ingrediente_id: matchIng.id, ingrediente_nombre: matchIng.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(matchIng.eur_min) || n(matchIng.eur_std) })
+          lineasNuevas.push({ linea: 0, ingrediente_id: matchIng.id, ingrediente_nombre: matchIng.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: precioNeto(matchIng) })
           continue
         }
         const matchEps = todasEps.find((e: any) =>
@@ -341,7 +341,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
               <h3 className="text-[#140f08]" style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{eps ? 'Editar EPS' : 'Nueva EPS'}</h3>
               {eps?.codigo && <p className="text-xs text-[#9a8f78] mt-0.5 font-mono">{eps.codigo} · EPS</p>}
             </div>
-            <button onClick={onClose} style={{ background: '#fff', border: '2px solid #140f08', width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: '#140f08', flexShrink: 0 }}>×</button>
+            <button onClick={onClose} style={{ background: BLANCO, border: '2px solid #140f08', width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
           </div>
 
           <div className="p-5 space-y-5">
@@ -392,7 +392,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                   </button>
                   <button
                     onClick={() => { setShowDictar(true); setErrDictado(null) }}
-                    style={{ background: '#ffffff', color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}
+                    style={{ background: BLANCO, color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}
                   >
                     ⚡ DICTAR
                   </button>
@@ -401,7 +401,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
 
               {/* Panel DICTAR */}
               {showDictar && (
-                <div style={{ padding: 14, background: '#FCEFD6', border: `3px solid ${INK}`, borderRadius: 0, marginBottom: 8 }}>
+                <div style={{ padding: 14, background: NAR_S, border: `3px solid ${INK}`, borderRadius: 0, marginBottom: 8 }}>
                   <div style={{ fontFamily: LEX, fontSize: 12, color: INK, marginBottom: 8 }}>
                     Escribe o dicta ingredientes en lenguaje libre:
                   </div>
@@ -409,20 +409,20 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                     value={textoDictado}
                     onChange={e => setTextoDictado(e.target.value)}
                     placeholder="Ej: 200g tomate frito, 3 dientes ajo, 50ml aceite oliva..."
-                    style={{ background: '#ffffff', border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, borderRadius: 0, padding: 10, width: '100%', boxSizing: 'border-box', height: 80, resize: 'none', outline: 'none' }}
+                    style={{ background: BLANCO, border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, borderRadius: 0, padding: 10, width: '100%', boxSizing: 'border-box', height: 80, resize: 'none', outline: 'none' }}
                   />
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                     <MicDictado onTexto={t => setTextoDictado(prev => (prev ? prev + ' ' : '') + t)} />
                     <button
                       onClick={procesarDictado}
                       disabled={loadingDictado}
-                      style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 16px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', flex: 1, opacity: loadingDictado ? 0.6 : 1 }}
+                      style={{ background: GRANATE, color: BLANCO, border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 16px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', flex: 1, opacity: loadingDictado ? 0.6 : 1 }}
                     >
                       {loadingDictado ? 'PROCESANDO…' : 'PROCESAR'}
                     </button>
                     <button
                       onClick={() => { setShowDictar(false); setTextoDictado('') }}
-                      style={{ background: '#ffffff', color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, cursor: 'pointer' }}
+                      style={{ background: BLANCO, color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, cursor: 'pointer' }}
                     >
                       CANCELAR
                     </button>
@@ -521,7 +521,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
               {eps && confirmEliminar && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '12px', color: GRANATE, fontFamily: LEX }}>¿Eliminar definitivamente?</span>
-                  <button onClick={handleEliminar} disabled={deleting} style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>
+                  <button onClick={handleEliminar} disabled={deleting} style={{ background: GRANATE, color: BLANCO, border: `2px solid ${INK}`, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>
                     {deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}
                   </button>
                   <button onClick={() => setConfirmEliminar(false)} style={{ background: 'transparent', border: `2px solid ${INK}`, color: INK, padding: '6px 12px', borderRadius: '0', cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem' }}>
@@ -541,14 +541,14 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
           {/* Overlay conflictos */}
           {showConflictos && conflictos.length > 0 && (
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, borderRadius: 0 }}>
-              <div style={{ background: '#ffffff', border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, borderRadius: 0, padding: 20, width: '90%', maxWidth: 440, maxHeight: '80vh', overflowY: 'auto' }}>
+              <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, borderRadius: 0, padding: 20, width: '90%', maxWidth: 440, maxHeight: '80vh', overflowY: 'auto' }}>
                 <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 12 }}>
                   INGREDIENTES NO ENCONTRADOS
                 </div>
                 {conflictos.map((item, idx) => (
-                  <div key={idx} style={{ background: '#FCEFD6', border: `2px solid ${INK}`, borderRadius: 0, padding: '10px 14px', marginBottom: 8 }}>
+                  <div key={idx} style={{ background: NAR_S, border: `2px solid ${INK}`, borderRadius: 0, padding: '10px 14px', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                      <span style={{ background: NAR, color: '#fff', padding: '2px 8px', borderRadius: 0, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700, fontSize: 10 }}>⚠ NO ENCONTRADO</span>
+                      <span style={{ background: NAR, color: BLANCO, padding: '2px 8px', borderRadius: 0, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700, fontSize: 10 }}>⚠ NO ENCONTRADO</span>
                       <span style={{ fontFamily: LEX, fontSize: 13, color: INK, fontWeight: 500 }}>{item.nombre}</span>
                       <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{item.cantidad} {item.unidad}</span>
                     </div>
@@ -558,13 +558,13 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                           setConflictos(prev => prev.filter((_, i) => i !== idx))
                           setShowModalCrearIng({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad })
                         }}
-                        style={{ background: GRANATE, color: '#ffffff', border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        style={{ background: GRANATE, color: BLANCO, border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                       >
                         + CREAR ING
                       </button>
                       <button
                         onClick={() => { setConflictos(prev => prev.filter((_, i) => i !== idx)); setShowModalCrearEps({ nombre: item.nombre, cantidad: item.cantidad, unidad: item.unidad }) }}
-                        style={{ background: '#ffffff', color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        style={{ background: BLANCO, color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '6px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                       >
                         + CREAR EPS
                       </button>
@@ -577,7 +577,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                             const ing = todosIngredientes.find((i: any) => i.id === id)
                             if (ing) {
                               setIsDirty(true)
-                              setLineas(prev => [...prev, { linea: prev.length + 1, ingrediente_id: ing.id, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: n(ing.eur_min) || n(ing.eur_std) }])
+                              setLineas(prev => [...prev, { linea: prev.length + 1, ingrediente_id: ing.id, ingrediente_nombre: ing.nombre, cantidad: item.cantidad, unidad: item.unidad, eur_ud_neta: precioNeto(ing) }])
                               setConflictos(prev => prev.filter((_, i) => i !== idx))
                             }
                           } else if (type === 'eps') {
@@ -589,7 +589,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                             }
                           }
                         }}
-                        style={{ background: '#ffffff', border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 12, borderRadius: 0, padding: '6px 8px', flex: 1, cursor: 'pointer' }}
+                        style={{ background: BLANCO, border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 12, borderRadius: 0, padding: '6px 8px', flex: 1, cursor: 'pointer' }}
                       >
                         <option value="">Elegir existente...</option>
                         {todosIngredientes.length > 0 && (
@@ -641,7 +641,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                 ingrediente_nombre: ing.nombre,
                 cantidad: itemRef.cantidad,
                 unidad: itemRef.unidad,
-                eur_ud_neta: n(ing.eur_min) || n(ing.eur_std),
+                eur_ud_neta: precioNeto(ing),
               }])
             }
           }}

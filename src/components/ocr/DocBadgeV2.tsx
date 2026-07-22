@@ -1,3 +1,4 @@
+import { ROJO } from '@/styles/neobrutal'
 import React from 'react'
 
 type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
@@ -23,7 +24,7 @@ export function DocBadge({ estado, url, onClick }: { estado: EstadoDoc; url: str
   return (
     <div
       onClick={e => { e.stopPropagation(); onClick() }}
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 18, lineHeight: 1, color: '#E24B4A', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', minHeight: 38, fontSize: 18, lineHeight: 1, color: ROJO, fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
       title="Falta documento o asociación · Click para editar"
     >✕</div>
   )

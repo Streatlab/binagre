@@ -1,12 +1,14 @@
+import { GRIS, INK } from '@/styles/neobrutal'
 import React, { Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { TitularProvider } from '@/contexts/TitularContext'
 import Layout from '@/components/Layout'
 import Login from '@/pages/Login'
+import { TabsContainer } from '@/components/kit/TabsContainer'
 
 const Home = React.lazy(() => import('@/pages/Home'))
-const PapeleoPage = React.lazy(() => import('@/pages/finanzas/PapeleoPage'))
+const PapeleoPage = React.lazy(() => import('@/pages/finanzas/Documentacion'))
 const RentabilidadPage = React.lazy(() => import('@/pages/finanzas/RentabilidadPage'))
 const Proveedores = React.lazy(() => import('@/pages/Proveedores'))
 const POS = React.lazy(() => import('@/pages/POS'))
@@ -43,9 +45,13 @@ const TabProveedores = React.lazy(() => import('@/pages/configuracion/compras/Ta
 const TabCategorias = React.lazy(() => import('@/pages/configuracion/compras/TabCategorias'))
 const TabUnidades = React.lazy(() => import('@/pages/configuracion/compras/TabUnidades'))
 
+const CocinaPage = React.lazy(() => import('@/pages/configuracion/cocina/CocinaPage'))
+const TabFormatoNumeros = React.lazy(() => import('@/pages/configuracion/cocina/TabFormatoNumeros'))
+
 const UsuariosPage = React.lazy(() => import('@/pages/configuracion/usuarios/UsuariosPage'))
 const CalendarioPage = React.lazy(() => import('@/pages/configuracion/calendario/CalendarioPage'))
 const AprendizajesPage = React.lazy(() => import('@/pages/configuracion/AprendizajesPage'))
+const ConfiguracionHub = React.lazy(() => import('@/pages/configuracion/ConfiguracionHub'))
 const CalcNetoAprendizajePage = React.lazy(() => import('@/pages/configuracion/CalcNetoAprendizajePage'))
 
 const VentasPage = React.lazy(() => import('@/pages/finanzas/VentasPage'))
@@ -98,14 +104,13 @@ const Equipo = React.lazy(() => import('@/pages/Equipo'))
 const Horarios = React.lazy(() => import('@/pages/equipo/Horarios'))
 const ControlPresencia = React.lazy(() => import('@/pages/equipo/ControlPresencia'))
 const Organigrama = React.lazy(() => import('@/pages/equipo/Organigrama'))
+const PortalEmpleado = React.lazy(() => import('@/pages/equipo/PortalEmpleado'))
 
 const ClubFidelizacion = React.lazy(() => import('@/pages/clientes/ClubFidelizacion'))
 const CrmTiendaPropia = React.lazy(() => import('@/pages/clientes/CrmTiendaPropia'))
 const PanelResenas = React.lazy(() => import('@/pages/clientes/PanelResenas'))
 const PlaybookThinkPaladar = React.lazy(() => import('@/pages/clientes/PlaybookThinkPaladar'))
 const Benchmark = React.lazy(() => import('@/pages/clientes/Benchmark'))
-
-const PosVentas = React.lazy(() => import('@/pages/integraciones/PosVentas'))
 
 const PlanCampanas = React.lazy(() => import('@/pages/marketing/PlanCampanas'))
 const RendimientoAdsPromo = React.lazy(() => import('@/pages/marketing/RendimientoAdsPromo'))
@@ -119,7 +124,7 @@ const ConfiguracionInformes = React.lazy(() => import('@/pages/informes/Configur
 
 function LoadingFallback() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#111111', color: '#777777', fontFamily: 'Lexend, sans-serif', fontSize: 14 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: INK, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 14 }}>
       Cargando...
     </div>
   )
@@ -142,14 +147,21 @@ function AppRoutes() {
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Home />} />
           <Route path="escandallo" element={<EscandalloSwitch />} />
-          <Route path="carta" element={<Carta />} />
+          {/* ── D·Tanda 3 · Carta ← Carta + Menú Familia (facturación permanece en Finanzas·Papeleo) ── */}
+          <Route path="carta" element={<TabsContainer title="Carta" tabs={[
+            { to: '.', label: 'Carta', end: true },
+            { to: 'menu-familia', label: 'Menú Familia' },
+          ]} />}>
+            <Route index element={<Carta />} />
+            <Route path="menu-familia" element={<MenuFamilia />} />
+          </Route>
           <Route path="finanzas/papeleo" element={<ProtectedRoute solo={['admin']}><PapeleoPage /></ProtectedRoute>} />
           <Route path="facturacion" element={<Navigate to="/finanzas/papeleo?tab=facturacion" replace />} />
           <Route path="facturacion/conciliacion" element={<Navigate to="/finanzas/papeleo?tab=conciliacion" replace />} />
           <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
 
 
-          <Route path="configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
+          <Route path="configuracion" element={<ProtectedRoute solo={['admin']}><ConfiguracionHub /></ProtectedRoute>} />
           {/* Pantalla Configuracion antigua eliminada · redirige a integraciones */}
           <Route path="configuracion/configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
 
@@ -185,6 +197,14 @@ function AppRoutes() {
             <Route path="unidades"    element={<TabUnidades />} />
           </Route>
 
+          <Route path="configuracion/cocina" element={<ProtectedRoute solo={['admin']}><CocinaPage /></ProtectedRoute>}>
+            <Route index element={<Navigate to="categorias" replace />} />
+            <Route path="categorias"      element={<TabCategorias />} />
+            <Route path="unidades"        element={<TabUnidades />} />
+            <Route path="proveedores"     element={<TabProveedores />} />
+            <Route path="formato-numeros" element={<TabFormatoNumeros />} />
+          </Route>
+
           <Route path="configuracion/usuarios" element={<ProtectedRoute solo={['admin']}><UsuariosPage /></ProtectedRoute>} />
           <Route path="configuracion/categorias-financieras" element={<Navigate to="/configuracion/bancos-y-cuentas" replace />} />
           <Route path="configuracion/calendario" element={<ProtectedRoute solo={['admin']}><CalendarioPage /></ProtectedRoute>} />
@@ -195,14 +215,14 @@ function AppRoutes() {
           <Route path="finanzas/objetivos" element={<Navigate to="/finanzas/ventas-panel?tab=objetivos" replace />} />
           <Route path="finanzas/resultados" element={<ProtectedRoute solo={['admin']}><ResultadosPage /></ProtectedRoute>} />
           <Route path="finanzas/running" element={<Navigate to="/finanzas/resultados?tab=running" replace />} />
-          <Route path="finanzas/importar-plataformas" element={<Navigate to="/finanzas/papeleo?tab=importar" replace />} />
+          <Route path="finanzas/importar-plataformas" element={<Navigate to="/finanzas/papeleo?tab=bandeja" replace />} />
           <Route path="finanzas/rentabilidad" element={<ProtectedRoute solo={['admin']}><RentabilidadPage /></ProtectedRoute>} />
           <Route path="finanzas/punto-equilibrio" element={<Navigate to="/finanzas/rentabilidad?tab=equilibrio" replace />} />
           <Route path="finanzas/documentacion" element={<Navigate to="/finanzas/papeleo?tab=bandeja" replace />} />
           <Route path="finanzas/pendientes" element={<ProtectedRoute solo={['admin']}><BandejaPendientes /></ProtectedRoute>} />
           <Route path="finanzas/ventas" element={<Navigate to="/finanzas/ventas-panel?tab=ventas" replace />} />
-          <Route path="finanzas/gestion-facturas" element={<Navigate to="/finanzas/papeleo?tab=gestion" replace />} />
-          <Route path="finanzas/listado-facturas" element={<Navigate to="/finanzas/papeleo?tab=gestion" replace />} />
+          <Route path="finanzas/gestion-facturas" element={<Navigate to="/finanzas/papeleo?tab=documental" replace />} />
+          <Route path="finanzas/listado-facturas" element={<Navigate to="/finanzas/papeleo?tab=documental" replace />} />
           <Route path="finanzas/tesoreria" element={<ProtectedRoute solo={['admin']}><TesoreriaPage /></ProtectedRoute>} />
           <Route path="finanzas/pagos-cobros" element={<Navigate to="/finanzas/tesoreria?tab=calendario" replace />} />
           <Route path="finanzas/gestoria" element={<Navigate to="/finanzas/papeleo?tab=gestoria" replace />} />
@@ -221,6 +241,50 @@ function AppRoutes() {
           <Route path="finanzas/rentabilidad-franja" element={<Navigate to="/finanzas/rentabilidad?tab=franja" replace />} />
           <Route path="finanzas/ticket-medio" element={<Navigate to="/finanzas/ventas-panel?tab=ticket" replace />} />
 
+          {/* ── D·Tanda 2 · VENTAS Y CLIENTES ── "/ventas" reutiliza el módulo de Finanzas
+               (misma pantalla, ya con pestañas Ventas/Objetivos/Ticket/Repetición) para no
+               duplicar pantalla; Analítica/Clientes/Marketing sí son áreas nuevas. */}
+          <Route path="ventas" element={<Navigate to="/finanzas/ventas-panel" replace />} />
+          <Route path="ventas/ticket-medio" element={<Navigate to="/finanzas/ventas-panel?tab=ticket" replace />} />
+          <Route path="ventas/roi-canal" element={<Navigate to="/finanzas/rentabilidad?tab=roi" replace />} />
+          <Route path="ventas/rentabilidad-franja" element={<Navigate to="/finanzas/rentabilidad?tab=franja" replace />} />
+          <Route path="ventas/repeticion-clientes" element={<Navigate to="/finanzas/ventas-panel?tab=repeticion" replace />} />
+          <Route path="ventas/analitica" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Analítica" tabs={[
+            { to: '.', label: 'Margen por Canal', end: true },
+            { to: 'ventas-marca', label: 'Ventas por Marca' },
+            { to: 'pareto', label: 'Pareto Ventas' },
+            { to: 'revenue', label: 'Revenue & Ticket' },
+            { to: 'demanda', label: 'Predicción Demanda' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<MargenCanal />} />
+            <Route path="ventas-marca" element={<VentasMarca />} />
+            <Route path="pareto" element={<ParetoVentas />} />
+            <Route path="revenue" element={<RevenueTicketMedio />} />
+            <Route path="demanda" element={<PrediccionDemanda />} />
+          </Route>
+          <Route path="ventas/clientes" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Clientes" tabs={[
+            { to: '.', label: 'CRM', end: true },
+            { to: 'club', label: 'Club Fidelización' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<CrmTiendaPropia />} />
+            <Route path="club" element={<ClubFidelizacion />} />
+          </Route>
+          <Route path="ventas/marketing" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Marketing" tabs={[
+            { to: '.', label: 'Panel MKT', end: true },
+            { to: 'campanas', label: 'Campañas y Promos' },
+            { to: 'rendimiento', label: 'Rendimiento Ads y Promo' },
+            { to: 'resenas', label: 'Panel Reseñas' },
+            { to: 'benchmark', label: 'Benchmark' },
+            { to: 'playbook', label: 'Playbook ThinkPaladar' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<PanelMkt />} />
+            <Route path="campanas" element={<PlanCampanas />} />
+            <Route path="rendimiento" element={<RendimientoAdsPromo />} />
+            <Route path="resenas" element={<PanelResenas />} />
+            <Route path="benchmark" element={<Benchmark />} />
+            <Route path="playbook" element={<PlaybookThinkPaladar />} />
+          </Route>
+
           <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelSwitch /></ProtectedRoute>} />
           <Route path="panel-direccion" element={<ProtectedRoute solo={['admin']}><PanelDireccion /></ProtectedRoute>} />
 
@@ -234,59 +298,122 @@ function AppRoutes() {
           <Route path="informes/historial" element={<ProtectedRoute solo={['admin']}><Historial /></ProtectedRoute>} />
           <Route path="informes/configuracion" element={<ProtectedRoute solo={['admin']}><ConfiguracionInformes /></ProtectedRoute>} />
 
-          <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />
-          <Route path="analytics/margen" element={<ProtectedRoute solo={['admin']}><MargenCanal /></ProtectedRoute>} />
-          <Route path="analytics/ventas-marca" element={<ProtectedRoute solo={['admin']}><VentasMarca /></ProtectedRoute>} />
-          <Route path="analytics/demanda" element={<ProtectedRoute solo={['admin']}><PrediccionDemanda /></ProtectedRoute>} />
-          <Route path="analytics/pareto-ventas" element={<ProtectedRoute solo={['admin']}><ParetoVentas /></ProtectedRoute>} />
+          <Route path="analytics/revenue" element={<Navigate to="/ventas/analitica/revenue" replace />} />
+          <Route path="analytics/margen" element={<Navigate to="/ventas/analitica" replace />} />
+          <Route path="analytics/ventas-marca" element={<Navigate to="/ventas/analitica/ventas-marca" replace />} />
+          <Route path="analytics/demanda" element={<Navigate to="/ventas/analitica/demanda" replace />} />
+          <Route path="analytics/pareto-ventas" element={<Navigate to="/ventas/analitica/pareto" replace />} />
+
+          {/* ── D·Tanda 5 · OPERACIONES ── */}
+          {/* Registro diario ← Checklists + Tareas + Temperaturas + Bitácora + Pulso */}
+          <Route path="ops/registro-diario" element={<TabsContainer title="Registro diario" tabs={[
+            { to: '.', label: 'Checklists', end: true },
+            { to: 'tareas', label: 'Tareas' },
+            { to: 'temperaturas', label: 'Temperaturas' },
+            { to: 'bitacora', label: 'Bitácora' },
+            { to: 'pulso', label: 'Pulso Cocina' },
+          ]} />}>
+            <Route index element={<ChecklistsAperturaCierre />} />
+            <Route path="tareas" element={<TareasOperativas />} />
+            <Route path="temperaturas" element={<ControlTemperaturas />} />
+            <Route path="bitacora" element={<BitacoraNovedades />} />
+            <Route path="pulso" element={<ProtectedRoute solo={['admin']}><PulsoCocina /></ProtectedRoute>} />
+          </Route>
+          {/* Mantenimiento ← Libro Equipos + Daños Menaje + Pedidos Menaje */}
+          <Route path="ops/mantenimiento" element={<TabsContainer title="Mantenimiento" tabs={[
+            { to: '.', label: 'Libro Equipos', end: true },
+            { to: 'danos', label: 'Daños Menaje' },
+            { to: 'pedidos-menaje', label: 'Pedidos Menaje' },
+          ]} />}>
+            <Route index element={<LibroEquipos />} />
+            <Route path="danos" element={<DanosMenaje />} />
+            <Route path="pedidos-menaje" element={<PedidosMenaje />} />
+          </Route>
+          {/* Calidad ← BPM/Calidad + Manuales */}
+          <Route path="ops/calidad" element={<TabsContainer title="Calidad" tabs={[
+            { to: '.', label: 'BPM / Calidad', end: true },
+            { to: 'manuales', label: 'Manuales' },
+          ]} />}>
+            <Route index element={<ProtectedRoute solo={['admin']}><BpmCalidad /></ProtectedRoute>} />
+            <Route path="manuales" element={<ManualesOperaciones />} />
+          </Route>
+          {/* Equipo ← Personas + Organigrama + Horarios + Presencia + Portal del empleado */}
+          <Route path="equipo" element={<TabsContainer title="Equipo" tabs={[
+            { to: '.', label: 'Personas', end: true },
+            { to: 'organigrama', label: 'Organigrama' },
+            { to: 'horarios', label: 'Horarios' },
+            { to: 'presencia', label: 'Presencia' },
+            { to: 'portal', label: 'Portal del empleado' },
+          ]} />}>
+            <Route index element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
+            <Route path="organigrama" element={<ProtectedRoute solo={['admin']}><Organigrama /></ProtectedRoute>} />
+            <Route path="horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
+            <Route path="presencia" element={<ProtectedRoute solo={['admin']}><ControlPresencia /></ProtectedRoute>} />
+            <Route path="portal" element={<PortalEmpleado />} />
+          </Route>
 
           <Route path="ops/reembolsos" element={<ReclamacionReembolsos />} />
-          <Route path="ops/temperaturas" element={<ControlTemperaturas />} />
-          <Route path="ops/checklists" element={<ChecklistsAperturaCierre />} />
-          <Route path="ops/tareas" element={<TareasOperativas />} />
-          <Route path="ops/manuales" element={<ManualesOperaciones />} />
-          <Route path="ops/bitacora" element={<BitacoraNovedades />} />
-          <Route path="ops/equipos" element={<LibroEquipos />} />
-          <Route path="ops/danos" element={<DanosMenaje />} />
-          <Route path="ops/pedidos-menaje" element={<PedidosMenaje />} />
-          <Route path="ops/pulso" element={<ProtectedRoute solo={['admin']}><PulsoCocina /></ProtectedRoute>} />
-          <Route path="ops/bpm" element={<ProtectedRoute solo={['admin']}><BpmCalidad /></ProtectedRoute>} />
           <Route path="ops/reuniones" element={<ProtectedRoute solo={['admin']}><ReunionesEquipo /></ProtectedRoute>} />
           <Route path="ops/recetas" element={<RecetasFichasTecnicas />} />
           <Route path="marcas" element={<ProtectedRoute solo={['admin']}><MarcasSimple /></ProtectedRoute>} />
 
-          <Route path="equipo" element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
-          <Route path="equipo/organigrama" element={<ProtectedRoute solo={['admin']}><Organigrama /></ProtectedRoute>} />
-          <Route path="equipo/horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
-          <Route path="equipo/presencia" element={<ProtectedRoute solo={['admin']}><ControlPresencia /></ProtectedRoute>} />
+          {/* Redirecciones Tanda 5 */}
+          <Route path="ops/checklists" element={<Navigate to="/ops/registro-diario" replace />} />
+          <Route path="ops/tareas" element={<Navigate to="/ops/registro-diario/tareas" replace />} />
+          <Route path="ops/temperaturas" element={<Navigate to="/ops/registro-diario/temperaturas" replace />} />
+          <Route path="ops/bitacora" element={<Navigate to="/ops/registro-diario/bitacora" replace />} />
+          <Route path="ops/pulso" element={<Navigate to="/ops/registro-diario/pulso" replace />} />
+          <Route path="ops/equipos" element={<Navigate to="/ops/mantenimiento" replace />} />
+          <Route path="ops/danos" element={<Navigate to="/ops/mantenimiento/danos" replace />} />
+          <Route path="ops/pedidos-menaje" element={<Navigate to="/ops/mantenimiento/pedidos-menaje" replace />} />
+          <Route path="ops/bpm" element={<Navigate to="/ops/calidad" replace />} />
+          <Route path="ops/manuales" element={<Navigate to="/ops/calidad/manuales" replace />} />
 
-          <Route path="clientes/club" element={<ProtectedRoute solo={['admin']}><ClubFidelizacion /></ProtectedRoute>} />
-          <Route path="clientes/crm" element={<ProtectedRoute solo={['admin']}><CrmTiendaPropia /></ProtectedRoute>} />
-          <Route path="clientes/resenas" element={<ProtectedRoute solo={['admin']}><PanelResenas /></ProtectedRoute>} />
-          <Route path="clientes/playbook-tp" element={<ProtectedRoute solo={['admin']}><PlaybookThinkPaladar /></ProtectedRoute>} />
-          <Route path="clientes/benchmark" element={<ProtectedRoute solo={['admin']}><Benchmark /></ProtectedRoute>} />
+          <Route path="clientes/club" element={<Navigate to="/ventas/clientes/club" replace />} />
+          <Route path="clientes/crm" element={<Navigate to="/ventas/clientes" replace />} />
+          <Route path="clientes/resenas" element={<Navigate to="/ventas/marketing/resenas" replace />} />
+          <Route path="clientes/playbook-tp" element={<Navigate to="/ventas/marketing/playbook" replace />} />
+          <Route path="clientes/benchmark" element={<Navigate to="/ventas/marketing/benchmark" replace />} />
 
-          <Route path="integraciones/pos" element={<ProtectedRoute solo={['admin']}><PosVentas /></ProtectedRoute>} />
-
-          <Route path="marketing/panel" element={<ProtectedRoute solo={['admin']}><PanelMkt /></ProtectedRoute>} />
-          <Route path="marketing/plan" element={<ProtectedRoute solo={['admin']}><PlanCampanas /></ProtectedRoute>} />
-          <Route path="marketing/rendimiento-ads-promo" element={<ProtectedRoute solo={['admin']}><RendimientoAdsPromo /></ProtectedRoute>} />
+          <Route path="marketing/panel" element={<Navigate to="/ventas/marketing" replace />} />
+          <Route path="marketing/plan" element={<Navigate to="/ventas/marketing/campanas" replace />} />
+          <Route path="marketing/rendimiento-ads-promo" element={<Navigate to="/ventas/marketing/rendimiento" replace />} />
           <Route path="marketing/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
 
-          <Route path="stock/proveedores" element={<ProtectedRoute solo={['admin']}><Proveedores /></ProtectedRoute>} />
-          <Route path="stock/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
+          {/* ── D·Tanda 4 · COMPRAS (Lista de Compra + Inventario + Proveedores + Catálogos) ── */}
+          <Route path="compras" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Compras" tabs={[
+            { to: '.', label: 'Lista de Compra', end: true },
+            { to: 'inventario', label: 'Inventario' },
+            { to: 'proveedores', label: 'Proveedores' },
+            { to: '/configuracion/compras/categorias', label: 'Catálogos' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<ListaCompra />} />
+            <Route path="inventario" element={<Inventario />} />
+            <Route path="proveedores" element={<Proveedores />} />
+          </Route>
+          {/* Redirecciones Tanda 4 */}
+          <Route path="stock/proveedores" element={<Navigate to="/compras/proveedores" replace />} />
+          <Route path="stock/inventario" element={<Navigate to="/compras/inventario" replace />} />
 
           <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><CocinaInventario /></ProtectedRoute>} />
           <Route path="cocina/recetas" element={<CocinaRecetas />} />
           {/* A2 · Coste por plato: enlaza lo que vendes con la receta que lo cuesta */}
           <Route path="cocina/coste-plato" element={<ProtectedRoute solo={['admin']}><CostePlato /></ProtectedRoute>} />
-          <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
+          {/* ── D·Tanda 3 · Menú Engineering ← Menú Engineering + Pareto Ingredientes ── */}
+          <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Menú Engineering" tabs={[
+            { to: '.', label: 'Menú Engineering', end: true },
+            { to: 'pareto', label: 'Pareto Ingredientes' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<MenuEngineering />} />
+            <Route path="pareto" element={<ParetoIngredientes />} />
+          </Route>
           <Route path="cocina/recetario" element={<Recetario />} />
           <Route path="cocina/esquemas" element={<Esquemas />} />
           <Route path="cocina/produccion" element={<Produccion />} />
-          <Route path="cocina/menu-familia" element={<MenuFamilia />} />
-          <Route path="cocina/lista-compra" element={<ListaCompra />} />
-          <Route path="cocina/pareto-ingredientes" element={<ProtectedRoute solo={['admin']}><ParetoIngredientes /></ProtectedRoute>} />
+          <Route path="cocina/lista-compra" element={<Navigate to="/compras" replace />} />
+          {/* Redirecciones Tanda 3 */}
+          <Route path="cocina/menu-familia" element={<Navigate to="/carta/menu-familia" replace />} />
+          <Route path="cocina/pareto-ingredientes" element={<Navigate to="/cocina/menu-engineering/pareto" replace />} />
 
           <Route path="analytics/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
           <Route path="ops/:slug" element={<Placeholder />} />

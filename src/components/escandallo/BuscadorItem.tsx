@@ -1,3 +1,4 @@
+import { VERDE } from '@/styles/neobrutal'
 import type { CSSProperties } from 'react'
 import { useState, useRef, useEffect, useMemo } from 'react'
 
@@ -45,12 +46,12 @@ export default function BuscadorItem({ value, opciones, onSelect, placeholder, i
             <div
               key={o.id}
               onMouseDown={() => { onSelect(o.nombre); setOpen(false); setQ('') }}
-              style={{ padding: '6px 10px', fontSize: 13, fontFamily: 'Lexend, sans-serif', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 8, color: o.barato ? '#06C167' : 'var(--sl-text-primary)', fontWeight: o.barato ? 600 : 400 }}
+              style={{ padding: '6px 10px', fontSize: 13, fontFamily: 'Lexend, sans-serif', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 8, color: o.barato ? VERDE : 'var(--sl-text-primary)', fontWeight: o.barato ? 600 : 400 }}
               onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--sl-card-alt)' }}
               onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
             >
               <span>{o.nombre}</span>
-              {o.barato ? <span style={{ fontSize: 11, color: '#06C167', whiteSpace: 'nowrap' }}>✔ más barato</span> : o.tag ? <span style={{ fontSize: 11, color: 'var(--sl-text-muted)', whiteSpace: 'nowrap' }}>{o.tag}</span> : null}
+              {o.barato ? <span style={{ fontSize: 11, color: VERDE, whiteSpace: 'nowrap' }}>✔ más barato</span> : o.tag ? <span style={{ fontSize: 11, color: 'var(--sl-text-muted)', whiteSpace: 'nowrap' }}>{o.tag}</span> : null}
             </div>
           ))}
         </div>

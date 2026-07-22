@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, LIMA, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 /**
  * T-F4-05 — Carta · CRUD carta_platos con food cost por canal.
  * Implementa T-F4-05 + T-F4-06 (margen por canal).
@@ -31,9 +32,9 @@ interface Receta {
 type Tab = 'platos' | 'canal'
 
 /* ─── Colores semáforo ─── */
-const COLOR_VERDE = '#1D9E75'
-const COLOR_AMARILLO = '#f5a623'
-const COLOR_ROJO = '#B01D23'
+const COLOR_VERDE = VERDE
+const COLOR_AMARILLO = NAR
+const COLOR_ROJO = GRANATE
 
 function margenColor(estado: 'verde' | 'amarillo' | 'rojo'): string {
   return estado === 'verde' ? COLOR_VERDE : estado === 'amarillo' ? COLOR_AMARILLO : COLOR_ROJO
@@ -104,7 +105,7 @@ export default function Carta() {
         <button
           onClick={() => { setEditId(null); setShowForm(true) }}
           style={{
-            background: '#e8f442', color: 'var(--sl-text-primary)', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW,
+            background: LIMA, color: 'var(--sl-text-primary)', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW,
             fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase',
             padding: '11px 18px', minHeight: 44, cursor: 'pointer',
           }}
@@ -223,7 +224,7 @@ function TabPlatos({ platos, recetaMap, T, thStyle, tdStyle, onEdit, onToggle, o
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>
                   {margen != null ? (
-                    <span style={{ color: margen >= 0 ? '#1D9E75' : '#E24B4A' }}>
+                    <span style={{ color: margen >= 0 ? VERDE : ROJO }}>
                       {fmtEur(margen)}
                     </span>
                   ) : <span style={{ color: T.mut }}>—</span>}
@@ -233,7 +234,7 @@ function TabPlatos({ platos, recetaMap, T, thStyle, tdStyle, onEdit, onToggle, o
                     display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11,
                     fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase',
                     background: p.activo ? '#1D9E7533' : 'var(--sl-hover)',
-                    color: p.activo ? '#1D9E75' : T.mut,
+                    color: p.activo ? VERDE : T.mut,
                   }}>
                     {p.activo ? 'Activo' : 'Pausado'}
                   </span>
@@ -438,7 +439,7 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
           <button onClick={onClose} style={{ background: 'var(--sl-btn-cancel-bg)', border: `3px solid ${NEO_INK}`, color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.body, fontSize: 13, padding: '11px 16px', minHeight: 44, borderRadius: 0, cursor: 'pointer' }}>
             Cancelar
           </button>
-          <button onClick={handleSave} disabled={saving} style={{ background: saving ? 'var(--sl-text-muted)' : '#B01D23', color: '#fff', border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '11px 20px', minHeight: 44, borderRadius: 0, cursor: saving ? 'default' : 'pointer' }}>
+          <button onClick={handleSave} disabled={saving} style={{ background: saving ? 'var(--sl-text-muted)' : GRANATE, color: BLANCO, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '11px 20px', minHeight: 44, borderRadius: 0, cursor: saving ? 'default' : 'pointer' }}>
             {saving ? 'Guardando...' : 'Guardar'}
           </button>
         </div>

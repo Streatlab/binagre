@@ -1,3 +1,4 @@
+import { BLANCO, INK } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -101,7 +102,7 @@ export default function ModalAsociarManual({ T, factura, onClose, onUpdate }: Pr
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          backgroundColor: '#1a1a1a',
+          backgroundColor: INK,
           borderRadius: 14,
           width: '100%',
           maxWidth: 700,
@@ -161,7 +162,7 @@ export default function ModalAsociarManual({ T, factura, onClose, onUpdate }: Pr
               style={{
                 width: '100%',
                 padding: '10px 14px 10px 36px',
-                backgroundColor: '#1e1e1e',
+                backgroundColor: INK,
                 border: `1px solid ${T.border}`,
                 borderRadius: 8,
                 color: T.text,
@@ -271,7 +272,7 @@ export default function ModalAsociarManual({ T, factura, onClose, onUpdate }: Pr
               style={{
                 padding: '9px 18px',
                 backgroundColor: T.accentRed,
-                color: '#fff',
+                color: BLANCO,
                 border: 'none',
                 borderRadius: 8,
                 fontFamily: T.fontTitle,

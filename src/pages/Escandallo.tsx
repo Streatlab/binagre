@@ -14,7 +14,7 @@ import ModalIngrediente from '@/components/escandallo/ModalIngrediente'
 import ModalMerma from '@/components/escandallo/ModalMerma'
 import EditorCategoriasIngredientes from '@/components/escandallo/EditorCategoriasIngredientes'
 import { useTheme } from '@/styles/tokens'
-import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, ROSA, GRANATE, ROJO } from '@/styles/neobrutal'
+import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, ROSA, GRANATE, ROJO, BLANCO } from '@/styles/neobrutal'
 
 type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas' | 'equivalencias' | 'auto'
 const TAB_KEY = 'sl_fichas_tab'
@@ -128,12 +128,12 @@ export default function Escandallo() {
                   fontFamily: OSW, fontWeight: 700, fontSize: 13.5, letterSpacing: '0.5px',
                   textTransform: 'uppercase', padding: on ? '11px 18px 15px' : '11px 18px',
                   cursor: 'pointer', border: `3px solid ${INK}`, borderBottom: 'none', borderRadius: 0,
-                  background: on ? ROSA : 'var(--sl-card)', color: on ? '#fff' : INK,
+                  background: on ? ROSA : 'var(--sl-card)', color: on ? BLANCO : INK,
                   position: 'relative', top: on ? 0 : 4, marginBottom: -4,
                 }}
               >
                 {t.label}
-                <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 11, padding: '1px 6px', background: on ? '#fff' : INK, color: on ? ROSA : '#fff' }}>{t.count(data)}</span>
+                <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 11, padding: '1px 6px', background: on ? BLANCO : INK, color: on ? ROSA : BLANCO }}>{t.count(data)}</span>
               </button>
             )
           })}

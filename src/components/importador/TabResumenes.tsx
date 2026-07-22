@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, NAR, VERDE } from '@/styles/neobrutal'
 /**
  * T-M7-07 — Tab Resúmenes plataforma
  * Tabla ventas_plataforma_marca_mensual con filtros.
@@ -33,9 +34,9 @@ interface ResumenRow {
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 const PLATAFORMA_COLOR: Record<string, string> = {
-  uber:     '#06C167',
+  uber:     VERDE,
   glovo:    '#aabc00',
-  just_eat: '#f5a623',
+  just_eat: NAR,
   rushour:  '#7F77DD',
 }
 
@@ -50,13 +51,13 @@ function ModalDetalle({ row, onClose }: { row: ResumenRow; onClose: () => void }
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: '#1a1a1a', borderRadius: 14, padding: 28, minWidth: 400, maxWidth: 560, width: '90%' }}
+        style={{ backgroundColor: INK, borderRadius: 14, padding: 28, minWidth: 400, maxWidth: 560, width: '90%' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#B01D23', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRANATE, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
           {row.plataforma.toUpperCase()} · {row.marca}
         </div>
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#777777', marginBottom: 20 }}>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, marginBottom: 20 }}>
           {MESES[(row.mes ?? 1) - 1]} {row.anio}
         </div>
 
@@ -72,8 +73,8 @@ function ModalDetalle({ row, onClose }: { row: ResumenRow; onClose: () => void }
               ['Neto cobrado', fmtEur(row.neto_cobrado ?? 0)],
             ].map(([label, value]) => (
               <tr key={label} style={{ borderBottom: '0.5px solid #2a2a2a' }}>
-                <td style={{ padding: '8px 10px', color: '#777777', width: 160 }}>{label}</td>
-                <td style={{ padding: '8px 10px', color: '#ffffff', textAlign: 'right' }}>{value}</td>
+                <td style={{ padding: '8px 10px', color: GRIS, width: 160 }}>{label}</td>
+                <td style={{ padding: '8px 10px', color: BLANCO, textAlign: 'right' }}>{value}</td>
               </tr>
             ))}
           </tbody>
@@ -84,7 +85,7 @@ function ModalDetalle({ row, onClose }: { row: ResumenRow; onClose: () => void }
             href={row.archivo_origen}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16, color: '#66aaff', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16, color: AZUL_CL, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}
           >
             <ExternalLink size={14} /> Ver PDF original
           </a>
@@ -93,19 +94,19 @@ function ModalDetalle({ row, onClose }: { row: ResumenRow; onClose: () => void }
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
             onClick={() => { navigate('/finanzas/resultados?tab=running'); onClose() }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#B01D23', border: 'none', borderRadius: 6, color: '#ffffff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: GRANATE, border: 'none', borderRadius: 6, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}
           >
             <TrendingUp size={14} /> Ir a Running
           </button>
           <button
             onClick={() => { navigate(`/configuracion/marcas?plataforma=${row.plataforma}&mes=${row.mes}&anio=${row.anio}`); onClose() }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#222222', border: '1px solid #383838', borderRadius: 6, color: '#cccccc', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}
           >
             <Tag size={14} /> Ver en Panel Marcas
           </button>
           <button
             onClick={onClose}
-            style={{ background: '#222222', border: '1px solid #383838', borderRadius: 6, color: '#cccccc', fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
+            style={{ background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
           >
             Cerrar
           </button>
@@ -160,13 +161,13 @@ export default function TabResumenes({ refresh }: Props) {
     letterSpacing: 2,
     color: T.mut,
     fontWeight: 400,
-    background: '#0a0a0a',
+    background: INK,
     textAlign: 'left',
   }
   const td: CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
 
   const selectStyle: CSSProperties = {
-    background: '#1e1e1e',
+    background: INK,
     border: `1px solid ${T.brd}`,
     borderRadius: 6,
     color: T.pri,
@@ -276,7 +277,7 @@ export default function TabResumenes({ refresh }: Props) {
                   <td style={td}>
                     <button
                       onClick={(e) => { e.stopPropagation(); setDetalle(row) }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#66aaff', fontFamily: FONT.body, fontSize: 12 }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: AZUL_CL, fontFamily: FONT.body, fontSize: 12 }}
                     >
                       Detalle
                     </button>

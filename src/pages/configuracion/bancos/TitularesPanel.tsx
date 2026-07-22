@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
 import { useCallback, useEffect, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -111,13 +112,13 @@ export default function TitularesPanel() {
               style={{
                 background: T.card,
                 border: `0.5px solid ${T.brd}`,
-                borderLeft: `4px solid ${t.color || '#B01D23'}`,
+                borderLeft: `4px solid ${t.color || GRANATE}`,
                 borderRadius: 10,
                 padding: 18,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <div style={{ width: 12, height: 12, borderRadius: 3, background: t.color || '#B01D23' }} />
+                <div style={{ width: 12, height: 12, borderRadius: 3, background: t.color || GRANATE }} />
                 <div style={{
                   fontFamily: FONT.heading, fontSize: 14, letterSpacing: '1.8px',
                   textTransform: 'uppercase', color: T.pri, fontWeight: 600,
@@ -160,8 +161,8 @@ export default function TitularesPanel() {
                   onClick={() => guardar(ed)}
                   style={{
                     padding: '7px 14px',
-                    background: '#B01D23',
-                    color: '#fff',
+                    background: GRANATE,
+                    color: BLANCO,
                     border: 'none',
                     borderRadius: 6,
                     fontFamily: FONT.heading,
@@ -191,14 +192,14 @@ export default function TitularesPanel() {
                       alignItems: 'center',
                       gap: 10,
                       padding: '12px 16px',
-                      background: isDark ? '#141414' : '#fafafa',
+                      background: isDark ? INK : '#fafafa',
                       border: `1.5px dashed ${T.brd}`,
                       borderRadius: 8,
                       cursor: isSubiendo ? 'wait' : 'pointer',
                       opacity: isSubiendo ? 0.6 : 1,
                     }}
                   >
-                    <Upload size={16} color="#B01D23" />
+                    <Upload size={16} color={GRANATE} />
                     <span style={{ color: T.pri, fontSize: 12, fontFamily: FONT.body }}>
                       {isSubiendo ? 'Procesando...' : 'Arrastra o haz clic para subir'}
                     </span>

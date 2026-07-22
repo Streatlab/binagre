@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -31,9 +32,9 @@ const TIPO_LABELS: Record<string, string> = {
 const ESTADO_ORDEN: Record<string, number> = { pendiente: 0, aprobado: 1, rechazado: 2 }
 
 function estadoBadge(estado: Solicitud['estado']) {
-  if (estado === 'aprobado') return { color: '#1D9E75', bg: '#1D9E7520', icon: <CheckCircle size={12} />, label: 'Aprobado' }
-  if (estado === 'rechazado') return { color: '#B01D23', bg: '#B01D2320', icon: <XCircle size={12} />, label: 'Rechazado' }
-  return { color: '#f5a623', bg: '#f5a62320', icon: <Clock size={12} />, label: 'Pendiente' }
+  if (estado === 'aprobado') return { color: VERDE, bg: '#1D9E7520', icon: <CheckCircle size={12} />, label: 'Aprobado' }
+  if (estado === 'rechazado') return { color: GRANATE, bg: '#B01D2320', icon: <XCircle size={12} />, label: 'Rechazado' }
+  return { color: NAR, bg: '#f5a62320', icon: <Clock size={12} />, label: 'Pendiente' }
 }
 
 export default function TabVacaciones() {
@@ -86,7 +87,7 @@ export default function TabVacaciones() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         {filtros.map(f => (
           <button key={f.key} onClick={() => setFiltro(f.key)}
-            style={{ padding: '6px 14px', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: filtro === f.key ? '#FF4757' : T.card, color: filtro === f.key ? '#fff' : T.sec, fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+            style={{ padding: '6px 14px', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: filtro === f.key ? ROJO : T.card, color: filtro === f.key ? BLANCO : T.sec, fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
             {f.label}
           </button>
         ))}

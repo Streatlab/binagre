@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 /**
  * CUADRO DE MANDO (Ley Visual SL v2 · acento oliva)
  *
@@ -303,7 +304,7 @@ export default function LabPanel() {
           <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 12, marginBottom: 12 }}>
             <div style={{
               background: 'linear-gradient(115deg, #951218 0%, #B01D23 46%, #EE8A4E 100%)',
-              borderRadius: 18, padding: '16px 18px', color: '#fff',
+              borderRadius: 18, padding: '16px 18px', color: BLANCO,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
                 <div style={{ minWidth: 0 }}>

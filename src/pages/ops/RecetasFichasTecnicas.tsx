@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
 import { useState, useEffect, useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -25,7 +26,7 @@ const T = {
   pri:  'var(--sl-text-primary)',
   sec:  'var(--sl-text-secondary)',
   mut:  'var(--sl-text-muted)',
-  red:  '#B01D23',
+  red:  GRANATE,
 }
 
 const sectionLabel: CSSProperties = {
@@ -260,7 +261,7 @@ export default function RecetasFichasTecnicas() {
               </div>
               <button
                 onClick={openEdit}
-                style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', backgroundColor: T.red, color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', flexShrink: 0 }}
+                style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', backgroundColor: T.red, color: BLANCO, border: 'none', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', flexShrink: 0 }}
               >
                 Editar
               </button>
@@ -387,7 +388,7 @@ export default function RecetasFichasTecnicas() {
           onClick={() => setEditOpen(false)}
         >
           <div
-            style={{ backgroundColor: isDark ? '#1a1a1a' : '#ffffff', border: `1px solid ${T.brd}`, borderRadius: 10, padding: 24, width: '100%', maxWidth: 500, display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '90vh', overflowY: 'auto' }}
+            style={{ backgroundColor: isDark ? INK : BLANCO, border: `1px solid ${T.brd}`, borderRadius: 10, padding: 24, width: '100%', maxWidth: 500, display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '90vh', overflowY: 'auto' }}
             onClick={e => e.stopPropagation()}
           >
             <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: T.pri, margin: 0, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
@@ -452,7 +453,7 @@ export default function RecetasFichasTecnicas() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', backgroundColor: T.red, color: '#fff', border: 'none', borderRadius: 5, padding: '9px 20px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+                style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', backgroundColor: T.red, color: BLANCO, border: 'none', borderRadius: 5, padding: '9px 20px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
               >
                 {saving ? 'Guardando…' : 'Guardar'}
               </button>

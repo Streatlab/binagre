@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -49,7 +50,7 @@ export default function TabReglasIngredientes() {
   const visibles = reglas.filter(r => !busca || r.alias.includes(busca.toLowerCase()) || r.ingrediente_canonico.toLowerCase().includes(busca.toLowerCase()))
 
   const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
-  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
+  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
   const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
 
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando reglas…</div>
@@ -97,7 +98,7 @@ export default function TabReglasIngredientes() {
                     <td style={{ padding: '10px 14px', color: T.pri }}>{r.ingrediente_canonico}</td>
                     <td style={{ padding: '10px 14px' }}><div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => { setEditId(r.id); setEditAlias(r.alias); setEditCanonico(r.ingrediente_canonico) }} style={ico}><Pencil size={13} /></button>
-                      <button onClick={() => borrar(r.id)} style={{ ...ico, color: '#B01D23' }}><Trash2 size={13} /></button>
+                      <button onClick={() => borrar(r.id)} style={{ ...ico, color: GRANATE }}><Trash2 size={13} /></button>
                     </div></td>
                   </>
                 )}

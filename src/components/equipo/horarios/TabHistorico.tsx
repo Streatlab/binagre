@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, FileDown, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -51,7 +52,7 @@ export default function TabHistorico() {
     return { width: 32, height: 32, borderRadius: 8, border: `0.5px solid ${T.brd}`, background: disabled ? T.group : T.card, color: disabled ? T.mut : T.sec, cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.4 : 1 }
   }
   function actionBtn(): React.CSSProperties {
-    return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: '#B01D23', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
+    return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: GRANATE, color: BLANCO, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
   }
 
   // Límite: no navegar a semanas futuras desde el histórico (para eso está TabEstaSemana)
@@ -60,7 +61,7 @@ export default function TabHistorico() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, fontWeight: 600, color: '#B01D23', letterSpacing: '3px', textTransform: 'uppercase' }}>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 20, fontWeight: 600, color: GRANATE, letterSpacing: '3px', textTransform: 'uppercase' }}>
           Rota S{numeroSemanaISO(lunes)} · {fmtRangoSemana(lunes)}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

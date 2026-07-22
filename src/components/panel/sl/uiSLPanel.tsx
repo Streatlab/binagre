@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 /**
  * uiSLPanel — piezas del cuadro de mando (Ley Visual SL v2 + acento oliva).
  *
@@ -36,7 +37,7 @@ export function Palanca<T extends string>({ opciones, valor, onChange, compacta 
               fontSize: compacta ? 11 : 11.5,
               fontWeight: 900,
               background: on ? OLIVA.hondo : 'transparent',
-              color: on ? '#fff' : C.grisCl,
+              color: on ? BLANCO : C.grisCl,
               minHeight: 34,
             }}
           >{o.label}</button>
@@ -52,7 +53,7 @@ export function Frentes({ items }: { items: Array<{ texto: string; onClick?: () 
   return (
     <div style={{
       display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
-      background: C.rojo, color: '#fff', borderRadius: 14,
+      background: C.rojo, color: BLANCO, borderRadius: 14,
       padding: '10px 14px', marginBottom: 12,
     }}>
       <span style={{
@@ -66,7 +67,7 @@ export function Frentes({ items }: { items: Array<{ texto: string; onClick?: () 
           key={i}
           onClick={f.onClick}
           style={{
-            background: 'transparent', border: 'none', color: '#fff',
+            background: 'transparent', border: 'none', color: BLANCO,
             fontFamily: "'Nunito', sans-serif", fontSize: 12.5, fontWeight: 800,
             cursor: f.onClick ? 'pointer' : 'default',
             textDecoration: f.onClick ? 'underline' : 'none',

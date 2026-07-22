@@ -9,9 +9,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD,
-  GRANATE, AMA, VERDE, ROJO, GRIS, eyebrow,
-} from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal'
 import {
   nuevoDocA4, pintarMarco, pintarCabecera, pintarCamposId, pintarPie,
   abrirImprimir, descargar, P_INK, P_GREY, P_LINE, P_WRITE, P_RED_SOFT2, P_RED_DARK, MARGEN, BOX,
@@ -534,12 +532,12 @@ export default function ChecklistsAperturaCierre() {
   }
   const btnPrimario: React.CSSProperties = { ...btnBase, background: AMA }
   const btnSecundario: React.CSSProperties = { ...btnBase, background: CLARO }
-  const btnGranate: React.CSSProperties = { ...btnBase, background: GRANATE, color: '#ffffff' }
+  const btnGranate: React.CSSProperties = { ...btnBase, background: GRANATE, color: BLANCO }
   const inputNeo: React.CSSProperties = {
-    padding: '9px 12px', background: '#ffffff', border: `3px solid ${INK}`, color: INK,
+    padding: '9px 12px', background: BLANCO, border: `3px solid ${INK}`, color: INK,
     fontFamily: LEX, fontSize: 14, outline: 'none',
   }
-  const card: React.CSSProperties = { background: '#ffffff', border: BORDER_CARD, boxShadow: SHADOW }
+  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -566,8 +564,8 @@ export default function ChecklistsAperturaCierre() {
             style={{
               padding: '8px 16px',
               border: `3px solid ${INK}`,
-              background: activeTab === tab.key ? GRANATE : '#ffffff',
-              color: activeTab === tab.key ? '#ffffff' : INK,
+              background: activeTab === tab.key ? GRANATE : BLANCO,
+              color: activeTab === tab.key ? BLANCO : INK,
               boxShadow: activeTab === tab.key ? SHADOW : 'none',
               fontFamily: OSW,
               fontSize: 13,
@@ -584,7 +582,7 @@ export default function ChecklistsAperturaCierre() {
 
       {/* Error */}
       {error && (
-        <div style={{ ...card, background: ROJO, color: '#ffffff', padding: '12px 18px', fontFamily: LEX, fontSize: 13, marginBottom: 20 }}>
+        <div style={{ ...card, background: ROJO, color: BLANCO, padding: '12px 18px', fontFamily: LEX, fontSize: 13, marginBottom: 20 }}>
           {error}
         </div>
       )}
@@ -621,7 +619,7 @@ export default function ChecklistsAperturaCierre() {
                     <td style={{ padding: '10px 14px' }}>{h.responsable || '—'}</td>
                     <td style={{ padding: '10px 14px', fontFamily: OSW, fontWeight: 700 }}>{h.items_completados}/{h.items_totales}</td>
                     <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontFamily: OSW, fontWeight: 700, color: '#ffffff', background: progressColor(p), border: `2px solid ${INK}`, padding: '2px 8px' }}>{p}%</span>
+                      <span style={{ fontFamily: OSW, fontWeight: 700, color: BLANCO, background: progressColor(p), border: `2px solid ${INK}`, padding: '2px 8px' }}>{p}%</span>
                     </td>
                     <td style={{ padding: '10px 14px', fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: h.origen === 'foto' ? GRANATE : GRIS }}>
                       {h.origen === 'foto' ? '📷 Foto' : 'Manual'}
@@ -629,7 +627,7 @@ export default function ChecklistsAperturaCierre() {
                     <td style={{ padding: '10px 14px' }}>
                       <span style={{
                         background: h.completado ? VERDE : ROJO,
-                        color: '#ffffff',
+                        color: BLANCO,
                         border: `2px solid ${INK}`,
                         padding: '3px 10px',
                         fontSize: 11,
@@ -700,7 +698,7 @@ export default function ChecklistsAperturaCierre() {
 
           {/* Mensaje resultado foto */}
           {msgFoto && (
-            <div style={{ ...card, background: msgFoto.startsWith('Foto leída') ? VERDE : ROJO, color: '#ffffff', padding: '10px 16px', fontSize: 13, marginBottom: 16, fontFamily: LEX }}>
+            <div style={{ ...card, background: msgFoto.startsWith('Foto leída') ? VERDE : ROJO, color: BLANCO, padding: '10px 16px', fontSize: 13, marginBottom: 16, fontFamily: LEX }}>
               {msgFoto}
             </div>
           )}
@@ -729,8 +727,8 @@ export default function ChecklistsAperturaCierre() {
               </div>
               {todoCompleto && (
                 <div style={{ marginTop: 14, background: VERDE, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontSize: 22, color: '#ffffff' }}>✓</span>
-                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: '#ffffff' }}>
+                  <span style={{ fontSize: 22, color: BLANCO }}>✓</span>
+                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: BLANCO }}>
                     Checklist completado
                   </span>
                 </div>
@@ -751,7 +749,7 @@ export default function ChecklistsAperturaCierre() {
                   padding: '12px 16px',
                   border: BORDER_CARD,
                   boxShadow: item.completado ? 'none' : SHADOW,
-                  background: item.completado ? CLARO : '#ffffff',
+                  background: item.completado ? CLARO : BLANCO,
                   cursor: 'pointer',
                   userSelect: 'none',
                 }}
@@ -760,7 +758,7 @@ export default function ChecklistsAperturaCierre() {
                   width: 28,
                   height: 28,
                   border: `3px solid ${INK}`,
-                  background: item.completado ? VERDE : '#ffffff',
+                  background: item.completado ? VERDE : BLANCO,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -768,7 +766,7 @@ export default function ChecklistsAperturaCierre() {
                 }}>
                   {item.completado && (
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M2 7L6 11L12 3" stroke="#ffffff" strokeWidth="3" strokeLinecap="square" />
+                      <path d="M2 7L6 11L12 3" stroke={BLANCO} strokeWidth="3" strokeLinecap="square" />
                     </svg>
                   )}
                 </div>
@@ -840,7 +838,7 @@ export default function ChecklistsAperturaCierre() {
                 </span>
                 <button
                   onClick={() => deleteItemPlantilla(p.id)}
-                  style={{ padding: '4px 10px', background: '#ffffff', border: `2px solid ${ROJO}`, color: ROJO, fontFamily: OSW, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', cursor: 'pointer' }}
+                  style={{ padding: '4px 10px', background: BLANCO, border: `2px solid ${ROJO}`, color: ROJO, fontFamily: OSW, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', cursor: 'pointer' }}
                 >
                   Eliminar
                 </button>

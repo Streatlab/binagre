@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, ROJO_S } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -47,7 +48,7 @@ export default function TabConteos({ desde, hasta }: Props) {
   const calcStyle: React.CSSProperties = {
     backgroundColor: '#2d1515',
     border: '1px solid #aa3030',
-    color: '#ffaaaa',
+    color: ROJO_S,
     padding: '4px 8px',
     borderRadius: 4,
     fontSize: 13,
@@ -149,7 +150,7 @@ export default function TabConteos({ desde, hasta }: Props) {
     color: T.mut,
     padding: '8px 12px',
     textAlign: 'left',
-    background: '#0a0a0a',
+    background: INK,
     borderBottom: `1px solid ${T.brd}`,
     whiteSpace: 'nowrap',
   }
@@ -195,8 +196,8 @@ export default function TabConteos({ desde, hasta }: Props) {
               padding: '8px 18px',
               borderRadius: 8,
               border: 'none',
-              background: '#e8f442',
-              color: '#111111',
+              background: LIMA,
+              color: INK,
               fontSize: 13,
               fontFamily: FONT.heading,
               fontWeight: 700,
@@ -252,7 +253,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                       padding: '2px 7px',
                       borderRadius: 4,
                       background: c.periodicidad === 'mensual' ? '#1a2a1a' : '#1a1a2a',
-                      color: c.periodicidad === 'mensual' ? '#4caf50' : '#66aaff',
+                      color: c.periodicidad === 'mensual' ? '#4caf50' : AZUL_CL,
                       fontFamily: FONT.heading,
                       letterSpacing: '0.5px',
                       textTransform: 'uppercase',
@@ -278,7 +279,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                         padding: '4px 8px',
                         borderRadius: 4,
                         border: `1px solid ${T.brd}`,
-                        background: '#1e1e1e',
+                        background: INK,
                         color: T.pri,
                         fontSize: 13,
                         fontFamily: FONT.body,
@@ -311,7 +312,7 @@ export default function TabConteos({ desde, hasta }: Props) {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              backgroundColor: '#1a1a1a',
+              backgroundColor: INK,
               border: `1px solid ${T.brd}`,
               borderRadius: 12,
               padding: '28px 32px',
@@ -319,7 +320,7 @@ export default function TabConteos({ desde, hasta }: Props) {
               fontFamily: FONT.body,
             }}
           >
-            <h2 style={{ fontFamily: FONT.heading, fontSize: 17, letterSpacing: '2px', textTransform: 'uppercase', color: '#B01D23', marginBottom: 20 }}>
+            <h2 style={{ fontFamily: FONT.heading, fontSize: 17, letterSpacing: '2px', textTransform: 'uppercase', color: GRANATE, marginBottom: 20 }}>
               Nuevo conteo
             </h2>
 
@@ -332,7 +333,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                 onChange={e => setPeriodicidad(e.target.value as 'semanal' | 'mensual')}
                 style={{
                   width: '100%', padding: '8px 12px', borderRadius: 8,
-                  border: `1px solid ${T.brd}`, background: '#1e1e1e',
+                  border: `1px solid ${T.brd}`, background: INK,
                   color: T.pri, fontSize: 14, fontFamily: FONT.body,
                 }}
               >
@@ -351,7 +352,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                 onChange={e => setFechaNuevo(e.target.value)}
                 style={{
                   width: '100%', padding: '8px 12px', borderRadius: 8,
-                  border: `1px solid ${T.brd}`, background: '#1e1e1e',
+                  border: `1px solid ${T.brd}`, background: INK,
                   color: T.pri, fontSize: 14, fontFamily: FONT.body,
                 }}
               />
@@ -367,7 +368,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                 disabled={saving}
                 style={{
                   padding: '9px 18px', borderRadius: 8,
-                  border: `1px solid ${T.brd}`, background: '#222222',
+                  border: `1px solid ${T.brd}`, background: INK,
                   color: T.sec, fontSize: 13, fontFamily: FONT.heading,
                   fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase',
                   cursor: 'pointer',
@@ -380,8 +381,8 @@ export default function TabConteos({ desde, hasta }: Props) {
                 disabled={saving}
                 style={{
                   padding: '9px 18px', borderRadius: 8,
-                  border: 'none', background: '#B01D23',
-                  color: '#ffffff', fontSize: 13, fontFamily: FONT.heading,
+                  border: 'none', background: GRANATE,
+                  color: BLANCO, fontSize: 13, fontFamily: FONT.heading,
                   fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',
                   cursor: saving ? 'not-allowed' : 'pointer',
                   opacity: saving ? 0.7 : 1,

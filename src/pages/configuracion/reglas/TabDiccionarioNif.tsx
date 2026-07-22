@@ -1,3 +1,4 @@
+import { VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -41,7 +42,7 @@ export default function TabDiccionarioNif() {
 
   function badgeOrigen(o: string | null) {
     const map: Record<string, { txt: string; bg: string; fg: string }> = {
-      banco:   { txt: 'Banco',   bg: '#06C16722', fg: '#06C167' },
+      banco:   { txt: 'Banco',   bg: '#06C16722', fg: VERDE },
       regla:   { txt: 'Plantilla', bg: '#3b82f622', fg: '#3b82f6' },
       factura: { txt: 'Factura', bg: '#9999991f', fg: T.sec },
     }

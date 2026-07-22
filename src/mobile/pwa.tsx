@@ -1,6 +1,6 @@
+import { INK } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 
-const INK = '#0a0a0a'
 const OSW = 'Oswald, sans-serif'
 
 /**

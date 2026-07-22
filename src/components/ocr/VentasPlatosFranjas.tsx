@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS } from '@/styles/neobrutal'
 // VentasPlatosFranjas — módulo de aprendizaje de ventas: qué platos se venden y
 // en qué franjas horarias, por marca y plataforma. Lee las vistas de agregación
 // v_ventas_plato y v_ventas_franja (que resumen pedidos_plataforma).
@@ -22,7 +23,7 @@ const PLATAFORMAS: { id: string; label: string }[] = [
   { id: 'just_eat', label: 'Just Eat' },
 ]
 
-const ROJO = '#B01D23'
+const ROJO = GRANATE
 const NAVY = '#1e2233'
 const BEIGE = '#edecea'
 
@@ -94,11 +95,11 @@ export default function VentasPlatosFranjas({ fechaDesde, fechaHasta }: Props) {
   const maxPedidos = Math.max(1, ...porHora.map(x => x.pedidos))
   const hayDatos = platos.length > 0 || franjas.length > 0
 
-  const selStyle: React.CSSProperties = { padding: '8px 12px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: NAVY, cursor: 'pointer' }
-  const tabStyle = (active: boolean): React.CSSProperties => ({ padding: '8px 16px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600, background: active ? ROJO : BEIGE, color: active ? '#fff' : NAVY })
+  const selStyle: React.CSSProperties = { padding: '8px 12px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: NAVY, cursor: 'pointer' }
+  const tabStyle = (active: boolean): React.CSSProperties => ({ padding: '8px 16px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600, background: active ? ROJO : BEIGE, color: active ? BLANCO : NAVY })
 
   return (
-    <div style={{ marginTop: 16, background: '#fff', border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '16px 18px' }}>
+    <div style={{ marginTop: 16, background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: ROJO, marginRight: 'auto' }}>Qué se vende y cuándo</div>
         <button onClick={() => setSub('platos')} style={tabStyle(sub === 'platos')}>Platos</button>
@@ -116,20 +117,20 @@ export default function VentasPlatosFranjas({ fechaDesde, fechaHasta }: Props) {
       </div>
 
       {cargando ? (
-        <div style={{ padding: '28px 0', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>Cargando…</div>
+        <div style={{ padding: '28px 0', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS }}>Cargando…</div>
       ) : !hayDatos ? (
-        <div style={{ padding: '28px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090', background: BEIGE, borderRadius: 10 }}>
+        <div style={{ padding: '28px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS, background: BEIGE, borderRadius: 10 }}>
           Aún no hay datos de platos. En cuanto entren documentos de plataforma por Bandeja de entrada, este módulo aprenderá qué se vende y en qué franjas.
         </div>
       ) : sub === 'platos' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {topPlatos.map((p, i) => (
             <div key={p.plato} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 22, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 12, color: '#7a8090' }}>{i + 1}</div>
+              <div style={{ width: 22, textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: 12, color: GRIS }}>{i + 1}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 3 }}>
                   <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.plato}</span>
-                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: NAVY, fontWeight: 600, whiteSpace: 'nowrap' }}>{p.unidades} <span style={{ color: '#7a8090', fontWeight: 400, fontSize: 11 }}>· {fmtEur(p.importe)}</span></span>
+                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: NAVY, fontWeight: 600, whiteSpace: 'nowrap' }}>{p.unidades} <span style={{ color: GRIS, fontWeight: 400, fontSize: 11 }}>· {fmtEur(p.importe)}</span></span>
                 </div>
                 <div style={{ height: 7, background: BEIGE, borderRadius: 99 }}>
                   <div style={{ height: 7, width: `${Math.max(3, (p.unidades / maxUnidades) * 100)}%`, background: ROJO, borderRadius: 99 }} />
@@ -149,10 +150,10 @@ export default function VentasPlatosFranjas({ fechaDesde, fechaHasta }: Props) {
           </div>
           <div style={{ display: 'flex', gap: 3 }}>
             {porHora.map(h => (
-              <div key={h.hora} style={{ flex: 1, textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 9, color: '#7a8090' }}>{h.hora % 2 === 0 ? h.hora : ''}</div>
+              <div key={h.hora} style={{ flex: 1, textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 9, color: GRIS }}>{h.hora % 2 === 0 ? h.hora : ''}</div>
             ))}
           </div>
-          <div style={{ marginTop: 10, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>{totalPedidos} pedidos en el periodo · hora del día (0–23)</div>
+          <div style={{ marginTop: 10, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS }}>{totalPedidos} pedidos en el periodo · hora del día (0–23)</div>
         </div>
       )}
     </div>

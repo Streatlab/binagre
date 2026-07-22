@@ -1,3 +1,4 @@
+import { GRIS, ROJO } from '@/styles/neobrutal'
 import React from 'react'
 
 interface TagFiltroActivoProps {
@@ -13,7 +14,7 @@ const TAG_STYLE: React.CSSProperties = {
   padding: '2px 8px',
   borderRadius: 10,
   background: '#FF475715',
-  color: '#FF4757',
+  color: ROJO,
   fontSize: 11,
   fontWeight: 500,
 }
@@ -23,7 +24,7 @@ export default function TagFiltroActivo({ label, count, onRemove }: TagFiltroAct
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-      <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
+      <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS }}>
         Filtro activo:
       </span>
       <span style={TAG_STYLE}>
@@ -38,7 +39,7 @@ export default function TagFiltroActivo({ label, count, onRemove }: TagFiltroAct
           {' '}×
         </span>
       </span>
-      <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#7a8090' }}>
+      <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS }}>
         · {count} movimientos
       </span>
     </div>

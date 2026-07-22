@@ -1,3 +1,4 @@
+import { BLANCO, OSC } from '@/styles/neobrutal'
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toastStore';
@@ -15,7 +16,7 @@ interface Props {
 }
 
 export const EditableInline: React.FC<Props> = ({
-  valor, tabla, campo, filtros = {}, decimales = 2, unidad = '', color = '#3a4050', onUpdate
+  valor, tabla, campo, filtros = {}, decimales = 2, unidad = '', color = OSC, onUpdate
 }) => {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState<string>(String(valor ?? ''));
@@ -61,7 +62,7 @@ export const EditableInline: React.FC<Props> = ({
         style={{
           width: 80, padding: '0 4px', border: '1px solid #FF4757',
           borderRadius: 3, fontFamily: 'inherit', fontSize: 'inherit',
-          color, background: '#fff'
+          color, background: BLANCO
         }}
       />
     );

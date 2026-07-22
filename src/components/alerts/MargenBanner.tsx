@@ -1,3 +1,4 @@
+import { INK, LIMA } from '@/styles/neobrutal'
 /**
  * T-F4-10 — MargenBanner
  * Banner amarillo #e8f442 encima de tabla recetas cuando hay recetas fuera de margen.
@@ -23,8 +24,8 @@ export function MargenBanner({ alertas, onDismiss }: Props) {
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
-    background: '#e8f442',
-    color: '#111111',
+    background: LIMA,
+    color: INK,
     borderRadius: 8,
     padding: '10px 14px',
     marginBottom: 12,

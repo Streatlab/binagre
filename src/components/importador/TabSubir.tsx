@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA, NAR, ROJO_S, VERDE } from '@/styles/neobrutal'
 /**
  * T-M7-04 — Tab Subir
  * Dropzone único multi-formato. Detección automática del tipo de archivo.
@@ -111,11 +112,11 @@ async function detectarTipo(file: File, contenidoTexto?: string): Promise<TipoDe
 
 function iconoArchivo(nombre: string): React.ReactNode {
   const ext = nombre.split('.').pop()?.toLowerCase() ?? ''
-  if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) return <FileImage size={28} color="#66aaff" />
-  if (['xlsx', 'xls', 'csv'].includes(ext)) return <FileSpreadsheet size={28} color="#06C167" />
-  if (ext === 'pdf') return <FileText size={28} color="#B01D23" />
-  if (['doc', 'docx'].includes(ext)) return <File size={28} color="#f5a623" />
-  return <File size={28} color="#777777" />
+  if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) return <FileImage size={28} color={AZUL_CL} />
+  if (['xlsx', 'xls', 'csv'].includes(ext)) return <FileSpreadsheet size={28} color={VERDE} />
+  if (ext === 'pdf') return <FileText size={28} color={GRANATE} />
+  if (['doc', 'docx'].includes(ext)) return <File size={28} color={NAR} />
+  return <File size={28} color={GRIS} />
 }
 
 function fmtBytes(bytes: number): string {
@@ -254,7 +255,7 @@ export default function TabSubir({ onUploadSuccess }: Props) {
     }
   }
 
-  const dropzoneBorder = dragOver ? '#B01D23' : T.brd
+  const dropzoneBorder = dragOver ? GRANATE : T.brd
   const dropzoneBg = dragOver ? 'rgba(176,29,35,0.05)' : T.card
 
   const labelEstilo: CSSProperties = {
@@ -332,7 +333,7 @@ export default function TabSubir({ onUploadSuccess }: Props) {
       {/* Selector manual de tipo si no detectado */}
       {mostrarManual && (
         <div style={{ ...cardStyle(T), marginBottom: 20, border: `1px solid #aa3030`, backgroundColor: '#2d1515' }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 11, color: '#ffaaaa', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, color: ROJO_S, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 10 }}>
             Tipo no detectado automaticamente — asignar manualmente
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -340,7 +341,7 @@ export default function TabSubir({ onUploadSuccess }: Props) {
               value={tipoManual}
               onChange={(e) => setTipoManual(e.target.value as TipoDetectado)}
               style={{
-                background: '#1e1e1e',
+                background: INK,
                 border: `1px solid ${T.brd}`,
                 borderRadius: 6,
                 color: T.pri,
@@ -370,10 +371,10 @@ export default function TabSubir({ onUploadSuccess }: Props) {
                   setTipoManual('')
                 }}
                 style={{
-                  background: '#B01D23',
+                  background: GRANATE,
                   border: 'none',
                   borderRadius: 6,
-                  color: '#ffffff',
+                  color: BLANCO,
                   fontFamily: FONT.heading,
                   fontSize: 11,
                   letterSpacing: '1px',
@@ -395,13 +396,13 @@ export default function TabSubir({ onUploadSuccess }: Props) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginBottom: 24 }}>
         {[
-          { id: 'uber',     label: 'Uber / Portier',  nif: 'B88515200',  color: '#06C167', formatos: 'PDF factura · CSV resumen' },
+          { id: 'uber',     label: 'Uber / Portier',  nif: 'B88515200',  color: VERDE, formatos: 'PDF factura · CSV resumen' },
           { id: 'glovo',    label: 'Glovo',            nif: 'B67282871',  color: '#aabc00', formatos: 'PDF (formato A/B)' },
           { id: 'rushour',  label: 'RushHour',         nif: 'Francés',    color: '#7F77DD', formatos: 'PDF · CTR-SW' },
-          { id: 'just_eat', label: 'Just Eat',         nif: 'Pendiente',  color: '#f5a623', formatos: 'Sin parser aún' },
-          { id: 'banco',    label: 'Extracto BBVA',    nif: 'CSV',        color: '#66aaff', formatos: 'CSV FECHA;CONCEPTO' },
-          { id: 'resumen',  label: 'Resumen Plataforma',nif: 'XLSX',      color: '#e8f442', formatos: 'Mes+Plataforma+Marca' },
-          { id: 'nomina',   label: 'Nómina',           nif: 'PDF+IBAN',   color: '#cccccc', formatos: 'NÓMINA + IBAN' },
+          { id: 'just_eat', label: 'Just Eat',         nif: 'Pendiente',  color: NAR, formatos: 'Sin parser aún' },
+          { id: 'banco',    label: 'Extracto BBVA',    nif: 'CSV',        color: AZUL_CL, formatos: 'CSV FECHA;CONCEPTO' },
+          { id: 'resumen',  label: 'Resumen Plataforma',nif: 'XLSX',      color: LIMA, formatos: 'Mes+Plataforma+Marca' },
+          { id: 'nomina',   label: 'Nómina',           nif: 'PDF+IBAN',   color: GRIS, formatos: 'NÓMINA + IBAN' },
         ].map(p => (
           <div key={p.id} style={{ ...cardStyle(T), display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px' }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: p.color, marginTop: 4, flexShrink: 0 }} />

@@ -1,3 +1,4 @@
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, ROJO, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { toast } from '@/lib/toastStore'
@@ -133,7 +134,7 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
     <div
       onClick={onClick}
       style={{
-        background: '#fff',
+        background: BLANCO,
         border: activa ? '1px solid #FF4757' : '0.5px solid #d0c8bc',
         borderRadius: 14, padding: '16px 16px',
         cursor: onClick ? 'pointer' : 'default',
@@ -142,20 +143,20 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#7a8090', textTransform: 'uppercase' }}>{TITULO[tipo]}</span>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: buzonOk ? '#1D9E75' : '#E24B4A', flexShrink: 0, marginTop: 2 }} title={buzonOk ? 'Buzón conectado' : 'Buzón caído'} />
+        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase' }}>{TITULO[tipo]}</span>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: buzonOk ? VERDE : ROJO, flexShrink: 0, marginTop: 2 }} title={buzonOk ? 'Buzón conectado' : 'Buzón caído'} />
       </div>
 
-      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: '#111' }}>{total}</div>
-      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 4, marginBottom: 12 }}>{rangoTxt}</div>
+      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, fontWeight: 600, lineHeight: 1, letterSpacing: '0.5px', color: INK }}>{total}</div>
+      <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: GRIS, marginTop: 4, marginBottom: 12 }}>{rangoTxt}</div>
 
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#7a8090', display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Facturas</span><span style={{ color: '#B01D23', fontWeight: 500 }}>{facturas}</span></div>
-        <div style={{ height: 5, borderRadius: 3, background: '#ebe8e2', overflow: 'hidden' }}><div style={{ width: `${pctFac}%`, height: '100%', background: '#B01D23' }} /></div>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: GRIS, display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Facturas</span><span style={{ color: GRANATE, fontWeight: 500 }}>{facturas}</span></div>
+        <div style={{ height: 5, borderRadius: 3, background: BORDE_SUAVE, overflow: 'hidden' }}><div style={{ width: `${pctFac}%`, height: '100%', background: GRANATE }} /></div>
       </div>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: '#7a8090', display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Resúmenes de ventas</span><span style={{ color: '#1D6FE2', fontWeight: 500 }}>{resumenes}</span></div>
-        <div style={{ height: 5, borderRadius: 3, background: '#ebe8e2', overflow: 'hidden' }}><div style={{ width: `${pctRes}%`, height: '100%', background: '#1D6FE2' }} /></div>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 10, color: GRIS, display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}><span>Resúmenes de ventas</span><span style={{ color: '#1D6FE2', fontWeight: 500 }}>{resumenes}</span></div>
+        <div style={{ height: 5, borderRadius: 3, background: BORDE_SUAVE, overflow: 'hidden' }}><div style={{ width: `${pctRes}%`, height: '100%', background: '#1D6FE2' }} /></div>
       </div>
 
       <button
@@ -163,7 +164,7 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
         disabled={recogiendo}
         style={{
           width: '100%', padding: '8px 10px', borderRadius: 8, border: 'none',
-          background: recogiendo ? '#d0c8bc' : '#B01D23', color: '#fff',
+          background: recogiendo ? BORDE_SUAVE : GRANATE, color: BLANCO,
           fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px',
           textTransform: 'uppercase', cursor: recogiendo ? 'wait' : 'pointer', fontWeight: 600,
         }}
@@ -177,7 +178,7 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
           style={{
             display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 8,
             padding: '8px 10px', borderRadius: 8, border: '0.5px solid #E24B4A',
-            background: '#fff', color: '#E24B4A', textAlign: 'center', textDecoration: 'none',
+            background: BLANCO, color: ROJO, textAlign: 'center', textDecoration: 'none',
             fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px',
             textTransform: 'uppercase', fontWeight: 600,
           }}

@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, LIMA, ROJO } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -24,7 +25,7 @@ export default function TabMenusMarcas() {
   const [links, setLinks] = useState<CartaLink[]>([])
   const [form, setForm] = useState({ nombre: '', pvp: '', receta_id: '', seccion: '', descripcion: '' })
 
-  const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: '#1e1e1e', color: T.pri, fontSize: 13, fontFamily: FONT.body }
+  const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body }
 
   useEffect(() => {
     supabase.from('marcas').select('id,nombre,activa').eq('activa', true).order('nombre')
@@ -84,7 +85,7 @@ export default function TabMenusMarcas() {
     return Array.from(map.entries())
   }, [platos])
 
-  const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', background: '#0a0a0a', borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap' }
+  const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', background: INK, borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap' }
   const td: React.CSSProperties = { padding: '8px 12px', fontSize: 13, color: T.pri, borderBottom: `0.5px solid ${T.brd}`, fontFamily: FONT.body }
 
   return (
@@ -93,7 +94,7 @@ export default function TabMenusMarcas() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {marcas.map(m => (
           <button key={m.id} onClick={() => setMarcaSel(m.nombre)}
-            style={{ padding: '7px 16px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: marcaSel === m.nombre ? '#B01D23' : 'transparent', color: marcaSel === m.nombre ? '#fff' : T.sec, fontFamily: FONT.heading, fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer' }}>
+            style={{ padding: '7px 16px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: marcaSel === m.nombre ? GRANATE : 'transparent', color: marcaSel === m.nombre ? BLANCO : T.sec, fontFamily: FONT.heading, fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer' }}>
             {m.nombre}
           </button>
         ))}
@@ -111,7 +112,7 @@ export default function TabMenusMarcas() {
                 <input defaultValue={l?.url ?? ''} placeholder="Pega el link aquí"
                   onBlur={e => { if (e.target.value !== (l?.url ?? '')) guardarLink(p.key, e.target.value) }}
                   style={{ ...inp, flex: 1 }} />
-                {l?.url && <a href={l.url} target="_blank" rel="noreferrer" style={{ color: '#e8f442', fontSize: 12 }}>Abrir</a>}
+                {l?.url && <a href={l.url} target="_blank" rel="noreferrer" style={{ color: LIMA, fontSize: 12 }}>Abrir</a>}
               </div>
             )
           })}
@@ -130,7 +131,7 @@ export default function TabMenusMarcas() {
             {recetas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
           </select>
           <input placeholder="Descripción para plataforma" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} style={{ ...inp, minWidth: 240, flex: 1 }} />
-          <button onClick={anadirPlato} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#B01D23', color: '#fff', fontFamily: FONT.heading, fontWeight: 700, fontSize: 12, textTransform: 'uppercase', cursor: 'pointer' }}>Añadir</button>
+          <button onClick={anadirPlato} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontWeight: 700, fontSize: 12, textTransform: 'uppercase', cursor: 'pointer' }}>Añadir</button>
         </div>
       </div>
 
@@ -156,11 +157,11 @@ export default function TabMenusMarcas() {
                       <td style={{ ...td, fontWeight: 600 }}>{p.nombre}</td>
                       <td style={{ ...td, textAlign: 'right' }}>{fmtEur(p.pvp)}</td>
                       <td style={{ ...td, textAlign: 'right', color: T.mut }}>{c != null ? fmtEur(c) : '—'}</td>
-                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: margen == null ? T.mut : margen >= 65 ? '#4caf50' : margen >= 55 ? '#e8f442' : '#e24b4a' }}>
+                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: margen == null ? T.mut : margen >= 65 ? '#4caf50' : margen >= 55 ? LIMA : ROJO }}>
                         {margen != null ? `${margen}%` : '—'}
                       </td>
                       <td style={td}>
-                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: p.activo ? '#1a2a1a' : '#2a2a2a', color: p.activo ? '#4caf50' : T.mut, fontFamily: FONT.heading, textTransform: 'uppercase' }}>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: p.activo ? '#1a2a1a' : INK, color: p.activo ? '#4caf50' : T.mut, fontFamily: FONT.heading, textTransform: 'uppercase' }}>
                           {p.activo ? 'En carta' : 'Fuera'}
                         </span>
                       </td>

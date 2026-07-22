@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, LIMA } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, pageTitleStyle, FONT } from '@/styles/tokens'
@@ -138,44 +139,44 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
   const resultado = ingresosNetos - totalGastosAll
   const margen = ingresosNetos > 0 ? resultado / ingresosNetos : 0
   const ebitda = ingresosNetos - totalGastos
-  const resColor = resultado >= 0 ? '#e8f442' : '#B01D23'
+  const resColor = resultado >= 0 ? LIMA : GRANATE
 
   const years = [now.getFullYear() - 1, now.getFullYear()]
 
   const sel: React.CSSProperties = {
-    background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6,
-    color: '#ffffff', padding: '6px 10px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer',
+    background: INK, border: '1px solid #2a2a2a', borderRadius: 6,
+    color: BLANCO, padding: '6px 10px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer',
   }
   const card: React.CSSProperties = {
-    background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, padding: '18px 20px',
+    background: INK, border: '1px solid #2a2a2a', borderRadius: 8, padding: '18px 20px',
   }
   const kpiCard: React.CSSProperties = {
-    background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, padding: '16px 20px',
+    background: INK, border: '1px solid #2a2a2a', borderRadius: 8, padding: '16px 20px',
   }
   const kpiLbl: React.CSSProperties = {
     fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '2px',
-    textTransform: 'uppercase', color: '#777777', marginBottom: 6,
+    textTransform: 'uppercase', color: GRIS, marginBottom: 6,
   }
   const kpiVal: React.CSSProperties = {
-    fontFamily: 'Oswald,sans-serif', fontSize: '1.9rem', fontWeight: 600, lineHeight: 1, color: '#ffffff',
+    fontFamily: 'Oswald,sans-serif', fontSize: '1.9rem', fontWeight: 600, lineHeight: 1, color: BLANCO,
   }
   const secTitle: React.CSSProperties = {
     fontFamily: 'Oswald,sans-serif', fontSize: 13, letterSpacing: '2px',
-    textTransform: 'uppercase', color: '#cccccc', marginBottom: 12, marginTop: 0,
+    textTransform: 'uppercase', color: GRIS, marginBottom: 12, marginTop: 0,
   }
   const tbl: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 }
   const th: React.CSSProperties = {
     fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '1.5px',
-    textTransform: 'uppercase', color: '#777777', padding: '8px 12px',
-    textAlign: 'left', borderBottom: '1px solid #2a2a2a', background: '#0a0a0a',
+    textTransform: 'uppercase', color: GRIS, padding: '8px 12px',
+    textAlign: 'left', borderBottom: '1px solid #2a2a2a', background: INK,
   }
   const thR: React.CSSProperties = { ...th, textAlign: 'right' }
-  const td: React.CSSProperties = { padding: '8px 12px', borderBottom: '1px solid #1e1e1e', color: '#cccccc' }
+  const td: React.CSSProperties = { padding: '8px 12px', borderBottom: '1px solid #1e1e1e', color: GRIS }
   const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
-  const empty: React.CSSProperties = { color: '#777777', fontSize: 13, padding: '12px 0' }
+  const empty: React.CSSProperties = { color: GRIS, fontSize: 13, padding: '12px 0' }
 
   return (
-    <div style={{ padding: embedded ? 0 : 28, fontFamily: FONT.body, background: embedded ? 'transparent' : '#111111', minHeight: embedded ? 'auto' : '100vh' }}>
+    <div style={{ padding: embedded ? 0 : 28, fontFamily: FONT.body, background: embedded ? 'transparent' : INK, minHeight: embedded ? 'auto' : '100vh' }}>
       {!embedded && <h1 style={pageTitleStyle(T)}>Cuenta de Resultados</h1>}
 
       {/* Selector */}
@@ -188,7 +189,7 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
         <select style={sel} value={year} onChange={e => setYear(Number(e.target.value))}>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
-        <span style={{ color: '#777777', fontSize: 13 }}>
+        <span style={{ color: GRIS, fontSize: 13 }}>
           {loading ? 'Cargando...' : monthLabel(year, month)}
         </span>
       </div>
@@ -201,12 +202,12 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
         </div>
         <div style={kpiCard}>
           <div style={kpiLbl}>Ingresos netos</div>
-          <div style={{ ...kpiVal, color: '#e8f442' }}>{fmtEur(ingresosNetos)}</div>
-          <div style={{ fontSize: 11, color: '#777777', marginTop: 4 }}>Tras comisiones</div>
+          <div style={{ ...kpiVal, color: LIMA }}>{fmtEur(ingresosNetos)}</div>
+          <div style={{ fontSize: 11, color: GRIS, marginTop: 4 }}>Tras comisiones</div>
         </div>
         <div style={kpiCard}>
           <div style={kpiLbl}>Total gastos</div>
-          <div style={{ ...kpiVal, color: '#B01D23' }}>{fmtEur(totalGastosAll)}</div>
+          <div style={{ ...kpiVal, color: GRANATE }}>{fmtEur(totalGastosAll)}</div>
         </div>
         <div style={kpiCard}>
           <div style={kpiLbl}>Resultado neto</div>
@@ -218,8 +219,8 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
         </div>
         <div style={kpiCard}>
           <div style={kpiLbl}>EBITDA estimado</div>
-          <div style={{ ...kpiVal, color: ebitda >= 0 ? '#e8f442' : '#B01D23' }}>{fmtEur(ebitda)}</div>
-          <div style={{ fontSize: 11, color: '#777777', marginTop: 4 }}>Sin gastos fijos</div>
+          <div style={{ ...kpiVal, color: ebitda >= 0 ? LIMA : GRANATE }}>{fmtEur(ebitda)}</div>
+          <div style={{ fontSize: 11, color: GRIS, marginTop: 4 }}>Sin gastos fijos</div>
         </div>
       </div>
 
@@ -240,16 +241,16 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
                 </thead>
                 <tbody>
                   {gruposGasto.map((g, i) => (
-                    <tr key={g.grupo} style={{ background: i % 2 === 0 ? 'transparent' : '#141414' }}>
+                    <tr key={g.grupo} style={{ background: i % 2 === 0 ? 'transparent' : INK }}>
                       <td style={td}>{g.grupo}</td>
                       <td style={tdR}>{fmtEur(g.total)}</td>
                       <td style={tdR}>{ingresosNetos > 0 ? fmtPct(g.total / ingresosNetos) : '—'}</td>
                     </tr>
                   ))}
-                  <tr style={{ background: '#0a0a0a' }}>
-                    <td style={{ ...td, fontWeight: 600, color: '#ffffff' }}>TOTAL VARIABLES</td>
-                    <td style={{ ...tdR, fontWeight: 600, color: '#B01D23' }}>{fmtEur(totalGastos)}</td>
-                    <td style={{ ...tdR, color: '#777777' }}>{ingresosNetos > 0 ? fmtPct(totalGastos / ingresosNetos) : '—'}</td>
+                  <tr style={{ background: INK }}>
+                    <td style={{ ...td, fontWeight: 600, color: BLANCO }}>TOTAL VARIABLES</td>
+                    <td style={{ ...tdR, fontWeight: 600, color: GRANATE }}>{fmtEur(totalGastos)}</td>
+                    <td style={{ ...tdR, color: GRIS }}>{ingresosNetos > 0 ? fmtPct(totalGastos / ingresosNetos) : '—'}</td>
                   </tr>
                 </tbody>
               </table>
@@ -273,15 +274,15 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
                 </thead>
                 <tbody>
                   {gastosFijos.map((f, i) => (
-                    <tr key={f.id} style={{ background: i % 2 === 0 ? 'transparent' : '#141414' }}>
+                    <tr key={f.id} style={{ background: i % 2 === 0 ? 'transparent' : INK }}>
                       <td style={td}>{f.concepto}</td>
-                      <td style={{ ...td, color: '#777777', fontSize: 11 }}>{f.periodicidad}</td>
+                      <td style={{ ...td, color: GRIS, fontSize: 11 }}>{f.periodicidad}</td>
                       <td style={tdR}>{fmtEur(toMonthly(f.importe, f.periodicidad))}</td>
                     </tr>
                   ))}
-                  <tr style={{ background: '#0a0a0a' }}>
-                    <td colSpan={2} style={{ ...td, fontWeight: 600, color: '#ffffff' }}>TOTAL FIJOS / MES</td>
-                    <td style={{ ...tdR, fontWeight: 600, color: '#B01D23' }}>{fmtEur(totalFijos)}</td>
+                  <tr style={{ background: INK }}>
+                    <td colSpan={2} style={{ ...td, fontWeight: 600, color: BLANCO }}>TOTAL FIJOS / MES</td>
+                    <td style={{ ...tdR, fontWeight: 600, color: GRANATE }}>{fmtEur(totalFijos)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -296,38 +297,38 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
         <table style={tbl}>
           <tbody>
             <tr>
-              <td style={{ ...td, color: '#cccccc', width: '55%' }}>Ingresos brutos (plataformas)</td>
+              <td style={{ ...td, color: GRIS, width: '55%' }}>Ingresos brutos (plataformas)</td>
               <td style={tdR}>{fmtEur(ingresosBrutos)}</td>
-              <td style={{ ...tdR, color: '#777777', width: 100 }}>—</td>
+              <td style={{ ...tdR, color: GRIS, width: 100 }}>—</td>
             </tr>
-            <tr style={{ background: '#141414' }}>
-              <td style={{ ...td, color: '#777777', paddingLeft: 28 }}>– Comisiones plataformas</td>
-              <td style={{ ...tdR, color: '#B01D23' }}>{fmtEur(-(ingresosBrutos - ingresosNetos))}</td>
-              <td style={{ ...tdR, color: '#777777' }}>
+            <tr style={{ background: INK }}>
+              <td style={{ ...td, color: GRIS, paddingLeft: 28 }}>– Comisiones plataformas</td>
+              <td style={{ ...tdR, color: GRANATE }}>{fmtEur(-(ingresosBrutos - ingresosNetos))}</td>
+              <td style={{ ...tdR, color: GRIS }}>
                 {ingresosBrutos > 0 ? fmtPct((ingresosBrutos - ingresosNetos) / ingresosBrutos) : '—'}
               </td>
             </tr>
             <tr>
-              <td style={{ ...td, fontWeight: 600, color: '#ffffff' }}>= INGRESOS NETOS</td>
-              <td style={{ ...tdR, fontWeight: 600, color: '#e8f442' }}>{fmtEur(ingresosNetos)}</td>
-              <td style={{ ...tdR, color: '#777777' }}>100%</td>
+              <td style={{ ...td, fontWeight: 600, color: BLANCO }}>= INGRESOS NETOS</td>
+              <td style={{ ...tdR, fontWeight: 600, color: LIMA }}>{fmtEur(ingresosNetos)}</td>
+              <td style={{ ...tdR, color: GRIS }}>100%</td>
             </tr>
-            <tr style={{ background: '#141414' }}>
-              <td style={{ ...td, color: '#777777', paddingLeft: 28 }}>– Gastos variables</td>
-              <td style={{ ...tdR, color: '#B01D23' }}>{fmtEur(-totalGastos)}</td>
-              <td style={{ ...tdR, color: '#777777' }}>
+            <tr style={{ background: INK }}>
+              <td style={{ ...td, color: GRIS, paddingLeft: 28 }}>– Gastos variables</td>
+              <td style={{ ...tdR, color: GRANATE }}>{fmtEur(-totalGastos)}</td>
+              <td style={{ ...tdR, color: GRIS }}>
                 {ingresosNetos > 0 ? fmtPct(totalGastos / ingresosNetos) : '—'}
               </td>
             </tr>
             <tr>
-              <td style={{ ...td, color: '#777777', paddingLeft: 28 }}>– Gastos fijos (mensualizado)</td>
-              <td style={{ ...tdR, color: '#B01D23' }}>{fmtEur(-totalFijos)}</td>
-              <td style={{ ...tdR, color: '#777777' }}>
+              <td style={{ ...td, color: GRIS, paddingLeft: 28 }}>– Gastos fijos (mensualizado)</td>
+              <td style={{ ...tdR, color: GRANATE }}>{fmtEur(-totalFijos)}</td>
+              <td style={{ ...tdR, color: GRIS }}>
                 {ingresosNetos > 0 ? fmtPct(totalFijos / ingresosNetos) : '—'}
               </td>
             </tr>
-            <tr style={{ background: '#0a0a0a' }}>
-              <td style={{ ...td, fontWeight: 700, fontSize: 15, color: '#ffffff' }}>= RESULTADO NETO</td>
+            <tr style={{ background: INK }}>
+              <td style={{ ...td, fontWeight: 700, fontSize: 15, color: BLANCO }}>= RESULTADO NETO</td>
               <td style={{ ...tdR, fontWeight: 700, fontSize: 15, color: resColor }}>{fmtEur(resultado)}</td>
               <td style={{ ...tdR, fontWeight: 600, color: resColor }}>{fmtPct(margen)}</td>
             </tr>

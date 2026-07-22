@@ -157,6 +157,12 @@ export const getProveedor = (abv?: string | null): string => {
 
 export const n = (v: number | null | undefined) => v ?? 0
 
+/** Precio por unidad que debe cargar una línea de EPS/receta: SIEMPRE el neto con
+ *  merma si existe (Tanda D2 · divergencia B), con fallback al bruto para
+ *  ingredientes recién pre-creados que aún no tienen coste_neto calculado. */
+export const precioNeto = (ing: { eur_min?: number | null; eur_std?: number | null; coste_neto_min?: number | null; coste_neto_std?: number | null } | null | undefined) =>
+  n(ing?.coste_neto_min) || n(ing?.coste_neto_std) || n(ing?.eur_min) || n(ing?.eur_std)
+
 /* ── Formato ES obligatorio: coma decimal, punto miles. Null/undefined → '' ── */
 export const fmtES = (v: number | null | undefined, d = 2): string => {
   if (v == null || isNaN(v as number)) return ''

@@ -1,5 +1,14 @@
 const LOCALE = 'es-ES'
 
+// Tanda C · C4: decimales por defecto de fmtNum, configurable desde
+// Configuración → Cocina → Formato de números (clave `formato_numeros` en
+// `configuracion`). Cargado una vez al arrancar la app (ConfigContext.tsx).
+// fmtEur/fmtPct NO son configurables: son moneda/porcentaje con reglas fijas.
+let decimalesNumDefault = 4
+export function setDecimalesNum(n: number): void {
+  if (Number.isFinite(n) && n >= 0 && n <= 6) decimalesNumDefault = Math.round(n)
+}
+
 export const fmtEur = (v?: number | string | null): string => {
   const n = (v != null && v !== '') ? Number(v) : null
   if (n == null || isNaN(n)) return ''
@@ -17,7 +26,7 @@ export const fmtNumES = (v?: number | string | null, decimales = 0): string => {
   return decimales > 0 && dec !== undefined ? intFmt + ',' + dec : intFmt
 }
 
-export const fmtNum = (v?: number | string | null, d = 4): string => {
+export const fmtNum = (v?: number | string | null, d = decimalesNumDefault): string => {
   const n = (v != null && v !== '') ? Number(v) : null
   if (n == null || isNaN(n)) return ''
   const fixed = n.toFixed(d)

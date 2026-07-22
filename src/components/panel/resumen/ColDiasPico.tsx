@@ -1,3 +1,4 @@
+import { GRIS, OSC } from '@/styles/neobrutal'
 /**
  * ColDiasPico — Ronda 7
  * R7-07: usar fechaDesde/fechaHasta del periodo seleccionado
@@ -141,7 +142,7 @@ export default function ColDiasPico({ dias: diasProp, media: mediaProp, nombreMe
         ) : (
           <svg viewBox="0 0 480 230" style={{ width: '100%', height: 'auto' }} xmlns="http://www.w3.org/2000/svg" fontFamily="Lexend, sans-serif">
             {dias.map((d, i) => (
-              <text key={`v${i}`} x={POS_X_TEXTO[i]} y="20" fontSize="11" fill="#7a8090" textAnchor="middle" fontWeight={400}>
+              <text key={`v${i}`} x={POS_X_TEXTO[i]} y="20" fontSize="11" fill={GRIS} textAnchor="middle" fontWeight={400}>
                 {d.valor > 0 ? fmtNum(d.valor, 2) : ''}
               </text>
             ))}
@@ -167,11 +168,11 @@ export default function ColDiasPico({ dias: diasProp, media: mediaProp, nombreMe
               <>
                 <line
                   x1="15" y1={mediaY} x2="445" y2={mediaY}
-                  stroke="#3a4050"
+                  stroke={OSC}
                   strokeWidth="1.5"
                   strokeDasharray="6 4"
                 />
-                <text x="445" y={mediaY - 6} fontSize="11" fill="#3a4050" fontWeight="500" textAnchor="end">
+                <text x="445" y={mediaY - 6} fontSize="11" fill={OSC} fontWeight="500" textAnchor="end">
                   {`Media: ${fmtNum(media, 2)}`}
                 </text>
               </>

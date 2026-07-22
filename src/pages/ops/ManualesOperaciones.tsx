@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtDate } from '@/utils/format'
@@ -50,12 +51,12 @@ const CATEGORIAS: { value: Categoria; label: string }[] = [
 ]
 
 const CAT_COLORS: Record<Categoria, string> = {
-  apertura:          '#e8f442',
-  cierre:            '#777777',
-  limpieza:          '#66aaff',
-  recepcion_pedidos: '#06C167',
-  atencion_cliente:  '#f5a623',
-  cocina:            '#B01D23',
+  apertura:          LIMA,
+  cierre:            GRIS,
+  limpieza:          AZUL_CL,
+  recepcion_pedidos: VERDE,
+  atencion_cliente:  NAR,
+  cocina:            GRANATE,
   emergencias:       '#ff4444',
   rrhh:              '#cc88ff',
   general:           '#444444',
@@ -73,7 +74,7 @@ const EMPTY_DRAFT: ManualDraft = {
 const S = {
   page: {
     fontFamily: FONT.body,
-    color: '#ffffff',
+    color: BLANCO,
     minHeight: '100vh',
     padding: 24,
   } as React.CSSProperties,
@@ -90,14 +91,14 @@ const S = {
     fontSize: 22,
     letterSpacing: '3px',
     textTransform: 'uppercase' as const,
-    color: '#B01D23',
+    color: GRANATE,
     fontWeight: 600,
     margin: 0,
   } as React.CSSProperties,
 
   btnPrimary: {
-    backgroundColor: '#B01D23',
-    color: '#ffffff',
+    backgroundColor: GRANATE,
+    color: BLANCO,
     border: 'none',
     borderRadius: 6,
     padding: '8px 18px',
@@ -109,8 +110,8 @@ const S = {
   } as React.CSSProperties,
 
   btnSecondary: {
-    backgroundColor: '#222222',
-    color: '#cccccc',
+    backgroundColor: INK,
+    color: GRIS,
     border: '1px solid #383838',
     borderRadius: 6,
     padding: '8px 16px',
@@ -122,8 +123,8 @@ const S = {
   } as React.CSSProperties,
 
   btnAdd: {
-    backgroundColor: '#e8f442',
-    color: '#111111',
+    backgroundColor: LIMA,
+    color: INK,
     border: 'none',
     borderRadius: 6,
     padding: '8px 18px',
@@ -144,10 +145,10 @@ const S = {
   } as React.CSSProperties,
 
   searchInput: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: INK,
     border: '1px solid #2a2a2a',
     borderRadius: 6,
-    color: '#ffffff',
+    color: BLANCO,
     padding: '6px 12px',
     fontFamily: FONT.body,
     fontSize: 13,
@@ -162,7 +163,7 @@ const S = {
   } as React.CSSProperties,
 
   card: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: INK,
     border: '1px solid #2a2a2a',
     borderRadius: 8,
     padding: 16,
@@ -175,14 +176,14 @@ const S = {
     fontFamily: FONT.heading,
     fontSize: 15,
     fontWeight: 600,
-    color: '#ffffff',
+    color: BLANCO,
     letterSpacing: '0.5px',
     margin: 0,
   } as React.CSSProperties,
 
   cardMeta: {
     fontSize: 11,
-    color: '#777777',
+    color: GRIS,
     fontFamily: FONT.body,
   } as React.CSSProperties,
 
@@ -203,7 +204,7 @@ const S = {
   } as React.CSSProperties,
 
   modal: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: INK,
     border: '1px solid #2a2a2a',
     borderRadius: 10,
     padding: 28,
@@ -221,7 +222,7 @@ const S = {
     fontSize: 18,
     letterSpacing: '2px',
     textTransform: 'uppercase' as const,
-    color: '#e8f442',
+    color: LIMA,
     margin: 0,
     fontWeight: 600,
   } as React.CSSProperties,
@@ -231,17 +232,17 @@ const S = {
     fontSize: 11,
     letterSpacing: '1px',
     textTransform: 'uppercase' as const,
-    color: '#777777',
+    color: GRIS,
     marginBottom: 4,
     display: 'block',
   } as React.CSSProperties,
 
   input: {
     width: '100%',
-    backgroundColor: '#1e1e1e',
+    backgroundColor: INK,
     border: '1px solid #2a2a2a',
     borderRadius: 6,
-    color: '#ffffff',
+    color: BLANCO,
     padding: '8px 12px',
     fontFamily: FONT.body,
     fontSize: 14,
@@ -251,10 +252,10 @@ const S = {
 
   select: {
     width: '100%',
-    backgroundColor: '#1e1e1e',
+    backgroundColor: INK,
     border: '1px solid #2a2a2a',
     borderRadius: 6,
-    color: '#ffffff',
+    color: BLANCO,
     padding: '8px 12px',
     fontFamily: FONT.body,
     fontSize: 14,
@@ -264,10 +265,10 @@ const S = {
 
   textarea: {
     width: '100%',
-    backgroundColor: '#1e1e1e',
+    backgroundColor: INK,
     border: '1px solid #2a2a2a',
     borderRadius: 6,
-    color: '#ffffff',
+    color: BLANCO,
     padding: '8px 12px',
     fontFamily: FONT.body,
     fontSize: 13,
@@ -286,11 +287,11 @@ const S = {
   } as React.CSSProperties,
 
   viewContent: {
-    backgroundColor: '#111111',
+    backgroundColor: INK,
     border: '1px solid #2a2a2a',
     borderRadius: 6,
     padding: '12px 16px',
-    color: '#cccccc',
+    color: GRIS,
     fontFamily: FONT.body,
     fontSize: 13,
     lineHeight: 1.7,
@@ -300,7 +301,7 @@ const S = {
 
   emptyState: {
     textAlign: 'center' as const,
-    color: '#777777',
+    color: GRIS,
     padding: '60px 0',
     fontFamily: FONT.body,
     fontSize: 14,
@@ -319,8 +320,8 @@ function pillStyle(active: boolean): React.CSSProperties {
     textTransform: 'uppercase',
     cursor: 'pointer',
     border: active ? '1px solid #e8f442' : '1px solid #383838',
-    backgroundColor: active ? '#e8f442' : '#1a1a1a',
-    color: active ? '#111111' : '#cccccc',
+    backgroundColor: active ? LIMA : INK,
+    color: active ? INK : GRIS,
   }
 }
 
@@ -343,9 +344,9 @@ function catBadgeStyle(cat: Categoria): React.CSSProperties {
 
 function btnSmall(variant: 'view' | 'edit' | 'archive'): React.CSSProperties {
   const map = {
-    view:    { bg: '#1e2233', color: '#e8f442' },
-    edit:    { bg: '#1e1e1e', color: '#ffffff' },
-    archive: { bg: '#1e1e1e', color: '#777777' },
+    view:    { bg: '#1e2233', color: LIMA },
+    edit:    { bg: INK, color: BLANCO },
+    archive: { bg: INK, color: GRIS },
   }
   return {
     backgroundColor: map[variant].bg,
@@ -519,12 +520,12 @@ export default function ManualesOperaciones() {
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
         />
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#777777' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: GRIS }}>
           <input
             type="checkbox"
             checked={verArchivados}
             onChange={e => setVerArchivados(e.target.checked)}
-            style={{ accentColor: '#e8f442' }}
+            style={{ accentColor: LIMA }}
           />
           Ver archivados
         </label>
@@ -532,7 +533,7 @@ export default function ManualesOperaciones() {
 
       {/* States */}
       {loading && (
-        <p style={{ color: '#777777', fontFamily: FONT.body, fontSize: 13 }}>Cargando...</p>
+        <p style={{ color: GRIS, fontFamily: FONT.body, fontSize: 13 }}>Cargando...</p>
       )}
       {error && (
         <p style={{ color: '#ff4444', fontFamily: FONT.body, fontSize: 13 }}>Error: {error}</p>

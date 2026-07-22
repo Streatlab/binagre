@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 /**
  * uiSLTabla — extensión del kit SL (Ley Visual SL v2).
  * Vive junto a uiSL.tsx y comparte sus tokens. Aquí van las piezas que
@@ -75,7 +76,7 @@ export function Boton({ children, onClick, variante = 'plano', disabled, style }
     whiteSpace: 'nowrap', opacity: disabled ? 0.45 : 1, border: '1px solid transparent',
   }
   const varStyles: Record<BotonVar, CSSProperties> = {
-    primario:  { background: C.rojo, color: '#fff' },
+    primario:  { background: C.rojo, color: BLANCO },
     plano:     { background: C.card, color: C.gris, border: `1px solid ${C.line}` },
     fantasma:  { background: 'transparent', color: C.grisCl },
     peligro:   { background: C.rojoSoft, color: C.rojoSem },

@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 /**
  * CashflowSL — Cashflow del Panel Global con el estilo SL (Ley Visual SL v1).
  *
@@ -342,8 +343,8 @@ export default function CashflowSL() {
                   style={{
                     border: 'none', cursor: 'pointer', borderRadius: 999, padding: '5px 12px',
                     fontFamily: 'inherit', fontSize: 11, fontWeight: 800,
-                    background: sim === s ? '#fff' : 'rgba(255,255,255,0.22)',
-                    color: sim === s ? '#951218' : '#fff',
+                    background: sim === s ? BLANCO : 'rgba(255,255,255,0.22)',
+                    color: sim === s ? '#951218' : BLANCO,
                   }}>
                   {s === 0 ? 'Real' : `${s > 0 ? '+' : '−'}10%`}
                 </button>
@@ -456,7 +457,7 @@ export default function CashflowSL() {
                                 }}>
                                   <span style={{
                                     position: 'absolute', top: 3, left: cobrado ? 19 : 3,
-                                    width: 16, height: 16, borderRadius: 999, background: '#fff',
+                                    width: 16, height: 16, borderRadius: 999, background: BLANCO,
                                     boxShadow: '0 1px 3px rgba(0,0,0,.25)', transition: 'left .15s',
                                   }} />
                                 </span>

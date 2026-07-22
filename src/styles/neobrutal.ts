@@ -41,11 +41,18 @@ export const NAR         = '#FF6A1A'  // pedidos, aviso intermedio, plataformas,
 export const AZUL        = '#2D5BFF'  // TM bruto, "Te deben", valores editables
 export const GRANATE     = '#B01D23'  // corporativo Binagre
 export const GRIS        = '#9a8f78'  // sin dato / desactivado / estimado apagado
+export const BLANCO      = '#ffffff'  // blanco puro
+export const LIMA        = '#e8f442'  // panel/acento lima
+export const BORDE_SUAVE = '#d0c8bc'  // borde suave sobre crema
+export const AZUL_CL     = '#66aaff'  // azul claro (canal directo, enlaces)
+export const ROJO_S      = '#ffaaaa'  // rojo suave (texto de campo calculado)
+export const NAR_S       = '#fcefd6'  // naranja/crema suave (fondos)
 
 /** Paleta agrupada (acceso por objeto). */
 export const NEO = {
   INK, OSC, CREMA, CLARO, ROSA_CL, LAV, TEAL, TRACK, TRACK_CANAL,
   ROSA, ROJO, AMA, VERDE, NAR, AZUL, GRANATE, GRIS,
+  BLANCO, LIMA, BORDE_SUAVE, AZUL_CL, ROJO_S, NAR_S,
 } as const
 
 /* ── Estructura ──────────────────────────────────── */

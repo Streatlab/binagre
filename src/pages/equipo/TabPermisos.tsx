@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -39,9 +40,9 @@ const TIPO_EVENTO: Record<string, string> = {
 }
 
 function estadoBadge(estado: Solicitud['estado']) {
-  if (estado === 'aprobado') return { color: '#1D9E75', bg: '#1D9E7520', icon: <CheckCircle size={12} />, label: 'Aprobado' }
-  if (estado === 'rechazado') return { color: '#B01D23', bg: '#B01D2320', icon: <XCircle size={12} />, label: 'Rechazado' }
-  return { color: '#f5a623', bg: '#f5a62320', icon: <Clock size={12} />, label: 'Pendiente' }
+  if (estado === 'aprobado') return { color: VERDE, bg: '#1D9E7520', icon: <CheckCircle size={12} />, label: 'Aprobado' }
+  if (estado === 'rechazado') return { color: GRANATE, bg: '#B01D2320', icon: <XCircle size={12} />, label: 'Rechazado' }
+  return { color: NAR, bg: '#f5a62320', icon: <Clock size={12} />, label: 'Pendiente' }
 }
 
 export default function TabPermisos() {
@@ -143,8 +144,8 @@ export default function TabPermisos() {
               onClick={() => setFiltro(f.key)}
               style={{
                 padding: '6px 14px', borderRadius: 6, border: `1px solid ${T.brd}`,
-                background: filtro === f.key ? '#B01D23' : T.card,
-                color: filtro === f.key ? '#fff' : T.sec,
+                background: filtro === f.key ? GRANATE : T.card,
+                color: filtro === f.key ? BLANCO : T.sec,
                 fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase',
                 cursor: 'pointer',
               }}
@@ -155,7 +156,7 @@ export default function TabPermisos() {
         </div>
         <button
           onClick={() => setModalOpen(true)}
-          style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
+          style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
         >
           + Solicitar permiso
         </button>
@@ -198,8 +199,8 @@ export default function TabPermisos() {
                       <td style={{ ...td, textAlign: 'right' }}>
                         {sol.estado === 'pendiente' && (
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                            <button onClick={() => aprobar(sol.id)} style={{ padding: '5px 10px', borderRadius: 5, border: 'none', background: '#1D9E75', color: '#fff', fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Aprobar</button>
-                            <button onClick={() => setNotaRej({ id: sol.id, nota: '' })} style={{ padding: '5px 10px', borderRadius: 5, border: `1px solid ${T.brd}`, background: T.card, color: '#B01D23', fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Rechazar</button>
+                            <button onClick={() => aprobar(sol.id)} style={{ padding: '5px 10px', borderRadius: 5, border: 'none', background: VERDE, color: BLANCO, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Aprobar</button>
+                            <button onClick={() => setNotaRej({ id: sol.id, nota: '' })} style={{ padding: '5px 10px', borderRadius: 5, border: `1px solid ${T.brd}`, background: T.card, color: GRANATE, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Rechazar</button>
                           </div>
                         )}
                         {sol.estado === 'aprobado' && (
@@ -218,20 +219,20 @@ export default function TabPermisos() {
       {/* Modal rechazo con nota */}
       {notaRej && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-          <div style={{ backgroundColor: '#1a1a1a', borderRadius: 12, border: `1px solid ${T.brd}`, width: 380, padding: 24, boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}>
+          <div style={{ backgroundColor: INK, borderRadius: 12, border: `1px solid ${T.brd}`, width: 380, padding: 24, boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}>
             <div style={{ fontFamily: FONT.heading, fontSize: 14, color: T.pri, marginBottom: 14, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Rechazar solicitud</div>
             <textarea
               placeholder="Motivo del rechazo (obligatorio)…"
               value={notaRej.nota}
               onChange={e => setNotaRej(n => n ? { ...n, nota: e.target.value } : null)}
-              style={{ width: '100%', padding: '8px 10px', background: '#1e1e1e', border: `1px solid ${T.brd}`, borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13, minHeight: 80, resize: 'vertical', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', background: INK, border: `1px solid ${T.brd}`, borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13, minHeight: 80, resize: 'vertical', boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
               <button onClick={() => setNotaRej(null)} style={{ padding: '7px 14px', borderRadius: 6, border: `1px solid ${T.brd}`, background: '#222', color: T.pri, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
               <button
                 onClick={() => rechazar(notaRej.id, notaRej.nota)}
                 disabled={!notaRej.nota.trim()}
-                style={{ padding: '7px 16px', borderRadius: 6, border: 'none', background: '#B01D23', color: '#fff', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: notaRej.nota.trim() ? 'pointer' : 'not-allowed', opacity: notaRej.nota.trim() ? 1 : 0.5 }}
+                style={{ padding: '7px 16px', borderRadius: 6, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: notaRej.nota.trim() ? 'pointer' : 'not-allowed', opacity: notaRej.nota.trim() ? 1 : 0.5 }}
               >
                 Confirmar rechazo
               </button>

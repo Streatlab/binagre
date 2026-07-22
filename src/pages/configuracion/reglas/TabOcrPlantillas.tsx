@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -110,7 +111,7 @@ export default function TabOcrPlantillas() {
 
   const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
   const sel: React.CSSProperties = { ...inp, cursor: 'pointer' }
-  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
+  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
   const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
   const th: React.CSSProperties = { textAlign: 'left', padding: '10px 14px', fontSize: 11, letterSpacing: 1, color: T.mut, textTransform: 'uppercase' }
 
@@ -178,12 +179,12 @@ export default function TabOcrPlantillas() {
                     <td style={{ padding: '10px 14px', color: T.sec }}>{fechaLabel(r.plantilla_fecha_formato)}</td>
                     <td style={{ textAlign: 'center' }}>
                       <button onClick={() => toggleActiva(r.id, r.activa)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-                        <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? '#06C167' : '#999' }} />
+                        <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? VERDE : '#999' }} />
                       </button>
                     </td>
                     <td style={{ padding: '10px 14px' }}><div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => { setEditId(r.id); setENif(r.patron_nif ?? ''); setERazon(r.razon_social ?? ''); setETotal(r.plantilla_total_label ?? ''); setENum(r.plantilla_num_label ?? ''); setEFecha(r.plantilla_fecha_formato ?? 'dmy') }} style={ico}><Pencil size={13} /></button>
-                      <button onClick={() => borrar(r.id)} style={{ ...ico, color: '#B01D23' }}><Trash2 size={13} /></button>
+                      <button onClick={() => borrar(r.id)} style={{ ...ico, color: GRANATE }}><Trash2 size={13} /></button>
                     </div></td>
                   </>
                 )}

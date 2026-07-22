@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { COLORS, FONT, CARDS, lbl, lblSm, kpiMid, TABS_PILL } from '@/components/panel/resumen/tokens'
@@ -20,7 +21,7 @@ const PLAT_TXT: Record<string, string> = { GL: COLORS.glovoText }
 const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: `0.5px solid ${COLORS.brd}`, background: COLORS.card, color: COLORS.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none', width: '100%' }
-const btnPri: React.CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.accent, color: '#fff', fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
+const btnPri: React.CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.accent, color: BLANCO, fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
 const btnMini: React.CSSProperties = { padding: '3px 9px', borderRadius: 6, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
 const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500, padding: '8px 10px', textAlign: 'left', borderBottom: `1px solid ${COLORS.brd}` }
 const td: React.CSSProperties = { fontFamily: FONT.body, fontSize: 13, color: COLORS.sec, padding: '8px 10px', borderBottom: `1px solid ${COLORS.group}` }
@@ -153,8 +154,8 @@ function TabResumen({ registros, onSaved }: { registros: Registro[]; onSaved: ()
         {porPlat.map(p => (
           <div key={p.plataforma} style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
             <div style={{ background: PLAT_COLOR[p.plataforma], padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p.plataforma] || '#fff' }}>{PLAT_LABEL[p.plataforma]}</span>
-              <span style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: PLAT_TXT[p.plataforma] || '#fff' }}>{p.media ? p.media.toFixed(2) : '—'}</span>
+              <span style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p.plataforma] || BLANCO }}>{PLAT_LABEL[p.plataforma]}</span>
+              <span style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: PLAT_TXT[p.plataforma] || BLANCO }}>{p.media ? p.media.toFixed(2) : '—'}</span>
             </div>
             <div style={{ padding: '6px 0' }}>
               {p.marcas.length === 0 ? (
@@ -371,7 +372,7 @@ function TabRegistro({ accesos, registros, onSaved }: { accesos: Acceso[]; regis
         {PLATAFORMAS.map(p => (
           <div key={p} style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
             <div style={{ background: PLAT_COLOR[p], padding: '12px 16px' }}>
-              <span style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p] || '#fff' }}>{PLAT_LABEL[p]}</span>
+              <span style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p] || BLANCO }}>{PLAT_LABEL[p]}</span>
             </div>
             <div style={{ padding: '6px 0' }}>
               {marcasPorPlat[p].length === 0 ? (

@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, ROJO, VERDE } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { FileDown, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -80,15 +81,15 @@ export default function TabGenerador() {
 
   const btnBase = (active = false): React.CSSProperties => ({
     padding: '6px 14px', borderRadius: 8,
-    border: `1px solid ${active ? '#B01D23' : T.brd}`,
-    background: active ? '#B01D23' : T.card,
-    color: active ? '#fff' : T.pri,
+    border: `1px solid ${active ? GRANATE : T.brd}`,
+    background: active ? GRANATE : T.card,
+    color: active ? BLANCO : T.pri,
     fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px',
     textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600,
   })
   const actionBtn: React.CSSProperties = {
     height: 30, padding: '0 12px', borderRadius: 8,
-    border: `1px solid #B01D23`, background: '#B01D23', color: '#fff',
+    border: `1px solid #B01D23`, background: GRANATE, color: BLANCO,
     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
     fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px',
     textTransform: 'uppercase', fontWeight: 600,
@@ -100,7 +101,7 @@ export default function TabGenerador() {
     return (
       <div>
         <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: 24, maxWidth: 600 }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: '#B01D23', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: GRANATE, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>
             Generar nuevas semanas
           </div>
           <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginBottom: 20 }}>
@@ -137,7 +138,7 @@ export default function TabGenerador() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: '#B01D23', letterSpacing: '2px', textTransform: 'uppercase' }}>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: GRANATE, letterSpacing: '2px', textTransform: 'uppercase' }}>
           Propuestas · {propuestas.length} semanas
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -179,19 +180,19 @@ export default function TabGenerador() {
         return (
           <div key={idx} style={{
             marginBottom: 24, padding: 14, borderRadius: 12,
-            border: `2px solid ${aprobada ? '#1D9E75' : T.brd}`,
+            border: `2px solid ${aprobada ? VERDE : T.brd}`,
             background: aprobada ? '#1D9E7510' : 'transparent',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
               <div>
-                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600, color: '#B01D23', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, fontWeight: 600, color: GRANATE, letterSpacing: '2px', textTransform: 'uppercase' }}>
                   S{numeroSemanaISO(lunes)} · {fmtRangoSemana(lunes)}
                 </div>
                 <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut, marginTop: 2 }}>
                   {prop.nota}{prop.swap ? ' · swap Ray↔Andrés' : ''}
                 </div>
                 {avisos.length > 0 && (
-                  <div style={{ fontFamily: FONT.body, fontSize: 11, color: '#E24B4A', marginTop: 4, fontWeight: 500 }}>
+                  <div style={{ fontFamily: FONT.body, fontSize: 11, color: ROJO, marginTop: 4, fontWeight: 500 }}>
                     ⚠ {avisos.join(' · ')}
                   </div>
                 )}
@@ -199,7 +200,7 @@ export default function TabGenerador() {
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <button onClick={() => alternarPlantilla(idx)} style={btnBase()}>↻ {prop.plantillaId}</button>
                 <button onClick={() => alternarSwap(idx)} style={btnBase(prop.swap)}>Swap R↔A</button>
-                <button onClick={() => aprobar(idx)} disabled={aprobada} style={{ ...btnBase(aprobada), background: aprobada ? '#1D9E75' : T.card, color: aprobada ? '#fff' : T.pri, borderColor: aprobada ? '#1D9E75' : T.brd }}>
+                <button onClick={() => aprobar(idx)} disabled={aprobada} style={{ ...btnBase(aprobada), background: aprobada ? VERDE : T.card, color: aprobada ? BLANCO : T.pri, borderColor: aprobada ? VERDE : T.brd }}>
                   {aprobada ? '✓ Aprobada' : 'Aprobar'}
                 </button>
                 <button onClick={() => rechazar(idx)} style={btnBase()}>✕ Rechazar</button>

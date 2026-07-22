@@ -6,9 +6,7 @@
 import React, { useMemo } from 'react'
 import { useFondoManiobra } from '@/lib/finanzas/useFondoManiobra'
 import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD,
-  GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow,
-} from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal'
 import { fmtEur, fmtDate } from '@/lib/format'
 
 const MESES_LARGO = [
@@ -34,7 +32,7 @@ export function FondoManiobra({ embedded = false }: { embedded?: boolean } = {})
     mesRiesgo,
   } = useFondoManiobra()
 
-  const card: React.CSSProperties = { background: '#fff', border: BORDER_CARD, boxShadow: SHADOW }
+  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
 
   const fmColor = fondoManiobra >= 0 ? VERDE : ROJO
   const nofColor = nof >= 0 ? VERDE : ROJO
@@ -61,7 +59,7 @@ export function FondoManiobra({ embedded = false }: { embedded?: boolean } = {})
 
       {!embedded && (
         <div style={{ marginBottom: 20 }}>
-          <span style={eyebrow(NAR, '#fff')}>FINANZAS</span>
+          <span style={eyebrow(NAR, BLANCO)}>FINANZAS</span>
           <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
             SALUD FINANCIERA
           </h1>
@@ -74,25 +72,25 @@ export function FondoManiobra({ embedded = false }: { embedded?: boolean } = {})
       {/* Hero KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 20 }}>
         <div style={{ ...card, padding: '16px 20px', background: fmColor }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Fondo de maniobra actual</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: '#fff' }}>{fmtEur(fondoManiobra, { decimals: 0 })}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: '#fff', marginTop: 6 }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Fondo de maniobra actual</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: BLANCO }}>{fmtEur(fondoManiobra, { decimals: 0 })}</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
             {fondoManiobra >= 0 ? 'Cubre el pasivo corriente' : 'No cubre el pasivo corriente'}
           </div>
         </div>
         <div style={{ ...card, padding: '16px 20px', background: nofColor }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>NOF actual</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: '#fff' }}>{fmtEur(nof, { decimals: 0 })}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: '#fff', marginTop: 6 }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>NOF actual</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: BLANCO }}>{fmtEur(nof, { decimals: 0 })}</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
             Cobros pendientes − pasivo corriente (sin stock)
           </div>
         </div>
         <div style={{ ...card, padding: '16px 20px', background: riesgoColor }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#fff', marginBottom: 6 }}>Mes de riesgo (próx. 6 meses)</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: mesRiesgo ? 26 : 34, lineHeight: 1, color: '#fff', textTransform: 'capitalize' }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Mes de riesgo (próx. 6 meses)</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: mesRiesgo ? 26 : 34, lineHeight: 1, color: BLANCO, textTransform: 'capitalize' }}>
             {mesRiesgo ? labelMes(mesRiesgo.mes) : 'Ninguno detectado'}
           </div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: '#fff', marginTop: 6 }}>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
             {mesRiesgo ? 'Ventas suben pero la caja proyectada es negativa' : 'La caja proyectada se mantiene positiva'}
           </div>
         </div>
@@ -100,7 +98,7 @@ export function FondoManiobra({ embedded = false }: { embedded?: boolean } = {})
 
       {/* Alerta de mes de riesgo */}
       {mesRiesgo && (
-        <div style={{ ...card, background: ROJO, color: '#fff', padding: '16px 20px', marginBottom: 20, borderColor: INK }}>
+        <div style={{ ...card, background: ROJO, color: BLANCO, padding: '16px 20px', marginBottom: 20, borderColor: INK }}>
           <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 15, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 8 }}>
             Alerta: caja negativa en un mes de ventas crecientes
           </div>

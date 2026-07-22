@@ -18,6 +18,7 @@ import { extraerTextoOCRGratis } from '../_lib/ocr-tesseract.js'
 import { clasificarDocEquipoTexto, type ClasificacionDocEquipo } from '../_lib/clasificarDocEquipo.js'
 import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen, procesarRnt } from '../_lib/subidaDocEquipo.js'
 import { cargarCandidatosEmpleados, resolverEmpleado, resolverEmpleadoEnTexto } from '../_lib/matchEmpleado.js'
+import { contarRecibos, partirNominas } from '../_lib/splitNominas.js'
 
 interface BodySubirEquipo {
   base64?: string
@@ -92,6 +93,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const clasif = await clasificarDocEquipoTexto(texto)
+
+  // La gestoría manda SIEMPRE un único PDF con todas las nóminas del mes juntas:
+  // aquí se parte en una nómina por trabajador y se procesa cada una igual que si
+  // hubieran llegado por separado. Solo si no se puede partir con seguridad (o
+  // alguna nómina falla), esa parte va a revisión — cero pérdidas.
+  const nRecibos = contarRecibos(texto)
+  const esResumen = clasif.cierto && clasif.tipo === 'resumen_nominas'
+  if (nRecibos >= 2 && !esResumen && ['pdf'].includes(ext)) {
+    const segmentos = await partirNominas(buffer).catch(() => null)
+    if (!segmentos) {
+      return res.status(200).json(await archivarParaRevision(buffer, nombreOriginal, ext, clasif,
+        `El PDF contiene ${nRecibos} nóminas juntas y no se pudo partir automáticamente (texto ilegible o dos recibos en la misma página)`))
+    }
+    const candidatos = await cargarCandidatosEmpleados(supabaseAdmin)
+    let ok = 0
+    const detalles: unknown[] = []
+    for (let i = 0; i < segmentos.length; i++) {
+      const seg = segmentos[i]
+      const clasifSeg = await clasificarDocEquipoTexto(seg.texto)
+      const nombreSeg = nombreOriginal.replace(/\.pdf$/i, '') + `_parte${i + 1}.pdf`
+      const resolucion = resolverEmpleado(clasifSeg.empleado_nombre, clasifSeg.nif_trabajador, candidatos)
+        || resolverEmpleadoEnTexto(seg.texto, candidatos)
+      if (resolucion) {
+        const { status, body: out } = await procesarNominaIndividual(seg.buffer, nombreSeg, resolucion.empleado_id, resolucion.nombre, null, null)
+        if (status === 200) { ok++; detalles.push({ parte: i + 1, empleado: resolucion.nombre, ok: true }); continue }
+        detalles.push(await archivarParaRevision(seg.buffer, nombreSeg, 'pdf', clasifSeg, String(out.motivo_extraccion || out.error || 'no se pudo procesar la nómina')))
+        continue
+      }
+      detalles.push(await archivarParaRevision(seg.buffer, nombreSeg, 'pdf', clasifSeg,
+        `empleado no identificado con seguridad: "${clasifSeg.empleado_nombre || 'sin nombre detectado'}"`))
+    }
+    if (ok > 0) {
+      return res.status(200).json({ ok: true, destino: 'nominas', multi: true, nominas_ok: ok, total_partes: segmentos.length, detalles })
+    }
+    return res.status(200).json({ ok: true, destino: 'revision', multi: true, nominas_ok: 0, total_partes: segmentos.length, detalles })
+  }
 
   // Sin marcador determinista → SIEMPRE a revisión, sin importar qué tipo haya
   // adivinado la IA de respaldo. "Certeza, no probabilidad": nada intermedio.

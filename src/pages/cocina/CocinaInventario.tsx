@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, ROJO, VERDE } from '@/styles/neobrutal'
 /**
  * CocinaInventario — Gestión de inventario de cocina
  * 3 tabs: Conteo físico · Producción semanal · Entradas de materia prima
@@ -8,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { fmtNum, fmtEur, fmtDate } from '@/utils/format'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import TabHojaInventario from './TabHojaInventario'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -68,21 +70,21 @@ const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRa
 
 const S: Record<string, React.CSSProperties> = {
   page:  { padding: '24px 28px', minHeight: '100vh', backgroundColor: 'var(--neo-bg)', fontFamily: FONT.body, color: 'var(--sl-text-primary)' },
-  title: { fontFamily: FONT.heading, fontSize: 'clamp(18px, 5vw, 22px)', fontWeight: 700, color: '#B01D23', letterSpacing: 3, textTransform: 'uppercase', marginBottom: 4 } as React.CSSProperties,
+  title: { fontFamily: FONT.heading, fontSize: 'clamp(18px, 5vw, 22px)', fontWeight: 700, color: GRANATE, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 4 } as React.CSSProperties,
   sub:   { fontFamily: FONT.body, fontSize: 13, color: 'var(--sl-text-muted)', marginBottom: 20 },
   card:  { backgroundColor: 'var(--sl-card)', ...NEO_CARD, padding: '14px 18px' },
   th:    { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase' as const, color: 'var(--sl-text-muted)', padding: '8px 12px', textAlign: 'left' as const, backgroundColor: 'var(--sl-thead)', borderBottom: '2px solid var(--neo-ink)', whiteSpace: 'nowrap' as const },
   td:    { padding: '8px 12px', fontSize: 13, color: 'var(--sl-text-primary)', borderBottom: '0.5px solid var(--sl-border)', fontFamily: FONT.body, verticalAlign: 'middle' as const },
   inp:   { padding: '6px 10px', borderRadius: 0, border: '2px solid var(--sl-border)', backgroundColor: 'var(--sl-input-edit)', color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: FONT.body, outline: 'none' },
-  calc:  { backgroundColor: '#B01D2318', border: '1px solid #B01D23', color: '#B01D23', padding: '4px 10px', borderRadius: 0, fontSize: 13, fontFamily: FONT.body, display: 'inline-block', textAlign: 'right' as const, minWidth: 70 },
+  calc:  { backgroundColor: '#B01D2318', border: '1px solid #B01D23', color: GRANATE, padding: '4px 10px', borderRadius: 0, fontSize: 13, fontFamily: FONT.body, display: 'inline-block', textAlign: 'right' as const, minWidth: 70 },
 }
 
 function tabBtn(active: boolean): React.CSSProperties {
   return {
     padding: '9px 18px', borderRadius: 0, minHeight: 44,
     border: `3px solid ${NEO_INK}`,
-    backgroundColor: active ? '#B01D23' : 'var(--sl-card)',
-    color: active ? '#fff' : 'var(--sl-text-primary)',
+    backgroundColor: active ? GRANATE : 'var(--sl-card)',
+    color: active ? BLANCO : 'var(--sl-text-primary)',
     boxShadow: active ? NEO_SHADOW : 'none',
     fontFamily: FONT.heading, fontSize: 12, fontWeight: 700,
     letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer',
@@ -93,8 +95,8 @@ function activeBtn(active: boolean): React.CSSProperties {
   return {
     padding: '7px 14px', borderRadius: 0,
     border: `2px solid ${NEO_INK}`,
-    backgroundColor: active ? '#e8f442' : 'var(--sl-card)',
-    color: active ? '#111111' : 'var(--sl-text-secondary)',
+    backgroundColor: active ? LIMA : 'var(--sl-card)',
+    color: active ? INK : 'var(--sl-text-secondary)',
     boxShadow: active ? '3px 3px 0 var(--neo-shadow-color)' : 'none',
     fontFamily: FONT.heading, fontSize: 11, fontWeight: 700,
     letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer',
@@ -103,7 +105,7 @@ function activeBtn(active: boolean): React.CSSProperties {
 
 // ── Componente principal ───────────────────────────────────────────────────────
 
-type Tab = 'conteo' | 'produccion' | 'entradas'
+type Tab = 'conteo' | 'hoja' | 'produccion' | 'entradas'
 
 export default function CocinaInventario() {
   const isMobile = useIsMobile()
@@ -153,10 +155,10 @@ export default function CocinaInventario() {
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12, marginBottom: 20 }}>
-        <KpiCard label="Valor stock aprox." value={fmtEur(kpis.valorStock)} color="#e8f442" />
-        <KpiCard label="Bajo mínimo" value={String(kpis.bajominimo)} color={kpis.bajominimo > 0 ? '#B01D23' : '#1D9E75'} suffix=" ing." />
+        <KpiCard label="Valor stock aprox." value={fmtEur(kpis.valorStock)} color={LIMA} />
+        <KpiCard label="Bajo mínimo" value={String(kpis.bajominimo)} color={kpis.bajominimo > 0 ? GRANATE : VERDE} suffix=" ing." />
         <KpiCard label="Consumo período" value={fmtNum(kpis.consumoTotal)} color="var(--sl-text-secondary)" suffix=" uds" />
-        <KpiCard label="Ingredientes activos" value={String(ingredientes.length)} color="#66aaff" />
+        <KpiCard label="Ingredientes activos" value={String(ingredientes.length)} color={AZUL_CL} />
       </div>
 
       {/* Período */}
@@ -173,6 +175,7 @@ export default function CocinaInventario() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         <button onClick={() => setTab('conteo')} style={tabBtn(tab === 'conteo')}>Conteo físico</button>
+        <button onClick={() => setTab('hoja')} style={tabBtn(tab === 'hoja')}>Hoja de Inventario</button>
         <button onClick={() => setTab('produccion')} style={tabBtn(tab === 'produccion')}>Producción</button>
         <button onClick={() => setTab('entradas')} style={tabBtn(tab === 'entradas')}>Entradas MP</button>
       </div>
@@ -182,6 +185,7 @@ export default function CocinaInventario() {
       ) : (
         <>
           {tab === 'conteo'     && <TabConteo ingredientes={ingredientes} conteos={conteos} onRefresh={cargarBase} />}
+          {tab === 'hoja'       && <TabHojaInventario />}
           {tab === 'produccion' && <TabProduccion desde={desde} hasta={hasta} />}
           {tab === 'entradas'   && <TabEntradas desde={desde} hasta={hasta} ingredientes={ingredientes} onRefresh={cargarBase} />}
         </>
@@ -284,7 +288,7 @@ function TabConteo({ ingredientes, conteos, onRefresh }: { ingredientes: Ingredi
             <button key={f} onClick={() => setFechaSel(f)} style={activeBtn(f === fechaActiva)}>{fmtDate(f)}</button>
           ))}
         </div>
-        <button onClick={() => setShowModal(true)} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 13, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer' }}>
+        <button onClick={() => setShowModal(true)} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 13, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer' }}>
           + Nuevo conteo
         </button>
       </div>
@@ -321,14 +325,14 @@ function TabConteo({ ingredientes, conteos, onRefresh }: { ingredientes: Ingredi
                   <tr key={ing.id} style={{ backgroundColor: bajo ? '#B01D2314' : 'transparent' }}>
                     <td style={S.td}>
                       <span style={{ fontWeight: 600 }}>{ing.nombre}</span>
-                      {bajo && <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 5px', borderRadius: 0, backgroundColor: '#B01D23', color: '#fff', fontFamily: FONT.heading, letterSpacing: '0.5px', textTransform: 'uppercase' as const }}>bajo mín.</span>}
+                      {bajo && <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 5px', borderRadius: 0, backgroundColor: GRANATE, color: BLANCO, fontFamily: FONT.heading, letterSpacing: '0.5px', textTransform: 'uppercase' as const }}>bajo mín.</span>}
                     </td>
                     <td style={{ ...S.td, color: 'var(--sl-text-muted)', fontSize: 12 }}>{ing.categoria ?? '—'}</td>
                     <td style={{ ...S.td, textAlign: 'right' as const }}>{fmtNum(ing.stock_actual)} <span style={{ color: 'var(--sl-text-muted)', fontSize: 11 }}>{ing.ud_std ?? ing.unidad ?? ''}</span></td>
                     <td style={{ ...S.td, textAlign: 'right' as const, color: 'var(--sl-text-muted)' }}>{ing.stock_minimo > 0 ? fmtNum(ing.stock_minimo) : '—'}</td>
                     <td style={{ ...S.td, textAlign: 'right' as const }}>
                       {ing.stock_minimo > 0
-                        ? <span style={{ color: bajo ? '#E24B4A' : '#1D9E75', fontWeight: 600 }}>{diff > 0 ? '+' : ''}{fmtNum(diff)}</span>
+                        ? <span style={{ color: bajo ? ROJO : VERDE, fontWeight: 600 }}>{diff > 0 ? '+' : ''}{fmtNum(diff)}</span>
                         : <span style={{ color: 'var(--sl-text-muted)' }}>—</span>}
                     </td>
                     <td style={{ ...S.td, textAlign: 'right' as const, color: 'var(--sl-text-muted)', fontSize: 12 }}>{ultimo ? fmtDate(ultimo.fecha) : '—'}</td>
@@ -370,7 +374,7 @@ function TabConteo({ ingredientes, conteos, onRefresh }: { ingredientes: Ingredi
                         {ing?.unidad && <span style={{ color: 'var(--sl-text-muted)', fontSize: 11, marginLeft: 4 }}>({ing.unidad})</span>}
                       </td>
                       <td style={{ ...S.td, textAlign: 'right' as const, color: 'var(--sl-text-secondary)' }}>{fmtNum(c.stock_inicial)}</td>
-                      <td style={{ ...S.td, textAlign: 'right' as const, color: '#1D9E75' }}>{fmtNum(c.entradas)}</td>
+                      <td style={{ ...S.td, textAlign: 'right' as const, color: VERDE }}>{fmtNum(c.entradas)}</td>
                       <td style={{ ...S.td, textAlign: 'right' as const }}>
                         <input
                           type="number" step="0.001"
@@ -398,7 +402,7 @@ function TabConteo({ ingredientes, conteos, onRefresh }: { ingredientes: Ingredi
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--sl-overlay)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }} onClick={() => !saving && setShowModal(false)}>
           <div style={{ backgroundColor: 'var(--sl-modal-bg)', ...NEO_CARD, padding: '28px 32px', width: '90%', maxWidth: 380, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily: FONT.heading, fontSize: 17, letterSpacing: '2px', textTransform: 'uppercase' as const, color: '#B01D23', marginBottom: 20 }}>Nuevo conteo</div>
+            <div style={{ fontFamily: FONT.heading, fontSize: 17, letterSpacing: '2px', textTransform: 'uppercase' as const, color: GRANATE, marginBottom: 20 }}>Nuevo conteo</div>
             <label style={{ display: 'block', marginBottom: 14 }}>
               <span style={{ display: 'block', fontSize: 12, color: 'var(--sl-text-muted)', fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' as const, marginBottom: 6 }}>Periodicidad</span>
               <select value={periodicidad} onChange={e => setPeriodicidad(e.target.value as 'semanal' | 'mensual')} style={{ ...S.inp, width: '100%' }}>
@@ -415,7 +419,7 @@ function TabConteo({ ingredientes, conteos, onRefresh }: { ingredientes: Ingredi
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowModal(false)} disabled={saving} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', fontSize: 13, fontFamily: FONT.heading, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={crearConteo} disabled={saving} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: '#B01D23', color: '#ffffff', opacity: saving ? 0.6 : 1, fontSize: 13, fontFamily: FONT.heading, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              <button onClick={crearConteo} disabled={saving} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: GRANATE, color: BLANCO, opacity: saving ? 0.6 : 1, fontSize: 13, fontFamily: FONT.heading, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: saving ? 'not-allowed' : 'pointer' }}>
                 {saving ? 'Creando…' : 'Crear conteo'}
               </button>
             </div>
@@ -679,7 +683,7 @@ function TabEntradas({ desde, hasta, ingredientes, onRefresh }: { desde: string;
         <span style={{ color: 'var(--sl-text-muted)', fontSize: 13 }}>
           {entradas.length} registros · {fmtNum(totalEntradas)} uds totales
         </span>
-        <button onClick={() => setShowModal(true)} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 13, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer' }}>
+        <button onClick={() => setShowModal(true)} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 13, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer' }}>
           + Registrar entrada
         </button>
       </div>
@@ -710,7 +714,7 @@ function TabEntradas({ desde, hasta, ingredientes, onRefresh }: { desde: string;
                     <span style={{ fontWeight: 600 }}>{e.ingrediente?.nombre ?? e.ingrediente_id}</span>
                     {e.ingrediente?.unidad && <span style={{ color: 'var(--sl-text-muted)', fontSize: 11, marginLeft: 4 }}>({e.ingrediente.unidad})</span>}
                   </td>
-                  <td style={{ ...S.td, textAlign: 'right' as const, color: '#1D9E75', fontWeight: 600 }}>+{fmtNum(e.entradas)}</td>
+                  <td style={{ ...S.td, textAlign: 'right' as const, color: VERDE, fontWeight: 600 }}>+{fmtNum(e.entradas)}</td>
                   <td style={{ ...S.td, color: 'var(--sl-text-muted)', fontSize: 12 }}>{e.nota ?? ''}</td>
                 </tr>
               ))}
@@ -724,7 +728,7 @@ function TabEntradas({ desde, hasta, ingredientes, onRefresh }: { desde: string;
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--sl-overlay)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }} onClick={() => !saving && setShowModal(false)}>
           <div style={{ backgroundColor: 'var(--sl-modal-bg)', ...NEO_CARD, padding: '28px 32px', width: '90%', maxWidth: 420, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily: FONT.heading, fontSize: 17, letterSpacing: '2px', textTransform: 'uppercase' as const, color: '#B01D23', marginBottom: 20 }}>Registrar entrada MP</div>
+            <div style={{ fontFamily: FONT.heading, fontSize: 17, letterSpacing: '2px', textTransform: 'uppercase' as const, color: GRANATE, marginBottom: 20 }}>Registrar entrada MP</div>
 
             <label style={{ display: 'block', marginBottom: 14 }}>
               <span style={{ display: 'block', fontSize: 12, color: 'var(--sl-text-muted)', fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' as const, marginBottom: 6 }}>Ingrediente</span>
@@ -749,7 +753,7 @@ function TabEntradas({ desde, hasta, ingredientes, onRefresh }: { desde: string;
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowModal(false)} disabled={saving} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', fontSize: 13, fontFamily: FONT.heading, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={guardar} disabled={saving || !form.ingrediente_id || !form.cantidad} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: '#B01D23', color: '#ffffff', fontSize: 13, fontFamily: FONT.heading, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer', opacity: (!form.ingrediente_id || !form.cantidad) ? 0.5 : 1 }}>
+              <button onClick={guardar} disabled={saving || !form.ingrediente_id || !form.cantidad} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: GRANATE, color: BLANCO, fontSize: 13, fontFamily: FONT.heading, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer', opacity: (!form.ingrediente_id || !form.cantidad) ? 0.5 : 1 }}>
                 {saving ? 'Guardando…' : 'Guardar'}
               </button>
             </div>

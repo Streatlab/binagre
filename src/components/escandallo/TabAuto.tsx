@@ -1,8 +1,10 @@
-// TabAuto — bandeja de automatización del Escandallo (ESCANDALLO 2.0, Fases A+C+D)
+// TabAuto — bandeja de automatización del Escandallo (ESCANDALLO 2.0, Fases A+D)
 // A: procesar 1 factura de materia prima (extraer líneas del PDF → ingredientes/precios solos),
 //    ingredientes pre-creados pendientes de completar, alertas de subida de precio.
-// C: inventario quincenal por foto (leer → confirmar) con confianza por línea.
 // D: coste real del periodo y varianza teórico vs real en €.
+// (Tanda E: el conteo de inventario por foto se mudó a Cocina → Inventario → Hoja de
+// Inventario, con hoja imprimible real. Este tab solo consume el resultado: v_varianza_
+// ingrediente_periodo / v_coste_real_periodo, alimentadas por lo que se confirme allí.)
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente } from './types'
@@ -31,16 +33,6 @@ interface Alerta {
   ingredientes?: { nombre: string } | null
 }
 
-interface Inventario { id: string; fecha: string; estado: string; origen: string | null }
-interface InvLinea {
-  id: string
-  ingrediente_id: string | null
-  cantidad: number
-  unidad: string | null
-  confianza: number | null
-  texto_leido: string | null
-  ingredientes?: { nombre: string } | null
-}
 interface Varianza {
   inicio: string
   fin: string
@@ -101,8 +93,6 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const [estado, setEstado] = useState<Estado | null>(null)
   const [alertas, setAlertas] = useState<Alerta[]>([])
   const [borradores, setBorradores] = useState<Ingrediente[]>([])
-  const [inventario, setInventario] = useState<Inventario | null>(null)
-  const [invLineas, setInvLineas] = useState<InvLinea[]>([])
   const [varianza, setVarianza] = useState<Varianza[]>([])
   const [costeReal, setCosteReal] = useState<CosteReal | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -128,11 +118,10 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const [alertasResumen, setAlertasResumen] = useState<AlertasResumen | null>(null)
 
   const cargar = useCallback(async () => {
-    const [est, al, bo, inv, vza, cr, rad, san, sos, infl, par, mm, me, sr, gp, ar] = await Promise.all([
+    const [est, al, bo, vza, cr, rad, san, sos, infl, par, mm, me, sr, gp, ar] = await Promise.all([
       fetch(`${API}/estado`).then(r => r.ok ? r.json() : null).catch(() => null),
       supabase.from('alertas_precio').select('*, ingredientes(nombre)').eq('estado', 'pendiente').order('created_at', { ascending: false }).limit(30),
       supabase.from('ingredientes').select('*').eq('borrador', true).order('created_at', { ascending: false }).limit(50),
-      supabase.from('inventarios').select('id, fecha, estado, origen').neq('estado', 'confirmado').order('fecha', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('v_varianza_ingrediente_periodo').select('*').order('desviacion_eur', { ascending: false }).limit(200),
       supabase.from('v_coste_real_periodo').select('*').order('fin', { ascending: false }).limit(1).maybeSingle(),
       fetch(`${API}/radar-ahorro`).then(r => r.ok ? r.json() : null).catch(() => null),
@@ -161,17 +150,10 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
     setSaludRobot((sr?.salud as SaludRobot) ?? null)
     setGastoProv((gp?.proveedores as GastoProv[]) ?? [])
     setAlertasResumen((ar?.resumen as AlertasResumen) ?? null)
-    setInventario((inv.data as Inventario) ?? null)
     const ultimo = ((vza.data as Varianza[]) ?? [])
     const ultFin = ultimo.length ? ultimo.reduce((mx, v) => v.fin > mx ? v.fin : mx, ultimo[0].fin) : null
     setVarianza(ultFin ? ultimo.filter(v => v.fin === ultFin).sort((a, b) => Math.abs(b.desviacion_eur) - Math.abs(a.desviacion_eur)).slice(0, 25) : [])
     setCosteReal((cr.data as CosteReal) ?? null)
-    if ((inv.data as Inventario)?.id) {
-      const { data } = await supabase.from('inventario_lineas').select('id, ingrediente_id, cantidad, unidad, confianza, texto_leido, ingredientes(nombre)').eq('inventario_id', (inv.data as Inventario).id).order('created_at')
-      setInvLineas((data as unknown as InvLinea[]) ?? [])
-    } else {
-      setInvLineas([])
-    }
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
@@ -258,57 +240,7 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
     setAlertas(a => a.filter(x => x.id !== id))
   }
 
-  /* ── Fase C ── */
-  const crearInventario = async () => {
-    setBusy('inv')
-    const { data } = await supabase.from('inventarios').insert({ fecha: new Date().toISOString().slice(0, 10), estado: 'borrador', tipo: 'quincenal' }).select().single()
-    setInventario((data as Inventario) ?? null)
-    setInvLineas([])
-    setBusy(null)
-  }
-
-  const subirFoto = async (file: File) => {
-    if (!inventario) return
-    setBusy('foto'); setMsg(null)
-    try {
-      const b64 = await new Promise<string>((res, rej) => {
-        const rd = new FileReader()
-        rd.onload = () => res(String(rd.result).split(',')[1])
-        rd.onerror = () => rej(new Error('No se pudo leer la foto'))
-        rd.readAsDataURL(file)
-      })
-      const r = await fetch(`${API}/leer-conteo`, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ inventario_id: inventario.id, imagen_base64: b64, media_type: file.type || 'image/jpeg' }),
-      })
-      const j = await r.json()
-      if (j.error) throw new Error(j.error)
-      setMsg(`Foto leída: ${j.insertadas} líneas.`)
-      await cargar()
-    } catch (e: any) { setMsg(`Error leyendo foto: ${e.message}`) } finally { setBusy(null) }
-  }
-
-  const borrarLinea = async (id: string) => {
-    await supabase.from('inventario_lineas').delete().eq('id', id)
-    setInvLineas(l => l.filter(x => x.id !== id))
-  }
-
-  const confirmarInventario = async () => {
-    if (!inventario) return
-    setBusy('confirmar'); setMsg(null)
-    try {
-      const r = await fetch(`${API}/confirmar-conteo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ inventario_id: inventario.id }) })
-      const j = await r.json()
-      if (j.error) throw new Error(j.error)
-      setMsg(j.lineas_sin_vincular_ignoradas > 0
-        ? `Inventario confirmado. Ojo: ${j.lineas_sin_vincular_ignoradas} líneas sin vincular quedaron fuera.`
-        : 'Inventario confirmado.')
-      await cargar()
-    } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
-  }
-
   const estrReal = estado?.estructura_real?.estructura_pct_real
-  const sinVincular = invLineas.filter(l => !l.ingrediente_id).length
   const driveOff = estado?.drive_conectado === false
 
   return (
@@ -698,55 +630,6 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
         </div>
         )
       })()}
-
-      {/* Fase C · inventario quincenal */}
-      <div style={card}>
-        <h3 style={h3}>Inventario quincenal por foto</h3>
-        {!inventario ? (
-          <button style={btn(AMA)} disabled={busy === 'inv'} onClick={crearInventario}>Empezar inventario de hoy</button>
-        ) : (
-          <>
-            <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
-              Inventario del {inventario.fecha} (borrador). Rellena la hoja a mano, hazle fotos y súbelas; revisa lo dudoso y confirma.
-            </p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-              <label style={{ ...btn(AMA), display: 'inline-block' }}>
-                {busy === 'foto' ? 'Leyendo foto…' : 'Subir foto del conteo'}
-                <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} disabled={busy === 'foto'}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(f); e.currentTarget.value = '' }} />
-              </label>
-              {!!invLineas.length && (
-                <button style={btn(VERDE)} disabled={busy === 'confirmar'} onClick={confirmarInventario}>
-                  {busy === 'confirmar' ? 'Confirmando…' : `Confirmar inventario (${invLineas.length - sinVincular} líneas)`}
-                </button>
-              )}
-            </div>
-            {!!invLineas.length && (
-              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-                <thead><tr><th style={th}>LEÍDO</th><th style={th}>INGREDIENTE</th><th style={thR}>CANTIDAD</th><th style={th}>UD.</th><th style={th}>CONFIANZA</th><th style={th} /></tr></thead>
-                <tbody>
-                  {invLineas.map((l, i) => {
-                    const conf = l.ingrediente_id ? (l.confianza ?? 0) : 0
-                    const col = conf >= 1 ? VERDE : conf > 0 ? AMA : ROJO
-                    return (
-                      <tr key={l.id} style={{ background: zebra(i) }}>
-                        <td style={{ ...td, fontSize: 12, color: GRIS }}>{l.texto_leido ?? ''}</td>
-                        <td style={{ ...td, fontWeight: 700 }}>{l.ingredientes?.nombre ?? 'SIN VINCULAR'}</td>
-                        <td style={tdNum}>{fmtES(l.cantidad, 2)}</td>
-                        <td style={td}>{l.unidad ?? ''}</td>
-                        <td style={{ ...td, textAlign: 'center' }}>
-                          <span style={{ display: 'inline-block', width: 14, height: 14, background: col, border: `2px solid ${INK}` }} />
-                        </td>
-                        <td style={{ ...td, textAlign: 'right' }}><button style={btn('var(--sl-card)')} onClick={() => borrarLinea(l.id)}>Quitar</button></td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
-          </>
-        )}
-      </div>
 
       {/* Fase D · coste real + varianza */}
       {(costeReal || !!varianza.length) && (

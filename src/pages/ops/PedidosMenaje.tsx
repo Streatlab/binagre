@@ -1,3 +1,4 @@
+import { BLANCO, GRIS, INK, NAR, ROJO_S } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -6,7 +7,7 @@ import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
 import { fmtEur } from '@/utils/format'
 
 
-const BG_OPS = '#111111'
+const BG_OPS = INK
 interface Pedido {
   id: string
   fecha: string
@@ -21,7 +22,7 @@ const ESTADOS = ['pendiente', 'enviado', 'recibido', 'cancelado']
 function estadoColor(estado: string | null): string {
   switch (estado) {
     case 'recibido': return COLORS.ok
-    case 'enviado': return '#f5a623'
+    case 'enviado': return NAR
     case 'cancelado': return COLOR.textMut
     default: return COLORS.glovo
   }
@@ -88,7 +89,7 @@ export default function PedidosMenaje() {
   return (
     <div style={{ backgroundColor: BG_OPS, minHeight: '100vh', padding: '1.5rem', fontFamily: FONT.body }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontFamily: FONT.heading, textTransform: 'uppercase', letterSpacing: 3, color: '#ffffff', fontSize: 22, margin: 0 }}>
+        <h1 style={{ fontFamily: FONT.heading, textTransform: 'uppercase', letterSpacing: 3, color: BLANCO, fontSize: 22, margin: 0 }}>
           Pedidos Menaje
         </h1>
         <button
@@ -100,13 +101,13 @@ export default function PedidosMenaje() {
       </div>
 
       {error && (
-        <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: '#ffaaaa', borderRadius: 8, padding: '1rem', marginBottom: 16 }}>
+        <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', color: ROJO_S, borderRadius: 8, padding: '1rem', marginBottom: 16 }}>
           {error}
         </div>
       )}
 
       {showForm && (
-        <div style={{ backgroundColor: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, padding: '1rem', marginBottom: 24 }}>
+        <div style={{ backgroundColor: INK, border: '1px solid #2a2a2a', borderRadius: 8, padding: '1rem', marginBottom: 24 }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 12 }}>
             Nuevo Pedido
           </div>
@@ -123,7 +124,7 @@ export default function PedidosMenaje() {
                   type={f.type}
                   value={form[f.key as keyof typeof form] as string}
                   onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                  style={{ width: '100%', backgroundColor: '#1e1e1e', border: '1px solid #2a2a2a', color: '#ffffff', padding: '0.5rem', borderRadius: 6, boxSizing: 'border-box' }}
+                  style={{ width: '100%', backgroundColor: INK, border: '1px solid #2a2a2a', color: BLANCO, padding: '0.5rem', borderRadius: 6, boxSizing: 'border-box' }}
                 />
               </div>
             ))}
@@ -132,17 +133,17 @@ export default function PedidosMenaje() {
               <select
                 value={form.estado}
                 onChange={e => setForm(prev => ({ ...prev, estado: e.target.value }))}
-                style={{ width: '100%', backgroundColor: '#1e1e1e', border: '1px solid #2a2a2a', color: '#ffffff', padding: '0.5rem', borderRadius: 6 }}
+                style={{ width: '100%', backgroundColor: INK, border: '1px solid #2a2a2a', color: BLANCO, padding: '0.5rem', borderRadius: 6 }}
               >
                 {ESTADOS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button onClick={guardar} disabled={saving} style={{ backgroundColor: COLORS.redSL, color: '#ffffff', border: 'none', borderRadius: 6, padding: '0.5rem 1.25rem', fontFamily: FONT.heading, fontSize: 12, cursor: 'pointer' }}>
+            <button onClick={guardar} disabled={saving} style={{ backgroundColor: COLORS.redSL, color: BLANCO, border: 'none', borderRadius: 6, padding: '0.5rem 1.25rem', fontFamily: FONT.heading, fontSize: 12, cursor: 'pointer' }}>
               Guardar
             </button>
-            <button onClick={() => setShowForm(false)} style={{ backgroundColor: '#222222', border: '1px solid #383838', color: '#cccccc', borderRadius: 6, padding: '0.5rem 1.25rem', fontSize: 13, cursor: 'pointer' }}>
+            <button onClick={() => setShowForm(false)} style={{ backgroundColor: INK, border: '1px solid #383838', color: GRIS, borderRadius: 6, padding: '0.5rem 1.25rem', fontSize: 13, cursor: 'pointer' }}>
               Cancelar
             </button>
           </div>
@@ -155,7 +156,7 @@ export default function PedidosMenaje() {
         <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #2a2a2a' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ backgroundColor: '#0a0a0a' }}>
+              <tr style={{ backgroundColor: INK }}>
                 {['Fecha', 'Proveedor', 'Descripcion', 'Coste', 'Estado'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: COLOR.textMut, borderBottom: '1px solid #2a2a2a' }}>{h}</th>
                 ))}
@@ -165,10 +166,10 @@ export default function PedidosMenaje() {
               {pedidos.length === 0 ? (
                 <tr><td colSpan={5} style={{ padding: '20px 14px', color: COLOR.textMut, textAlign: 'center' }}>Sin pedidos</td></tr>
               ) : pedidos.map((p, i) => (
-                <tr key={p.id} style={{ backgroundColor: i % 2 === 0 ? BG_OPS : '#141414', borderBottom: '1px solid #2a2a2a' }}>
-                  <td style={{ padding: '10px 14px', color: '#cccccc' }}>{p.fecha}</td>
-                  <td style={{ padding: '10px 14px', color: '#ffffff', fontWeight: 500 }}>{p.proveedor}</td>
-                  <td style={{ padding: '10px 14px', color: '#cccccc' }}>{p.descripcion ?? '—'}</td>
+                <tr key={p.id} style={{ backgroundColor: i % 2 === 0 ? BG_OPS : INK, borderBottom: '1px solid #2a2a2a' }}>
+                  <td style={{ padding: '10px 14px', color: GRIS }}>{p.fecha}</td>
+                  <td style={{ padding: '10px 14px', color: BLANCO, fontWeight: 500 }}>{p.proveedor}</td>
+                  <td style={{ padding: '10px 14px', color: GRIS }}>{p.descripcion ?? '—'}</td>
                   <td style={{ padding: '10px 14px', color: COLORS.glovo }}>{p.coste !== null ? fmtEur(p.coste) : '—'}</td>
                   <td style={{ padding: '10px 14px' }}>
                     <select

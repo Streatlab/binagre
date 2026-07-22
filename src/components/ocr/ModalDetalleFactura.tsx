@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
 // ModalDetalleFactura v3 — D01 D03 D04 D05 D07 + COMPLETAR DATOS
 // v3: además de categoría + movimiento bancario, ahora se pueden completar a mano
 //     los datos básicos que el OCR no haya dejado perfectos: proveedor, fecha,
@@ -74,12 +75,12 @@ interface Props {
 // Estilo común de inputs/selects de este modal (tema claro).
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '10px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc',
-  background: '#fff', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#111',
+  background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK,
   boxSizing: 'border-box',
 }
 const labelStyle: React.CSSProperties = {
   display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px',
-  textTransform: 'uppercase', color: '#7a8090', marginBottom: 6,
+  textTransform: 'uppercase', color: GRIS, marginBottom: 6,
 }
 
 export default function ModalDetalleFactura({ factura, categoriasPyg, titulares = [], onClose, onSaved, onDeleted }: Props) {
@@ -289,22 +290,22 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: 'min(640px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.18)' }}>
+      <div style={{ background: BLANCO, borderRadius: 14, width: 'min(640px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.18)' }}>
         <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #d0c8bc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 4 }}>Completar factura</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 500, color: '#111' }}>{proveedor || '—'}</div>
-            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090', marginTop: 2 }}>
+            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 4 }}>Completar factura</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 16, fontWeight: 500, color: INK }}>{proveedor || '—'}</div>
+            <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, marginTop: 2 }}>
               {totalNum ? fmtEur(totalNum) : 'sin importe leído'} {factura.numero_factura ? `· Nº ${factura.numero_factura}` : ''}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: '#7a8090', cursor: 'pointer', padding: 0, width: 28, height: 28 }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: GRIS, cursor: 'pointer', padding: 0, width: 28, height: 28 }}>×</button>
         </div>
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
           {/* Aviso de qué falta por completar */}
           {faltan.length > 0 ? (
-            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#FFF7ED', border: '0.5px solid #F26B1F50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#9a4a12' }}>
+            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#FFF7ED', border: `0.5px solid ${NAR}`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#9a4a12' }}>
               Faltan por completar: <strong>{faltan.join(', ')}</strong>
             </div>
           ) : (
@@ -351,27 +352,27 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
 
           {/* D07: mostrar mensaje_matching */}
           {factura.mensaje_matching && (
-            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', lineHeight: 1.4 }}>
+            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#f5f3ef', border: '0.5px solid #d0c8bc', fontFamily: 'Lexend, sans-serif', fontSize: 11, color: GRIS, lineHeight: 1.4 }}>
               {factura.mensaje_matching}
             </div>
           )}
 
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090' }}>Movimiento bancario</label>
+              <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Movimiento bancario</label>
               {/* D04: botón ampliar siempre visible */}
               {!cargandoMovs && !ampliarVentana && (
-                <button onClick={() => setAmpliarVentana(true)} style={{ background: 'transparent', border: 'none', color: '#FF4757', fontFamily: 'Lexend, sans-serif', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
+                <button onClick={() => setAmpliarVentana(true)} style={{ background: 'transparent', border: 'none', color: ROJO, fontFamily: 'Lexend, sans-serif', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
                   Ampliar búsqueda
                 </button>
               )}
             </div>
             {!fecha || !totalNum ? (
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>Completa importe y fecha para buscar el movimiento del banco.</div>
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS }}>Completa importe y fecha para buscar el movimiento del banco.</div>
             ) : cargandoMovs ? (
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#7a8090' }}>Buscando candidatos…</div>
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS }}>Buscando candidatos…</div>
             ) : movsCandidatos.length === 0 ? (
-              <div style={{ padding: '10px 12px', borderRadius: 8, background: '#fff5f5', border: '0.5px solid #E24B4A40', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23' }}>
+              <div style={{ padding: '10px 12px', borderRadius: 8, background: '#fff5f5', border: '0.5px solid #E24B4A40', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRANATE }}>
                 No hay movimientos {titularId ? 'del mismo titular ' : ''}con importe {fmtEur(-Math.abs(totalNum))} ±{TOLERANCIA}€ en ventana ({ventana.antes}d antes / {ventana.despues}d después).
               </div>
             ) : (
@@ -386,16 +387,16 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
               </select>
             )}
             {movActualId && movimientoId !== movActualId && (
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#F26B1F', marginTop: 6, fontStyle: 'italic' }}>
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: NAR, marginTop: 6, fontStyle: 'italic' }}>
                 Vas a cambiar el movimiento asociado
               </div>
             )}
           </div>
 
           <div>
-            <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7a8090', marginBottom: 6 }}>
-              Categoría {categoriaPropuesta && !overrideCategoria ? <span style={{ color: '#1D9E75', fontStyle: 'italic', textTransform: 'none' }}>(copiada del banco)</span> : null}
-              {overrideCategoria ? <span style={{ color: '#F26B1F', fontStyle: 'italic', textTransform: 'none' }}>(manual — se sobreescribe la del banco)</span> : null}
+            <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>
+              Categoría {categoriaPropuesta && !overrideCategoria ? <span style={{ color: VERDE, fontStyle: 'italic', textTransform: 'none' }}>(copiada del banco)</span> : null}
+              {overrideCategoria ? <span style={{ color: NAR, fontStyle: 'italic', textTransform: 'none' }}>(manual — se sobreescribe la del banco)</span> : null}
             </label>
             {/* D05: categoría editable con override */}
             <select value={categoria} onChange={e => { setCategoria(e.target.value); if (categoriaPropuesta) setOverrideCategoria(true) }}
@@ -404,19 +405,19 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
               {catNivel3.map(c => (<option key={c.id} value={c.id}>{c.id} · {c.nombre}</option>))}
             </select>
             {categoriaPropuesta && !overrideCategoria && (
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 6, fontStyle: 'italic' }}>
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: GRIS, marginTop: 6, fontStyle: 'italic' }}>
                 La categoría se hereda del movimiento bancario. Puedes cambiarla seleccionando otra.
               </div>
             )}
             {nifEmisor.trim() && categoria && (
-              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: '#7a8090', marginTop: 6, fontStyle: 'italic' }}>
+              <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, color: GRIS, marginTop: 6, fontStyle: 'italic' }}>
                 Se recordará esta categoría para las próximas facturas del NIF {nifEmisor.trim().toUpperCase()}.
               </div>
             )}
           </div>
 
           {error && (
-            <div style={{ padding: '10px 12px', borderRadius: 8, background: '#fff5f5', border: '0.5px solid #E24B4A', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23' }}>
+            <div style={{ padding: '10px 12px', borderRadius: 8, background: '#fff5f5', border: '0.5px solid #E24B4A', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRANATE }}>
               {error}
             </div>
           )}
@@ -425,29 +426,29 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
         <div style={{ padding: '14px 24px', borderTop: '0.5px solid #d0c8bc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: '#fafaf7' }}>
           {!confirmarBorrar ? (
             <button onClick={() => setConfirmarBorrar(true)} disabled={guardando || borrando}
-              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #E24B4A', background: '#fff', color: '#E24B4A', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>
+              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #E24B4A', background: BLANCO, color: ROJO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>
               Borrar factura
             </button>
           ) : (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#B01D23', fontWeight: 500 }}>¿Seguro?</span>
+              <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRANATE, fontWeight: 500 }}>¿Seguro?</span>
               <button onClick={() => setConfirmarBorrar(false)} disabled={borrando}
-                style={{ padding: '8px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
+                style={{ padding: '8px 12px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: BLANCO, color: OSC, fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
                 Cancelar
               </button>
               <button onClick={handleBorrar} disabled={borrando}
-                style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#E24B4A', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrando ? 0.6 : 1 }}>
+                style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: ROJO, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrando ? 0.6 : 1 }}>
                 {borrando ? 'Borrando…' : 'Sí, borrar'}
               </button>
             </div>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onClose} disabled={guardando || borrando}
-              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: '#fff', color: '#3a4050', fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer' }}>
+              style={{ padding: '8px 14px', borderRadius: 8, border: '0.5px solid #d0c8bc', background: BLANCO, color: OSC, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer' }}>
               Cancelar
             </button>
             <button onClick={handleGuardar} disabled={guardando || borrando}
-              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#B01D23', color: '#fff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600, opacity: guardando ? 0.6 : 1 }}>
+              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: GRANATE, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600, opacity: guardando ? 0.6 : 1 }}>
               {guardando ? 'Guardando…' : 'Guardar'}
             </button>
           </div>

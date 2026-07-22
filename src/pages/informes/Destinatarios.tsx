@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 /**
  * Módulo Informes — Gestión de destinatarios
  *
@@ -114,7 +115,7 @@ export default function Destinatarios() {
         <button
           onClick={() => setCreando(NUEVO_VACIO)}
           style={{
-            background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8,
+            background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8,
             padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
             fontFamily: FONT.heading, letterSpacing: '0.05em',
           }}
@@ -165,7 +166,7 @@ export default function Destinatarios() {
                 </button>
                 <button
                   onClick={() => eliminar(d.id)}
-                  style={{ background: 'transparent', color: '#B01D23', border: `1px solid #B01D23`, borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}
+                  style={{ background: 'transparent', color: GRANATE, border: `1px solid #B01D23`, borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}
                 >
                   🗑
                 </button>
@@ -281,7 +282,7 @@ function Modal({
           </button>
           <button
             onClick={() => onSave(form)}
-            style={{ background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+            style={{ background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
           >
             Guardar
           </button>

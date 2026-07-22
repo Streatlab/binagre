@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
 import { useCallback, useEffect, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -112,7 +113,7 @@ export default function CuentasBancarias() {
               style={{
                 ...cardStyle(T),
                 padding: 20,
-                borderLeft: `4px solid ${t.color || '#B01D23'}`,
+                borderLeft: `4px solid ${t.color || GRANATE}`,
               }}
             >
               <div
@@ -128,7 +129,7 @@ export default function CuentasBancarias() {
                     width: 14,
                     height: 14,
                     borderRadius: 3,
-                    background: t.color || '#B01D23',
+                    background: t.color || GRANATE,
                   }}
                 />
                 <div
@@ -196,8 +197,8 @@ export default function CuentasBancarias() {
                   onClick={() => guardar(ed)}
                   style={{
                     padding: '8px 18px',
-                    background: '#B01D23',
-                    color: '#fff',
+                    background: GRANATE,
+                    color: BLANCO,
                     border: 'none',
                     borderRadius: 6,
                     fontFamily: FONT.heading,
@@ -236,14 +237,14 @@ export default function CuentasBancarias() {
                       alignItems: 'center',
                       gap: 10,
                       padding: '14px 18px',
-                      background: isDark ? '#141414' : '#fafafa',
+                      background: isDark ? INK : '#fafafa',
                       border: `2px dashed ${T.brd}`,
                       borderRadius: 10,
                       cursor: isSubiendo ? 'wait' : 'pointer',
                       opacity: isSubiendo ? 0.6 : 1,
                     }}
                   >
-                    <Upload size={18} color="#B01D23" />
+                    <Upload size={18} color={GRANATE} />
                     <span style={{ color: T.pri, fontSize: 13 }}>
                       {isSubiendo ? 'Procesando...' : 'Arrastra o haz clic para subir'}
                     </span>
@@ -308,7 +309,7 @@ function Campo({
         style={{
           width: '100%',
           padding: '8px 12px',
-          background: '#1e1e1e',
+          background: INK,
           color: T.pri,
           border: `1px solid ${T.brd}`,
           borderRadius: 6,

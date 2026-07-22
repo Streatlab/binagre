@@ -1,3 +1,4 @@
+import { VERDE } from '@/styles/neobrutal'
 /**
  * CardRatio — Fixes 81-88
  * FIX 81: "obj" → "Objetivo" en verde
@@ -122,7 +123,7 @@ export default function CardRatio({
             filtros={{}}
             decimales={2}
             unidad=""
-            color="#1D9E75"
+            color={VERDE}
             onUpdate={() => setKpiVersion(v => v + 1)}
           />
         </div>

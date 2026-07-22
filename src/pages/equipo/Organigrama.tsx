@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, X, Trash2, LayoutGrid, List, Users, CheckCircle2, CircleDashed, Pencil, Star } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -58,7 +59,7 @@ function iniciales(nombre: string): string {
 const EMPTY: Omit<Puesto, 'id'> = {
   orden: 99, nivel: 3, area: 'Cocina', puesto: '', persona: SIN_ASIGNAR,
   reporta_a: '', funciones: '', dedicacion_tipo: 'completa', dedicacion_horas: 40,
-  color: '#f5a623', estado: 'objetivo', es_responsable: false,
+  color: NAR, estado: 'objetivo', es_responsable: false,
   mision: '', hab_duras: '', hab_blandas: '', kpis: '', onboarding: '',
   capacitacion: '', controles: '', plan_carrera: '', delegacion: '', empleado_id: null,
 }
@@ -110,7 +111,7 @@ export default function Organigrama() {
         <h1 style={pageTitleStyle(T)}>Organigrama</h1>
         <button
           onClick={() => setDetalle({ open: true, data: { id: '', ...EMPTY } as Puesto, edit: true })}
-          style={{ padding: '12px 16px', minHeight: 44, borderRadius: 8, border: 'none', background: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ padding: '12px 16px', minHeight: 44, borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <Plus size={14} /> Nuevo puesto
         </button>
@@ -118,7 +119,7 @@ export default function Organigrama() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, margin: '18px 0 26px' }}>
         <KpiCard T={T} label="Puestos" value={String(kpis.total)} icon={<Users size={15} />} />
-        <KpiCard T={T} label="Cubiertos" value={`${kpis.cubiertos} / ${kpis.internos}`} icon={<CheckCircle2 size={15} />} accent="#1D9E75" />
+        <KpiCard T={T} label="Cubiertos" value={`${kpis.cubiertos} / ${kpis.internos}`} icon={<CheckCircle2 size={15} />} accent={VERDE} />
         <KpiCard T={T} label="Por cubrir" value={String(kpis.porCubrir)} icon={<CircleDashed size={15} />} accent={kpis.porCubrir ? '#e8b341' : T.mut} />
         <KpiCard T={T} label="Cobertura" value={`${kpis.pct}%`} />
         <KpiCard T={T} label="Dedicación objetivo" value={`${kpis.fte} FTE`} />
@@ -212,7 +213,7 @@ function OrgAvatar({ nombre, foto, color }: { nombre: string; foto: string | nul
       width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
       background: color, overflow: 'hidden',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: '#ffffff',
+      fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: BLANCO,
     }}>
       {foto ? <img src={foto} alt={nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (iniciales(nombre) || '—')}
     </div>
@@ -221,7 +222,7 @@ function OrgAvatar({ nombre, foto, color }: { nombre: string; foto: string | nul
 
 function OcNode({ p, T, onClick, foto, dashed }: { p: Puesto; T: any; onClick: () => void; foto: string | null; dashed?: boolean }) {
   const asignado = p.persona && p.persona !== SIN_ASIGNAR
-  const color = asignado ? (p.color ?? '#B01D23') : (T.mut as string)
+  const color = asignado ? (p.color ?? GRANATE) : (T.mut as string)
   return (
     <div onClick={onClick}
       style={{
@@ -271,7 +272,7 @@ function Tabla({ puestos, T, isDark, onRow }: { puestos: Puesto[]; T: any; isDar
                 <tr key={p.id} onClick={() => onRow(p)} style={{ borderBottom: `1px solid ${T.brd}`, cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <td style={td}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: p.color ?? '#B01D23', marginRight: 8 }} />{p.puesto}{p.es_responsable && <Star size={11} color="#e8b341" fill="#e8b341" style={{ marginLeft: 6, verticalAlign: '-1px' }} />}</td>
+                  <td style={td}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: p.color ?? GRANATE, marginRight: 8 }} />{p.puesto}{p.es_responsable && <Star size={11} color="#e8b341" fill="#e8b341" style={{ marginLeft: 6, verticalAlign: '-1px' }} />}</td>
                   <td style={{ ...td, color: asignado ? T.pri : T.mut }}>{p.persona}</td>
                   <td style={{ ...td, color: T.sec }}>{p.area}</td>
                   <td style={{ ...td, color: T.sec, fontSize: 12 }}>{dedicLabel(p)}</td>
@@ -295,7 +296,7 @@ function Seccion({ T, titulo, children }: { T: any; titulo: string; children: Re
   )
 }
 
-function Lista({ T, items, dot = '#B01D23' }: { T: any; items: string[]; dot?: string }) {
+function Lista({ T, items, dot = GRANATE }: { T: any; items: string[]; dot?: string }) {
   if (!items.length) return <div style={{ color: T.mut, fontSize: 13 }}>—</div>
   return (
     <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -327,7 +328,7 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
       persona: form.persona || SIN_ASIGNAR, reporta_a: form.reporta_a || null,
       funciones: form.funciones || null, dedicacion_tipo: form.dedicacion_tipo,
       dedicacion_horas: form.dedicacion_horas === null || (form.dedicacion_horas as any) === '' ? null : Number(form.dedicacion_horas),
-      color: form.color || '#B01D23',
+      color: form.color || GRANATE,
       estado: form.persona && form.persona !== SIN_ASIGNAR ? 'cubierto' : 'objetivo',
       es_responsable: !!form.es_responsable,
       mision: form.mision || null, hab_duras: form.hab_duras || null, hab_blandas: form.hab_blandas || null,
@@ -350,7 +351,7 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, padding: 16, overflowY: 'auto' }}>
-      <div onMouseDown={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 14, width: 'min(720px, 100%)', margin: '24px 0', border: `1px solid ${T.brd}`, borderTop: `4px solid ${data.color ?? '#B01D23'}` }}>
+      <div onMouseDown={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 14, width: 'min(720px, 100%)', margin: '24px 0', border: `1px solid ${T.brd}`, borderTop: `4px solid ${data.color ?? GRANATE}` }}>
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '20px 24px', borderBottom: `1px solid ${T.brd}`, gap: 12 }}>
@@ -358,7 +359,7 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
             <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, color: T.pri, lineHeight: 1.2 }}>{esNuevo ? 'Nuevo puesto' : data.puesto}</div>
             {!esNuevo && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                <span style={{ padding: '3px 9px', borderRadius: 5, fontSize: 12, fontWeight: 600, background: asignado ? '#1D9E7522' : T.group, color: asignado ? '#1D9E75' : T.mut }}>{data.persona}</span>
+                <span style={{ padding: '3px 9px', borderRadius: 5, fontSize: 12, fontWeight: 600, background: asignado ? '#1D9E7522' : T.group, color: asignado ? VERDE : T.mut }}>{data.persona}</span>
                 <span style={{ fontSize: 12, color: T.sec }}>{data.area} · {dedicLabel(data)}</span>
                 {data.es_responsable && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#e8b341' }}><Star size={12} fill="#e8b341" />Responsable de área</span>}
               </div>
@@ -387,14 +388,14 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
               <Seccion T={T} titulo="Funciones"><Lista T={T} items={lst(data.funciones)} /></Seccion>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18 }}>
-                <Seccion T={T} titulo="Habilidades duras"><Lista T={T} items={lst(data.hab_duras)} dot="#66aaff" /></Seccion>
+                <Seccion T={T} titulo="Habilidades duras"><Lista T={T} items={lst(data.hab_duras)} dot={AZUL_CL} /></Seccion>
                 <Seccion T={T} titulo="Habilidades blandas"><Lista T={T} items={lst(data.hab_blandas)} dot="#9b6dff" /></Seccion>
               </div>
 
-              <Seccion T={T} titulo="Indicadores de desempeño (KPIs)"><Lista T={T} items={lst(data.kpis)} dot="#1D9E75" /></Seccion>
+              <Seccion T={T} titulo="Indicadores de desempeño (KPIs)"><Lista T={T} items={lst(data.kpis)} dot={VERDE} /></Seccion>
               <Seccion T={T} titulo="Controles de cumplimiento y rendimiento"><Lista T={T} items={lst(data.controles)} dot="#e8b341" /></Seccion>
               <Seccion T={T} titulo="Onboarding"><Lista T={T} items={lst(data.onboarding)} dot="#9b6dff" /></Seccion>
-              <Seccion T={T} titulo="Plan de capacitación"><Lista T={T} items={lst(data.capacitacion)} dot="#06C167" /></Seccion>
+              <Seccion T={T} titulo="Plan de capacitación"><Lista T={T} items={lst(data.capacitacion)} dot={VERDE} /></Seccion>
 
               {data.plan_carrera && <Seccion T={T} titulo="Plan de carrera / ascenso"><div style={{ color: T.sec, fontSize: 13, lineHeight: 1.5 }}>{data.plan_carrera}</div></Seccion>}
               {data.delegacion && <Seccion T={T} titulo="Plan de delegación"><div style={{ color: T.sec, fontSize: 13, lineHeight: 1.5 }}>{data.delegacion}</div></Seccion>}
@@ -428,7 +429,7 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
               <CampoLista lbl="Plan de capacitación (uno por línea)" T={T} ta={ta} value={form.capacitacion} onChange={v => up('capacitacion', v)} />
               <div><label style={lbl}>Plan de carrera / ascenso</label><textarea style={ta(2)} value={form.plan_carrera ?? ''} onChange={e => up('plan_carrera', e.target.value)} /></div>
               <div><label style={lbl}>Plan de delegación</label><textarea style={ta(2)} value={form.delegacion ?? ''} onChange={e => up('delegacion', e.target.value)} /></div>
-              <div><label style={lbl}>Color de acento</label><input style={{ ...inp, height: 44, padding: 4 }} type="color" value={form.color ?? '#B01D23'} onChange={e => up('color', e.target.value)} /></div>
+              <div><label style={lbl}>Color de acento</label><input style={{ ...inp, height: 44, padding: 4 }} type="color" value={form.color ?? GRANATE} onChange={e => up('color', e.target.value)} /></div>
             </div>
           )}
         </div>
@@ -436,11 +437,11 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
         {mode === 'edit' && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderTop: `1px solid ${T.brd}` }}>
             {!esNuevo ? (
-              <button onClick={borrar} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'transparent', color: '#B01D23', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}><Trash2 size={13} /> Eliminar</button>
+              <button onClick={borrar} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'transparent', color: GRANATE, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}><Trash2 size={13} /> Eliminar</button>
             ) : <span />}
             <div style={{ display: 'flex', gap: 8 }}>
               {!esNuevo && <button onClick={() => setMode('view')} style={{ padding: '12px 16px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'transparent', color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>}
-              <button onClick={guardar} disabled={saving || !form.puesto} style={{ padding: '12px 20px', minHeight: 44, borderRadius: 8, border: 'none', background: '#e8f442', color: '#111111', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: saving || !form.puesto ? 'default' : 'pointer', opacity: saving || !form.puesto ? 0.5 : 1 }}>{saving ? 'Guardando…' : 'Guardar'}</button>
+              <button onClick={guardar} disabled={saving || !form.puesto} style={{ padding: '12px 20px', minHeight: 44, borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: saving || !form.puesto ? 'default' : 'pointer', opacity: saving || !form.puesto ? 0.5 : 1 }}>{saving ? 'Guardando…' : 'Guardar'}</button>
             </div>
           </div>
         )}

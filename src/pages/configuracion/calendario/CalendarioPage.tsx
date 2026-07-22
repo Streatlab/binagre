@@ -1,3 +1,4 @@
+import { BLANCO, INK, LIMA, NAR, ROJO, ROJO_S } from '@/styles/neobrutal'
 import { useState } from 'react'
 import { FONT, useTheme, pageTitleStyle } from '@/styles/tokens'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
@@ -14,10 +15,10 @@ const MAX_YEAR = 2027
 
 // Color legend
 const LEYENDA: { tipo: string; bg: string; border: string; text: string; label: string }[] = [
-  { tipo: 'operativo',   bg: '#141414', border: '#2a2a2a', text: '#fff',    label: 'Operativo' },
-  { tipo: 'solo_comida', bg: '#141414', border: '#e8f442', text: '#e8f442', label: 'Solo comida (ALM)' },
-  { tipo: 'solo_cena',   bg: '#141414', border: '#f5a623', text: '#f5a623', label: 'Solo cena (CENA)' },
-  { tipo: 'cerrado',     bg: '#2d1515', border: '#aa3030', text: '#ffaaaa', label: 'Cerrado' },
+  { tipo: 'operativo',   bg: INK, border: INK, text: BLANCO,    label: 'Operativo' },
+  { tipo: 'solo_comida', bg: INK, border: LIMA, text: LIMA, label: 'Solo comida (ALM)' },
+  { tipo: 'solo_cena',   bg: INK, border: NAR, text: NAR, label: 'Solo cena (CENA)' },
+  { tipo: 'cerrado',     bg: '#2d1515', border: ROJO, text: ROJO_S, label: 'Cerrado' },
   { tipo: 'festivo',     bg: '#1e2233', border: '#3a4060', text: '#9ba8c0', label: 'Festivo' },
   { tipo: 'vacaciones',  bg: '#484f66', border: '#6070aa', text: '#d0d8ff', label: 'Vacaciones' },
 ]
@@ -60,7 +61,7 @@ export default function CalendarioPage() {
         <h1 style={pageTitleStyle(T)}>Calendario operativo</h1>
         <button
           onClick={() => setShowBulk(true)}
-          style={{ padding: '9px 18px', backgroundColor: '#e8f442', color: '#111', border: 'none', borderRadius: 8, fontFamily: FONT.heading, fontSize: 12, cursor: 'pointer', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600 }}
+          style={{ padding: '9px 18px', backgroundColor: LIMA, color: INK, border: 'none', borderRadius: 8, fontFamily: FONT.heading, fontSize: 12, cursor: 'pointer', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600 }}
         >
           Marcar rango
         </button>
@@ -71,7 +72,7 @@ export default function CalendarioPage() {
         <button
           onClick={goPrev}
           disabled={!canPrev}
-          style={{ padding: '6px 14px', backgroundColor: '#1e1e1e', border: '1px solid #383838', borderRadius: 6, color: canPrev ? '#fff' : '#444', fontFamily: FONT.heading, fontSize: 13, cursor: canPrev ? 'pointer' : 'default', letterSpacing: 0.5 }}
+          style={{ padding: '6px 14px', backgroundColor: INK, border: '1px solid #383838', borderRadius: 6, color: canPrev ? BLANCO : '#444', fontFamily: FONT.heading, fontSize: 13, cursor: canPrev ? 'pointer' : 'default', letterSpacing: 0.5 }}
         >
           ‹
         </button>
@@ -81,7 +82,7 @@ export default function CalendarioPage() {
         <button
           onClick={goNext}
           disabled={!canNext}
-          style={{ padding: '6px 14px', backgroundColor: '#1e1e1e', border: '1px solid #383838', borderRadius: 6, color: canNext ? '#fff' : '#444', fontFamily: FONT.heading, fontSize: 13, cursor: canNext ? 'pointer' : 'default', letterSpacing: 0.5 }}
+          style={{ padding: '6px 14px', backgroundColor: INK, border: '1px solid #383838', borderRadius: 6, color: canNext ? BLANCO : '#444', fontFamily: FONT.heading, fontSize: 13, cursor: canNext ? 'pointer' : 'default', letterSpacing: 0.5 }}
         >
           ›
         </button>

@@ -1,3 +1,4 @@
+import { GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
@@ -39,7 +40,7 @@ export default function CuentasPage() {
 
       {/* Cuentas bancarias */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 12, color: '#e8f442', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12 }}>
+        <div style={{ fontFamily: FONT.heading, fontSize: 12, color: LIMA, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12 }}>
           Cuentas bancarias
         </div>
         {loading ? (
@@ -50,7 +51,7 @@ export default function CuentasPage() {
           <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ background: '#0a0a0a' }}>
+                <tr style={{ background: INK }}>
                   <th style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 14px', textAlign: 'left' }}>Cuenta</th>
                   <th style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 14px', textAlign: 'left' }}>Titular</th>
                   <th style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 14px', textAlign: 'right' }}>Saldo</th>
@@ -62,11 +63,11 @@ export default function CuentasPage() {
                   <tr key={c.id} style={{ borderTop: `1px solid ${T.brd}` }}>
                     <td style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, padding: '10px 14px' }}>{c.nombre}</td>
                     <td style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, padding: '10px 14px' }}>{c.titular ?? '—'}</td>
-                    <td style={{ fontFamily: FONT.heading, fontSize: 13, color: '#06C167', padding: '10px 14px', textAlign: 'right' }}>
+                    <td style={{ fontFamily: FONT.heading, fontSize: 13, color: VERDE, padding: '10px 14px', textAlign: 'right' }}>
                       {c.saldo_actual != null ? fmtEur(c.saldo_actual) : '—'}
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: c.activa ? '#06C167' : '#555' }} />
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: c.activa ? VERDE : '#555' }} />
                     </td>
                   </tr>
                 ))}
@@ -78,7 +79,7 @@ export default function CuentasPage() {
 
       {/* Google Drive */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 12, color: '#e8f442', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12 }}>
+        <div style={{ fontFamily: FONT.heading, fontSize: 12, color: LIMA, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12 }}>
           Google Drive
         </div>
         <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -86,9 +87,9 @@ export default function CuentasPage() {
           <div>
             <div style={{ fontFamily: FONT.body, fontSize: 14, color: T.pri, marginBottom: 4 }}>
               Drive Operaciones · {driveConectado ? (
-                <span style={{ color: '#06C167', fontWeight: 600 }}>Conectado</span>
+                <span style={{ color: VERDE, fontWeight: 600 }}>Conectado</span>
               ) : (
-                <span style={{ color: '#B01D23', fontWeight: 600 }}>Desconectado</span>
+                <span style={{ color: GRANATE, fontWeight: 600 }}>Desconectado</span>
               )}
             </div>
             <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>

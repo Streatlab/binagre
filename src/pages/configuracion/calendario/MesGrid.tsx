@@ -1,3 +1,4 @@
+import { BLANCO, INK, LIMA, NAR, ROJO_S } from '@/styles/neobrutal'
 import { useState } from 'react'
 import { FONT } from '@/styles/tokens'
 import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
@@ -17,27 +18,27 @@ function cellStyle(tipo: TipoDia): React.CSSProperties {
     case 'cerrado':     return { backgroundColor: '#2d1515', border: '1px solid #aa3030' }
     case 'festivo':     return { backgroundColor: '#1e2233', border: '1px solid #3a4060' }
     case 'vacaciones':  return { backgroundColor: '#484f66', border: '1px solid #6070aa' }
-    case 'solo_comida': return { backgroundColor: '#141414', border: '1px solid #e8f442' }
-    case 'solo_cena':   return { backgroundColor: '#141414', border: '1px solid #f5a623' }
-    default:            return { backgroundColor: '#141414', border: '1px solid #2a2a2a' }
+    case 'solo_comida': return { backgroundColor: INK, border: '1px solid #e8f442' }
+    case 'solo_cena':   return { backgroundColor: INK, border: '1px solid #f5a623' }
+    default:            return { backgroundColor: INK, border: '1px solid #2a2a2a' }
   }
 }
 
 function CellBadge({ tipo }: { tipo: TipoDia }) {
   if (tipo === 'solo_comida') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, backgroundColor: '#e8f442', color: '#111', padding: '1px 4px', borderRadius: 3, letterSpacing: 0.5 }}>ALM</span>
+    <span style={{ fontSize: 9, fontFamily: FONT.heading, backgroundColor: LIMA, color: INK, padding: '1px 4px', borderRadius: 3, letterSpacing: 0.5 }}>ALM</span>
   )
   if (tipo === 'solo_cena') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, backgroundColor: '#f5a623', color: '#fff', padding: '1px 4px', borderRadius: 3, letterSpacing: 0.5 }}>CENA</span>
+    <span style={{ fontSize: 9, fontFamily: FONT.heading, backgroundColor: NAR, color: BLANCO, padding: '1px 4px', borderRadius: 3, letterSpacing: 0.5 }}>CENA</span>
   )
   if (tipo === 'cerrado') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, color: '#ffaaaa' }}>CERRADO</span>
+    <span style={{ fontSize: 9, fontFamily: FONT.heading, color: ROJO_S }}>CERRADO</span>
   )
   if (tipo === 'festivo') return (
     <span style={{ fontSize: 9, fontFamily: FONT.heading, color: '#9ba8c0' }}>FEST</span>
   )
   if (tipo === 'vacaciones') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, color: '#fff' }}>VAC</span>
+    <span style={{ fontSize: 9, fontFamily: FONT.heading, color: BLANCO }}>VAC</span>
   )
   return null
 }
@@ -104,7 +105,7 @@ export default function MesGrid({ year, month }: Props) {
               <span style={{
                 fontFamily: FONT.body,
                 fontSize: 13,
-                color: tipo === 'cerrado' ? '#ffaaaa' : tipo === 'festivo' ? '#9ba8c0' : tipo === 'vacaciones' ? '#d0d8ff' : '#fff',
+                color: tipo === 'cerrado' ? ROJO_S : tipo === 'festivo' ? '#9ba8c0' : tipo === 'vacaciones' ? '#d0d8ff' : BLANCO,
                 fontWeight: isToday ? 700 : 400,
               }}>
                 {day}

@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS } from '@/styles/neobrutal'
 // Componente canónico SortableHeader
 // Renderiza una celda <th> con indicador de orden y maneja el click.
 // Usar SIEMPRE este componente para encabezados ordenables en cualquier tabla del ERP.
@@ -30,7 +31,7 @@ export default function SortableHeader<Col extends string = string>({
     letterSpacing: '2px',
     textTransform: 'uppercase',
     textAlign: align,
-    color: active ? '#B01D23' : '#7a8090',
+    color: active ? GRANATE : GRIS,
     padding: '10px 16px',
     background: '#f5f3ef',
     borderBottom: '0.5px solid #d0c8bc',
@@ -57,7 +58,7 @@ export default function SortableHeader<Col extends string = string>({
             gap: 1,
             padding: '1px 6px',
             background: '#B01D2318',
-            color: '#B01D23',
+            color: GRANATE,
             borderRadius: 4,
             fontSize: 10,
             fontWeight: 600,
@@ -87,12 +88,12 @@ export function ClearSortButton({ show, onClear, style }: ClearSortButtonProps) 
         padding: '6px 12px',
         borderRadius: 8,
         border: '0.5px solid #d0c8bc',
-        background: '#fff',
+        background: BLANCO,
         fontFamily: 'Oswald, sans-serif',
         fontSize: 10,
         letterSpacing: '1.5px',
         textTransform: 'uppercase',
-        color: '#B01D23',
+        color: GRANATE,
         cursor: 'pointer',
         fontWeight: 500,
         display: 'inline-flex',

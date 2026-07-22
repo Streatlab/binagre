@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { INK, CREMA, OSW, LEX, SHADOW } from '@/styles/neobrutal'
+import { INK, CREMA, OSW, LEX, SHADOW, BLANCO } from '@/styles/neobrutal'
 
 type Item = { label: string; path: string; group: string }
 
@@ -15,9 +15,8 @@ const ITEMS: Item[] = [
   { label: 'Papeleo', path: '/finanzas/papeleo?tab=bandeja', group: 'Finanzas' },
   { label: 'Facturación', path: '/finanzas/papeleo?tab=facturacion', group: 'Finanzas' },
   { label: 'Conciliación', path: '/finanzas/papeleo?tab=conciliacion', group: 'Finanzas' },
-  { label: 'Gestión de facturas', path: '/finanzas/papeleo?tab=gestion', group: 'Finanzas' },
+  { label: 'Gestión de facturas', path: '/finanzas/papeleo?tab=documental', group: 'Finanzas' },
   { label: 'Gestoría', path: '/finanzas/papeleo?tab=gestoria', group: 'Finanzas' },
-  { label: 'Importar plataformas', path: '/finanzas/papeleo?tab=importar', group: 'Finanzas' },
   { label: 'Bandeja pendientes', path: '/finanzas/pendientes', group: 'Finanzas' },
 
   { label: 'Ventas', path: '/finanzas/ventas-panel?tab=ventas', group: 'Finanzas' },
@@ -42,10 +41,8 @@ const ITEMS: Item[] = [
   { label: 'Rentabilidad por franja', path: '/finanzas/rentabilidad?tab=franja', group: 'Finanzas' },
 
   { label: 'Revenue / Ticket medio', path: '/analytics/revenue', group: 'Analytics' },
-  { label: 'COGS / Coste MP', path: '/analytics/cogs', group: 'Analytics' },
   { label: 'Margen por canal', path: '/analytics/margen', group: 'Analytics' },
   { label: 'Ventas por marca', path: '/analytics/ventas-marca', group: 'Analytics' },
-  { label: 'Ranking productos', path: '/analytics/ranking', group: 'Analytics' },
   { label: 'Predicción demanda', path: '/analytics/demanda', group: 'Analytics' },
   { label: 'Pareto ventas', path: '/analytics/pareto-ventas', group: 'Analytics' },
 
@@ -76,11 +73,8 @@ const ITEMS: Item[] = [
 
   { label: 'Equipo', path: '/equipo', group: 'Equipo' },
   { label: 'Organigrama', path: '/equipo/organigrama', group: 'Equipo' },
-  { label: 'Fichas empleados', path: '/equipo/empleados', group: 'Equipo' },
   { label: 'Horarios', path: '/equipo/horarios', group: 'Equipo' },
   { label: 'Control presencia', path: '/equipo/presencia', group: 'Equipo' },
-  { label: 'Evaluaciones', path: '/equipo/evaluaciones', group: 'Equipo' },
-  { label: 'Mis ventas / metas', path: '/equipo/metas', group: 'Equipo' },
 
   { label: 'Club fidelización', path: '/clientes/club', group: 'Clientes' },
   { label: 'CRM tienda propia', path: '/clientes/crm', group: 'Clientes' },
@@ -218,7 +212,7 @@ export default function CommandPalette() {
                 padding: '10px 14px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 background: idx === sel ? INK : 'transparent',
-                color: idx === sel ? '#fff' : INK,
+                color: idx === sel ? BLANCO : INK,
                 cursor: 'pointer',
                 fontFamily: LEX, fontSize: 14,
               }}

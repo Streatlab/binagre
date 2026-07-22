@@ -1,3 +1,4 @@
+import { BLANCO } from '@/styles/neobrutal'
 import React, { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -53,7 +54,7 @@ export default function SelloAct({
         gap: 6,
         padding: '4px 10px',
         border: '2px solid #1e2233',
-        background: '#fff',
+        background: BLANCO,
         color: '#1e2233',
         fontFamily: 'Lexend, sans-serif',
         fontSize: 12,

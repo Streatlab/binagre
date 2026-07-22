@@ -1,3 +1,4 @@
+import { AZUL, BLANCO, GRANATE, GRIS, INK } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT, useTheme } from '@/styles/tokens'
@@ -94,9 +95,9 @@ export default function ReglasGlobalesPanel() {
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
 
   const moduloColor = {
-    ocr: '#1E5BCC',
+    ocr: AZUL,
     conciliacion: '#0F6E56',
-    global: '#B01D23',
+    global: GRANATE,
   }
   const moduloLabel = {
     ocr: 'OCR',
@@ -126,19 +127,19 @@ export default function ReglasGlobalesPanel() {
                 {moduloLabel[modulo]} — {items.length} regla{items.length !== 1 ? 's' : ''}
               </div>
               {items.map(r => (
-                <div key={r.id} onClick={() => open(r)} style={{ padding: '12px 22px', borderBottom: '0.5px solid #ebe8e2', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 14, background: '#fff' }}>
+                <div key={r.id} onClick={() => open(r)} style={{ padding: '12px 22px', borderBottom: '0.5px solid #ebe8e2', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 14, background: BLANCO }}>
                   <div style={{ flexShrink: 0, fontFamily: FONT.heading, fontSize: 11, fontWeight: 500, color: moduloColor[modulo], letterSpacing: '1px', width: 70 }}>
                     {r.codigo}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: '#111', marginBottom: 4 }}>{r.titulo}</div>
-                    <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#7a8090', lineHeight: 1.5 }}>{r.descripcion}</div>
+                    <div style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: INK, marginBottom: 4 }}>{r.titulo}</div>
+                    <div style={{ fontFamily: FONT.body, fontSize: 12, color: GRIS, lineHeight: 1.5 }}>{r.descripcion}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
                     {r.bloqueante && (
-                      <span style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#B01D23', background: '#B01D2315', padding: '2px 6px', borderRadius: 4 }}>Bloqueante</span>
+                      <span style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRANATE, background: '#B01D2315', padding: '2px 6px', borderRadius: 4 }}>Bloqueante</span>
                     )}
-                    <label onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#7a8090', fontFamily: FONT.body, cursor: 'pointer' }}>
+                    <label onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: GRIS, fontFamily: FONT.body, cursor: 'pointer' }}>
                       <input type="checkbox" checked={r.activa} onChange={() => toggleActiva(r)} style={{ cursor: 'pointer' }} />
                       Activa
                     </label>
@@ -150,7 +151,7 @@ export default function ReglasGlobalesPanel() {
         })}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 22px 18px', borderTop: '0.5px solid #d0c8bc', background: '#f5f3ef' }}>
-          <button onClick={() => open()} style={{ padding: '7px 14px', borderRadius: 6, border: 'none', background: '#B01D23', color: '#fff', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>+ Nueva regla</button>
+          <button onClick={() => open()} style={{ padding: '7px 14px', borderRadius: 6, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>+ Nueva regla</button>
         </div>
       </ConfigGroupCard>
 

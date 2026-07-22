@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -82,7 +83,7 @@ export default function BandejaPendientes() {
   )
 
   const wrap: React.CSSProperties = { background: 'var(--neo-bg)', padding: '24px 28px', minHeight: '100vh' }
-  const h2: React.CSSProperties = { color: '#B01D23', fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }
+  const h2: React.CSSProperties = { color: GRANATE, fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }
   const sub: React.CSSProperties = { fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-muted)', display: 'block', marginTop: 4 }
 
   return (
@@ -95,7 +96,7 @@ export default function BandejaPendientes() {
       </div>
 
       {error && (
-        <div style={{ background: '#B01D2318', color: '#B01D23', padding: '10px 14px', borderRadius: 8, fontFamily: 'Lexend, sans-serif', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ background: '#B01D2318', color: GRANATE, padding: '10px 14px', borderRadius: 8, fontFamily: 'Lexend, sans-serif', fontSize: 13, marginBottom: 16 }}>
           {error}
         </div>
       )}
@@ -119,7 +120,7 @@ export default function BandejaPendientes() {
       <div style={{ background: 'var(--sl-card)', overflow: 'hidden', ...NEO_CARD }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
-            <tr style={{ background: '#1e2233', color: '#fff', textAlign: 'left' }}>
+            <tr style={{ background: '#1e2233', color: BLANCO, textAlign: 'left' }}>
               <th style={th}>Motivo</th>
               <th style={th}>Proveedor</th>
               <th style={{ ...th, textAlign: 'right' }}>Importe</th>
@@ -154,9 +155,9 @@ const td: React.CSSProperties = { padding: '9px 14px' }
 
 function chip(activo: boolean): React.CSSProperties {
   return {
-    background: activo ? '#B01D23' : 'var(--sl-card)',
-    color: activo ? '#fff' : 'var(--sl-text-secondary)',
-    border: '1px solid ' + (activo ? '#B01D23' : 'var(--sl-border)'),
+    background: activo ? GRANATE : 'var(--sl-card)',
+    color: activo ? BLANCO : 'var(--sl-text-secondary)',
+    border: '1px solid ' + (activo ? GRANATE : 'var(--sl-border)'),
     borderRadius: 999,
     padding: '6px 14px',
     fontFamily: 'Oswald, sans-serif',
@@ -172,7 +173,7 @@ function badge(motivo: string): React.CSSProperties {
   const rojo = motivo === 'Sin importe' || motivo === 'Importe pendiente de releer' || motivo === 'Sin NIF'
   return {
     background: rojo ? '#B01D2318' : 'var(--sl-thead)',
-    color: rojo ? '#B01D23' : 'var(--sl-text-secondary)',
+    color: rojo ? GRANATE : 'var(--sl-text-secondary)',
     borderRadius: 6,
     padding: '3px 9px',
     fontSize: 11,

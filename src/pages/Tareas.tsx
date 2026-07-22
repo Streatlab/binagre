@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import { useTheme, groupStyle, tituloPaginaStyle } from '@/styles/tokens'
@@ -51,8 +52,8 @@ export default function Tareas() {
           </span>
           {nPendientes > 0 && (
             <span style={{
-              background: '#B01D23',
-              color: '#fff',
+              background: GRANATE,
+              color: BLANCO,
               ...NEO_CARD,
               padding: '2px 10px',
               fontSize: 13,

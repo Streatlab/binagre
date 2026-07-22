@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, NAR_S } from '@/styles/neobrutal'
 /**
  * ResumenLanding v20 — pestaña Resumen del Panel Global (neobrutal Food Pop).
  * v20: sección HOY EN VIVO a ancho completo encima del estado de salud (solo en horario de
@@ -17,9 +18,8 @@ import type { PorCobrarResult } from '@/lib/panel/calcPorCobrar'
 import { elegirFrase, type MetricasInsight } from './frasesInsight'
 import CardHoyEnVivo, { enHorarioServicio } from './CardHoyEnVivo'
 
-const INK = '#140f08'
 const OSC = '#2b2117'
-const CREMA = '#FCEFD6'
+const CREMA = NAR_S
 const CLARO = '#F3D9A8'
 const ROSA_CL = '#ffe0ea'
 const LAV = '#d8e3ff'      // azul lavanda claro (Punto de equilibrio)
@@ -32,15 +32,13 @@ const AMA = '#FFC400'
 const VERDE = '#0FB86B'  // positivo (semántico) · métrica Neto/TM neto · canal propio
 const NAR = '#FF6A1A'    // métrica Pedidos · aviso intermedio · plataformas
 const AZUL = '#2D5BFF'   // métrica TM bruto
-const GRANATE = '#B01D23' // corporativo · tarjeta "lo que deja cada pedido"
-const GRIS = '#9a8f78'
 const SHADOW = `4px 4px 0 ${INK}`   // sombra única de todo el ERP
 const OSW = "'Oswald', sans-serif"
 const LEX = "'Lexend', sans-serif"
 const PAD = '40px'
 
 // colores corporativos de plataforma
-const CORP: Record<string, string> = { uber: '#06C167', glovo: '#FFC244', je: '#FF8000', web: '#B01D23', dir: '#1e2233' }
+const CORP: Record<string, string> = { uber: VERDE, glovo: '#FFC244', je: '#FF8000', web: GRANATE, dir: '#1e2233' }
 const CLARA: Record<string, boolean> = { uber: true, glovo: true, je: false, web: false, dir: false }
 const OBJ_MARGEN: Record<string, number> = { uber: 55, glovo: 55, je: 55, web: 88, dir: 92 }
 
@@ -138,14 +136,14 @@ function Edit({ value, onSave, suffix = '', color = INK }: { value: number; onSa
   const [val, setVal] = useState(String(Math.round(value)))
   if (!edit) return <button onClick={() => { setVal(String(Math.round(value))); setEdit(true) }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', font: 'inherit', fontFamily: OSW, fontWeight: 700, fontSize: 'inherit', letterSpacing: '-0.5px', color, textDecoration: 'underline dotted', textUnderlineOffset: 3, padding: 0 }}>{value > 0 ? N(value) + suffix : 'fijar'}</button>
   const commit = () => { const n = parseFloat(val.replace(/\./g, '').replace(',', '.')); onSave(Number.isFinite(n) ? n : null); setEdit(false) }
-  return <input autoFocus value={val} onChange={e => setVal(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEdit(false) }} style={{ width: '4.5em', fontFamily: OSW, fontWeight: 700, fontSize: 'inherit', letterSpacing: '-0.5px', border: `2px solid ${INK}`, padding: '0 4px', background: '#fff', color: AZUL }} />
+  return <input autoFocus value={val} onChange={e => setVal(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEdit(false) }} style={{ width: '4.5em', fontFamily: OSW, fontWeight: 700, fontSize: 'inherit', letterSpacing: '-0.5px', border: `2px solid ${INK}`, padding: '0 4px', background: BLANCO, color: AZUL }} />
 }
 
 const Title: React.FC<{ tag: string; tagBg: string; tagColor?: string; title: string; dark?: boolean; nav?: { label: string; onClick?: () => void } }> = ({ tag, tagBg, tagColor = INK, title, dark, nav }) => (
   <>
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <span style={eyebrow(tagBg, tagColor)}>{tag}</span>
-      {nav && <button onClick={nav.onClick} style={{ ...eyebrow('#fff'), cursor: 'pointer', fontSize: 12 }}>{nav.label} →</button>}
+      {nav && <button onClick={nav.onClick} style={{ ...eyebrow(BLANCO), cursor: 'pointer', fontSize: 12 }}>{nav.label} →</button>}
     </div>
     {title && <div style={{ ...d('clamp(24px,3vw,38px)', dark ? D1 : INK), margin: '14px 0 22px' }}>{title}</div>}
   </>
@@ -216,7 +214,7 @@ export default function ResumenLanding(p: Props) {
   if (m.margenNetoPct > 0 && m.margenNetoPct < 55) saludFlags.push(`Margen ${P0(m.margenNetoPct)}`)
   const saludNivel: 'verde' | 'ambar' | 'rojo' = saludFlags.length === 0 ? 'verde' : saludFlags.length <= 2 ? 'ambar' : 'rojo'
   const saludBg = saludNivel === 'verde' ? VERDE : saludNivel === 'ambar' ? NAR : ROJO
-  const saludTxt = '#fff'
+  const saludTxt = BLANCO
   const saludTitulo = saludNivel === 'verde' ? 'Semana sana' : saludNivel === 'ambar' ? 'Ojo, un par de cosas' : 'Atención: varios frentes'
   const saludPuntos = saludFlags.length
     ? saludFlags.slice(0, 3)
@@ -306,7 +304,7 @@ export default function ResumenLanding(p: Props) {
           <div style={{ ...d('clamp(26px,3.4vw,42px)', saludTxt) }}>{saludTitulo}</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
             {saludPuntos.map((t, i) => (
-              <span key={i} style={{ fontFamily: OSW, fontWeight: 700, fontSize: 'clamp(15px,1.7vw,19px)', lineHeight: 1, letterSpacing: '0.3px', textTransform: 'uppercase', background: '#ffffff26', border: `2px solid #ffffff66`, color: '#fff', padding: '5px 11px' }}>{t}</span>
+              <span key={i} style={{ fontFamily: OSW, fontWeight: 700, fontSize: 'clamp(15px,1.7vw,19px)', lineHeight: 1, letterSpacing: '0.3px', textTransform: 'uppercase', background: '#ffffff26', border: `2px solid #ffffff66`, color: BLANCO, padding: '5px 11px' }}>{t}</span>
             ))}
           </div>
         </div>
@@ -322,7 +320,7 @@ export default function ResumenLanding(p: Props) {
       <section style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr', borderBottom: `4px solid ${INK}`, background: AMA }}>
         <div style={{ padding: `42px ${PAD} 40px`, borderRight: `4px solid ${INK}` }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={eyebrow('#fff')}>Comer bien. Aquí y ahora.</span>
+            <span style={eyebrow(BLANCO)}>Comer bien. Aquí y ahora.</span>
             {p.periodoLabel && <span style={{ ...eyebrow(INK, AMA), fontSize: 12 }}>{p.periodoLabel}</span>}
           </div>
           <div style={{ ...d('clamp(32px,4.2vw,56px)'), margin: '18px 0 18px', maxWidth: 640 }}>
@@ -335,20 +333,20 @@ export default function ResumenLanding(p: Props) {
               <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase' }}>Facturación bruta</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, flexWrap: 'wrap' }}>
                 <div style={d('clamp(44px,6.8vw,92px)')}>{EUR(p.ventasPeriodo)}</div>
-                {p.variacionVentas != null && <div style={{ ...eyebrow(p.variacionVentas >= 0 ? VERDE : ROJO, '#fff'), fontSize: 18, padding: '7px 12px', marginBottom: 10 }}><Arrow v={p.variacionVentas} />{DELTA(p.variacionVentas)}</div>}
+                {p.variacionVentas != null && <div style={{ ...eyebrow(p.variacionVentas >= 0 ? VERDE : ROJO, BLANCO), fontSize: 18, padding: '7px 12px', marginBottom: 10 }}><Arrow v={p.variacionVentas} />{DELTA(p.variacionVentas)}</div>}
               </div>
             </div>
             <div style={{ marginBottom: 4 }}><Spark serie={p.serie} color={INK} /></div>
           </div>
-          <div title="Lo que te queda tras las comisiones de plataforma. Estimado a partir de las fórmulas de comisión." style={{ display: 'inline-flex', alignItems: 'baseline', gap: 12, background: VERDE, color: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '8px 16px', marginTop: 18, cursor: 'help' }}>
+          <div title="Lo que te queda tras las comisiones de plataforma. Estimado a partir de las fórmulas de comisión." style={{ display: 'inline-flex', alignItems: 'baseline', gap: 12, background: VERDE, color: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '8px 16px', marginTop: 18, cursor: 'help' }}>
             <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Neto estimado</span>
-            <span style={d('clamp(24px,3.4vw,40px)', '#fff')}>{EUR(p.netoEstimado)}</span>
+            <span style={d('clamp(24px,3.4vw,40px)', BLANCO)}>{EUR(p.netoEstimado)}</span>
             <span style={{ fontFamily: OSW, fontSize: 15, fontWeight: 600 }}>{P2(netoPct)} s/ bruto</span>
             <Est light />
           </div>
         </div>
         <div style={{ background: CLARO, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 22 }}>
-          <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '26px 28px', width: '100%', maxWidth: 380 }}>
+          <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '26px 28px', width: '100%', maxWidth: 380 }}>
             <div style={{ ...d('17px'), borderBottom: `2px dashed ${INK}`, paddingBottom: 12, marginBottom: 4 }}>· Resumen del periodo ·</div>
             {heroStats.map((s, i) => (
               <div key={s.l} title={s.tip} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderBottom: i < heroStats.length - 1 ? `1px dotted ${INK}55` : 'none', cursor: s.tip ? 'help' : 'default' }}>
@@ -364,15 +362,15 @@ export default function ResumenLanding(p: Props) {
       <section style={{ background: OSC, borderBottom: `4px solid ${INK}`, padding: `18px ${PAD}`, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ ...d('16px', D1), marginRight: 4 }}>Atención →</span>
         {alertas.length === 0
-          ? <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 13 }}>Todo en orden</span>
+          ? <span style={{ ...eyebrow(VERDE, BLANCO), fontSize: 13 }}>Todo en orden</span>
           : alertas.slice(0, 5).map((a, i) => (
-            <span key={i} style={{ display: 'inline-block', background: '#fff', border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${a.c}`, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '6px 12px' }}>{a.t}</span>
+            <span key={i} style={{ display: 'inline-block', background: BLANCO, border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${a.c}`, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '6px 12px' }}>{a.t}</span>
           ))}
       </section>
 
       {/* 3 · DESVIACIONES */}
       <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, padding: `20px ${PAD} 0` }}>
-        <span style={{ ...eyebrow(AZUL, '#fff'), fontSize: 12 }}>Comparado con el periodo anterior de igual duración</span>
+        <span style={{ ...eyebrow(AZUL, BLANCO), fontSize: 12 }}>Comparado con el periodo anterior de igual duración</span>
       </section>
       <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
         {desv.map((x, i) => (
@@ -384,14 +382,14 @@ export default function ResumenLanding(p: Props) {
       </section>
 
       {/* 4 · FRASE (ROSA — acento) */}
-      <section style={{ background: ROSA, color: '#fff', padding: `46px ${PAD}`, borderBottom: `4px solid ${INK}` }}>
-        <div style={{ ...d('clamp(28px,4.4vw,54px)', '#fff'), maxWidth: 1000 }}>{frase.lead} <span style={{ background: '#fff', color: ROSA, padding: '0 10px' }}>{frase.mark}</span> {frase.tail}</div>
+      <section style={{ background: ROSA, color: BLANCO, padding: `46px ${PAD}`, borderBottom: `4px solid ${INK}` }}>
+        <div style={{ ...d('clamp(28px,4.4vw,54px)', BLANCO), maxWidth: 1000 }}>{frase.lead} <span style={{ background: BLANCO, color: ROSA, padding: '0 10px' }}>{frase.mark}</span> {frase.tail}</div>
         <div style={{ fontSize: 'clamp(16px,1.9vw,21px)', fontWeight: 600, marginTop: 18, maxWidth: 820 }}>{frase.sub}</div>
       </section>
 
       {/* 5 · CANALES 66% | columna derecha: Cuándo te compran + Días pico + Beneficio por pedido (3 parejas) */}
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
-        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
+        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: BLANCO }}>
           <Title tag="Por dónde entra el hambre" tagBg={AMA} title="El reparto del hambre" nav={{ label: 'Operaciones', onClick: () => p.onNavTab?.('operaciones') }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {p.canalStats.map(c => {
@@ -402,8 +400,8 @@ export default function ResumenLanding(p: Props) {
               return (
                 <div key={c.id} style={{ border: `3px solid ${INK}`, borderLeft: `12px solid ${col}`, background: `${col}18`, boxShadow: SHADOW, padding: '13px 16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-                    <span style={{ ...eyebrow(col, CLARA[c.id] ? INK : '#fff'), fontSize: 13 }}>{c.label}</span>
-                    {c.id === canalRent && <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 11 }}>+ rentable</span>}
+                    <span style={{ ...eyebrow(col, CLARA[c.id] ? INK : BLANCO), fontSize: 13 }}>{c.label}</span>
+                    {c.id === canalRent && <span style={{ ...eyebrow(VERDE, BLANCO), fontSize: 11 }}>+ rentable</span>}
                     <div style={{ flex: 1 }} />
                     <span title={`Margen neto del canal frente a un objetivo de referencia (${objM}%). Objetivo estimado.`} style={{ ...d('15px', saludOk ? VERDE : ROJO), cursor: 'help', display: 'flex', alignItems: 'center' }}>{saludOk ? '✓' : '✗'} {P0(c.margen)}<Est /></span>
                   </div>
@@ -431,7 +429,7 @@ export default function ResumenLanding(p: Props) {
           {/* Rectángulo 1 · Cuándo te compran (CLARO) */}
           <div style={{ background: CLARO, borderBottom: `4px solid ${INK}`, padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-              <span style={eyebrow(NAR, '#fff')}>Cuándo te compran</span>
+              <span style={eyebrow(NAR, BLANCO)}>Cuándo te compran</span>
               {(mejorServ || flojoServ) && (
                 <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
                   {mejorServ && <span style={{ color: VERDE }}>▲ {mejorServ.nombre}</span>}
@@ -479,9 +477,9 @@ export default function ResumenLanding(p: Props) {
           </div>
 
           {/* Rectángulo 3 · Lo que deja cada pedido (GRANATE) — sin barra ni frase */}
-          <div style={{ background: GRANATE, color: '#fff', padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: GRANATE, color: BLANCO, padding: `26px ${PAD}`, flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-              <span style={eyebrow('#fff', GRANATE)}>Lo que deja cada pedido</span>
+              <span style={eyebrow(BLANCO, GRANATE)}>Lo que deja cada pedido</span>
               <span style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.85 }}>Coste/ped {E2(p.costePorPedido.total)}</span>
             </div>
             {hayPedidos ? (
@@ -502,17 +500,17 @@ export default function ResumenLanding(p: Props) {
 
       {/* 6 · TE DEBEN (columna 33%, AZUL, rellena) | RESULTADO 66% (saturado) */}
       <section style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', borderBottom: `4px solid ${INK}` }}>
-        <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: AZUL, color: '#fff', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: AZUL, color: BLANCO, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span style={eyebrow('#fff')}>Te deben</span>
-            <button onClick={() => p.onNavTab?.('cashflow')} style={{ ...eyebrow('#fff'), cursor: 'pointer', fontSize: 11 }}>Cashflow →</button>
+            <span style={eyebrow(BLANCO)}>Te deben</span>
+            <button onClick={() => p.onNavTab?.('cashflow')} style={{ ...eyebrow(BLANCO), cursor: 'pointer', fontSize: 11 }}>Cashflow →</button>
           </div>
           {p.porCobrar.total > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', gap: 22, marginTop: 22 }}>
               <div>
                 <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.85 }}>Pendiente de cobro</div>
-                <div style={d('clamp(48px,6.5vw,82px)', '#fff')}>{EUR(p.porCobrar.total)}</div>
-                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8, background: '#fff', color: AZUL, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '7px 14px', marginTop: 12 }}>
+                <div style={d('clamp(48px,6.5vw,82px)', BLANCO)}>{EUR(p.porCobrar.total)}</div>
+                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8, background: BLANCO, color: AZUL, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '7px 14px', marginTop: 12 }}>
                   <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase' }}>Entra antes de fin de mes</span>
                   <span style={d('22px', AZUL)}>{E(p.porCobrar.hastaFinMes)}</span>
                 </div>
@@ -523,8 +521,8 @@ export default function ResumenLanding(p: Props) {
                   return (
                     <div key={c.id}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                        <span style={{ ...d('16px', '#fff') }}>{c.label}</span>
-                        <span style={{ ...d('17px', '#fff') }}>{E(c.neto)} · {P0(pct)}</span>
+                        <span style={{ ...d('16px', BLANCO) }}>{c.label}</span>
+                        <span style={{ ...d('17px', BLANCO) }}>{E(c.neto)} · {P0(pct)}</span>
                       </div>
                       <div style={{ position: 'relative', height: 22, background: '#ffffff33', border: `3px solid ${INK}`, overflow: 'hidden' }}>
                         <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: CORP[c.id] ?? c.color }} />
@@ -536,29 +534,29 @@ export default function ResumenLanding(p: Props) {
               <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, opacity: 0.85 }}>{p.porCobrar.nLiquidaciones} liquidaciones pendientes · neto estimado · cierre histórico al 19-jun</div>
             </div>
           ) : (
-            <div style={{ ...d('clamp(22px,2.6vw,32px)', '#fff'), marginTop: 22, flex: 1 }}>Todo cobrado al día. Sin liquidaciones pendientes.</div>
+            <div style={{ ...d('clamp(22px,2.6vw,32px)', BLANCO), marginTop: 22, flex: 1 }}>Todo cobrado al día. Sin liquidaciones pendientes.</div>
           )}
         </div>
 
         <div style={{ padding: `44px ${PAD}`, background: TEAL, color: D1 }}>
-          <Title tag="Resultado del periodo" tagBg={VERDE} tagColor="#fff" title="" dark nav={{ label: 'Finanzas', onClick: () => p.onNavTab?.('finanzas') }} />
+          <Title tag="Resultado del periodo" tagBg={VERDE} tagColor={BLANCO} title="" dark nav={{ label: 'Finanzas', onClick: () => p.onNavTab?.('finanzas') }} />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, margin: '8px 0 22px' }}>
-            <div title="Beneficio operativo estimado: ingresos − producto − personal − resto de gastos" style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px', cursor: 'help' }}>
+            <div title="Beneficio operativo estimado: ingresos − producto − personal − resto de gastos" style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px', cursor: 'help' }}>
               <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b5d45' }}>EBITDA estimado<Est /></div>
               <div style={{ ...d('clamp(30px,4.4vw,52px)', p.ebitda >= 0 ? VERDE : ROJO), margin: '6px 0 4px' }}>{EUR(p.ebitda)}</div>
-              <div style={{ ...eyebrow(p.ebitda >= 0 ? VERDE : ROJO, '#fff'), fontSize: 12 }}>{P0(p.ebitdaPct)} sobre ingresos</div>
+              <div style={{ ...eyebrow(p.ebitda >= 0 ? VERDE : ROJO, BLANCO), fontSize: 12 }}>{P0(p.ebitdaPct)} sobre ingresos</div>
             </div>
-            <div title="Coste de producto + personal sobre ingresos. Objetivo ≤ 60%." style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px', cursor: 'help' }}>
+            <div title="Coste de producto + personal sobre ingresos. Objetivo ≤ 60%." style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px', cursor: 'help' }}>
               <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b5d45' }}>Prime cost<Est /></div>
               <div style={{ ...d('clamp(30px,4.4vw,52px)', p.primeCostPct <= 60 ? VERDE : NAR), margin: '6px 0 4px' }}>{P0(p.primeCostPct)}</div>
-              <div style={{ ...eyebrow(p.primeCostPct <= 60 ? VERDE : NAR, '#fff'), fontSize: 12 }}>objetivo ≤ 60%</div>
+              <div style={{ ...eyebrow(p.primeCostPct <= 60 ? VERDE : NAR, BLANCO), fontSize: 12 }}>objetivo ≤ 60%</div>
             </div>
           </div>
 
           {mostrarCostes && <div style={{ borderLeft: `3px solid ${AMA}`, paddingLeft: 14, marginBottom: 20, fontSize: 15, color: D1, maxWidth: 760 }}><b style={{ color: AMA }}>{fraseCostes.mark}</b> — {fraseCostes.sub}</div>}
 
-          <div style={{ background: '#fff', border: `3px solid ${INK}`, color: INK, overflow: 'hidden', boxShadow: SHADOW }}>
+          <div style={{ background: BLANCO, border: `3px solid ${INK}`, color: INK, overflow: 'hidden', boxShadow: SHADOW }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, padding: '11px 16px', background: INK, fontFamily: OSW, fontSize: 11.5, letterSpacing: '1px', textTransform: 'uppercase', color: D1 }}>
               <span>Concepto</span><span style={{ textAlign: 'right' }}>Importe</span><span style={{ textAlign: 'right' }}>% s/neto</span><span style={{ textAlign: 'right' }}>Presupuesto</span>
             </div>
@@ -570,7 +568,7 @@ export default function ResumenLanding(p: Props) {
                 const sobre = gd && gd.presupuesto > 0 && gd.gasto > gd.presupuesto
                 const esEstimado = !!r.grupo && (!gd || gd.gasto === 0)
                 return (
-                  <div key={r.l} style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, alignItems: 'center', padding: '13px 16px', borderTop: `1px solid ${INK}1a`, background: r.bold ? '#faf4e6' : (i % 2 ? '#fbf8f1' : '#fff') }}>
+                  <div key={r.l} style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 0.7fr 1.3fr', gap: 8, alignItems: 'center', padding: '13px 16px', borderTop: `1px solid ${INK}1a`, background: r.bold ? '#faf4e6' : (i % 2 ? '#fbf8f1' : BLANCO) }}>
                     <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: r.bold ? 700 : 500, color: INK, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 9, height: 9, flexShrink: 0, background: r.dot, border: `1px solid ${INK}` }} />
                       {r.l}{meta && <span style={{ fontSize: 11, color: GRIS }}> · obj {meta.obj}%</span>}{esEstimado && <Est />}{r.falta && <Est tip="Aún sin costes cargados — se calcula en cuanto entre el dato" />}
@@ -593,7 +591,7 @@ export default function ResumenLanding(p: Props) {
 
       {/* 7 · OBJETIVOS (AMA) */}
       <section style={sec(AMA)}>
-        <Title tag="Tus objetivos" tagBg={VERDE} tagColor="#fff" title="Cómo vas frente a lo que te marcaste. Toca el objetivo (en azul) para cambiarlo." />
+        <Title tag="Tus objetivos" tagBg={VERDE} tagColor={BLANCO} title="Cómo vas frente a lo que te marcaste. Toca el objetivo (en azul) para cambiarlo." />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           {p.diario && (() => {
             const prog = p.diario!.objetivo > 0 ? (p.diario!.real / p.diario!.objetivo) * 100 : 0
@@ -604,7 +602,7 @@ export default function ResumenLanding(p: Props) {
                   <span style={d('22px')}>Hoy · {N(p.diario!.real)} <span style={d('22px', prog >= 100 ? VERDE : INK)}>{P0(prog)}</span></span>
                   <span style={d('20px')}>Faltan <span style={{ color: INK }}>{N(faltan)}</span> de objetivo {N(p.diario!.objetivo)}</span>
                 </div>
-                <div style={{ height: 18, border: `3px solid ${INK}`, background: '#fff' }}><div style={{ width: `${Math.min(100, prog)}%`, height: '100%', background: ROSA, transition: 'width .3s' }} /></div>
+                <div style={{ height: 18, border: `3px solid ${INK}`, background: BLANCO }}><div style={{ width: `${Math.min(100, prog)}%`, height: '100%', background: ROSA, transition: 'width .3s' }} /></div>
               </div>
             )
           })()}
@@ -617,7 +615,7 @@ export default function ResumenLanding(p: Props) {
                   <span style={d('22px')}>{o.lbl} · {N(o.real)} <span style={d('22px', prog >= 100 ? VERDE : INK)}>{P0(prog)}</span></span>
                   <span style={d('20px')}>Faltan <span style={{ color: INK }}>{N(faltan)}</span> de objetivo <Edit value={o.obj} onSave={v => p.onSaveObjetivoVenta(o.k, v)} color={AZUL} /></span>
                 </div>
-                <div style={{ height: 16, border: `3px solid ${INK}`, background: '#fff' }}><div style={{ width: `${Math.min(100, prog)}%`, height: '100%', background: ROSA, transition: 'width .3s' }} /></div>
+                <div style={{ height: 16, border: `3px solid ${INK}`, background: BLANCO }}><div style={{ width: `${Math.min(100, prog)}%`, height: '100%', background: ROSA, transition: 'width .3s' }} /></div>
               </div>
             )
           })}
@@ -626,19 +624,19 @@ export default function ResumenLanding(p: Props) {
 
       {/* 8 · PROYECCIONES | RATIO | PE (cada una su color) */}
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', borderBottom: `4px solid ${INK}` }}>
-        <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: VERDE, color: '#fff' }}>
-          <span style={eyebrow('#fff')}>Proyecciones</span>
-          <button onClick={() => p.onNavTab?.('cashflow')} style={{ ...eyebrow('#fff'), cursor: 'pointer', fontSize: 12, marginLeft: 8 }}>Cashflow →</button>
+        <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: VERDE, color: BLANCO }}>
+          <span style={eyebrow(BLANCO)}>Proyecciones</span>
+          <button onClick={() => p.onNavTab?.('cashflow')} style={{ ...eyebrow(BLANCO), cursor: 'pointer', fontSize: 12, marginLeft: 8 }}>Cashflow →</button>
           <div title="A este ritmo de ventas, dónde cerrará el mes frente a tu objetivo mensual" style={{ background: '#ffffff1f', border: `3px solid ${INK}`, padding: '10px 12px', marginTop: 16, cursor: 'help' }}>
             <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.9 }}>A este ritmo cierras el mes en<Est light /></div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-              <span style={d('clamp(26px,3.2vw,40px)', '#fff')}>{E(p.cierreMes)}</span>
-              {p.objetivoMes > 0 && <span style={{ ...eyebrow(pctCierre >= 100 ? '#fff' : ROJO, pctCierre >= 100 ? VERDE : '#fff'), fontSize: 12 }}>{pctCierre >= 100 ? '✓ llegas' : '✗ ' + P0(pctCierre)}</span>}
+              <span style={d('clamp(26px,3.2vw,40px)', BLANCO)}>{E(p.cierreMes)}</span>
+              {p.objetivoMes > 0 && <span style={{ ...eyebrow(pctCierre >= 100 ? BLANCO : ROJO, pctCierre >= 100 ? VERDE : BLANCO), fontSize: 12 }}>{pctCierre >= 100 ? '✓ llegas' : '✗ ' + P0(pctCierre)}</span>}
             </div>
             {p.objetivoMes > 0 && <div style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, opacity: 0.9, marginTop: 2 }}>objetivo {E(p.objetivoMes)}</div>}
           </div>
           <div title="Saldo real del banco · suma de movimientos de v_caja_mensual (mismo dato que Cashflow)" style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.85, marginTop: 16, cursor: 'help' }}>Saldo banco</div>
-          <div style={d('clamp(28px,3.4vw,42px)', '#fff')}>{p.saldoBanco != null ? E(p.saldoBanco) : '—'}</div>
+          <div style={d('clamp(28px,3.4vw,42px)', BLANCO)}>{p.saldoBanco != null ? E(p.saldoBanco) : '—'}</div>
           {p.saldoBanco != null && (() => {
             const proj = p.saldoBanco + p.saldo.cobros30d - p.saldo.pagos30d
             const delta = proj - p.saldoBanco
@@ -646,7 +644,7 @@ export default function ResumenLanding(p: Props) {
               <div title="Proyección de caja: saldo banco + cobros − pagos estimados de los próximos 30 días" style={{ background: '#ffffff1f', border: `3px solid ${INK}`, padding: '10px 12px', marginTop: 14, cursor: 'help' }}>
                 <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.9 }}>En 30 días tendrás ≈<Est light /></div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={d('clamp(24px,3vw,38px)', proj >= 0 ? '#fff' : '#ffd6d6')}>{E(proj)}</span>
+                  <span style={d('clamp(24px,3vw,38px)', proj >= 0 ? BLANCO : '#ffd6d6')}>{E(proj)}</span>
                   <span style={{ fontFamily: LEX, fontSize: 13, fontWeight: 700, color: delta >= 0 ? '#d6ffe0' : '#ffd6d6' }}>{delta >= 0 ? '▲' : '▼'} {ES(delta)}</span>
                 </div>
               </div>
@@ -662,6 +660,7 @@ export default function ResumenLanding(p: Props) {
           })()}
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.7, marginTop: 14 }}>Cobros y pagos<Est light /></div>
           <div style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, lineHeight: 1.95, marginTop: 4 }}>
+
             <div>Cobros 7 d · <b>{E(p.saldo.cobros7d)}</b></div>
             <div>Cobros 30 d · <b>{E(p.saldo.cobros30d)}</b></div>
             <div>Pagos 7 d · <b>{E(p.saldo.pagos7d)}</b></div>
@@ -669,12 +668,12 @@ export default function ResumenLanding(p: Props) {
           </div>
         </div>
         <div style={{ padding: `40px ${PAD}`, borderRight: `4px solid ${INK}`, background: ROSA_CL }}>
-          <span style={eyebrow(VERDE, '#fff')}>Ratio ingresos / gastos</span>
+          <span style={eyebrow(VERDE, BLANCO)}>Ratio ingresos / gastos</span>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, margin: '14px 0 10px' }}>
             <div title="Cuántas veces cubren los ingresos netos los gastos fijos del mes" style={{ ...d('clamp(36px,5vw,60px)', p.ratioActual >= p.objetivoRatio ? VERDE : NAR), cursor: 'help' }}>{(Number.isFinite(p.ratioActual) ? p.ratioActual : 0).toFixed(2)}×</div>
             <div style={d('18px')}>objetivo <Edit value={p.objetivoRatio} onSave={p.onSaveObjetivoRatio} suffix="×" color={AZUL} /></div>
           </div>
-          <div style={{ height: 14, border: `3px solid ${INK}`, background: '#fff' }}><div style={{ width: `${Math.min(100, p.objetivoRatio > 0 ? (p.ratioActual / p.objetivoRatio) * 100 : 0)}%`, height: '100%', background: p.ratioActual >= p.objetivoRatio ? VERDE : NAR }} /></div>
+          <div style={{ height: 14, border: `3px solid ${INK}`, background: BLANCO }}><div style={{ width: `${Math.min(100, p.objetivoRatio > 0 ? (p.ratioActual / p.objetivoRatio) * 100 : 0)}%`, height: '100%', background: p.ratioActual >= p.objetivoRatio ? VERDE : NAR }} /></div>
           <div style={{ fontFamily: LEX, fontSize: 13.5, fontWeight: 600, lineHeight: 1.95, marginTop: 12 }}>
             <div>Ingresos netos · <b>{E(p.netosReales || p.netoEstimado)}</b></div>
             <div>Gastos fijos · <b>{E(p.gastosFijosMes)}</b></div>
@@ -682,10 +681,10 @@ export default function ResumenLanding(p: Props) {
           </div>
         </div>
         <div style={{ padding: `40px ${PAD}`, background: LAV }}>
-          <span style={eyebrow(AZUL, '#fff')}>Punto de equilibrio</span>
+          <span style={eyebrow(AZUL, BLANCO)}>Punto de equilibrio</span>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, margin: '14px 0 10px' }}>
             <div title="Facturación bruta que necesitas este mes para cubrir todos los gastos fijos" style={{ ...d('clamp(36px,5vw,60px)'), cursor: 'help' }}>{E(p.pe.peBruto)}</div>
-            <div style={{ ...eyebrow(p.pe.pctProgreso >= 100 ? VERDE : NAR, '#fff'), marginBottom: 12 }}>{P0(p.pe.pctProgreso)}</div>
+            <div style={{ ...eyebrow(p.pe.pctProgreso >= 100 ? VERDE : NAR, BLANCO), marginBottom: 12 }}>{P0(p.pe.pctProgreso)}</div>
           </div>
           <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.6 }}>bruto necesario este mes</div>
           <div style={{ fontFamily: LEX, fontSize: 13.5, fontWeight: 600, lineHeight: 1.95, marginTop: 10 }}>
@@ -699,12 +698,12 @@ export default function ResumenLanding(p: Props) {
 
       {/* 9 · MARCAS | PROVISIONES + TOP VENTAS */}
       <section style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', borderBottom: `4px solid ${INK}` }}>
-        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: '#fff' }}>
-          <Title tag="Tus marcas" tagBg={ROSA} tagColor="#fff" title="Las 5 que más facturan, con su TM bruto y su evolución." nav={{ label: 'Marcas', onClick: () => p.onNavTab?.('marcas') }} />
+        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: BLANCO }}>
+          <Title tag="Tus marcas" tagBg={ROSA} tagColor={BLANCO} title="Las 5 que más facturan, con su TM bruto y su evolución." nav={{ label: 'Marcas', onClick: () => p.onNavTab?.('marcas') }} />
           {(marcaSube || marcaCae) && (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
-              {marcaSube && marcaSube.varPct != null && marcaSube.varPct >= 0 && <span style={{ ...eyebrow(VERDE, '#fff'), fontSize: 13 }}>▲ Sube {marcaSube.nombre} {DELTA(marcaSube.varPct)}</span>}
-              {marcaCae && marcaCae.varPct != null && marcaCae.varPct < 0 && <span style={{ ...eyebrow(ROJO, '#fff'), fontSize: 13 }}>▼ Cae {marcaCae.nombre} {DELTA(marcaCae.varPct)}</span>}
+              {marcaSube && marcaSube.varPct != null && marcaSube.varPct >= 0 && <span style={{ ...eyebrow(VERDE, BLANCO), fontSize: 13 }}>▲ Sube {marcaSube.nombre} {DELTA(marcaSube.varPct)}</span>}
+              {marcaCae && marcaCae.varPct != null && marcaCae.varPct < 0 && <span style={{ ...eyebrow(ROJO, BLANCO), fontSize: 13 }}>▼ Cae {marcaCae.nombre} {DELTA(marcaCae.varPct)}</span>}
             </div>
           )}
           {marcas5.length > 0
@@ -712,7 +711,7 @@ export default function ResumenLanding(p: Props) {
                 {marcas5.map((mk, i) => {
                   const real = mk.bruto > 0
                   return (
-                    <div key={mk.nombre} style={{ border: `3px solid ${INK}`, background: '#fff', boxShadow: SHADOW, padding: '12px 16px', display: 'grid', gridTemplateColumns: real ? '1fr 160px' : '1fr', gap: 16, alignItems: 'center', opacity: real ? 1 : 0.82 }}>
+                    <div key={mk.nombre} style={{ border: `3px solid ${INK}`, background: BLANCO, boxShadow: SHADOW, padding: '12px 16px', display: 'grid', gridTemplateColumns: real ? '1fr 160px' : '1fr', gap: 16, alignItems: 'center', opacity: real ? 1 : 0.82 }}>
                       <div>
                         {real
                           ? <Barra nombre={mk.nombre} pct={mk.pct} color={marcaColor[i % marcaColor.length]} valor={E(mk.bruto)} alto={28} />
@@ -738,11 +737,11 @@ export default function ResumenLanding(p: Props) {
                   )
                 })}
               </div>
-            : <div style={{ border: `3px solid ${INK}`, background: '#fff', padding: '18px', fontFamily: LEX, fontWeight: 600 }}>Sin marcas activas configuradas.</div>}
+            : <div style={{ border: `3px solid ${INK}`, background: BLANCO, padding: '18px', fontFamily: LEX, fontWeight: 600 }}>Sin marcas activas configuradas.</div>}
         </div>
         <div style={{ padding: `44px ${PAD}`, background: CLARO, display: 'flex', flexDirection: 'column', gap: 26 }}>
           <div>
-            <span style={eyebrow('#fff')}>Provisiones</span>
+            <span style={eyebrow(BLANCO)}>Provisiones</span>
             <div style={{ ...d('clamp(26px,3.4vw,38px)', NAR), margin: '12px 0 10px' }}>{E(p.provisiones.totalAGuardar)}</div>
             <div style={{ fontFamily: LEX, fontSize: 13.5, fontWeight: 600, lineHeight: 1.9 }}>
               <div>IVA · <b>{E(p.provisiones.provIVA)}</b></div>
@@ -757,10 +756,10 @@ export default function ResumenLanding(p: Props) {
           </div>
           <div style={{ borderTop: `3px solid ${INK}`, paddingTop: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <span style={eyebrow(VERDE, '#fff')}>Top ventas</span>
+              <span style={eyebrow(VERDE, BLANCO)}>Top ventas</span>
               <div style={{ display: 'flex', gap: 6 }}>
                 {(['productos', 'modificadores'] as const).map(t => (
-                  <button key={t} onClick={() => p.onTopTab(t)} style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '4px 8px', cursor: 'pointer', border: `2px solid ${INK}`, background: p.topTab === t ? INK : 'transparent', color: p.topTab === t ? '#fff' : INK }}>{t}</button>
+                  <button key={t} onClick={() => p.onTopTab(t)} style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '4px 8px', cursor: 'pointer', border: `2px solid ${INK}`, background: p.topTab === t ? INK : 'transparent', color: p.topTab === t ? BLANCO : INK }}>{t}</button>
                 ))}
               </div>
             </div>

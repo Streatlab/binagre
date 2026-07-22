@@ -1,3 +1,4 @@
+import { GRIS } from '@/styles/neobrutal'
 import React from 'react'
 import { SUBTABS } from '@/components/panel/resumen/tokens'
 
@@ -22,7 +23,7 @@ export default function SubTabsInverso({ tabs, activeId, onChange, prefijoLbl }:
           fontSize: 10,
           fontWeight: 500,
           letterSpacing: '1.5px',
-          color: '#7a8090',
+          color: GRIS,
           textTransform: 'uppercase',
           marginRight: 2,
         }}>

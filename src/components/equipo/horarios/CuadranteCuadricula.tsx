@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
 /**
  * Cuadrante visual común — Esta Semana, Histórico, Próxima, Plantillas, Generador.
  * Vista por defecto de solo lectura. Botón "Editar" muestra celdas editables
@@ -26,7 +27,7 @@ import {
 } from './overrides'
 import { crearEmpleado, archivarEmpleado, guardarOrden, renombrarEmpleado } from './personal'
 
-const FESTIVO_ROJO = '#B01D23'
+const FESTIVO_ROJO = GRANATE
 const NEGRO = '#1e2233'
 const SEMANA_SIN_LIBRE = '2026-06-15'
 
@@ -304,14 +305,14 @@ export function CuadranteCuadricula({
       {editable && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           {guardado === 'guardado' && (
-            <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: '#1D9E75', fontWeight: 600 }}>Guardado ✓</span>
+            <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: VERDE, fontWeight: 600 }}>Guardado ✓</span>
           )}
           {!editando ? (
             <button onClick={iniciarEdicion} style={topBtn(NEGRO)}>
               <Pencil size={14} /> Editar
             </button>
           ) : (
-            <button onClick={guardarTodo} disabled={guardado === 'guardando'} style={topBtn(guardado === 'guardando' ? '#7a8' : '#1D9E75', guardado === 'guardando')}>
+            <button onClick={guardarTodo} disabled={guardado === 'guardando'} style={topBtn(guardado === 'guardando' ? '#7a8' : VERDE, guardado === 'guardando')}>
               {guardado === 'guardando' ? 'Guardando…' : 'Guardar'}
             </button>
           )}
@@ -330,7 +331,7 @@ export function CuadranteCuadricula({
               )}
             </div>
           ))}
-          <div style={{ textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#B01D23', padding: '6px 2px' }}>Total</div>
+          <div style={{ textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRANATE, padding: '6px 2px' }}>Total</div>
 
           {empleadosVisibles.map((emp, rowIdx) => {
             const pila = nombrePila(emp.nombre)
@@ -353,7 +354,7 @@ export function CuadranteCuadricula({
                   {enEdicion && (
                     <>
                       <button onClick={() => renombrar(emp)} style={miniBtn(T, false)} title="Renombrar"><Pencil size={12} /></button>
-                      <button onClick={() => archivar(emp)} style={{ ...miniBtn(T, false), color: '#B01D23' }} title="Quitar de horarios (a antiguos)"><X size={13} /></button>
+                      <button onClick={() => archivar(emp)} style={{ ...miniBtn(T, false), color: GRANATE }} title="Quitar de horarios (a antiguos)"><X size={13} /></button>
                     </>
                   )}
                 </div>
@@ -373,7 +374,7 @@ export function CuadranteCuadricula({
                 <div style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '6px 4px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                   <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 17, fontWeight: 700, color: NEGRO }}>{fmtHM(tot.real)}</span>
                   <div style={{ width: '60%', height: 1, background: 'rgba(0,0,0,0.25)' }} />
-                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, color: '#B01D23' }}>{fmtHM(tot.bruto)}</span>
+                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, color: GRANATE }}>{fmtHM(tot.bruto)}</span>
                 </div>
               </div>
             )
@@ -385,7 +386,7 @@ export function CuadranteCuadricula({
 
           {filaCierre && empleadosVisibles.length > 0 && (
             <>
-              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#B01D23', fontWeight: 500, padding: '8px 4px', display: 'flex', alignItems: 'center' }}>Cierra</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRANATE, fontWeight: 500, padding: '8px 4px', display: 'flex', alignItems: 'center' }}>Cierra</div>
               {dias.map(({ dia }) => (
                 <div key={dia} style={{ fontFamily: FONT.body, fontSize: 11, textAlign: 'center', background: T.group, borderRadius: 4, padding: '6px 2px', fontWeight: 500, color: T.sec, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {cierres[dia] ?? ''}
@@ -423,7 +424,7 @@ function topBtn(bg: string, disabled = false): CSSProperties {
   return {
     display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 12,
     letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 700,
-    color: '#fff', background: bg, border: 'none', padding: '8px 20px', borderRadius: 6,
+    color: BLANCO, background: bg, border: 'none', padding: '8px 20px', borderRadius: 6,
     cursor: disabled ? 'default' : 'pointer',
   }
 }
@@ -479,7 +480,7 @@ function Celda({
           <>
             <span style={{ fontWeight: 700, whiteSpace: 'pre-line', fontSize: 16, lineHeight: 1.3 }}>{tramos.map(t => `${t.entrada}–${t.salida}`).join('\n')}</span>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, marginTop: 4, opacity: 0.75 }}>
-              {fmtHM(real)}{hayDif && <span style={{ color: '#B01D23', opacity: 1, fontWeight: 700 }}> /{fmtHM(bruto)}</span>}
+              {fmtHM(real)}{hayDif && <span style={{ color: GRANATE, opacity: 1, fontWeight: 700 }}> /{fmtHM(bruto)}</span>}
             </span>
           </>
         )}
@@ -516,7 +517,7 @@ function Celda({
       </div>
       <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 700, color: texto, opacity: vacio ? 0.4 : 0.85, marginTop: 1 }}>
         {vacio ? '—' : fmtHM(real)}
-        {hayDif && <span style={{ color: '#B01D23', opacity: 1 }}> /{fmtHM(bruto)}</span>}
+        {hayDif && <span style={{ color: GRANATE, opacity: 1 }}> /{fmtHM(bruto)}</span>}
       </span>
     </div>
   )

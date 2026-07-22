@@ -1,3 +1,4 @@
+import { AZUL, BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { COLORS, FONT, CARDS, lbl, lblSm, kpiMid, TABS_PILL } from '@/components/panel/resumen/tokens'
@@ -87,7 +88,7 @@ export default function CrmTiendaPropia() {
 
 /* ─────────── helpers UI canónicos ─────────── */
 const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: `0.5px solid ${COLORS.brd}`, background: COLORS.card, color: COLORS.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none', width: '100%' }
-const btnPri: React.CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.accent, color: '#fff', fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
+const btnPri: React.CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.accent, color: BLANCO, fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
 const btnGhost: React.CSSProperties = { padding: '4px 10px', borderRadius: 6, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
 const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500, padding: '8px 10px', textAlign: 'left', borderBottom: `1px solid ${COLORS.brd}` }
 const td: React.CSSProperties = { fontFamily: FONT.body, fontSize: 13, color: COLORS.sec, padding: '8px 10px', borderBottom: `1px solid ${COLORS.group}` }
@@ -106,15 +107,15 @@ function KpiCard({ label, value, sub, color }: { label: string; value: string; s
 }
 
 function Pill({ text, bg, txt }: { text: string; bg: string; txt?: string }) {
-  return <span style={{ fontSize: 10, fontFamily: FONT.heading, letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 4, background: bg, color: txt ?? '#fff', textTransform: 'uppercase' }}>{text}</span>
+  return <span style={{ fontSize: 10, fontFamily: FONT.heading, letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 4, background: bg, color: txt ?? BLANCO, textTransform: 'uppercase' }}>{text}</span>
 }
 
 /* ═════════════ TAB EMBUDO — embudo real alimentado de pedidos reales ═════════════ */
 const ETAPAS_EMBUDO = [
   { key: 'impresiones', label: 'Impresiones en app', color: '#484f66', sub: 'estimado' },
-  { key: 'visitas', label: 'Visitas al menú', color: '#1E5BCC', sub: 'estimado' },
-  { key: 'pedidos', label: 'Pedidos', color: '#B01D23', sub: 'dato real' },
-  { key: 'recompra', label: 'Recompra 30d', color: '#1D9E75', sub: 'estimado' },
+  { key: 'visitas', label: 'Visitas al menú', color: AZUL, sub: 'estimado' },
+  { key: 'pedidos', label: 'Pedidos', color: GRANATE, sub: 'dato real' },
+  { key: 'recompra', label: 'Recompra 30d', color: VERDE, sub: 'estimado' },
 ] as const
 
 const CANALES_EMBUDO = ['uber_eats', 'glovo', 'just_eat', 'web'] as const
@@ -218,7 +219,7 @@ function TabEmbudo() {
                     <div style={{ width: `${anchoDe(v)}%`, minWidth: 220, background: et.color, borderRadius: 12, padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                       <div>
                         <div style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.88)' }}>{et.label}</div>
-                        <div style={{ fontFamily: FONT.heading, fontSize: 30, fontWeight: 600, color: '#fff', lineHeight: 1.1, marginTop: 2 }}>{fmtNumES(Math.round(v))}</div>
+                        <div style={{ fontFamily: FONT.heading, fontSize: 30, fontWeight: 600, color: BLANCO, lineHeight: 1.1, marginTop: 2 }}>{fmtNumES(Math.round(v))}</div>
                       </div>
                       <div style={{ fontFamily: FONT.body, fontSize: 11, color: 'rgba(255,255,255,0.8)', textAlign: 'right', whiteSpace: 'nowrap' }}>{et.sub}</div>
                     </div>
@@ -476,7 +477,7 @@ function TabCalendario({ campanas, metricas }: { campanas: Campana[]; metricas: 
                 </div>
                 <div style={{ flex: 1, position: 'relative', height: 24, background: COLORS.group, borderRadius: 6 }}>
                   <div style={{ position: 'absolute', left: `${x1}%`, width: `${Math.max(4, x2 - x1)}%`, top: 2, bottom: 2, background: CANAL_COLOR[c.canal] || COLORS.mut, borderRadius: 5, display: 'flex', alignItems: 'center', paddingLeft: 8, overflow: 'hidden' }}>
-                    <span style={{ fontFamily: FONT.heading, fontSize: 9, color: CANAL_TXT[c.canal] || '#fff', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || c.tipo}</span>
+                    <span style={{ fontFamily: FONT.heading, fontSize: 9, color: CANAL_TXT[c.canal] || BLANCO, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || c.tipo}</span>
                   </div>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
@@ -137,7 +138,7 @@ export default function CocinaRecetas() {
   }
 
   if (loading) return <div style={{ padding: 32, color: T.sec, fontFamily: FONT.body }}>Cargando recetas…</div>
-  if (error) return <div style={{ padding: 32, color: '#E24B4A', fontFamily: FONT.body }}>{error}</div>
+  if (error) return <div style={{ padding: 32, color: ROJO, fontFamily: FONT.body }}>{error}</div>
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '320px 1fr', gap: 16, height: '100%', minHeight: '100vh', background: 'var(--neo-bg)', padding: isMobile ? 12 : 16 }}>
@@ -198,7 +199,7 @@ export default function CocinaRecetas() {
                 </div>
                 <div style={{
                   width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                  background: tieneElaboracion ? '#1D9E75' : '#E24B4A',
+                  background: tieneElaboracion ? VERDE : ROJO,
                 }} title={tieneElaboracion ? 'Con elaboración' : 'Sin elaboración'} />
               </div>
             )
@@ -213,7 +214,7 @@ export default function CocinaRecetas() {
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
             <div>
-              <div style={{ fontFamily: FONT.heading, fontSize: 'clamp(15px,4.5vw,20px)', letterSpacing: '2px', textTransform: 'uppercase', color: "#B01D23", marginBottom: 4, wordBreak: 'break-word' }}>
+              <div style={{ fontFamily: FONT.heading, fontSize: 'clamp(15px,4.5vw,20px)', letterSpacing: '2px', textTransform: 'uppercase', color: GRANATE, marginBottom: 4, wordBreak: 'break-word' }}>
                 {selected.nombre}
               </div>
               <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec }}>
@@ -228,7 +229,7 @@ export default function CocinaRecetas() {
                 </button>
               ) : (
                 <>
-                  <button onClick={saveReceta} disabled={saving} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, background: '#B01D23', color: '#fff', fontFamily: FONT.heading, fontSize: 12, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
+                  <button onClick={saveReceta} disabled={saving} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 12, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
                     {saving ? 'Guardando…' : 'Guardar'}
                   </button>
                   <button onClick={() => setEditMode(false)} style={{ padding: '10px 18px', minHeight: 44, borderRadius: 0, border: `2px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, background: 'var(--sl-card)', color: T.pri, fontFamily: FONT.heading, fontSize: 12, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
@@ -236,7 +237,7 @@ export default function CocinaRecetas() {
                   </button>
                 </>
               )}
-              {savedOk && <span style={{ fontFamily: FONT.body, fontSize: 12, color: '#1D9E75', alignSelf: 'center' }}>✓ Guardado</span>}
+              {savedOk && <span style={{ fontFamily: FONT.body, fontSize: 12, color: VERDE, alignSelf: 'center' }}>✓ Guardado</span>}
             </div>
           </div>
 
@@ -323,7 +324,7 @@ export default function CocinaRecetas() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {(selected.alergenos ?? []).length > 0
                   ? (selected.alergenos ?? []).map(a => (
-                    <span key={a} style={{ fontFamily: FONT.body, fontSize: 11, padding: '3px 10px', borderRadius: 99, background: isDark ? '#2a1500' : '#fff3e0', color: '#f5a623', border: '0.5px solid #f5a623' }}>
+                    <span key={a} style={{ fontFamily: FONT.body, fontSize: 11, padding: '3px 10px', borderRadius: 99, background: isDark ? '#2a1500' : '#fff3e0', color: NAR, border: '0.5px solid #f5a623' }}>
                       {a}
                     </span>
                   ))

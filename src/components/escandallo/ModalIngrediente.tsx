@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { INK, AMA, CREMA, GRANATE, NAR, AZUL, VERDE, GRIS, OSW, LEX } from '@/styles/neobrutal'
+import { INK, AMA, CREMA, GRANATE, NAR, AZUL, VERDE, GRIS, OSW, LEX, BLANCO } from '@/styles/neobrutal'
 
 const btnSaveStyle: CSSProperties = {
   backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '1px',
@@ -8,7 +8,7 @@ const btnSaveStyle: CSSProperties = {
   boxShadow: `3px 3px 0 ${INK}`, cursor: 'pointer', minHeight: 44, fontSize: 14,
 }
 const btnCancelStyle: CSSProperties = {
-  backgroundColor: '#ffffff', color: INK, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700,
+  backgroundColor: BLANCO, color: INK, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700,
   letterSpacing: '1px', textTransform: 'uppercase', padding: '11px 28px', borderRadius: 0, cursor: 'pointer', minHeight: 44, fontSize: 14,
 }
 const labelStyle: CSSProperties = { display: 'block', fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: '#6b5d45', marginBottom: 5 }
@@ -18,7 +18,7 @@ const inputCls = 'w-full bg-white border-[2px] border-[#140f08] rounded-none px-
 
 function Block({ tag, bg, fg = INK, children, style }: { tag: string; bg: string; fg?: string; children: ReactNode; style?: CSSProperties }) {
   return (
-    <div style={{ background: '#fff', border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, padding: '16px 18px', ...style }}>
+    <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, padding: '16px 18px', ...style }}>
       <div style={{ display: 'inline-block', background: bg, color: fg, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', padding: '4px 12px', marginBottom: 16 }}>{tag}</div>
       {children}
     </div>
@@ -362,11 +362,11 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
           <div>
             <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase', color: INK }}>{isEdit ? 'Editar ingrediente' : 'Nuevo ingrediente'}</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-              <span style={{ background: '#fff', border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: INK, padding: '3px 10px' }}>{nombreCompleto}</span>
-              {f.abv && <span style={{ background: AZUL, color: '#fff', border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '3px 10px' }}>{f.abv} · {proveedorNombre}</span>}
+              <span style={{ background: BLANCO, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: INK, padding: '3px 10px' }}>{nombreCompleto}</span>
+              {f.abv && <span style={{ background: AZUL, color: BLANCO, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', padding: '3px 10px' }}>{f.abv} · {proveedorNombre}</span>}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: '#fff', border: `2px solid ${INK}`, width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
+          <button onClick={onClose} style={{ background: BLANCO, border: `2px solid ${INK}`, width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
         </div>
 
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -426,7 +426,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
           </Block>
 
           {/* UNIDADES Y PRECIOS */}
-          <Block tag="Unidades y precios" bg={AZUL} fg="#fff">
+          <Block tag="Unidades y precios" bg={AZUL} fg={BLANCO}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label style={labelStyle}>Peso/Vol. por unidad</label>
@@ -486,7 +486,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
 
           {/* MERMA + ALÉRGENOS lado a lado */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <Block tag="Merma" bg={NAR} fg="#fff">
+            <Block tag="Merma" bg={NAR} fg={BLANCO}>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label style={labelStyle}>Tipo merma</label>
@@ -510,9 +510,9 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
               </div>
             </Block>
 
-            <Block tag="Alérgenos" bg={GRANATE} fg="#fff">
+            <Block tag="Alérgenos" bg={GRANATE} fg={BLANCO}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, marginTop: -6 }}>
-                <button type="button" onClick={sugerirAlergenos} disabled={alergSugiriendo || !f.nombre_base.trim()} style={{ background: '#fff', border: `2px solid ${INK}`, color: INK, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', opacity: (alergSugiriendo || !f.nombre_base.trim()) ? 0.5 : 1 }}>{alergSugiriendo ? 'SUGIRIENDO…' : '⚡ SUGERIR'}</button>
+                <button type="button" onClick={sugerirAlergenos} disabled={alergSugiriendo || !f.nombre_base.trim()} style={{ background: BLANCO, border: `2px solid ${INK}`, color: INK, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', opacity: (alergSugiriendo || !f.nombre_base.trim()) ? 0.5 : 1 }}>{alergSugiriendo ? 'SUGIRIENDO…' : '⚡ SUGERIR'}</button>
                 {errAlerg && <span style={{ fontSize: 12, color: NAR, fontFamily: LEX }}>{errAlerg}</span>}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
@@ -520,7 +520,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
                   const on = alergenos.includes(a)
                   return (
                     <button key={a} type="button" onClick={() => toggleAlergeno(a)}
-                      style={{ padding: '6px 12px', borderRadius: 0, fontFamily: LEX, fontSize: 13, cursor: 'pointer', border: `2px solid ${INK}`, background: on ? GRANATE : '#fff', color: on ? '#fff' : INK, transition: 'all 120ms' }}>
+                      style={{ padding: '6px 12px', borderRadius: 0, fontFamily: LEX, fontSize: 13, cursor: 'pointer', border: `2px solid ${INK}`, background: on ? GRANATE : BLANCO, color: on ? BLANCO : INK, transition: 'all 120ms' }}>
                       {a}
                     </button>
                   )
@@ -547,7 +547,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
         </div>
 
         {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 24px', borderTop: `4px solid ${INK}`, background: '#fff', position: 'sticky', bottom: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 24px', borderTop: `4px solid ${INK}`, background: BLANCO, position: 'sticky', bottom: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {isEdit && !confirmEliminar && (
               <button onClick={() => setConfirmEliminar(true)} style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '11px 18px', borderRadius: 0, fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: 44 }}>ELIMINAR</button>
@@ -555,7 +555,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
             {isEdit && confirmEliminar && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 12, color: GRANATE, fontFamily: LEX }}>¿Eliminar definitivamente?</span>
-                <button onClick={handleEliminar} disabled={deleting} style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, padding: '7px 12px', borderRadius: 0, cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>{deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}</button>
+                <button onClick={handleEliminar} disabled={deleting} style={{ background: GRANATE, color: BLANCO, border: `2px solid ${INK}`, padding: '7px 12px', borderRadius: 0, cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem', opacity: deleting ? 0.5 : 1 }}>{deleting ? 'ELIMINANDO…' : 'SÍ, ELIMINAR'}</button>
                 <button onClick={() => setConfirmEliminar(false)} style={{ background: 'transparent', border: `2px solid ${INK}`, color: INK, padding: '7px 12px', borderRadius: 0, cursor: 'pointer', fontFamily: OSW, fontWeight: 700, fontSize: '.7rem' }}>CANCELAR</button>
               </div>
             )}

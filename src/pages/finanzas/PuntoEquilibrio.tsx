@@ -1,3 +1,4 @@
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, OSC } from '@/styles/neobrutal'
 /**
  * Punto de Equilibrio v7 — fórmula unificada completa:
  *   neto = bruto − (com·bruto + fijo€·pedidos + fee_periodo·periodos·marcas) × 1,21
@@ -20,7 +21,7 @@ const ROJO=COLOR.rojoSL,VERDE=COLOR.verde,AMBAR=COLOR.ambar,ERR=COLOR.rojo
 const MESES_CORTO=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
 const GRUPOS_FIJOS=['Equipo','Alquiler','Controlables'] as const
 const GRUPOS_VARIABLES=['Producto'] as const
-const COLOR_GRUPO:Record<string,string>={'Producto':'#F26B1F','Equipo':'#B01D23','Alquiler':'#8b5a9f','Controlables':'#4a90d9'}
+const COLOR_GRUPO:Record<string,string>={'Producto':NAR,'Equipo':GRANATE,'Alquiler':'#8b5a9f','Controlables':'#4a90d9'}
 const IVA=0.21
 type Tab='resumen'|'simulador'
 interface CanalDatos{bruto:number;neto:number;margenPct:number;pedidos:number}
@@ -82,7 +83,7 @@ return(<div style={{background:embedded?'transparent':'#f5f3ef',padding:embedded
 {!embedded && (
 <div>
 <h2 style={{color:ROJO,fontFamily:OSWALD,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>PUNTO DE EQUILIBRIO</h2>
-<span style={{fontFamily:LEXEND,fontSize:13,color:'#7a8090',display:'block',marginTop:4}}>{fmtFechaCorta(periodo.desde.toISOString().slice(0,10))} — {fmtFechaCorta(periodo.hasta.toISOString().slice(0,10))}</span>
+<span style={{fontFamily:LEXEND,fontSize:13,color:GRIS,display:'block',marginTop:4}}>{fmtFechaCorta(periodo.desde.toISOString().slice(0,10))} — {fmtFechaCorta(periodo.hasta.toISOString().slice(0,10))}</span>
 </div>
 )}
 <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
@@ -99,7 +100,7 @@ return(<div style={{background:embedded?'transparent':'#f5f3ef',padding:embedded
 interface TabResumenProps{totalBruto:number;totalNeto:number;totalPedidos:number;totalFijos:number;totalComisiones:number;totalVariables:number;margenContribPct:number;margenNetoPct:number;peMensual:number|null;diaCubreInfo:{fecha:Date|null;diasNecesarios:number|null;mesesDelta:number};datosPorCanal:Record<CanalId,CanalDatos>;gastosPorGrupo:Record<string,number>;diasOperativos:number;brutoMedioDiario:number;colorEstado:string;beneficio:number;ebitdaPct:number;ticketMedioBruto:number;ticketMedioNeto:number}
 function TabResumen(p:TabResumenProps){
 const filasFijos=GRUPOS_FIJOS.map(g=>({label:g,valor:p.gastosPorGrupo[g]??0,color:COLOR_GRUPO[g]})).filter(f=>f.valor>0).sort((a,b)=>b.valor-a.valor)
-const filasVariables=[...GRUPOS_VARIABLES.map(g=>({label:g,valor:p.gastosPorGrupo[g]??0,color:COLOR_GRUPO[g]})),{label:'Comisiones plataformas',valor:p.totalComisiones,color:'#F26B1F'}].filter(f=>f.valor>0).sort((a,b)=>b.valor-a.valor)
+const filasVariables=[...GRUPOS_VARIABLES.map(g=>({label:g,valor:p.gastosPorGrupo[g]??0,color:COLOR_GRUPO[g]})),{label:'Comisiones plataformas',valor:p.totalComisiones,color:NAR}].filter(f=>f.valor>0).sort((a,b)=>b.valor-a.valor)
 return(<div style={{marginTop:16}}>
 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(360px, 1fr))',gap:14,marginBottom:14}}>
 <CardFacturacion totalBruto={p.totalBruto} totalNeto={p.totalNeto} margenNetoPct={p.margenNetoPct} totalPedidos={p.totalPedidos} ticketMedioBruto={p.ticketMedioBruto} ticketMedioNeto={p.ticketMedioNeto} datosPorCanal={p.datosPorCanal}/>
@@ -118,10 +119,10 @@ const minis=CANAL_DEF.filter(c=>c.size==='mini')
 return(<div style={cardBig}>
 <div style={lbl}>INGRESOS DEL PERIODO</div>
 <div style={{display:'flex',alignItems:'baseline',gap:18,marginTop:8,flexWrap:'wrap'}}>
-<div><div style={{fontFamily:OSWALD,fontSize:38,fontWeight:600,color:'#111111'}}>{fmtEur(totalBruto,{showEuro:false,decimals:2})}</div><div style={lblXs}>BRUTO</div></div>
+<div><div style={{fontFamily:OSWALD,fontSize:38,fontWeight:600,color:INK}}>{fmtEur(totalBruto,{showEuro:false,decimals:2})}</div><div style={lblXs}>BRUTO</div></div>
 <div><div style={{fontFamily:OSWALD,fontSize:38,fontWeight:600,color:VERDE}}>{fmtEur(totalNeto,{showEuro:false,decimals:2})}</div><div style={{fontFamily:OSWALD,fontSize:10,letterSpacing:'1.5px',color:VERDE,textTransform:'uppercase',fontWeight:500}}>NETO · {fmtPct(margenNetoPct,2)}</div></div>
 </div>
-<div style={{fontFamily:LEXEND,fontSize:12,color:'#3a4050',marginTop:10,marginBottom:16}}><strong style={{fontFamily:OSWALD,fontSize:14}}>{fmtEur(totalPedidos,{showEuro:false,decimals:0})}</strong> pedidos · TM <strong style={{fontFamily:OSWALD}}>{fmtEur(ticketMedioBruto,{showEuro:false,decimals:2})}</strong> bruto / <strong style={{fontFamily:OSWALD,color:VERDE}}>{fmtEur(ticketMedioNeto,{showEuro:false,decimals:2})}</strong> neto</div>
+<div style={{fontFamily:LEXEND,fontSize:12,color:OSC,marginTop:10,marginBottom:16}}><strong style={{fontFamily:OSWALD,fontSize:14}}>{fmtEur(totalPedidos,{showEuro:false,decimals:0})}</strong> pedidos · TM <strong style={{fontFamily:OSWALD}}>{fmtEur(ticketMedioBruto,{showEuro:false,decimals:2})}</strong> bruto / <strong style={{fontFamily:OSWALD,color:VERDE}}>{fmtEur(ticketMedioNeto,{showEuro:false,decimals:2})}</strong> neto</div>
 <div style={{display:'flex',flexDirection:'column',gap:10}}>
 {bigs.map(c=>{const d=datosPorCanal[c.id];const pctMix=totalBruto>0?(d.bruto/totalBruto)*100:0;return<CardCanalBig key={c.id} label={c.label} bg={c.bg} border={c.border} colorLabel={c.colorLabel} bruto={d.bruto} neto={d.neto} margenPct={d.margenPct} pctMix={pctMix}/>})}
 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>{minis.map(c=>{const d=datosPorCanal[c.id];const pctMix=totalBruto>0?(d.bruto/totalBruto)*100:0;return<CardCanalMini key={c.id} label={c.label} bg={c.bg} border={c.border} colorLabel={c.colorLabel} bruto={d.bruto} neto={d.neto} margenPct={d.margenPct} pctMix={pctMix}/>})}</div>
@@ -130,14 +131,14 @@ return(<div style={cardBig}>
 }
 function CardCanalBig({label,bg,border,colorLabel,bruto,neto,margenPct,pctMix}:{label:string;bg:string;border:string;colorLabel:string;bruto:number;neto:number;margenPct:number;pctMix:number}){
 return(<div style={{background:bg,border:`0.5px solid ${border}`,borderRadius:14,padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
-<div><div style={{...lblXs,color:colorLabel}}>{label} · {fmtPct(pctMix,2)}</div><div style={{fontFamily:OSWALD,fontSize:24,fontWeight:600,color:'#111111',marginTop:2}}>{fmtEur(bruto,{showEuro:false,decimals:2})}</div><div style={{fontSize:11,color:'#3a4050',fontFamily:LEXEND}}>Bruto</div></div>
+<div><div style={{...lblXs,color:colorLabel}}>{label} · {fmtPct(pctMix,2)}</div><div style={{fontFamily:OSWALD,fontSize:24,fontWeight:600,color:INK,marginTop:2}}>{fmtEur(bruto,{showEuro:false,decimals:2})}</div><div style={{fontSize:11,color:OSC,fontFamily:LEXEND}}>Bruto</div></div>
 <div style={{textAlign:'right'}}><div style={{fontFamily:OSWALD,fontSize:24,fontWeight:600,color:VERDE}}>{fmtEur(neto,{showEuro:false,decimals:2})}</div><div style={{fontSize:12,color:VERDE,fontFamily:LEXEND}}>Margen {fmtPct(margenPct,2)}</div></div>
 </div>)
 }
 function CardCanalMini({label,bg,border,colorLabel,bruto,neto,margenPct,pctMix}:{label:string;bg:string;border:string;colorLabel:string;bruto:number;neto:number;margenPct:number;pctMix:number}){
 return(<div style={{background:bg,border:`0.5px solid ${border}`,borderRadius:14,padding:'10px 12px'}}>
 <div style={{...lblXs,color:colorLabel}}>{label} · {fmtPct(pctMix,2)}</div>
-<div style={{fontFamily:OSWALD,fontSize:15,fontWeight:600,color:'#111111',marginTop:2}}>{fmtEur(bruto,{showEuro:false,decimals:2})}</div>
+<div style={{fontFamily:OSWALD,fontSize:15,fontWeight:600,color:INK,marginTop:2}}>{fmtEur(bruto,{showEuro:false,decimals:2})}</div>
 <div style={{fontSize:10,color:COLOR.textMut,fontFamily:LEXEND}}>{fmtEur(neto,{showEuro:false,decimals:2})} neto · {fmtPct(margenPct,2)}</div>
 </div>)
 }
@@ -152,38 +153,38 @@ const diasNecesarios=diaCubreInfo.diasNecesarios
 return(<div style={{...cardBig,background:'linear-gradient(180deg, #fff 0%, #1D9E7508 100%)'}}>
 <div style={lbl}>PUNTO DE EQUILIBRIO</div>
 <div style={{display:'flex',alignItems:'baseline',gap:18,marginTop:8,flexWrap:'wrap'}}>
-<div><div style={{fontFamily:OSWALD,fontSize:38,fontWeight:600,color:'#111111'}}>{peMensual!=null?fmtEur(peMensual,{showEuro:false,decimals:2}):'—'}</div><div style={lblXs}>BRUTO PARA NO PERDER</div></div>
+<div><div style={{fontFamily:OSWALD,fontSize:38,fontWeight:600,color:INK}}>{peMensual!=null?fmtEur(peMensual,{showEuro:false,decimals:2}):'—'}</div><div style={lblXs}>BRUTO PARA NO PERDER</div></div>
 <div><div style={{fontFamily:OSWALD,fontSize:22,fontWeight:600,color:VERDE}}>{fmtPct(margenContribPct,2)}</div><div style={{fontFamily:OSWALD,fontSize:10,letterSpacing:'1.5px',color:VERDE,textTransform:'uppercase',fontWeight:500}}>MARGEN CONTRIB.</div></div>
 </div>
 <div style={{display:'flex',alignItems:'center',gap:16,marginTop:18}}>
-<div style={{width:86,height:86,borderRadius:'50%',background:circuloColor,color:'#fff',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+<div style={{width:86,height:86,borderRadius:'50%',background:circuloColor,color:BLANCO,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
 <div style={{fontFamily:OSWALD,fontSize:24,fontWeight:600,lineHeight:1}}>{circuloLinea1}</div>
 {circuloLinea2&&<div style={{fontFamily:OSWALD,fontSize:10,fontWeight:500,letterSpacing:1,marginTop:4}}>{circuloLinea2}</div>}
 </div>
 <div style={{flex:1,display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-<div><div style={{fontFamily:OSWALD,fontSize:18,fontWeight:600,color:'#111111'}}>{diasNecesarios!=null?fmtEur(diasNecesarios,{showEuro:false,decimals:0}):'—'}</div><div style={lblXs}>DÍAS PARA CUBRIR</div></div>
-<div><div style={{fontFamily:OSWALD,fontSize:18,fontWeight:600,color:'#111111'}}>{pedidosNecesarios!=null?fmtEur(pedidosNecesarios,{showEuro:false,decimals:0}):'—'}</div><div style={lblXs}>PEDIDOS NECES.</div></div>
-<div><div style={{fontFamily:OSWALD,fontSize:14,fontWeight:600,color:'#111111'}}>{fmtEur(brutoMedioDiario,{showEuro:false,decimals:2})}</div><div style={lblXs}>€/DÍA REAL</div></div>
+<div><div style={{fontFamily:OSWALD,fontSize:18,fontWeight:600,color:INK}}>{diasNecesarios!=null?fmtEur(diasNecesarios,{showEuro:false,decimals:0}):'—'}</div><div style={lblXs}>DÍAS PARA CUBRIR</div></div>
+<div><div style={{fontFamily:OSWALD,fontSize:18,fontWeight:600,color:INK}}>{pedidosNecesarios!=null?fmtEur(pedidosNecesarios,{showEuro:false,decimals:0}):'—'}</div><div style={lblXs}>PEDIDOS NECES.</div></div>
+<div><div style={{fontFamily:OSWALD,fontSize:14,fontWeight:600,color:INK}}>{fmtEur(brutoMedioDiario,{showEuro:false,decimals:2})}</div><div style={lblXs}>€/DÍA REAL</div></div>
 <div><div style={{fontFamily:OSWALD,fontSize:14,fontWeight:600,color:brutoDiaObjetivo&&brutoMedioDiario>=brutoDiaObjetivo?VERDE:ERR}}>{brutoDiaObjetivo!=null?fmtEur(brutoDiaObjetivo,{showEuro:false,decimals:2}):'—'}</div><div style={lblXs}>€/DÍA OBJETIVO</div></div>
 </div>
 </div>
-{peMensual!=null&&<><div style={{height:8,borderRadius:4,background:'#ebe8e2',overflow:'hidden',marginTop:16}}><div style={{width:`${pctCubierto}%`,height:'100%',background:colorEstado,transition:'width 0.5s ease'}}/></div>
-<div style={{display:'flex',justifyContent:'space-between',fontFamily:LEXEND,fontSize:11,color:'#7a8090',marginTop:6}}><span>Cubierto</span><strong style={{color:colorEstado,fontFamily:OSWALD,fontSize:12}}>{fmtPct(pctCubierto,2)}</strong></div></>}
+{peMensual!=null&&<><div style={{height:8,borderRadius:4,background:BORDE_SUAVE,overflow:'hidden',marginTop:16}}><div style={{width:`${pctCubierto}%`,height:'100%',background:colorEstado,transition:'width 0.5s ease'}}/></div>
+<div style={{display:'flex',justifyContent:'space-between',fontFamily:LEXEND,fontSize:11,color:GRIS,marginTop:6}}><span>Cubierto</span><strong style={{color:colorEstado,fontFamily:OSWALD,fontSize:12}}>{fmtPct(pctCubierto,2)}</strong></div></>}
 </div>)
 }
 function CardResultado({beneficio,ebitdaPct,totalBruto,totalNeto,totalFijos,totalVariables,margenContribPct}:{beneficio:number;ebitdaPct:number;totalBruto:number;totalNeto:number;totalFijos:number;totalVariables:number;margenContribPct:number}){
 const colorBen=beneficio>=0?VERDE:ERR
-const filas=[{label:'Bruto',valor:totalBruto,color:'#111111',signed:false},{label:'Neto estimado',valor:totalNeto,color:VERDE,signed:false},{label:'Costes variables',valor:-totalVariables,color:'#3a4050',signed:true},{label:'Costes fijos',valor:-totalFijos,color:'#3a4050',signed:true}]
+const filas=[{label:'Bruto',valor:totalBruto,color:INK,signed:false},{label:'Neto estimado',valor:totalNeto,color:VERDE,signed:false},{label:'Costes variables',valor:-totalVariables,color:OSC,signed:true},{label:'Costes fijos',valor:-totalFijos,color:OSC,signed:true}]
 return(<div style={cardBig}>
 <div style={lbl}>RESULTADO</div>
 <div style={{display:'flex',alignItems:'baseline',gap:18,marginTop:8,flexWrap:'wrap'}}>
 <div><div style={{fontFamily:OSWALD,fontSize:38,fontWeight:600,color:colorBen}}>{fmtEur(beneficio,{showEuro:false,decimals:2,signed:true})}</div><div style={{fontFamily:OSWALD,fontSize:10,letterSpacing:'1.5px',color:colorBen,textTransform:'uppercase',fontWeight:500}}>BENEFICIO · EBITDA</div></div>
-<div><div style={{fontFamily:OSWALD,fontSize:22,fontWeight:600,color:colorBen}}>{fmtPct(ebitdaPct,2)}</div><div style={{fontFamily:OSWALD,fontSize:10,letterSpacing:'1.5px',color:'#7a8090',textTransform:'uppercase',fontWeight:500}}>% S/BRUTO</div></div>
+<div><div style={{fontFamily:OSWALD,fontSize:22,fontWeight:600,color:colorBen}}>{fmtPct(ebitdaPct,2)}</div><div style={{fontFamily:OSWALD,fontSize:10,letterSpacing:'1.5px',color:GRIS,textTransform:'uppercase',fontWeight:500}}>% S/BRUTO</div></div>
 </div>
-<div style={{fontFamily:LEXEND,fontSize:12,color:'#3a4050',marginTop:10,marginBottom:14}}>Margen contribución <strong style={{fontFamily:OSWALD,color:VERDE}}>{fmtPct(margenContribPct,2)}</strong></div>
+<div style={{fontFamily:LEXEND,fontSize:12,color:OSC,marginTop:10,marginBottom:14}}>Margen contribución <strong style={{fontFamily:OSWALD,color:VERDE}}>{fmtPct(margenContribPct,2)}</strong></div>
 <div style={{display:'flex',flexDirection:'column',gap:8}}>
-{filas.map((f,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',fontFamily:LEXEND,fontSize:13}}><span style={{color:'#3a4050'}}>{f.label}</span><span style={{fontFamily:OSWALD,fontWeight:600,color:f.color}}>{fmtEur(f.valor,{showEuro:false,decimals:2,signed:f.signed})}</span></div>)}
-<div style={{display:'flex',justifyContent:'space-between',fontFamily:LEXEND,fontSize:13,paddingTop:8,borderTop:'0.5px solid #d0c8bc'}}><span style={{color:'#3a4050',fontWeight:600}}>Resultado</span><span style={{fontFamily:OSWALD,fontWeight:600,color:colorBen}}>{fmtEur(beneficio,{showEuro:false,decimals:2,signed:true})}</span></div>
+{filas.map((f,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',fontFamily:LEXEND,fontSize:13}}><span style={{color:OSC}}>{f.label}</span><span style={{fontFamily:OSWALD,fontWeight:600,color:f.color}}>{fmtEur(f.valor,{showEuro:false,decimals:2,signed:f.signed})}</span></div>)}
+<div style={{display:'flex',justifyContent:'space-between',fontFamily:LEXEND,fontSize:13,paddingTop:8,borderTop:'0.5px solid #d0c8bc'}}><span style={{color:OSC,fontWeight:600}}>Resultado</span><span style={{fontFamily:OSWALD,fontWeight:600,color:colorBen}}>{fmtEur(beneficio,{showEuro:false,decimals:2,signed:true})}</span></div>
 </div>
 </div>)
 }
@@ -192,12 +193,12 @@ const pctSobreBruto=totalBruto>0?(total/totalBruto)*100:0
 return(<div style={cardBig}>
 <div style={lbl}>{titulo}</div>
 <div style={{display:'flex',alignItems:'baseline',gap:18,marginTop:8,flexWrap:'wrap'}}>
-<div><div style={{fontFamily:OSWALD,fontSize:38,fontWeight:600,color:'#111111'}}>{fmtEur(total,{showEuro:false,decimals:2})}</div><div style={lblXs}>TOTAL</div></div>
-<div><div style={{fontFamily:OSWALD,fontSize:22,fontWeight:600,color:'#7a8090'}}>{fmtPct(pctSobreBruto,2)}</div><div style={{fontFamily:OSWALD,fontSize:10,letterSpacing:'1.5px',color:'#7a8090',textTransform:'uppercase',fontWeight:500}}>S/BRUTO</div></div>
+<div><div style={{fontFamily:OSWALD,fontSize:38,fontWeight:600,color:INK}}>{fmtEur(total,{showEuro:false,decimals:2})}</div><div style={lblXs}>TOTAL</div></div>
+<div><div style={{fontFamily:OSWALD,fontSize:22,fontWeight:600,color:GRIS}}>{fmtPct(pctSobreBruto,2)}</div><div style={{fontFamily:OSWALD,fontSize:10,letterSpacing:'1.5px',color:GRIS,textTransform:'uppercase',fontWeight:500}}>S/BRUTO</div></div>
 </div>
 <div style={{marginTop:16,display:'flex',flexDirection:'column',gap:0}}>
-{filas.length===0&&<div style={{fontFamily:LEXEND,fontSize:12,color:'#7a8090',fontStyle:'italic',padding:'8px 0'}}>Sin gastos en el periodo</div>}
-{filas.map((f,i)=>{const pct=totalBruto>0?(f.valor/totalBruto)*100:0;return<div key={i} style={{display:'grid',gridTemplateColumns:'1fr auto auto',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<filas.length-1?'0.5px solid #ebe8e2':'none'}}><span style={{display:'flex',alignItems:'center',gap:8,fontFamily:LEXEND,fontSize:13,color:'#3a4050'}}><span style={{width:8,height:8,borderRadius:4,background:f.color}}/>{f.label}</span><span style={{fontFamily:OSWALD,fontSize:16,fontWeight:600,color:'#111111',minWidth:110,textAlign:'right'}}>{fmtEur(f.valor,{showEuro:false,decimals:2})}</span><span style={{fontFamily:OSWALD,fontSize:12,color:'#7a8090',minWidth:60,textAlign:'right'}}>{fmtPct(pct,2)}</span></div>})}
+{filas.length===0&&<div style={{fontFamily:LEXEND,fontSize:12,color:GRIS,fontStyle:'italic',padding:'8px 0'}}>Sin gastos en el periodo</div>}
+{filas.map((f,i)=>{const pct=totalBruto>0?(f.valor/totalBruto)*100:0;return<div key={i} style={{display:'grid',gridTemplateColumns:'1fr auto auto',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<filas.length-1?'0.5px solid #ebe8e2':'none'}}><span style={{display:'flex',alignItems:'center',gap:8,fontFamily:LEXEND,fontSize:13,color:OSC}}><span style={{width:8,height:8,borderRadius:4,background:f.color}}/>{f.label}</span><span style={{fontFamily:OSWALD,fontSize:16,fontWeight:600,color:INK,minWidth:110,textAlign:'right'}}>{fmtEur(f.valor,{showEuro:false,decimals:2})}</span><span style={{fontFamily:OSWALD,fontSize:12,color:GRIS,minWidth:60,textAlign:'right'}}>{fmtPct(pct,2)}</span></div>})}
 </div>
 </div>)
 }
@@ -219,44 +220,44 @@ function calcularEscenario(e:Escenario){const brutoEsperado=e.ticketMedio*e.pedi
 return(<div style={{marginTop:16}}>
 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(320px, 1fr))',gap:14}}>
 {escenarios.map(e=>{const calc=calcularEscenario(e);const calcBase=calcularEscenario(baseEscenario);return<CardEscenario key={e.id} escenario={e} calc={calc} calcBase={calcBase} onChangePreset={(pp)=>cambiarPreset(e.id,pp)} onChange={(c,v)=>actualizarEscenario(e.id,c,v)} onDelete={()=>eliminarEscenario(e.id)}/>})}
-{escenarios.length<6&&<button onClick={añadirEscenario} style={{...cardBig,border:'1.5px dashed #d0c8bc',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:6,minHeight:320,background:'transparent',fontFamily:OSWALD,color:'#7a8090',fontSize:14,letterSpacing:'1px',textTransform:'uppercase'}}><span style={{fontSize:32,fontWeight:300}}>+</span>Añadir escenario</button>}
+{escenarios.length<6&&<button onClick={añadirEscenario} style={{...cardBig,border:'1.5px dashed #d0c8bc',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:6,minHeight:320,background:'transparent',fontFamily:OSWALD,color:GRIS,fontSize:14,letterSpacing:'1px',textTransform:'uppercase'}}><span style={{fontSize:32,fontWeight:300}}>+</span>Añadir escenario</button>}
 </div>
 </div>)
 }
 function CardEscenario({escenario,calc,calcBase,onChangePreset,onChange,onDelete}:{escenario:Escenario;calc:{peValor:number|null;diasNec:number|null;pedNec:number|null;brutoEsperado:number;beneficio:number};calcBase:{peValor:number|null;diasNec:number|null;pedNec:number|null;brutoEsperado:number;beneficio:number};onChangePreset:(p:PresetKey)=>void;onChange:(campo:keyof Escenario,valor:number)=>void;onDelete:()=>void}){
 const e=escenario
 const tipo=PRESETS.find(p=>p.key===e.preset)?.tipo??'mixto'
-const PILL_BG:Record<string,string>={base:'#3a4050',mejora:VERDE,empeora:ERR,mixto:AMBAR}
+const PILL_BG:Record<string,string>={base:OSC,mejora:VERDE,empeora:ERR,mixto:AMBAR}
 const PILL_LABEL:Record<string,string>={base:'Base',mejora:'Mejora',empeora:'Empeora',mixto:'Custom'}
 const deltaBeneficio=calc.beneficio-calcBase.beneficio
-return(<div style={{...cardBig,borderWidth:e.bloqueado?'1.5px':'0.5px',borderColor:e.bloqueado?'#3a4050':'#d0c8bc',borderStyle:'solid'}}>
+return(<div style={{...cardBig,borderWidth:e.bloqueado?'1.5px':'0.5px',borderColor:e.bloqueado?OSC:BORDE_SUAVE,borderStyle:'solid'}}>
 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:14}}>
 <div style={{flex:1}}>
-{e.bloqueado?<div style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'1px',textTransform:'uppercase',color:'#111111'}}>Datos reales del periodo</div>:<select value={e.preset} onChange={(ev)=>onChangePreset(ev.target.value as PresetKey)} style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'0.5px',color:'#111111',background:'#fff',border:'0.5px solid #d0c8bc',borderRadius:6,padding:'5px 8px',cursor:'pointer',width:'100%'}}>{PRESETS.filter(p=>p.key!=='base').map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</select>}
+{e.bloqueado?<div style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'1px',textTransform:'uppercase',color:INK}}>Datos reales del periodo</div>:<select value={e.preset} onChange={(ev)=>onChangePreset(ev.target.value as PresetKey)} style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'0.5px',color:INK,background:BLANCO,border:'0.5px solid #d0c8bc',borderRadius:6,padding:'5px 8px',cursor:'pointer',width:'100%'}}>{PRESETS.filter(p=>p.key!=='base').map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</select>}
 </div>
 <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
-<span style={{fontFamily:OSWALD,fontSize:10,fontWeight:500,letterSpacing:'1px',padding:'3px 8px',borderRadius:4,textTransform:'uppercase',background:PILL_BG[tipo],color:'#fff'}}>{PILL_LABEL[tipo]}</span>
-{!e.bloqueado&&<button onClick={onDelete} style={{background:'transparent',border:'none',cursor:'pointer',color:'#7a8090',fontSize:18,lineHeight:1,padding:'0 4px'}} title="Eliminar">×</button>}
+<span style={{fontFamily:OSWALD,fontSize:10,fontWeight:500,letterSpacing:'1px',padding:'3px 8px',borderRadius:4,textTransform:'uppercase',background:PILL_BG[tipo],color:BLANCO}}>{PILL_LABEL[tipo]}</span>
+{!e.bloqueado&&<button onClick={onDelete} style={{background:'transparent',border:'none',cursor:'pointer',color:GRIS,fontSize:18,lineHeight:1,padding:'0 4px'}} title="Eliminar">×</button>}
 </div>
 </div>
 <RowInput label="Ticket medio" value={e.ticketMedio} decimales={2} onChange={v=>onChange('ticketMedio',v)} bloqueado={e.bloqueado}/>
 <RowInput label="Margen contribución (%)" value={e.margenPct} decimales={2} onChange={v=>onChange('margenPct',v)} bloqueado={e.bloqueado}/>
 <RowInput label="Costes fijos" value={e.fijos} decimales={2} onChange={v=>onChange('fijos',v)} bloqueado={e.bloqueado}/>
 <RowInput label="Pedidos mes" value={e.pedidosMes} decimales={0} onChange={v=>onChange('pedidosMes',v)} bloqueado={e.bloqueado}/>
-<div style={{background:'#ebe8e2',borderRadius:10,padding:14,marginTop:14}}>
-<RowResultado label="Bruto esperado" valor={fmtEur(calc.brutoEsperado,{showEuro:false,decimals:2})} color="#111111"/>
-<RowResultado label="Punto equilibrio" valor={calc.peValor!=null?fmtEur(calc.peValor,{showEuro:false,decimals:2}):'—'} color="#111111"/>
-<RowResultado label="Pedidos para PE" valor={calc.pedNec!=null?fmtEur(calc.pedNec,{showEuro:false,decimals:0}):'—'} color="#111111"/>
-<RowResultado label="Días para PE" valor={calc.diasNec!=null?`${fmtEur(calc.diasNec,{showEuro:false,decimals:0})} días`:'—'} color="#111111"/>
+<div style={{background:BORDE_SUAVE,borderRadius:10,padding:14,marginTop:14}}>
+<RowResultado label="Bruto esperado" valor={fmtEur(calc.brutoEsperado,{showEuro:false,decimals:2})} color={INK}/>
+<RowResultado label="Punto equilibrio" valor={calc.peValor!=null?fmtEur(calc.peValor,{showEuro:false,decimals:2}):'—'} color={INK}/>
+<RowResultado label="Pedidos para PE" valor={calc.pedNec!=null?fmtEur(calc.pedNec,{showEuro:false,decimals:0}):'—'} color={INK}/>
+<RowResultado label="Días para PE" valor={calc.diasNec!=null?`${fmtEur(calc.diasNec,{showEuro:false,decimals:0})} días`:'—'} color={INK}/>
 <RowResultado label="Beneficio esperado" valor={fmtEur(calc.beneficio,{showEuro:false,decimals:2,signed:true})} color={calc.beneficio>=0?VERDE:ERR} big/>
-{!e.bloqueado&&<div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:10,paddingTop:8,borderTop:'0.5px solid #d0c8bc'}}><span style={{fontFamily:OSWALD,fontSize:10,letterSpacing:'1px',textTransform:'uppercase',color:'#7a8090'}}>Vs base · beneficio</span><span style={{fontFamily:OSWALD,fontSize:14,fontWeight:600,color:deltaBeneficio>0?VERDE:deltaBeneficio<0?ERR:'#7a8090'}}>{fmtEur(deltaBeneficio,{showEuro:false,decimals:2,signed:true})}</span></div>}
+{!e.bloqueado&&<div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:10,paddingTop:8,borderTop:'0.5px solid #d0c8bc'}}><span style={{fontFamily:OSWALD,fontSize:10,letterSpacing:'1px',textTransform:'uppercase',color:GRIS}}>Vs base · beneficio</span><span style={{fontFamily:OSWALD,fontSize:14,fontWeight:600,color:deltaBeneficio>0?VERDE:deltaBeneficio<0?ERR:GRIS}}>{fmtEur(deltaBeneficio,{showEuro:false,decimals:2,signed:true})}</span></div>}
 </div>
 </div>)
 }
-function RowResultado({label,valor,color,big}:{label:string;valor:string;color:string;big?:boolean}){return(<div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:5}}><span style={{fontFamily:OSWALD,fontSize:10,fontWeight:500,letterSpacing:'1px',textTransform:'uppercase',color:'#7a8090'}}>{label}</span><span style={{fontFamily:OSWALD,fontSize:big?22:15,fontWeight:600,color}}>{valor}</span></div>)}
+function RowResultado({label,valor,color,big}:{label:string;valor:string;color:string;big?:boolean}){return(<div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:5}}><span style={{fontFamily:OSWALD,fontSize:10,fontWeight:500,letterSpacing:'1px',textTransform:'uppercase',color:GRIS}}>{label}</span><span style={{fontFamily:OSWALD,fontSize:big?22:15,fontWeight:600,color}}>{valor}</span></div>)}
 function RowInput({label,value,decimales,onChange,bloqueado}:{label:string;value:number;decimales:number;onChange:(v:number)=>void;bloqueado?:boolean}){
-const styleInput:CSSProperties={width:'100%',padding:'6px 10px',border:'0.5px solid #d0c8bc',borderRadius:6,fontSize:13,fontFamily:OSWALD,fontWeight:500,background:bloqueado?'#ebe8e2':'#fff',color:bloqueado?'#7a8090':'#111111',textAlign:'right',outline:'none',cursor:bloqueado?'not-allowed':'text'}
-return(<div style={{display:'grid',gridTemplateColumns:'1fr 110px',gap:10,alignItems:'center',padding:'5px 0'}}><span style={{fontFamily:LEXEND,fontSize:12,color:'#3a4050'}}>{label}</span><input type="number" step={decimales>0?0.01:1} value={Number.isFinite(value)?value.toFixed(decimales):''} disabled={bloqueado} onChange={(ev)=>{const n=parseFloat(ev.target.value);if(!isNaN(n))onChange(n)}} style={styleInput}/></div>)
+const styleInput:CSSProperties={width:'100%',padding:'6px 10px',border:'0.5px solid #d0c8bc',borderRadius:6,fontSize:13,fontFamily:OSWALD,fontWeight:500,background:bloqueado?BORDE_SUAVE:BLANCO,color:bloqueado?GRIS:INK,textAlign:'right',outline:'none',cursor:bloqueado?'not-allowed':'text'}
+return(<div style={{display:'grid',gridTemplateColumns:'1fr 110px',gap:10,alignItems:'center',padding:'5px 0'}}><span style={{fontFamily:LEXEND,fontSize:12,color:OSC}}>{label}</span><input type="number" step={decimales>0?0.01:1} value={Number.isFinite(value)?value.toFixed(decimales):''} disabled={bloqueado} onChange={(ev)=>{const n=parseFloat(ev.target.value);if(!isNaN(n))onChange(n)}} style={styleInput}/></div>)
 }
 
 export default PuntoEquilibrio

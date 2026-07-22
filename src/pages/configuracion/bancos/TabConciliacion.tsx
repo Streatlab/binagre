@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, GRIS, INK, LIMA } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useIsDark } from '@/hooks/useIsDark'
@@ -54,9 +55,9 @@ export default function TabConciliacion() {
   const subPillStyle = (active: boolean): React.CSSProperties => ({
     padding: '7px 14px',
     borderRadius: 6,
-    background: active ? (isDark ? '#2a2600' : '#FFF3B8') : (isDark ? '#1e1e1e' : '#ffffff'),
-    border: `1px solid ${active ? (isDark ? '#4a4000' : '#E8D066') : (isDark ? '#2a2a2a' : '#E9E1D0')}`,
-    color: active ? (isDark ? '#e8f442' : '#5a4d0a') : (isDark ? '#cccccc' : '#555555'),
+    background: active ? (isDark ? '#2a2600' : '#FFF3B8') : (isDark ? INK : BLANCO),
+    border: `1px solid ${active ? (isDark ? '#4a4000' : '#E8D066') : (isDark ? INK : '#E9E1D0')}`,
+    color: active ? (isDark ? LIMA : '#5a4d0a') : (isDark ? GRIS : '#555555'),
     fontSize: 12,
     fontWeight: active ? 600 : 500,
     fontFamily: 'Oswald, sans-serif',
@@ -119,12 +120,12 @@ function PanelCategorias() {
   }
 
   const mut = isDark ? '#777' : '#9E9588'
-  const actionColor = '#B01D23'
+  const actionColor = GRANATE
 
   if (loading) return <div style={{ padding: 24, color: mut }}>Cargando categorías…</div>
   if (error) {
     return (
-      <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: isDark ? '#ff8080' : '#B01D23', borderRadius: 12 }}>
+      <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: isDark ? '#ff8080' : GRANATE, borderRadius: 12 }}>
         {error}
       </div>
     )
@@ -222,7 +223,7 @@ function addBtn(isDark: boolean): React.CSSProperties {
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
     background: isDark ? '#2a2600' : '#FFF3B8',
-    color: isDark ? '#e8f442' : '#5a4d0a',
+    color: isDark ? LIMA : '#5a4d0a',
     border: `1px solid ${isDark ? '#4a4000' : '#E8D066'}`,
     cursor: 'pointer',
     fontFamily: 'Oswald, sans-serif',
@@ -271,7 +272,7 @@ function CategoriaModal({
   const check = (label: string, ayuda: string, valor: boolean, set: (v: boolean) => void) => (
     <ConfigField label={label}>
       <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-        <input type="checkbox" checked={valor} onChange={e => set(e.target.checked)} style={{ accentColor: '#B01D23' }} />
+        <input type="checkbox" checked={valor} onChange={e => set(e.target.checked)} style={{ accentColor: GRANATE }} />
         <span>{ayuda}</span>
       </label>
     </ConfigField>
@@ -297,7 +298,7 @@ function CategoriaModal({
       {check('Gasto fijo', 'Se repite cada mes: Running lo estima si falta', estimable, setEstimable)}
 
       {error && (
-        <div style={{ marginTop: 12, padding: 8, background: '#FCE0E2', color: '#B01D23', fontSize: 12, borderRadius: 6 }}>
+        <div style={{ marginTop: 12, padding: 8, background: '#FCE0E2', color: GRANATE, fontSize: 12, borderRadius: 6 }}>
           {error}
         </div>
       )}
@@ -366,7 +367,7 @@ function PanelReglas() {
   if (loading) return <div style={{ padding: 24, color: mut }}>Cargando reglas…</div>
   if (error) {
     return (
-      <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: isDark ? '#ff8080' : '#B01D23', borderRadius: 12 }}>
+      <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: isDark ? '#ff8080' : GRANATE, borderRadius: 12 }}>
         {error}
       </div>
     )
@@ -409,10 +410,10 @@ function PanelReglas() {
                   <TD muted>{r.set_proveedor ?? '—'}</TD>
                   <TD num bold>{r.prioridad}</TD>
                   <TD num>
-                    <input type="checkbox" checked={r.activa} onChange={() => handleToggle(r)} style={{ accentColor: '#B01D23', cursor: 'pointer' }} />
+                    <input type="checkbox" checked={r.activa} onChange={() => handleToggle(r)} style={{ accentColor: GRANATE, cursor: 'pointer' }} />
                   </TD>
                   <TD num>
-                    <button onClick={() => { setEditing(r); setModalOpen(true) }} style={actionBtn('#B01D23')}>Editar</button>
+                    <button onClick={() => { setEditing(r); setModalOpen(true) }} style={actionBtn(GRANATE)}>Editar</button>
                     <button onClick={() => handleDelete(r)} style={actionBtn(mut)}>Eliminar</button>
                   </TD>
                 </TR>
@@ -505,12 +506,12 @@ function ReglaModal({
       </ConfigField>
       <ConfigField label="Activa">
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-          <input type="checkbox" checked={activa} onChange={e => setActiva(e.target.checked)} style={{ accentColor: '#B01D23' }} />
+          <input type="checkbox" checked={activa} onChange={e => setActiva(e.target.checked)} style={{ accentColor: GRANATE }} />
           <span>Aplicar esta regla a los movimientos nuevos</span>
         </label>
       </ConfigField>
       {error && (
-        <div style={{ marginTop: 12, padding: 8, background: '#FCE0E2', color: '#B01D23', fontSize: 12, borderRadius: 6 }}>
+        <div style={{ marginTop: 12, padding: 8, background: '#FCE0E2', color: GRANATE, fontSize: 12, borderRadius: 6 }}>
           {error}
         </div>
       )}

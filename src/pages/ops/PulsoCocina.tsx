@@ -1,10 +1,11 @@
+import { AZUL_CL, BLANCO, GRIS, INK, NAR, ROJO_S, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
 
 
-const BG_OPS = '#111111'
+const BG_OPS = INK
 interface FacturacionRow {
   fecha: string
   [key: string]: unknown
@@ -21,11 +22,11 @@ interface ChannelData {
 }
 
 const CHANNELS = [
-  { key: 'uber',    label: 'Uber Eats', color: '#06C167', revKey: 'uber_neto',    ordKey: 'uber_pedidos' },
+  { key: 'uber',    label: 'Uber Eats', color: VERDE, revKey: 'uber_neto',    ordKey: 'uber_pedidos' },
   { key: 'glovo',   label: 'Glovo',     color: COLORS.glovo, revKey: 'glovo_neto',   ordKey: 'glovo_pedidos' },
-  { key: 'je',      label: 'JustEat',   color: '#f5a623', revKey: 'je_neto',      ordKey: 'je_pedidos' },
+  { key: 'je',      label: 'JustEat',   color: NAR, revKey: 'je_neto',      ordKey: 'je_pedidos' },
   { key: 'web',     label: 'Web',       color: COLORS.redSL, revKey: 'web_neto',     ordKey: 'web_pedidos' },
-  { key: 'directa', label: 'Directa',   color: '#66aaff', revKey: 'directa_neto', ordKey: 'directa_pedidos' },
+  { key: 'directa', label: 'Directa',   color: AZUL_CL, revKey: 'directa_neto', ordKey: 'directa_pedidos' },
 ]
 
 function localDateStr(): string {
@@ -101,7 +102,7 @@ export default function PulsoCocina() {
   }
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: '#ffffff' }}>
+    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: BLANCO }}>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>PULSO COCINA</h1>
@@ -110,10 +111,10 @@ export default function PulsoCocina() {
             {' · '}Actualizado {lastRefresh.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
-        <button onClick={loadData} style={{ padding: '8px 16px', background: '#1e1e1e', border: '1px solid #383838', borderRadius: 6, color: '#cccccc', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Actualizar</button>
+        <button onClick={loadData} style={{ padding: '8px 16px', background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Actualizar</button>
       </div>
 
-      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: '#ffaaaa', fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
 
       {loading ? <div style={{ color: COLOR.textMut, fontSize: 13, padding: '20px 0' }}>Cargando…</div> : (
         <>
@@ -122,7 +123,7 @@ export default function PulsoCocina() {
               { label: 'Facturación Hoy', val: fmtE(totalRevToday), avg: fmtE(totalRevAvg), delta: totalRevAvg > 0 ? ((totalRevToday - totalRevAvg) / totalRevAvg) * 100 : null },
               { label: 'Pedidos Hoy', val: Math.round(totalOrdToday).toString(), avg: `Media: ${Math.round(totalOrdAvg)}`, delta: totalOrdAvg > 0 ? ((totalOrdToday - totalOrdAvg) / totalOrdAvg) * 100 : null },
             ].map(kpi => (
-              <div key={kpi.label} style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 22px' }}>
+              <div key={kpi.label} style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 22px' }}>
                 <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 8 }}>{kpi.label}</div>
                 <div style={{ fontFamily: FONT.heading, fontSize: 32, fontWeight: 600, lineHeight: 1 }}>{kpi.val}</div>
                 <div style={{ fontSize: 12, color: '#555555', marginTop: 6 }}>{kpi.avg}</div>
@@ -138,7 +139,7 @@ export default function PulsoCocina() {
           <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #2a2a2a' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ background: '#0a0a0a' }}>
+                <tr style={{ background: INK }}>
                   {['Canal', 'Facturación Hoy', 'Media (mismo día)', 'Var.', 'Pedidos Hoy', 'Media Pedidos', 'Var.'].map(h => (
                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, fontWeight: 600, borderBottom: '1px solid #2a2a2a', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
@@ -146,11 +147,11 @@ export default function PulsoCocina() {
               </thead>
               <tbody>
                 {channels.map((ch, i) => (
-                  <tr key={ch.key} style={{ background: i % 2 === 0 ? BG_OPS : '#141414', borderBottom: '1px solid #1e1e1e' }}>
+                  <tr key={ch.key} style={{ background: i % 2 === 0 ? BG_OPS : INK, borderBottom: '1px solid #1e1e1e' }}>
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ width: 10, height: 10, borderRadius: '50%', background: ch.color, flexShrink: 0 }} />
-                        <span style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: '#cccccc' }}>{ch.label}</span>
+                        <span style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>{ch.label}</span>
                       </div>
                     </td>
                     <td style={{ padding: '12px 14px' }}>{fmtE(ch.todayRevenue)}</td>

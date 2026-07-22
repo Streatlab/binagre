@@ -1,3 +1,4 @@
+import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA } from '@/styles/neobrutal'
 /**
  * T-M7-06 — Tab Pendientes
  * Lista imports pendiente_revision o error.
@@ -72,10 +73,10 @@ function ModalEditar({
   }
 
   const inputStyle: CSSProperties = {
-    background: '#1e1e1e',
+    background: INK,
     border: '1px solid #2a2a2a',
     borderRadius: 6,
-    color: '#ffffff',
+    color: BLANCO,
     fontFamily: 'Lexend, sans-serif',
     fontSize: 13,
     padding: '7px 10px',
@@ -88,17 +89,17 @@ function ModalEditar({
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: '#1a1a1a', borderRadius: 14, padding: 28, minWidth: 380, maxWidth: 500, width: '90%' }}
+        style={{ backgroundColor: INK, borderRadius: 14, padding: 28, minWidth: 380, maxWidth: 500, width: '90%' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: '#B01D23', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 18 }}>
+        <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRANATE, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 18 }}>
           Editar import
         </div>
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#777777', marginBottom: 16 }}>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, marginBottom: 16 }}>
           {log.archivo_nombre}
         </div>
         <div style={{ marginBottom: 14 }}>
-          <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#777777', display: 'block', marginBottom: 4 }}>
+          <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, display: 'block', marginBottom: 4 }}>
             Tipo
           </label>
           <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={inputStyle}>
@@ -107,7 +108,7 @@ function ModalEditar({
           </select>
         </div>
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#777777', display: 'block', marginBottom: 4 }}>
+          <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, display: 'block', marginBottom: 4 }}>
             Nota interna
           </label>
           <textarea
@@ -122,13 +123,13 @@ function ModalEditar({
           <button
             onClick={guardar}
             disabled={saving}
-            style={{ background: '#B01D23', border: 'none', borderRadius: 6, color: '#ffffff', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 18px', cursor: 'pointer' }}
+            style={{ background: GRANATE, border: 'none', borderRadius: 6, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 18px', cursor: 'pointer' }}
           >
             {saving ? 'Guardando…' : 'Guardar'}
           </button>
           <button
             onClick={onClose}
-            style={{ background: '#222222', border: '1px solid #383838', borderRadius: 6, color: '#cccccc', fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
+            style={{ background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
           >
             Cancelar
           </button>
@@ -197,13 +198,13 @@ export default function TabPendientes({ refresh, onRefresh }: Props) {
     letterSpacing: 2,
     color: T.mut,
     fontWeight: 400,
-    background: '#0a0a0a',
+    background: INK,
     textAlign: 'left',
   }
   const td: CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
 
   const selectStyle: CSSProperties = {
-    background: '#1e1e1e',
+    background: INK,
     border: `1px solid ${T.brd}`,
     borderRadius: 6,
     color: T.pri,
@@ -233,7 +234,7 @@ export default function TabPendientes({ refresh, onRefresh }: Props) {
             </thead>
             <tbody>
               {logs.map(log => {
-                const estadoColor = log.estado === 'error' ? '#B01D23' : '#e8f442'
+                const estadoColor = log.estado === 'error' ? GRANATE : LIMA
                 const motivo = (log.detalle?.mensaje as string) ?? (log.detalle?.error as string) ?? '—'
                 return (
                   <tr key={log.id} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
@@ -270,21 +271,21 @@ export default function TabPendientes({ refresh, onRefresh }: Props) {
                         <button
                           title="Editar"
                           onClick={() => setEditando(log)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#66aaff', padding: 4 }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: AZUL_CL, padding: 4 }}
                         >
                           <Edit2 size={14} />
                         </button>
                         <button
                           title="Reintentar parser"
                           onClick={() => reintentar(log)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e8f442', padding: 4 }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: LIMA, padding: 4 }}
                         >
                           <RefreshCw size={14} />
                         </button>
                         <button
                           title="Eliminar"
                           onClick={() => eliminar(log.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B01D23', padding: 4 }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: GRANATE, padding: 4 }}
                         >
                           <Trash2 size={14} />
                         </button>

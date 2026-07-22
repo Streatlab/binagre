@@ -1,3 +1,4 @@
+import { GRIS, INK } from '@/styles/neobrutal'
 /**
  * CardSaldo — Fixes 73-80
  * FIX 73: título "PROYECCIONES"
@@ -171,8 +172,8 @@ export default function CardSaldo(_props: Props) {
 function Linea({ label, valor, colorVal }: { label: string; valor: string; colorVal?: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3, fontFamily: 'Lexend, sans-serif' }}>
-      <span style={{ color: '#7a8090' }}>{label}</span>
-      <span style={{ color: colorVal ?? '#111111' }}>{valor}</span>
+      <span style={{ color: GRIS }}>{label}</span>
+      <span style={{ color: colorVal ?? INK }}>{valor}</span>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, INK, NAR_S } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
@@ -6,13 +7,9 @@ import { FONT } from '@/styles/tokens'
 // ── Panel MKT · hub del módulo de marketing ──
 // Lee datos reales: reseñas, campañas, rendimiento ads/promo, club, playbook TP, benchmark.
 
-const INK = '#0a0a0a'
-const CREMA = '#FCEFD6'
+const CREMA = NAR_S
 const AMA = '#FFC400'
-const GRANATE = '#B01D23'
 const VERDE = '#0FB86B'
-const BLANCO = '#fff'
-
 interface ResenaRow { plataforma: string; rating: number | null; num_resenas: number | null; fecha: string }
 interface CampanaRow { id: number; nombre: string; canal: string | null; estado: string | null; fecha_inicio: string | null; fecha_fin: string | null; veredicto: string | null; resultado_real: number | null; kpi_meta: number | null }
 interface RendRow { canal: string | null; periodo_fin: string | null; ventas: number | null; roi_promo: number | null; roas: number | null; pct_fidelizado: number | null }

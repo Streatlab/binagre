@@ -6,12 +6,10 @@
 import React from "react";
 import { useRepeticionClientes } from "@/lib/finanzas/useRepeticionClientes";
 import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD,
-  GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow,
-} from "@/styles/neobrutal";
+  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
 import { fmtPct, fmtNum } from "@/lib/format";
 
-const card: React.CSSProperties = { background: "#fff", border: BORDER_CARD, boxShadow: SHADOW };
+const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW };
 
 export function RepeticionClientes({ embedded = false }: { embedded?: boolean } = {}) {
   const { loading, error, metricas, porMarca } = useRepeticionClientes();
@@ -34,7 +32,7 @@ export function RepeticionClientes({ embedded = false }: { embedded?: boolean } 
 
       {!embedded && (
         <div style={{ marginBottom: 20 }}>
-          <span style={eyebrow(NAR, "#fff")}>FINANZAS</span>
+          <span style={eyebrow(NAR, BLANCO)}>FINANZAS</span>
           <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
             REPETICIÓN DE CLIENTES
           </h1>
@@ -55,19 +53,19 @@ export function RepeticionClientes({ embedded = false }: { embedded?: boolean } 
           value={metricas.frecuenciaMedia !== null ? `${fmtNum(metricas.frecuenciaMedia, 1)} ped./cliente` : "—"}
           sub="pedidos por cliente con al menos 1 compra"
           bg={VERDE}
-          fg="#fff"
+          fg={BLANCO}
         />
         <HeroKpi
           label="Clientes perdidos (90 días)"
           value={metricas.clientesPerdidos !== null ? fmtNum(metricas.clientesPerdidos, 0) : "—"}
           sub="sin comprar en los últimos 90 días"
           bg={GRANATE}
-          fg="#fff"
+          fg={BLANCO}
         />
       </div>
 
       {sinDatos ? (
-        <div style={{ ...card, padding: "22px 24px", background: "#fff" }}>
+        <div style={{ ...card, padding: "22px 24px", background: BLANCO }}>
           <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 16, textTransform: "uppercase", color: INK, marginBottom: 8 }}>
             Sin datos en crm_clientes todavía
           </div>

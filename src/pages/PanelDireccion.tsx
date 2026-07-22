@@ -1,3 +1,4 @@
+import { BLANCO, GRANATE, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useMemo, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNum } from '@/utils/format'
@@ -296,7 +297,7 @@ export default function PanelDireccion() {
 
   function renderDelta(pct: number | null) {
     if (pct === null) return <span style={mutedStyle}>—</span>
-    const color = pct >= 0 ? '#1D9E75' : '#B01D23'
+    const color = pct >= 0 ? VERDE : GRANATE
     const arrow = pct >= 0 ? '▲' : '▼'
     return (
       <span style={{ color, fontSize: 12, fontFamily: 'Lexend, sans-serif' }}>
@@ -306,7 +307,7 @@ export default function PanelDireccion() {
   }
 
   function renderBarraProgreso(pct: number) {
-    const color = pct >= 80 ? '#1D9E75' : pct >= 50 ? '#e8f442' : '#B01D23'
+    const color = pct >= 80 ? VERDE : pct >= 50 ? LIMA : GRANATE
     return (
       <div style={{ height: 8, background: 'var(--sl-border)', borderRadius: 4, marginTop: 8 }}>
         <div style={{ height: 8, width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 4, transition: 'width 0.4s' }} />
@@ -316,7 +317,7 @@ export default function PanelDireccion() {
 
   function renderAlerta(a: Alerta, i: number) {
     const bgMap = { roja: '#3d0000', amarilla: '#2d2000', verde: '#001d0d' }
-    const borderMap = { roja: '#B01D23', amarilla: '#e8f442', verde: '#1D9E75' }
+    const borderMap = { roja: GRANATE, amarilla: LIMA, verde: VERDE }
     const iconoMap = { roja: '❌', amarilla: '⚠️', verde: '✓' }
     return (
       <div key={i} style={{
@@ -326,7 +327,7 @@ export default function PanelDireccion() {
         display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8,
       }}>
         <span style={{ fontSize: 14, flexShrink: 0 }}>{iconoMap[a.nivel]}</span>
-        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#fff', lineHeight: 1.4 }}>
+        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: BLANCO, lineHeight: 1.4 }}>
           {a.texto}
         </span>
       </div>
@@ -338,7 +339,7 @@ export default function PanelDireccion() {
     ' · ' +
     ahora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
 
-  const colorEstado = estadoGlobal === 'rojo' ? '#B01D23' : estadoGlobal === 'amarillo' ? '#e8f442' : '#1D9E75'
+  const colorEstado = estadoGlobal === 'rojo' ? GRANATE : estadoGlobal === 'amarillo' ? LIMA : VERDE
   const labelEstado = estadoGlobal === 'rojo' ? 'ROJO' : estadoGlobal === 'amarillo' ? 'AMARILLO' : 'VERDE'
 
   if (loading) {
@@ -379,7 +380,7 @@ export default function PanelDireccion() {
         <button
           onClick={cargar}
           style={{
-            background: '#B01D23', color: '#fff', border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW,
+            background: GRANATE, color: BLANCO, border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW,
             padding: '12px 20px', minHeight: 44, fontFamily: 'Oswald, sans-serif', fontSize: 13,
             letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer',
           }}
@@ -417,7 +418,7 @@ export default function PanelDireccion() {
           <div style={{
             ...bigStyle,
             color: pctCobertura !== null
-              ? (pctCobertura >= 80 ? '#1D9E75' : pctCobertura >= 50 ? '#e8f442' : '#B01D23')
+              ? (pctCobertura >= 80 ? VERDE : pctCobertura >= 50 ? LIMA : GRANATE)
               : 'var(--sl-text-muted)',
           }}>
             {pctCobertura !== null ? `${pctCobertura.toFixed(1)}%` : '—'}
@@ -437,14 +438,14 @@ export default function PanelDireccion() {
           <div style={{ marginTop: 8 }}>
             <div style={mutedStyle}>Ventas mes: <span style={{ color: 'var(--sl-btn-cancel-text)' }}>{fmtEur(ventasMes)}</span></div>
             <div style={{ ...mutedStyle, marginTop: 3 }}>
-              Proyección: <span style={{ color: proyeccionMes >= objetivoMensual ? '#1D9E75' : '#e8f442' }}>{fmtEur(proyeccionMes)}</span>
+              Proyección: <span style={{ color: proyeccionMes >= objetivoMensual ? VERDE : LIMA }}>{fmtEur(proyeccionMes)}</span>
             </div>
             <div style={{ ...mutedStyle, marginTop: 3 }}>Objetivo: <span style={{ color: 'var(--sl-btn-cancel-text)' }}>{fmtEur(objetivoMensual)}</span></div>
             <div style={{ height: 5, background: 'var(--sl-border)', borderRadius: 3, marginTop: 6 }}>
               <div style={{
                 height: 5,
                 width: `${Math.min(objetivoMensual > 0 ? (ventasMes / objetivoMensual) * 100 : 0, 100)}%`,
-                background: '#B01D23', borderRadius: 3,
+                background: GRANATE, borderRadius: 3,
               }} />
             </div>
           </div>
@@ -461,7 +462,7 @@ export default function PanelDireccion() {
             padding: '10px 16px', display: 'flex', alignItems: 'flex-start', gap: 10,
           }}>
             <span style={{ fontSize: 14 }}>✓</span>
-            <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: '#1D9E75' }}>
+            <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: VERDE }}>
               Todo en orden
             </span>
           </div>
@@ -495,7 +496,7 @@ export default function PanelDireccion() {
                 <tr key={i}>
                   <td style={{
                     padding: '10px 12px',
-                    color: i === 0 ? '#e8f442' : 'var(--sl-text-primary)',
+                    color: i === 0 ? LIMA : 'var(--sl-text-primary)',
                     borderBottom: '1px solid var(--sl-border)',
                     fontWeight: i === 0 ? 600 : 400, whiteSpace: 'nowrap',
                   }}>
@@ -513,7 +514,7 @@ export default function PanelDireccion() {
                   <td style={{ padding: '10px 12px', textAlign: 'right', borderBottom: '1px solid var(--sl-border)', whiteSpace: 'nowrap' }}>
                     {sem.variacion === null
                       ? <span style={{ color: 'var(--sl-text-muted)' }}>—</span>
-                      : <span style={{ color: sem.variacion >= 0 ? '#1D9E75' : '#B01D23' }}>
+                      : <span style={{ color: sem.variacion >= 0 ? VERDE : GRANATE }}>
                           {sem.variacion >= 0 ? '▲' : '▼'} {Math.abs(sem.variacion).toFixed(1)}%
                         </span>
                     }
