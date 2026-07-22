@@ -6,6 +6,7 @@ import { UNIDADES, n } from './types'
 import { fmtNum, fmtEur } from '@/utils/format'
 import { INK, AMA, GRANATE, GRIS, NAR, OSW, LEX } from '@/styles/neobrutal'
 import ModalIngrediente from './ModalIngrediente'
+import MicDictado from './MicDictado'
 import BuscadorItem from './BuscadorItem'
 import type { BuscadorOpcion } from './BuscadorItem'
 
@@ -411,6 +412,7 @@ export default function ModalEPS({ eps, initialNombre, ingredientes, onClose, on
                     style={{ background: '#ffffff', border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, borderRadius: 0, padding: 10, width: '100%', boxSizing: 'border-box', height: 80, resize: 'none', outline: 'none' }}
                   />
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <MicDictado onTexto={t => setTextoDictado(prev => (prev ? prev + ' ' : '') + t)} />
                     <button
                       onClick={procesarDictado}
                       disabled={loadingDictado}

@@ -58,17 +58,23 @@ export default function CabeceraEscandallo({
         </div>
       </div>
 
-      {/* Fila 2: buscador + desplazamiento (sin leyenda) */}
+      {/* Fila 2: buscador (con aspa para limpiar, B9) + desplazamiento (sin leyenda) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <input
-          value={busqueda}
-          onChange={e => onBuscar(e.target.value)}
-          placeholder={placeholder ?? '🔎  Buscar por nombre, ABV, proveedor, categoría…'}
-          style={{
-            flex: 1, minWidth: 240, background: '#ffffff', border: `2px solid ${INK}`, borderRadius: 0,
-            padding: '10px 14px', fontFamily: LEX, fontSize: 14, color: INK, outline: 'none',
-          }}
-        />
+        <div style={{ position: 'relative', flex: 1, minWidth: 240, display: 'flex' }}>
+          <input
+            value={busqueda}
+            onChange={e => onBuscar(e.target.value)}
+            placeholder={placeholder ?? '🔎  Buscar por nombre, ABV, proveedor, categoría…'}
+            style={{
+              flex: 1, background: '#ffffff', border: `2px solid ${INK}`, borderRadius: 0,
+              padding: '10px 32px 10px 14px', fontFamily: LEX, fontSize: 14, color: INK, outline: 'none',
+            }}
+          />
+          {busqueda && (
+            <button type="button" onClick={() => onBuscar('')} aria-label="Limpiar búsqueda" title="Limpiar"
+              style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', color: INK, fontFamily: OSW, fontWeight: 700, fontSize: 18, lineHeight: 1, cursor: 'pointer' }}>✕</button>
+          )}
+        </div>
         {scroll && (
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
             <button type="button" onClick={scroll.onInicio} style={scrollBtn} aria-label="Inicio">⏮</button>

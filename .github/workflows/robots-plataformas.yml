@@ -12,7 +12,7 @@ on:
       plataforma:
         description: "Plataforma"
         type: choice
-        options: ["uber", "glovo", "justeat", "sinqro", "todas"]
+        options: ["uber", "glovo", "sinqro", "todas"]
         default: "todas"
       modo:
         description: "diario | semanal | mensual | backfill"
@@ -80,11 +80,16 @@ jobs:
     needs: plan
     if: needs.plan.outputs.seguir == '1'
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    # 75 min: deja sitio al backoff de recogida de Uber (H4, hasta ~45 min) + setup.
+    # glovo/sinqro salen mucho antes, así que no hay coste extra en la práctica.
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        plataforma: ["uber", "glovo", "justeat", "sinqro"]
+        # H3 (22-jul): 'justeat' portal JUBILADO — el WAF de Just Eat devuelve 403/Turnstile
+        # a las IPs de GitHub Actions (justeat.ts L142-155), nunca entrega y ensuciaba el
+        # semáforo con latidos "ok" sin datos. La factura la cubre justeat-mail.yml.
+        plataforma: ["uber", "glovo", "sinqro"]
     steps:
       - name: ¿Toca esta plataforma?
         id: toca

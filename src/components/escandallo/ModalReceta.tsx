@@ -7,8 +7,11 @@ import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, n } from './types'
 import { INK, AMA, GRANATE, AZUL, ROJO, NAR, VERDE, GRIS, OSW, LEX } from '@/styles/neobrutal'
 import ModalIngrediente from './ModalIngrediente'
+import MicDictado from './MicDictado'
 import ModalEPS from './ModalEPS'
 import BuscadorItem from './BuscadorItem'
+// Waterfall vivo del Escandallo, extraído a módulo testeable (Bloque D) — misma fórmula.
+import { computeWaterfall, norm } from '@/utils/waterfallReceta'
 
 interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
 
@@ -48,39 +51,6 @@ function colorAlpha(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`
 }
 
-function norm(v: number): number { return v > 1 ? v / 100 : v }
-
-interface Waterfall {
-  costePlatR: number; costeEstrR: number; costeTotalR: number; margenR: number; margenPctR: number; ivaRepercutido: number
-  costePlatC: number; costeEstrC: number; costeTotalC: number; margenC: number; margenPctC: number; ivaSoportado: number
-  pvpRecR: number; pvpRecC: number; factorK: number
-}
-
-function computeWaterfall(costeMP: number, pvp: number, comision: number, estructura: number, margenDeseado: number): Waterfall {
-  const costePlatR = pvp * comision * 1.21
-  const ingresoNetoR = pvp - costePlatR
-  const costeEstrR = ingresoNetoR * estructura
-  const costeTotalR = costeMP + costePlatR + costeEstrR
-  const margenR = pvp - costeTotalR
-  const margenPctR = pvp > 0 ? (margenR / pvp) * 100 : 0
-  const ivaRepercutido = pvp > 0 ? (ingresoNetoR / 1.10) * 0.10 : 0
-
-  const costePlatC = pvp * comision
-  const ingresoNetoC = pvp - costePlatC
-  const costeEstrC = ingresoNetoC * estructura
-  const costeTotalC = costeMP + costePlatC + costeEstrC
-  const margenC = pvp - costeTotalC
-  const margenPctC = pvp > 0 ? (margenC / pvp) * 100 : 0
-  const ivaSoportado = pvp * comision * 0.21
-
-  const denomR = 1 - comision * 1.21 - estructura - margenDeseado
-  const denomC = 1 - comision - estructura - margenDeseado
-  const pvpRecR = denomR > 0 ? costeMP / denomR : 0
-  const pvpRecC = denomC > 0 ? costeMP / denomC : 0
-  const factorK = pvp > 0 && costeMP > 0 ? pvp / costeMP : 0
-
-  return { costePlatR, costeEstrR, costeTotalR, margenR, margenPctR, ivaRepercutido, costePlatC, costeEstrC, costeTotalC, margenC, margenPctC, ivaSoportado, pvpRecR, pvpRecC, factorK }
-}
 
 export default function ModalReceta({ receta, initialNombre, ingredientes, epsList, onClose, onSaved, onDelete }: Props) {
   const cfg = useConfig()
@@ -368,6 +338,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                 <div style={{ fontFamily: LEX, fontSize: 12, color: INK, marginBottom: 8 }}>Escribe o dicta ingredientes y/o EPS en lenguaje libre:</div>
                 <textarea value={textoDictado} onChange={e => setTextoDictado(e.target.value)} placeholder="Ej: 200g tomate frito, 3 dientes ajo, 50ml aceite oliva..." style={{ background: '#ffffff', border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, borderRadius: 0, padding: 10, width: '100%', boxSizing: 'border-box', height: 80, resize: 'none', outline: 'none' }} />
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <MicDictado onTexto={t => setTextoDictado(prev => (prev ? prev + ' ' : '') + t)} />
                   <button onClick={procesarDictado} disabled={loadingDictado} style={{ background: GRANATE, color: '#fff', border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 16px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', flex: 1, opacity: loadingDictado ? 0.6 : 1 }}>{loadingDictado ? 'PROCESANDO…' : 'PROCESAR'}</button>
                   <button onClick={() => { setShowDictar(false); setTextoDictado('') }} style={{ background: '#ffffff', color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, cursor: 'pointer' }}>CANCELAR</button>
                 </div>

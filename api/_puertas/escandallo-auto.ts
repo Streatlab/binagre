@@ -22,6 +22,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST' && action === 'confirmar-conteo') return await confirmarConteo(req, res)
     if (req.method === 'POST' && action === 'fusionar-borrador') return await fusionarBorrador(req, res)
     if (action === 'sugerir-fusiones') return await sugerirFusiones(req, res)
+    if (action === 'radar-ahorro') return await radarAhorro(res)
+    if (action === 'platos-sangran') return await platosSangran(req, res)
+    if (action === 'precios-sospechosos') return await preciosSospechosos(res)
+    if (action === 'inflacion') return await inflacion(res)
+    if (action === 'pareto-compras') return await paretoCompras(res)
+    if (action === 'margen-marca') return await margenMarca(res)
+    if (action === 'menu-engineering') return await menuEngineering(res)
+    if (action === 'salud-robot') return await saludRobot(res)
+    if (action === 'gasto-proveedor') return await gastoProveedor(res)
+    if (action === 'alertas-resumen') return await alertasResumen(res)
     if (action === 'completar-borradores') return await completarBorradores(req, res)
     if (action === 'procesar-lote') return await procesarLote(req, res)
     // Motor superpersistente (patrón OCR: trabajo en servidor, cron empujador, UI solo pinta)
@@ -135,6 +145,7 @@ async function procesarUnaFactura(driveClient: ReturnType<typeof google.drive>, 
 /* ───────── Fase E · procesar-lote (T5): n facturas seguidas en 1 invocación ───────── */
 const LOTE_MAX_N = 10
 const LOTE_PRESUPUESTO_MS = 260000 // deja margen bajo maxDuration=300s de la función
+const MAX_FALLOS_DRIVE = 5 // ticks seguidos con Drive caído antes de apagar el motor
 
 async function procesarLote(req: VercelRequest, res: VercelResponse) {
   if (!autorizadoCron(req)) return res.status(200).json({ ok: false, error: 'no autorizado' })
@@ -193,7 +204,7 @@ async function motorEstado(res: VercelResponse) {
 async function motorArrancar(res: VercelResponse) {
   const total = await contarFacturasMpPendientes()
   const { data, error } = await supabaseAdmin.from('escandallo_motor').update({
-    activo: true, procesadas: 0, total_al_iniciar: total,
+    activo: true, procesadas: 0, total_al_iniciar: total, fallos_drive: 0,
     ultimo_latido: null, ultimo_mensaje: total > 0 ? `En marcha: ${total} factura(s) pendientes.` : 'No hay facturas pendientes.',
     iniciado_at: new Date().toISOString(), parado_at: null,
   }).eq('id', 1).select().maybeSingle()
@@ -226,11 +237,26 @@ async function motorTick(req: VercelRequest, res: VercelResponse) {
 
   const drive = await abrirDrive()
   if (!drive.ok) {
+    // Drive caído: contamos fallos seguidos y, pasado el tope, apagamos el motor para
+    // no girar en vano gastando un tick por minuto para siempre.
+    const { data: prev } = await supabaseAdmin.from('escandallo_motor').select('fallos_drive').eq('id', 1).maybeSingle()
+    const fallos = (prev?.fallos_drive ?? 0) + 1
+    if (fallos >= MAX_FALLOS_DRIVE) {
+      await supabaseAdmin.from('escandallo_motor').update({
+        activo: false, parado_at: new Date().toISOString(), fallos_drive: fallos,
+        ultimo_latido: new Date().toISOString(),
+        ultimo_mensaje: `Motor detenido: Drive no conectado tras ${fallos} intentos. Reconéctalo en Configuración → Integraciones y vuelve a arrancar.`,
+      }).eq('id', 1)
+      return res.status(200).json({ ok: false, error: drive.error, detenido: true })
+    }
     await supabaseAdmin.from('escandallo_motor').update({
-      ultimo_latido: new Date().toISOString(), ultimo_mensaje: `Drive no conectado, reintentando: ${drive.error}`,
+      fallos_drive: fallos, ultimo_latido: new Date().toISOString(),
+      ultimo_mensaje: `Drive no conectado, reintentando (${fallos}/${MAX_FALLOS_DRIVE}): ${drive.error}`,
     }).eq('id', 1)
     return res.status(200).json({ ok: false, error: drive.error })
   }
+  // Drive va bien: reseteamos el contador de fallos.
+  await supabaseAdmin.from('escandallo_motor').update({ fallos_drive: 0 }).eq('id', 1)
 
   const inicio = Date.now()
   let procesadasTick = 0
@@ -436,6 +462,101 @@ async function sugerirFusiones(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ ok: true, sugerencias: data ?? [] })
 }
 
+/* ───────── RADAR DE AHORRO · mismo producto, proveedor más barato por ud estándar ───────── */
+async function radarAhorro(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_radar_ahorro')
+    .select('base_key, ud_std, proveedor_barato, eur_std_barato, proveedor_caro, eur_std_caro, ahorro_eur_ud_std, ahorro_pct')
+    .order('ahorro_pct', { ascending: false })
+    .limit(40)
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, radar: data ?? [] })
+}
+
+/* ───────── PLATOS QUE SANGRAN · food cost real por encima del objetivo × ventas reales ─────────
+   Cierra el bucle: la ingesta actualiza el coste del escandallo → aquí se ve en cuánto dinero
+   real/mes se traduce por plato. Objetivo de food cost configurable (?target=0.35 por defecto). */
+async function platosSangran(req: VercelRequest, res: VercelResponse) {
+  const target = num(req.query.target as string) ?? 0.35
+  const { data, error } = await supabaseAdmin.rpc('fn_escandallo_platos_sangran', { p_target: target })
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, objetivo_pct: Math.round(target * 100), platos: data ?? [] })
+}
+
+/* ───────── GUARDIÁN ANTI-ERROR DE LECTURA · precios que se disparan ×4 o caen a ¼ ───────── */
+async function preciosSospechosos(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_precios_sospechosos')
+    .select('ingrediente_id, nombre, ultimo, tipico, ratio, fecha').limit(40)
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, sospechosos: data ?? [] })
+}
+
+/* ───────── TERMÓMETRO DE INFLACIÓN · titular (variación mediana) + top movers ───────── */
+async function inflacion(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_inflacion')
+    .select('ingrediente_id, nombre, antes, ahora, var_pct')
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  const filas = (data ?? []) as Array<{ var_pct: number }>
+  let mediana: number | null = null
+  if (filas.length) {
+    const ord = filas.map(f => Number(f.var_pct)).sort((a, b) => a - b)
+    const m = Math.floor(ord.length / 2)
+    mediana = ord.length % 2 ? ord[m] : Math.round(((ord[m - 1] + ord[m]) / 2) * 10) / 10
+  }
+  const movers = [...filas].sort((a, b) => Math.abs(Number(b.var_pct)) - Math.abs(Number(a.var_pct))).slice(0, 12)
+  return res.status(200).json({ ok: true, mediana_var_pct: mediana, n: filas.length, movers })
+}
+
+/* ───────── PARETO DE COMPRAS · dónde se va el dinero de materia prima (90 días) ───────── */
+async function paretoCompras(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_pareto_compras')
+    .select('item, gasto, pct, pct_acumulado').limit(15)
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, pareto: data ?? [] })
+}
+
+/* ───────── MARGEN POR MARCA · qué marca virtual rinde mejor/peor por food cost ───────── */
+async function margenMarca(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_margen_marca')
+    .select('marca, unidades, ingresos, coste_mp, food_cost_pct, margen_pct')
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, marcas: data ?? [] })
+}
+
+/* ───────── MENU ENGINEERING · cuadrante popularidad × margen ───────── */
+async function menuEngineering(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin.rpc('fn_escandallo_menu_engineering')
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, platos: data ?? [] })
+}
+
+/* ───────── SALUD DEL ROBOT DE PRECIOS · cobertura y frescura ───────── */
+async function saludRobot(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin.from('v_escandallo_salud_robot').select('*').maybeSingle()
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, salud: data ?? null })
+}
+
+/* ───────── CONCENTRACIÓN POR PROVEEDOR · dependencia y poder de negociación (90d) ───────── */
+async function gastoProveedor(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_gasto_proveedor')
+    .select('proveedor, gasto, lineas, pct, pct_acumulado').limit(15)
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, proveedores: data ?? [] })
+}
+
+/* ───────── RESUMEN DE ALERTAS PENDIENTES · foto ejecutiva del backlog de precios ───────── */
+async function alertasResumen(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin.from('v_escandallo_alertas_resumen').select('*').maybeSingle()
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, resumen: data ?? null })
+}
+
 /* ───────── Fase T4 · completar-borradores: robot rellena formato/contenido/precio de
    borradores Mercadona vía la API pública JSON (Alcampo necesita Playwright, no cabe en
    una función serverless de Vercel — lo cubre la extensión del robot GitHub Actions,
@@ -443,11 +564,13 @@ async function sugerirFusiones(req: VercelRequest, res: VercelResponse) {
 async function completarBorradores(req: VercelRequest, res: VercelResponse) {
   if (!autorizadoCron(req)) return res.status(200).json({ ok: false, error: 'no autorizado' })
 
+  // "Necesita completar" = sin contenido normalizado (uds null), no sin formato: el
+  // formato puede quedar null legítimamente (LEY-ANTIFALSOS) y no debe reprocesarse en bucle.
   const { data: borradores, error } = await supabaseAdmin
     .from('ingredientes')
     .select('id, nombre, nombre_super, proveedor_principal, marca')
     .eq('borrador', true)
-    .is('formato', null)
+    .is('uds', null)
     .in('proveedor_principal', ['Mercadona', 'Alcampo'])
     .limit(30)
   if (error) return res.status(200).json({ ok: false, error: error.message })
@@ -483,7 +606,7 @@ async function completarBorradores(req: VercelRequest, res: VercelResponse) {
     }).eq('id', b.id)
 
     await supabaseAdmin.from('tareas_erp')
-      .update({ descripcion: `Completado por robot (Mercadona): ${parsed.formato} ${parsed.valor}${parsed.unidad}, ${match.precio}€. Revisa la merma antes de usarlo en recetas.`, updated_at: new Date().toISOString() })
+      .update({ descripcion: `Completado por robot (Mercadona): ${parsed.formato ? parsed.formato + ' ' : ''}${parsed.valor}${parsed.unidad}, ${match.precio}€. Revisa la merma antes de usarlo en recetas.`, updated_at: new Date().toISOString() })
       .eq('ingrediente_id', b.id).neq('columna', 'hecho')
 
     rellenados++
@@ -557,7 +680,7 @@ function mejorProductoMercadona(consulta: string, catalogo: ProductoMercadona[])
 }
 
 /** Extrae formato+contenido del nombre del producto TAL COMO lo da la web (ej. "Cebolla malla 2 kg"). Nunca inventa: si no hay patrón numérico+unidad reconocible, devuelve null. */
-function parsearFormatoYContenido(nombreWeb: string): { formato: string; valor: number; unidad: string } | null {
+function parsearFormatoYContenido(nombreWeb: string): { formato: string | null; valor: number; unidad: string } | null {
   const m = nombreWeb.match(/([\d]+(?:[.,]\d+)?)\s*(kg|g|gr|l|ml|ud|uds|unidad(?:es)?)\b/i)
   if (!m) return null
   const valor = parseFloat(m[1].replace(',', '.'))
@@ -566,8 +689,10 @@ function parsearFormatoYContenido(nombreWeb: string): { formato: string; valor: 
   if (unidad === 'gr') unidad = 'g'
   if (unidad.startsWith('ud')) unidad = 'ud'
   if (unidad.startsWith('unidad')) unidad = 'ud'
+  // LEY-ANTIFALSOS: el envase solo se rellena si aparece escrito en el nombre. Si no,
+  // formato queda null (dato desconocido), NUNCA un valor por defecto inventado.
   const formatoMatch = nombreWeb.match(/^(bolsa|caja|bandeja|bote|lata|botella|paquete|malla|tarrina|garrafa)/i)
-  const formato = formatoMatch ? formatoMatch[1][0].toUpperCase() + formatoMatch[1].slice(1).toLowerCase() : 'Unidad'
+  const formato = formatoMatch ? formatoMatch[1][0].toUpperCase() + formatoMatch[1].slice(1).toLowerCase() : null
   return { formato, valor, unidad }
 }
 

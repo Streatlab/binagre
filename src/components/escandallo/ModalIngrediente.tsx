@@ -70,6 +70,24 @@ const GRUPOS_PROVEEDOR: { key: ProductoProveedor['proveedor']; label: string }[]
   { key: 'otros', label: 'Otros (especialista)' },
 ]
 
+// Diccionario local de palabras clave → alérgeno (sin acentos, minúsculas). B4.
+const DICCIONARIO_ALERGENOS: Record<string, string[]> = {
+  'Gluten': ['harina', 'pan', 'trigo', 'pasta', 'espelta', 'cebada', 'centeno', 'avena', 'cuscus', 'semola', 'galleta', 'bizcocho', 'reboz', 'empanad', 'masa', 'fideo', 'macarron', 'espagueti', 'cerveza'],
+  'Lácteos': ['leche', 'queso', 'nata', 'mantequilla', 'yogur', 'lacteo', 'crema de leche', 'requeson', 'cuajada', 'mascarpone', 'mozzarella', 'parmesano', 'bechamel'],
+  'Huevo': ['huevo', 'clara', 'yema', 'tortilla', 'mayonesa', 'merengue'],
+  'Pescado': ['pescado', 'atun', 'merluza', 'bacalao', 'salmon', 'anchoa', 'boqueron', 'sardina', 'lubina', 'dorada', 'trucha', 'caballa', 'rape', 'gallo'],
+  'Crustáceos': ['gamba', 'langostino', 'marisco', 'cigala', 'cangrejo', 'necora', 'bogavante', 'langosta', 'quisquilla', 'carabinero'],
+  'Moluscos': ['mejillon', 'almeja', 'calamar', 'sepia', 'pulpo', 'berberecho', 'navaja', 'vieira', 'chipiron', 'caracol'],
+  'Frutos secos': ['almendra', 'nuez', 'nueces', 'avellana', 'anacardo', 'pistacho', 'pinon', 'castana', 'macadamia'],
+  'Cacahuetes': ['cacahuete', 'mani'],
+  'Soja': ['soja', 'tofu', 'edamame', 'tempeh', 'miso'],
+  'Apio': ['apio'],
+  'Mostaza': ['mostaza'],
+  'Sésamo': ['sesamo', 'tahini', 'ajonjoli'],
+  'Sulfitos': ['vino', 'vinagre', 'sulfito', 'mosto', 'orejones', 'pasas'],
+  'Altramuces': ['altramuz', 'altramuces', 'chocho'],
+}
+
 interface Props {
   ingrediente: Ingrediente | null
   initialNombre?: string
@@ -125,7 +143,9 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
     if (data?.alergenos && Array.isArray(data.alergenos) && data.alergenos.length) setAlergenos(data.alergenos as string[])
   }
 
-  const sugerirAlergenosIA = async () => {
+  // B4: sugerencia de alérgenos por DICCIONARIO LOCAL de palabras clave (sin llamadas
+  // externas). Primero mira la memoria (alergenos_memoria); si no, aplica el diccionario.
+  const sugerirAlergenos = async () => {
     const nb = f.nombre_base.trim()
     if (!nb) return
     setAlergSugiriendo(true)
@@ -133,22 +153,13 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
     try {
       const { data } = await supabase.from('alergenos_memoria').select('alergenos').eq('nombre_base', nb.toLowerCase()).maybeSingle()
       if (data?.alergenos && Array.isArray(data.alergenos) && data.alergenos.length) { setAlergenos(data.alergenos as string[]); return }
-      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-      if (!apiKey) { setErrAlerg('Sugerencia por IA no disponible (sin configurar). Marca a mano.'); return }
-      if (apiKey) {
-        const resp = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001', max_tokens: 256,
-            system: 'Eres experto en seguridad alimentaria. Dado el nombre de un alimento, devuelve SOLO un JSON array con los alergenos presentes habitualmente, elegidos EXACTAMENTE de esta lista: ' + JSON.stringify(ALERGENOS_14) + '. Sin markdown, sin texto extra, sin backticks. Si no tiene ninguno devuelve [].',
-            messages: [{ role: 'user', content: nb }],
-          }),
-        })
-        const d = await resp.json()
-        const txt: string = d.content?.[0]?.text ?? '[]'
-        try { const arr = JSON.parse(txt); if (Array.isArray(arr)) setAlergenos(arr.filter((a: string) => ALERGENOS_14.includes(a))) } catch { /* noop */ }
+      const t = nb.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      const encontrados = new Set<string>()
+      for (const [alerg, claves] of Object.entries(DICCIONARIO_ALERGENOS)) {
+        if (claves.some(k => t.includes(k))) encontrados.add(alerg)
       }
+      if (encontrados.size) setAlergenos([...encontrados])
+      else setErrAlerg('No he reconocido alérgenos por el nombre. Márcalos a mano.')
     } finally { setAlergSugiriendo(false) }
   }
 
@@ -501,7 +512,7 @@ export default function ModalIngrediente({ ingrediente, initialNombre, onClose, 
 
             <Block tag="Alérgenos" bg={GRANATE} fg="#fff">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, marginTop: -6 }}>
-                <button type="button" onClick={sugerirAlergenosIA} disabled={alergSugiriendo || !f.nombre_base.trim()} style={{ background: '#fff', border: `2px solid ${INK}`, color: INK, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', opacity: (alergSugiriendo || !f.nombre_base.trim()) ? 0.5 : 1 }}>{alergSugiriendo ? 'SUGIRIENDO…' : '⚡ SUGERIR (IA)'}</button>
+                <button type="button" onClick={sugerirAlergenos} disabled={alergSugiriendo || !f.nombre_base.trim()} style={{ background: '#fff', border: `2px solid ${INK}`, color: INK, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer', opacity: (alergSugiriendo || !f.nombre_base.trim()) ? 0.5 : 1 }}>{alergSugiriendo ? 'SUGIRIENDO…' : '⚡ SUGERIR'}</button>
                 {errAlerg && <span style={{ fontSize: 12, color: NAR, fontFamily: LEX }}>{errAlerg}</span>}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>

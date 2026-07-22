@@ -52,6 +52,37 @@ interface Varianza {
 interface CosteReal { inicio: string; fin: string; inventario_inicial: number; inventario_final: number; compras_periodo: number; coste_real: number }
 interface Sugerencia { borrador_id: string; borrador_nombre: string; ingrediente_id: string; ingrediente_nombre: string; similitud: number }
 interface IngLite { id: string; nombre: string }
+interface RadarAhorro {
+  base_key: string
+  ud_std: string
+  proveedor_barato: string
+  eur_std_barato: number
+  proveedor_caro: string
+  eur_std_caro: number
+  ahorro_eur_ud_std: number
+  ahorro_pct: number
+}
+interface PlatoSangra {
+  plato: string
+  marca: string
+  receta_id: string | null
+  unidades: number
+  ingresos: number
+  food_cost_pct: number
+  objetivo_pct: number
+  sangria_eur: number
+  pvp_actual: number
+  pvp_objetivo: number
+  subida_eur: number
+}
+interface Sospechoso { ingrediente_id: string; nombre: string; ultimo: number; tipico: number; ratio: number; fecha: string }
+interface Mover { ingrediente_id: string; nombre: string; antes: number; ahora: number; var_pct: number }
+interface ParetoItem { item: string; gasto: number; pct: number; pct_acumulado: number }
+interface MargenMarca { marca: string; unidades: number; ingresos: number; coste_mp: number; food_cost_pct: number; margen_pct: number }
+interface MenuPlato { plato: string; marca: string; unidades: number; margen_pct: number; cuadrante: string }
+interface SaludRobot { objetivos: number; match_ok: number; dudoso: number; sin_match: number; cargados_10d: number; ultima_ejecucion: string | null }
+interface GastoProv { proveedor: string; gasto: number; lineas: number; pct: number; pct_acumulado: number }
+interface AlertasResumen { total: number; subidas: number; bajadas: number; cambios_formato: number; mayor_subida_pct: number | null; mayor_bajada_pct: number | null }
 interface Motor {
   activo: boolean
   procesadas: number
@@ -82,19 +113,54 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const [busquedaFusion, setBusquedaFusion] = useState('')
   const [motor, setMotor] = useState<Motor | null>(null)
   const [pendientes, setPendientes] = useState<number | null>(null)
+  const [borrPage, setBorrPage] = useState(0)
+  const [radar, setRadar] = useState<RadarAhorro[]>([])
+  const [sangran, setSangran] = useState<PlatoSangra[]>([])
+  const [objetivoFood, setObjetivoFood] = useState(35)
+  const [sospechosos, setSospechosos] = useState<Sospechoso[]>([])
+  const [movers, setMovers] = useState<Mover[]>([])
+  const [inflMediana, setInflMediana] = useState<number | null>(null)
+  const [pareto, setPareto] = useState<ParetoItem[]>([])
+  const [margenMarca, setMargenMarca] = useState<MargenMarca[]>([])
+  const [menuEng, setMenuEng] = useState<MenuPlato[]>([])
+  const [saludRobot, setSaludRobot] = useState<SaludRobot | null>(null)
+  const [gastoProv, setGastoProv] = useState<GastoProv[]>([])
+  const [alertasResumen, setAlertasResumen] = useState<AlertasResumen | null>(null)
 
   const cargar = useCallback(async () => {
-    const [est, al, bo, inv, vza, cr] = await Promise.all([
+    const [est, al, bo, inv, vza, cr, rad, san, sos, infl, par, mm, me, sr, gp, ar] = await Promise.all([
       fetch(`${API}/estado`).then(r => r.ok ? r.json() : null).catch(() => null),
       supabase.from('alertas_precio').select('*, ingredientes(nombre)').eq('estado', 'pendiente').order('created_at', { ascending: false }).limit(30),
       supabase.from('ingredientes').select('*').eq('borrador', true).order('created_at', { ascending: false }).limit(50),
       supabase.from('inventarios').select('id, fecha, estado, origen').neq('estado', 'confirmado').order('fecha', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('v_varianza_ingrediente_periodo').select('*').order('desviacion_eur', { ascending: false }).limit(200),
       supabase.from('v_coste_real_periodo').select('*').order('fin', { ascending: false }).limit(1).maybeSingle(),
+      fetch(`${API}/radar-ahorro`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/platos-sangran`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/precios-sospechosos`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/inflacion`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/pareto-compras`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/margen-marca`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/menu-engineering`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/salud-robot`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/gasto-proveedor`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/alertas-resumen`).then(r => r.ok ? r.json() : null).catch(() => null),
     ])
     setEstado(est)
     setAlertas((al.data as Alerta[]) ?? [])
     setBorradores((bo.data as Ingrediente[]) ?? [])
+    setRadar((rad?.radar as RadarAhorro[]) ?? [])
+    setSangran((san?.platos as PlatoSangra[]) ?? [])
+    if (san?.objetivo_pct != null) setObjetivoFood(san.objetivo_pct)
+    setSospechosos((sos?.sospechosos as Sospechoso[]) ?? [])
+    setMovers((infl?.movers as Mover[]) ?? [])
+    setInflMediana(infl?.mediana_var_pct ?? null)
+    setPareto((par?.pareto as ParetoItem[]) ?? [])
+    setMargenMarca((mm?.marcas as MargenMarca[]) ?? [])
+    setMenuEng((me?.platos as MenuPlato[]) ?? [])
+    setSaludRobot((sr?.salud as SaludRobot) ?? null)
+    setGastoProv((gp?.proveedores as GastoProv[]) ?? [])
+    setAlertasResumen((ar?.resumen as AlertasResumen) ?? null)
     setInventario((inv.data as Inventario) ?? null)
     const ultimo = ((vza.data as Varianza[]) ?? [])
     const ultFin = ultimo.length ? ultimo.reduce((mx, v) => v.fin > mx ? v.fin : mx, ultimo[0].fin) : null
@@ -110,25 +176,6 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
 
   useEffect(() => { cargar() }, [cargar])
 
-  const TRAD_ESTADO: Record<string, string> = {
-    extraidas: 'líneas extraídas y cruzadas',
-    sin_detalle_lineas: 'la factura no desglosa artículos, o no cuadra al céntimo',
-    fallo_lectura: 'no se pudo leer el PDF',
-    error: 'error al procesar',
-  }
-
-  /* ── Fase A: procesa 1 factura (síncrona) y muestra el resultado ── */
-  const procesarUna = async () => {
-    setBusy('lote'); setMsg('Procesando factura… (puede tardar hasta un minuto, no cierres la pestaña)')
-    try {
-      const r = await fetch(`${API}/extraer-lineas`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}) })
-      const j = await r.json()
-      if (j.error) throw new Error(j.error)
-      if (j.vacio) { setMsg('No quedan facturas de materia prima pendientes.'); await cargar(); return }
-      setMsg(`Factura de ${j.proveedor ?? '—'}: ${TRAD_ESTADO[j.estado] ?? j.estado} (${j.lineas} líneas). Revisa abajo y pulsa otra vez para la siguiente.`)
-      await cargar()
-    } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
-  }
 
   /* ── SUPERPERSISTENCIA: el trabajo corre en el servidor (cron empujador). La UI solo
      lo pinta con polling a motor-estado; sobrevive a F5, cambio de módulo y cierre. ── */
@@ -316,15 +363,241 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
             <button style={btn(AMA)} disabled={busy === 'motor' || driveOff || (pendientes ?? 0) === 0} onClick={arrancarMotor}>
               Procesar todo (en 2º plano){pendientes != null ? ` · ${pendientes} pendiente(s)` : ''}
             </button>
-            <button style={btn('var(--sl-card)')} disabled={busy === 'lote' || driveOff} onClick={procesarUna}>
-              {busy === 'lote' ? 'Procesando…' : 'Procesar 1 factura'}
-            </button>
             {motor?.ultimo_mensaje && !motorActivo && (
               <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{motor.ultimo_mensaje}</span>
             )}
           </div>
         )}
       </div>
+
+      {/* Radar de ahorro · mismo producto, proveedor más barato por unidad estándar */}
+      {!!radar.length && (
+        <div style={card}>
+          <h3 style={h3}>Radar de ahorro · mismo producto, súper más barato</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Comparado por precio por unidad estándar (sin merma). Estos productos te salen más baratos cambiando de proveedor.
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>PRODUCTO</th><th style={th}>COMPRA EN</th><th style={thR}>PRECIO/UD</th><th style={th}>EN VEZ DE</th><th style={thR}>PRECIO/UD</th><th style={thR}>AHORRO</th></tr></thead>
+            <tbody>
+              {radar.map((r, i) => (
+                <tr key={`${r.base_key}-${r.ud_std}`} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700, textTransform: 'capitalize' }}>{r.base_key}</td>
+                  <td style={{ ...td, color: VERDE, fontWeight: 700 }}>{r.proveedor_barato}</td>
+                  <td style={tdNum}>{fmtES(r.eur_std_barato, 2)} €/{r.ud_std}</td>
+                  <td style={{ ...td, color: GRIS }}>{r.proveedor_caro}</td>
+                  <td style={{ ...tdNum, color: GRIS }}>{fmtES(r.eur_std_caro, 2)} €/{r.ud_std}</td>
+                  <td style={{ ...tdNum, color: VERDE, fontWeight: 700 }}>−{fmtES(r.ahorro_pct, 0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Salud del robot de precios · cobertura y frescura */}
+      {saludRobot && saludRobot.objetivos > 0 && (
+        <div style={card}>
+          <h3 style={h3}>Salud del robot de precios</h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
+            {[
+              { t: 'Objetivos', v: saludRobot.objetivos },
+              { t: 'Emparejados', v: `${saludRobot.match_ok} (${Math.round(saludRobot.match_ok / saludRobot.objetivos * 100)}%)` },
+              { t: 'Dudosos', v: saludRobot.dudoso },
+              { t: 'Sin match', v: saludRobot.sin_match },
+              { t: 'Precios cargados (10d)', v: saludRobot.cargados_10d },
+            ].map((k, i) => (
+              <div key={i}>
+                <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>{k.t}</div>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, color: INK }}>{k.v}</div>
+              </div>
+            ))}
+          </div>
+          {saludRobot.ultima_ejecucion && (
+            <p style={{ fontFamily: LEX, fontSize: 12, color: GRIS, margin: '10px 0 0' }}>
+              Última pasada: {new Date(saludRobot.ultima_ejecucion).toLocaleString('es-ES')}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Guardián anti-error de lectura · precios que se disparan o se desploman */}
+      {!!sospechosos.length && (
+        <div style={{ ...card, borderColor: ROJO, boxShadow: `6px 6px 0 ${ROJO}` }}>
+          <h3 style={{ ...h3, color: ROJO }}>⚠ Precios sospechosos · revisa antes de fiarte (posible error de lectura)</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            El último precio se dispara ×4 o cae a ¼ frente a lo habitual. Suele ser una coma mal leída en la factura. Ábrelo y corrígelo si está mal, para que no contamine el escandallo.
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>INGREDIENTE</th><th style={thR}>PRECIO LEÍDO</th><th style={thR}>HABITUAL</th><th style={thR}>×</th><th style={th} /></tr></thead>
+            <tbody>
+              {sospechosos.map((s, i) => (
+                <tr key={s.ingrediente_id} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{s.nombre}</td>
+                  <td style={{ ...tdNum, color: ROJO, fontWeight: 700 }}>{fmtES(s.ultimo, 2)} €</td>
+                  <td style={tdNum}>{fmtES(s.tipico, 2)} €</td>
+                  <td style={{ ...tdNum, color: ROJO }}>{fmtES(s.ratio, 2)}</td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    <button style={btn(AMA)} onClick={() => onOpenIngrediente({ id: s.ingrediente_id, nombre: s.nombre } as Ingrediente)}>Revisar</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Platos que sangran · food cost real por encima del objetivo × ventas reales */}
+      {!!sangran.length && (
+        <div style={card}>
+          <h3 style={h3}>Platos que sangran · coste por encima del objetivo ({objetivoFood}%)</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Con el food cost real (que la ingesta mantiene al día) y las unidades vendidas del último mes: cuánto dinero de más te cuesta la materia prima de cada plato. Súbele el precio o abarata el escandallo.
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>PLATO</th><th style={th}>MARCA</th><th style={thR}>UDS/MES</th><th style={thR}>FOOD COST</th><th style={thR}>PIERDES/MES</th><th style={thR}>PVP AHORA</th><th style={thR}>SÚBELO A</th></tr></thead>
+            <tbody>
+              {sangran.map((p, i) => (
+                <tr key={`${p.plato}-${p.marca}-${i}`} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{p.plato}</td>
+                  <td style={{ ...td, fontSize: 12, color: GRIS }}>{p.marca}</td>
+                  <td style={tdNum}>{p.unidades}</td>
+                  <td style={{ ...tdNum, color: ROJO, fontWeight: 700 }}>{fmtES(p.food_cost_pct, 0)}%</td>
+                  <td style={{ ...tdNum, color: ROJO, fontWeight: 700 }}>{fmtES(p.sangria_eur, 2)} €</td>
+                  <td style={{ ...tdNum, color: GRIS }}>{fmtES(p.pvp_actual, 2)} €</td>
+                  <td style={{ ...tdNum, color: VERDE, fontWeight: 700 }}>{fmtES(p.pvp_objetivo, 2)} € <span style={{ color: GRIS, fontWeight: 400 }}>(+{fmtES(p.subida_eur, 2)})</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Margen por marca · qué marca virtual rinde mejor/peor */}
+      {!!margenMarca.length && (
+        <div style={card}>
+          <h3 style={h3}>Margen por marca · food cost del último mes</h3>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>MARCA</th><th style={thR}>UDS</th><th style={thR}>INGRESOS</th><th style={thR}>FOOD COST</th><th style={thR}>MARGEN</th></tr></thead>
+            <tbody>
+              {margenMarca.map((m, i) => (
+                <tr key={`${m.marca}-${i}`} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{m.marca}</td>
+                  <td style={tdNum}>{m.unidades}</td>
+                  <td style={tdNum}>{fmtES(m.ingresos, 0)} €</td>
+                  <td style={{ ...tdNum, color: m.food_cost_pct > objetivoFood ? ROJO : VERDE, fontWeight: 700 }}>{fmtES(m.food_cost_pct, 0)}%</td>
+                  <td style={{ ...tdNum, fontWeight: 700 }}>{fmtES(m.margen_pct, 0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Menu engineering · popularidad × rentabilidad */}
+      {!!menuEng.length && (
+        <div style={card}>
+          <h3 style={h3}>Menu engineering · qué plato es estrella y cuál perro</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Cruzando lo que vende (popularidad) con lo que deja (margen food), respecto a la mediana de tu carta. ESTRELLA: mímalo. CABALLO: vende pero margen flojo, súbelo. ENIGMA: buen margen, poca venta, promociónalo. PERRO: revísalo o quítalo.
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>PLATO</th><th style={th}>MARCA</th><th style={thR}>UDS</th><th style={thR}>MARGEN</th><th style={th}>CUADRANTE</th></tr></thead>
+            <tbody>
+              {menuEng.slice(0, 20).map((p, i) => {
+                const col = p.cuadrante === 'ESTRELLA' ? VERDE : p.cuadrante === 'PERRO' ? ROJO : p.cuadrante === 'CABALLO' ? '#f5a623' : GRIS
+                return (
+                  <tr key={`${p.plato}-${p.marca}-${i}`} style={{ background: zebra(i) }}>
+                    <td style={{ ...td, fontWeight: 700 }}>{p.plato}</td>
+                    <td style={{ ...td, fontSize: 12, color: GRIS }}>{p.marca}</td>
+                    <td style={tdNum}>{p.unidades}</td>
+                    <td style={tdNum}>{fmtES(p.margen_pct, 0)}%</td>
+                    <td style={{ ...td, fontWeight: 700, color: col }}>{p.cuadrante}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Termómetro de inflación de la despensa */}
+      {!!movers.length && (
+        <div style={card}>
+          <h3 style={h3}>Termómetro de la despensa · {inflMediana != null ? `${inflMediana > 0 ? '+' : ''}${fmtES(inflMediana, 1)}% (mediana 45d)` : 'sin dato'}</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Variación del precio medio de cada ingrediente (últimos 45 días vs los 45-135 anteriores). Indicativo. Los que más se mueven:
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>INGREDIENTE</th><th style={thR}>ANTES</th><th style={thR}>AHORA</th><th style={thR}>VAR %</th></tr></thead>
+            <tbody>
+              {movers.map((m, i) => (
+                <tr key={m.ingrediente_id} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{m.nombre}</td>
+                  <td style={tdNum}>{fmtES(m.antes, 2)} €</td>
+                  <td style={tdNum}>{fmtES(m.ahora, 2)} €</td>
+                  <td style={{ ...tdNum, color: m.var_pct > 0 ? ROJO : VERDE, fontWeight: 700 }}>{m.var_pct > 0 ? '+' : ''}{fmtES(m.var_pct, 1)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pareto de compras · dónde se va el dinero de materia prima (90 días) */}
+      {!!pareto.length && (
+        <div style={card}>
+          <h3 style={h3}>Dónde se va el dinero · compras últimos 90 días</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Tus mayores partidas de compra. En estas es donde más pesa pelear precio (mira el Radar de ahorro).
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>PARTIDA</th><th style={thR}>GASTO</th><th style={thR}>% DEL TOTAL</th><th style={thR}>% ACUM.</th></tr></thead>
+            <tbody>
+              {pareto.map((p, i) => (
+                <tr key={`${p.item}-${i}`} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{p.item}</td>
+                  <td style={{ ...tdNum, fontWeight: 700 }}>{fmtES(p.gasto, 2)} €</td>
+                  <td style={tdNum}>{fmtES(p.pct, 1)}%</td>
+                  <td style={{ ...tdNum, color: GRIS }}>{fmtES(p.pct_acumulado, 0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Concentración por proveedor · dependencia y poder de negociación (90d) */}
+      {!!gastoProv.length && (
+        <div style={card}>
+          <h3 style={h3}>Concentración por proveedor · compras últimos 90 días</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Cuánto pesa cada proveedor en tu gasto. Mucha concentración = más poder de negociación, pero también más dependencia.
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>PROVEEDOR</th><th style={thR}>GASTO</th><th style={thR}>% DEL TOTAL</th><th style={thR}>% ACUM.</th></tr></thead>
+            <tbody>
+              {gastoProv.map((p, i) => (
+                <tr key={`${p.proveedor}-${i}`} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{p.proveedor}</td>
+                  <td style={{ ...tdNum, fontWeight: 700 }}>{fmtES(p.gasto, 2)} €</td>
+                  <td style={tdNum}>{fmtES(p.pct, 1)}%</td>
+                  <td style={{ ...tdNum, color: GRIS }}>{fmtES(p.pct_acumulado, 0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Resumen ejecutivo del backlog de alertas de precio */}
+      {alertasResumen && alertasResumen.total > 0 && (
+        <div style={{ background: AMA, border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, padding: '10px 14px', fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK }}>
+          <b>{alertasResumen.total} alertas de precio pendientes</b>: {alertasResumen.subidas} subidas, {alertasResumen.bajadas} bajadas
+          {alertasResumen.cambios_formato > 0 ? `, ${alertasResumen.cambios_formato} por cambio de formato` : ''}
+          {alertasResumen.mayor_subida_pct != null ? `. Mayor subida: +${fmtES(alertasResumen.mayor_subida_pct, 0)}%` : ''}.
+        </div>
+      )}
 
       {/* Alertas de precio */}
       {!!alertas.length && (
@@ -348,50 +621,60 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
         </div>
       )}
 
-      {/* Borradores */}
-      {!!borradores.length && (
+      {/* Borradores · A4: tabla densa paginada (20/pág) */}
+      {!!borradores.length && (() => {
+        const PS = 20
+        const nPag = Math.max(1, Math.ceil(borradores.length / PS))
+        const pg = Math.min(borrPage, nPag - 1)
+        const vis = borradores.slice(pg * PS, pg * PS + PS)
+        const vacio = (v: unknown) => v == null || String(v).trim() === '' || Number(v) === 0
+        const chip = (txt: string) => <span key={txt} style={{ fontFamily: OSW, fontSize: 10, fontWeight: 700, letterSpacing: '.5px', textTransform: 'uppercase', background: AMA, color: INK, border: `2px solid ${INK}`, padding: '1px 6px', marginRight: 4 }}>{txt}</span>
+        return (
         <div style={card}>
-          <h3 style={h3}>Ingredientes pre-creados · dicta lo que falta y quedan automatizados</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {borradores.map(b => (
-              <div key={b.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button style={btn(CREMA)} onClick={() => onOpenIngrediente(b)}>
-                    {b.nombre} {b.precio_activo != null ? `· ${fmtES(b.precio_activo, 2)}€` : ''}
-                  </button>
-                  <button style={btn('var(--sl-card)')} onClick={() => abrirBuscadorFusion(b.id)}>
-                    {fusionAbierta === b.id ? 'Cancelar' : 'Es el mismo que…'}
-                  </button>
-                </div>
-                {fusionAbierta === b.id && (
-                  <div style={{ background: 'var(--sl-card)', border: `2px solid ${INK}`, padding: 8, minWidth: 260 }}>
-                    <input
-                      autoFocus
-                      placeholder="Buscar ingrediente ya existente…"
-                      value={busquedaFusion}
-                      onChange={e => setBusquedaFusion(e.target.value)}
-                      style={{ width: '100%', fontFamily: LEX, fontSize: 13, padding: '6px 8px', border: `2px solid ${INK}`, marginBottom: 6 }}
-                    />
-                    <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {catalogoIngs
-                        .filter(i => busquedaFusion.trim().length > 1 && i.nombre.toLowerCase().includes(busquedaFusion.trim().toLowerCase()))
-                        .slice(0, 20)
-                        .map(i => (
-                          <button key={i.id} style={{ ...btn('var(--sl-card)'), textAlign: 'left', fontSize: 11 }}
-                            disabled={busy === `fusion-${b.id}`}
-                            onClick={() => fusionar(b.id, i.id, i.nombre)}>
-                            {i.nombre}
-                          </button>
-                        ))}
-                      {busquedaFusion.trim().length > 1 && !catalogoIngs.some(i => i.nombre.toLowerCase().includes(busquedaFusion.trim().toLowerCase())) && (
-                        <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Sin resultados.</span>
+          <h3 style={h3}>Ingredientes pre-creados · completa lo ámbar y quedan automatizados</h3>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>IDING</th><th style={th}>NOMBRE</th><th style={thR}>PRECIO</th><th style={th}>PROVEEDOR</th><th style={th}>FALTA</th><th style={th} /></tr></thead>
+            <tbody>
+              {vis.map((b, i) => {
+                const falta: string[] = []
+                if (vacio((b as any).formato)) falta.push('formato')
+                if (vacio((b as any).uds) || vacio((b as any).ud_std)) falta.push('unidades')
+                if (vacio((b as any).categoria)) falta.push('categoría')
+                if (vacio((b as any).merma_pct)) falta.push('merma')
+                return (
+                  <tr key={b.id} style={{ background: zebra(i) }}>
+                    <td style={{ ...td, fontFamily: OSW, fontWeight: 700, color: GRANATE }}>{(b as any).iding ?? '—'}</td>
+                    <td style={{ ...td, fontWeight: 700 }}>{b.nombre}</td>
+                    <td style={tdNum}>{b.precio_activo != null ? `${fmtES(b.precio_activo, 2)} €` : '—'}</td>
+                    <td style={{ ...td, fontSize: 12, color: GRIS }}>{(b as any).marca ?? '—'}</td>
+                    <td style={td}>{falta.length ? falta.map(chip) : <span style={{ color: VERDE, fontWeight: 700 }}>✓ listo</span>}</td>
+                    <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button style={{ ...btn(AMA), marginRight: 6 }} onClick={() => onOpenIngrediente(b)}>Completar</button>
+                      <button style={btn('var(--sl-card)')} onClick={() => abrirBuscadorFusion(b.id)}>{fusionAbierta === b.id ? 'Cerrar' : 'Es el mismo que…'}</button>
+                      {fusionAbierta === b.id && (
+                        <div style={{ background: 'var(--sl-card)', border: `2px solid ${INK}`, padding: 8, marginTop: 6, minWidth: 260, textAlign: 'left' }}>
+                          <input autoFocus placeholder="Buscar ingrediente ya existente…" value={busquedaFusion} onChange={e => setBusquedaFusion(e.target.value)} style={{ width: '100%', fontFamily: LEX, fontSize: 13, padding: '6px 8px', border: `2px solid ${INK}`, marginBottom: 6 }} />
+                          <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {catalogoIngs.filter(x => busquedaFusion.trim().length > 1 && x.nombre.toLowerCase().includes(busquedaFusion.trim().toLowerCase())).slice(0, 20).map(x => (
+                              <button key={x.id} style={{ ...btn('var(--sl-card)'), textAlign: 'left', fontSize: 11 }} disabled={busy === `fusion-${b.id}`} onClick={() => fusionar(b.id, x.id, x.nombre)}>{x.nombre}</button>
+                            ))}
+                            {busquedaFusion.trim().length > 1 && !catalogoIngs.some(x => x.nombre.toLowerCase().includes(busquedaFusion.trim().toLowerCase())) && <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Sin resultados.</span>}
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {nPag > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10 }}>
+              <button style={btn('var(--sl-card)')} disabled={pg === 0} onClick={() => setBorrPage(p => Math.max(0, p - 1))}>◀</button>
+              <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12, color: INK }}>Página {pg + 1} de {nPag} · {borradores.length} pre-creados</span>
+              <button style={btn('var(--sl-card)')} disabled={pg >= nPag - 1} onClick={() => setBorrPage(p => Math.min(nPag - 1, p + 1))}>▶</button>
+            </div>
+          )}
 
           <div style={{ marginTop: 14, paddingTop: 12, borderTop: `2px solid ${INK}` }}>
             <button style={btn(CREMA)} disabled={busy === 'sugerencias'} onClick={cargarSugerencias}>
@@ -413,7 +696,8 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
             )}
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Fase C · inventario quincenal */}
       <div style={card}>

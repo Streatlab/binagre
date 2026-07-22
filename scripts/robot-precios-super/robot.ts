@@ -631,7 +631,7 @@ async function procesarLoteMercadona(sb: SupabaseClient, objetivos: Objetivo[], 
 // semanal), sin duplicar infraestructura de navegador headless.
 type BorradorAlcampo = { id: string; nombre: string; nombre_super: string | null };
 
-function parsearFormatoYContenido(nombreWeb: string): { formato: string; valor: number; unidad: string } | null {
+function parsearFormatoYContenido(nombreWeb: string): { formato: string | null; valor: number; unidad: string } | null {
   const m = nombreWeb.match(/([\d]+(?:[.,]\d+)?)\s*(kg|g|gr|l|ml|ud|uds|unidad(?:es)?)\b/i);
   if (!m) return null;
   const valor = parseFloat(m[1].replace(',', '.'));
@@ -639,8 +639,9 @@ function parsearFormatoYContenido(nombreWeb: string): { formato: string; valor: 
   let unidad = m[2].toLowerCase();
   if (unidad === 'gr') unidad = 'g';
   if (unidad.startsWith('ud') || unidad.startsWith('unidad')) unidad = 'ud';
+  // LEY-ANTIFALSOS: formato solo si el envase aparece escrito; si no, null (no se inventa).
   const formatoMatch = nombreWeb.match(/^(bolsa|caja|bandeja|bote|lata|botella|paquete|malla|tarrina|garrafa)/i);
-  const formato = formatoMatch ? formatoMatch[1][0].toUpperCase() + formatoMatch[1].slice(1).toLowerCase() : 'Unidad';
+  const formato = formatoMatch ? formatoMatch[1][0].toUpperCase() + formatoMatch[1].slice(1).toLowerCase() : null;
   return { formato, valor, unidad };
 }
 
@@ -656,11 +657,12 @@ function normalizarContenido(valor: number, unidad: string): { std: string | nul
 }
 
 async function completarBorradoresAlcampo(browser: Browser, sb: SupabaseClient, cred: Credencial | undefined): Promise<{ procesados: number; rellenados: number }> {
+  // "Necesita completar" = sin contenido normalizado (uds null); formato puede quedar null.
   const { data: borradores, error } = await sb
     .from('ingredientes')
     .select('id, nombre, nombre_super')
     .eq('borrador', true)
-    .is('formato', null)
+    .is('uds', null)
     .eq('proveedor_principal', 'Alcampo')
     .limit(20);
   if (error) { await logRobot('precios_super', 'error', `completar-borradores alcampo: ${error.message}`); return { procesados: 0, rellenados: 0 }; }
@@ -701,11 +703,12 @@ async function completarBorradoresAlcampo(browser: Browser, sb: SupabaseClient, 
         precio_total: res.precio, eur_std: eurStd, eur_min: eurMin,
         precio1: res.precio, ultimo_precio: res.precio, precio_activo: res.precio,
       }).eq('id', b.id);
+      const fmtTxt = parsed.formato ? parsed.formato + ' ' : '';
       await sb.from('tareas_erp')
-        .update({ descripcion: `Completado por robot (Alcampo): ${parsed.formato} ${parsed.valor}${parsed.unidad}, ${res.precio}€. Revisa la merma antes de usarlo en recetas.` })
+        .update({ descripcion: `Completado por robot (Alcampo): ${fmtTxt}${parsed.valor}${parsed.unidad}, ${res.precio}€. Revisa la merma antes de usarlo en recetas.` })
         .eq('ingrediente_id', b.id).neq('columna', 'hecho');
       rellenados++;
-      await logRobot('precios_super', 'ok', `completar-borradores alcampo: ${b.nombre} → ${parsed.formato} ${parsed.valor}${parsed.unidad} ${res.precio}€`);
+      await logRobot('precios_super', 'ok', `completar-borradores alcampo: ${b.nombre} → ${fmtTxt}${parsed.valor}${parsed.unidad} ${res.precio}€`);
       await sleepAleatorio(1500, 3000);
     }
   } finally {
