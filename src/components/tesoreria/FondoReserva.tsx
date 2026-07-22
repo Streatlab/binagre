@@ -175,6 +175,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const totalPendiente = agenda?.total ?? 0
   const dotado = useMemo(() => movs.filter(m => m.tipo === 'DOTACION').reduce((a, m) => a + Number(m.importe), 0), [movs])
   const retirado = useMemo(() => movs.filter(m => m.tipo === 'RETIRADA').reduce((a, m) => a + Number(m.importe), 0), [movs])
+  const dotadoSinVerif = useMemo(() => movs.filter(m => m.tipo === 'DOTACION' && !m.verificado).reduce((a, m) => a + Number(m.importe), 0), [movs])
   // Saldo real desde el servidor (v_reserva_panel), no la suma de los últimos 100 movimientos.
   const saldo = saldoTeorico
   const fugas = useMemo(() => movs.filter(m => m.tipo === 'RETIRADA' && !m.autorizado), [movs])
@@ -401,7 +402,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             <h1 style={{ ...d('42px'), margin: '10px 0 0' }}>Reservas</h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: AZUL, color: '#fff' }}>{revisando ? 'Revisando…' : '🏦 Revisar banco'}</button>
+            <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: AZUL, color: '#fff' }}>{revisando ? 'Revisando…' : 'Revisar banco'}</button>
             <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: '#fff', color: INK }}>{refreshing ? 'Actualizando…' : '↻ Actualizar'}</button>
             <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Barrido</span>
             <button onClick={toggleActivo} style={{
@@ -414,7 +415,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
 
       {embedded && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-          <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: AZUL, color: '#fff' }}>{revisando ? 'Revisando…' : '🏦 Revisar banco'}</button>
+          <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: AZUL, color: '#fff' }}>{revisando ? 'Revisando…' : 'Revisar banco'}</button>
           <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: '#fff', color: INK }}>{refreshing ? 'Actualizando…' : '↻ Actualizar'}</button>
           <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Barrido {cfg?.fecha_inicio ? `· desde ${cfg.fecha_inicio}` : ''}</span>
           <button onClick={toggleActivo} style={{
@@ -437,14 +438,15 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
         </div>
       )}
 
-      {/* Alerta: dotaciones que el banco no ha confirmado pasado el margen de días. */}
+      {/* Alerta: dotaciones que el banco no confirma pasado el margen de días. */}
       {noVerif.length > 0 && (
-        <div style={{ background: ROJO, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 18px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: LEX, fontSize: 13 }}>
-            <strong style={{ fontFamily: OSW, letterSpacing: 0.5 }}>⚠ {noVerif.length} ingreso{noVerif.length === 1 ? '' : 's'} sin confirmar en banco</strong>
-            {' '}(más de {cfg?.tolerancia_dias ?? 3} días). {E2(noVerif.reduce((a, n) => a + n.importe, 0))} € que dijiste apartar pero el banco aún no refleja.
-          </span>
-          <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: '#fff', color: ROJO }}>{revisando ? 'Revisando…' : 'Revisar banco'}</button>
+        <div style={{ background: ROJO, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 18px', marginBottom: 16 }}>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 18, letterSpacing: 1, textTransform: 'uppercase' }}>
+            El banco no confirma {noVerif.length} traspaso{noVerif.length === 1 ? '' : 's'}
+          </div>
+          <div style={{ fontFamily: LEX, fontSize: 12.5, marginTop: 4, opacity: 0.95 }}>
+            Marcaste como hecho {E2(noVerif.reduce((a, n) => a + n.importe, 0))} € pero no aparece el movimiento en la cuenta de reserva. Comprueba que hiciste el traspaso o pulsa «Revisar banco».
+          </div>
         </div>
       )}
 
@@ -528,6 +530,11 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             <span>Entró <strong style={{ fontFamily: OSW, color: VERDE }}>{E2(dotado)}</strong></span>
             <span>Salió <strong style={{ fontFamily: OSW, color: ROJO }}>{E2(retirado)}</strong></span>
           </div>
+          {dotadoSinVerif > 0 && (
+            <div style={{ fontFamily: LEX, fontSize: 11, color: NAR, marginTop: 4 }}>
+              {E2(dotadoSinVerif)} € aún sin confirmar por el banco
+            </div>
+          )}
           <div style={{ height: 18, border: `2px solid ${INK}`, background: CLARO, marginTop: 16, overflow: 'hidden' }}>
             <div style={{ width: `${Math.min(100, Math.max(0, cobertura))}%`, height: '100%', background: colorCob, transition: 'width .5s ease' }} />
           </div>
@@ -845,10 +852,9 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
                 {m.destino ?? m.nota ?? '—'}
                 {m.tipo === 'DOTACION' && (
                   <span title={m.verificado && m.fecha_verificado ? `Confirmado en banco el ${m.fecha_verificado}` : 'El banco aún no ha confirmado este traspaso'} style={{
-                    fontFamily: OSW, fontWeight: 700, fontSize: 9.5, letterSpacing: 0.5, textTransform: 'uppercase',
-                    padding: '2px 6px', border: `2px solid ${m.verificado ? VERDE : GRIS}`,
-                    background: m.verificado ? VERDE : 'transparent', color: m.verificado ? '#fff' : GRIS,
-                  }}>{m.verificado ? '✓ banco' : 'pend. banco'}</span>
+                    fontFamily: OSW, fontWeight: 600, fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase',
+                    padding: '2px 7px', border: `1.5px solid ${m.verificado ? VERDE : NAR}`, color: m.verificado ? VERDE : NAR,
+                  }}>{m.verificado ? '✓ banco' : 'sin confirmar'}</span>
                 )}
               </span>
               <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 17, textAlign: 'right', color: m.tipo === 'DOTACION' ? VERDE : ROJO }}>
