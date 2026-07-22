@@ -4,7 +4,7 @@
 //   eur_ud_neta por línea → coste por ración (EP y receta) → coste_mp → margen por canal.
 // Si el waterfall vivo descuadra, este test bloquea el build (vitest run está en `build`).
 import { describe, it, expect } from 'vitest'
-import { computeWaterfall, costeRacion, norm } from '../src/utils/waterfallReceta'
+import { computeWaterfall, costeRacion, norm, resolveMargenDeseado, pvpRecomendado } from '../src/utils/waterfallReceta'
 
 const cerca = (a: number, b: number, tol = 1e-9) => Math.abs(a - b) < tol
 
@@ -119,5 +119,42 @@ describe('computeWaterfall: determinismo y bordes', () => {
     const base = computeWaterfall(2, 0, 0.30, 0.20, 0.25)
     const aRec = computeWaterfall(2, base.pvpRecR, 0.30, 0.20, 0.25)
     expect(aRec.margenPctR).toBeGreaterThanOrEqual(25 - 1e-6)
+  })
+})
+
+// ── LEY-MARGEN-01 · cascada de margen deseado + PVP recomendado viable ─────────
+describe('LEY-MARGEN-01 · cascada del margen deseado (override gana a global)', () => {
+  it('override de receta gana al global', () => {
+    expect(resolveMargenDeseado(35, 20)).toBeCloseTo(0.35, 10)
+  })
+  it('sin override, manda el global', () => {
+    expect(resolveMargenDeseado(null, 20)).toBeCloseTo(0.20, 10)
+    expect(resolveMargenDeseado(undefined, 15)).toBeCloseTo(0.15, 10)
+  })
+  it('sin override ni global, cae al default 20', () => {
+    expect(resolveMargenDeseado(null, null)).toBeCloseTo(0.20, 10)
+  })
+  it('acepta % (20) o decimal (0.20) indistintamente', () => {
+    expect(resolveMargenDeseado(0.30, 20)).toBeCloseTo(0.30, 10)
+    expect(resolveMargenDeseado(30, 20)).toBeCloseTo(0.30, 10)
+  })
+  it('override de 0% es un override real, no "sin valor"', () => {
+    expect(resolveMargenDeseado(0, 20)).toBe(0)
+  })
+})
+
+describe('LEY-MARGEN-01 · pvpRecomendado devuelve "sin viable" con denominador ≤ 0', () => {
+  it('parámetros normales → precio viable', () => {
+    const r = pvpRecomendado(2, 0.30, 0.20, 0.25)
+    expect(r.viable).toBe(true)
+    expect(r.pvp).toBeCloseTo(2 / (1 - 0.30 - 0.20 - 0.25), 10)
+  })
+  it('comisión + estructura + margen ≥ 1 → no viable, pvp 0', () => {
+    const r = pvpRecomendado(2, 0.30, 0.40, 0.40) // suma 1.10
+    expect(r.viable).toBe(false)
+    expect(r.pvp).toBe(0)
+  })
+  it('denominador exactamente 0 → no viable', () => {
+    expect(pvpRecomendado(2, 0.50, 0.30, 0.20).viable).toBe(false)
   })
 })

@@ -49,9 +49,18 @@ export const REDIRECTS: [string, string][] = [
   ['marketing/panel', '/ventas/marketing'],
   ['marketing/plan', '/ventas/marketing/campanas'],
   ['marketing/rendimiento-ads-promo', '/ventas/marketing/rendimiento'],
-  // ── Tanda 3 · Cocina ──
-  ['cocina/menu-familia', '/carta/menu-familia'],
-  ['cocina/pareto-ingredientes', '/cocina/menu-engineering/pareto'],
+  // ── Tanda 3 · Cocina ── (Bloque 4: menú de cocina en dos bloques Números/Operativa)
+  ['escandallo', '/cocina/numeros/datos'],
+  ['carta', '/cocina/operativa/recetas/carta'],
+  ['cocina/recetas', '/cocina/operativa/recetas'],
+  ['ops/recetas', '/cocina/operativa/recetas'],
+  ['cocina/recetario', '/cocina/operativa/recetas'],
+  ['cocina/coste-plato', '/cocina/numeros/analisis/coste'],
+  ['cocina/menu-engineering', '/cocina/numeros/analisis'],
+  ['cocina/esquemas', '/cocina/operativa/produccion'],
+  ['cocina/produccion', '/cocina/operativa/produccion'],
+  ['cocina/menu-familia', '/cocina/operativa/recetas/menu-familia'],
+  ['cocina/pareto-ingredientes', '/cocina/numeros/analisis/pareto'],
   // ── Tanda 4 · Compras ──
   ['stock/proveedores', '/compras/proveedores'],
   ['stock/inventario', '/compras/inventario'],

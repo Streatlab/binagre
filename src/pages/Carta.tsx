@@ -6,6 +6,7 @@ import { BLANCO, GRANATE, LIMA, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
+import { vincularPlato, desvincularPlato } from '@/lib/cocina/vincularCliente'
 import { useTheme, FONT, pageTitleStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 import { marginPorTodosCanales, type MargenPorCanal } from '@/lib/marcas/foodCostPorCanal'
 import { fmtEur } from '@/utils/format'
@@ -26,6 +27,7 @@ interface Plato {
   receta_id: string | null
   activo: boolean
   created_at: string
+  plato_maestro_id: number | null
 }
 
 interface Receta {
@@ -158,7 +160,15 @@ export default function Carta() {
             setRefreshKey(k => k + 1)
           }}
           onVincular={async (id, recetaId) => {
-            await supabase.from('carta_platos').update({ receta_id: recetaId }).eq('id', id)
+            // LEY-PLATO-01: vínculo único sobre el plato maestro; se refleja también en
+            // análisis/Coste. Fallback a carta si el plato aún no tiene identidad.
+            const plato = platos.find(p => p.id === id)
+            if (plato?.plato_maestro_id != null) {
+              if (recetaId) await vincularPlato(plato.plato_maestro_id, recetaId)
+              else await desvincularPlato(plato.plato_maestro_id)
+            } else {
+              await supabase.from('carta_platos').update({ receta_id: recetaId }).eq('id', id)
+            }
             setRefreshKey(k => k + 1)
           }}
         />

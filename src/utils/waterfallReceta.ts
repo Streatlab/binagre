@@ -19,6 +19,36 @@ export interface Waterfall {
 /** Normaliza un porcentaje que puede venir como 30 (→0.30) o ya como 0.30. */
 export function norm(v: number): number { return v > 1 ? v / 100 : v }
 
+/**
+ * LEY-MARGEN-01 · cascada del margen deseado (decisión Rubén 22-jul).
+ * Dos niveles, gana el más específico:
+ *   1. override por receta (`recetas.margen_deseado_pct`, nullable) — si existe, manda.
+ *   2. % global editable en Configuración (`margen_deseado_pct`).
+ *   3. default (20) si no hay ni override ni global.
+ * El `margen_deseado_pct` de `config_canales` YA NO se lee para el PVP recomendado.
+ * Entrada en % (20) o decimal (0.20); salida SIEMPRE decimal.
+ */
+export function resolveMargenDeseado(overrideReceta: number | null | undefined, global: number | null | undefined, def = 20): number {
+  const num = (v: number | null | undefined): number | null => (v == null || Number.isNaN(v) ? null : v)
+  const pick = num(overrideReceta) ?? num(global) ?? def
+  return norm(pick)
+}
+
+export interface PvpRec { viable: boolean; pvp: number }
+
+/**
+ * LEY-MARGEN-01 · PVP recomendado LIMPIO (modelo cash/C, sin tratar el IVA de la
+ * comisión como coste — ver LEY-MARGEN-02). Denominador = 1 − comisión − estructura
+ * − margenDeseado. Si el denominador es ≤ 0 no hay precio viable con esos parámetros
+ * (la UI muestra "Sin precio viable con estos parámetros", nunca un 0 mudo).
+ * `comision`/`estructura`/`margenDeseado` en decimal.
+ */
+export function pvpRecomendado(costeMP: number, comision: number, estructura: number, margenDeseado: number): PvpRec {
+  const denom = 1 - comision - estructura - margenDeseado
+  if (denom <= 0) return { viable: false, pvp: 0 }
+  return { viable: true, pvp: costeMP / denom }
+}
+
 /** Coste por ración de un EP o receta = Σ(cantidad · eur_ud_neta) / raciones.
  *  Para líneas que son un EP, eur_ud_neta es el coste_rac de ese EP (snapshot). */
 export function costeRacion(lineas: { cantidad: number; eur_ud_neta: number }[], raciones: number): number {
