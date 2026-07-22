@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { fmtNum, fmtEur, fmtDate } from '@/utils/format'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import TabHojaInventario from './TabHojaInventario'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -104,7 +105,7 @@ function activeBtn(active: boolean): React.CSSProperties {
 
 // ── Componente principal ───────────────────────────────────────────────────────
 
-type Tab = 'conteo' | 'produccion' | 'entradas'
+type Tab = 'conteo' | 'hoja' | 'produccion' | 'entradas'
 
 export default function CocinaInventario() {
   const isMobile = useIsMobile()
@@ -174,6 +175,7 @@ export default function CocinaInventario() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         <button onClick={() => setTab('conteo')} style={tabBtn(tab === 'conteo')}>Conteo físico</button>
+        <button onClick={() => setTab('hoja')} style={tabBtn(tab === 'hoja')}>Hoja de Inventario</button>
         <button onClick={() => setTab('produccion')} style={tabBtn(tab === 'produccion')}>Producción</button>
         <button onClick={() => setTab('entradas')} style={tabBtn(tab === 'entradas')}>Entradas MP</button>
       </div>
@@ -183,6 +185,7 @@ export default function CocinaInventario() {
       ) : (
         <>
           {tab === 'conteo'     && <TabConteo ingredientes={ingredientes} conteos={conteos} onRefresh={cargarBase} />}
+          {tab === 'hoja'       && <TabHojaInventario />}
           {tab === 'produccion' && <TabProduccion desde={desde} hasta={hasta} />}
           {tab === 'entradas'   && <TabEntradas desde={desde} hasta={hasta} ingredientes={ingredientes} onRefresh={cargarBase} />}
         </>
