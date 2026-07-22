@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Ingrediente } from './types'
-import { INK, CREMA, OSW, LEX, AMA, VERDE, ROJO, GRIS, GRANATE } from '@/styles/neobrutal'
+import { INK, CREMA, OSW, LEX, AMA, VERDE, ROJO, GRIS, GRANATE, ROSA_S } from '@/styles/neobrutal'
 import { th, thR, td, tdNum, tdCod, zebra } from './estilosTabla'
 
 interface Props { ingredientes: Ingrediente[] }
@@ -114,7 +114,7 @@ export default function TabEquivalencias({ ingredientes }: Props) {
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontFamily: LEX, fontSize: 13 }}>
                   <span><b>{p.texto_producto}</b> {p.proveedor_nombre ? `(${p.proveedor_nombre})` : ''} ≈ <span style={{ color: GRANATE, fontWeight: 700 }}>{ing?.iding ?? ''}</span> <b>{ing?.nombre ?? '—'}</b></span>
                   <button style={btn(VERDE)} onClick={() => aceptar(p.id)}>Confirmar</button>
-                  <button style={btn('#f3d0d0')} onClick={() => rechazar(p.id)}>Rechazar</button>
+                  <button style={btn(ROSA_S)} onClick={() => rechazar(p.id)}>Rechazar</button>
                 </div>
               )
             })}
@@ -167,7 +167,7 @@ export default function TabEquivalencias({ ingredientes }: Props) {
                   <td style={tdNum}>{e.veces_usado ?? 0}</td>
                   <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <button style={{ ...btn('var(--sl-card)'), marginRight: 6 }} onClick={() => setEditId(enEdicion ? null : e.id)}>{enEdicion ? 'Cerrar' : 'Cambiar'}</button>
-                    <button style={btn('#f3d0d0')} onClick={() => borrar(e.id)}>Borrar</button>
+                    <button style={btn(ROSA_S)} onClick={() => borrar(e.id)}>Borrar</button>
                   </td>
                 </tr>
               )

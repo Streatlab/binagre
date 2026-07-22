@@ -197,9 +197,9 @@ export const fmtDateES = fmtDate
 
 /** Semáforo para márgenes: verde >10%, amarillo >=0%, rojo <0% */
 export const semaforoClasses = (pct: number) => {
-  if (pct > 10) return 'bg-[#1e3a1e] text-[#6ee7b7]'
-  if (pct >= 0) return 'bg-[#3a2a0a] text-[#fbbf24]'
-  return 'bg-[#3a1a1a] text-[#fca5a5]'
+  if (pct > 10) return 'bg-margenok-bg text-margenok-fg'
+  if (pct >= 0) return 'bg-margenwarn-bg text-margenwarn-fg'
+  return 'bg-margenbad-bg text-margenbad-fg'
 }
 
 /** Semáforo USOS: sin usos=gris neutro, en uso=rojo corporativo */

@@ -5,8 +5,8 @@ import { fmt, fmtPct, n, getProveedor } from './types'
 import { fmtNum } from '@/utils/format'
 import { supabase } from '@/lib/supabase'
 import { useMultiSort } from '@/hooks/useMultiSort'
-import { INK, CREMA, CLARO, OSW, VERDE, ROJO, NAR, GRANATE, GRIS, AMA, AMA_S } from '@/styles/neobrutal'
-import { th, thR, thC, td, tdNum, tdSub, tdCod, zebra, bandUsos, BAND } from './estilosTabla'
+import { INK, CREMA, CLARO, OSW, VERDE, ROJO, NAR, GRANATE, GRIS, AMA, AMA_S, AZUL } from '@/styles/neobrutal'
+import { th, thR, thC, td, tdNum, tdSub, tdCod, zebra, bandUsos, BAND, SUBT } from './estilosTabla'
 import CabeceraEscandallo, { btnSecundarioEsc } from './CabeceraEscandallo'
 
 interface Props {
@@ -226,18 +226,18 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onBuscar,
                       <td style={stickyIding(usos, bg)} title={i.iding ?? undefined}>{i.iding ?? '—'}</td>
                       <td style={amber(subCell, catV)} title={tip(i.categoria)}>{rev(i.categoria ?? '—', catV)}</td>
                       <td style={{ ...cell, fontWeight: 700 }} title={tip(i.nombre_base)}>{i.nombre_base ?? '—'}</td>
-                      <td style={{ ...tdCod, background: bg, color: '#2D5BFF' }}>{i.abv ?? '—'}</td>
+                      <td style={{ ...tdCod, background: bg, color: AZUL }}>{i.abv ?? '—'}</td>
                       <td style={cell} title={tip(i.nombre)}>{i.nombre}</td>
-                      <td style={{ ...cell, color: '#5a4f3a' }} title={getProveedor(i.abv) || undefined}>{getProveedor(i.abv) || '—'}</td>
-                      <td style={{ ...cell, color: '#5a4f3a' }} title={tip(i.marca)}>{i.marca ?? '—'}</td>
-                      <td style={amber({ ...cell, color: '#5a4f3a' }, formV)} title={tip(i.formato)}>{rev(i.formato ?? '—', formV)}</td>
+                      <td style={{ ...cell, color: SUBT }} title={getProveedor(i.abv) || undefined}>{getProveedor(i.abv) || '—'}</td>
+                      <td style={{ ...cell, color: SUBT }} title={tip(i.marca)}>{i.marca ?? '—'}</td>
+                      <td style={amber({ ...cell, color: SUBT }, formV)} title={tip(i.formato)}>{rev(i.formato ?? '—', formV)}</td>
                       <td style={amber(numCell, udsV)}>{udsV ? '⚠' : fmt(i.uds)}</td>
                       <td style={amber(subCell, udStdV)}>{rev(i.ud_std ?? '—', udStdV)}</td>
                       <td style={subCell}>{i.ud_min ?? '—'}</td>
                       <td style={{ ...cell, textAlign: 'center', fontFamily: OSW, fontWeight: 700, fontSize: 16, color: colorUsos(usos) }}>{usos}</td>
-                      <td style={{ ...numCell, color: '#5a4f3a' }}>{d.p1 ? fmt(d.p1) : '—'}</td>
-                      <td style={{ ...numCell, color: '#5a4f3a' }}>{d.p2 ? fmt(d.p2) : '—'}</td>
-                      <td style={{ ...numCell, color: '#5a4f3a' }}>{d.p3 ? fmt(d.p3) : '—'}</td>
+                      <td style={{ ...numCell, color: SUBT }}>{d.p1 ? fmt(d.p1) : '—'}</td>
+                      <td style={{ ...numCell, color: SUBT }}>{d.p2 ? fmt(d.p2) : '—'}</td>
+                      <td style={{ ...numCell, color: SUBT }}>{d.p3 ? fmt(d.p3) : '—'}</td>
                       <td style={numCell}>{d.ultimoAuto ? fmt(d.ultimoAuto) : '—'}</td>
                       <td style={{ ...cell, textAlign: 'center' }}>
                         <span style={{ fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '0.5px', background: CLARO, border: `2px solid ${INK}`, padding: '2px 8px', color: INK }}>{labelSelector(i.selector_precio)}</span>
@@ -247,7 +247,7 @@ export default function TabIngredientes({ ingredientes, busqueda = '', onBuscar,
                       <td style={subCell}>{i.ud_std ?? '—'}</td>
                       <td style={numCell}>{d.eurMin ? fmtNum(d.eurMin) : '—'}</td>
                       <td style={subCell}>{i.ud_min ?? '—'}</td>
-                      <td style={{ ...subCell, color: '#5a4f3a' }}>{i.tipo_merma ?? '—'}</td>
+                      <td style={{ ...subCell, color: SUBT }}>{i.tipo_merma ?? '—'}</td>
                       <td style={{ ...numCell, color: i.tipo_merma === 'Tecnica' ? GRIS : INK }}>{i.merma_pct != null ? fmtPct(i.merma_pct) : '—'}</td>
                       <td style={{ ...numCell, color: NAR }}>{i.merma_ef != null ? fmtNum(i.merma_ef) : '—'}</td>
                       <td style={numCell}>{d.costeNetoStd ? fmtNum(d.costeNetoStd) : '—'}</td>

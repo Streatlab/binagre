@@ -11,6 +11,8 @@ import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { InlineEdit } from '@/components/configuracion/InlineEdit'
+import { GRANATE, LIMA } from '@/styles/neobrutal'
+import { COBERTURA_VERDE, BOTON_ANADIR_TXT } from '@/styles/palettes'
 
 export interface CategoriaIngrediente {
   id: string
@@ -116,7 +118,7 @@ export default function EditorCategoriasIngredientes({ titulo = 'Categorías de 
   return (
     <ConfigGroupCard title={titulo} subtitle={`${cats.length}`}>
       {error && (
-        <div style={{ margin: '0 22px 10px', padding: '8px 12px', background: '#B01D2320', color: '#B01D23', borderRadius: 8, fontFamily: FONT.body, fontSize: 12.5 }}>
+        <div style={{ margin: '0 22px 10px', padding: '8px 12px', background: GRANATE + '20', color: GRANATE, borderRadius: 8, fontFamily: FONT.body, fontSize: 12.5 }}>
           {error}
         </div>
       )}
@@ -160,8 +162,8 @@ export default function EditorCategoriasIngredientes({ titulo = 'Categorías de 
                   <span style={{
                     fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase',
                     padding: '3px 8px', borderRadius: 6,
-                    background: c.activa ? '#1D9E7520' : `${T.mut}20`,
-                    color: c.activa ? '#1D9E75' : T.mut,
+                    background: c.activa ? COBERTURA_VERDE + '20' : `${T.mut}20`,
+                    color: c.activa ? COBERTURA_VERDE : T.mut,
                   }}>
                     {c.activa ? 'Activa' : 'Archivada'}
                   </span>
@@ -181,7 +183,7 @@ export default function EditorCategoriasIngredientes({ titulo = 'Categorías de 
                       fontWeight: 600,
                       padding: 0,
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#B01D23')}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = GRANATE)}
                     onMouseLeave={(e) => (e.currentTarget.style.color = T.mut)}
                   >{c.activa ? 'Archivar' : 'Reactivar'}</button>
                 </td>
@@ -222,8 +224,8 @@ export default function EditorCategoriasIngredientes({ titulo = 'Categorías de 
             padding: '7px 14px',
             borderRadius: 6,
             border: 'none',
-            background: '#e8f442',
-            color: '#111111',
+            background: LIMA,
+            color: BOTON_ANADIR_TXT,
             fontFamily: FONT.heading,
             fontSize: 11,
             letterSpacing: '1px',

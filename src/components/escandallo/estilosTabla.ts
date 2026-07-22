@@ -12,14 +12,15 @@
  */
 import type { CSSProperties } from 'react'
 import { INK, CREMA, OSW, LEX, VERDE, NAR, ROJO, GRIS, BLANCO } from '@/styles/neobrutal'
+import { ESCANDALLO_ZEBRA_B, ESCANDALLO_SUBT, ESCANDALLO_TH_BORDE } from '@/styles/palettes'
 
 /* ── Fondos de fila (zebra cálida on-brand) ── */
 export const ZEBRA_A = BLANCO
-export const ZEBRA_B = '#F7EACE'
+export const ZEBRA_B = ESCANDALLO_ZEBRA_B
 export const zebra = (i: number): string => (i % 2 ? ZEBRA_B : ZEBRA_A)
 
 /* ── Subtítulo (código · categoría) ── */
-export const SUBT = '#5a4f3a'
+export const SUBT = ESCANDALLO_SUBT
 
 /* ── Franja lateral de estado ── */
 export const BAND = 14 // px
@@ -32,7 +33,7 @@ export const bandEnUso = (enUso: boolean): string => (enUso ? VERDE : GRIS)
 export const th: CSSProperties = {
   fontFamily: OSW, fontSize: 12.5, fontWeight: 700, letterSpacing: '0.7px', textTransform: 'uppercase',
   color: CREMA, background: INK, padding: '11px 10px', textAlign: 'left', whiteSpace: 'nowrap',
-  position: 'sticky', top: 0, borderRight: '1px solid #4a3f2c',
+  position: 'sticky', top: 0, borderRight: `1px solid ${ESCANDALLO_TH_BORDE}`,
 }
 export const thR: CSSProperties = { ...th, textAlign: 'right' }
 export const thC: CSSProperties = { ...th, textAlign: 'center' }

@@ -3,7 +3,7 @@ import type { EPS } from './types'
 import { fmtEurES, fmtES, fmtDateES, n } from './types'
 import { supabase } from '@/lib/supabase'
 import { INK, CREMA, OSW, VERDE, ROJO, AZUL, GRIS } from '@/styles/neobrutal'
-import { th, thR, thC, td, tdNum, tdCod, zebra, bandEnUso, BAND } from './estilosTabla'
+import { th, thR, thC, td, tdNum, tdCod, zebra, bandEnUso, BAND, SUBT } from './estilosTabla'
 import CabeceraEscandallo from './CabeceraEscandallo'
 
 interface Props { epsList: EPS[]; busqueda?: string; onBuscar: (v: string) => void; onSelect: (eps: EPS) => void; onNew?: () => void }
@@ -107,7 +107,7 @@ export default function TabEPS({ epsList, busqueda = '', onBuscar, onSelect, onN
                     <tr key={e.id} onClick={() => onSelect(e)} style={{ cursor: 'pointer', background: bg }}>
                       <td style={{ ...tdCod, color: AZUL, borderLeft: `${BAND}px solid ${band}` }}>{e.codigo ?? ''}</td>
                       <td style={{ ...td, fontWeight: 700 }}>{e.nombre}</td>
-                      <td style={{ ...tdNum, color: '#5a4f3a' }}>{fmtEurES(e.coste_tanda, 4)}</td>
+                      <td style={{ ...tdNum, color: SUBT }}>{fmtEurES(e.coste_tanda, 4)}</td>
                       <td style={tdNum}>{fmtEurES(e.coste_rac, 4)}</td>
                       <td style={tdNum}>{e.raciones ? fmtES(e.raciones, 0) : ''}</td>
                       <td style={{ ...td, textAlign: 'center', color: GRIS, fontSize: 13, fontFamily: OSW }}>{e.fecha ? fmtDateES(e.fecha) : ''}</td>

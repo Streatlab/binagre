@@ -163,6 +163,13 @@
   --color-ama:         #FFC400;
   --color-azul:        #2D5BFF;
   --color-rojo:        #FF1E27;
+  /* Escandallo · semaforo de margen (badge oscuro fijo, no theme-aware) */
+  --color-margenok-bg:   #1e3a1e;
+  --color-margenok-fg:   #6ee7b7;
+  --color-margenwarn-bg: #3a2a0a;
+  --color-margenwarn-fg: #fbbf24;
+  --color-margenbad-bg:  #3a1a1a;
+  --color-margenbad-fg:  #fca5a5;
   --font-sans:         "Lexend", system-ui, sans-serif;
   --font-ui:           "Oswald", system-ui, sans-serif;
   --font-title:        "Impact", "Oswald", sans-serif;

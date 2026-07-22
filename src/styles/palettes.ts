@@ -119,3 +119,12 @@ export const ESCANDALLO_DIVIDER = '#e5ddc8'
 
 /** Botón "Añadir" canónico (regla design-system): fondo LIMA, texto casi-negro fijo. */
 export const BOTON_ANADIR_TXT = '#111111'
+
+/** Escandallo · tablas (Índice/Ingredientes/Mermas/EPS/Recetas): zebra crema
+ * tostada, subtítulo y borde de cabecera — fuente única de estilosTabla.ts. */
+export const ESCANDALLO_ZEBRA_B = '#F7EACE'
+export const ESCANDALLO_SUBT = '#5a4f3a'
+export const ESCANDALLO_TH_BORDE = '#4a3f2c'
+
+/** Menú Engineering · cuadrante "Caballo" (naranja distinto de NAR del kit). */
+export const ME_CABALLO = '#f5a623'

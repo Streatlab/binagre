@@ -111,7 +111,7 @@ const btnNuevo: CSSProperties = {
 /** Botón secundario (fondo blanco) reutilizable en las cabeceras del Escandallo. */
 export const btnSecundarioEsc: CSSProperties = {
   fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1px', textTransform: 'uppercase',
-  background: '#ffffff', color: INK, border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`,
+  background: BLANCO, color: INK, border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`,
   padding: '10px 18px', cursor: 'pointer', borderRadius: 0,
 }
 

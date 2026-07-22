@@ -2,7 +2,7 @@
 // añadiendo el texto reconocido. Si el navegador NO soporta Web Speech, el botón
 // NO se renderiza (nada de botón muerto) — el textarea de al lado sigue sirviendo.
 import { useRef, useState } from 'react'
-import { INK, ROJO, OSW } from '@/styles/neobrutal'
+import { INK, ROJO, OSW, BLANCO } from '@/styles/neobrutal'
 
 // SpeechRecognition puede venir con prefijo webkit.
 const SR: any = typeof window !== 'undefined'
@@ -38,7 +38,7 @@ export default function MicDictado({ onTexto }: { onTexto: (t: string) => void }
 
   return (
     <button type="button" onClick={toggle} title={escuchando ? 'Parar dictado' : 'Dictar por voz'}
-      style={{ background: escuchando ? ROJO : '#ffffff', color: escuchando ? '#fff' : INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}>
+      style={{ background: escuchando ? ROJO : BLANCO, color: escuchando ? BLANCO : INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '7px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}>
       {escuchando ? '● GRABANDO' : '🎤 VOZ'}
     </button>
   )

@@ -251,7 +251,7 @@ export default function ModalEditarFicha({ ficha, gamasAll, onClose, onSaved }: 
             </div>
           </div>
 
-          {err && <p className="text-[#dc2626] text-sm">{err}</p>}
+          {err && <p className="text-rojo text-sm">{err}</p>}
         </div>
 
         <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-[var(--sl-border)]">
