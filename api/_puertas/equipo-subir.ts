@@ -19,6 +19,7 @@ import { clasificarDocEquipoTexto, type ClasificacionDocEquipo } from '../_lib/c
 import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen, procesarRnt } from '../_lib/subidaDocEquipo.js'
 import { cargarCandidatosEmpleados, resolverEmpleado, resolverEmpleadoEnTexto, resolverEmpleadosEnTexto } from '../_lib/matchEmpleado.js'
 import { contarRecibos, partirNominas } from '../_lib/splitNominas.js'
+import { extraerNominaAnthropicTexto } from '../_lib/extraerNomina.js'
 
 interface BodySubirEquipo {
   base64?: string
@@ -126,16 +127,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const sinRuido = enTexto.filter(m => !idsComunes.has(m.empleado_id))
       const porTexto = sinRuido.length === 1 ? sinRuido[0]
         : (sinRuido.length === 0 && enTexto.length === 1 ? enTexto[0] : null)
-      const resolucion = resolverEmpleado(clasifSeg.empleado_nombre, clasifSeg.nif_trabajador, candidatos)
-        || porTexto
+      let resolucion = resolverEmpleado(clasifSeg.empleado_nombre, clasifSeg.nif_trabajador, candidatos) || porTexto
+      // Último recurso AUTOMÁTICO: si ni cabecera ni texto resuelven, se pide a la
+      // IA el nombre del trabajador tal cual figura en el recibo (campo
+      // empleado_nombre_detectado) y se resuelve con el mismo matcher. Solo si
+      // TAMBIÉN falla eso, el segmento va a revisión — y con ese nombre como
+      // titular, no con el nombre del archivo (que lleva el del empleador).
+      let nombreIA: string | null = null
+      if (!resolucion) {
+        const ia = await extraerNominaAnthropicTexto(seg.texto).catch(() => null)
+        nombreIA = ia?.empleado_nombre_detectado ?? null
+        if (nombreIA) resolucion = resolverEmpleado(nombreIA, null, candidatos)
+      }
       if (resolucion) {
         const { status, body: out } = await procesarNominaIndividual(seg.buffer, nombreSeg, resolucion.empleado_id, resolucion.nombre, null, null)
         if (status === 200) { ok++; detalles.push({ parte: i + 1, empleado: resolucion.nombre, ok: true }); continue }
-        detalles.push(await archivarParaRevision(seg.buffer, nombreSeg, 'pdf', clasifSeg, String(out.motivo_extraccion || out.error || 'no se pudo procesar la nómina')))
+        detalles.push(await archivarParaRevision(seg.buffer, nombreSeg, 'pdf', { ...clasifSeg, empleado_nombre: nombreIA ?? clasifSeg.empleado_nombre }, String(out.motivo_extraccion || out.error || 'no se pudo procesar la nómina')))
         continue
       }
-      detalles.push(await archivarParaRevision(seg.buffer, nombreSeg, 'pdf', clasifSeg,
-        `empleado no identificado con seguridad: "${clasifSeg.empleado_nombre || 'sin nombre detectado'}"`))
+      detalles.push(await archivarParaRevision(seg.buffer, nombreSeg, 'pdf', { ...clasifSeg, empleado_nombre: nombreIA ?? clasifSeg.empleado_nombre },
+        `empleado no identificado con seguridad: "${nombreIA || clasifSeg.empleado_nombre || 'sin nombre detectado'}"`))
     }
     if (ok > 0) {
       return res.status(200).json({ ok: true, destino: 'nominas', multi: true, nominas_ok: ok, total_partes: segmentos.length, detalles })
