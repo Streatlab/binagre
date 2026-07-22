@@ -77,7 +77,7 @@ export const SECCIONES: SeccionMovil[] = [
       { path: '/carta', label: 'Carta', emoji: '🍽️', desc: 'Platos y precios', perfiles: ['admin'] },
       { path: '/cocina/menu-engineering', label: 'Menú Engineering', emoji: '⚙️', desc: 'Estrellas y perros', perfiles: ['admin'] },
       { path: '/cocina/pareto-ingredientes', label: 'Pareto Ingredientes', emoji: '🥕', desc: 'Los que más pesan', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/recetario', label: 'Recetario', emoji: '📋', desc: 'Fichas técnicas', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/recetario', label: 'Libro de Recetas', emoji: '📋', desc: 'Fichas técnicas', perfiles: ['admin', 'cocina'] },
       { path: '/cocina/produccion', label: 'Producción', emoji: '📋', desc: 'Qué se cocina', perfiles: ['admin', 'cocina'] },
       { path: '/cocina/menu-familia', label: 'Menú Familia', emoji: '🥘', desc: 'Formato familiar', perfiles: ['admin', 'cocina'] },
       { path: '/cocina/mapeo-platos', label: 'Mapeo Plato → Receta', emoji: '🔗', desc: 'Enlazar carta y receta', perfiles: ['admin'], pendiente: true },

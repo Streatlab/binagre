@@ -23,7 +23,7 @@ export default function Recetario() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <ChefHat size={24} color={GRANATE} />
         <div style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: GRANATE, textTransform: 'uppercase' }}>
-          Recetario
+          Libro de Recetas
         </div>
       </div>
 
