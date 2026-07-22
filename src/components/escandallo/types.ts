@@ -111,6 +111,7 @@ export interface Receta {
   pvp_web: number
   pvp_directa: number
   fecha?: string
+  margen_deseado_pct?: number | null   // LEY-MARGEN-01: override por receta; null => usa el global
 }
 
 export interface RecetaLinea {
