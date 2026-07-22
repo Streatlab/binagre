@@ -5,12 +5,36 @@
  * depender de otros hooks de otros módulos.
  */
 import React from "react";
+import { Link } from "react-router-dom";
 import { usePanelAlertas } from "../../lib/finanzas/usePanelAlertas";
 import type { Alerta } from "../../lib/finanzas/usePanelAlertas";
 import {
   OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD,
   GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow,
 } from "@/styles/neobrutal";
+
+/** Bloque compacto para la portada "Hoy": si no hay alertas, no ocupa espacio. */
+export function AlertasBanner() {
+  const { alertas, rojas, ambar, masUrgente, loading, error } = usePanelAlertas();
+  if (loading || error || alertas.length === 0) return null;
+
+  const color = rojas.length > 0 ? ROJO : AMA;
+  const fg = rojas.length > 0 ? '#fff' : INK;
+
+  return (
+    <Link to="/finanzas/panel-alertas" style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+      background: color, color: fg, border: `3px solid ${INK}`, boxShadow: SHADOW,
+      padding: '12px 16px', marginBottom: 14, textDecoration: 'none',
+    }}>
+      <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        ⚠ {rojas.length > 0 ? `${rojas.length} alerta${rojas.length === 1 ? '' : 's'} roja${rojas.length === 1 ? '' : 's'}` : `${ambar.length} alerta${ambar.length === 1 ? '' : 's'} ámbar`}
+        {masUrgente && <span style={{ fontFamily: LEX, fontWeight: 400, marginLeft: 8 }}>· {masUrgente}</span>}
+      </span>
+      <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textDecoration: 'underline' }}>VER TODAS →</span>
+    </Link>
+  );
+}
 
 export default function PanelAlertas() {
   const { alertas, rojas, ambar, masUrgente, loading, error } = usePanelAlertas();
