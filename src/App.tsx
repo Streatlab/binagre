@@ -45,6 +45,9 @@ const TabProveedores = React.lazy(() => import('@/pages/configuracion/compras/Ta
 const TabCategorias = React.lazy(() => import('@/pages/configuracion/compras/TabCategorias'))
 const TabUnidades = React.lazy(() => import('@/pages/configuracion/compras/TabUnidades'))
 
+const CocinaPage = React.lazy(() => import('@/pages/configuracion/cocina/CocinaPage'))
+const TabFormatoNumeros = React.lazy(() => import('@/pages/configuracion/cocina/TabFormatoNumeros'))
+
 const UsuariosPage = React.lazy(() => import('@/pages/configuracion/usuarios/UsuariosPage'))
 const CalendarioPage = React.lazy(() => import('@/pages/configuracion/calendario/CalendarioPage'))
 const AprendizajesPage = React.lazy(() => import('@/pages/configuracion/AprendizajesPage'))
@@ -192,6 +195,14 @@ function AppRoutes() {
             <Route path="proveedores" element={<TabProveedores />} />
             <Route path="categorias"  element={<TabCategorias />} />
             <Route path="unidades"    element={<TabUnidades />} />
+          </Route>
+
+          <Route path="configuracion/cocina" element={<ProtectedRoute solo={['admin']}><CocinaPage /></ProtectedRoute>}>
+            <Route index element={<Navigate to="categorias" replace />} />
+            <Route path="categorias"      element={<TabCategorias />} />
+            <Route path="unidades"        element={<TabUnidades />} />
+            <Route path="proveedores"     element={<TabProveedores />} />
+            <Route path="formato-numeros" element={<TabFormatoNumeros />} />
           </Route>
 
           <Route path="configuracion/usuarios" element={<ProtectedRoute solo={['admin']}><UsuariosPage /></ProtectedRoute>} />

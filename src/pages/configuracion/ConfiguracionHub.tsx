@@ -1,12 +1,13 @@
 /**
  * Configuración — hub del área Ajustes (D·Tanda 6).
- * Reúne los 8 apartados de configuración en una sola entrada de menú.
+ * Reúne los apartados de configuración en una sola entrada de menú.
  * No reescribe ninguna pantalla: solo enlaza a las existentes.
  */
 import { Link } from 'react-router-dom'
 import { useTheme, FONT } from '@/styles/tokens'
 
 const APARTADOS = [
+  { to: '/configuracion/cocina',               emoji: '🍳', label: 'Cocina',               desc: 'Categorías, unidades, proveedores y formato de números' },
   { to: '/configuracion/integraciones',        emoji: '🔌', label: 'Integraciones',        desc: 'Marcas, canales y Drive' },
   { to: '/configuracion/reglas',               emoji: '📐', label: 'Reglas',               desc: 'Ingredientes, conciliación, OCR' },
   { to: '/configuracion/bancos-y-cuentas',     emoji: '🏦', label: 'Bancos y Cuentas',     desc: 'Cuentas, categorías y matching' },

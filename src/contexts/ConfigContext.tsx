@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
+import { setDecimalesNum } from '@/utils/format'
 
 export interface MarcaConfig {
   id: string
@@ -50,10 +51,11 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [marcasRes, catRes, canalesRes] = await Promise.allSettled([
+    const [marcasRes, catRes, canalesRes, formatoRes] = await Promise.allSettled([
       supabase.from('marcas').select('id,nombre,estado,archivada_at').order('nombre'),
       supabase.from('categorias_maestras').select('codigo,nombre,grupo,activa,signo').order('orden_grupo').order('orden_sub'),
       supabase.from('config_canales').select('id,canal,comision_pct,fijo_eur,fee_periodo_eur,activo').order('canal'),
+      supabase.from('configuracion').select('valor').eq('clave', 'formato_numeros').maybeSingle(),
     ])
 
     if (marcasRes.status === 'fulfilled' && marcasRes.value.data) {
@@ -69,6 +71,11 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     if (canalesRes.status === 'fulfilled' && canalesRes.value.data) {
       const all = canalesRes.value.data as CanalConfig[]
       setCanalesActivos(all.filter(c => c.activo))
+    }
+
+    if (formatoRes.status === 'fulfilled' && formatoRes.value.data?.valor) {
+      const n = parseFloat(String(formatoRes.value.data.valor))
+      if (Number.isFinite(n)) setDecimalesNum(n)
     }
     setLoading(false)
   }, [])
