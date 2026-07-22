@@ -6,6 +6,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import { COLORS, FONT, CARDS } from '@/components/panel/resumen/tokens'
+import { ANALYTICS_WEB_ALT, ANALYTICS_DIRECTA_ALT } from '@/styles/palettes'
 
 interface Row {
   plataforma: string
@@ -22,7 +23,7 @@ const CANAL_LABEL: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat', je: 'Just Eat', web: 'Web', directa: 'Directa',
 }
 const CANAL_COLOR: Record<string, string> = {
-  uber: COLORS.uber, glovo: COLORS.glovo, just_eat: COLORS.je, je: COLORS.je, web: '#6b7cff', directa: '#9b59b6',
+  uber: COLORS.uber, glovo: COLORS.glovo, just_eat: COLORS.je, je: COLORS.je, web: ANALYTICS_WEB_ALT, directa: ANALYTICS_DIRECTA_ALT,
 }
 const MES = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 

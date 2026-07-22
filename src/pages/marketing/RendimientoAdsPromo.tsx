@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  INK, OSC, CREMA, CLARO, AMA, VERDE, ROJO, NAR, AZUL, GRANATE, GRIS, TRACK, OSW, LEX, PAD, SHADOW, d, eyebrow, EUR, E2, P0, P2, N, BLANCO } from '@/styles/neobrutal'
+  INK, OSC, CREMA, CLARO, AMA, VERDE, ROJO, NAR, AZUL, GRANATE, GRIS, TRACK, CORP, OSW, LEX, PAD, SHADOW, d, eyebrow, EUR, E2, P0, P2, N, BLANCO } from '@/styles/neobrutal'
 
 type Fila = {
   id: number; marca: string; canal: 'glovo' | 'uber_eats' | 'just_eat'
@@ -27,10 +27,10 @@ type Fila = {
 }
 
 const CANAL_LABEL: Record<string, string> = { glovo: 'Glovo', uber_eats: 'Uber Eats', just_eat: 'Just Eat' }
-const CANAL_COLOR: Record<string, string> = { glovo: '#FFC244', uber_eats: VERDE, just_eat: '#FF8000' }
+const CANAL_COLOR: Record<string, string> = { glovo: CORP.glovo, uber_eats: VERDE, just_eat: CORP.je }
 const CANAL_CLARO: Record<string, boolean> = { glovo: true, uber_eats: true, just_eat: false }
 
-const th: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1.2px', textTransform: 'uppercase', color: '#6b5d45', fontWeight: 600, padding: '9px 10px', textAlign: 'left', borderBottom: `2px solid ${INK}` }
+const th: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1.2px', textTransform: 'uppercase', color: GRIS, fontWeight: 600, padding: '9px 10px', textAlign: 'left', borderBottom: `2px solid ${INK}` }
 const td: React.CSSProperties = { fontFamily: LEX, fontSize: 13.5, color: INK, padding: '9px 10px', borderBottom: `1px solid ${INK}22` }
 const inp: React.CSSProperties = { padding: '8px 10px', border: `2px solid ${INK}`, background: BLANCO, color: INK, fontSize: 13, fontFamily: LEX, outline: 'none' }
 const btn: React.CSSProperties = { padding: '9px 16px', border: `3px solid ${INK}`, boxShadow: SHADOW, background: AMA, color: INK, fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase', cursor: 'pointer' }
@@ -39,9 +39,9 @@ const btnGhost: React.CSSProperties = { padding: '7px 12px', border: `2px solid 
 function Kpi({ label, value, sub, color = INK }: { label: string; value: string; sub?: string; color?: string }) {
   return (
     <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px', flex: 1, minWidth: 160 }}>
-      <div style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#6b5d45' }}>{label}</div>
+      <div style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>{label}</div>
       <div style={{ ...d('clamp(24px,3vw,34px)', color), margin: '6px 0 2px' }}>{value}</div>
-      {sub && <div style={{ fontFamily: LEX, fontSize: 12, fontWeight: 600, color: '#6b5d45' }}>{sub}</div>}
+      {sub && <div style={{ fontFamily: LEX, fontSize: 12, fontWeight: 600, color: GRIS }}>{sub}</div>}
     </div>
   )
 }
@@ -114,7 +114,7 @@ export default function RendimientoAdsPromo() {
     return Object.entries(m)
   }, [filasPeriodo])
 
-  if (cargando) return <div style={{ background: CREMA, minHeight: '100vh', padding: 40, fontFamily: OSW, color: '#6b5d45', textTransform: 'uppercase', letterSpacing: '1px' }}>Cargando rendimiento…</div>
+  if (cargando) return <div style={{ background: CREMA, minHeight: '100vh', padding: 40, fontFamily: OSW, color: GRIS, textTransform: 'uppercase', letterSpacing: '1px' }}>Cargando rendimiento…</div>
 
   return (
     <div style={{ background: CREMA, minHeight: '100vh', fontFamily: LEX, color: INK }}>
@@ -243,14 +243,14 @@ export default function RendimientoAdsPromo() {
                       <td style={{ ...td, textAlign: 'right', color: f.roi_promo != null && f.roi_promo >= 1 ? VERDE : GRIS }}>{f.roi_promo != null ? f.roi_promo.toFixed(1) + 'x' : '—'}</td>
                       <td style={{ ...td, textAlign: 'right', color: f.roas != null ? (f.roas >= 1 ? VERDE : ROJO) : GRIS }}>{f.roas != null ? f.roas.toFixed(1) + 'x' : '—'}</td>
                       <td style={{ ...td, textAlign: 'right' }}>{f.venta_organica_pct != null ? P0(f.venta_organica_pct) : '—'}</td>
-                      <td style={{ ...td, fontSize: 11, color: '#6b5d45', textTransform: 'uppercase', fontFamily: OSW }}>{f.fuente}</td>
+                      <td style={{ ...td, fontSize: 11, color: GRIS, textTransform: 'uppercase', fontFamily: OSW }}>{f.fuente}</td>
                       <td style={td}><button onClick={() => borrar(f.id)} style={{ ...btnGhost, borderColor: ROJO, color: ROJO }}>Borrar</button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div style={{ fontFamily: LEX, fontSize: 12, color: '#6b5d45', marginTop: 10 }}>Fuente «think_paladar» = último export del portal antes de la ruptura (30/06/2026). A partir de ahora, carga manual o futura integración con Glovo/Uber/Just Eat.</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 10 }}>Fuente «think_paladar» = último export del portal antes de la ruptura (30/06/2026). A partir de ahora, carga manual o futura integración con Glovo/Uber/Just Eat.</div>
           </section>
         </>
       )}
@@ -258,5 +258,5 @@ export default function RendimientoAdsPromo() {
   )
 }
 
-const lblForm: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#6b5d45' }
-const lblSm: React.CSSProperties = { fontFamily: OSW, fontSize: 10.5, letterSpacing: '1px', textTransform: 'uppercase', color: '#6b5d45' }
+const lblForm: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', color: GRIS }
+const lblSm: React.CSSProperties = { fontFamily: OSW, fontSize: 10.5, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }

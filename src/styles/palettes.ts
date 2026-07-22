@@ -86,3 +86,12 @@ export const CANAL_TM_DIRECTA = '#06B6D4'
 
 /** TabResumen · borde/sombra "casi negro" de una card puntual (no el INK estándar). */
 export const RESUMEN_BORDE_OSCURO = '#140f08'
+
+/** Analytics · azul/morado extra para Web/Directa en graficos de canal (mas alla del kit). */
+export const ANALYTICS_WEB_ALT = '#6b7cff'
+export const ANALYTICS_DIRECTA_ALT = '#9b59b6'
+/** VentasMarca · paleta extendida de 10 colores para el mix por marca (dataviz). */
+export const VENTASMARCA_CHART_EXTRA = ['#e8617a', '#3aa8c1', '#c17d3a', '#5a5a5a']
+/** ParetoVentas · caja de aviso amarilla (tono propio, distinto de AMA_S del kit). */
+export const PARETO_WARN_BG = '#fff8e6'
+export const PARETO_WARN_TXT = '#8a6d1f'

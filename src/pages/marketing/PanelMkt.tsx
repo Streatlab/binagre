@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, INK, NAR_S } from '@/styles/neobrutal'
+import { AMA, BLANCO, GRANATE, GRIS, INK, NAR_S, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
@@ -8,8 +8,6 @@ import { FONT } from '@/styles/tokens'
 // Lee datos reales: reseñas, campañas, rendimiento ads/promo, club, playbook TP, benchmark.
 
 const CREMA = NAR_S
-const AMA = '#FFC400'
-const VERDE = '#0FB86B'
 interface ResenaRow { plataforma: string; rating: number | null; num_resenas: number | null; fecha: string }
 interface CampanaRow { id: number; nombre: string; canal: string | null; estado: string | null; fecha_inicio: string | null; fecha_fin: string | null; veredicto: string | null; resultado_real: number | null; kpi_meta: number | null }
 interface RendRow { canal: string | null; periodo_fin: string | null; ventas: number | null; roi_promo: number | null; roas: number | null; pct_fidelizado: number | null }
@@ -39,7 +37,7 @@ const kpiLabel: React.CSSProperties = {
   fontSize: 12,
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
-  color: '#555',
+  color: GRIS,
   marginBottom: 8,
 }
 
@@ -122,7 +120,7 @@ export default function PanelMkt() {
       </div>
 
       {cargando ? (
-        <div style={{ fontFamily: FONT.body, color: '#666' }}>Cargando datos…</div>
+        <div style={{ fontFamily: FONT.body, color: GRIS }}>Cargando datos…</div>
       ) : (
         <>
           {/* Fila KPIs */}
@@ -130,7 +128,7 @@ export default function PanelMkt() {
             <div style={card}>
               <div style={kpiLabel}>⭐ Nota media plataformas</div>
               <div style={kpiNum}>{notaMedia != null ? notaMedia.toFixed(2) : '—'}</div>
-              <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#666', marginTop: 8 }}>
+              <div style={{ fontFamily: FONT.body, fontSize: 12, color: GRIS, marginTop: 8 }}>
                 {plataformas.map(([p, r]) => `${p}: ${r.rating ?? '—'}`).join(' · ') || 'Sin registros'}
               </div>
               <Link to="/clientes/resenas" style={linkStyle}>Panel Reseñas →</Link>
@@ -139,7 +137,7 @@ export default function PanelMkt() {
             <div style={card}>
               <div style={kpiLabel}>📣 Campañas activas</div>
               <div style={kpiNum}>{activas.length}</div>
-              <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#666', marginTop: 8 }}>
+              <div style={{ fontFamily: FONT.body, fontSize: 12, color: GRIS, marginTop: 8 }}>
                 {campanas.length} totales · {conVeredicto.length} con veredicto
               </div>
               <Link to="/marketing/plan" style={linkStyle}>Plan Campañas →</Link>
@@ -148,7 +146,7 @@ export default function PanelMkt() {
             <div style={card}>
               <div style={kpiLabel}>📈 Último ROI promo</div>
               <div style={kpiNum}>{ultimoRend?.roi_promo != null ? `${Number(ultimoRend.roi_promo).toFixed(1)}x` : '—'}</div>
-              <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#666', marginTop: 8 }}>
+              <div style={{ fontFamily: FONT.body, fontSize: 12, color: GRIS, marginTop: 8 }}>
                 {ultimoRend ? `${ultimoRend.canal ?? '—'} · ventas ${fmtEur(ultimoRend.ventas)} · ROAS ${ultimoRend.roas ?? '—'}` : 'Sin datos de rendimiento'}
               </div>
               <Link to="/marketing/rendimiento-ads-promo" style={linkStyle}>Rendimiento →</Link>
@@ -157,7 +155,7 @@ export default function PanelMkt() {
             <div style={card}>
               <div style={kpiLabel}>🎖️ Socios club</div>
               <div style={kpiNum}>{socios}</div>
-              <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#666', marginTop: 8 }}>
+              <div style={{ fontFamily: FONT.body, fontSize: 12, color: GRIS, marginTop: 8 }}>
                 Fidelización canal propio
               </div>
               <Link to="/clientes/club" style={linkStyle}>Club →</Link>
@@ -168,18 +166,18 @@ export default function PanelMkt() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
             {/* Alertas accionables */}
             <div style={{ ...card, borderColor: sinVeredictoCerradas.length ? GRANATE : INK }}>
-              <div style={{ ...kpiLabel, color: sinVeredictoCerradas.length ? GRANATE : '#555' }}>🔔 Acción pendiente</div>
+              <div style={{ ...kpiLabel, color: sinVeredictoCerradas.length ? GRANATE : GRIS }}>🔔 Acción pendiente</div>
               {sinVeredictoCerradas.length ? (
                 <>
                   <div style={{ fontFamily: FONT.heading, fontWeight: 800, fontSize: 16, color: INK, marginBottom: 6 }}>
                     {sinVeredictoCerradas.length} campañas cerradas sin veredicto
                   </div>
-                  <ul style={{ fontFamily: FONT.body, fontSize: 13, color: '#444', margin: 0, paddingLeft: 18 }}>
+                  <ul style={{ fontFamily: FONT.body, fontSize: 13, color: GRIS, margin: 0, paddingLeft: 18 }}>
                     {sinVeredictoCerradas.slice(0, 5).map(c => (
                       <li key={c.id}>{c.nombre} ({c.canal ?? '—'})</li>
                     ))}
                   </ul>
-                  <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#666', marginTop: 8 }}>
+                  <div style={{ fontFamily: FONT.body, fontSize: 12, color: GRIS, marginTop: 8 }}>
                     Sin veredicto no hay aprendizaje: apúntalo en Plan Campañas.
                   </div>
                 </>
@@ -196,7 +194,7 @@ export default function PanelMkt() {
               <div style={{ fontFamily: FONT.heading, fontWeight: 800, fontSize: 22, color: INK }}>
                 {tacticasAplicadas} aplicadas · {tacticasEnCurso} en curso
               </div>
-              <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#666', marginTop: 8 }}>
+              <div style={{ fontFamily: FONT.body, fontSize: 12, color: GRIS, marginTop: 8 }}>
                 {playbook.length === 0 ? 'Ninguna táctica marcada aún — empieza por las de mayor impacto.' : `${playbook.length} tácticas con estado registrado.`}
               </div>
               <Link to="/clientes/playbook-tp" style={linkStyle}>Abrir Playbook →</Link>
@@ -208,7 +206,7 @@ export default function PanelMkt() {
               <div style={{ fontFamily: FONT.heading, fontWeight: 800, fontSize: 22, color: INK }}>
                 {competidores} competidores mapeados
               </div>
-              <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#666', marginTop: 8 }}>
+              <div style={{ fontFamily: FONT.body, fontSize: 12, color: GRIS, marginTop: 8 }}>
                 Manual, plan 90 días y carta maestra de 68 platos.
               </div>
               <Link to="/clientes/benchmark" style={linkStyle}>Abrir Benchmark →</Link>
@@ -219,13 +217,13 @@ export default function PanelMkt() {
           <div style={{ ...card, marginTop: 24, background: CREMA }}>
             <div style={kpiLabel}>🧠 Últimos aprendizajes de campañas</div>
             {conVeredicto.length === 0 ? (
-              <div style={{ fontFamily: FONT.body, fontSize: 13, color: '#666' }}>Aún no hay veredictos registrados.</div>
+              <div style={{ fontFamily: FONT.body, fontSize: 13, color: GRIS }}>Aún no hay veredictos registrados.</div>
             ) : (
               <div style={{ display: 'grid', gap: 8 }}>
                 {conVeredicto.slice(0, 6).map(c => (
                   <div key={c.id} style={{ background: BLANCO, border: `2px solid ${INK}`, padding: '8px 12px', display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: FONT.heading, fontWeight: 800, fontSize: 13, textTransform: 'uppercase', color: INK }}>{c.nombre}</span>
-                    <span style={{ fontFamily: FONT.body, fontSize: 12, color: '#666' }}>{c.canal ?? '—'}</span>
+                    <span style={{ fontFamily: FONT.body, fontSize: 12, color: GRIS }}>{c.canal ?? '—'}</span>
                     <span style={{ fontFamily: FONT.body, fontSize: 12, color: GRANATE, fontWeight: 700 }}>{c.veredicto}</span>
                   </div>
                 ))}

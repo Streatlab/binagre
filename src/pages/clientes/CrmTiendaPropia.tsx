@@ -1,4 +1,5 @@
 import { AZUL, BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
+import { PANEL_MODAL_BG } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { COLORS, FONT, CARDS, lbl, lblSm, kpiMid, TABS_PILL } from '@/components/panel/resumen/tokens'
@@ -112,7 +113,7 @@ function Pill({ text, bg, txt }: { text: string; bg: string; txt?: string }) {
 
 /* ═════════════ TAB EMBUDO — embudo real alimentado de pedidos reales ═════════════ */
 const ETAPAS_EMBUDO = [
-  { key: 'impresiones', label: 'Impresiones en app', color: '#484f66', sub: 'estimado' },
+  { key: 'impresiones', label: 'Impresiones en app', color: PANEL_MODAL_BG, sub: 'estimado' },
   { key: 'visitas', label: 'Visitas al menú', color: AZUL, sub: 'estimado' },
   { key: 'pedidos', label: 'Pedidos', color: GRANATE, sub: 'dato real' },
   { key: 'recompra', label: 'Recompra 30d', color: VERDE, sub: 'estimado' },
