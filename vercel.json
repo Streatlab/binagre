@@ -161,8 +161,7 @@
   ],
   "functions": {
     "api/**/*.ts": {
-      "includeFiles": "node_modules/pdfjs-dist/legacy/build/**",
-      "maxDuration": 300
+      "includeFiles": "node_modules/pdfjs-dist/legacy/build/**"
     }
   }
 }
