@@ -48,14 +48,11 @@ const SECTIONS: NavSection[] = [
   {
     key: 'cocina', label: 'Cocina', perfiles: ['admin', 'cocina'],
     items: [
-      { path: '/escandallo',                 label: 'Escandallo',          emoji: '⚖️', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/lista-compra',        label: 'Lista de Compra',     emoji: '🛒', perfiles: ['admin', 'cocina'] },
-      { path: '/carta',                      label: 'Carta',               emoji: '🍽️', perfiles: ['admin'] },
-      { path: '/cocina/menu-engineering',    label: 'Menú Engineering',    emoji: '⚙️', perfiles: ['admin'] },
-      { path: '/cocina/pareto-ingredientes', label: 'Pareto Ingredientes', emoji: '🥕', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/recetario',           label: 'Recetario',           emoji: '📋', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/produccion',          label: 'Producción',          emoji: '📋', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/menu-familia',        label: 'Menú Familia',        emoji: '🥘', perfiles: ['admin', 'cocina'] },
+      { path: '/escandallo',              label: 'Escandallo',       emoji: '⚖️', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/recetario',        label: 'Recetario',        emoji: '📋', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/produccion',       label: 'Producción',       emoji: '📋', perfiles: ['admin', 'cocina'] },
+      { path: '/carta',                   label: 'Carta',            emoji: '🍽️', perfiles: ['admin'] },
+      { path: '/cocina/menu-engineering', label: 'Menú Engineering', emoji: '⚙️', perfiles: ['admin'] },
     ],
   },
   {

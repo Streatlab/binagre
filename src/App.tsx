@@ -141,7 +141,14 @@ function AppRoutes() {
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Home />} />
           <Route path="escandallo" element={<EscandalloSwitch />} />
-          <Route path="carta" element={<Carta />} />
+          {/* ── D·Tanda 3 · Carta ← Carta + Menú Familia (facturación permanece en Finanzas·Papeleo) ── */}
+          <Route path="carta" element={<TabsContainer title="Carta" tabs={[
+            { to: '.', label: 'Carta', end: true },
+            { to: 'menu-familia', label: 'Menú Familia' },
+          ]} />}>
+            <Route index element={<Carta />} />
+            <Route path="menu-familia" element={<MenuFamilia />} />
+          </Route>
           <Route path="finanzas/papeleo" element={<ProtectedRoute solo={['admin']}><PapeleoPage /></ProtectedRoute>} />
           <Route path="facturacion" element={<Navigate to="/finanzas/papeleo?tab=facturacion" replace />} />
           <Route path="facturacion/conciliacion" element={<Navigate to="/finanzas/papeleo?tab=conciliacion" replace />} />
@@ -321,13 +328,21 @@ function AppRoutes() {
           <Route path="cocina/recetas" element={<CocinaRecetas />} />
           {/* A2 · Coste por plato: enlaza lo que vendes con la receta que lo cuesta */}
           <Route path="cocina/coste-plato" element={<ProtectedRoute solo={['admin']}><CostePlato /></ProtectedRoute>} />
-          <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
+          {/* ── D·Tanda 3 · Menú Engineering ← Menú Engineering + Pareto Ingredientes ── */}
+          <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Menú Engineering" tabs={[
+            { to: '.', label: 'Menú Engineering', end: true },
+            { to: 'pareto', label: 'Pareto Ingredientes' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<MenuEngineering />} />
+            <Route path="pareto" element={<ParetoIngredientes />} />
+          </Route>
           <Route path="cocina/recetario" element={<Recetario />} />
           <Route path="cocina/esquemas" element={<Esquemas />} />
           <Route path="cocina/produccion" element={<Produccion />} />
-          <Route path="cocina/menu-familia" element={<MenuFamilia />} />
           <Route path="cocina/lista-compra" element={<ListaCompra />} />
-          <Route path="cocina/pareto-ingredientes" element={<ProtectedRoute solo={['admin']}><ParetoIngredientes /></ProtectedRoute>} />
+          {/* Redirecciones Tanda 3 */}
+          <Route path="cocina/menu-familia" element={<Navigate to="/carta/menu-familia" replace />} />
+          <Route path="cocina/pareto-ingredientes" element={<Navigate to="/cocina/menu-engineering/pareto" replace />} />
 
           <Route path="analytics/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
           <Route path="ops/:slug" element={<Placeholder />} />
