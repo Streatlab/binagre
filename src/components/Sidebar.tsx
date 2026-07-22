@@ -74,10 +74,12 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    key: 'stock', label: 'Stock & Compras', perfiles: ['admin'],
+    key: 'compras', label: 'Compras', perfiles: ['admin'],
     items: [
-      { path: '/stock/inventario',  label: 'Inventario',  emoji: '📦', perfiles: ['admin'] },
-      { path: '/stock/proveedores', label: 'Proveedores', emoji: '🏢', perfiles: ['admin'] },
+      { path: '/compras',                          label: 'Lista de Compra',    emoji: '🛒', perfiles: ['admin'] },
+      { path: '/compras/inventario',               label: 'Inventario',         emoji: '📦', perfiles: ['admin'] },
+      { path: '/compras/proveedores',              label: 'Proveedores',        emoji: '🏢', perfiles: ['admin'] },
+      { path: '/configuracion/compras/categorias', label: 'Catálogos·Compras',  emoji: '📚', perfiles: ['admin'] },
     ],
   },
   {
@@ -110,7 +112,6 @@ const SECTIONS: NavSection[] = [
   {
     key: 'configuracion', label: 'Configuración', perfiles: ['admin'],
     items: [
-      { path: '/configuracion/compras/categorias',   label: 'Catálogos · Compras',  emoji: '🛒', perfiles: ['admin'] },
       { path: '/configuracion/integraciones',        label: 'Integraciones',        emoji: '🔌', perfiles: ['admin'] },
       { path: '/configuracion/reglas',               label: 'Reglas',               emoji: '📐', perfiles: ['admin'] },
       { path: '/configuracion/bancos-y-cuentas',     label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
@@ -128,7 +129,7 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
   finanzas:      { icon: TrendingUp,    headBg: '#0FB86B', headColor: BLANCO  },
   cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
   operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: BLANCO  },
-  stock:         { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },
+  compras:       { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },
   ventas:        { icon: TrendingUp,    headBg: '#7C3AED', headColor: BLANCO  },
   informes:      { icon: FileText,      headBg: GRANATE, headColor: BLANCO  },
   equipo:        { icon: Users,         headBg: '#FF2E63', headColor: BLANCO  },

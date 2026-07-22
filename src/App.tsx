@@ -321,8 +321,20 @@ function AppRoutes() {
           <Route path="marketing/rendimiento-ads-promo" element={<Navigate to="/ventas/marketing/rendimiento" replace />} />
           <Route path="marketing/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
 
-          <Route path="stock/proveedores" element={<ProtectedRoute solo={['admin']}><Proveedores /></ProtectedRoute>} />
-          <Route path="stock/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
+          {/* ── D·Tanda 4 · COMPRAS (Lista de Compra + Inventario + Proveedores + Catálogos) ── */}
+          <Route path="compras" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Compras" tabs={[
+            { to: '.', label: 'Lista de Compra', end: true },
+            { to: 'inventario', label: 'Inventario' },
+            { to: 'proveedores', label: 'Proveedores' },
+            { to: '/configuracion/compras/categorias', label: 'Catálogos' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<ListaCompra />} />
+            <Route path="inventario" element={<Inventario />} />
+            <Route path="proveedores" element={<Proveedores />} />
+          </Route>
+          {/* Redirecciones Tanda 4 */}
+          <Route path="stock/proveedores" element={<Navigate to="/compras/proveedores" replace />} />
+          <Route path="stock/inventario" element={<Navigate to="/compras/inventario" replace />} />
 
           <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><CocinaInventario /></ProtectedRoute>} />
           <Route path="cocina/recetas" element={<CocinaRecetas />} />
@@ -339,7 +351,7 @@ function AppRoutes() {
           <Route path="cocina/recetario" element={<Recetario />} />
           <Route path="cocina/esquemas" element={<Esquemas />} />
           <Route path="cocina/produccion" element={<Produccion />} />
-          <Route path="cocina/lista-compra" element={<ListaCompra />} />
+          <Route path="cocina/lista-compra" element={<Navigate to="/compras" replace />} />
           {/* Redirecciones Tanda 3 */}
           <Route path="cocina/menu-familia" element={<Navigate to="/carta/menu-familia" replace />} />
           <Route path="cocina/pareto-ingredientes" element={<Navigate to="/cocina/menu-engineering/pareto" replace />} />
