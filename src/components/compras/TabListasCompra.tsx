@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
+import { VERDE_POSITIVO } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -73,7 +74,7 @@ export default function TabListasCompra() {
         {propuesta.length > 0 && (
           <>
             <span style={{ color: T.sec, fontSize: 13 }}>{propuesta.length} artículos · estimado {fmtEur(totalPropuesta)}</span>
-            <button onClick={guardar} style={{ padding: '9px 20px', borderRadius: 8, border: `1px solid #4caf50`, background: 'transparent', color: '#4caf50', fontFamily: FONT.heading, fontWeight: 700, fontSize: 12, textTransform: 'uppercase', cursor: 'pointer' }}>
+            <button onClick={guardar} style={{ padding: '9px 20px', borderRadius: 8, border: `1px solid ${VERDE_POSITIVO}`, background: 'transparent', color: VERDE_POSITIVO, fontFamily: FONT.heading, fontWeight: 700, fontSize: 12, textTransform: 'uppercase', cursor: 'pointer' }}>
               Guardar lista
             </button>
           </>

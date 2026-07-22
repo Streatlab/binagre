@@ -199,7 +199,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
             {!isNew && !confirmDelete && (
               <button
                 onClick={() => setConfirmDelete(true)}
-                style={{ background: 'none', border: '1px solid #B01D23', color: GRANATE, borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: FONT.body }}
+                style={{ background: 'none', border: `1px solid ${GRANATE}`, color: GRANATE, borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: FONT.body }}
               >
                 Eliminar
               </button>

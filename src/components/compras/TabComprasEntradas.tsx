@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
+import { VERDE_POSITIVO } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -115,7 +116,7 @@ export default function TabComprasEntradas() {
                     <td style={{ ...td, textAlign: 'right' }}>{l.total_linea != null ? fmtEur(l.total_linea) : '—'}</td>
                     <td style={td}>
                       <select defaultValue={sug ?? ''} onChange={e => asignar(l.id, e.target.value)}
-                        style={{ ...inp, maxWidth: 220, border: sug ? '1px solid #4caf50' : `0.5px solid ${T.brd}` }}>
+                        style={{ ...inp, maxWidth: 220, border: sug ? `1px solid ${VERDE_POSITIVO}` : `0.5px solid ${T.brd}` }}>
                         <option value="">{sug ? 'Sugerido ↓ (elige para confirmar)' : 'Elegir ingrediente...'}</option>
                         {ings.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
                       </select>

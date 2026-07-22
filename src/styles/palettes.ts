@@ -128,3 +128,21 @@ export const ESCANDALLO_TH_BORDE = '#4a3f2c'
 
 /** Menú Engineering · cuadrante "Caballo" (naranja distinto de NAR del kit). */
 export const ME_CABALLO = '#f5a623'
+
+/** Inventario · washes oscuros de alerta (verde/rojo/azul sobre fondo dark, fijos). */
+export const DARK_WASH_ROJO_BG = '#2a1a1a'
+export const DARK_WASH_VERDE_BG = '#1a2a1a'
+export const DARK_WASH_AZUL_BG = '#1a1a2a'
+export const DARK_WASH_AMA_BG = '#2a2a1a'
+
+/** TabCostes (Config·Compras) · tag "manual" (rojo) vs "auto" (azul), claro/oscuro. */
+export const TABCOSTES_MANUAL_BG_DARK = 'rgba(176,29,35,0.28)'
+export const TABCOSTES_MANUAL_BG_LIGHT = '#FCEBEB'
+export const TABCOSTES_MANUAL_FG_DARK = '#F09595'
+export const TABCOSTES_MANUAL_FG_LIGHT = '#A32D2D'
+export const TABCOSTES_AUTO_BG_DARK = 'rgba(102,160,214,0.22)'
+export const TABCOSTES_AUTO_BG_LIGHT = '#E6F1FB'
+export const TABCOSTES_AUTO_FG_DARK = '#89B5DF'
+export const TABCOSTES_AUTO_FG_LIGHT = '#0C447C'
+/** Verde "positivo" Material (distinto de VERDE del kit), usado en Inventario. */
+export const VERDE_POSITIVO = '#4caf50'

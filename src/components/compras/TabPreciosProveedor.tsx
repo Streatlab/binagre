@@ -1,4 +1,5 @@
 import { INK } from '@/styles/neobrutal'
+import { DARK_WASH_VERDE_BG, VERDE_POSITIVO } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -86,7 +87,7 @@ export default function TabPreciosProveedor() {
                   <td style={{ ...td, color: T.mut }}>{fmtDate(r.ultima_fecha)}</td>
                   <td style={td}>
                     {idx === 0 && arr.length > 1 && (
-                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#1a2a1a', color: '#4caf50', fontFamily: FONT.heading, textTransform: 'uppercase' }}>Más barato</span>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: DARK_WASH_VERDE_BG, color: VERDE_POSITIVO, fontFamily: FONT.heading, textTransform: 'uppercase' }}>Más barato</span>
                     )}
                   </td>
                 </tr>

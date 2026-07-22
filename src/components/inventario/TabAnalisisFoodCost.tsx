@@ -1,4 +1,5 @@
 import { AZUL_CL, BLANCO, GRANATE, INK, NAR, ROJO } from '@/styles/neobrutal'
+import { DARK_WASH_ROJO_BG, VERDE_POSITIVO } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import { calcularFoodCostReal, type FoodCostResumen } from '@/lib/inventario/foodCostReal'
@@ -38,7 +39,7 @@ export default function TabAnalisisFoodCost() {
 
   const semaforoColor = (desv: number | null) => {
     if (desv === null) return T.sec
-    if (desv <= 1) return '#4caf50'
+    if (desv <= 1) return VERDE_POSITIVO
     if (desv <= 3) return NAR
     return ROJO
   }
@@ -83,7 +84,7 @@ export default function TabAnalisisFoodCost() {
       {/* Alerta si real > teórico + 3% */}
       {data && data.desviacion !== null && data.desviacion > 3 && (
         <div style={{
-          background: '#2a1a1a', border: '1px solid #B01D23',
+          background: DARK_WASH_ROJO_BG, border: `1px solid ${GRANATE}`,
           borderRadius: 8, padding: '12px 16px', marginBottom: 16,
           color: ROJO, fontFamily: FONT.body, fontSize: 13,
           display: 'flex', alignItems: 'center', gap: 8,

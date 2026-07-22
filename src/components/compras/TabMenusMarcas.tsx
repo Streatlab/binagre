@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, INK, LIMA, ROJO } from '@/styles/neobrutal'
+import { DARK_WASH_VERDE_BG, VERDE_POSITIVO } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -157,11 +158,11 @@ export default function TabMenusMarcas() {
                       <td style={{ ...td, fontWeight: 600 }}>{p.nombre}</td>
                       <td style={{ ...td, textAlign: 'right' }}>{fmtEur(p.pvp)}</td>
                       <td style={{ ...td, textAlign: 'right', color: T.mut }}>{c != null ? fmtEur(c) : '—'}</td>
-                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: margen == null ? T.mut : margen >= 65 ? '#4caf50' : margen >= 55 ? LIMA : ROJO }}>
+                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: margen == null ? T.mut : margen >= 65 ? VERDE_POSITIVO : margen >= 55 ? LIMA : ROJO }}>
                         {margen != null ? `${margen}%` : '—'}
                       </td>
                       <td style={td}>
-                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: p.activo ? '#1a2a1a' : INK, color: p.activo ? '#4caf50' : T.mut, fontFamily: FONT.heading, textTransform: 'uppercase' }}>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: p.activo ? DARK_WASH_VERDE_BG : INK, color: p.activo ? VERDE_POSITIVO : T.mut, fontFamily: FONT.heading, textTransform: 'uppercase' }}>
                           {p.activo ? 'En carta' : 'Fuera'}
                         </span>
                       </td>
