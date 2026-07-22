@@ -30,6 +30,7 @@ interface Fila {
   confianza: number | null
   euros: number
   unidades: number
+  tipo_linea?: string
 }
 interface Receta { id: string; nombre: string; coste_rac: number | null }
 interface Dup {
@@ -90,7 +91,8 @@ export default function CostePlato() {
     setCargando(true)
     const [{ data: dic }, { data: rec }, { data: dup }] = await Promise.all([
       supabase.from('v_mapeo_resuelto')
-        .select('id, plato_norm, plato_muestra, receta_id:receta_efectiva, origen:origen_manual, confianza:confianza_manual, euros, unidades')
+        .select('id, plato_norm, plato_muestra, receta_id:receta_efectiva, origen:origen_manual, confianza:confianza_manual, euros, unidades, tipo_linea')
+        .neq('tipo_linea', 'ruido')
         .order('euros', { ascending: false }),
       supabase.from('recetas').select('id, nombre, coste_rac').order('nombre'),
       supabase.from('platos_duplicados').select('*').eq('decision', 'pendiente').order('euros_a', { ascending: false }),
