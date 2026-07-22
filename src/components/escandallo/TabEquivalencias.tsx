@@ -16,6 +16,7 @@ interface Equiv {
   proveedor_nombre: string | null
   ingrediente_id: string
   veces_usado: number | null
+  estado: string | null
 }
 
 const btn = (bg: string): CSSProperties => ({ fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', background: bg, color: INK, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, padding: '7px 12px', cursor: 'pointer' })
@@ -36,16 +37,30 @@ export default function TabEquivalencias({ ingredientes }: Props) {
 
   const cargar = useCallback(async () => {
     const { data } = await supabase.from('producto_ingrediente_map')
-      .select('id, texto_producto, proveedor_nombre, ingrediente_id, veces_usado')
+      .select('id, texto_producto, proveedor_nombre, ingrediente_id, veces_usado, estado')
       .order('veces_usado', { ascending: false }).limit(2000)
     setEquivs((data as Equiv[]) ?? [])
   }, [])
   useEffect(() => { cargar() }, [cargar])
 
+  const propuestas = useMemo(() => equivs.filter(e => e.estado === 'propuesta'), [equivs])
+
+  const aceptar = async (id: string) => {
+    const { data, error } = await supabase.rpc('fn_aceptar_propuesta', { p_map_id: id })
+    if (error || !(data as any)?.ok) { setMsg(`Error: ${error?.message ?? (data as any)?.motivo ?? 'no se pudo aceptar'}`); return }
+    setMsg(`Equivalencia confirmada${(data as any).lineas_reprocesadas ? `, ${(data as any).lineas_reprocesadas} línea(s) reprocesada(s)` : ''}.`); await cargar()
+  }
+  const rechazar = async (id: string) => {
+    const { data, error } = await supabase.rpc('fn_rechazar_propuesta', { p_map_id: id })
+    if (error || !(data as any)?.ok) { setMsg(`Error: ${error?.message ?? 'no se pudo rechazar'}`); return }
+    setMsg('Propuesta rechazada.'); await cargar()
+  }
+
   const filtradas = useMemo(() => {
+    const confirmadas = equivs.filter(e => e.estado !== 'propuesta')
     const q = busca.trim().toLowerCase()
-    if (!q) return equivs.slice(0, 500)
-    return equivs.filter(e => {
+    if (!q) return confirmadas.slice(0, 500)
+    return confirmadas.filter(e => {
       const ing = nombreIng.get(e.ingrediente_id)
       return e.texto_producto.toLowerCase().includes(q)
         || (e.proveedor_nombre ?? '').toLowerCase().includes(q)
@@ -86,6 +101,26 @@ export default function TabEquivalencias({ ingredientes }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {msg && <div style={{ background: AMA, border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, padding: '9px 13px', fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK }}>{msg}</div>}
+
+      {/* Propuestas pendientes (creadas por la ingesta ante un candidato claro) */}
+      {!!propuestas.length && (
+        <div style={{ background: 'var(--sl-card)', border: `3px solid ${GRANATE}`, boxShadow: `4px 4px 0 ${GRANATE}`, padding: 12 }}>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, letterSpacing: '.5px', textTransform: 'uppercase', color: GRANATE, marginBottom: 8 }}>Propuestas por confirmar ({propuestas.length})</div>
+          <p style={{ fontFamily: LEX, fontSize: 12, color: GRIS, margin: '0 0 10px' }}>La ingesta cree que estos productos de factura son un ingrediente que ya existe. Confírmalo (vincula y reprocesa las líneas pendientes) o recházalo.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {propuestas.map(p => {
+              const ing = nombreIng.get(p.ingrediente_id)
+              return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontFamily: LEX, fontSize: 13 }}>
+                  <span><b>{p.texto_producto}</b> {p.proveedor_nombre ? `(${p.proveedor_nombre})` : ''} ≈ <span style={{ color: GRANATE, fontWeight: 700 }}>{ing?.iding ?? ''}</span> <b>{ing?.nombre ?? '—'}</b></span>
+                  <button style={btn(VERDE)} onClick={() => aceptar(p.id)}>Confirmar</button>
+                  <button style={btn('#f3d0d0')} onClick={() => rechazar(p.id)}>Rechazar</button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative' }}>
