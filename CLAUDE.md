@@ -22,9 +22,11 @@
 7. Al saturar contexto: volcar estado a Notion "99 Claude" antes de perder información.
 
 ## Deploy (obligatorio)
-1. Vercel cobra por build. Agrupar TODOS los cambios de la sesión en 1 commit → 1 deploy. Objetivo: 1-3 deploys/sesión máximo.
-2. Nunca 1 build por microajuste.
-3. Tras deploy: verificar estado en Vercel (1 sola verificación) y reportar READY o fallo, sin preguntar.
+1. Vercel despliega en CADA `git push` a `trabajo`/`master` (Git integration), lo diga o no "[deploy]" en el mensaje — la etiqueta es solo convención humana, no un gate técnico (vercel.json no tiene `ignoreCommand`). Lo que quema build es el PUSH, no el texto del commit.
+2. Por eso: commitear localmente tantas veces como haga falta, pero UN SOLO `git push` al final de cada tanda (agrupa todos los commits de esa tanda en ese push). Nunca push por bloque/microajuste.
+3. LÍMITE DIARIO AGOTADO (22-jul, ~100 builds quemados en previews sin revisar) → CONGELADO hasta nuevo aviso: cero pushes salvo que Rubén lo pida explícitamente para verificar algo puntual. Seguir commiteando en local con normalidad.
+4. Cuando se reanude: 1 push agrupado por tanda, objetivo 1-3 pushes/sesión máximo.
+5. Tras un push si toca verificar: 1 sola consulta a Vercel, reportar READY o fallo sin preguntar.
 
 ## Aislamiento absoluto
 - Este repo = Binagre / Streat Lab. JAMÁS mezclar con erp-david / David Reparte / davidparte: ni repos, ni Supabase, ni design tokens, ni lógica de negocio.
