@@ -3,6 +3,7 @@
 // (las que el Bloque 5 no pudo fusionar automáticamente: 0 o 2+ candidatos empatados).
 // 100% decisión humana: candidato único o no, siempre requiere clic de Rubén (sin auto-resolución).
 // Acciones: Enlazar (fn_enlazar_ficha_huerfana, anti-pisado), Crear ficha nueva, Descartar.
+// PLEGADA por defecto: una sola línea con el contador; se abre con "Revisar".
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Link2, PlusCircle, XCircle, Inbox } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -34,6 +35,7 @@ function PillCampo({ label, estado }: { label: string; estado: EstadoCampo }) {
 
 export default function ColaRevisionFichas() {
   const [fichas, setFichas] = useState<FichaOrphan[]>([])
+  const [abierta, setAbierta] = useState(false)
   const [candidatos, setCandidatos] = useState<Record<string, Candidato[]>>({})
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
@@ -113,13 +115,18 @@ export default function ColaRevisionFichas() {
 
   return (
     <div className="no-print" style={{ background: 'var(--sl-card)', border: `1px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <button type="button" onClick={() => setAbierta(a => !a)}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: abierta ? 4 : 0, textAlign: 'left' }}>
         <Inbox size={17} color={GRANATE} />
-        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--sl-text-primary)' }}>
+        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--sl-text-primary)', flex: 1 }}>
           Fichas por revisar ({fichas.length})
         </span>
-      </div>
-      <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-muted)', margin: '0 0 12px' }}>
+        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 700, color: GRANATE, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          {abierta ? 'Ocultar ▲' : 'Revisar ▼'}
+        </span>
+      </button>
+      {abierta && (<>
+      <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-muted)', margin: '8px 0 12px' }}>
         Quedaron sin fusión automática: sin candidato claro, o dos candidatos empatados. Decide tú: enlaza con el correcto, crea la ficha desde cero, o descarta.
       </p>
 
@@ -200,6 +207,7 @@ export default function ColaRevisionFichas() {
           )
         })}
       </div>
+      </>)}
     </div>
   )
 }
