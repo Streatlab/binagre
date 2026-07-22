@@ -1,4 +1,4 @@
-import { BLANCO } from '@/styles/neobrutal'
+import { BLANCO, GRIS } from '@/styles/neobrutal'
 /**
  * Home "HOY" — portada del ERP · kit oficial Neobrutal Alegre (18-jul-2026).
  * Fuentes reales: v_facturacion_diario_unificada (robots + en vivo, misma fuente que Panel Global) + tareas_pendientes.
@@ -130,7 +130,7 @@ export default function Home() {
           <span style={{ ...eyebrow, background: VERDE, color: BLANCO, display: 'inline-block', padding: '2px 10px', border: `2px solid ${INK}`, boxShadow: `2px 2px 0 ${INK}` }}>PORTADA</span>
           <h1 style={{ fontFamily: OSW, fontSize: 'clamp(26px, 4vw, 34px)', fontWeight: 700, letterSpacing: '0.04em', margin: '4px 0 0', textTransform: 'uppercase' }}>Hoy</h1>
         </div>
-        <span style={{ ...eyebrow, color: '#6b5d45' }}>
+        <span style={{ ...eyebrow, color: GRIS }}>
           {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
         </span>
       </div>
@@ -220,12 +220,12 @@ export default function Home() {
           </div>
           <div style={{ padding: '10px 14px' }}>
             {cargando ? '…' : tareas.length === 0 ? (
-              <div style={{ fontSize: 13, color: '#6b5d45' }}>Nada pendiente. 👌</div>
+              <div style={{ fontSize: 13, color: GRIS }}>Nada pendiente. 👌</div>
             ) : tareas.map((t, i) => (
               <div key={t.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderTop: i > 0 ? '2px solid rgba(0,0,0,.12)' : 'none', fontSize: 13.5 }}>
                 <span style={{ width: 9, height: 9, background: t.estado === 'atrasada' ? GRANATE : AMA, border: `2px solid ${INK}`, flexShrink: 0 }} />
                 <span style={{ flex: 1, fontWeight: 600 }}>{t.tareas_periodicas?.nombre ?? 'Tarea'}</span>
-                <span style={{ fontFamily: OSW, color: '#6b5d45', fontSize: 11 }}>{t.fecha_esperada?.slice(5)}</span>
+                <span style={{ fontFamily: OSW, color: GRIS, fontSize: 11 }}>{t.fecha_esperada?.slice(5)}</span>
               </div>
             ))}
           </div>

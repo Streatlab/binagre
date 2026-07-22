@@ -27,7 +27,7 @@ import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 import { toLocalDateStr } from '@/lib/dateRange'
 import { useTesoreria13Semanas, type Estado as EstadoTesoreria } from '@/lib/finanzas/useTesoreria13Semanas'
-import { OSW, LEX, GRIS, VERDE, AMA, ROJO, cardWash } from '@/styles/neobrutal'
+import { OSW, LEX, GRIS, VERDE, AMA, ROJO, ROSA, cardWash } from '@/styles/neobrutal'
 import { fmtEur } from '@/lib/format'
 
 interface MarcaItem { id: string; nombre: string }
@@ -40,7 +40,6 @@ const FUENTE_VENTAS = 'v_facturacion_diario_unificada'
 // Theme-aware: fondo e INK salen de variables → cambian solos en claro/oscuro
 const PAGE_BG = 'var(--neo-bg)'
 const INK = 'var(--neo-ink)'
-const ROSA = '#FF2E63'
 const SHADOW = `4px 4px 0 var(--neo-shadow-color)`
 
 const TABS: Array<{ id: TabId; label: string }> = [
