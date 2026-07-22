@@ -13,7 +13,6 @@ import {
   BellRing,
   FileText,
   ClipboardList,
-  Megaphone,
   Compass,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -85,13 +84,12 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    key: 'analitica', label: 'Analítica', perfiles: ['admin'],
+    key: 'ventas', label: 'Ventas y Clientes', perfiles: ['admin'],
     items: [
-      { path: '/analytics/margen',       label: 'Margen por Canal',   emoji: '📊', perfiles: ['admin'] },
-      { path: '/analytics/ventas-marca', label: 'Ventas por Marca',   emoji: '🏷️', perfiles: ['admin'] },
-      { path: '/analytics/pareto-ventas',label: 'Pareto Ventas',      emoji: '🏆', perfiles: ['admin'] },
-      { path: '/analytics/revenue',      label: 'Revenue & Ticket',   emoji: '🎫', perfiles: ['admin'] },
-      { path: '/analytics/demanda',      label: 'Predicción Demanda', emoji: '⏱️', perfiles: ['admin'] },
+      { path: '/ventas',           label: 'Ventas',    emoji: '💰', perfiles: ['admin'] },
+      { path: '/ventas/analitica', label: 'Analítica', emoji: '📊', perfiles: ['admin'] },
+      { path: '/ventas/clientes',  label: 'Clientes',  emoji: '🛍️', perfiles: ['admin'] },
+      { path: '/ventas/marketing', label: 'Marketing', emoji: '📣', perfiles: ['admin'] },
     ],
   },
   {
@@ -110,19 +108,6 @@ const SECTIONS: NavSection[] = [
       { path: '/equipo/organigrama', label: 'Organigrama', emoji: '🏢', perfiles: ['admin'] },
       { path: '/equipo/horarios',    label: 'Horarios',    emoji: '🗓️', perfiles: ['admin'] },
       { path: '/equipo/presencia',   label: 'Presencia',   emoji: '🕐', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'mkt', label: 'MKT', perfiles: ['admin'],
-    items: [
-      { path: '/marketing/panel',                 label: 'Panel MKT',               emoji: '📣', perfiles: ['admin'] },
-      { path: '/marketing/plan',                  label: 'Campañas y Promos',       emoji: '🗓️', perfiles: ['admin'] },
-      { path: '/marketing/rendimiento-ads-promo', label: 'Rendimiento Ads y Promo', emoji: '📈', perfiles: ['admin'] },
-      { path: '/clientes/resenas',                label: 'Panel Reseñas',           emoji: '⭐',  perfiles: ['admin'] },
-      { path: '/clientes/benchmark',              label: 'Benchmark',               emoji: '🎯', perfiles: ['admin'] },
-      { path: '/clientes/playbook-tp',            label: 'Playbook ThinkPaladar',   emoji: '📘', perfiles: ['admin'] },
-      { path: '/clientes/crm',                    label: 'CRM Streat Lab',          emoji: '🛍️', perfiles: ['admin'] },
-      { path: '/clientes/club',                   label: 'Club Fidelización',       emoji: '🎖️', perfiles: ['admin'] },
     ],
   },
   {
@@ -147,10 +132,9 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
   cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
   operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: BLANCO  },
   stock:         { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },
-  analitica:     { icon: TrendingUp,    headBg: '#7C3AED', headColor: BLANCO  },
+  ventas:        { icon: TrendingUp,    headBg: '#7C3AED', headColor: BLANCO  },
   informes:      { icon: FileText,      headBg: GRANATE, headColor: BLANCO  },
   equipo:        { icon: Users,         headBg: '#FF2E63', headColor: BLANCO  },
-  mkt:           { icon: Megaphone,     headBg: '#1e2233', headColor: BLANCO  },
   configuracion: { icon: Settings,      headBg: '#484f66', headColor: BLANCO  },
 }
 

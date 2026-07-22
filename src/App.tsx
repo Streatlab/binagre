@@ -220,6 +220,50 @@ function AppRoutes() {
           <Route path="finanzas/rentabilidad-franja" element={<Navigate to="/finanzas/rentabilidad?tab=franja" replace />} />
           <Route path="finanzas/ticket-medio" element={<Navigate to="/finanzas/ventas-panel?tab=ticket" replace />} />
 
+          {/* ── D·Tanda 2 · VENTAS Y CLIENTES ── "/ventas" reutiliza el módulo de Finanzas
+               (misma pantalla, ya con pestañas Ventas/Objetivos/Ticket/Repetición) para no
+               duplicar pantalla; Analítica/Clientes/Marketing sí son áreas nuevas. */}
+          <Route path="ventas" element={<Navigate to="/finanzas/ventas-panel" replace />} />
+          <Route path="ventas/ticket-medio" element={<Navigate to="/finanzas/ventas-panel?tab=ticket" replace />} />
+          <Route path="ventas/roi-canal" element={<Navigate to="/finanzas/rentabilidad?tab=roi" replace />} />
+          <Route path="ventas/rentabilidad-franja" element={<Navigate to="/finanzas/rentabilidad?tab=franja" replace />} />
+          <Route path="ventas/repeticion-clientes" element={<Navigate to="/finanzas/ventas-panel?tab=repeticion" replace />} />
+          <Route path="ventas/analitica" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Analítica" tabs={[
+            { to: '.', label: 'Margen por Canal', end: true },
+            { to: 'ventas-marca', label: 'Ventas por Marca' },
+            { to: 'pareto', label: 'Pareto Ventas' },
+            { to: 'revenue', label: 'Revenue & Ticket' },
+            { to: 'demanda', label: 'Predicción Demanda' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<MargenCanal />} />
+            <Route path="ventas-marca" element={<VentasMarca />} />
+            <Route path="pareto" element={<ParetoVentas />} />
+            <Route path="revenue" element={<RevenueTicketMedio />} />
+            <Route path="demanda" element={<PrediccionDemanda />} />
+          </Route>
+          <Route path="ventas/clientes" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Clientes" tabs={[
+            { to: '.', label: 'CRM', end: true },
+            { to: 'club', label: 'Club Fidelización' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<CrmTiendaPropia />} />
+            <Route path="club" element={<ClubFidelizacion />} />
+          </Route>
+          <Route path="ventas/marketing" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Marketing" tabs={[
+            { to: '.', label: 'Panel MKT', end: true },
+            { to: 'campanas', label: 'Campañas y Promos' },
+            { to: 'rendimiento', label: 'Rendimiento Ads y Promo' },
+            { to: 'resenas', label: 'Panel Reseñas' },
+            { to: 'benchmark', label: 'Benchmark' },
+            { to: 'playbook', label: 'Playbook ThinkPaladar' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<PanelMkt />} />
+            <Route path="campanas" element={<PlanCampanas />} />
+            <Route path="rendimiento" element={<RendimientoAdsPromo />} />
+            <Route path="resenas" element={<PanelResenas />} />
+            <Route path="benchmark" element={<Benchmark />} />
+            <Route path="playbook" element={<PlaybookThinkPaladar />} />
+          </Route>
+
           <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelSwitch /></ProtectedRoute>} />
           <Route path="panel-direccion" element={<ProtectedRoute solo={['admin']}><PanelDireccion /></ProtectedRoute>} />
 
@@ -233,11 +277,11 @@ function AppRoutes() {
           <Route path="informes/historial" element={<ProtectedRoute solo={['admin']}><Historial /></ProtectedRoute>} />
           <Route path="informes/configuracion" element={<ProtectedRoute solo={['admin']}><ConfiguracionInformes /></ProtectedRoute>} />
 
-          <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />
-          <Route path="analytics/margen" element={<ProtectedRoute solo={['admin']}><MargenCanal /></ProtectedRoute>} />
-          <Route path="analytics/ventas-marca" element={<ProtectedRoute solo={['admin']}><VentasMarca /></ProtectedRoute>} />
-          <Route path="analytics/demanda" element={<ProtectedRoute solo={['admin']}><PrediccionDemanda /></ProtectedRoute>} />
-          <Route path="analytics/pareto-ventas" element={<ProtectedRoute solo={['admin']}><ParetoVentas /></ProtectedRoute>} />
+          <Route path="analytics/revenue" element={<Navigate to="/ventas/analitica/revenue" replace />} />
+          <Route path="analytics/margen" element={<Navigate to="/ventas/analitica" replace />} />
+          <Route path="analytics/ventas-marca" element={<Navigate to="/ventas/analitica/ventas-marca" replace />} />
+          <Route path="analytics/demanda" element={<Navigate to="/ventas/analitica/demanda" replace />} />
+          <Route path="analytics/pareto-ventas" element={<Navigate to="/ventas/analitica/pareto" replace />} />
 
           <Route path="ops/reembolsos" element={<ReclamacionReembolsos />} />
           <Route path="ops/temperaturas" element={<ControlTemperaturas />} />
@@ -259,15 +303,15 @@ function AppRoutes() {
           <Route path="equipo/horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
           <Route path="equipo/presencia" element={<ProtectedRoute solo={['admin']}><ControlPresencia /></ProtectedRoute>} />
 
-          <Route path="clientes/club" element={<ProtectedRoute solo={['admin']}><ClubFidelizacion /></ProtectedRoute>} />
-          <Route path="clientes/crm" element={<ProtectedRoute solo={['admin']}><CrmTiendaPropia /></ProtectedRoute>} />
-          <Route path="clientes/resenas" element={<ProtectedRoute solo={['admin']}><PanelResenas /></ProtectedRoute>} />
-          <Route path="clientes/playbook-tp" element={<ProtectedRoute solo={['admin']}><PlaybookThinkPaladar /></ProtectedRoute>} />
-          <Route path="clientes/benchmark" element={<ProtectedRoute solo={['admin']}><Benchmark /></ProtectedRoute>} />
+          <Route path="clientes/club" element={<Navigate to="/ventas/clientes/club" replace />} />
+          <Route path="clientes/crm" element={<Navigate to="/ventas/clientes" replace />} />
+          <Route path="clientes/resenas" element={<Navigate to="/ventas/marketing/resenas" replace />} />
+          <Route path="clientes/playbook-tp" element={<Navigate to="/ventas/marketing/playbook" replace />} />
+          <Route path="clientes/benchmark" element={<Navigate to="/ventas/marketing/benchmark" replace />} />
 
-          <Route path="marketing/panel" element={<ProtectedRoute solo={['admin']}><PanelMkt /></ProtectedRoute>} />
-          <Route path="marketing/plan" element={<ProtectedRoute solo={['admin']}><PlanCampanas /></ProtectedRoute>} />
-          <Route path="marketing/rendimiento-ads-promo" element={<ProtectedRoute solo={['admin']}><RendimientoAdsPromo /></ProtectedRoute>} />
+          <Route path="marketing/panel" element={<Navigate to="/ventas/marketing" replace />} />
+          <Route path="marketing/plan" element={<Navigate to="/ventas/marketing/campanas" replace />} />
+          <Route path="marketing/rendimiento-ads-promo" element={<Navigate to="/ventas/marketing/rendimiento" replace />} />
           <Route path="marketing/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
 
           <Route path="stock/proveedores" element={<ProtectedRoute solo={['admin']}><Proveedores /></ProtectedRoute>} />
