@@ -13,7 +13,9 @@ import {
   requiereReceta, sugerirReceta, computeHoyKpis, buildTareasHoy,
   type Tarea, type MaestroLite,
 } from '@/lib/cocina/platoHub'
-import { OSW, LEX, INK, CREMA, BLANCO, GRANATE, AMA, VERDE, NAR, AZUL, GRIS, BORDE_SUAVE } from '@/styles/neobrutal'
+import { OSW, LEX, INK, CREMA, BLANCO, AMA, VERDE, GRIS, BORDE_SUAVE, VERDE_S, AMA_S } from '@/styles/neobrutal'
+import HeroTocho, { Resaltado } from '@/components/kit/HeroTocho'
+import FraseHero, { Sub } from '@/components/kit/FraseHero'
 
 interface Maestro { id: number; nombre: string; es_extra: boolean | null; receta_id: string | null; euros: number | null }
 interface Receta { id: string; nombre: string; coste_rac: number | null }
@@ -120,20 +122,21 @@ export default function Hoy() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: CREMA, padding: '26px 30px', fontFamily: LEX }}>
-      {/* Cabecera uniforme con el resto del ERP */}
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontFamily: OSW, fontWeight: 800, fontSize: 34, letterSpacing: '0.02em', textTransform: 'uppercase', color: GRANATE }}>Cocina · Hoy</div>
-        <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK, marginTop: 2 }}>Lo que mueve la aguja hoy, ordenado por euros. Resuelve de arriba abajo.</div>
-      </div>
+    <div style={{ minHeight: '100vh', background: CREMA, padding: '26px 30px', fontFamily: LEX, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* HERO — mismo molde que la portada Hoy / Panel Global */}
+      <HeroTocho
+        periodo="COCINA · HOY"
+        titular={<>De cada 100 € vendidos, solo <Resaltado bg={BLANCO}>{Math.round(kpis.pctConCoste)} €</Resaltado> tienen su coste calculado</>}
+        etiquetaDato="VENTAS SIN RECETA · POR RESCATAR"
+        dato={eur0(kpis.eurosPorEscribir)}
+        netoTexto={`Food cost real de lo calculado: ${Math.round(kpis.foodCostMedio)}%`}
+      />
 
-      {/* KPIs neobrutal */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14, marginBottom: 18 }}>
-        <KpiCard color={VERDE} label="Ventas con coste" valor={`${Math.round(kpis.pctConCoste)}%`} pie="calculado" />
-        <KpiCard color={AZUL} label="Food cost medio" valor={`${Math.round(kpis.foodCostMedio)}%`} pie="real ponderado" />
-        <KpiCard color={GRANATE} label="Recetas por escribir" valor={eur0(kpis.eurosPorEscribir)} pie="en ventas" />
-        <KpiCard color={NAR} label="Alertas de precio" valor={String(kpis.alertasPrecio)} pie="ingredientes" />
-      </div>
+      {/* Frase en cristiano */}
+      <FraseHero>
+        Hay <Sub wash={AMA_S} borde={AMA}>{filas.length} tareas</Sub> hoy. Cada receta que vinculas o escribes mete sus euros en el análisis:
+        empieza por arriba, que está ordenado por impacto. <Sub wash={VERDE_S} borde={VERDE}>{kpis.alertasPrecio} ingredientes</Sub> siguen sin precio.
+      </FraseHero>
 
       {/* Tareas */}
       <div style={cardStyle}>
@@ -165,18 +168,6 @@ export default function Hoy() {
 
 const cardStyle: CSSProperties = { background: BLANCO, border: `3px solid ${INK}`, boxShadow: SOMBRA, overflow: 'hidden' }
 
-function KpiCard({ color, label, valor, pie }: { color: string; label: string; valor: string; pie: string }) {
-  return (
-    <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SOMBRA }}>
-      <div style={{ height: 7, background: color, borderBottom: `3px solid ${INK}` }} />
-      <div style={{ padding: '10px 14px 12px' }}>
-        <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12.5, letterSpacing: '0.07em', textTransform: 'uppercase', color: INK }}>{label}</div>
-        <div style={{ fontFamily: OSW, fontWeight: 800, fontSize: 34, lineHeight: 1.05, color: INK, marginTop: 2 }}>{valor}</div>
-        <div style={{ fontFamily: LEX, fontSize: 11.5, fontWeight: 600, color: GRIS, marginTop: 2 }}>{pie}</div>
-      </div>
-    </div>
-  )
-}
 
 const btnStyle: CSSProperties = { padding: '7px 14px', textDecoration: 'none', background: AMA, color: INK, border: `2px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, fontFamily: OSW, fontSize: 12.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap', display: 'inline-block' }
 
@@ -195,7 +186,7 @@ function accion(
       </select>
     )
   }
-  if (f.tipo === 'ingsinprecio') return <Link to="/cocina/numeros/datos" style={btnStyle}>Poner precios</Link>
-  if (f.tipo === 'ep') return <Link to="/cocina/numeros/datos" style={btnStyle}>Completar EP</Link>
-  return <Link to="/cocina/numeros/plato-maestro" style={btnStyle}>Abrir</Link>
+  if (f.tipo === 'ingsinprecio') return <Link to="/cocina/dinero/datos" style={btnStyle}>Poner precios</Link>
+  if (f.tipo === 'ep') return <Link to="/cocina/dinero/datos" style={btnStyle}>Completar EP</Link>
+  return <Link to="/cocina/operativa/plato-maestro" style={btnStyle}>Abrir</Link>
 }
