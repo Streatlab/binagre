@@ -10,6 +10,8 @@ import ModalIngrediente from './ModalIngrediente'
 import MicDictado from './MicDictado'
 import ModalEPS from './ModalEPS'
 import BuscadorItem from './BuscadorItem'
+// Waterfall vivo del Escandallo, extraído a módulo testeable (Bloque D) — misma fórmula.
+import { computeWaterfall, norm } from '@/utils/waterfallReceta'
 
 interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
 
@@ -49,39 +51,6 @@ function colorAlpha(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`
 }
 
-function norm(v: number): number { return v > 1 ? v / 100 : v }
-
-interface Waterfall {
-  costePlatR: number; costeEstrR: number; costeTotalR: number; margenR: number; margenPctR: number; ivaRepercutido: number
-  costePlatC: number; costeEstrC: number; costeTotalC: number; margenC: number; margenPctC: number; ivaSoportado: number
-  pvpRecR: number; pvpRecC: number; factorK: number
-}
-
-function computeWaterfall(costeMP: number, pvp: number, comision: number, estructura: number, margenDeseado: number): Waterfall {
-  const costePlatR = pvp * comision * 1.21
-  const ingresoNetoR = pvp - costePlatR
-  const costeEstrR = ingresoNetoR * estructura
-  const costeTotalR = costeMP + costePlatR + costeEstrR
-  const margenR = pvp - costeTotalR
-  const margenPctR = pvp > 0 ? (margenR / pvp) * 100 : 0
-  const ivaRepercutido = pvp > 0 ? (ingresoNetoR / 1.10) * 0.10 : 0
-
-  const costePlatC = pvp * comision
-  const ingresoNetoC = pvp - costePlatC
-  const costeEstrC = ingresoNetoC * estructura
-  const costeTotalC = costeMP + costePlatC + costeEstrC
-  const margenC = pvp - costeTotalC
-  const margenPctC = pvp > 0 ? (margenC / pvp) * 100 : 0
-  const ivaSoportado = pvp * comision * 0.21
-
-  const denomR = 1 - comision * 1.21 - estructura - margenDeseado
-  const denomC = 1 - comision - estructura - margenDeseado
-  const pvpRecR = denomR > 0 ? costeMP / denomR : 0
-  const pvpRecC = denomC > 0 ? costeMP / denomC : 0
-  const factorK = pvp > 0 && costeMP > 0 ? pvp / costeMP : 0
-
-  return { costePlatR, costeEstrR, costeTotalR, margenR, margenPctR, ivaRepercutido, costePlatC, costeEstrC, costeTotalC, margenC, margenPctC, ivaSoportado, pvpRecR, pvpRecC, factorK }
-}
 
 export default function ModalReceta({ receta, initialNombre, ingredientes, epsList, onClose, onSaved, onDelete }: Props) {
   const cfg = useConfig()
