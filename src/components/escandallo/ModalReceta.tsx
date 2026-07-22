@@ -18,7 +18,7 @@ import { computeWaterfall, norm } from '@/utils/waterfallReceta'
 
 interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
 
-interface Props { receta: Receta | null; initialNombre?: string; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
+interface Props { receta: Receta | null; initialNombre?: string; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: (recetaId?: string) => void; onDelete?: () => void }
 
 const thCls = 'px-3 py-2 text-left text-[10px] uppercase tracking-wider text-ink font-semibold border-b-[2px] border-ink bg-crema'
 const tdCls = 'px-3 py-2 text-sm border-b border-ink/20'
@@ -65,6 +65,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
   const todayISO = new Date().toISOString().split('T')[0]
 
   const [nombre, setNombre] = useState(receta?.nombre ?? initialNombre ?? '')
+  const [elaboracion, setElaboracion] = useState((receta as unknown as { elaboracion?: string })?.elaboracion ?? '')
   const [categoria, setCategoria] = useState(receta?.categoria ?? '')
   const [raciones, setRaciones] = useState(receta?.raciones ?? 1)
   const [tamanoRac, setTamanoRac] = useState(receta?.tamano_rac ?? 0)
@@ -283,7 +284,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     try {
       let rid = receta?.id
       const pvpRecord: Record<CanalKey, number> = { pvp_uber: pvpCanal.pvp_uber, pvp_glovo: pvpCanal.pvp_glovo, pvp_je: pvpCanal.pvp_je, pvp_web: pvpCanal.pvp_web, pvp_directa: pvpCanal.pvp_directa }
-      const record = { nombre, categoria: categoria || null, raciones, tamano_rac: tamanoRac || null, unidad: unidad || null, fecha: isDirty ? todayISO : (fechaOriginal || null), coste_tanda: costeTanda, coste_rac: costeMP, ...pvpRecord }
+      const record = { nombre, elaboracion: elaboracion.trim() || null, categoria: categoria || null, raciones, tamano_rac: tamanoRac || null, unidad: unidad || null, fecha: isDirty ? todayISO : (fechaOriginal || null), coste_tanda: costeTanda, coste_rac: costeMP, ...pvpRecord }
       if (rid) { const { error } = await supabase.from('recetas').update(record).eq('id', rid); if (error) throw error }
       else { const { data, error } = await supabase.from('recetas').insert(record).select('id').single(); if (error) throw error; rid = data.id }
       await supabase.from('recetas_lineas').delete().eq('receta_id', rid)
@@ -291,7 +292,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
         const rows = lineasCalc.map((l, i) => ({ receta_id: rid, linea: i + 1, tipo: l.tipo, ingrediente_nombre: l.ingrediente_nombre, ingrediente_id: l.ingrediente_id, eps_id: l.eps_id, cantidad: l.cantidad, unidad: l.unidad, eur_ud_neta: l.eur_ud_neta }))
         const { error } = await supabase.from('recetas_lineas').insert(rows); if (error) throw error
       }
-      onSaved()
+      onSaved(rid)
     } catch (e: any) { alert('Error: ' + (e.message || 'Error desconocido')) }
     finally { setSaving(false) }
   }
@@ -392,6 +393,18 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
                 </div>
               </div>
             )}
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-ink uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Elaboración</p>
+              <MicDictado onTexto={t => { setIsDirty(true); setElaboracion(prev => (prev ? prev + ' ' : '') + t) }} />
+            </div>
+            <textarea
+              value={elaboracion}
+              onChange={e => { setIsDirty(true); setElaboracion(e.target.value) }}
+              placeholder="Escribe o dicta los pasos de elaboración..."
+              style={{ background: BLANCO, border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, borderRadius: 0, padding: 10, width: '100%', boxSizing: 'border-box', height: 100, resize: 'vertical', outline: 'none' }}
+            />
           </div>
           <div>
             <p className="text-sm text-ink uppercase tracking-wider mb-3" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Waterfall pricing por canal</p>
