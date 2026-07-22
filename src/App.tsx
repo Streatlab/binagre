@@ -4,8 +4,11 @@ import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { TitularProvider } from '@/contexts/TitularContext'
 import Layout from '@/components/Layout'
 import Login from '@/pages/Login'
+import { TabsContainer } from '@/components/kit/TabsContainer'
 
 const Home = React.lazy(() => import('@/pages/Home'))
+const PortalEmpleado = React.lazy(() => import('@/pages/equipo/PortalEmpleado'))
+const ConfiguracionHub = React.lazy(() => import('@/pages/configuracion/ConfiguracionHub'))
 const PapeleoPage = React.lazy(() => import('@/pages/finanzas/PapeleoPage'))
 const RentabilidadPage = React.lazy(() => import('@/pages/finanzas/RentabilidadPage'))
 const Proveedores = React.lazy(() => import('@/pages/Proveedores'))
@@ -142,14 +145,19 @@ function AppRoutes() {
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Home />} />
           <Route path="escandallo" element={<EscandalloSwitch />} />
-          <Route path="carta" element={<Carta />} />
+          <Route path="carta" element={<TabsContainer title="Carta" tabs={[
+            { to: '.', label: 'Carta', end: true },
+            { to: 'menu-familia', label: 'Menú Familia' },
+          ]} />}>
+            <Route index element={<Carta />} />
+            <Route path="menu-familia" element={<MenuFamilia />} />
+          </Route>
           <Route path="finanzas/papeleo" element={<ProtectedRoute solo={['admin']}><PapeleoPage /></ProtectedRoute>} />
           <Route path="facturacion" element={<Navigate to="/finanzas/papeleo?tab=facturacion" replace />} />
           <Route path="facturacion/conciliacion" element={<Navigate to="/finanzas/papeleo?tab=conciliacion" replace />} />
           <Route path="pos" element={<ProtectedRoute solo={['admin']}><POS /></ProtectedRoute>} />
 
 
-          <Route path="configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
           {/* Pantalla Configuracion antigua eliminada · redirige a integraciones */}
           <Route path="configuracion/configuracion" element={<Navigate to="/configuracion/integraciones" replace />} />
 
@@ -221,6 +229,132 @@ function AppRoutes() {
           <Route path="finanzas/rentabilidad-franja" element={<Navigate to="/finanzas/rentabilidad?tab=franja" replace />} />
           <Route path="finanzas/ticket-medio" element={<Navigate to="/finanzas/ventas-panel?tab=ticket" replace />} />
 
+          {/* ── v5 · Ventas y Clientes · contenedores de pestañas ── */}
+          <Route path="ventas/analitica" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Analítica" insightCategoria="canales" tabs={[
+            { to: '.', label: 'Margen por Canal', end: true },
+            { to: 'ventas-marca', label: 'Ventas por Marca' },
+            { to: 'pareto', label: 'Pareto Ventas' },
+            { to: 'revenue', label: 'Revenue & Ticket' },
+            { to: 'demanda', label: 'Predicción Demanda' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<MargenCanal />} />
+            <Route path="ventas-marca" element={<VentasMarca />} />
+            <Route path="pareto" element={<ParetoVentas />} />
+            <Route path="revenue" element={<RevenueTicketMedio />} />
+            <Route path="demanda" element={<PrediccionDemanda />} />
+          </Route>
+          <Route path="ventas/clientes" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Clientes" tabs={[
+            { to: '.', label: 'CRM', end: true },
+            { to: 'club', label: 'Club Fidelización' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<CrmTiendaPropia />} />
+            <Route path="club" element={<ClubFidelizacion />} />
+          </Route>
+          <Route path="ventas/marketing" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Marketing" tabs={[
+            { to: '.', label: 'Panel MKT', end: true },
+            { to: 'campanas', label: 'Campañas y Promos' },
+            { to: 'rendimiento', label: 'Rendimiento Ads y Promo' },
+            { to: 'resenas', label: 'Panel Reseñas' },
+            { to: 'benchmark', label: 'Benchmark' },
+            { to: 'playbook', label: 'Playbook ThinkPaladar' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<PanelMkt />} />
+            <Route path="campanas" element={<PlanCampanas />} />
+            <Route path="rendimiento" element={<RendimientoAdsPromo />} />
+            <Route path="resenas" element={<PanelResenas />} />
+            <Route path="benchmark" element={<Benchmark />} />
+            <Route path="playbook" element={<PlaybookThinkPaladar />} />
+          </Route>
+
+          {/* ── v5 · Compras ── */}
+          <Route path="compras" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Compras" insightCategoria="costes" crossNav={{ to: '/escandallo', label: 'Escandallo' }} tabs={[
+            { to: '.', label: 'Lista de Compra', end: true },
+            { to: 'inventario', label: 'Inventario' },
+            { to: 'proveedores', label: 'Proveedores' },
+            { to: '/configuracion/compras/categorias', label: 'Catálogos' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<ListaCompra />} />
+            <Route path="inventario" element={<Inventario />} />
+            <Route path="proveedores" element={<Proveedores />} />
+          </Route>
+
+          {/* ── v5 · Operaciones ── */}
+          <Route path="ops/registro-diario" element={<TabsContainer title="Registro diario" insightCategoria="general" tabs={[
+            { to: '.', label: 'Checklists', end: true },
+            { to: 'tareas', label: 'Tareas' },
+            { to: 'temperaturas', label: 'Temperaturas' },
+            { to: 'bitacora', label: 'Bitácora' },
+            { to: 'pulso', label: 'Pulso Cocina' },
+          ]} />}>
+            <Route index element={<ChecklistsAperturaCierre />} />
+            <Route path="tareas" element={<TareasOperativas />} />
+            <Route path="temperaturas" element={<ControlTemperaturas />} />
+            <Route path="bitacora" element={<BitacoraNovedades />} />
+            <Route path="pulso" element={<ProtectedRoute solo={['admin']}><PulsoCocina /></ProtectedRoute>} />
+          </Route>
+          <Route path="ops/mantenimiento" element={<TabsContainer title="Mantenimiento" tabs={[
+            { to: '.', label: 'Libro Equipos', end: true },
+            { to: 'danos', label: 'Daños Menaje' },
+            { to: 'pedidos-menaje', label: 'Pedidos Menaje' },
+          ]} />}>
+            <Route index element={<LibroEquipos />} />
+            <Route path="danos" element={<DanosMenaje />} />
+            <Route path="pedidos-menaje" element={<PedidosMenaje />} />
+          </Route>
+          <Route path="ops/calidad" element={<TabsContainer title="Calidad" tabs={[
+            { to: '.', label: 'BPM / Calidad', end: true },
+            { to: 'manuales', label: 'Manuales' },
+          ]} />}>
+            <Route index element={<ProtectedRoute solo={['admin']}><BpmCalidad /></ProtectedRoute>} />
+            <Route path="manuales" element={<ManualesOperaciones />} />
+          </Route>
+          <Route path="equipo" element={<TabsContainer title="Equipo" tabs={[
+            { to: '.', label: 'Personas', end: true },
+            { to: 'organigrama', label: 'Organigrama' },
+            { to: 'horarios', label: 'Horarios' },
+            { to: 'presencia', label: 'Presencia' },
+            { to: 'portal', label: 'Portal del empleado' },
+          ]} />}>
+            <Route index element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
+            <Route path="organigrama" element={<ProtectedRoute solo={['admin']}><Organigrama /></ProtectedRoute>} />
+            <Route path="horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
+            <Route path="presencia" element={<ProtectedRoute solo={['admin']}><ControlPresencia /></ProtectedRoute>} />
+            <Route path="portal" element={<PortalEmpleado />} />
+          </Route>
+
+          {/* ── v5 · Ajustes · hub de Configuración ── */}
+          <Route path="configuracion" element={<ProtectedRoute solo={['admin']}><ConfiguracionHub /></ProtectedRoute>} />
+
+          {/* ── v5 · Redirecciones de rutas viejas → nueva pestaña ── */}
+          <Route path="analytics/margen" element={<Navigate to="/ventas/analitica" replace />} />
+          <Route path="analytics/ventas-marca" element={<Navigate to="/ventas/analitica/ventas-marca" replace />} />
+          <Route path="analytics/pareto-ventas" element={<Navigate to="/ventas/analitica/pareto" replace />} />
+          <Route path="analytics/revenue" element={<Navigate to="/ventas/analitica/revenue" replace />} />
+          <Route path="analytics/demanda" element={<Navigate to="/ventas/analitica/demanda" replace />} />
+          <Route path="clientes/crm" element={<Navigate to="/ventas/clientes" replace />} />
+          <Route path="clientes/club" element={<Navigate to="/ventas/clientes/club" replace />} />
+          <Route path="clientes/resenas" element={<Navigate to="/ventas/marketing/resenas" replace />} />
+          <Route path="clientes/benchmark" element={<Navigate to="/ventas/marketing/benchmark" replace />} />
+          <Route path="clientes/playbook-tp" element={<Navigate to="/ventas/marketing/playbook" replace />} />
+          <Route path="marketing/panel" element={<Navigate to="/ventas/marketing" replace />} />
+          <Route path="marketing/plan" element={<Navigate to="/ventas/marketing/campanas" replace />} />
+          <Route path="marketing/rendimiento-ads-promo" element={<Navigate to="/ventas/marketing/rendimiento" replace />} />
+          <Route path="cocina/menu-familia" element={<Navigate to="/carta/menu-familia" replace />} />
+          <Route path="cocina/pareto-ingredientes" element={<Navigate to="/cocina/menu-engineering/pareto" replace />} />
+          <Route path="stock/inventario" element={<Navigate to="/compras/inventario" replace />} />
+          <Route path="stock/proveedores" element={<Navigate to="/compras/proveedores" replace />} />
+          <Route path="cocina/lista-compra" element={<Navigate to="/compras" replace />} />
+          <Route path="ops/checklists" element={<Navigate to="/ops/registro-diario" replace />} />
+          <Route path="ops/tareas" element={<Navigate to="/ops/registro-diario/tareas" replace />} />
+          <Route path="ops/temperaturas" element={<Navigate to="/ops/registro-diario/temperaturas" replace />} />
+          <Route path="ops/bitacora" element={<Navigate to="/ops/registro-diario/bitacora" replace />} />
+          <Route path="ops/pulso" element={<Navigate to="/ops/registro-diario/pulso" replace />} />
+          <Route path="ops/equipos" element={<Navigate to="/ops/mantenimiento" replace />} />
+          <Route path="ops/danos" element={<Navigate to="/ops/mantenimiento/danos" replace />} />
+          <Route path="ops/pedidos-menaje" element={<Navigate to="/ops/mantenimiento/pedidos-menaje" replace />} />
+          <Route path="ops/bpm" element={<Navigate to="/ops/calidad" replace />} />
+          <Route path="ops/manuales" element={<Navigate to="/ops/calidad/manuales" replace />} />
+
           <Route path="panel" element={<ProtectedRoute solo={['admin']}><PanelSwitch /></ProtectedRoute>} />
           <Route path="panel-direccion" element={<ProtectedRoute solo={['admin']}><PanelDireccion /></ProtectedRoute>} />
 
@@ -234,59 +368,33 @@ function AppRoutes() {
           <Route path="informes/historial" element={<ProtectedRoute solo={['admin']}><Historial /></ProtectedRoute>} />
           <Route path="informes/configuracion" element={<ProtectedRoute solo={['admin']}><ConfiguracionInformes /></ProtectedRoute>} />
 
-          <Route path="analytics/revenue" element={<ProtectedRoute solo={['admin']}><RevenueTicketMedio /></ProtectedRoute>} />
-          <Route path="analytics/margen" element={<ProtectedRoute solo={['admin']}><MargenCanal /></ProtectedRoute>} />
-          <Route path="analytics/ventas-marca" element={<ProtectedRoute solo={['admin']}><VentasMarca /></ProtectedRoute>} />
-          <Route path="analytics/demanda" element={<ProtectedRoute solo={['admin']}><PrediccionDemanda /></ProtectedRoute>} />
-          <Route path="analytics/pareto-ventas" element={<ProtectedRoute solo={['admin']}><ParetoVentas /></ProtectedRoute>} />
 
           <Route path="ops/reembolsos" element={<ReclamacionReembolsos />} />
-          <Route path="ops/temperaturas" element={<ControlTemperaturas />} />
-          <Route path="ops/checklists" element={<ChecklistsAperturaCierre />} />
-          <Route path="ops/tareas" element={<TareasOperativas />} />
-          <Route path="ops/manuales" element={<ManualesOperaciones />} />
-          <Route path="ops/bitacora" element={<BitacoraNovedades />} />
-          <Route path="ops/equipos" element={<LibroEquipos />} />
-          <Route path="ops/danos" element={<DanosMenaje />} />
-          <Route path="ops/pedidos-menaje" element={<PedidosMenaje />} />
-          <Route path="ops/pulso" element={<ProtectedRoute solo={['admin']}><PulsoCocina /></ProtectedRoute>} />
-          <Route path="ops/bpm" element={<ProtectedRoute solo={['admin']}><BpmCalidad /></ProtectedRoute>} />
           <Route path="ops/reuniones" element={<ProtectedRoute solo={['admin']}><ReunionesEquipo /></ProtectedRoute>} />
           <Route path="ops/recetas" element={<RecetasFichasTecnicas />} />
           <Route path="marcas" element={<ProtectedRoute solo={['admin']}><MarcasSimple /></ProtectedRoute>} />
 
-          <Route path="equipo" element={<ProtectedRoute solo={['admin']}><Equipo /></ProtectedRoute>} />
-          <Route path="equipo/organigrama" element={<ProtectedRoute solo={['admin']}><Organigrama /></ProtectedRoute>} />
-          <Route path="equipo/horarios" element={<ProtectedRoute solo={['admin']}><Horarios /></ProtectedRoute>} />
-          <Route path="equipo/presencia" element={<ProtectedRoute solo={['admin']}><ControlPresencia /></ProtectedRoute>} />
 
-          <Route path="clientes/club" element={<ProtectedRoute solo={['admin']}><ClubFidelizacion /></ProtectedRoute>} />
-          <Route path="clientes/crm" element={<ProtectedRoute solo={['admin']}><CrmTiendaPropia /></ProtectedRoute>} />
-          <Route path="clientes/resenas" element={<ProtectedRoute solo={['admin']}><PanelResenas /></ProtectedRoute>} />
-          <Route path="clientes/playbook-tp" element={<ProtectedRoute solo={['admin']}><PlaybookThinkPaladar /></ProtectedRoute>} />
-          <Route path="clientes/benchmark" element={<ProtectedRoute solo={['admin']}><Benchmark /></ProtectedRoute>} />
 
           <Route path="integraciones/pos" element={<ProtectedRoute solo={['admin']}><PosVentas /></ProtectedRoute>} />
 
-          <Route path="marketing/panel" element={<ProtectedRoute solo={['admin']}><PanelMkt /></ProtectedRoute>} />
-          <Route path="marketing/plan" element={<ProtectedRoute solo={['admin']}><PlanCampanas /></ProtectedRoute>} />
-          <Route path="marketing/rendimiento-ads-promo" element={<ProtectedRoute solo={['admin']}><RendimientoAdsPromo /></ProtectedRoute>} />
           <Route path="marketing/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
 
-          <Route path="stock/proveedores" element={<ProtectedRoute solo={['admin']}><Proveedores /></ProtectedRoute>} />
-          <Route path="stock/inventario" element={<ProtectedRoute solo={['admin']}><Inventario /></ProtectedRoute>} />
 
           <Route path="cocina/inventario" element={<ProtectedRoute solo={['admin']}><CocinaInventario /></ProtectedRoute>} />
           <Route path="cocina/recetas" element={<CocinaRecetas />} />
           {/* A2 · Coste por plato: enlaza lo que vendes con la receta que lo cuesta */}
           <Route path="cocina/coste-plato" element={<ProtectedRoute solo={['admin']}><CostePlato /></ProtectedRoute>} />
-          <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><MenuEngineering /></ProtectedRoute>} />
+          <Route path="cocina/menu-engineering" element={<ProtectedRoute solo={['admin']}><TabsContainer title="Menú Engineering" insightCategoria="costes" crossNav={{ to: '/ventas/analitica', label: 'Ventas del plato' }} tabs={[
+            { to: '.', label: 'Menú Engineering', end: true },
+            { to: 'pareto', label: 'Pareto Ingredientes' },
+          ]} /></ProtectedRoute>}>
+            <Route index element={<MenuEngineering />} />
+            <Route path="pareto" element={<ParetoIngredientes />} />
+          </Route>
           <Route path="cocina/recetario" element={<Recetario />} />
           <Route path="cocina/esquemas" element={<Esquemas />} />
           <Route path="cocina/produccion" element={<Produccion />} />
-          <Route path="cocina/menu-familia" element={<MenuFamilia />} />
-          <Route path="cocina/lista-compra" element={<ListaCompra />} />
-          <Route path="cocina/pareto-ingredientes" element={<ProtectedRoute solo={['admin']}><ParetoIngredientes /></ProtectedRoute>} />
 
           <Route path="analytics/:slug" element={<ProtectedRoute solo={['admin']}><Placeholder /></ProtectedRoute>} />
           <Route path="ops/:slug" element={<Placeholder />} />

@@ -8,12 +8,8 @@ import {
   ShoppingCart,
   Settings,
   ChevronRight,
-  Clock,
-  Users,
   BellRing,
-  FileText,
   ClipboardList,
-  Megaphone,
   Compass,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -38,108 +34,65 @@ interface NavItem   { path: string; label: string; emoji: string; perfiles: stri
 interface NavSection { key: string; label: string; perfiles: string[]; items: NavItem[] }
 interface SectionIconConfig { icon: LucideIcon; headBg: string; headColor: string }
 
+// ── Navegación ÚNICA · 6 áreas (reconciliación v5) ──
+// Finanzas reutiliza los módulos consolidados (Papeleo/Ventas/Tesorería/Resultados/
+// Rentabilidad) como pantallas; el resto usa contenedores de pestañas propios.
 const SECTIONS: NavSection[] = [
   {
     key: 'finanzas', label: 'Finanzas', perfiles: ['admin'],
     items: [
-      { path: '/finanzas/papeleo',       label: 'Papeleo',      emoji: '📥', perfiles: ['admin'] },
-      { path: '/finanzas/ventas-panel',  label: 'Ventas',       emoji: '💰', perfiles: ['admin'] },
-      { path: '/finanzas/tesoreria',     label: 'Tesorería',    emoji: '💳', perfiles: ['admin'] },
-      { path: '/finanzas/resultados',    label: 'Resultados',   emoji: '📊', perfiles: ['admin'] },
-      { path: '/finanzas/rentabilidad',  label: 'Rentabilidad', emoji: '🎯', perfiles: ['admin'] },
+      { path: '/finanzas/papeleo',      label: 'Papeleo',          emoji: '📥', perfiles: ['admin'] },
+      { path: '/finanzas/tesoreria',    label: 'Tesorería',        emoji: '💳', perfiles: ['admin'] },
+      { path: '/finanzas/resultados',   label: 'Estados Financieros', emoji: '📑', perfiles: ['admin'] },
+      { path: '/finanzas/rentabilidad', label: 'Rentabilidad',     emoji: '📐', perfiles: ['admin'] },
+      { path: '/finanzas/panel-alertas',label: 'Panel de Alertas', emoji: '🚨', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'ventas', label: 'Ventas y Clientes', perfiles: ['admin'],
+    items: [
+      { path: '/finanzas/ventas-panel', label: 'Ventas',    emoji: '💰', perfiles: ['admin'] },
+      { path: '/ventas/analitica',      label: 'Analítica', emoji: '📊', perfiles: ['admin'] },
+      { path: '/ventas/clientes',       label: 'Clientes',  emoji: '🛍️', perfiles: ['admin'] },
+      { path: '/ventas/marketing',      label: 'Marketing', emoji: '📣', perfiles: ['admin'] },
     ],
   },
   {
     key: 'cocina', label: 'Cocina', perfiles: ['admin', 'cocina'],
     items: [
-      { path: '/escandallo',                 label: 'Escandallo',          emoji: '⚖️', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/lista-compra',        label: 'Lista de Compra',     emoji: '🛒', perfiles: ['admin', 'cocina'] },
-      { path: '/carta',                      label: 'Carta',               emoji: '🍽️', perfiles: ['admin'] },
-      { path: '/cocina/menu-engineering',    label: 'Menú Engineering',    emoji: '⚙️', perfiles: ['admin'] },
-      { path: '/cocina/pareto-ingredientes', label: 'Pareto Ingredientes', emoji: '🥕', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/recetario',           label: 'Recetario',           emoji: '📋', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/produccion',          label: 'Producción',          emoji: '📋', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/menu-familia',        label: 'Menú Familia',        emoji: '🥘', perfiles: ['admin', 'cocina'] },
+      { path: '/escandallo',              label: 'Escandallo',       emoji: '⚖️', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/recetario',        label: 'Recetario',        emoji: '📋', perfiles: ['admin', 'cocina'] },
+      { path: '/cocina/produccion',       label: 'Producción',       emoji: '📋', perfiles: ['admin', 'cocina'] },
+      { path: '/carta',                   label: 'Carta',            emoji: '🍽️', perfiles: ['admin'] },
+      { path: '/cocina/menu-engineering', label: 'Menú Engineering', emoji: '⚙️', perfiles: ['admin'] },
+    ],
+  },
+  {
+    key: 'compras', label: 'Compras', perfiles: ['admin'],
+    items: [
+      { path: '/compras',                          label: 'Lista de Compra',   emoji: '🛒', perfiles: ['admin'] },
+      { path: '/compras/inventario',               label: 'Inventario',        emoji: '📦', perfiles: ['admin'] },
+      { path: '/compras/proveedores',              label: 'Proveedores',       emoji: '🏢', perfiles: ['admin'] },
+      { path: '/configuracion/compras/categorias', label: 'Catálogos·Compras', emoji: '📚', perfiles: ['admin'] },
     ],
   },
   {
     key: 'operaciones', label: 'Operaciones', perfiles: ['admin'],
     items: [
-      { path: '/ops/checklists',    label: 'Checklists',       emoji: '✅', perfiles: ['admin'] },
-      { path: '/ops/tareas',        label: 'Tareas',           emoji: '📝', perfiles: ['admin'] },
-      { path: '/ops/manuales',      label: 'Manuales',         emoji: '📚', perfiles: ['admin'] },
-      { path: '/ops/reembolsos',    label: 'Reclamaciones',    emoji: '💸', perfiles: ['admin'] },
-      { path: '/ops/pulso',         label: 'Pulso Cocina',     emoji: '📡', perfiles: ['admin'] },
-      { path: '/ops/temperaturas',  label: 'Temperaturas',     emoji: '🌡️', perfiles: ['admin'] },
-      { path: '/ops/bpm',           label: 'BPM / Calidad',    emoji: '✅', perfiles: ['admin'] },
-      { path: '/ops/equipos',       label: 'Libro Equipos',    emoji: '🔧', perfiles: ['admin'] },
-      { path: '/ops/danos',         label: 'Daños Menaje',     emoji: '🍽️', perfiles: ['admin'] },
-      { path: '/ops/pedidos-menaje',label: 'Pedidos Menaje',   emoji: '📦', perfiles: ['admin'] },
-      { path: '/ops/bitacora',      label: 'Bitácora',         emoji: '🔔', perfiles: ['admin'] },
-      { path: '/ops/reuniones',     label: 'Reuniones Equipo', emoji: '🤝', perfiles: ['admin'] },
-      { path: '/marcas',            label: 'Marcas',           emoji: '🏷️', perfiles: ['admin'] },
+      { path: '/ops/registro-diario', label: 'Registro diario',  emoji: '✅', perfiles: ['admin'] },
+      { path: '/ops/mantenimiento',   label: 'Mantenimiento',    emoji: '🔧', perfiles: ['admin'] },
+      { path: '/ops/calidad',         label: 'Calidad',          emoji: '📚', perfiles: ['admin'] },
+      { path: '/ops/reembolsos',      label: 'Reclamaciones',    emoji: '💸', perfiles: ['admin'] },
+      { path: '/ops/reuniones',       label: 'Reuniones Equipo', emoji: '🤝', perfiles: ['admin'] },
+      { path: '/marcas',              label: 'Marcas',           emoji: '🏷️', perfiles: ['admin'] },
+      { path: '/equipo',              label: 'Equipo',           emoji: '👥', perfiles: ['admin'] },
     ],
   },
   {
-    key: 'stock', label: 'Stock & Compras', perfiles: ['admin'],
+    key: 'ajustes', label: 'Ajustes', perfiles: ['admin'],
     items: [
-      { path: '/stock/inventario',  label: 'Inventario',  emoji: '📦', perfiles: ['admin'] },
-      { path: '/stock/proveedores', label: 'Proveedores', emoji: '🏢', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'analitica', label: 'Analítica', perfiles: ['admin'],
-    items: [
-      { path: '/analytics/margen',       label: 'Margen por Canal',   emoji: '📊', perfiles: ['admin'] },
-      { path: '/analytics/ventas-marca', label: 'Ventas por Marca',   emoji: '🏷️', perfiles: ['admin'] },
-      { path: '/analytics/pareto-ventas',label: 'Pareto Ventas',      emoji: '🏆', perfiles: ['admin'] },
-      { path: '/analytics/revenue',      label: 'Revenue & Ticket',   emoji: '🎫', perfiles: ['admin'] },
-      { path: '/analytics/demanda',      label: 'Predicción Demanda', emoji: '⏱️', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'informes', label: 'Informes', perfiles: ['admin'],
-    items: [
-      { path: '/informes',               label: 'Panel Informes',   emoji: '📊', perfiles: ['admin'] },
-      { path: '/informes/destinatarios', label: 'Destinatarios',    emoji: '👥', perfiles: ['admin'] },
-      { path: '/informes/historial',     label: 'Historial envíos', emoji: '🕒', perfiles: ['admin'] },
-      { path: '/informes/configuracion', label: 'Configuración',    emoji: '⚙️', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'equipo', label: 'Equipo', perfiles: ['admin'],
-    items: [
-      { path: '/equipo',             label: 'Personas',    emoji: '👥', perfiles: ['admin'] },
-      { path: '/equipo/organigrama', label: 'Organigrama', emoji: '🏢', perfiles: ['admin'] },
-      { path: '/equipo/horarios',    label: 'Horarios',    emoji: '🗓️', perfiles: ['admin'] },
-      { path: '/equipo/presencia',   label: 'Presencia',   emoji: '🕐', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'mkt', label: 'MKT', perfiles: ['admin'],
-    items: [
-      { path: '/marketing/panel',                 label: 'Panel MKT',               emoji: '📣', perfiles: ['admin'] },
-      { path: '/marketing/plan',                  label: 'Campañas y Promos',       emoji: '🗓️', perfiles: ['admin'] },
-      { path: '/marketing/rendimiento-ads-promo', label: 'Rendimiento Ads y Promo', emoji: '📈', perfiles: ['admin'] },
-      { path: '/clientes/resenas',                label: 'Panel Reseñas',           emoji: '⭐',  perfiles: ['admin'] },
-      { path: '/clientes/benchmark',              label: 'Benchmark',               emoji: '🎯', perfiles: ['admin'] },
-      { path: '/clientes/playbook-tp',            label: 'Playbook ThinkPaladar',   emoji: '📘', perfiles: ['admin'] },
-      { path: '/clientes/crm',                    label: 'CRM Streat Lab',          emoji: '🛍️', perfiles: ['admin'] },
-      { path: '/clientes/club',                   label: 'Club Fidelización',       emoji: '🎖️', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'configuracion', label: 'Configuración', perfiles: ['admin'],
-    items: [
-      { path: '/configuracion/compras/categorias',   label: 'Catálogos · Compras',  emoji: '🛒', perfiles: ['admin'] },
-      { path: '/configuracion/integraciones',        label: 'Integraciones',        emoji: '🔌', perfiles: ['admin'] },
-      { path: '/configuracion/reglas',               label: 'Reglas',               emoji: '📐', perfiles: ['admin'] },
-      { path: '/configuracion/bancos-y-cuentas',     label: 'Bancos y Cuentas',     emoji: '🏦', perfiles: ['admin'] },
-      { path: '/configuracion/usuarios',             label: 'Usuarios',             emoji: '👤', perfiles: ['admin'] },
-      { path: '/configuracion/calendario',           label: 'Calendario operativo', emoji: '📅', perfiles: ['admin'] },
-      { path: '/configuracion/aprendizajes',         label: 'Aprendizajes ERP',     emoji: '🧠', perfiles: ['admin'] },
-      { path: '/configuracion/calcneto-aprendizaje', label: 'Ajuste calcNeto',      emoji: '⚖️', perfiles: ['admin'] },
-      { path: '/configuracion/mapeo-marcas',         label: 'Mapeo de Marcas',      emoji: '🏷️', perfiles: ['admin'] },
+      { path: '/configuracion', label: 'Configuración', emoji: '⚙️', perfiles: ['admin'] },
+      { path: '/informes',      label: 'Informes',      emoji: '📊', perfiles: ['admin'] },
     ],
   },
 ]
@@ -147,43 +100,13 @@ const SECTIONS: NavSection[] = [
 // Variante B: cada sec-head con su color de fondo sólido (literal del mock)
 const SECTION_ICONS: Record<string, SectionIconConfig> = {
   finanzas:      { icon: TrendingUp,    headBg: '#0FB86B', headColor: '#fff'  },
+  ventas:        { icon: TrendingUp,    headBg: '#7C3AED', headColor: '#fff'  },
   cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: '#0a0a0a' },
+  compras:       { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: '#fff'  },
   operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: '#fff'  },
-  stock:         { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: '#fff'  },
-  analitica:     { icon: TrendingUp,    headBg: '#7C3AED', headColor: '#fff'  },
-  informes:      { icon: FileText,      headBg: '#B01D23', headColor: '#fff'  },
-  equipo:        { icon: Users,         headBg: '#FF2E63', headColor: '#fff'  },
-  mkt:           { icon: Megaphone,     headBg: '#1e2233', headColor: '#fff'  },
-  configuracion: { icon: Settings,      headBg: '#484f66', headColor: '#fff'  },
+  ajustes:       { icon: Settings,      headBg: '#484f66', headColor: '#fff'  },
 }
 
-const PROXIMAMENTE: { label: string; emoji: string }[] = [
-  { label: 'Verifactu',               emoji: '✅' },
-  { label: 'Compras',                 emoji: '🛒' },
-  { label: 'Líneas de Factura',       emoji: '🧩' },
-  { label: 'Ventas Perdidas',         emoji: '🕳️' },
-  { label: 'Mapeo Plato → Receta',    emoji: '🔗' },
-  { label: 'Platos Duplicados',       emoji: '👯' },
-  { label: 'Teórico vs Real',         emoji: '🚦' },
-  { label: 'Alertas de Precio',       emoji: '📈' },
-  { label: 'Producción Prevista',     emoji: '🔮' },
-  { label: 'Sync de Carta',           emoji: '🔄' },
-  { label: 'BPM / Calidad',           emoji: '✅' },
-  { label: 'Almacén',                 emoji: '🏭' },
-  { label: 'Stock Mínimo Alertas',    emoji: '⚠️' },
-  { label: 'POS',                     emoji: '🖥️' },
-  { label: 'Fichas Empleados',        emoji: '👤' },
-  { label: 'Ventas por Hora',         emoji: '🕐' },
-  { label: 'Ranking Productos',       emoji: '🏆' },
-  { label: 'Alérgenos',               emoji: '🥜' },
-  { label: 'BI / Informes Avanzados', emoji: '📈' },
-  { label: 'Control Mermas',          emoji: '📉' },
-  { label: 'Exportación a Gestoría',  emoji: '📤' },
-  { label: 'Inventario Tiempo Real',  emoji: '📡' },
-  { label: 'Planificación Turnos',    emoji: '🗓️' },
-]
-
-const PROXIMAMENTE_LS_KEY  = 'streatlab.sidebar.proximamente.open'
 const OPEN_SECTIONS_LS_KEY = 'streatlab.sidebar.openSections'
 
 function loadOpenSections(): string[] {
@@ -204,16 +127,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const esMovilDisp = useEsMovil()
 
   const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections())
-  const [proxOpen, setProxOpen]         = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem(PROXIMAMENTE_LS_KEY) === '1'
-  })
   const [tareasBadge, setTareasBadge] = useState(0)
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    localStorage.setItem(PROXIMAMENTE_LS_KEY, proxOpen ? '1' : '0')
-  }, [proxOpen])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -480,29 +394,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             )
           })}
 
-          {/* Próximamente */}
-          {!collapsed && perfil === 'admin' && (
-            <div>
-              <button type="button" onClick={() => setProxOpen(o => !o)}
-                style={{ width: '100%', background: CREMA, border: 'none', borderBottom: `3px solid ${INK}`, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', fontFamily: FONT.heading, fontWeight: 800, fontSize: 16, textTransform: 'uppercase', letterSpacing: '0.02em', color: '#6b5d45' }}
-                title="Funciones en desarrollo">
-                <Clock size={18} strokeWidth={2.4} color="#6b5d45" />
-                <span style={{ flex: 1, textAlign: 'left' }}>Próximamente</span>
-                <span style={{ fontWeight: 800, fontSize: 17, transition: 'transform .2s', transform: proxOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
-              </button>
-              {proxOpen && (
-                <div style={{ background: BLANCO, borderBottom: `3px solid ${INK}` }}>
-                  {PROXIMAMENTE.map((item, idx) => (
-                    <div key={`${item.label}-${idx}`} aria-disabled="true"
-                      style={{ fontFamily: FONT.heading, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.01em', fontSize: 14.5, padding: '7px 16px 7px 18px', display: 'flex', alignItems: 'center', gap: 9, color: '#9a8f78', opacity: 0.6, cursor: 'not-allowed', userSelect: 'none', borderTop: idx > 0 ? '1.5px solid rgba(0,0,0,.1)' : 'none', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                      <span style={{ fontSize: 13, flexShrink: 0 }}>{item.emoji}</span>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </nav>
 
         {/* ── FOOTER (crema) ── */}

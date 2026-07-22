@@ -41,6 +41,7 @@ export const NAR         = '#FF6A1A'  // pedidos, aviso intermedio, plataformas,
 export const AZUL        = '#2D5BFF'  // TM bruto, "Te deben", valores editables
 export const GRANATE     = '#B01D23'  // corporativo Binagre
 export const GRIS        = '#9a8f78'  // sin dato / desactivado / estimado apagado
+export const BLANCO      = '#ffffff'  // blanco puro (contenedores de pestañas v5)
 
 /** Paleta agrupada (acceso por objeto). */
 export const NEO = {
