@@ -127,7 +127,7 @@ export default function TabNominas() {
     const [e, c, dt] = await Promise.all([
       // Los EXTRA (tipo_relacion='extra') no van en nómina: fuera del selector y
       // de la parrilla de cobertura (se pagan por Bizum/transferencia).
-      supabase.from('empleados').select('id, nombre').eq('estado', 'activo').neq('tipo_relacion', 'extra').order('nombre'),
+      supabase.from('empleados').select('id, nombre').eq('estado', 'activo').eq('tipo_relacion', 'plantilla').order('nombre'),
       supabase.from('v_nomina_emilio').select('*'),
       supabase.from('v_nomina_emilio_detalle').select('*'),
     ])
