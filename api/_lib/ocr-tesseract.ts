@@ -36,6 +36,13 @@
 // la 2ª factura del proveedor se lee gratis) y se hace VISIBLE el caso en
 // procesarArchivo (console diagnóstico cuando Tesseract dio texto pero no se extrajo
 // NIF/total), en vez de un 0 silencioso.
+//
+// FIX 22/07/26 (definitivo, ver desactivarWorkerPdfjs): el mismatch de versión
+// seguía en producción tras los dos fixes anteriores (confirmado en Runtime
+// Errors de Vercel: 40 ocurrencias en 7 días, la última el mismo 22/07). En vez
+// de seguir intentando resolver la ruta EXACTA del worker, se desactiva el
+// worker por completo (pdfjs cae a su FakeWorker de un solo hilo) — elimina la
+// clase entera de fallo, no solo el síntoma observado hasta ahora.
 
 const MAX_PAGINAS_OCR = 3      // facturas suelen ser 1-2 pág; tope anti-timeout
 const ESCALA_RASTER = 2.0      // 2x: legibilidad sin disparar memoria
@@ -61,32 +68,32 @@ export async function ocrImagen(buffer: Buffer): Promise<string> {
   }
 }
 
-// FIX 04/07/26: alinear API y worker de pdfjs al MISMO paquete instalado.
-// Sin esto, un workerSrc "heredado" de otro módulo (versión distinta) rompe
-// TODO el rasterizado con mismatch de versiones.
-async function alinearWorkerPdfjs(pdfjs: any): Promise<void> {
+// FIX 04/07 → 08/07 → 12/07/26: tres intentos de RESOLVER el .mjs del worker
+// exacto de la misma versión instalada (por createRequire) fallaron en
+// producción con el mismo síntoma: "API version 4.10.38 does not match Worker
+// version 4.6.82" — 40 veces en 7 días, la última hoy mismo (22/07 20:19).
+// El intento de resolver un workerSrc "no lanzaba excepción" (por eso el
+// fallback a fake-worker del catch nunca se disparaba) pero el worker real que
+// arrancaba Vercel en su lambda seguía siendo uno de otra versión — muy
+// probablemente un artefacto de caché de build de Vercel para ese asset
+// estático (`includeFiles`), no reproducible en local, y no reparable desde
+// aquí sin forzar un deploy.
+//
+// FIX 22/07/26 (definitivo): en vez de seguir intentando ACERTAR la ruta del
+// worker correcto, se DESACTIVA el worker por completo. Con workerSrc='' y
+// workerPort=null, pdfjs-dist cae directo a su FakeWorker (ejecuta el parseo
+// en el mismo hilo/proceso, sin Worker de verdad) — más lento en PDFs grandes,
+// pero estructuralmente IMPOSIBLE que compruebe versión API-vs-Worker, porque
+// no hay un segundo contexto que reporte una versión distinta. Ya limitado a
+// 3 páginas (MAX_PAGINAS_OCR) y 60s de tope, así que el coste es asumible.
+function desactivarWorkerPdfjs(pdfjs: any): void {
   try {
-    const { createRequire } = await import('node:module')
-    const { pathToFileURL } = await import('node:url')
-    const req = createRequire(import.meta.url)
-    const workerPath = req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
     if (pdfjs?.GlobalWorkerOptions) {
-      pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
-      // Anular cualquier puerto de worker heredado de otra versión.
-      try { pdfjs.GlobalWorkerOptions.workerPort = null } catch { /* noop */ }
+      pdfjs.GlobalWorkerOptions.workerSrc = ''
+      pdfjs.GlobalWorkerOptions.workerPort = null
     }
   } catch (e) {
-    // FIX 08/07/26: si el .mjs del worker no viaja en el bundle serverless,
-    // NO dejar el workerSrc heredado de otra version (causaba el mismatch
-    // 4.10.38 vs 4.6.82 y tumbaba TODO el OCR de PDF escaneado). Limpiarlo
-    // fuerza a pdfjs a usar su fake worker en Node: mas lento, pero funciona.
-    try {
-      if (pdfjs?.GlobalWorkerOptions) {
-        pdfjs.GlobalWorkerOptions.workerSrc = ''
-        pdfjs.GlobalWorkerOptions.workerPort = null
-      }
-    } catch { /* noop */ }
-    console.error('[alinearWorkerPdfjs] workerSrc no resuelto, fake worker:', e instanceof Error ? e.message : String(e))
+    console.error('[desactivarWorkerPdfjs] no se pudo desactivar el worker:', e instanceof Error ? e.message : String(e))
   }
 }
 
@@ -96,7 +103,7 @@ export async function ocrPdfEscaneado(buffer: Buffer): Promise<string> {
     // import dinámico con cast a any: la subruta legacy de pdfjs no expone
     // typings y romperia `tsc -b`. En runtime resuelve perfectamente.
     const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
-    await alinearWorkerPdfjs(pdfjs)
+    desactivarWorkerPdfjs(pdfjs)
     const canvasMod: any = await import('@napi-rs/canvas')
     const createCanvas = canvasMod.createCanvas
 

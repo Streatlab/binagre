@@ -52,7 +52,9 @@ async function archivarParaRevision(
     const drive = await subirArchivoACarpetaExacta(buffer, nombreSeguroArchivo(nombreOriginal), ['EQUIPO', 'SIN_CLASIFICAR'], ext)
     driveUrl = drive.webViewLink || null
     storagePath = drive.storagePath || null
-  } catch { /* archivarParaRevision nunca pierde el documento: sigue registrando la fila aunque Drive/Storage fallen del todo */ }
+  } catch (e) {
+    console.error('[procesarDocEquipo] archivado Drive/Storage FALLÓ (se sigue con el insert de todas formas)', JSON.stringify({ nombreOriginal, error: e instanceof Error ? e.message : String(e) }))
+  }
 
   const { data: fila, error } = await supabaseAdmin
     .from('equipo_docs_revision')
@@ -69,12 +71,22 @@ async function archivarParaRevision(
     .select()
     .maybeSingle()
 
+  // ANTES: esta función devolvía ok:true SIEMPRE, aunque el insert fallara — el
+  // documento se perdía en silencio (200 OK sin nómina ni fila de revisión, el
+  // fallo real detectado el 22/07). Ahora, si el insert falla, se deja rastro en
+  // los Runtime Logs de Vercel (prefijo [procesarDocEquipo]) y el body refleja
+  // ok:false para quien sí lea la respuesta.
+  if (error) {
+    console.error('[procesarDocEquipo] INSERT equipo_docs_revision FALLÓ — documento perdido en silencio', JSON.stringify({ nombreOriginal, tipo: clasif.tipo, motivo, error: error.message, code: error.code }))
+    return { ok: false, destino: 'revision_fallida' as const, clasificacion: clasif, fila: null, error: error.message }
+  }
+  console.log('[procesarDocEquipo] fila a revisión', JSON.stringify({ nombreOriginal, tipo: clasif.tipo, motivo }))
   return {
     ok: true,
     destino: 'revision' as const,
     clasificacion: clasif,
-    fila: error ? null : fila,
-    error: error?.message,
+    fila,
+    error: undefined,
   }
 }
 
@@ -91,21 +103,33 @@ async function archivarRntEnSilencio(buffer: Buffer, nombreOriginal: string, ext
   return { ok: true, destino: 'archivado_silencioso', tipo: 'rnt', drive_url: driveUrl }
 }
 
+// Prefijo común para buscar en Vercel (Runtime Logs) toda la traza de un
+// procesado de un tirón: `[procesarDocEquipo]`.
+function traza(paso: string, datos?: Record<string, unknown>) {
+  console.log(`[procesarDocEquipo] ${paso}`, datos ? JSON.stringify(datos) : '')
+}
+
 /** Núcleo de ingesta: clasifica y encamina un documento de personal. Usado tanto
  *  por el botón de Equipo (HTTP) como por el cartero de correo — un único motor. */
 export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: string): Promise<ResultadoDocEquipo> {
   const ext = (nombreOriginal.split('.').pop() || 'pdf').toLowerCase()
+  traza('inicio', { nombreOriginal, bytes: buffer.length, ext })
 
   let texto = ''
-  try { texto = await extraerTextoPDF(buffer) } catch { texto = '' }
+  let ocrGratisUsado = false
+  try { texto = await extraerTextoPDF(buffer) } catch (e) { texto = ''; traza('extraerTextoPDF FALLÓ', { error: e instanceof Error ? e.message : String(e) }) }
   if (!pdfTieneTexto(texto)) {
-    try { texto = await extraerTextoOCRGratis(buffer, 'pdf') } catch { /* noop */ }
+    ocrGratisUsado = true
+    try { texto = await extraerTextoOCRGratis(buffer, 'pdf') } catch (e) { traza('extraerTextoOCRGratis FALLÓ', { error: e instanceof Error ? e.message : String(e) }) }
   }
+  traza('texto extraído', { longitud: texto.length, ocrGratisUsado })
 
   const clasif = await clasificarDocEquipoTexto(texto)
+  traza('clasificación', { tipo: clasif.tipo, cierto: clasif.cierto, motivo: clasif.motivo, empleado_nombre: clasif.empleado_nombre })
 
   // RNT: fuera del resto del flujo, ni siquiera intenta partirse como multi-nómina.
   if (clasif.cierto && clasif.tipo === 'rnt') {
+    traza('RNT → archivado silencioso, fin')
     return { status: 200, body: await archivarRntEnSilencio(buffer, nombreOriginal, ext) }
   }
 
@@ -115,6 +139,7 @@ export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: st
   // alguna nómina falla), esa parte va a revisión — cero pérdidas.
   const nRecibos = contarRecibos(texto)
   const esResumen = clasif.cierto && clasif.tipo === 'resumen_nominas'
+  traza('recibos detectados', { nRecibos, esResumen })
   if (nRecibos >= 2 && !esResumen && ['pdf'].includes(ext)) {
     const segmentos = await partirNominas(buffer).catch(() => null)
     if (!segmentos) {
@@ -185,6 +210,7 @@ export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: st
       detalles.push(await archivarParaRevision(seg.buffer, nombreSeg, 'pdf', { ...clasifSeg, empleado_nombre: nombreIA ?? clasifSeg.empleado_nombre },
         `empleado no identificado con seguridad: "${nombreIA || clasifSeg.empleado_nombre || 'sin nombre detectado'}"`))
     }
+    traza('FIN multi-nómina', { nRecibos: segmentos.length, ok, descartadosEmpleador })
     if (ok > 0 || descartadosEmpleador > 0) {
       return { status: 200, body: { ok: true, destino: 'nominas', multi: true, nominas_ok: ok, descartados_empleador: descartadosEmpleador, total_partes: segmentos.length, detalles } }
     }
@@ -194,6 +220,7 @@ export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: st
   // Sin marcador determinista → SIEMPRE a revisión, sin importar qué tipo haya
   // adivinado la IA de respaldo. "Certeza, no probabilidad": nada intermedio.
   if (!clasif.cierto) {
+    traza('FIN: sin marcador determinista → revisión')
     return { status: 200, body: await archivarParaRevision(buffer, nombreOriginal, ext, clasif, clasif.motivo) }
   }
 
@@ -204,6 +231,7 @@ export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: st
     ])
     // El empleador nunca genera nómina ni aviso.
     if (clasif.empleado_nombre && resolverEmpleado(clasif.empleado_nombre, clasif.nif_trabajador, empleadores)) {
+      traza('FIN: descartado, es el empleador')
       return { status: 200, body: { ok: true, destino: 'descartado_empleador', clasificacion: clasif } }
     }
     // 1) por el nombre/NIF aislado de la cabecera; 2) si no, buscando al empleado
@@ -214,20 +242,24 @@ export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: st
       const { status, body: out } = await procesarNominaIndividual(
         buffer, nombreOriginal, resolucion.empleado_id, resolucion.nombre, null, null,
       )
+      traza('FIN: nómina individual', { empleado: resolucion.nombre, status })
       if (status === 200) return { status: 200, body: { ok: true, destino: 'nominas', clasificacion: clasif, resultado: out } }
       return { status: 200, body: await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar la nómina')) }
     }
+    traza('FIN: empleado no resuelto → revisión', { empleado_nombre: clasif.empleado_nombre })
     return { status: 200, body: await archivarParaRevision(buffer, nombreOriginal, ext, clasif, `empleado no identificado con seguridad: "${clasif.empleado_nombre || 'sin nombre detectado'}"`) }
   }
 
   if (clasif.tipo === 'resumen_nominas') {
     const { status, body: out } = await procesarResumenNominas(buffer, nombreOriginal, null, null)
+    traza('FIN: resumen_nominas', { status, out })
     if (status === 200) return { status: 200, body: { ok: true, destino: 'resumen_nominas', clasificacion: clasif, resultado: out } }
     return { status: 200, body: await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar el resumen de nóminas')) }
   }
 
   if (clasif.tipo === 'rlc') {
     const { status, body: out } = await procesarSegSocialResumen(buffer, nombreOriginal, null, null)
+    traza('FIN: rlc', { status })
     if (status === 200) return { status: 200, body: { ok: true, destino: 'seguridad_social', clasificacion: clasif, resultado: out } }
     return { status: 200, body: await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar el RLC')) }
   }
@@ -235,13 +267,16 @@ export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: st
   if (clasif.tipo === 'cuota_autonomos') {
     const { data: titular } = await supabaseAdmin.from('titulares').select('id, nombre').eq('nif', clasif.nif_titular).maybeSingle()
     if (!titular) {
+      traza('FIN: cuota_autonomos sin titular → revisión', { nif_titular: clasif.nif_titular })
       return { status: 200, body: await archivarParaRevision(buffer, nombreOriginal, ext, clasif, `Recibo de cuota de autónomos sin titular identificado (NIF "${clasif.nif_titular || 'no detectado'}" no coincide con ningún titular activo)`) }
     }
     const { status, body: out } = await procesarAutonomoCuota(buffer, nombreOriginal, titular.id as string, titular.nombre as string, null, null)
+    traza('FIN: cuota_autonomos', { titular: titular.nombre, status })
     if (status === 200) return { status: 200, body: { ok: true, destino: 'autonomos_cuotas', clasificacion: clasif, resultado: out } }
     return { status: 200, body: await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar la cuota de autónomos')) }
   }
 
   // 'desconocido': a revisión con el motivo.
+  traza('FIN: desconocido → revisión', { motivo: clasif.motivo })
   return { status: 200, body: await archivarParaRevision(buffer, nombreOriginal, ext, clasif, clasif.motivo) }
 }

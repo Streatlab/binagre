@@ -151,6 +151,12 @@ export async function procesarNominaIndividual(
   }
 }
 
+// Prefijo común para poder buscar en Vercel (Runtime Logs) toda la traza de un
+// procesado de resumen de un tirón: `[resumen]`.
+function trazaResumen(paso: string, datos?: Record<string, unknown>) {
+  console.log(`[resumen] ${paso}`, datos ? JSON.stringify(datos) : '')
+}
+
 /** Núcleo de api/nominas/resumen/subir.ts: tabla multi-trabajador de la gestoría. */
 export async function procesarResumenNominas(
   buffer: Buffer,
@@ -158,23 +164,30 @@ export async function procesarResumenNominas(
   mesBody: number | null,
   anioBody: number | null,
 ): Promise<ResultadoProceso> {
+  trazaResumen('inicio', { nombreOriginal, bytes: buffer.length })
   let texto = ''
-  try { texto = await extraerTextoPDF(buffer) } catch { texto = '' }
+  try { texto = await extraerTextoPDF(buffer) } catch (e) { texto = ''; trazaResumen('extraerTextoPDF FALLÓ', { error: e instanceof Error ? e.message : String(e) }) }
+  trazaResumen('texto extraído', { longitud: texto.length })
+
   const resultado = await extraerResumenNominasTexto(texto)
+  trazaResumen('extractor Anthropic', { estado: resultado.estado, motivo: resultado.motivo, filas: resultado.filas.length, mes: resultado.mes, anio: resultado.anio, total_empresa: resultado.total_empresa })
 
   if (resultado.estado === 'error') {
+    trazaResumen('FIN: error de extracción, nada guardado', { motivo: resultado.motivo })
     return { status: 500, body: { error: resultado.motivo } }
   }
   // Validación de suma(NETO)=TOTAL EMPRESA fallida, o sin tabla reconocible: no se
   // guarda NADA (mejor sin datos que con datos falsos). Un único aviso para todo
   // el documento, no uno por fila.
   if (resultado.filas.length === 0 || resultado.estado === 'revisar') {
+    trazaResumen('FIN: validación no superada, nada guardado', { motivo: resultado.motivo })
     return { status: 422, body: { error: resultado.motivo, estado: resultado.estado, filas_leidas: resultado.filas } }
   }
 
   const mesFinal = mesBody ?? resultado.mes
   const anioFinal = anioBody ?? resultado.anio
   if (!mesFinal || !anioFinal) {
+    trazaResumen('FIN: sin mes/año, nada guardado', { mesBody, anioBody, mesExtraido: resultado.mes, anioExtraido: resultado.anio })
     return {
       status: 400,
       body: {
@@ -184,6 +197,7 @@ export async function procesarResumenNominas(
       },
     }
   }
+  trazaResumen('mes/año resuelto', { mesFinal, anioFinal })
 
   const ext = (nombreOriginal.split('.').pop() || 'pdf').toLowerCase()
   const mesPad = String(mesFinal).padStart(2, '0')
@@ -191,11 +205,13 @@ export async function procesarResumenNominas(
   // EQUIPO/RESUMEN_NOMINAS/<AÑO>/resumen_<AÑO>-<MES>.pdf
   const niveles = ['EQUIPO', 'RESUMEN_NOMINAS', String(anioFinal)]
   const archivado = await archivarEquipo(buffer, nombreArchivo, niveles, ext)
+  trazaResumen('archivado Drive/Storage', { driveUrl: archivado.driveUrl, drivePendiente: archivado.drivePendiente, driveError: archivado.driveError })
 
   const [candidatos, empleadores] = await Promise.all([
     cargarCandidatosEmpleados(supabaseAdmin),
     cargarEmpleadores(supabaseAdmin),
   ])
+  trazaResumen('candidatos cargados', { candidatos: candidatos.length, empleadores: empleadores.length })
 
   const insertadas: unknown[] = []
   const actualizadas: unknown[] = []
@@ -206,6 +222,7 @@ export async function procesarResumenNominas(
     // El empleador/titular (Rubén) nunca genera nómina NI aviso: se descarta en
     // silencio si el modelo lo devolvió como fila pese a la instrucción del prompt.
     if (resolverEmpleado(fila.trabajador, null, empleadores)) {
+      trazaResumen('fila descartada (empleador)', { trabajador: fila.trabajador })
       descartadasEmpleador++
       continue
     }
@@ -227,7 +244,13 @@ export async function procesarResumenNominas(
     // en payload. Rubén la asigna en un clic (aprende alias) y se crea la nómina
     // desde el payload — no hace falta re-subir el resumen. Sin duplicar: si ya
     // hay una pendiente igual (mismo trabajador/mes/año), no se crea otra.
-    const aRevisionConPayload = async (motivo: string) => {
+    // Devuelve true si la fila quedó realmente registrada en la cola de revisión
+    // (o ya estaba pendiente); false si el insert falló — antes este fallo se
+    // tragaba en silencio: la función devolvía 200 sin haber guardado nada y sin
+    // dejar rastro. Ahora SIEMPRE se comprueba el error y se registra en el log
+    // (Vercel Runtime Logs, prefijo [resumen]) aunque la respuesta HTTP siga en
+    // 200 (contrato ya usado por el frontend).
+    const aRevisionConPayload = async (motivo: string): Promise<boolean> => {
       const { data: yaPendiente } = await supabaseAdmin
         .from('equipo_docs_revision')
         .select('id')
@@ -237,8 +260,8 @@ export async function procesarResumenNominas(
         .eq('anio', anioFinal)
         .limit(1)
         .maybeSingle()
-      if (yaPendiente) return
-      await supabaseAdmin.from('equipo_docs_revision').insert({
+      if (yaPendiente) { trazaResumen('revisión ya existía, no duplica', { trabajador: fila.trabajador }); return true }
+      const { error: errRevision } = await supabaseAdmin.from('equipo_docs_revision').insert({
         nombre_archivo: `${nombreOriginal} · fila "${fila.trabajador}"`,
         tipo_detectado: 'nomina',
         confianza: 0,
@@ -257,11 +280,17 @@ export async function procesarResumenNominas(
           drive_pendiente: archivado.drivePendiente,
         },
       })
+      if (errRevision) {
+        console.error('[resumen] INSERT equipo_docs_revision FALLÓ — documento perdido en silencio', JSON.stringify({ trabajador: fila.trabajador, mesFinal, anioFinal, error: errRevision.message, code: errRevision.code }))
+        return false
+      }
+      trazaResumen('fila a revisión', { trabajador: fila.trabajador, motivo })
+      return true
     }
 
     if (!resolucion) {
-      await aRevisionConPayload(`Trabajador del resumen no reconocido: "${fila.trabajador}". Asigna el empleado para crear su nómina de ${mesFinal}/${anioFinal}.`)
-      revisarIdentidad.push(filaOut)
+      const guardado = await aRevisionConPayload(`Trabajador del resumen no reconocido: "${fila.trabajador}". Asigna el empleado para crear su nómina de ${mesFinal}/${anioFinal}.`)
+      revisarIdentidad.push(guardado ? filaOut : { ...filaOut, trabajador: `${fila.trabajador} (¡fila perdida! el aviso de revisión tampoco se pudo guardar — ver logs)` })
       continue
     }
 
@@ -298,13 +327,16 @@ export async function procesarResumenNominas(
       : await supabaseAdmin.from('nominas').insert({ empleado_id: resolucion.empleado_id, mes: mesFinal, anio: anioFinal, ...datosNomina })
 
     if (errUpsert) {
-      await aRevisionConPayload(`La nómina de "${fila.trabajador}" (${mesFinal}/${anioFinal}) no se pudo guardar: ${errUpsert.message}. Asigna el empleado para reintentarlo desde aquí.`)
-      revisarIdentidad.push({ ...filaOut, trabajador: `${fila.trabajador} (error al guardar: ${errUpsert.message})` })
+      console.error('[resumen] guardado en nominas FALLÓ', JSON.stringify({ trabajador: fila.trabajador, empleado_id: resolucion.empleado_id, mesFinal, anioFinal, existente: !!existente, error: errUpsert.message, code: errUpsert.code }))
+      const guardado = await aRevisionConPayload(`La nómina de "${fila.trabajador}" (${mesFinal}/${anioFinal}) no se pudo guardar: ${errUpsert.message}. Asigna el empleado para reintentarlo desde aquí.`)
+      revisarIdentidad.push({ ...filaOut, trabajador: guardado ? `${fila.trabajador} (error al guardar: ${errUpsert.message})` : `${fila.trabajador} (¡fila perdida! error al guardar Y el aviso de revisión tampoco se pudo guardar — ver logs)` })
       continue
     }
+    trazaResumen(existente ? 'nómina actualizada' : 'nómina creada', { trabajador: fila.trabajador, empleado_id: resolucion.empleado_id, mesFinal, anioFinal })
     if (existente) actualizadas.push(filaOut)
     else insertadas.push(filaOut)
   }
+  trazaResumen('FIN', { insertadas: insertadas.length, actualizadas: actualizadas.length, revisarIdentidad: revisarIdentidad.length, descartadasEmpleador })
 
   return {
     status: 200,
