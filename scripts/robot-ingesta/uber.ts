@@ -10,26 +10,28 @@
  * bajar: en CADA pasada (diario/semanal/mensual, lo que dispare el cron)
  * comprueba por fecha real de Madrid qué hay pendiente y lo reintenta con
  * robot_objetivos, igual que Glovo/Just Eat con las quincenas:
- *   1) INFORMES SEMANALES (/manager/reports): resumen de ganancias + detalle
- *      por artículo de la semana cerrada (lunes-domingo anterior).
+ *   1) INFORMES SEMANALES (/manager/reports): los deja PROGRAMADOS Rubén en el
+ *      portal; el robot solo los recoge.
  *   2) FACTURAS (/manager/invoices): Uber las emite el domingo ~02:00: se
  *      intenta lunes y martes (reintento si el lunes no había nada nuevo).
  *   3) RESUMEN MENSUAL POR MARCA (/manager/payments): desde el día 3 del mes,
  *      intenta bajar el resumen de CADA marca del mes cerrado.
  *
- * 18-jul: dos corridas pidieron el informe y a los ~6h la lista seguía sin
- * ninguna fila reconocida como "Disponible" → el selector de la fila lista no
- * casa con el DOM real. Ahora se vuelca SIEMPRE la lista (uber_lista_informes)
- * cuando no se reconoce nada, para leer el DOM real y clavar el selector.
+ * 22-jul-2026 · CAMBIO DE MODELO EN INFORMES (decisión de Rubén).
+ * Antes el robot PEDÍA el informe (re-solicitar / crear reporte) y se quedaba
+ * esperando con backoff hasta 45 min a que Uber lo generase. Resultado real:
+ * 22 intentos fallidos en la semana del 6-jul y 3 en la del 13-jul. Pedirlo en
+ * caliente no funciona.
+ * Ahora los informes quedan PROGRAMADOS en el portal como recurrentes semanales
+ * (Resumen de ganancias, Detalles de las ganancias a nivel de artículo,
+ * Operaciones y Opiniones · todas las tiendas · sin agregación · entrega en el
+ * Administrador de Uber Eats). Uber los genera solo y los deja listos en el
+ * Centro de informes. El robot YA NO PIDE NADA: entra, recorre las páginas de
+ * la lista y descarga todo lo que esté disponible. La bandeja descarta por
+ * huella lo que ya se entregó, así que repetir la pasada es inofensivo.
  *
- * 19-jul: leído el DOM real (robot_debug/uber_lista_informes). El botón de
- * descarga de Uber es aria-label/texto "Descarga CSV" (no "Descargar archivo
- * CSV") y el de re-pedir es "Solicitar de nuevo". La lista tiene 3 páginas.
- * Se corrigen los selectores para que reconozcan el DOM real.
- *
- * 19-jul (2): la semana debe cerrar con LOS DOS informes con nombre (Resumen de
- * ganancias + Detalles a nivel de artículo): se bajan todas las disponibles y
- * el objetivo solo se da por hecho con >= 2 descargas.
+ * 19-jul: el botón de descarga de Uber es aria-label/texto "Descarga CSV" (no
+ * "Descargar archivo CSV"). La lista tiene 3 páginas.
  *
  * Modos (env MODO): diario | semanal | mensual | backfill (MES=AAAA-MM).
  */
@@ -43,6 +45,11 @@ const P = 'uber';
 const RAIZ = 'https://merchants.ubereats.com';
 const MODO = (process.env.MODO || 'diario').toLowerCase();
 const MES = process.env.MES || '';
+// Cuántas descargas hacen falta para dar la semana por cerrada. Con los 4
+// informes programados sobran; se pide 2 como mínimo prudente.
+const MIN_INFORMES = Number(process.env.UBER_INFORMES_MIN || 2);
+// La lista del Centro de informes está paginada (3 páginas el 19-jul).
+const MAX_PAGINAS_INFORMES = Number(process.env.UBER_INFORMES_PAGINAS || 4);
 
 const RE_MAS = /m[aá]s opciones|otras opciones|otra forma|otro m[eé]todo|more options|try another way|enlace/i;
 const RE_CORREO = /correo electr[oó]nico|email|e-mail/i;
@@ -51,8 +58,8 @@ const RE_DESCARGAR = /descargar|download/i;
 const RE_DISPONIBLE = /disponible|available|listo|ready/i;
 // 19-jul: el boton real de Uber es "Descarga CSV" (aria-label y texto).
 const RE_DESC_CSV = /descarga(r)?\s*(archivo\s*)?csv|^\s*descargar\s*$/i;
-// 19-jul: el boton real de re-pedir es "Solicitar de nuevo".
-const RE_RESOLICITAR = /solicitar de nuevo|volver a solicitar|request again/i;
+// Paginación de la lista de informes.
+const RE_SIGUIENTE = /^\s*(siguiente|next)\s*$/i;
 
 async function dentro(page: Page): Promise<boolean> {
   const u = page.url();
@@ -154,135 +161,44 @@ async function bajarFilaDisponible(page: Page, tipo: string, periodo: string, de
 }
 
 /**
- * 17-jul (receta de Ruben): crear un reporte desde cero en /manager/reports/create-report
- * cuando no hay nada que re-solicitar. Marca "Resumen de ganancias" y "Detalles de las
- * ganancias (nivel de articulo)", todas las tiendas, semana pasada, y pulsa "Crear un reporte".
+ * INFORMES · SOLO RECOGER (22-jul-2026).
+ *
+ * Los informes están PROGRAMADOS en el portal (recurrentes semanales). El robot
+ * no pide nada: entra en el Centro de informes, recorre las páginas de la lista
+ * y descarga todo lo que esté en estado Disponible. Si no hay nada, vuelca el
+ * DOM y lo deja para la pasada siguiente (el martes 05:00 es el reintento).
+ *
+ * Devuelve cuántos ficheros bajó.
  */
-async function crearReporte(page: Page, periodo: string): Promise<boolean> {
-  await page.goto(`${RAIZ}/manager/reports/create-report`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(6000);
-  await quitarEstorbos(page);
-
-  let marcados = 0;
-  for (const t of [/resumen de ganancias/i, /detalles de las ganancias/i]) {
-    const casilla = page.locator('label').filter({ hasText: t }).first().or(page.getByText(t).first());
-    if (await casilla.count().catch(() => 0)) { await casilla.click({ timeout: 5000 }).catch(() => {}); marcados++; await page.waitForTimeout(600); }
-  }
-  if (!marcados) { await volcar('uber_crear_reporte', await page.content().catch(() => '')); return false; }
-
-  const tiendas = page.locator('button, [role="button"], [role="combobox"]').filter({ hasText: /elegir restaurantes|choose restaurants/i }).first();
-  if (await tiendas.count().catch(() => 0)) {
-    await tiendas.click({ timeout: 5000 }).catch(() => {});
-    await page.waitForTimeout(1500);
-    const panel = page.locator('[role="listbox"], [data-baseweb="popover"], [role="dialog"], [role="menu"]');
-    const todas = panel.locator('label, [role="option"], li, button').filter({ hasText: /seleccionar todo|select all|todas las tiendas/i }).first();
-    if (await todas.count().catch(() => 0)) await todas.click({ timeout: 4000 }).catch(() => {});
-    else {
-      const ops = panel.locator('[role="option"], li, label');
-      const n = Math.min(await ops.count().catch(() => 0), 40);
-      for (let i = 0; i < n; i++) await ops.nth(i).click({ timeout: 2500 }).catch(() => {});
-    }
-    await page.keyboard.press('Escape').catch(() => {});
-    await page.waitForTimeout(800);
-  }
-
-  const fechas = page.locator('button, [role="button"], [role="combobox"], input').filter({ hasText: /intervalo de fechas|yyyy\/mm\/dd|date range/i }).first();
-  if (await fechas.count().catch(() => 0)) {
-    await fechas.click({ timeout: 5000 }).catch(() => {});
-    await page.waitForTimeout(1500);
-    const preset = page.locator('[role="listbox"], [data-baseweb="popover"], [role="menu"], [role="dialog"]').locator('li, [role="option"], button, [role="menuitem"]')
-      .filter({ hasText: /semana pasada|ultima semana|última semana|ultimos 7|últimos 7|last week/i }).first();
-    if (await preset.count().catch(() => 0)) await preset.click({ timeout: 4000 }).catch(() => {});
-    await page.keyboard.press('Escape').catch(() => {});
-    await page.waitForTimeout(800);
-  }
-
-  const crear = page.getByRole('button', { name: /crear un reporte|create report/i }).last();
-  if (!(await crear.count().catch(() => 0))) { await volcar('uber_crear_reporte', await page.content().catch(() => '')); return false; }
-  await crear.click({ timeout: 8000 }).catch(() => {});
-  await page.waitForTimeout(4000);
-  const toast = await page.getByText(/generando reportes|te enviaremos un correo/i).count().catch(() => 0);
-  await log(P, toast ? 'solicitado' : 'aviso', `crear reporte (${periodo}): ${toast ? 'Uber confirmo la generacion' : 'sin confirmacion visible; DOM volcado'}`);
-  if (!toast) await volcar('uber_crear_reporte_post', await page.content().catch(() => ''));
-  await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await page.waitForTimeout(5000);
-  return true;
-}
-
-/** INFORMES: pedir y volver cuando Uber los tenga listos. Devuelve si bajó lo esperado. */
-async function informes(page: Page, periodo: string): Promise<boolean> {
+async function informes(page: Page, periodo: string): Promise<number> {
   await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(8000);
   await quitarEstorbos(page);
 
-  // 19-jul (Ruben): deben bajar LOS DOS informes de la semana (Resumen de
-  // ganancias + Detalles a nivel de articulo). Se bajan TODAS las disponibles;
-  // con menos de 2 se sigue y se piden de nuevo (repetir peticion es inofensivo).
-  let bajadas = await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas', 5);
-  if (bajadas >= 2) return true;
+  let bajadas = 0;
+  for (let pagina = 0; pagina < MAX_PAGINAS_INFORMES; pagina++) {
+    bajadas += await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas', 12);
 
-  // 18-jul DIAGNÓSTICO: si llegamos aquí habiendo pedido el informe en pasadas
-  // anteriores, es que el selector de la fila lista no casa con el DOM real.
-  // Se vuelca la lista para leerla en robot_debug y clavar el selector.
-  await volcar('uber_lista_informes', await page.content().catch(() => ''));
-
-  const RE_INFORMES_UTILES = /detalles del pago|payment details|resumen de pagos|pagos|payment summary|ganancias|earnings|historial de pedidos|order history/i;
-  const filasUtiles = page.locator('tr, [role="row"]').filter({ hasText: RE_INFORMES_UTILES });
-  const nUtiles = Math.min(await filasUtiles.count().catch(() => 0), 3);
-  let pedidos = 0;
-  for (let i = 0; i < nUtiles; i++) {
-    const b = filasUtiles.nth(i).locator('button[aria-label="Solicitar de nuevo"], button, [role="button"]').filter({ hasText: RE_RESOLICITAR }).first();
-    if (await b.count().catch(() => 0)) { await b.click({ timeout: 8000 }).catch(() => {}); pedidos++; await page.waitForTimeout(1500); }
-  }
-  if (!pedidos) {
-    const rehacer = page.getByRole('button', { name: RE_RESOLICITAR }).first()
-      .or(page.locator('button[aria-label="Solicitar de nuevo"], button, [role="button"]').filter({ hasText: RE_RESOLICITAR }).first());
-    if (await rehacer.count().catch(() => 0)) {
-      await rehacer.click({ timeout: 8000 }).catch(() => {});
-      pedidos = 1;
-    } else {
-      if (!(await crearReporte(page, periodo))) {
-        await volcar(`${P}_informes`, await page.content().catch(() => ''));
-        await log(P, 'sin_descarga', 'informes: ni descarga, ni re-solicitar, ni pude crear el reporte (DOM volcado)');
-        return false;
-      }
-      pedidos = 2; // crearReporte marca DOS informes (resumen + nivel articulo)
-    }
-  }
-  // 22-jul (H4): reintento de recogida con backoff hasta un máximo configurable.
-  // El spec pide "hasta 2h", pero un runner de GitHub Actions tiene timeout de 55 min
-  // y comparte matriz con los demás robots; una espera de 2h en una sola corrida es
-  // inviable/cara. Diseño: se insiste dentro de la corrida hasta UBER_RECOGIDA_MAX_MIN
-  // (por defecto 45 min, seguro bajo el timeout del job) con espera creciente; si a esos
-  // minutos no está, se deja PEDIDO y lo recoge la pasada siguiente o el reintento del
-  // martes — cubriendo de facto la ventana de 2h a lo largo de varias corridas.
-  // En CADA intento se vuelca la lista de informes a robot_debug para AUDITAR si se está
-  // mirando la fila/botón correctos (comparar el DOM real entre intentos).
-  const maxMin = Number(process.env.UBER_RECOGIDA_MAX_MIN || 45);
-  const limiteMs = Math.max(6, maxMin) * 60_000;
-  await log(P, 'aviso', `${pedidos} informe(s) solicitados; reintento la recogida con backoff hasta ~${maxMin} min (y arrastre a la siguiente pasada si no llega)`);
-
-  const t0 = Date.now();
-  let vuelta = 0;
-  let espera = 45_000; // arranca en 45s y crece hasta un tope de 5 min
-  while (Date.now() - t0 < limiteMs) {
-    await page.waitForTimeout(espera);
-    await page.goto(`${RAIZ}/manager/reports`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await page.waitForTimeout(6000);
+    const siguiente = page.getByRole('button', { name: RE_SIGUIENTE }).first()
+      .or(page.locator('button[aria-label*="iguiente" i], button[aria-label*="ext page" i], button[aria-label*="Next" i]').first());
+    if (!(await siguiente.count().catch(() => 0))) break;
+    if (await siguiente.isDisabled().catch(() => true)) break;
+    await siguiente.click({ timeout: 6000 }).catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(5000);
     await quitarEstorbos(page);
-    // Auditoría H4: foto del DOM de la lista en cada intento, para cotejar filas/botones.
-    await volcar(`uber_recogida_intento_${vuelta}`, await page.content().catch(() => ''));
-    bajadas += await bajarFilasDisponibles(page, 'uber_informe', periodo, 'ventas');
-    if (bajadas >= Math.max(pedidos, 2)) return true;
-    vuelta++;
-    espera = Math.min(espera + 30_000, 300_000);
   }
-  if (bajadas > 0) return true;
-  await volcar('uber_lista_informes_fin', await page.content().catch(() => ''));
-  await log(P, 'aviso', `el informe seguía preparándose tras ~${maxMin} min; se bajará en la próxima pasada (ya quedó pedido)`);
-  return false;
+
+  if (bajadas === 0) {
+    // Sin descargas: o Uber aún no ha generado los recurrentes, o el selector
+    // de la fila no casa. Se vuelca la lista para poder cotejar el DOM real.
+    await volcar('uber_lista_informes', await page.content().catch(() => ''));
+    await log(P, 'sin_descarga', `informes ${periodo}: nada Disponible en la lista (¿programados ya en el portal?)`);
+  } else {
+    await log(P, 'descarga', `informes ${periodo}: ${bajadas} fichero(s) recogidos de los programados`);
+  }
+  return bajadas;
 }
 
 async function seccionSimple(page: Page, ruta: string, tipo: string, periodo: string, destino: string): Promise<number> {
@@ -425,9 +341,9 @@ async function trabajarCuenta(c: Cuenta) {
 
     const sem = semanaCerrada();
     if (await objetivoPendiente(P, sem.periodo, 'informes_semanales')) {
-      const huboDescarga = await informes(page, sem.periodo);
-      if (huboDescarga) await marcarConseguido(P, sem.periodo, 'informes_semanales', `${c.cuenta}: descargado`);
-      else await registrarIntento(P, sem.periodo, 'informes_semanales', `${c.cuenta}: aún sin "Disponible"`);
+      const n = await informes(page, sem.periodo);
+      if (n >= MIN_INFORMES) await marcarConseguido(P, sem.periodo, 'informes_semanales', `${c.cuenta}: ${n} fichero(s) de los programados`);
+      else await registrarIntento(P, sem.periodo, 'informes_semanales', `${c.cuenta}: ${n} fichero(s), aún por debajo de ${MIN_INFORMES}`);
     }
 
     const diaSem = diaSemanaMadrid();
