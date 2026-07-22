@@ -10,7 +10,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  INK, OSC, CREMA, CLARO, TRACK, ROSA, ROJO, AMA, VERDE, NAR, AZUL, GRANATE, GRIS, OSW, LEX, SHADOW, PAD, eyebrow, d, BLANCO } from '@/styles/neobrutal'
+  INK, OSC, CREMA, CLARO, TRACK, ROSA, ROSA_S, ROJO, AMA, VERDE, VERDE_S, NAR, AZUL, GRANATE, GRIS, OSW, LEX, SHADOW, PAD, eyebrow, d, BLANCO } from '@/styles/neobrutal'
 import { fmtEur, fmtNum } from '@/utils/format'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 import { resolverNeto } from '@/lib/panel/netoResolver'
@@ -271,7 +271,7 @@ function CardComparativaPeriodo({ rowsAll, ancla }: { rowsAll: RowFacturacion[];
             </button>
           ))}
         </div>
-        <span style={{ fontFamily: LEX, fontSize: 12, color: '#6b5d45' }}>
+        <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
           Ancla {day} {MESES_ES[mo]} {y} · misma posición y misma fecha frente a mes y año anteriores
         </span>
       </div>
@@ -452,7 +452,7 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
               const isMejor = key === mejorMes, isPeor = key === peorMes
               const dot = isMejor ? VERDE : isPeor ? ROJO : GRANATE
               return (
-                <div key={key} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1fr', gap: 8, alignItems: 'center', padding: '12px 16px', borderTop: `1px solid ${INK}1a`, background: isMejor ? '#eafaef' : isPeor ? '#fdecec' : (i % 2 ? '#fbf8f1' : BLANCO) }}>
+                <div key={key} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1fr', gap: 8, alignItems: 'center', padding: '12px 16px', borderTop: `1px solid ${INK}1a`, background: isMejor ? VERDE_S : isPeor ? ROSA_S : (i % 2 ? CLARO : BLANCO) }}>
                   <span style={{ fontFamily: LEX, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 9, height: 9, flexShrink: 0, background: dot, border: `1px solid ${INK}` }} />{fmtMesKey(key)}
                   </span>
@@ -470,7 +470,7 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
             <span style={eyebrow(NAR, BLANCO)}>Ticket medio último mes</span>
             <div style={{ ...d('clamp(32px,4.4vw,52px)', NAR), margin: '12px 0 8px' }}>{EUR(tmActual)}</div>
             <Spark serie={ultimos12.map(k => mesMap[k].pedidos > 0 ? mesMap[k].bruto / mesMap[k].pedidos : 0)} color={NAR} w={240} h={44} />
-            <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, color: '#5c5340', marginTop: 6 }}>Media 12m · {EUR(tmMedio)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, color: GRIS, marginTop: 6 }}>Media 12m · {EUR(tmMedio)}</div>
           </div>
           <div style={{ borderTop: `3px solid ${INK}`, paddingTop: 18 }}>
             <span style={eyebrow(VERDE, BLANCO)}>Racha de objetivo diario</span>
@@ -478,9 +478,9 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
               ? <>
                   <div style={{ ...d('clamp(40px,5.5vw,68px)', racha.racha >= 7 ? VERDE : racha.racha >= 3 ? NAR : ROJO), margin: '12px 0 6px' }}>{N(racha.racha)}</div>
                   <div style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{racha.racha === 1 ? 'día consecutivo' : 'días consecutivos'}</div>
-                  <div style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, color: '#5c5340', marginTop: 6 }}>Objetivo · {EUR(racha.objActual)}/día</div>
+                  <div style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, color: GRIS, marginTop: 6 }}>Objetivo · {EUR(racha.objActual)}/día</div>
                 </>
-              : <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, color: '#5c5340', marginTop: 12 }}>Sin objetivo diario configurado.</div>}
+              : <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, color: GRIS, marginTop: 12 }}>Sin objetivo diario configurado.</div>}
           </div>
         </div>
       </section>
@@ -513,7 +513,7 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
                   )
                 })}
               </div>
-            : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: '#5c5340' }}>Sin datos suficientes por día de semana.</div>}
+            : <div style={{ fontFamily: LEX, fontWeight: 600, fontSize: 13.5, color: GRIS }}>Sin datos suficientes por día de semana.</div>}
           <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, marginTop: 14 }}>Media por día de semana · histórico completo.</div>
         </div>
         <div style={{ background: AZUL, color: BLANCO, padding: `44px ${PAD}`, display: 'flex', flexDirection: 'column' }}>

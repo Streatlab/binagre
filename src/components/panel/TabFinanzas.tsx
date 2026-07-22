@@ -3,7 +3,7 @@
  */
 
 import { useMemo } from 'react'
-import { INK, CREMA, OSW, LEX, VERDE, ROJO, NAR, GRIS, CORP, BORDER_CARD, SHADOW, d, eyebrow } from '@/styles/neobrutal'
+import { INK, CREMA, BLANCO, OSW, LEX, VERDE, ROJO, NAR, GRIS, CORP, BORDER_CARD, SHADOW, d, eyebrow } from '@/styles/neobrutal'
 import { tablaNeo, theadNeo, thNeo, thNeoR, tdNeo, tdNeoR, filaAlt, dotNeo, totalRow, tdTotal, tdTotalR, vacioNeo } from '@/styles/tablaNeo'
 import { fmtEur } from '@/utils/format'
 import { resolverNeto } from '@/lib/panel/netoResolver'
@@ -298,7 +298,7 @@ export default function TabFinanzas({ rows, rowsAll, fechaDesde, fechaHasta }: P
                         {fmtEur(c.comision)} <span style={{ color: GRIS, fontWeight: 400 }}>({pctCanal.toFixed(0)}%)</span>
                       </span>
                     </div>
-                    <div style={{ height: 14, background: '#ffffff', border: `2px solid ${INK}` }}>
+                    <div style={{ height: 14, background: BLANCO, border: `2px solid ${INK}` }}>
                       <div style={{ width: `${w}%`, height: '100%', background: c.color }} />
                     </div>
                   </div>
