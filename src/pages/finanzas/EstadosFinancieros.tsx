@@ -28,7 +28,7 @@ const thNum: React.CSSProperties = { padding: '10px 10px', textAlign: 'right', f
 const tdLabel: React.CSSProperties = { padding: '9px 12px', fontFamily: OSW, fontSize: 13, whiteSpace: 'nowrap', textAlign: 'left' }
 const tdNum: React.CSSProperties = { padding: '9px 10px', fontFamily: OSW, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
 
-export default function EstadosFinancieros() {
+export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } = {}) {
   const currentYear = new Date().getFullYear()
   const [año, setAño] = useState(currentYear)
   const [tab, setTab] = useState<TabKey>('pyg')
@@ -103,16 +103,18 @@ export default function EstadosFinancieros() {
   }
 
   return (
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
+    <div style={{ fontFamily: LEX, padding: embedded ? 0 : 28, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : '100vh', color: INK }}>
 
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <span style={eyebrow(NAR, '#fff')}>FINANZAS</span>
-          <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
-            ESTADOS FINANCIEROS
-          </h1>
-          <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>P&amp;G · Balance · Cash Flow — vista mensual y comparativa anual</span>
-        </div>
+        {!embedded && (
+          <div>
+            <span style={eyebrow(NAR, '#fff')}>FINANZAS</span>
+            <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
+              ESTADOS FINANCIEROS
+            </h1>
+            <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>P&amp;G · Balance · Cash Flow — vista mensual y comparativa anual</span>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <select style={selectNeo} value={año} onChange={e => setAño(Number(e.target.value))}>
             {años.map(a => <option key={a} value={a}>{a}</option>)}
@@ -361,3 +363,5 @@ function CashFlowTabla({ cashFlow, cashFlowAnterior, comparar, card, btnPrim, on
     </div>
   )
 }
+
+export default EstadosFinancieros

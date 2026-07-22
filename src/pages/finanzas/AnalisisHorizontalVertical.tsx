@@ -23,7 +23,7 @@ type Vista = "vertical" | "horizontal";
 const fmtDeltaPP = (v: number | null) =>
   v == null ? "—" : `${v > 0 ? "+" : ""}${fmtEur(v, { showEuro: false, decimals: 1, signed: false })} pp`;
 
-export default function AnalisisHorizontalVertical() {
+export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: boolean } = {}) {
   const añoActual = new Date().getFullYear();
   const [año, setAño] = useState(añoActual);
   const [vista, setVista] = useState<Vista>("vertical");
@@ -52,16 +52,18 @@ export default function AnalisisHorizontalVertical() {
   const empeora = deltaTendencia != null && deltaTendencia > 0;
 
   return (
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: "100vh", color: INK }}>
+    <div style={{ fontFamily: LEX, padding: embedded ? 0 : 28, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : "100vh", color: INK }}>
 
       <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <span style={eyebrow(NAR, "#fff")}>FINANZAS</span>
-          <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
-            ANÁLISIS HORIZONTAL / VERTICAL
-          </h1>
-          <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Peso de cada gasto sobre ventas y su evolución mes a mes</span>
-        </div>
+        {!embedded && (
+          <div>
+            <span style={eyebrow(NAR, "#fff")}>FINANZAS</span>
+            <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
+              ANÁLISIS HORIZONTAL / VERTICAL
+            </h1>
+            <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Peso de cada gasto sobre ventas y su evolución mes a mes</span>
+          </div>
+        )}
         <select
           value={año}
           onChange={e => setAño(Number(e.target.value))}
@@ -210,3 +212,5 @@ export default function AnalisisHorizontalVertical() {
     </div>
   );
 }
+
+export default AnalisisHorizontalVertical
