@@ -42,10 +42,8 @@ const ITEMS: Item[] = [
   { label: 'Rentabilidad por franja', path: '/finanzas/rentabilidad?tab=franja', group: 'Finanzas' },
 
   { label: 'Revenue / Ticket medio', path: '/analytics/revenue', group: 'Analytics' },
-  { label: 'COGS / Coste MP', path: '/analytics/cogs', group: 'Analytics' },
   { label: 'Margen por canal', path: '/analytics/margen', group: 'Analytics' },
   { label: 'Ventas por marca', path: '/analytics/ventas-marca', group: 'Analytics' },
-  { label: 'Ranking productos', path: '/analytics/ranking', group: 'Analytics' },
   { label: 'Predicción demanda', path: '/analytics/demanda', group: 'Analytics' },
   { label: 'Pareto ventas', path: '/analytics/pareto-ventas', group: 'Analytics' },
 
@@ -76,11 +74,8 @@ const ITEMS: Item[] = [
 
   { label: 'Equipo', path: '/equipo', group: 'Equipo' },
   { label: 'Organigrama', path: '/equipo/organigrama', group: 'Equipo' },
-  { label: 'Fichas empleados', path: '/equipo/empleados', group: 'Equipo' },
   { label: 'Horarios', path: '/equipo/horarios', group: 'Equipo' },
   { label: 'Control presencia', path: '/equipo/presencia', group: 'Equipo' },
-  { label: 'Evaluaciones', path: '/equipo/evaluaciones', group: 'Equipo' },
-  { label: 'Mis ventas / metas', path: '/equipo/metas', group: 'Equipo' },
 
   { label: 'Club fidelización', path: '/clientes/club', group: 'Clientes' },
   { label: 'CRM tienda propia', path: '/clientes/crm', group: 'Clientes' },

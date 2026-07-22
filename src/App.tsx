@@ -105,8 +105,6 @@ const PanelResenas = React.lazy(() => import('@/pages/clientes/PanelResenas'))
 const PlaybookThinkPaladar = React.lazy(() => import('@/pages/clientes/PlaybookThinkPaladar'))
 const Benchmark = React.lazy(() => import('@/pages/clientes/Benchmark'))
 
-const PosVentas = React.lazy(() => import('@/pages/integraciones/PosVentas'))
-
 const PlanCampanas = React.lazy(() => import('@/pages/marketing/PlanCampanas'))
 const RendimientoAdsPromo = React.lazy(() => import('@/pages/marketing/RendimientoAdsPromo'))
 const PanelMkt = React.lazy(() => import('@/pages/marketing/PanelMkt'))
@@ -265,8 +263,6 @@ function AppRoutes() {
           <Route path="clientes/resenas" element={<ProtectedRoute solo={['admin']}><PanelResenas /></ProtectedRoute>} />
           <Route path="clientes/playbook-tp" element={<ProtectedRoute solo={['admin']}><PlaybookThinkPaladar /></ProtectedRoute>} />
           <Route path="clientes/benchmark" element={<ProtectedRoute solo={['admin']}><Benchmark /></ProtectedRoute>} />
-
-          <Route path="integraciones/pos" element={<ProtectedRoute solo={['admin']}><PosVentas /></ProtectedRoute>} />
 
           <Route path="marketing/panel" element={<ProtectedRoute solo={['admin']}><PanelMkt /></ProtectedRoute>} />
           <Route path="marketing/plan" element={<ProtectedRoute solo={['admin']}><PlanCampanas /></ProtectedRoute>} />
