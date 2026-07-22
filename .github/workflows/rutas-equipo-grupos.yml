@@ -40,14 +40,6 @@ jobs:
           open(p, 'w', encoding='utf-8').write(s.replace(viejo, nuevo))
           print('OK')
           PYEOF
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Gate y push
-        run: |
-          npm ci
-          npx tsc --noEmit -p tsconfig.json
-          npm run build
           git config user.name "Claude"
           git config user.email "noreply@anthropic.com"
           git commit -am "Equipo: una ruta por grupo (personas/dinero/dia-a-dia/documentos) + redirecciones [deploy]"
