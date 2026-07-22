@@ -12,6 +12,7 @@ import {
   BellRing,
   ClipboardList,
   Compass,
+  Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -68,7 +69,19 @@ const SECTIONS: NavSection[] = [
       { path: '/ops/reembolsos',      label: 'Reclamaciones',    emoji: '💸', perfiles: ['admin'] },
       { path: '/ops/reuniones',       label: 'Reuniones Equipo', emoji: '🤝', perfiles: ['admin'] },
       { path: '/marcas',              label: 'Marcas',           emoji: '🏷️', perfiles: ['admin'] },
-      { path: '/equipo',              label: 'Equipo',           emoji: '👥', perfiles: ['admin'] },
+    ],
+  },
+  {
+    // Equipo vuelve a ser sección propia del sidebar (antes era un item suelto
+    // dentro de Operaciones que abría una pantalla con 12 pestañas seguidas:
+    // imposible de usar). Cada entrada agrupa sus pestañas por sentido:
+    // quiénes son / qué cuestan / cómo trabajan / qué papeles hay.
+    key: 'equipo', label: 'Equipo', perfiles: ['admin'],
+    items: [
+      { path: '/equipo/personas',   label: 'Personas',   emoji: '👥', perfiles: ['admin'] },
+      { path: '/equipo/dinero',     label: 'Dinero',     emoji: '💶', perfiles: ['admin'] },
+      { path: '/equipo/dia-a-dia',  label: 'Día a día',  emoji: '🗓️', perfiles: ['admin'] },
+      { path: '/equipo/documentos', label: 'Documentos', emoji: '📁', perfiles: ['admin'] },
     ],
   },
   {
@@ -104,6 +117,7 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
   cocina_num:    { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
   cocina_ops:    { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
   operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: BLANCO  },
+  equipo:        { icon: Users,         headBg: '#D6336C', headColor: BLANCO  },
   compras:       { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },
   ventas:        { icon: TrendingUp,    headBg: '#7C3AED', headColor: BLANCO  },
   ajustes:       { icon: Settings,      headBg: '#484f66', headColor: BLANCO  },
