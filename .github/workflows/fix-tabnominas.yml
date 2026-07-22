@@ -1,0 +1,21 @@
+name: fix-tabnominas-plantilla
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: trabajo
+      - name: Solo plantilla en el selector de Nominas
+        run: |
+          sed -i "s/\.eq('estado', 'activo')\.neq('tipo_relacion', 'extra')\.order('nombre')/.eq('estado', 'activo').eq('tipo_relacion', 'plantilla').order('nombre')/" src/pages/equipo/TabNominas.tsx
+          grep -n "tipo_relacion" src/pages/equipo/TabNominas.tsx
+      - name: Commit
+        run: |
+          git config user.name "Claude"
+          git config user.email "noreply@anthropic.com"
+          git commit -am "Nominas: el selector y la parrilla solo muestran PLANTILLA (fuera extras y socios) [deploy]" || echo "sin cambios"
+          git push origin trabajo
