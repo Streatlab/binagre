@@ -19,7 +19,7 @@ const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRa
 type TabKey = 'empleados' | 'nominas' | 'costes' | 'segsocial' | 'incentivos' | 'calendario' | 'permisos' | 'portal'
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: 'empleados',  label: 'Empleados' },
+  { key: 'empleados',  label: 'Personas' },
   { key: 'nominas',    label: 'Nóminas' },
   { key: 'costes',     label: 'Costes' },
   { key: 'segsocial',  label: 'Seguridad Social' },

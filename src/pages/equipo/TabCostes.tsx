@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useNominasCompletas } from '@/lib/equipo/useNominasCompletas'
+import { buscarBizumMes } from '@/lib/equipo/bizumExtra'
 import { fmtEur, fmtDate } from '@/lib/format'
 import { fechaLocalStr } from '@/utils/fechaLocal'
 import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, AMA, VERDE, ROJO, GRIS, BLANCO, eyebrow, d } from '@/styles/neobrutal'
@@ -59,12 +60,6 @@ function sumaDias(fechaISO: string, dias: number): string {
   return fechaLocalStr(dt)
 }
 
-const RE_DIACRITICOS = new RegExp('[̀-ͯ]', 'g')
-function normalizarTexto(s: string | null | undefined): string {
-  if (!s) return ''
-  return s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '').trim()
-}
-
 function estadoBadge(estado: EstadoPago): { label: string; bg: string; color: string } {
   if (estado === 'pagado') return { label: 'Pagado', bg: VERDE, color: BLANCO }
   if (estado === 'comprometido') return { label: 'Comprometido', bg: AMA, color: INK }
@@ -104,9 +99,6 @@ export default function TabCostes() {
     let cancelado = false
     async function cargar() {
       setLoadingResto(true)
-      const desdeMes = `${anio}-${String(mes).padStart(2, '0')}-01`
-      const ultimoDia = new Date(anio, mes, 0).getDate()
-      const hastaMes = `${anio}-${String(mes).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`
 
       const [ss, tgss, tits, extra] = await Promise.all([
         supabase.from('seguridad_social_resumen').select('id, importe, fecha_cargo').eq('mes', mes).eq('anio', anio).maybeSingle(),
@@ -157,26 +149,9 @@ export default function TabCostes() {
       }))
       if (!cancelado) setCuotas(cuotasResueltas)
 
-      // Extra Bizum: búsqueda por nombre en concepto/proveedor de conciliación del mes,
-      // sin fuzzy inventado — solo palabras (>=3 letras) del nombre real del empleado.
-      const { data: concMes } = await supabase.from('conciliacion').select('id, fecha, concepto, proveedor, importe')
-        .eq('tipo', 'gasto').gte('fecha', desdeMes).lte('fecha', hastaMes)
+      // Extra Bizum: búsqueda por nombre real en conciliación del mes (sin fuzzy inventado).
       const nombreExtra = (extra.data as { nombre: string } | null)?.nombre
-      if (nombreExtra && concMes) {
-        const palabras = normalizarTexto(nombreExtra).split(/\s+/).filter(p => p.length >= 3)
-        const matches = (concMes as ConciliacionRow[]).filter(c => {
-          const texto = `${normalizarTexto(c.concepto)} ${normalizarTexto(c.proveedor)}`
-          return palabras.some(p => texto.includes(p))
-        })
-        if (matches.length > 0) {
-          const suma = matches.reduce((s, c) => s + Math.abs(Number(c.importe)), 0)
-          setBizumFernando({ importe: suma, fecha: matches[matches.length - 1].fecha })
-        } else {
-          setBizumFernando(null)
-        }
-      } else {
-        setBizumFernando(null)
-      }
+      setBizumFernando(nombreExtra ? await buscarBizumMes(supabase, nombreExtra, mes, anio) : null)
 
       setLoadingResto(false)
     }
