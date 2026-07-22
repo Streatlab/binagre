@@ -57,3 +57,20 @@ Todas se alimentan de la misma ingesta y comparten estilo de card:
   cuánto subir el PVP para llegar al food cost objetivo.
 - **Dónde se va el dinero (Pareto de compras)** — vista `v_escandallo_pareto_compras`:
   gasto por partida en 90 días con % y % acumulado. Acción `pareto-compras`.
+
+---
+
+## Segunda tanda de cuadro de mando (5 features)
+
+- **Margen por marca** — vista `v_escandallo_margen_marca`: food cost y margen por marca
+  virtual (ventas reales del último mes). Acción `margen-marca`.
+- **Menu engineering lite** — `fn_escandallo_menu_engineering`: cruza popularidad
+  (unidades) × rentabilidad (margen food) contra la mediana de la carta y clasifica cada
+  plato en ESTRELLA / CABALLO / ENIGMA / PERRO. Acción `menu-engineering`.
+- **Salud del robot de precios** — vista `v_escandallo_salud_robot`: objetivos, match
+  ok/dudoso/sin_match, precios cargados últimos 10 días, última pasada. Acción `salud-robot`.
+- **Concentración por proveedor** — vista `v_escandallo_gasto_proveedor`: gasto por
+  proveedor 90 días con % y % acumulado (dependencia / poder de negociación). Acción
+  `gasto-proveedor`.
+- **Resumen de alertas pendientes** — vista `v_escandallo_alertas_resumen`: banner con
+  total, subidas/bajadas, cambios de formato y mayor subida. Acción `alertas-resumen`.

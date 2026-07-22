@@ -78,6 +78,11 @@ interface PlatoSangra {
 interface Sospechoso { ingrediente_id: string; nombre: string; ultimo: number; tipico: number; ratio: number; fecha: string }
 interface Mover { ingrediente_id: string; nombre: string; antes: number; ahora: number; var_pct: number }
 interface ParetoItem { item: string; gasto: number; pct: number; pct_acumulado: number }
+interface MargenMarca { marca: string; unidades: number; ingresos: number; coste_mp: number; food_cost_pct: number; margen_pct: number }
+interface MenuPlato { plato: string; marca: string; unidades: number; margen_pct: number; cuadrante: string }
+interface SaludRobot { objetivos: number; match_ok: number; dudoso: number; sin_match: number; cargados_10d: number; ultima_ejecucion: string | null }
+interface GastoProv { proveedor: string; gasto: number; lineas: number; pct: number; pct_acumulado: number }
+interface AlertasResumen { total: number; subidas: number; bajadas: number; cambios_formato: number; mayor_subida_pct: number | null; mayor_bajada_pct: number | null }
 interface Motor {
   activo: boolean
   procesadas: number
@@ -115,9 +120,14 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
   const [movers, setMovers] = useState<Mover[]>([])
   const [inflMediana, setInflMediana] = useState<number | null>(null)
   const [pareto, setPareto] = useState<ParetoItem[]>([])
+  const [margenMarca, setMargenMarca] = useState<MargenMarca[]>([])
+  const [menuEng, setMenuEng] = useState<MenuPlato[]>([])
+  const [saludRobot, setSaludRobot] = useState<SaludRobot | null>(null)
+  const [gastoProv, setGastoProv] = useState<GastoProv[]>([])
+  const [alertasResumen, setAlertasResumen] = useState<AlertasResumen | null>(null)
 
   const cargar = useCallback(async () => {
-    const [est, al, bo, inv, vza, cr, rad, san, sos, infl, par] = await Promise.all([
+    const [est, al, bo, inv, vza, cr, rad, san, sos, infl, par, mm, me, sr, gp, ar] = await Promise.all([
       fetch(`${API}/estado`).then(r => r.ok ? r.json() : null).catch(() => null),
       supabase.from('alertas_precio').select('*, ingredientes(nombre)').eq('estado', 'pendiente').order('created_at', { ascending: false }).limit(30),
       supabase.from('ingredientes').select('*').eq('borrador', true).order('created_at', { ascending: false }).limit(50),
@@ -129,6 +139,11 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
       fetch(`${API}/precios-sospechosos`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${API}/inflacion`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${API}/pareto-compras`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/margen-marca`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/menu-engineering`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/salud-robot`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/gasto-proveedor`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/alertas-resumen`).then(r => r.ok ? r.json() : null).catch(() => null),
     ])
     setEstado(est)
     setAlertas((al.data as Alerta[]) ?? [])
@@ -140,6 +155,11 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
     setMovers((infl?.movers as Mover[]) ?? [])
     setInflMediana(infl?.mediana_var_pct ?? null)
     setPareto((par?.pareto as ParetoItem[]) ?? [])
+    setMargenMarca((mm?.marcas as MargenMarca[]) ?? [])
+    setMenuEng((me?.platos as MenuPlato[]) ?? [])
+    setSaludRobot((sr?.salud as SaludRobot) ?? null)
+    setGastoProv((gp?.proveedores as GastoProv[]) ?? [])
+    setAlertasResumen((ar?.resumen as AlertasResumen) ?? null)
     setInventario((inv.data as Inventario) ?? null)
     const ultimo = ((vza.data as Varianza[]) ?? [])
     const ultFin = ultimo.length ? ultimo.reduce((mx, v) => v.fin > mx ? v.fin : mx, ultimo[0].fin) : null
@@ -396,6 +416,32 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
         </div>
       )}
 
+      {/* Salud del robot de precios · cobertura y frescura */}
+      {saludRobot && saludRobot.objetivos > 0 && (
+        <div style={card}>
+          <h3 style={h3}>Salud del robot de precios</h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
+            {[
+              { t: 'Objetivos', v: saludRobot.objetivos },
+              { t: 'Emparejados', v: `${saludRobot.match_ok} (${Math.round(saludRobot.match_ok / saludRobot.objetivos * 100)}%)` },
+              { t: 'Dudosos', v: saludRobot.dudoso },
+              { t: 'Sin match', v: saludRobot.sin_match },
+              { t: 'Precios cargados (10d)', v: saludRobot.cargados_10d },
+            ].map((k, i) => (
+              <div key={i}>
+                <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>{k.t}</div>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, color: INK }}>{k.v}</div>
+              </div>
+            ))}
+          </div>
+          {saludRobot.ultima_ejecucion && (
+            <p style={{ fontFamily: LEX, fontSize: 12, color: GRIS, margin: '10px 0 0' }}>
+              Última pasada: {new Date(saludRobot.ultima_ejecucion).toLocaleString('es-ES')}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Guardián anti-error de lectura · precios que se disparan o se desploman */}
       {!!sospechosos.length && (
         <div style={{ ...card, borderColor: ROJO, boxShadow: `6px 6px 0 ${ROJO}` }}>
@@ -448,6 +494,54 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
         </div>
       )}
 
+      {/* Margen por marca · qué marca virtual rinde mejor/peor */}
+      {!!margenMarca.length && (
+        <div style={card}>
+          <h3 style={h3}>Margen por marca · food cost del último mes</h3>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>MARCA</th><th style={thR}>UDS</th><th style={thR}>INGRESOS</th><th style={thR}>FOOD COST</th><th style={thR}>MARGEN</th></tr></thead>
+            <tbody>
+              {margenMarca.map((m, i) => (
+                <tr key={`${m.marca}-${i}`} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{m.marca}</td>
+                  <td style={tdNum}>{m.unidades}</td>
+                  <td style={tdNum}>{fmtES(m.ingresos, 0)} €</td>
+                  <td style={{ ...tdNum, color: m.food_cost_pct > objetivoFood ? ROJO : VERDE, fontWeight: 700 }}>{fmtES(m.food_cost_pct, 0)}%</td>
+                  <td style={{ ...tdNum, fontWeight: 700 }}>{fmtES(m.margen_pct, 0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Menu engineering · popularidad × rentabilidad */}
+      {!!menuEng.length && (
+        <div style={card}>
+          <h3 style={h3}>Menu engineering · qué plato es estrella y cuál perro</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Cruzando lo que vende (popularidad) con lo que deja (margen food), respecto a la mediana de tu carta. ESTRELLA: mímalo. CABALLO: vende pero margen flojo, súbelo. ENIGMA: buen margen, poca venta, promociónalo. PERRO: revísalo o quítalo.
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>PLATO</th><th style={th}>MARCA</th><th style={thR}>UDS</th><th style={thR}>MARGEN</th><th style={th}>CUADRANTE</th></tr></thead>
+            <tbody>
+              {menuEng.slice(0, 20).map((p, i) => {
+                const col = p.cuadrante === 'ESTRELLA' ? VERDE : p.cuadrante === 'PERRO' ? ROJO : p.cuadrante === 'CABALLO' ? '#f5a623' : GRIS
+                return (
+                  <tr key={`${p.plato}-${p.marca}-${i}`} style={{ background: zebra(i) }}>
+                    <td style={{ ...td, fontWeight: 700 }}>{p.plato}</td>
+                    <td style={{ ...td, fontSize: 12, color: GRIS }}>{p.marca}</td>
+                    <td style={tdNum}>{p.unidades}</td>
+                    <td style={tdNum}>{fmtES(p.margen_pct, 0)}%</td>
+                    <td style={{ ...td, fontWeight: 700, color: col }}>{p.cuadrante}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* Termómetro de inflación de la despensa */}
       {!!movers.length && (
         <div style={card}>
@@ -491,6 +585,38 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Concentración por proveedor · dependencia y poder de negociación (90d) */}
+      {!!gastoProv.length && (
+        <div style={card}>
+          <h3 style={h3}>Concentración por proveedor · compras últimos 90 días</h3>
+          <p style={{ fontFamily: LEX, fontSize: 13, color: INK, margin: '0 0 10px' }}>
+            Cuánto pesa cada proveedor en tu gasto. Mucha concentración = más poder de negociación, pero también más dependencia.
+          </p>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead><tr><th style={th}>PROVEEDOR</th><th style={thR}>GASTO</th><th style={thR}>% DEL TOTAL</th><th style={thR}>% ACUM.</th></tr></thead>
+            <tbody>
+              {gastoProv.map((p, i) => (
+                <tr key={`${p.proveedor}-${i}`} style={{ background: zebra(i) }}>
+                  <td style={{ ...td, fontWeight: 700 }}>{p.proveedor}</td>
+                  <td style={{ ...tdNum, fontWeight: 700 }}>{fmtES(p.gasto, 2)} €</td>
+                  <td style={tdNum}>{fmtES(p.pct, 1)}%</td>
+                  <td style={{ ...tdNum, color: GRIS }}>{fmtES(p.pct_acumulado, 0)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Resumen ejecutivo del backlog de alertas de precio */}
+      {alertasResumen && alertasResumen.total > 0 && (
+        <div style={{ background: AMA, border: `3px solid ${INK}`, boxShadow: `4px 4px 0 ${INK}`, padding: '10px 14px', fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK }}>
+          <b>{alertasResumen.total} alertas de precio pendientes</b>: {alertasResumen.subidas} subidas, {alertasResumen.bajadas} bajadas
+          {alertasResumen.cambios_formato > 0 ? `, ${alertasResumen.cambios_formato} por cambio de formato` : ''}
+          {alertasResumen.mayor_subida_pct != null ? `. Mayor subida: +${fmtES(alertasResumen.mayor_subida_pct, 0)}%` : ''}.
         </div>
       )}
 

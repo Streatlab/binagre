@@ -27,6 +27,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'precios-sospechosos') return await preciosSospechosos(res)
     if (action === 'inflacion') return await inflacion(res)
     if (action === 'pareto-compras') return await paretoCompras(res)
+    if (action === 'margen-marca') return await margenMarca(res)
+    if (action === 'menu-engineering') return await menuEngineering(res)
+    if (action === 'salud-robot') return await saludRobot(res)
+    if (action === 'gasto-proveedor') return await gastoProveedor(res)
+    if (action === 'alertas-resumen') return await alertasResumen(res)
     if (action === 'completar-borradores') return await completarBorradores(req, res)
     if (action === 'procesar-lote') return await procesarLote(req, res)
     // Motor superpersistente (patrón OCR: trabajo en servidor, cron empujador, UI solo pinta)
@@ -511,6 +516,45 @@ async function paretoCompras(res: VercelResponse) {
     .select('item, gasto, pct, pct_acumulado').limit(15)
   if (error) return res.status(200).json({ ok: false, error: error.message })
   return res.status(200).json({ ok: true, pareto: data ?? [] })
+}
+
+/* ───────── MARGEN POR MARCA · qué marca virtual rinde mejor/peor por food cost ───────── */
+async function margenMarca(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_margen_marca')
+    .select('marca, unidades, ingresos, coste_mp, food_cost_pct, margen_pct')
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, marcas: data ?? [] })
+}
+
+/* ───────── MENU ENGINEERING · cuadrante popularidad × margen ───────── */
+async function menuEngineering(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin.rpc('fn_escandallo_menu_engineering')
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, platos: data ?? [] })
+}
+
+/* ───────── SALUD DEL ROBOT DE PRECIOS · cobertura y frescura ───────── */
+async function saludRobot(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin.from('v_escandallo_salud_robot').select('*').maybeSingle()
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, salud: data ?? null })
+}
+
+/* ───────── CONCENTRACIÓN POR PROVEEDOR · dependencia y poder de negociación (90d) ───────── */
+async function gastoProveedor(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('v_escandallo_gasto_proveedor')
+    .select('proveedor, gasto, lineas, pct, pct_acumulado').limit(15)
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, proveedores: data ?? [] })
+}
+
+/* ───────── RESUMEN DE ALERTAS PENDIENTES · foto ejecutiva del backlog de precios ───────── */
+async function alertasResumen(res: VercelResponse) {
+  const { data, error } = await supabaseAdmin.from('v_escandallo_alertas_resumen').select('*').maybeSingle()
+  if (error) return res.status(200).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true, resumen: data ?? null })
 }
 
 /* ───────── Fase T4 · completar-borradores: robot rellena formato/contenido/precio de
