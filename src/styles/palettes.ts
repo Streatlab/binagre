@@ -297,6 +297,10 @@ export const OCR_TOAST_ROJO_WASH = '#FDECEC'
 /** Conciliación (piel, V8) · badge "no conciliable" (violeta propio). */
 export const CONCILIACION_VIOLETA = '#6a5acd'
 export const CONCILIACION_VIOLETA_CLARO = '#8a7df0'
+
+/** Importador (piel, V8) · texto canónico de Glovo (regla design-system) y Rushour. */
+export const PLATAFORMA_GLOVO_TXT = '#aabc00'
+export const PLATAFORMA_RUSHOUR = '#7F77DD'
 /** Granate en hover (botones primarios de Configuración). */
 export const GRANATE_HOVER = '#901A1E'
 /** Verde "positivo" distinto de COBERTURA_VERDE (KpiCard subTone). */
