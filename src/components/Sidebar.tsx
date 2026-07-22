@@ -8,7 +8,6 @@ import {
   ShoppingCart,
   Settings,
   ChevronRight,
-  Clock,
   Users,
   BellRing,
   FileText,
@@ -157,32 +156,6 @@ const SECTION_ICONS: Record<string, SectionIconConfig> = {
   configuracion: { icon: Settings,      headBg: '#484f66', headColor: '#fff'  },
 }
 
-const PROXIMAMENTE: { label: string; emoji: string }[] = [
-  { label: 'Compras',                 emoji: '🛒' },
-  { label: 'Líneas de Factura',       emoji: '🧩' },
-  { label: 'Ventas Perdidas',         emoji: '🕳️' },
-  { label: 'Mapeo Plato → Receta',    emoji: '🔗' },
-  { label: 'Platos Duplicados',       emoji: '👯' },
-  { label: 'Teórico vs Real',         emoji: '🚦' },
-  { label: 'Alertas de Precio',       emoji: '📈' },
-  { label: 'Producción Prevista',     emoji: '🔮' },
-  { label: 'Sync de Carta',           emoji: '🔄' },
-  { label: 'BPM / Calidad',           emoji: '✅' },
-  { label: 'Almacén',                 emoji: '🏭' },
-  { label: 'Stock Mínimo Alertas',    emoji: '⚠️' },
-  { label: 'POS',                     emoji: '🖥️' },
-  { label: 'Fichas Empleados',        emoji: '👤' },
-  { label: 'Ventas por Hora',         emoji: '🕐' },
-  { label: 'Ranking Productos',       emoji: '🏆' },
-  { label: 'Alérgenos',               emoji: '🥜' },
-  { label: 'BI / Informes Avanzados', emoji: '📈' },
-  { label: 'Control Mermas',          emoji: '📉' },
-  { label: 'Exportación a Gestoría',  emoji: '📤' },
-  { label: 'Inventario Tiempo Real',  emoji: '📡' },
-  { label: 'Planificación Turnos',    emoji: '🗓️' },
-]
-
-const PROXIMAMENTE_LS_KEY  = 'streatlab.sidebar.proximamente.open'
 const OPEN_SECTIONS_LS_KEY = 'streatlab.sidebar.openSections'
 
 function loadOpenSections(): string[] {
@@ -203,16 +176,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const esMovilDisp = useEsMovil()
 
   const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections())
-  const [proxOpen, setProxOpen]         = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem(PROXIMAMENTE_LS_KEY) === '1'
-  })
   const [tareasBadge, setTareasBadge] = useState(0)
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    localStorage.setItem(PROXIMAMENTE_LS_KEY, proxOpen ? '1' : '0')
-  }, [proxOpen])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -479,29 +443,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             )
           })}
 
-          {/* Próximamente */}
-          {!collapsed && perfil === 'admin' && (
-            <div>
-              <button type="button" onClick={() => setProxOpen(o => !o)}
-                style={{ width: '100%', background: CREMA, border: 'none', borderBottom: `3px solid ${INK}`, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', fontFamily: FONT.heading, fontWeight: 800, fontSize: 16, textTransform: 'uppercase', letterSpacing: '0.02em', color: '#6b5d45' }}
-                title="Funciones en desarrollo">
-                <Clock size={18} strokeWidth={2.4} color="#6b5d45" />
-                <span style={{ flex: 1, textAlign: 'left' }}>Próximamente</span>
-                <span style={{ fontWeight: 800, fontSize: 17, transition: 'transform .2s', transform: proxOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>›</span>
-              </button>
-              {proxOpen && (
-                <div style={{ background: BLANCO, borderBottom: `3px solid ${INK}` }}>
-                  {PROXIMAMENTE.map((item, idx) => (
-                    <div key={`${item.label}-${idx}`} aria-disabled="true"
-                      style={{ fontFamily: FONT.heading, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.01em', fontSize: 14.5, padding: '7px 16px 7px 18px', display: 'flex', alignItems: 'center', gap: 9, color: '#9a8f78', opacity: 0.6, cursor: 'not-allowed', userSelect: 'none', borderTop: idx > 0 ? '1.5px solid rgba(0,0,0,.1)' : 'none', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                      <span style={{ fontSize: 13, flexShrink: 0 }}>{item.emoji}</span>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </nav>
 
         {/* ── FOOTER (crema) ── */}
