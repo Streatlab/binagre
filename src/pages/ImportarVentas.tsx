@@ -50,7 +50,7 @@ type DatosParseados =
 const TAG_COLORS: Record<string, { bg: string; color: string }> = {
   'Activo': { bg: '#1D9E7522', color: VERDE },
   'Fase 2': { bg: '#f5a62322', color: NAR },
-  'Fase 3': { bg: '#F26B1F22', color: NAR },
+  'Fase 3': { bg: NAR, color: NAR },
   'Fase 4': { bg: '#1E5BCC22', color: AZUL_CL },
 };
 

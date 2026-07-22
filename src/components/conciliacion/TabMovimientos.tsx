@@ -563,7 +563,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               style={{
                 flex: 1, padding: '5px 6px', borderRadius: 5,
                 border: filtroCard === 'pend_sin_doc' ? `1px solid ${NAR}` : `0.5px solid ${BORDE_SUAVE}`,
-                background: filtroCard === 'pend_sin_doc' ? '#F26B1F10' : BLANCO,
+                background: filtroCard === 'pend_sin_doc' ? NAR : BLANCO,
                 cursor: 'pointer', textAlign: 'center',
               }}>
               <div style={{ color: GRIS, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>Sin doc</div>
@@ -808,7 +808,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                               Conciliado
                             </span>
                           ) : estado === 'parcial' ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#F26B1F15', color: NAR }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: NAR, color: NAR }}>
                               Parcial
                             </span>
                           ) : (
@@ -819,7 +819,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                         </td>
                         <td style={tdBase}>
                           {isRuben ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: '#F26B1F15', color: NAR, whiteSpace: 'nowrap' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: NAR, color: NAR, whiteSpace: 'nowrap' }}>
                               <span style={{ width: 6, height: 6, borderRadius: '50%', background: NAR, flexShrink: 0 }} />
                               Rubén
                             </span>

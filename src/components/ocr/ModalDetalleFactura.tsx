@@ -305,7 +305,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
           {/* Aviso de qué falta por completar */}
           {faltan.length > 0 ? (
-            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#FFF7ED', border: '0.5px solid #F26B1F50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#9a4a12' }}>
+            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#FFF7ED', border: `0.5px solid ${NAR}`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#9a4a12' }}>
               Faltan por completar: <strong>{faltan.join(', ')}</strong>
             </div>
           ) : (
