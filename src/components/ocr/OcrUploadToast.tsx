@@ -66,7 +66,7 @@ function SubiendoBanner({ session }: { session: OcrSession }) {
   return (
     <div style={{
       background: '#FFF3E0',
-      border: '1px solid #F26B1F',
+      border: `1px solid ${NAR}`,
       color: '#8a4b00',
       padding: '10px 12px',
       borderRadius: 8,
@@ -211,7 +211,7 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
                   ▶ Reanudar
                 </button>
               : <button onClick={onPausar}
-                  style={{ background: 'transparent', border: '0.5px solid #F26B1F', color: NAR, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  style={{ background: 'transparent', border: `0.5px solid ${NAR}`, color: NAR, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
                   ⏸ Pausar
                 </button>
           )}

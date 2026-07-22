@@ -1,4 +1,4 @@
-import { AZUL, BLANCO, GRANATE, GRIS, INK, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
+import { AZUL, BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fmtEur, fmtDate } from '@/utils/format'
@@ -562,7 +562,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               onClick={() => onCambiarFiltroCard('pend_sin_doc')}
               style={{
                 flex: 1, padding: '5px 6px', borderRadius: 5,
-                border: filtroCard === 'pend_sin_doc' ? '1px solid #F26B1F' : '0.5px solid #d0c8bc',
+                border: filtroCard === 'pend_sin_doc' ? `1px solid ${NAR}` : `0.5px solid ${BORDE_SUAVE}`,
                 background: filtroCard === 'pend_sin_doc' ? '#F26B1F10' : BLANCO,
                 cursor: 'pointer', textAlign: 'center',
               }}>
