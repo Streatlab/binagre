@@ -1,19 +1,20 @@
-name: Sinqro vivo (Just Eat, cada 10 min en servicio)
+name: Sinqro vivo (Just Eat, cada 5 min en servicio)
 
 # Snapshot del día en curso durante el servicio (11:00-00:30 Madrid). GitHub
 # Actions programa en UTC y no sabe de horario de verano, así que hay dos
-# franjas de cron (verano/invierno) y un candado por hora real de Madrid,
-# igual que sold-products.yml. El cron mínimo real de Actions ronda los 5 min
-# con posibles retrasos; se acepta la deriva.
-# INCIDENTE 16-jul: este workflow tenía un disparador push: en trabajo que
-# hizo correr el robot solo, sin querer, al pushear un commit que tocaba estos
-# archivos — escribió una lectura en 0 que tumbó el Panel en vivo. Quitado el
-# push: mientras el robot no esté validado (ver cabecera de sinqro-vivo.ts).
-# Solo cron + botón manual.
+# franjas de cron (verano/invierno) y un candado por hora real de Madrid.
+# 17-jul: pasa de 10 a 5 minutos, descompasado de Rushour vivo (Rushour en
+# minutos 0-5-10..., este en 2-7-12...) para que los dos no coincidan y el
+# Pulso en Vivo se alimente de forma continua. El cron real de Actions puede
+# derivar unos minutos; se acepta.
+# INCIDENTE 16-jul: un disparador push: hizo correr el robot sin querer y una
+# lectura en 0 tumbó el Panel. Solo cron + botón manual.
+# BLOQUEO CERO (17-jul): el schedule corre en master pero el código vive en
+# trabajo → checkout con ref: trabajo hasta la fusión definitiva.
 on:
   schedule:
-    - cron: "*/10 9-23 * * *"   # 11:00-00:59 Madrid (verano, UTC+2)
-    - cron: "*/10 10-23,0 * * *" # 11:00-00:59 Madrid (invierno, UTC+1)
+    - cron: "2-57/5 9-23 * * *"    # 11:02, 11:07... Madrid (verano, UTC+2)
+    - cron: "2-57/5 10-23,0 * * *" # 11:02, 11:07... Madrid (invierno, UTC+1)
   workflow_dispatch:
 
 jobs:
@@ -38,6 +39,8 @@ jobs:
           echo "Madrid son las $H:$M — seguir=$seguir"
       - uses: actions/checkout@v4
         if: steps.candado.outputs.seguir == '1'
+        with:
+          ref: trabajo
       - uses: actions/setup-node@v4
         if: steps.candado.outputs.seguir == '1'
         with:

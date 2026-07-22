@@ -1,22 +1,21 @@
-name: Robot precios super — TIRADA COMPLETA (manual)
+name: TEST precios super (5 productos)
 
-# Un clic = pasada completa de los 301 ingredientes contra Mercadona (API) + Alcampo.
-# Corre el código de la rama trabajo. No toca la web.
+# Prueba manual rápida del scraper Mercadona+Alcampo.
+# Corre solo unos pocos productos y guarda capturas/HTML para ver qué pasa.
+# NO es el robot semanal (ese es robot-precios-super.yml). Esto es para probar a mano.
 on:
   workflow_dispatch:
     inputs:
       max_items:
-        description: "Cuántos productos (301 = todos)"
+        description: "Cuántos productos probar"
         type: string
-        default: "301"
+        default: "5"
 
 jobs:
-  precios-super-full:
+  test-precios-super:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: trabajo
 
       - uses: actions/setup-node@v4
         with:
@@ -28,7 +27,7 @@ jobs:
       - name: Instalar navegador Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Ejecutar robot (tirada completa)
+      - name: Ejecutar robot (modo prueba)
         env:
           DIAG: "1"
           MAX_ITEMS: ${{ github.event.inputs.max_items }}
@@ -36,10 +35,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/robot-precios-super/robot.ts
 
-      - name: Subir diagnóstico
+      - name: Subir capturas y HTML de la prueba
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: precios-super-full-diagnostico
+          name: test-precios-super-diagnostico
           path: robot-artifacts/
           if-no-files-found: ignore

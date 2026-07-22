@@ -1,0 +1,35 @@
+name: Sonda Rushour (investigacion, no toca datos)
+
+# Se dispara al tocar su propio codigo (asi se puede lanzar sin abrir Actions)
+# o a mano. Solo mira: apunta las llamadas que hace la web de Rushour por debajo
+# para saber si se pueden leer los datos en vivo sin navegador (coste 0).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - "scripts/robot-ingesta/sonda-rushour.ts"
+      - ".github/workflows/sonda-rushour.yml"
+
+jobs:
+  sonda:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Instalar navegador Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Sondear
+        env:
+          RUSHOUR_USER: ${{ secrets.RUSHOUR_USER }}
+          RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/robot-ingesta/sonda-rushour.ts

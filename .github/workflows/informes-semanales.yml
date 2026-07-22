@@ -4,6 +4,8 @@ name: Informes semanales (lunes 03:00 Madrid)
 # robots-plataformas.yml (lunes 05:00 Madrid) — no se duplica aquí. Este
 # workflow cubre lo nuevo: Rushour reports (/rapports + mapa de /business).
 # Doble cron UTC (verano/invierno) + candado por hora real de Madrid.
+# BLOQUEO CERO (17-jul): el schedule corre en master pero el código vive en
+# trabajo → checkout con ref: trabajo hasta la fusión definitiva.
 on:
   schedule:
     - cron: "0 1 * * 1"   # 03:00 Madrid (verano)
@@ -32,6 +34,8 @@ jobs:
           fi
       - uses: actions/checkout@v4
         if: steps.candado.outputs.seguir == '1'
+        with:
+          ref: trabajo
       - uses: actions/setup-node@v4
         if: steps.candado.outputs.seguir == '1'
         with:
@@ -60,4 +64,4 @@ jobs:
           RUSHOUR_PASS: ${{ secrets.RUSHOUR_PASS }}
           SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/robot-ingesta/${{ matrix.robot }}.ts
+        run: npx tsx scripts/robot-ingesta/rushour-reports.ts

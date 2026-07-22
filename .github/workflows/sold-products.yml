@@ -3,10 +3,8 @@ name: SOLD_PRODUCTS Sinqro (semanal, lunes 02:00 Madrid → bandeja Papeleo)
 # plan-v2/T5: pasa de diario a semanal (lunes). GitHub programa en UTC y no
 # sabe de horario de verano, así que hay dos disparos y un candado: solo se
 # ejecuta si en Madrid son de verdad las 02:00 de un lunes.
-# NOTA: este workflow (y sold-products.ts) solo existen en la rama trabajo —
-# el schedule: de Actions siempre corre sobre el branch por defecto (master),
-# así que hasta que no se haga el merge trabajo→master (plan-v2/T9) esto no
-# dispara solo. Es la causa real de que llevara desde el 12-jul sin correr.
+# BLOQUEO CERO (17-jul): el schedule corre en master pero el código vive en
+# trabajo → checkout con ref: trabajo hasta la fusión definitiva.
 on:
   schedule:
     - cron: "0 0 * * 1"   # lunes 02:00 Madrid (verano)
@@ -37,6 +35,8 @@ jobs:
           fi
       - uses: actions/checkout@v4
         if: steps.candado.outputs.seguir == '1'
+        with:
+          ref: trabajo
       - uses: actions/setup-node@v4
         if: steps.candado.outputs.seguir == '1'
         with:
