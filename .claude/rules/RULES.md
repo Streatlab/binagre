@@ -27,6 +27,13 @@ Ciclo obligatorio:
 **NO preguntar "¿hago deploy?". NO esperar autorización. El deploy es implícito en cada envío de instrucciones.**
 Solo parar si hay error de build irrecuperable — documentarlo y avisar.
 
+### 3 bis. Límite diario de builds de Vercel — NORMA PERMANENTE
+Vercel cobra/limita por build; cada commit con `[deploy]` dispara uno. Regla dura:
+- Commitear y pushear a `trabajo` con normalidad tras cada instrucción (validación `tsc`/build local sigue siendo obligatoria antes de cada commit).
+- **NUNCA** usar el prefijo `[deploy]` en el mensaje de commit salvo que Rubén lo pida explícitamente o el commit sea el cierre de una tanda de trabajo.
+- Agrupar: **un solo `[deploy]` al final de cada tanda de trabajo** (varias instrucciones/fixes seguidos), no uno por commit ni uno por instrucción.
+- Si Rubén dice "para los deploys" / "sin deploy" / referencia el límite diario agotado: esta norma queda activa hasta que él diga lo contrario, en cualquier sesión.
+
 ## 4. Lógica de negocio
 - Escandallo, EPS, IDING, INGREDIENTES viven dentro del ERP (NO es Apps Script)
 - IDs numéricos en INGREDIENTES, ordenable
