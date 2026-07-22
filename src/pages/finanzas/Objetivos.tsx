@@ -265,12 +265,22 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
 
   const savePresupuesto = async (codigo: string, mes: number, val: number) => {
     setPresSaving(true)
-    const existing = presData.find(p => p.categoria_codigo === codigo && p.mes === mes && p.anio === presAnio)
     try {
-      if (existing) {
-        const { error } = await supabase.from('objetivos').update({ importe: val, updated_at: new Date().toISOString() }).eq('id', existing.id)
+      // Resolver la fila existente contra BD, no solo contra presData: si allCodigos
+      // aún no estaba listo al cargar, presData puede estar vacío y un insert ciego
+      // crearía duplicados o perdería la edición. Consulta puntual = idempotente.
+      const { data: found, error: findErr } = await supabase.from('objetivos')
+        .select('id').eq('tipo', 'presupuesto').eq('categoria_codigo', codigo)
+        .eq('anio', presAnio).eq('mes', mes).limit(1)
+      if (findErr) throw findErr
+      const existingId = found?.[0]?.id
+        ?? presData.find(p => p.categoria_codigo === codigo && p.mes === mes && p.anio === presAnio)?.id
+      if (existingId) {
+        const { error } = await supabase.from('objetivos').update({ importe: val, updated_at: new Date().toISOString() }).eq('id', existingId)
         if (error) throw error
-        setPresData(prev => prev.map(p => p.id === existing.id ? { ...p, importe: val } : p))
+        setPresData(prev => prev.some(p => p.id === existingId)
+          ? prev.map(p => p.id === existingId ? { ...p, importe: val } : p)
+          : [...prev, { id: existingId, categoria_codigo: codigo, anio: presAnio, mes, importe: val }])
       } else {
         const { data, error } = await supabase.from('objetivos').insert({ tipo: 'presupuesto', categoria_codigo: codigo, anio: presAnio, mes, importe: val }).select()
         if (error) throw error
