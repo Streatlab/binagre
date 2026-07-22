@@ -1,6 +1,7 @@
 import { BLANCO } from '@/styles/neobrutal'
 import { PARETO_WARN_BG, PARETO_WARN_TXT } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Cell,
@@ -9,6 +10,11 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import { COLORS, FONT, CARDS, fmtDec } from '@/components/panel/resumen/tokens'
 import TabsPastilla from '@/components/ui/TabsPastilla'
+import { normPlato } from '@/utils/normPlato'
+
+/** Sin receta madre resuelta (ni por mapeo_plato_receta ni por fallback de nombre) —
+ *  se agrupan aparte en vez de mostrar el nombre crudo de plataforma (Tanda 8). */
+const SIN_VINCULAR = 'Sin vincular'
 
 /**
  * PARETO DE VENTAS · Binagre ERP
@@ -18,7 +24,11 @@ import TabsPastilla from '@/components/ui/TabsPastilla'
  * concentran la mayor parte de la facturación.
  *
  * Dimensiones:
- *   - Producto (global): ranking de platos por facturación.
+ *   - Producto (global): ranking por nombre madre (recetas.nombre vía
+ *     mapeo_plato_receta, normPlato solo de último recurso — Tanda 8). Las
+ *     variantes de plataforma ("…+ bebida", tamaños, nombres comerciales) se
+ *     agregan bajo su receta madre; lo sin vincular se agrupa aparte con
+ *     acceso directo al enlace asistido (Coste por plato).
  *   - Marca: desglose por marca (se llena solo cuando la importación
  *     etiqueta marca por plato; hoy la mayoría entra como "Streat Lab").
  *   - Canal: concentración por plataforma.
@@ -36,6 +46,14 @@ interface VentaRow {
   ingresos_brutos: number | null
   estimado: boolean
 }
+interface MapeoRow {
+  plato_muestra: string | null
+  receta_id: string | null
+}
+interface RecetaLite {
+  id: string
+  nombre: string
+}
 
 type Dim = 'plato' | 'marca' | 'canal'
 type Metrica = 'eur' | 'uds'
@@ -47,6 +65,7 @@ interface ParetoRow {
   pct: number
   acumPct: number
   clase: Clase
+  variantes?: number  // nº de nombres crudos de plataforma agregados bajo el nombre madre (dim=plato)
 }
 
 const CLASE_COLOR: Record<Clase, string> = { A: COLORS.ok, B: COLORS.warn, C: COLORS.err }
@@ -71,7 +90,7 @@ const DIMS: Array<{ id: Dim; label: string }> = [
   { id: 'canal', label: 'Canal' },
 ]
 
-function computePareto(items: { key: string; valor: number }[]): { rows: ParetoRow[]; total: number; nA: number } {
+function computePareto(items: { key: string; valor: number; variantes?: number }[]): { rows: ParetoRow[]; total: number; nA: number } {
   const total = items.reduce((s, i) => s + i.valor, 0)
   const sorted = items.filter(i => i.valor > 0).sort((a, b) => b.valor - a.valor)
   let acum = 0
@@ -79,7 +98,7 @@ function computePareto(items: { key: string; valor: number }[]): { rows: ParetoR
     const pct = total > 0 ? (i.valor / total) * 100 : 0
     acum += pct
     const clase: Clase = acum <= 80 ? 'A' : acum <= 95 ? 'B' : 'C'
-    return { key: i.key, valor: i.valor, pct, acumPct: acum, clase }
+    return { key: i.key, valor: i.valor, pct, acumPct: acum, clase, variantes: i.variantes }
   })
   return { rows, total, nA: rows.filter(r => r.clase === 'A').length }
 }
@@ -113,7 +132,10 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
 }
 
 export default function ParetoVentas() {
+  const navigate = useNavigate()
   const [ventas, setVentas] = useState<VentaRow[]>([])
+  const [mapeo, setMapeo] = useState<MapeoRow[]>([])
+  const [recetas, setRecetas] = useState<RecetaLite[]>([])
   const [loading, setLoading] = useState(true)
 
   const [dim, setDim] = useState<Dim>('plato')
@@ -122,13 +144,39 @@ export default function ParetoVentas() {
 
   const cargar = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('ventas_plato')
-      .select('plato,canal,marca,mes,unidades,ingresos_brutos,estimado')
-    setVentas((data as VentaRow[]) ?? [])
+    const [{ data: v }, { data: m }, { data: r }] = await Promise.all([
+      supabase.from('ventas_plato').select('plato,canal,marca,mes,unidades,ingresos_brutos,estimado'),
+      supabase.from('mapeo_plato_receta').select('plato_muestra,receta_id'),
+      supabase.from('recetas').select('id,nombre'),
+    ])
+    setVentas((v as VentaRow[]) ?? [])
+    setMapeo((m as MapeoRow[]) ?? [])
+    setRecetas((r as RecetaLite[]) ?? [])
     setLoading(false)
   }, [])
   useEffect(() => { cargar() }, [cargar])
+
+  /* ── Resolución nombre madre (Tanda 8, mismo criterio que v_margen_plato /
+   *  Menú Engineering): mapeo_plato_receta primero, normPlato solo de último recurso. ── */
+  const mapaEnlace = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const row of mapeo) if (row.plato_muestra && row.receta_id) m.set(row.plato_muestra, row.receta_id)
+    return m
+  }, [mapeo])
+  const nombrePorId = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of recetas) m.set(r.id, r.nombre)
+    return m
+  }, [recetas])
+  const recetaPorNombreNorm = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of recetas) m.set(normPlato(r.nombre), r.id)
+    return m
+  }, [recetas])
+  const nombreMadre = useCallback((platoCrudo: string): string => {
+    const recetaId = mapaEnlace.get(platoCrudo) ?? recetaPorNombreNorm.get(normPlato(platoCrudo))
+    return recetaId ? (nombrePorId.get(recetaId) ?? SIN_VINCULAR) : SIN_VINCULAR
+  }, [mapaEnlace, recetaPorNombreNorm, nombrePorId])
 
   const mesesDisp = useMemo(() => {
     const s = new Set<number>()
@@ -145,16 +193,26 @@ export default function ParetoVentas() {
 
   const { rows, total, nA } = useMemo(() => {
     const agg = new Map<string, number>()
+    const variantesPorKey = new Map<string, Set<string>>()
     for (const v of filtradas) {
       let key: string
-      if (dim === 'plato') key = v.plato || '(sin nombre)'
+      if (dim === 'plato') {
+        key = v.plato ? nombreMadre(v.plato) : '(sin nombre)'
+        if (key !== SIN_VINCULAR && v.plato) {
+          const s = variantesPorKey.get(key) ?? new Set<string>()
+          s.add(v.plato)
+          variantesPorKey.set(key, s)
+        }
+      }
       else if (dim === 'marca') key = v.marca || '(sin marca)'
       else key = CANAL_LABEL[v.canal] ?? v.canal ?? '(sin canal)'
       const valor = metrica === 'eur' ? Number(v.ingresos_brutos || 0) : Number(v.unidades || 0)
       agg.set(key, (agg.get(key) ?? 0) + valor)
     }
-    return computePareto([...agg.entries()].map(([key, valor]) => ({ key, valor })))
-  }, [filtradas, dim, metrica])
+    return computePareto([...agg.entries()].map(([key, valor]) => ({
+      key, valor, variantes: variantesPorKey.get(key)?.size,
+    })))
+  }, [filtradas, dim, metrica, nombreMadre])
 
   const fmtVal = (v: number) => (metrica === 'eur' ? fmtEur(v) : `${fmtDec(v, 0)} ud`)
 
@@ -275,7 +333,20 @@ export default function ParetoVentas() {
           {rows.map((r, i) => (
             <div key={r.key} style={{ display: 'grid', gridTemplateColumns: '28px 1.8fr 110px 70px 120px 56px', gap: 8, padding: '6px 8px', borderBottom: `0.5px solid ${COLORS.group}`, alignItems: 'center' }}>
               <span style={{ fontFamily: FONT.heading, fontSize: 12, color: COLORS.mut, textAlign: 'right' }}>{i + 1}</span>
-              <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.pri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.key}</span>
+              <span style={{ fontFamily: FONT.body, fontSize: 12, color: r.key === SIN_VINCULAR ? '#8a6d1f' : COLORS.pri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {r.key}
+                {r.variantes && r.variantes > 1 && (
+                  <span style={{ color: COLORS.mut, fontSize: 11 }}> · {r.variantes} variantes de plataforma</span>
+                )}
+                {r.key === SIN_VINCULAR && (
+                  <button
+                    onClick={() => navigate('/cocina/coste-plato')}
+                    style={{ marginLeft: 8, background: 'none', border: 'none', color: COLORS.redSL, textDecoration: 'underline', fontFamily: FONT.body, fontSize: 11, cursor: 'pointer', padding: 0 }}
+                  >
+                    Vincular →
+                  </button>
+                )}
+              </span>
               <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.pri, fontWeight: 600, textAlign: 'right' }}>{fmtVal(r.valor)}</span>
               <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.sec, textAlign: 'right' }}>{fmtDec(r.pct)}%</span>
               <span style={{ position: 'relative', textAlign: 'right', fontFamily: FONT.body, fontSize: 11, color: COLORS.mut }}>

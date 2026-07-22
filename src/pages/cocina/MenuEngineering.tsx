@@ -1,6 +1,7 @@
 import { AZUL, BLANCO, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 import { PARETO_WARN_BG, PARETO_WARN_TXT } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
@@ -11,6 +12,11 @@ import { fmtEur } from '@/utils/format'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import { COLORS, FONT, CARDS, fmtDec } from '@/components/panel/resumen/tokens'
 import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
+import { normPlato, similitudPlato } from '@/utils/normPlato'
+
+/** Umbral mínimo para sugerir un enlace automático (Tanda 8) — igual criterio que Carta.tsx:
+ *  por debajo, mejor no sugerir nada que sugerir mal; sigue disponible el selector manual. */
+const UMBRAL_SUGERENCIA = 0.5
 
 /**
  * MENU ENGINEERING · Binagre ERP
@@ -26,7 +32,10 @@ import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlatafor
  * FUENTES DE DATOS (nunca hardcode):
  *   - Coste y PVP por canal: tabla `recetas` (coste_rac, pvp_*).
  *   - Comisiones netas: calcNetoPorCanal(modo:'plato') ← config_canales real.
- *   - Popularidad (unidades): tabla `ventas_plato` agregada por plato/periodo.
+ *   - Popularidad (unidades): tabla `ventas_plato` agregada por plato/periodo,
+ *     resuelta a receta vía `mapeo_plato_receta.plato_muestra → receta_id`
+ *     (misma tabla que alimenta CostePlato.tsx). Ventas cuyo plato no resuelve
+ *     receta se excluyen del análisis y se contabilizan en el aviso de cobertura.
  *
  * MECANISMO ESTIMADO → REAL:
  *   ventas_plato.origen ∈ {estimado, real, excel, pos, resumen}
@@ -55,6 +64,15 @@ interface VentaRow {
   unidades: number
   estimado: boolean
   origen: string
+  ingresos_brutos: number | null
+}
+interface MapeoRow {
+  id: string
+  plato_muestra: string | null
+  plato_norm: string
+  receta_id: string | null
+  euros: number | null
+  unidades: number | null
 }
 interface Dish {
   id: string
@@ -106,6 +124,11 @@ function pctTramos(precios: number[], nTramos: number): { rango: [number, number
   return out
 }
 
+// Fix popularidad (Tanda 8): ventas_plato.plato vs recetas.nombre se cruzaban con `===`
+// exacto y la mayoria de platos salian con 0 unidades aunque si tuvieran ventas reales
+// (mayusculas/acentos/espacios distintos). normPlato() replica norm_plato() de Postgres
+// (la misma que usa v_margen_plato/mapeo_plato_receta) -- ver src/utils/normPlato.ts.
+
 /* ── Estilos base (tokens Panel Global) ─────────────── */
 const cardBig = CARDS.big
 const card = CARDS.std
@@ -132,9 +155,11 @@ function Pill({ active, color, children, onClick }: { active: boolean; color: st
    ══════════════════════════════════════════════════════ */
 export default function MenuEngineering() {
   const configCanales = useConfigCanales()
+  const navigate = useNavigate()
 
   const [recetas, setRecetas] = useState<RecetaRow[]>([])
   const [ventas, setVentas] = useState<VentaRow[]>([])
+  const [mapeo, setMapeo] = useState<MapeoRow[]>([])
   const [loading, setLoading] = useState(true)
 
   const [metodo, setMetodo] = useState<MetodoId>('boston')
@@ -144,17 +169,65 @@ export default function MenuEngineering() {
   /* ── Carga datos reales ── */
   const cargar = useCallback(async () => {
     setLoading(true)
-    const [{ data: r }, { data: v }] = await Promise.all([
+    const [{ data: r }, { data: v }, { data: m }] = await Promise.all([
       supabase.from('recetas')
         .select('id,nombre,coste_rac,pvp_uber,pvp_glovo,pvp_je,pvp_web,pvp_real,marca_id')
         .gt('coste_rac', 0),
       supabase.from('ventas_plato').select('*'),
+      supabase.from('mapeo_plato_receta').select('id,plato_muestra,plato_norm,receta_id,euros,unidades'),
     ])
     setRecetas((r as RecetaRow[]) ?? [])
     setVentas((v as unknown as VentaRow[]) ?? [])
+    setMapeo((m as MapeoRow[]) ?? [])
     setLoading(false)
   }, [])
   useEffect(() => { cargar() }, [cargar])
+
+  /* ── Mapa plato_muestra → receta_id (solo enlaces ya resueltos) ── */
+  const mapaEnlace = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const row of mapeo) {
+      if (row.plato_muestra && row.receta_id) m.set(row.plato_muestra, row.receta_id)
+    }
+    return m
+  }, [mapeo])
+
+  /* ── Fallback de último recurso (Tanda 8): nombre normalizado de receta → id,
+   *  solo para platos de ventas que no tengan fila enlazada en mapeo_plato_receta. ── */
+  const recetaPorNombreNorm = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of recetas) m.set(normPlato(r.nombre), r.id)
+    return m
+  }, [recetas])
+
+  /* ── Enlace asistido (Tanda 8): vincular un plato_muestra a una receta en un clic ── */
+  const [vinculando, setVinculando] = useState<string | null>(null)
+  const vincular = useCallback(async (mapeoId: string, recetaId: string) => {
+    setVinculando(mapeoId)
+    await supabase.from('mapeo_plato_receta').update({
+      receta_id: recetaId, origen: 'manual', confianza: 1, updated_at: new Date().toISOString(),
+    }).eq('id', mapeoId)
+    await cargar()
+    setVinculando(null)
+  }, [cargar])
+
+  /* ── Lista de platos de ventas sin receta enlazada, con sugerencia por similitud
+   *  (mismo criterio que Carta.tsx), ordenada por facturación — para enlazar en un clic
+   *  sin salir de la pantalla (CA-5). ── */
+  const sinEnlazarLista = useMemo(() => {
+    return mapeo
+      .filter(row => !row.receta_id)
+      .map(row => {
+        let sugerencia: { receta: RecetaRow; score: number } | null = null
+        const nombre = row.plato_muestra ?? row.plato_norm
+        for (const r of recetas) {
+          const score = similitudPlato(nombre, r.nombre)
+          if (score >= UMBRAL_SUGERENCIA && (!sugerencia || score > sugerencia.score)) sugerencia = { receta: r, score }
+        }
+        return { row, nombre, sugerencia }
+      })
+      .sort((a, b) => Number(b.row.euros ?? 0) - Number(a.row.euros ?? 0))
+  }, [mapeo, recetas])
 
   /* ── Meses disponibles en ventas ── */
   const mesesDisp = useMemo(() => {
@@ -166,14 +239,19 @@ export default function MenuEngineering() {
   /* ── Dataset base (real) ── */
   const dishes = useMemo<Dish[]>(() => {
     if (!recetas.length) return []
-    // unidades por plato (filtrado por canal y mes)
+    // unidades por receta (filtrado por canal y mes), resuelto vía mapeo_plato_receta
+    // (misma fuente que v_margen_plato). Fallback de último recurso (Tanda 8): si un
+    // plato de ventas no está enlazado en el mapeo, se intenta un cruce directo por
+    // nombre normalizado contra recetas.nombre antes de descartarlo del análisis.
     const uds = new Map<string, number>()
     const est = new Map<string, boolean>()
     for (const v of ventas) {
       if (!canalesSel.includes(v.canal)) continue
       if (mesSel !== 'todos' && v.mes !== mesSel) continue
-      uds.set(v.plato, (uds.get(v.plato) ?? 0) + Number(v.unidades || 0))
-      if (v.estimado) est.set(v.plato, true)
+      const recetaId = mapaEnlace.get(v.plato) ?? recetaPorNombreNorm.get(normPlato(v.plato))
+      if (!recetaId) continue // sin receta enlazada ni match por nombre → no participa (ver sinEnlazar)
+      uds.set(recetaId, (uds.get(recetaId) ?? 0) + Number(v.unidades || 0))
+      if (v.estimado) est.set(recetaId, true)
     }
     const raw: Dish[] = []
     for (const r of recetas) {
@@ -194,16 +272,30 @@ export default function MenuEngineering() {
         id: r.id, nombre: r.nombre, coste, precioCarta, netoMedio,
         margen, margenPct: precioCarta > 0 ? margen / precioCarta : 0,
         foodCostPct: precioCarta > 0 ? coste / precioCarta : 0,
-        unidades: uds.get(r.nombre) ?? 0, mix: 0,
-        estimado: est.get(r.nombre) ?? false,
+        unidades: uds.get(r.id) ?? 0, mix: 0,
+        estimado: est.get(r.id) ?? false,
       })
     }
     const totalUds = raw.reduce((s, d) => s + d.unidades, 0) || 1
     raw.forEach(d => { d.mix = (d.unidades / totalUds) * 100 })
     return raw.sort((a, b) => b.margen - a.margen)
-  }, [recetas, ventas, canalesSel, mesSel, configCanales])
+  }, [recetas, ventas, mapaEnlace, recetaPorNombreNorm, canalesSel, mesSel, configCanales])
 
   const hayEstimados = useMemo(() => dishes.some(d => d.estimado), [dishes])
+
+  /* ── Cobertura: ventas del periodo/canal filtrado sin receta enlazada (CA-5) ── */
+  const sinEnlazar = useMemo(() => {
+    let euros = 0
+    const platos = new Set<string>()
+    for (const v of ventas) {
+      if (!canalesSel.includes(v.canal)) continue
+      if (mesSel !== 'todos' && v.mes !== mesSel) continue
+      if (mapaEnlace.has(v.plato) || recetaPorNombreNorm.has(normPlato(v.plato))) continue
+      euros += Number(v.ingresos_brutos || 0)
+      platos.add(v.plato)
+    }
+    return { euros, n: platos.size }
+  }, [ventas, mapaEnlace, recetaPorNombreNorm, canalesSel, mesSel])
 
   /* ── Evolución mensual (unidades totales) ── */
   const evolucion = useMemo(() => {
@@ -263,6 +355,49 @@ export default function MenuEngineering() {
       {hayEstimados && (
         <div style={{ background: PARETO_WARN_BG, border: `0.5px solid ${COLORS.warn}`, borderRadius: 10, padding: '8px 14px', fontFamily: FONT.body, fontSize: 12, color: PARETO_WARN_TXT, marginBottom: 14 }}>
           ⚠ Popularidad <strong>estimada</strong> (placeholder). Se sustituirá automáticamente al cargar ventas reales (Excel / resumen / POS). El margen y los precios sí son reales.
+        </div>
+      )}
+
+      {/* Enlace asistido: platos de ventas sin receta enlazada (CA-5) */}
+      {sinEnlazar.n > 0 && (
+        <div style={{ background: '#fff8e6', border: `0.5px solid ${COLORS.warn}`, borderRadius: 10, padding: '10px 14px', fontFamily: FONT.body, fontSize: 12, color: '#8a6d1f', marginBottom: 14 }}>
+          <div style={{ marginBottom: 8 }}>
+            ⚠ {fmtEur(sinEnlazar.euros)} de ventas todavía sin receta enlazada ({sinEnlazar.n} platos) — no participan en el análisis. Vincúlalos aquí en un clic:
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {sinEnlazarLista.slice(0, 8).map(({ row, nombre, sugerencia }) => (
+              <div key={row.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: '#fff', border: '0.5px solid #f0dca0', borderRadius: 8, padding: '6px 10px' }}>
+                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={nombre}>
+                  {nombre} <span style={{ color: '#a08a4a' }}>· {fmtEur(Number(row.euros ?? 0))}</span>
+                </div>
+                {sugerencia ? (
+                  <button
+                    onClick={() => vincular(row.id, sugerencia.receta.id)}
+                    disabled={vinculando === row.id}
+                    title={`Similitud ${Math.round(sugerencia.score * 100)}%`}
+                    style={{ flexShrink: 0, background: COLORS.accent, color: BLANCO, border: 'none', borderRadius: 6, padding: '4px 10px', fontFamily: FONT.body, fontSize: 11, cursor: vinculando === row.id ? 'default' : 'pointer', opacity: vinculando === row.id ? 0.6 : 1 }}
+                  >
+                    ¿{sugerencia.receta.nombre}? · Vincular
+                  </button>
+                ) : (
+                  <select
+                    value=""
+                    disabled={vinculando === row.id}
+                    onChange={e => { if (e.target.value) vincular(row.id, e.target.value) }}
+                    style={{ flexShrink: 0, maxWidth: 180, fontFamily: FONT.body, fontSize: 11, border: '0.5px solid #f0dca0', borderRadius: 6, padding: '4px 6px' }}
+                  >
+                    <option value="">Vincular a…</option>
+                    {recetas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                  </select>
+                )}
+              </div>
+            ))}
+          </div>
+          {sinEnlazarLista.length > 8 && (
+            <div onClick={() => navigate('/cocina/coste-plato')} style={{ marginTop: 8, cursor: 'pointer', textDecoration: 'underline' }}>
+              Ver los {sinEnlazarLista.length - 8} restantes en Coste por plato →
+            </div>
+          )}
         </div>
       )}
 

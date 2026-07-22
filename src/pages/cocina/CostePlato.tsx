@@ -179,6 +179,15 @@ export default function CostePlato() {
 
   const maxEuros = lista.length > 0 ? Number(lista[0].euros) || 1 : 1
 
+  /* ── Tanda 8: nombre madre (recetas.nombre) siempre que ya haya enlace; el nombre
+   *  crudo de plataforma queda como detalle secundario. Sin enlace no hay madre —
+   *  ahí el nombre crudo sigue siendo el dato principal (es lo que hay que identificar). ── */
+  const nombrePorId = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of recetas) m.set(r.id, r.nombre)
+    return m
+  }, [recetas])
+
   const cuantasPara = useCallback((objetivo: number) => {
     const sin = filas.filter(f => !f.receta_id).sort((a, b) => Number(b.euros) - Number(a.euros))
     const totalSin = sin.reduce((s, f) => s + Number(f.euros), 0) || 1
@@ -397,7 +406,16 @@ export default function CostePlato() {
                   {lista.slice(0, 120).map((f, i) => (
                     <tr key={f.id}>
                       <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 11, color: GRIS, borderBottom: `2px solid ${INK}` }}>{i + 1}</td>
-                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, maxWidth: 320 }}>{f.plato_muestra ?? f.plato_norm}</td>
+                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, maxWidth: 320 }}>
+                        {f.receta_id && nombrePorId.get(f.receta_id) ? (
+                          <>
+                            <div>{nombrePorId.get(f.receta_id)}</div>
+                            <div style={{ fontSize: 11, color: GRIS, fontWeight: 600 }}>{f.plato_muestra ?? f.plato_norm}</div>
+                          </>
+                        ) : (
+                          f.plato_muestra ?? f.plato_norm
+                        )}
+                      </td>
                       <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, textAlign: 'right' }}>{nf0(Number(f.unidades) || 0)}</td>
                       <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, minWidth: 120 }}>
                         <span>{eur0(Number(f.euros) || 0)}</span>
