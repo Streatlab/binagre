@@ -1,6 +1,7 @@
 import { AZUL, AZUL_CL, BLANCO, GRANATE, INK, NAR, NAR_S, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { fmtEur } from '@/utils/format'
 import { Plus, X, Trash2, Save, FolderOpen, ChevronLeft, ChevronRight, Printer, Eraser, GripVertical } from 'lucide-react'
 
 const OSWALD = "'Oswald', sans-serif"
@@ -14,7 +15,8 @@ const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', '
 const DIA_CORTO = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
 const DIA_COLOR = [AZUL, VERDE, NAR, GRANATE, AZUL_CL, NAR, VERDE]
 
-interface Plato { id: string; nombre: string; categoria: string | null; activo: boolean }
+interface Plato { id: string; nombre: string; categoria: string | null; activo: boolean; receta_id: string | null }
+interface RecetaLite { id: string; nombre: string; coste_rac: number | null }
 interface Asign { id: string; semana_inicio: string; dia: number; plato_id: string | null; plato_nombre: string; orden: number }
 interface Plantilla { id: string; nombre: string; dias: Record<string, { nombre: string }[]> }
 
@@ -38,6 +40,7 @@ export default function MenuFamilia() {
   const [platos, setPlatos] = useState<Plato[]>([])
   const [asigns, setAsigns] = useState<Asign[]>([])
   const [plantillas, setPlantillas] = useState<Plantilla[]>([])
+  const [recetas, setRecetas] = useState<RecetaLite[]>([])
   const [nuevoPlato, setNuevoPlato] = useState('')
   const [inputDia, setInputDia] = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(true)
@@ -48,18 +51,32 @@ export default function MenuFamilia() {
 
   const cargar = useCallback(async () => {
     setLoading(true)
-    const [p, a, t] = await Promise.all([
+    const [p, a, t, r] = await Promise.all([
       supabase.from('menu_familia_platos').select('*').eq('activo', true).order('nombre'),
       supabase.from('menu_familia_semana').select('*').eq('semana_inicio', semIso).order('orden'),
       supabase.from('menu_familia_plantillas').select('*').order('nombre'),
+      supabase.from('recetas').select('id, nombre, coste_rac'),
     ])
     setPlatos((p.data as Plato[]) || [])
     setAsigns((a.data as Asign[]) || [])
     setPlantillas((t.data as unknown as Plantilla[]) || [])
+    setRecetas((r.data as RecetaLite[]) || [])
     setLoading(false)
   }, [semIso])
 
   useEffect(() => { cargar() }, [cargar])
+
+  // Tanda F6: coste del Escandallo por plato (receta_id -> recetas.coste_rac).
+  const recetaPorId = useMemo(() => new Map(recetas.map(r => [r.id, r])), [recetas])
+  const platoPorId = useMemo(() => new Map(platos.map(p => [p.id, p])), [platos])
+  function costeDePlato(p: Plato | undefined): number | null {
+    if (!p?.receta_id) return null
+    return recetaPorId.get(p.receta_id)?.coste_rac ?? null
+  }
+  function buscarRecetaPorNombre(nombre: string): string | null {
+    const norm = nombre.trim().toLowerCase()
+    return recetas.find(r => r.nombre.trim().toLowerCase() === norm)?.id ?? null
+  }
 
   const asignsPorDia = useMemo(() => {
     const m: Record<number, Asign[]> = {}
@@ -72,7 +89,7 @@ export default function MenuFamilia() {
   async function crearPlato() {
     const n = nuevoPlato.trim()
     if (!n) return
-    await supabase.from('menu_familia_platos').insert({ nombre: n })
+    await supabase.from('menu_familia_platos').insert({ nombre: n, receta_id: buscarRecetaPorNombre(n) })
     setNuevoPlato('')
     cargar()
   }
@@ -227,18 +244,24 @@ export default function MenuFamilia() {
                   style={{ background: over ? '#fff7e0' : BLANCO, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW, padding: 7, minHeight: 160, display: 'flex', flexDirection: 'column', gap: 5, outline: over ? `3px dashed ${DIA_COLOR[i]}` : 'none', outlineOffset: -6 }}
                 >
                   {items.length === 0 && <span className="mf-no-print" style={{ fontSize: 11, color: '#b0a690', fontStyle: 'italic' }}>arrastra un plato aquí</span>}
-                  {items.map(a => (
-                    <div
-                      key={a.id}
-                      draggable
-                      onDragStart={() => { dragRef.current = { tipo: 'mov', id: a.id, nombre: a.plato_nombre } }}
-                      style={chip}
-                    >
-                      <GripVertical className="mf-no-print" size={13} style={{ color: '#b0a690', flexShrink: 0, marginTop: 1 }} />
-                      <span style={{ flex: 1, fontSize: 13, lineHeight: 1.25, fontFamily: LEXEND }}>{a.plato_nombre}</span>
-                      <X className="mf-no-print" size={13} style={{ cursor: 'pointer', color: '#999', flexShrink: 0, marginTop: 1 }} onClick={() => quitarAsign(a.id)} />
-                    </div>
-                  ))}
+                  {items.map(a => {
+                    const coste = a.plato_id ? costeDePlato(platoPorId.get(a.plato_id)) : null
+                    return (
+                      <div
+                        key={a.id}
+                        draggable
+                        onDragStart={() => { dragRef.current = { tipo: 'mov', id: a.id, nombre: a.plato_nombre } }}
+                        style={chip}
+                      >
+                        <GripVertical className="mf-no-print" size={13} style={{ color: '#b0a690', flexShrink: 0, marginTop: 1 }} />
+                        <span style={{ flex: 1, fontSize: 13, lineHeight: 1.25, fontFamily: LEXEND }}>
+                          {a.plato_nombre}
+                          {coste != null && <span style={{ display: 'block', fontSize: 10, color: '#0FB86B', fontFamily: OSWALD, fontWeight: 600 }}>{fmtEur(coste)}/rac.</span>}
+                        </span>
+                        <X className="mf-no-print" size={13} style={{ cursor: 'pointer', color: '#999', flexShrink: 0, marginTop: 1 }} onClick={() => quitarAsign(a.id)} />
+                      </div>
+                    )
+                  })}
                   <div className="mf-no-print" style={{ display: 'flex', gap: 3, marginTop: 'auto' }}>
                     <input
                       list="catalogo-platos"
@@ -268,18 +291,26 @@ export default function MenuFamilia() {
             <button style={{ ...btn(RED), padding: '6px 10px', boxShadow: 'none' }} onClick={crearPlato}><Plus size={15} /></button>
           </div>
           <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {platos.map(p => (
-              <div
-                key={p.id}
-                draggable
-                onDragStart={() => { dragRef.current = { tipo: 'cat', nombre: p.nombre, platoId: p.id } }}
-                style={chip}
-              >
-                <GripVertical size={14} style={{ color: '#b0a690', flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: 13 }}>{p.nombre}</span>
-                <Trash2 size={14} style={{ cursor: 'pointer', color: '#999' }} onClick={() => borrarPlato(p.id)} />
-              </div>
-            ))}
+            {platos.map(p => {
+              const coste = costeDePlato(p)
+              return (
+                <div
+                  key={p.id}
+                  draggable
+                  onDragStart={() => { dragRef.current = { tipo: 'cat', nombre: p.nombre, platoId: p.id } }}
+                  style={chip}
+                >
+                  <GripVertical size={14} style={{ color: '#b0a690', flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 13 }}>{p.nombre}</span>
+                  {coste != null ? (
+                    <span style={{ fontSize: 11, color: '#0FB86B', fontFamily: OSWALD, fontWeight: 600 }}>{fmtEur(coste)}/rac.</span>
+                  ) : (
+                    <span style={{ fontSize: 10, color: NAR, fontFamily: OSWALD, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sin escandallo</span>
+                  )}
+                  <Trash2 size={14} style={{ cursor: 'pointer', color: '#999' }} onClick={() => borrarPlato(p.id)} />
+                </div>
+              )
+            })}
             {!platos.length && !loading && <span style={{ fontSize: 12, color: '#b0a690' }}>Sin platos todavía.</span>}
           </div>
         </div>
