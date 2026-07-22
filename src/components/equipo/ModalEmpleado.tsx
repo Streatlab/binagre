@@ -345,7 +345,7 @@ function SaveFirst({ T }: { T: any }) {
 function TabFichaFinanciera({ empId }: { empId: string }) {
   const anioActual = new Date().getFullYear()
   const [anio, setAnio] = useState(anioActual)
-  const { loading, nominas } = useNominasCompletas(anio)
+  const { loading, nominas, reload } = useNominasCompletas(anio)
   const [verNomina, setVerNomina] = useState<NominaCompleta | null>(null)
 
   const nominasEmp = nominas.filter(n => n.empleado_id === empId).sort((a, b) => a.mes - b.mes)
@@ -384,7 +384,7 @@ function TabFichaFinanciera({ empId }: { empId: string }) {
         </div>
       )}
 
-      {verNomina && <ModalVerNomina n={verNomina} onClose={() => setVerNomina(null)} />}
+      {verNomina && <ModalVerNomina n={verNomina} onClose={() => setVerNomina(null)} onConfirmado={reload} />}
     </div>
   )
 }

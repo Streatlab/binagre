@@ -19,7 +19,7 @@ import { fmtEur, fmtDate } from '@/lib/format'
 import {
   OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, d, BLANCO } from '@/styles/neobrutal'
 
-interface Empleado { id: string; nombre: string }
+interface Empleado { id: string; nombre: string; estado: string }
 
 interface NominaCalc {
   anio: number
@@ -70,7 +70,11 @@ export default function TabNominas() {
     const [e, c, dt] = await Promise.all([
       // Solo tipo_relacion='plantilla' tiene nómina (LEY-PRUDENCIA-01, regla 2):
       // los EXTRA (Fernando) se pagan por Bizum y el SOCIO (Rubén) nunca tiene nómina.
-      supabase.from('empleados').select('id, nombre').eq('estado', 'activo').eq('tipo_relacion', 'plantilla').order('nombre'),
+      // Sin filtrar por estado='activo' aquí: un empleado dado de baja con nómina
+      // ya generada (p.ej. su último mes trabajado) tiene que seguir viéndose en
+      // Nóminas aunque ya no aparezca en Personas — se filtra abajo por si tiene
+      // nóminas reales, no por si sigue activo.
+      supabase.from('empleados').select('id, nombre, estado').eq('tipo_relacion', 'plantilla').order('nombre'),
       supabase.from('v_nomina_emilio').select('*'),
       supabase.from('v_nomina_emilio_detalle').select('*'),
     ])
@@ -83,7 +87,13 @@ export default function TabNominas() {
   useEffect(() => { fetchBase() }, [])
 
   const loading = loadingBase || loadingNominas
-  const empsFiltrados = selectedEmp === 'all' ? empleados : empleados.filter(e => e.id === selectedEmp)
+  // Activos siempre; inactivos solo si tienen alguna nómina real este año (si no,
+  // no aportan nada a esta vista y solo añadirían ruido).
+  const empleadosVisibles = useMemo(
+    () => empleados.filter(e => e.estado === 'activo' || nominas.some(n => n.empleado_id === e.id)),
+    [empleados, nominas]
+  )
+  const empsFiltrados = selectedEmp === 'all' ? empleadosVisibles : empleadosVisibles.filter(e => e.id === selectedEmp)
   const emilio = empleados.find(e => /emilio/i.test(e.nombre))
   const emilioId = emilio?.id ?? null
 
@@ -110,12 +120,16 @@ export default function TabNominas() {
   }
 
   // ---- KPIs hero ----
+  // "sin_pago" (0 pagos asociados) NO es un descuadre: normalmente es que aún no
+  // se ha importado el extracto del banco. Un descuadre REAL solo existe cuando
+  // hubo un pago y el importe no coincide (pagado_de_mas/pagado_de_menos).
   const kpi = useMemo(() => {
     const total = nominas.length
     const revisar = nominas.filter(n => n.estado === 'revisar').length
-    const descuadre = nominas.filter(n => n.clasificacion !== 'cuadra')
-    const sumaDiferencias = descuadre.reduce((s, n) => s + Math.abs(Number(n.diferencia) || 0), 0)
-    return { total, revisar, descuadreCount: descuadre.length, sumaDiferencias }
+    const sinPago = nominas.filter(n => n.clasificacion === 'sin_pago')
+    const sumaSinPago = sinPago.reduce((s, n) => s + (n.importe_neto ?? 0), 0)
+    const descuadresReales = nominas.filter(n => n.clasificacion === 'pagado_de_mas' || n.clasificacion === 'pagado_de_menos')
+    return { total, revisar, sinPagoCount: sinPago.length, sumaSinPago, descuadresReales }
   }, [nominas])
 
   const th: React.CSSProperties = {
@@ -139,17 +153,51 @@ export default function TabNominas() {
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 6 }}>Pendientes de revisar</div>
           <div style={{ ...d('34px', INK), lineHeight: 1 }}>{kpi.revisar}</div>
         </div>
-        <div style={{ ...card, padding: '16px 20px', background: kpi.descuadreCount > 0 ? ROJO : BLANCO }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: kpi.descuadreCount > 0 ? BLANCO : GRIS, marginBottom: 6 }}>Diferencias sin cuadrar</div>
-          <div style={{ ...d('34px', kpi.descuadreCount > 0 ? BLANCO : INK), lineHeight: 1 }}>{kpi.descuadreCount}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: kpi.descuadreCount > 0 ? BLANCO : GRIS, marginTop: 4 }}>{fmtEur(kpi.sumaDiferencias, { decimals: 2 })}</div>
-        </div>
+        {kpi.descuadresReales.length > 0 ? (
+          <div style={{ ...card, padding: '16px 20px', background: ROJO }}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Diferencias sin cuadrar</div>
+            <div style={{ ...d('34px', BLANCO), lineHeight: 1 }}>{kpi.descuadresReales.length}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 4 }}>Pago visto en banco que no coincide con la nómina</div>
+          </div>
+        ) : (
+          <div style={{ ...card, padding: '16px 20px' }}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Estado del banco</div>
+            {kpi.sinPagoCount > 0 ? (
+              <>
+                <div style={{ ...d('20px'), lineHeight: 1.3 }}>Sin extracto importado todavía</div>
+                <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 4 }}>
+                  {kpi.sinPagoCount} nómina{kpi.sinPagoCount !== 1 ? 's' : ''} comprometida{kpi.sinPagoCount !== 1 ? 's' : ''} por {fmtEur(kpi.sumaSinPago, { decimals: 2 })}
+                </div>
+              </>
+            ) : (
+              <div style={{ ...d('20px', VERDE), lineHeight: 1.3 }}>Todo cuadrado</div>
+            )}
+          </div>
+        )}
       </div>
+
+      {kpi.descuadresReales.length > 0 && (
+        <div style={{ ...card, padding: '12px 16px', marginBottom: 20 }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: ROJO, marginBottom: 8 }}>Detalle de descuadres</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {kpi.descuadresReales.map(n => (
+              <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontFamily: LEX, fontSize: 12 }}>
+                <span style={{ fontFamily: OSW, fontWeight: 700, minWidth: 140 }}>{n.empleado_nombre}</span>
+                <span style={{ color: GRIS }}>{MESES_LARGO[n.mes - 1]}</span>
+                <span style={{ color: GRIS }}>Nómina {fmtEur(n.importe_neto, { decimals: 2 })}</span>
+                <span style={{ color: GRIS }}>Pagado {fmtEur(n.totalPagado, { decimals: 2 })}</span>
+                <span style={{ color: ROJO, fontWeight: 700 }}>{fmtEur(n.diferencia, { decimals: 2, signed: true })}</span>
+                <span style={{ color: ROJO, textTransform: 'uppercase', fontFamily: OSW, fontSize: 10, fontWeight: 600 }}>{clasifLabel(n.clasificacion)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <select value={selectedEmp} onChange={e => setSelectedEmp(e.target.value)} style={selectNeo}>
           <option value="all">Todos los empleados</option>
-          {empleados.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+          {empleadosVisibles.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
         </select>
         <select value={selectedAnio} onChange={e => setSelectedAnio(parseInt(e.target.value))} style={selectNeo}>
           {anios.map(y => <option key={y} value={y}>{y}</option>)}
@@ -185,7 +233,7 @@ export default function TabNominas() {
       )}
 
       {verNomina && (
-        <ModalVerNomina n={verNomina} onClose={() => setVerNomina(null)} />
+        <ModalVerNomina n={verNomina} onClose={() => setVerNomina(null)} onConfirmado={reload} />
       )}
 
       {loading ? (
@@ -201,7 +249,7 @@ export default function TabNominas() {
             </thead>
             <tbody>
               {empsFiltrados.length === 0 ? (
-                <tr><td colSpan={13} style={{ padding: 40, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Sin empleados activos.</td></tr>
+                <tr><td colSpan={13} style={{ padding: 40, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Sin empleados con nómina.</td></tr>
               ) : empsFiltrados.map(emp => {
                 const open = expandedEmp === emp.id
                 const tieneCalc = emp.id === emilioId
@@ -242,7 +290,7 @@ export default function TabNominas() {
                                   border: `2px solid ${INK}`, padding: '1px 5px', width: 'fit-content',
                                   background: nom.estado === 'ok' ? VERDE : AMA, color: nom.estado === 'ok' ? BLANCO : INK,
                                 }}>
-                                  {nom.estado === 'ok' ? 'OK' : 'Revisar'}
+                                  {nom.estado === 'ok' ? 'OK' : 'Por confirmar'}
                                 </span>
                               </div>
                             ) : (
@@ -396,7 +444,7 @@ function NominaCard({ n, expanded, onToggle }: {
           fontFamily: OSW, fontSize: 9, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase',
           border: `2px solid ${INK}`, padding: '2px 7px',
           background: n.estado === 'ok' ? VERDE : AMA, color: n.estado === 'ok' ? BLANCO : INK,
-        }}>{n.estado === 'ok' ? 'OK' : 'Revisar'}</span>
+        }}>{n.estado === 'ok' ? 'OK' : 'Por confirmar'}</span>
         <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Bruto {fmtEur(n.importe_bruto, { decimals: 2 })}</span>
         <span style={{ fontFamily: LEX, fontSize: 12, color: INK, fontWeight: 600 }}>Neto {fmtEur(n.importe_neto, { decimals: 2 })}</span>
         <span style={{ marginLeft: 'auto', fontFamily: OSW, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: clasifColor(n.clasificacion) }}>
