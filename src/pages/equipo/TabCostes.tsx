@@ -37,10 +37,12 @@ interface Titular {
   nombre: string
 }
 interface AutonomoCuota {
+  id: string
   titular_id: string
   importe: number | null
   estado: EstadoPago
   fecha_cargo: string | null
+  conciliacion_id: string | null
 }
 interface ConciliacionRow {
   id: string
@@ -135,8 +137,25 @@ export default function TabCostes() {
       setRlcPago(rlcMatch ? { importe: Math.abs(Number(rlcMatch.importe)), fecha: rlcMatch.fecha } : null)
 
       // Cuotas de autónomos del mes (tabla nueva, se puebla desde Papeleo → Equipo).
-      const { data: cuotasData } = await supabase.from('autonomos_cuotas').select('titular_id, importe, estado, fecha_cargo').eq('mes', mes).eq('anio', anio)
-      setCuotas((cuotasData ?? []) as AutonomoCuota[])
+      // Cruce con banco por TITULAR (cuentas distintas de Rubén y Emilio: nunca
+      // cruzar la cuota de uno con el banco del otro) + importe exacto + ventana TGSS.
+      const { data: cuotasData } = await supabase.from('autonomos_cuotas')
+        .select('id, titular_id, importe, estado, fecha_cargo, conciliacion_id').eq('mes', mes).eq('anio', anio)
+      const cuotasFilas = (cuotasData ?? []) as AutonomoCuota[]
+      const cuotasResueltas = await Promise.all(cuotasFilas.map(async c => {
+        if (c.estado === 'pagado' || c.conciliacion_id || !c.fecha_cargo || c.importe == null) return c
+        const va = ventana.dias_antes, vd = ventana.dias_despues
+        const desde = sumaDias(c.fecha_cargo, -va)
+        const hasta = sumaDias(c.fecha_cargo, vd)
+        const { data } = await supabase.from('conciliacion').select('id, fecha, importe')
+          .eq('tipo', 'gasto').eq('titular_id', c.titular_id).gte('fecha', desde).lte('fecha', hasta)
+        const match = ((data ?? []) as { id: string; fecha: string; importe: number }[])
+          .find(m => Math.abs(Math.abs(Number(m.importe)) - Number(c.importe)) < 0.005)
+        if (!match) return c
+        await supabase.from('autonomos_cuotas').update({ estado: 'pagado', conciliacion_id: match.id }).eq('id', c.id)
+        return { ...c, estado: 'pagado' as EstadoPago, conciliacion_id: match.id, fecha_cargo: match.fecha }
+      }))
+      if (!cancelado) setCuotas(cuotasResueltas)
 
       // Extra Bizum: búsqueda por nombre en concepto/proveedor de conciliación del mes,
       // sin fuzzy inventado — solo palabras (>=3 letras) del nombre real del empleado.

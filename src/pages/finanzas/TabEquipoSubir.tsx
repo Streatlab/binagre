@@ -25,6 +25,7 @@ const LABEL_DESTINO: Record<string, string> = {
   resumen_nominas: 'resumen de nóminas',
   seguridad_social: 'RLC de Seguridad Social',
   seguridad_social_rnt: 'RNT de Seguridad Social',
+  autonomos_cuotas: 'cuota de autónomos',
 }
 
 function fileToBase64(file: File): Promise<string> {
