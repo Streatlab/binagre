@@ -11,6 +11,10 @@ on:
     - cron: "30 2 * * *"   # 04:30 Madrid (verano)
     - cron: "30 3 * * *"   # 04:30 Madrid (invierno)
   workflow_dispatch:
+  push:
+    branches: [trabajo]
+    paths:
+      - ".github/workflows/justeat-mail.yml"
 
 jobs:
   facturas-mail:
@@ -21,7 +25,7 @@ jobs:
         id: candado
         run: |
           H=$(TZ=Europe/Madrid date +%H)
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$H" = "04" ]; then
+          if [ "${{ github.event_name }}" != "schedule" ] || [ "$H" = "04" ]; then
             echo "seguir=1" >> $GITHUB_OUTPUT
           else
             echo "seguir=0" >> $GITHUB_OUTPUT
