@@ -1,4 +1,4 @@
-import { AZUL_CL, AMA, BLANCO, GRANATE, INK, NAR, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, AMA, AZUL, BLANCO, GRANATE, INK, NAR, VERDE } from '@/styles/neobrutal'
 import { Fragment, useEffect, useState, useMemo, useRef, type FormEvent, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtFechaCorta } from '@/styles/tokens'
@@ -6,10 +6,9 @@ import { toLocalDateStr } from '@/lib/dateRange'
 import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
-import {
-  COLORS, FONT, CARDS,
-  kpiBig, lblSm, lblXs,
-} from '@/components/panel/resumen/tokens'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
+import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig as ConfigCanalRow, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -74,9 +73,6 @@ const MES_NOMBRE: Record<number, string> = {
 
 const SELECT_DIARIO = 'id,fecha,servicio,uber_pedidos,uber_bruto,glovo_pedidos,glovo_bruto,je_pedidos,je_bruto,web_pedidos,web_bruto,directa_pedidos,directa_bruto,total_pedidos,total_bruto,je_items'
 const COLOR_TODOS = COLORS.lun
-const AZUL_PED = COLORS.lun
-const NARANJA_TM = COLORS.sab
-const VERDE_NETO = COLORS.ok
 // Línea separadora suave entre filas/columnas (más fina que el borde de las cards)
 const LINE = COLORS.group
 
@@ -109,10 +105,6 @@ const SUBTAB_INACTIVE: CSSProperties = {
   fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
   letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer', outline: 'none',
 }
-
-const NEO_INK = 'var(--neo-ink)'
-const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
-const NEO_CARD: CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
 
 function aggregate(rows: RawDiario[]): AggRow {
   const a: AggRow = { uber_pedidos:0,uber_bruto:0,glovo_pedidos:0,glovo_bruto:0,je_pedidos:0,je_bruto:0,web_pedidos:0,web_bruto:0,directa_pedidos:0,directa_bruto:0,total_pedidos:0,total_bruto:0 }
@@ -260,23 +252,19 @@ export default function Facturacion({ embedded = false }: { embedded?: boolean }
   }
 
   return (
-    <div style={{ background: embedded ? 'transparent' : 'var(--neo-bg)', minHeight: embedded ? 'auto' : '100vh', padding: embedded ? 0 : (isMobile ? '14px 12px' : '24px 28px'), fontFamily:FONT.body, color:COLORS.pri }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:18, flexWrap:'wrap', gap:12 }}>
+    <PantallaCantera embedded={embedded} style={{ fontFamily:FONT.body, color:COLORS.pri, padding: embedded ? 0 : (isMobile ? '14px 12px' : '24px 28px') }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:12 }}>
         <div>
-          {!embedded && <div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.redSL, letterSpacing:3, textTransform:'uppercase' }}>FACTURACIÓN</div>}
-          <div style={{ fontFamily:FONT.body, fontSize:13, color:COLORS.mut, marginTop:2 }}>
+          {!embedded && <RutaPantalla niveles={['Papeleo', 'Facturación']} />}
+          <div style={{ fontFamily:FONT.body, fontSize:13, color:COLORS.mut, marginTop:4 }}>
             {fmtFechaCorta(toLocalDateStr(periodoDesde))} — {fmtFechaCorta(toLocalDateStr(periodoHasta))}
+            {ultimoDiaConDatos && <> · Último día con datos: {fmtFechaCorta(ultimoDiaConDatos)}</>}
           </div>
-          {ultimoDiaConDatos && (
-            <div style={{ fontFamily:FONT.body, fontSize:11, color:COLORS.mut, marginTop:2 }}>
-              Último día con datos: {fmtFechaCorta(ultimoDiaConDatos)}
-            </div>
-          )}
         </div>
         <SelectorFechaUniversal nombreModulo="facturacion" defaultOpcion="mes_en_curso" onChange={(desde,hasta)=>{ setPeriodoDesde(desde); setPeriodoHasta(hasta) }} />
       </div>
 
-      <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:18, flexWrap:'wrap' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
         <TabsPastilla tabs={TABS_CFG.map(t=>({id:t.key,label:t.label}))} activeId={tab} onChange={id=>{ setTab(id as Tab); if(id!=='diario') setWeekFilter(null) }} />
         <div style={{ width:1, height:24, background:COLORS.brd, flexShrink:0, marginLeft:2, marginRight:2 }} />
         <div style={SUBTAB_CONTAINER}>
@@ -304,12 +292,12 @@ export default function Facturacion({ embedded = false }: { embedded?: boolean }
       </div>
 
       {loading ? (
-        <div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Cargando…</div>
+        <Papel ceja={GRANATE} style={{ padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Cargando…</Papel>
       ) : error ? (
-        <div style={{ ...CARDS.std, padding:32, textAlign:'center' }}>
+        <Papel ceja={GRANATE} style={{ padding:32, textAlign:'center' }}>
           <p style={{ color:COLORS.err, fontSize:13, fontFamily:FONT.body }}>{error}</p>
           <button onClick={refresh} style={{ marginTop:12, fontSize:12, color:COLORS.sec, background:'none', border:'none', textDecoration:'underline', cursor:'pointer', fontFamily:FONT.body }}>Reintentar</button>
-        </div>
+        </Papel>
       ) : (
         <>
           {tab==='diario'  && <TabDiario allData={filteredData} cols={cols} weekFilter={weekFilter} onEdit={setEditRow} onAdd={()=>setShowAdd(true)} tipoDia={tipoDia} totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} />}
@@ -321,52 +309,78 @@ export default function Facturacion({ embedded = false }: { embedded?: boolean }
 
       {showAdd && <DayModal allData={allData} onClose={()=>setShowAdd(false)} onSaved={()=>{setShowAdd(false);refresh()}} />}
       {editRow && <DayModal allData={allData} existing={editRow} onClose={()=>setEditRow(null)} onSaved={()=>{setEditRow(null);refresh()}} />}
-    </div>
+    </PantallaCantera>
   )
 }
 
 interface KpiCardsProps { totals:AggRow; dias:number; tm:number; tmNeto:number; netoEstimado:number; mediadiaria:number; mediaDiariaNeta:number; onAdd:()=>void; onExport?:()=>void }
 function KpiCards({ totals, dias, tm, tmNeto, netoEstimado, mediadiaria, mediaDiariaNeta, onAdd, onExport }: KpiCardsProps) {
-  const isMobile = useIsMobile()
-  const netoLabel = totals.total_bruto > 0 ? `NETO EST. · ${((netoEstimado/totals.total_bruto)*100).toFixed(0)}%` : 'NETO EST.'
-  const cardEvo: CSSProperties = { background:COLORS.card, ...NEO_CARD, padding: isMobile ? '16px 16px' : '18px 20px' }
-  const lblS: CSSProperties = { fontFamily:FONT.heading, fontSize:11, letterSpacing:'2px', textTransform:'uppercase', color:COLORS.mut }
+  const netoPct = totals.total_bruto > 0 ? (netoEstimado/totals.total_bruto)*100 : null
+  const titular = totals.total_bruto === 0
+    ? 'Aún no hay facturación registrada en este periodo.'
+    : `Facturas ${fmtKpi(totals.total_bruto)} € en ${dias} día${dias===1?'':'s'}, con ${fmtKpi(netoEstimado)} € netos reales.`
+  const celdaLbl: CSSProperties = { fontFamily:FONT.heading, fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', fontWeight:600 }
+  const celdaNum: CSSProperties = { fontFamily:FONT.heading, fontWeight:700, fontSize:22, lineHeight:1.05, marginTop:6 }
+
+  const atencion = [
+    totals.total_pedidos>0 ? `${fmtInt(totals.total_pedidos)} pedidos` : null,
+    totals.total_pedidos>0 ? `TM bruto ${fmtTM(tm)} €` : null,
+    totals.total_pedidos>0 ? `TM neto ${fmtTM(tmNeto)} €` : null,
+    dias>0 ? `Media/día ${fmtKpi(mediadiaria)} €` : null,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 25%', gap:14, marginBottom:14, alignItems:'stretch' }}>
-      <div style={cardEvo}>
-        <div style={{ ...lblS, marginBottom:12 }}>Facturación</div>
-        <div style={{ display:'flex', alignItems:'baseline', gap:18, flexWrap:'wrap' }}>
-          <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:COLORS.pri, lineHeight:1 }}>{fmtKpi(totals.total_bruto)}</div><div style={{ ...lblXs, marginTop:4 }}>BRUTO</div></div>
-          <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtKpi(netoEstimado)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>{netoLabel}</div></div>
-        </div>
-        <div style={{ display:'flex', alignItems:'baseline', gap:18, marginTop:16, flexWrap:'wrap' }}>
-          <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.sec, lineHeight:1 }}>{fmtKpi(mediadiaria)}</div><div style={{ ...lblXs, marginTop:4 }}>MEDIA/DÍA</div></div>
-          <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtKpi(mediaDiariaNeta)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>MEDIA/DÍA NETA</div></div>
-          <div><div style={{ fontFamily:FONT.heading, fontSize:22, fontWeight:600, color:COLORS.mut, lineHeight:1 }}>{dias}</div><div style={{ ...lblXs, marginTop:4 }}>DÍAS</div></div>
-        </div>
-      </div>
+    <div style={{ display:'flex', flexDirection:'column', gap:16, marginBottom:16 }}>
+      <HeroCantera
+        area="papeleo"
+        titular={titular}
+        etiquetaDato="Facturación bruta del periodo"
+        cifra={`${fmtKpi(totals.total_bruto)} €`}
+        resumen={netoPct!=null ? <>Neto estimado: <b>{fmtKpi(netoEstimado)} €</b> · {netoPct.toFixed(0)}% del bruto</> : undefined}
+        atencion={atencion}
+      />
 
-      <div style={cardEvo}>
-        <div style={{ ...lblS, marginBottom:12 }}>Pedidos · Ticket medio</div>
-        <div style={{ display:'flex', alignItems:'baseline', gap:18, flexWrap:'wrap' }}>
-          <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:AZUL_PED, lineHeight:1 }}>{fmtInt(totals.total_pedidos)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:AZUL_PED, fontWeight:500, marginTop:4 }}>PEDIDOS</div></div>
-          <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:NARANJA_TM, lineHeight:1 }}>{fmtTM(tm)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:NARANJA_TM, fontWeight:500, marginTop:4 }}>TM BRUTO</div></div>
-          <div><div style={{ fontFamily:FONT.heading, fontSize:34, fontWeight:600, color:VERDE_NETO, lineHeight:1 }}>{fmtTM(tmNeto)}</div><div style={{ fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase', color:VERDE_NETO, fontWeight:500, marginTop:4 }}>TM NETO</div></div>
-        </div>
-      </div>
+      <Plancha>
+        <PlanchaCelda bg={BLANCO} first>
+          <div style={{ ...celdaLbl, color:COLORS.mut }}>Bruto</div>
+          <div style={celdaNum}>{fmtKpi(totals.total_bruto)} €</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={VERDE}>
+          <div style={celdaLbl}>Neto est.</div>
+          <div style={celdaNum}>{fmtKpi(netoEstimado)} €</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AZUL}>
+          <div style={celdaLbl}>Pedidos</div>
+          <div style={celdaNum}>{fmtInt(totals.total_pedidos)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={NAR}>
+          <div style={celdaLbl}>TM bruto</div>
+          <div style={celdaNum}>{fmtTM(tm)} €</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AMA} color={INK}>
+          <div style={celdaLbl}>Media/día</div>
+          <div style={celdaNum}>{fmtKpi(mediadiaria)} €</div>
+        </PlanchaCelda>
+      </Plancha>
 
-      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+      {totals.total_bruto>0 && netoPct!=null && (
+        netoPct>=50
+          ? <FrasePotente significado="logro">El {netoPct.toFixed(0)}% del bruto llega neto: la operativa retiene bien el margen.</FrasePotente>
+          : <FrasePotente significado="coste">Solo el {netoPct.toFixed(0)}% del bruto llega neto: comisiones y fees se comen buena parte.</FrasePotente>
+      )}
+
+      <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
         <div onClick={onAdd} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')onAdd()}}
-          style={{ flex:'0 0 70%', ...cardEvo, background:COLORS.redSL, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, userSelect:'none' }}
-          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.opacity='0.88'}}
-          onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.opacity='1'}}>
-          <span style={{ fontSize:20, lineHeight:1, color:BLANCO }}>↑</span>
-          <div style={{ fontFamily:FONT.heading, fontSize:12, fontWeight:600, letterSpacing:'2px', color:BLANCO, textTransform:'uppercase' }}>AÑADIR DÍA</div>
-          <div style={{ fontFamily:FONT.body, fontSize:10, color:'rgba(255,255,255,0.72)' }}>Fecha · Canales</div>
+          style={{ flex:'1 1 220px', background:GRANATE, color:BLANCO, border:`3px solid ${INK}`, borderRadius:0, boxShadow:SHADOW_DURA, padding:'14px 20px', cursor:'pointer', display:'flex', alignItems:'center', gap:12, userSelect:'none' }}>
+          <span style={{ fontSize:20, lineHeight:1 }}>↑</span>
+          <div>
+            <div style={{ fontFamily:FONT.heading, fontSize:12, fontWeight:600, letterSpacing:'2px', textTransform:'uppercase' }}>Añadir día</div>
+            <div style={{ fontFamily:FONT.body, fontSize:10, color:'rgba(255,255,255,0.75)' }}>Fecha · Canales</div>
+          </div>
         </div>
         {onExport && (
           <button onClick={onExport}
-            style={{ flex:'0 0 30%', ...cardEvo, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontFamily:FONT.body, fontSize:12, color:COLORS.mut, fontWeight:500, background:COLORS.card }}>
+            style={{ flex:'0 0 auto', background:BLANCO, border:`3px solid ${INK}`, borderRadius:0, boxShadow:SHADOW_DURA, padding:'14px 20px', cursor:'pointer', display:'flex', alignItems:'center', gap:8, fontFamily:FONT.body, fontSize:12, color:COLORS.mut, fontWeight:500 }}>
             <span style={{ fontSize:13 }}>↓</span> Exportar CSV
           </button>
         )}
@@ -402,13 +416,14 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
   const td = (extra?: CSSProperties): CSSProperties => ({ ...TD_BASE, ...extra })
   const bb = (isLast:boolean): CSSProperties => ({ borderBottom: isLast ? 'none' : `1px solid ${LINE}` })
   const sep: CSSProperties = { borderLeft:`1px solid ${LINE}` } // separador suave entre grupos de canal
-  if(allData.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</div></>)
+  if(allData.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><Papel ceja={GRANATE} style={{ padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</Papel></>)
   return (
     <>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
       {ms.showClearButton && <div style={{marginBottom:10}}><ClearSortButton show={true} onClear={ms.clearSorts} /></div>}
       {weekFilter && <div style={{ marginBottom:10 }}><span style={{ padding:'4px 10px', background:`${COLORS.redSL}12`, color:COLORS.redSL, borderRadius:8, border:`0.5px solid ${COLORS.redSL}30`, fontFamily:FONT.body, fontSize:12 }}>S{weekFilter.week}</span></div>}
-      <div style={{ ...CARDS.std, ...NEO_CARD, padding:0, overflow:'hidden' }}>
+      <SeccionLabel bg={NAR}>Detalle diario</SeccionLabel>
+      <Papel ceja={NAR} pad="0" style={{ overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', whiteSpace:'nowrap', minWidth:860 }}>
             <thead>
@@ -456,7 +471,7 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
             </tfoot>
           </table>
         </div>
-      </div>
+      </Papel>
     </>
   )
 }
@@ -465,11 +480,12 @@ function TabSemanas({ allData, cols, onDrill, totals, dias, tm, tmNeto, netoEsti
   const rows = useMemo(()=>buildSemanas(allData).slice(0,12),[allData])
   const exportar=()=>{ downloadCSV('facturacion_semanas.csv',['Semana','Periodo','Dias',...cols.map(c=>c.label),'Total Ped','Total Bruto'],rows.map(r=>[`S${r.week}`,r.periodo,r.dias,...cols.map(c=>r[c.bru] as number),r.total_pedidos,r.total_bruto])) }
   const bb = (isLast:boolean): CSSProperties => ({ borderBottom: isLast ? 'none' : `1px solid ${LINE}` })
-  if(rows.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</div></>)
+  if(rows.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><Papel ceja={GRANATE} style={{ padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</Papel></>)
   return (
     <>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
-      <div style={{ ...CARDS.std, ...NEO_CARD, padding:0, overflow:'hidden' }}>
+      <SeccionLabel bg={AZUL}>Detalle semanal</SeccionLabel>
+      <Papel ceja={AZUL} pad="0" style={{ overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', whiteSpace:'nowrap' }}>
             <thead><tr><th style={TH_BASE}>Sem</th><th style={TH_BASE}>Periodo</th><th style={{ ...TH_BASE, textAlign:'center' }}>Días</th>{cols.map(c=><th key={c.id} style={{ ...TH_BASE, color:c.color, textAlign:'right' }}>{c.label}</th>)}<th style={{ ...TH_BASE, color:COLORS.sec, textAlign:'right' }}>Total</th></tr></thead>
@@ -485,7 +501,7 @@ function TabSemanas({ allData, cols, onDrill, totals, dias, tm, tmNeto, netoEsti
             <tfoot><tr style={TFOOT_TR}><td style={TFOOT_LBL} colSpan={3}>Total</td>{cols.map(c=>(<td key={c.id} style={{ ...TFOOT_TD, textAlign:'right', color:c.color }}>{fmtBru(totals[c.bru] as number)}</td>))}<td style={{ ...TFOOT_TD, textAlign:'right', color:COLORS.pri }}>{fmtBru(totals.total_bruto)}</td></tr></tfoot>
           </table>
         </div>
-      </div>
+      </Papel>
       <p style={{ fontSize:10, color:COLORS.mut, marginTop:8, fontFamily:FONT.body }}>Haz clic en una semana para ver el detalle diario</p>
     </>
   )
@@ -500,12 +516,13 @@ function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, media
   const yearTotal=useMemo(()=>{ const a=aggregate(allData.filter(r=>r.fecha.startsWith(String(selYear)))); const d=new Set(allData.filter(r=>r.fecha.startsWith(String(selYear))).map(r=>r.fecha)).size; return{...a,dias:d} },[allData,selYear])
   const exportar=()=>{ downloadCSV(`facturacion_meses_${selYear}.csv`,['Mes','Dias',...cols.map(c=>c.label),'Total Ped','Total Bruto','Media Diaria','vs Anterior'],rows.map(r=>{const vs=r.vs_anterior!==null?r.vs_anterior.toFixed(1)+'%':'';return[MES_NOMBRE[r.mes],r.dias,...cols.map(c=>r[c.bru] as number),r.total_pedidos,r.total_bruto,r.media_diaria.toFixed(2),vs]})) }
   const bb = (isLast:boolean): CSSProperties => ({ borderBottom: isLast ? 'none' : `1px solid ${LINE}` })
-  if(allRows.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><div style={{ ...CARDS.std, padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</div></>)
+  if(allRows.length===0) return (<><KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} /><Papel ceja={GRANATE} style={{ padding:48, textAlign:'center', fontFamily:FONT.body, fontSize:13, color:COLORS.mut }}>Sin datos en este periodo</Papel></>)
   return (
     <>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
       {years.length>1&&(<div style={{ marginBottom:12 }}><select value={selYear} onChange={e=>setSelYear(Number(e.target.value))} style={{ padding:'9px 14px', borderRadius:10, border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, fontFamily:FONT.body, fontSize:13, color:COLORS.sec, cursor:'pointer' }}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select></div>)}
-      <div style={{ ...CARDS.std, ...NEO_CARD, padding:0, overflow:'hidden' }}>
+      <SeccionLabel bg={AMA} color={INK}>Detalle mensual</SeccionLabel>
+      <Papel ceja={AMA} pad="0" style={{ overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', whiteSpace:'nowrap' }}>
             <thead><tr><th style={TH_BASE}>Mes</th><th style={{ ...TH_BASE, textAlign:'center' }}>Días</th>{cols.map(c=><th key={c.id} style={{ ...TH_BASE, color:c.color, textAlign:'right' }}>{c.label}</th>)}<th style={{ ...TH_BASE, color:COLORS.sec, textAlign:'right' }}>Total</th><th style={{ ...TH_BASE, textAlign:'right' }}>Media/día</th><th style={{ ...TH_BASE, textAlign:'right' }}>vs Anterior</th></tr></thead>
@@ -522,7 +539,7 @@ function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, media
             <tfoot><tr style={TFOOT_TR}><td style={TFOOT_LBL} colSpan={2}>{selYear} Total</td>{cols.map(c=>(<td key={c.id} style={{ ...TFOOT_TD, textAlign:'right', color:c.color }}>{fmtBru(yearTotal[c.bru] as number)}</td>))}<td style={{ ...TFOOT_TD, textAlign:'right', color:COLORS.pri }}>{fmtBru(yearTotal.total_bruto)}</td><td style={{ ...TFOOT_TD, textAlign:'right', color:COLORS.sec }}>{yearTotal.dias>0?fmtBru(yearTotal.total_bruto/yearTotal.dias):'—'}</td><td style={{ ...TFOOT_TD }} /></tr></tfoot>
           </table>
         </div>
-      </div>
+      </Papel>
     </>
   )
 }
@@ -535,7 +552,8 @@ function TabAnual({ allData, totals, dias, tm, tmNeto, netoEstimado, mediadiaria
   return (
     <div>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
-      <div style={{ ...CARDS.std, ...NEO_CARD, padding:0, overflow:'hidden' }}>
+      <SeccionLabel bg={VERDE}>Detalle anual</SeccionLabel>
+      <Papel ceja={VERDE} pad="0" style={{ overflow:'hidden' }}>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead><tr><th style={TH_BASE}>Año</th><th style={{ ...TH_BASE, textAlign:'right' }}>Facturación bruta</th><th style={TH_BASE}>vs año anterior</th><th style={{ ...TH_BASE, textAlign:'right' }}>Media mensual</th><th style={{ ...TH_BASE, textAlign:'right' }}>Pedidos</th><th style={{ ...TH_BASE, textAlign:'right' }}>Ticket medio</th></tr></thead>
           <tbody>
@@ -551,7 +569,7 @@ function TabAnual({ allData, totals, dias, tm, tmNeto, netoEstimado, mediadiaria
             })}
           </tbody>
         </table>
-      </div>
+      </Papel>
     </div>
   )
 }

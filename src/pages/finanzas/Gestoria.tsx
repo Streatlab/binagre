@@ -1,8 +1,10 @@
-import { AMA, BLANCO, NAR, BORDER_CARD, BORDER_FINO, BORDE_SUAVE, CLARO, CREMA, GRANATE, GRIS, INK, LIMA, SHADOW, VERDE } from '@/styles/neobrutal'
+import { AMA, AZUL, BLANCO, NAR, BORDER_FINO, BORDE_SUAVE, CLARO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/utils/format'
 import * as XLSX from 'xlsx'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Titular {
@@ -77,33 +79,6 @@ function getPeriodRange(ano: number, trimestre: string): { desde: string; hasta:
 function getNombreMes(fecha: string): string {
   const d = new Date(fecha + 'T00:00:00')
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
-}
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, badge }: { label: string; value: string; badge?: string }) {
-  return (
-    <div style={{
-      background: BLANCO,
-      border: BORDER_CARD,
-      boxShadow: SHADOW,
-      padding: '20px 24px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 8,
-    }}>
-      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, color: GRIS, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 8 }}>
-        {label}
-        {badge && (
-          <span style={{ background: AMA, color: INK, border: BORDER_FINO, fontSize: 9, fontWeight: 700, padding: '1px 6px' }}>
-            {badge}
-          </span>
-        )}
-      </div>
-      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 26, color: INK, fontWeight: 700 }}>
-        {value}
-      </div>
-    </div>
-  )
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -190,6 +165,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
   }, 0)
   const ivaSoportado = facturas.reduce((s, r) => s + (r.total_iva ?? 0), 0)
   const ivaRepercutidoEstimado = totalIngresos * 0.21
+  const cuotaDiferencial = ivaRepercutidoEstimado - ivaSoportado
 
   // ─── Tab IVA Soportado ───────────────────────────────────────────────────
   const totalBaseFacturas = facturas.reduce((s, r) => s + (r.total_base ?? 0), 0)
@@ -309,7 +285,8 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
   const btnStyle: React.CSSProperties = {
     background: GRANATE,
     color: BLANCO,
-    border: 'none',
+    border: `3px solid ${INK}`,
+    boxShadow: SHADOW_DURA,
     borderRadius: 0,
     fontFamily: 'Oswald, sans-serif',
     fontSize: 13,
@@ -339,22 +316,31 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
     fontSize: 13,
   }
 
+  const heroTitular = cuotaDiferencial >= 0
+    ? `Cuota estimada a ingresar: ${fmtEur(cuotaDiferencial)} este periodo.`
+    : `Cuota estimada a favor: ${fmtEur(Math.abs(cuotaDiferencial))} este periodo.`
+  const heroAtencion = [
+    `IVA soportado ${fmtEur(ivaSoportado)}`,
+    `IVA repercutido est. ${fmtEur(ivaRepercutidoEstimado)}`,
+    `${desde} → ${hasta}`,
+  ]
+
   return (
-    <div style={{ background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : '100vh', padding: embedded ? 0 : '28px 32px', color: INK }}>
+    <PantallaCantera embedded={embedded} style={{ color: INK, padding: embedded ? 0 : '28px 32px' }}>
       {/* Header */}
-      {!embedded && (
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, color: INK, margin: 0, letterSpacing: '0.06em' }}>
-            GESTORÍA — EXPORTS FISCALES
-          </h1>
-          <p style={{ color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, margin: '6px 0 0' }}>
-            Resumen fiscal y exportación de datos para gestoría
-          </p>
-        </div>
-      )}
+      {!embedded && <RutaPantalla niveles={['Papeleo', 'Gestoría']} subtitulo="Resumen fiscal y exportación de datos para gestoría" />}
+
+      <HeroCantera
+        area="papeleo"
+        titular={heroTitular}
+        etiquetaDato="Cuota diferencial estimada"
+        cifra={fmtEur(Math.abs(cuotaDiferencial))}
+        resumen={<>{fmtEur(totalIngresos)} ingresos · {fmtEur(totalGastos)} gastos</>}
+        atencion={heroAtencion}
+      />
 
       {/* Selectores */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <label style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: GRIS, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Titular</label>
           <select value={selectedTitularId} onChange={e => setSelectedTitularId(e.target.value)} style={selectStyle}>
@@ -411,25 +397,34 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
 
       {/* ── TAB RESUMEN ──────────────────────────────────────────────────────── */}
       {activeTab === 'resumen' && (
-        <div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
-            <KpiCard label="Total Ingresos" value={fmtEur(totalIngresos)} />
-            <KpiCard label="Total Gastos" value={fmtEur(totalGastos)} />
-            <KpiCard label="IVA Soportado" value={fmtEur(ivaSoportado)} />
-            <KpiCard label="IVA Repercutido" value={fmtEur(ivaRepercutidoEstimado)} badge="ESTIMADO" />
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Plancha>
+            <PlanchaCelda bg={BLANCO} first>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, color: GRIS, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Total ingresos</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 24, fontWeight: 700, marginTop: 6 }}>{fmtEur(totalIngresos)}</div>
+            </PlanchaCelda>
+            <PlanchaCelda bg={GRANATE}>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Total gastos</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 24, fontWeight: 700, marginTop: 6 }}>{fmtEur(totalGastos)}</div>
+            </PlanchaCelda>
+            <PlanchaCelda bg={AZUL}>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em' }}>IVA soportado</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 24, fontWeight: 700, marginTop: 6 }}>{fmtEur(ivaSoportado)}</div>
+            </PlanchaCelda>
+            <PlanchaCelda bg={AMA} color={INK}>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em' }}>IVA repercutido · estimado</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 24, fontWeight: 700, marginTop: 6 }}>{fmtEur(ivaRepercutidoEstimado)}</div>
+            </PlanchaCelda>
+          </Plancha>
+
+          {cuotaDiferencial >= 0
+            ? <FrasePotente significado="coste">Toca ingresar {fmtEur(cuotaDiferencial)} este periodo: repercutido supera al soportado.</FrasePotente>
+            : <FrasePotente significado="oportunidad">Hay {fmtEur(Math.abs(cuotaDiferencial))} de IVA a favor este periodo.</FrasePotente>}
+
           {selectedTitularId !== 'todos' && (
-            <div style={{
-              background: CLARO,
-              border: BORDER_FINO,
-              borderRadius: 0,
-              padding: '12px 16px',
-              color: GRIS,
-              fontFamily: 'Lexend, sans-serif',
-              fontSize: 12,
-            }}>
+            <Papel ceja={NAR} style={{ padding: '12px 16px', color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>
               Nota: los datos de <strong style={{ color: GRIS }}>facturacion_diario</strong> (ingresos de plataformas) no tienen desglose por titular. Se muestra el total del período independientemente del titular seleccionado.
-            </div>
+            </Papel>
           )}
         </div>
       )}
@@ -452,7 +447,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
             </label>
           </div>
 
-          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, overflow: 'hidden' }}>
+          <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -500,7 +495,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
                 </tr>
               </tfoot>
             </table>
-          </div>
+          </Papel>
         </div>
       )}
 
@@ -516,20 +511,11 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
             </span>
           </div>
 
-          <div style={{
-            background: CLARO,
-            border: BORDER_FINO,
-            borderRadius: 0,
-            padding: '12px 16px',
-            marginBottom: 20,
-            color: GRIS,
-            fontFamily: 'Lexend, sans-serif',
-            fontSize: 12,
-          }}>
+          <Papel ceja={AMA} style={{ padding: '12px 16px', marginBottom: 20, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>
             Este cálculo es orientativo. Para modelo 303/130 real se requieren datos de facturación formal. El IVA se estima aplicando 21% sobre ventas brutas de plataformas.
-          </div>
+          </Papel>
 
-          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, overflow: 'hidden' }}>
+          <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -566,7 +552,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
                 </tr>
               </tfoot>
             </table>
-          </div>
+          </Papel>
         </div>
       )}
 
@@ -578,7 +564,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
           </h2>
 
           {/* Modelo 303 */}
-          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '20px 24px' }}>
+          <Papel ceja={GRANATE} pad="20px 24px">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: INK, marginBottom: 6 }}>
@@ -597,10 +583,10 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
                 Descargar CSV
               </button>
             </div>
-          </div>
+          </Papel>
 
           {/* Export gastos */}
-          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '20px 24px' }}>
+          <Papel ceja={GRANATE} pad="20px 24px">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: INK, marginBottom: 6 }}>
@@ -617,10 +603,10 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
                 Descargar Excel
               </button>
             </div>
-          </div>
+          </Papel>
 
           {/* Export movimientos */}
-          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '20px 24px' }}>
+          <Papel ceja={GRANATE} pad="20px 24px">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: INK, marginBottom: 6 }}>
@@ -637,10 +623,10 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
                 Descargar Excel
               </button>
             </div>
-          </div>
+          </Papel>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 

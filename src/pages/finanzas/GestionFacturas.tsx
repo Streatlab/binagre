@@ -23,7 +23,9 @@ import { useTheme, groupStyle } from '@/styles/tokens'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
+import { fmtEur } from '@/lib/format'
 import ModalDescartarFactura, { type FacturaDescartable } from '@/components/documentacion/ModalDescartarFactura'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
 
 type TabId = 'facturas' | 'ventas' | 'exportar'
 type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'doc' | 'estado'
@@ -339,11 +341,26 @@ export default function GestionFacturas() {
   const tdStyle: CSSProperties = {padding:'11px 12px',fontSize:13,fontFamily:FONT.body,color:COLORS.pri,borderBottom:`0.5px solid ${COLORS.brd}`,whiteSpace:'nowrap'}
   const islaStyle: CSSProperties = {background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,padding:'4px 6px',display:'flex',alignItems:'center',gap:4}
 
+  // Métricas del héroe: derivadas del mismo listado filtrado que ve la tabla (sin recalcular estado/negocio).
+  const totalFiltradas = facturasFiltradas.length
+  const conciliadasFiltradas = facturasFiltradas.filter(f=>f.estado==='asociada').length
+  const sinDocFiltradas = facturasFiltradas.filter(f=>!f.pdf_drive_url).length
+  const importeFiltradas = facturasFiltradas.reduce((a,f)=>a+(f.total||0),0)
+  const pctConciliadas = totalFiltradas>0 ? (conciliadasFiltradas/totalFiltradas)*100 : null
+  const heroTitular = totalFiltradas===0
+    ? 'No hay facturas para este filtro.'
+    : `${conciliadasFiltradas} de ${totalFiltradas} facturas ya conciliadas.`
+  const heroAtencion = [
+    `${totalFiltradas} facturas`,
+    sinDocFiltradas>0 ? `${sinDocFiltradas} sin documento` : null,
+    `Plazo gestoría ${mesLabel}: ${plazoLabel}`,
+  ].filter(Boolean) as string[]
+
   return(
-    <div style={{fontFamily:FONT.body,position:'relative'}}>
+    <PantallaCantera embedded style={{fontFamily:FONT.body,position:'relative',padding:0}}>
 
       {bannerVisible&&(
-        <div style={{background:AMA_S,border:`2px solid ${AMA}`,borderRadius:0,padding:'8px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:INK}}>
+        <div style={{background:AMA_S,border:`2px solid ${AMA}`,borderRadius:0,padding:'8px 16px',display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:INK}}>
           <span style={{flexShrink:0,fontSize:14}}>⚠️</span>
           <span style={{flex:1,fontSize:13}}>
             Plazo gestoría <strong>{mesLabel}</strong>: {plazoLabel}
@@ -358,11 +375,44 @@ export default function GestionFacturas() {
         </div>
       )}
 
+      <HeroCantera
+        area="papeleo"
+        titular={heroTitular}
+        etiquetaDato="Importe de las facturas filtradas"
+        cifra={fmtEur(importeFiltradas)}
+        resumen={pctConciliadas!=null ? <>Conciliadas: <b>{pctConciliadas.toFixed(0)}%</b></> : undefined}
+        atencion={heroAtencion}
+      />
+
+      <Plancha>
+        <PlanchaCelda bg={BLANCO} first>
+          <div style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600,color:COLORS.mut}}>Facturas</div>
+          <div style={{fontFamily:FONT.heading,fontWeight:700,fontSize:22,marginTop:6}}>{totalFiltradas}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={VERDE}>
+          <div style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}}>Conciliadas</div>
+          <div style={{fontFamily:FONT.heading,fontWeight:700,fontSize:22,marginTop:6}}>{conciliadasFiltradas}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={NAR}>
+          <div style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}}>Sin doc.</div>
+          <div style={{fontFamily:FONT.heading,fontWeight:700,fontSize:22,marginTop:6}}>{sinDocFiltradas}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AZUL}>
+          <div style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}}>Importe</div>
+          <div style={{fontFamily:FONT.heading,fontWeight:700,fontSize:22,marginTop:6}}>{fmtEur(importeFiltradas)}</div>
+        </PlanchaCelda>
+      </Plancha>
+
+      {totalFiltradas>0 && pctConciliadas!=null && (
+        pctConciliadas>=80
+          ? <FrasePotente significado="logro">Casi todo casado: el papeleo de este filtro está prácticamente al día.</FrasePotente>
+          : pctConciliadas>=50
+            ? <FrasePotente significado="oportunidad">Vas por buen camino, todavía queda parte por conciliar.</FrasePotente>
+            : <FrasePotente significado="peligro">Menos de la mitad conciliada: revisa las facturas sin match antes del cierre.</FrasePotente>
+      )}
+
       <div style={groupStyle(T)}>
-        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
-          <h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>
-            GESTOR DOCUMENTAL
-          </h2>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'flex-end',marginBottom:18,flexWrap:'wrap',gap:12}}>
           <MesDropdown/>
         </div>
 
@@ -384,8 +434,9 @@ export default function GestionFacturas() {
               <ClearSortButton show={ms.showClearButton} onClear={ms.clearSorts} />
             </div>
 
+            <SeccionLabel bg={GRANATE}>Facturas</SeccionLabel>
             <div style={{display:'grid',gridTemplateColumns:'280px 1fr',gap:14}}>
-              <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,padding:14,fontSize:13,fontFamily:FONT.body,alignSelf:'start'}}>
+              <Papel ceja={NAR} pad="14px" style={{fontSize:13,fontFamily:FONT.body,alignSelf:'start'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,paddingBottom:8,borderBottom:`0.5px solid ${COLORS.brd}`}}>
                   <span style={{fontFamily:FONT.heading,fontSize:12,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.pri,fontWeight:600}}>📁 Drive</span>
                   {driveFiltro.anio&&(
@@ -401,9 +452,9 @@ export default function GestionFacturas() {
                     titularColor={titularKey==='ruben'?COLOR_RUBEN:COLOR_EMILIO}
                     onSelect={setDriveFiltro} onToggleExpand={key=>setExpansionMap(m=>({...m,[key]:!m[key]}))}/>
                 ))}
-              </div>
+              </Papel>
 
-              <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,overflow:'hidden'}}>
+              <Papel ceja={GRANATE} pad="0" style={{overflow:'hidden'}}>
                 <div style={{overflowX:'auto'}}>
                   <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0}}>
                     <thead>
@@ -468,7 +519,7 @@ export default function GestionFacturas() {
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </Papel>
             </div>
           </>
         )}
@@ -478,9 +529,9 @@ export default function GestionFacturas() {
             <div style={{display:'flex',gap:10,alignItems:'center',marginTop:14,marginBottom:14}}>
               <ToggleTitular titularKey={titularKey} setTitularKey={setTitularKey}/>
             </div>
-            <div style={{marginTop:24,padding:60,textAlign:'center',background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,color:COLORS.mut,fontFamily:FONT.body,fontSize:14}}>
+            <Papel ceja={NAR} style={{marginTop:24,padding:60,textAlign:'center',color:COLORS.mut,fontFamily:FONT.body,fontSize:14}}>
               Subida de resúmenes de ventas (Uber Eats CSV, Glovo, Just Eat) · Próximamente
-            </div>
+            </Papel>
           </>
         )}
 
@@ -508,7 +559,7 @@ export default function GestionFacturas() {
           }}
         />
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 
@@ -608,7 +659,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
 
-        <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,padding:'20px 22px'}}>
+        <Papel ceja={GRANATE} pad="20px 22px">
           <p style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',margin:'0 0 14px'}}>
             Antes de exportar
           </p>
@@ -632,9 +683,9 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
               </span>
             </div>
           </div>
-        </div>
+        </Papel>
 
-        <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,padding:'20px 22px'}}>
+        <Papel ceja={NAR} pad="20px 22px">
           <p style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',margin:'0 0 14px'}}>El ZIP contendrá</p>
           <div style={{display:'flex',flexDirection:'column',gap:10,fontSize:13,fontFamily:FONT.body}}>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -646,7 +697,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
               <span><strong style={{fontWeight:500}}>Ventas</strong> · {checkingUber?'…':`${numResumenesUber} Resumen${numResumenesUber===1?'':'es'}`} Uber</span>
             </div>
           </div>
-        </div>
+        </Papel>
 
         {errorZip&&(
           <div style={{background:ROSA_S,border:`2px solid ${ROJO}`,borderRadius:0,padding:'10px 14px',fontSize:13,color:COLORS.redSL,fontFamily:FONT.body,wordBreak:'break-word'}}>
@@ -657,7 +708,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
         <button
           disabled={!todoOk||generando}
           onClick={handleGenerarZip}
-          style={{width:'100%',padding:'14px 20px',background:todoOk&&!generando?INK:BORDE_SUAVE,color:BLANCO,border:'none',borderRadius:0,fontSize:14,fontWeight:500,fontFamily:FONT.body,cursor:todoOk&&!generando?'pointer':'not-allowed'}}>
+          style={{width:'100%',padding:'14px 20px',background:todoOk&&!generando?GRANATE:BORDE_SUAVE,color:BLANCO,border:`3px solid ${INK}`,borderRadius:0,boxShadow:todoOk&&!generando?SHADOW_DURA:'none',fontSize:14,fontWeight:500,fontFamily:FONT.body,cursor:todoOk&&!generando?'pointer':'not-allowed'}}>
           {generando?'Generando ZIP…':`Generar paquete ZIP · ${mesLabel}`}
         </button>
       </div>
