@@ -22,6 +22,37 @@ const EXT_COMPRIMIDOS = ['zip', 'rar', '7z']
 const EXT_ACEPTADAS = [...EXT_PDF_IMG, ...EXT_OFFICE, ...EXT_COMPRIMIDOS]
 const ACCEPT = EXT_ACEPTADAS.map(e => `.${e}`).join(',')
 
+// Ningún documento puede colgar la tanda entera. Si el servidor no contesta en
+// este tiempo, ese archivo se da por fallido y se sigue con el resto.
+const TIMEOUT_DOC_MS = 90_000
+// Cuántos documentos se envían a la vez. Antes iban de uno en uno: 32 archivos
+// eran 32 esperas encadenadas y bastaba con que uno se colgara para que el
+// aviso se quedase clavado para siempre.
+const EN_PARALELO = 4
+
+async function fetchConTimeout(url: string, init: RequestInit, ms = TIMEOUT_DOC_MS): Promise<Response> {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), ms)
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal })
+  } finally {
+    clearTimeout(t)
+  }
+}
+
+/** Recorre una lista con varias tareas a la vez, sin que una lenta frene al resto. */
+async function enParalelo<T>(items: T[], limite: number, tarea: (item: T, i: number) => Promise<void>) {
+  let siguiente = 0
+  const obreros = Array.from({ length: Math.min(limite, items.length) }, async () => {
+    while (true) {
+      const i = siguiente++
+      if (i >= items.length) return
+      await tarea(items[i], i)
+    }
+  })
+  await Promise.all(obreros)
+}
+
 // ── Reconocimiento cliente de documentos de VENTAS (CSV) ────────────────────
 function esResumenUberTexto(texto: string): boolean {
   const cab = (texto || '').slice(0, 2000).toLowerCase()
@@ -207,7 +238,7 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
     setRecogiendoCorreo(true)
     const tid = toast.loading('Recogiendo correo…')
     try {
-      const r = await fetch('/api/facturas?action=cartero')
+      const r = await fetchConTimeout('/api/facturas?action=cartero', {}, 180_000)
       const j = await r.json()
       if (j.ok) {
         const nFac = Number(j.nuevas) || 0
@@ -222,7 +253,8 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
         toast.error(j.error || 'No se pudo recoger el correo', { id: tid })
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Error de red al recoger el correo', { id: tid })
+      const msg = e?.name === 'AbortError' ? 'El buzón tardó demasiado en responder' : (e?.message || 'Error de red al recoger el correo')
+      toast.error(msg, { id: tid })
     } finally {
       setRecogiendoCorreo(false)
     }
@@ -265,79 +297,92 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
     const tid = toast.loading(`Leyendo documentos de ventas (${ventas.length})…`)
     let tiendas = 0, nuevas = 0, actualizadas = 0, pedidos = 0, productos = 0, neto = 0
     const errs: string[] = []
-    for (const f of ventas) {
-      try {
-        const base64 = await fileABase64(f)
-        const res = await fetch('/api/importar/plataforma', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ base64, nombre: f.name, mimeType: f.type || null, modulo: 'bandeja' }),
-        })
-        const j = await res.json()
-        if (j.ok && j.tipo_detectado === 'liquidacion_uber_resumen') {
-          tiendas = Math.max(tiendas, Number(j.tiendas) || 0)
-          nuevas += Number(j.nuevas) || 0
-          actualizadas += Number(j.actualizadas) || 0
-          pedidos += Number(j.totalPedidos) || 0
-          neto += Number(j.totalNeto) || 0
-        } else if (j.ok && (j.tipo_detectado === 'uber_historial_pedidos' || j.tipo_detectado === 'just_eat_pedidos' || j.tipo_detectado === 'uber_detalle_articulo' || j.tipo_detectado === 'glovo_orderdetails')) {
-          pedidos += Number(j.pedidos) || 0
-          productos += Number(j.productos) || 0
-        } else if (j.ok && j.tipo_detectado === 'productos_vendidos') {
-          productos += Number(j.productos) || 0
-        } else {
-          errs.push(j.mensaje || 'no reconocido')
+    try {
+      await enParalelo(ventas, EN_PARALELO, async (f) => {
+        try {
+          const base64 = await fileABase64(f)
+          const res = await fetchConTimeout('/api/importar/plataforma', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64, nombre: f.name, mimeType: f.type || null, modulo: 'bandeja' }),
+          })
+          const j = await res.json()
+          if (j.ok && j.tipo_detectado === 'liquidacion_uber_resumen') {
+            tiendas = Math.max(tiendas, Number(j.tiendas) || 0)
+            nuevas += Number(j.nuevas) || 0
+            actualizadas += Number(j.actualizadas) || 0
+            pedidos += Number(j.totalPedidos) || 0
+            neto += Number(j.totalNeto) || 0
+          } else if (j.ok && (j.tipo_detectado === 'uber_historial_pedidos' || j.tipo_detectado === 'just_eat_pedidos' || j.tipo_detectado === 'uber_detalle_articulo' || j.tipo_detectado === 'glovo_orderdetails')) {
+            pedidos += Number(j.pedidos) || 0
+            productos += Number(j.productos) || 0
+          } else if (j.ok && j.tipo_detectado === 'productos_vendidos') {
+            productos += Number(j.productos) || 0
+          } else {
+            errs.push(`${f.name}: ${j.mensaje || 'no reconocido'}`)
+          }
+        } catch (e: any) {
+          errs.push(`${f.name}: ${e?.name === 'AbortError' ? 'tardó demasiado' : (e?.message || 'error de red')}`)
         }
-      } catch (e: any) {
-        errs.push(e?.message || 'error de red')
+      })
+    } finally {
+      if (errs.length > 0 && nuevas + actualizadas + pedidos + productos === 0) {
+        toast.error(`No se pudo leer el documento de ventas: ${errs[0]}`, { id: tid })
+      } else {
+        const partes: string[] = []
+        if (tiendas) partes.push(`${tiendas} tiendas`)
+        if (nuevas || actualizadas) partes.push(`${nuevas} nuevas, ${actualizadas} actualizadas`)
+        if (pedidos) partes.push(`${pedidos} pedidos`)
+        if (productos) partes.push(`${productos} productos`)
+        if (neto) partes.push(`neto ${neto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`)
+        if (errs.length) partes.push(`${errs.length} con problema`)
+        toast.success(`Ventas · ${partes.join(' · ') || 'procesado'}`, { id: tid })
       }
-    }
-    if (errs.length > 0 && nuevas + actualizadas + pedidos + productos === 0) {
-      toast.error(`No se pudo leer el documento de ventas: ${errs[0]}`, { id: tid })
-    } else {
-      const partes: string[] = []
-      if (tiendas) partes.push(`${tiendas} tiendas`)
-      if (nuevas || actualizadas) partes.push(`${nuevas} nuevas, ${actualizadas} actualizadas`)
-      if (pedidos) partes.push(`${pedidos} pedidos`)
-      if (productos) partes.push(`${productos} productos`)
-      if (neto) partes.push(`neto ${neto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`)
-      toast.success(`Ventas · ${partes.join(' · ') || 'procesado'}`, { id: tid })
     }
   }
 
-  // Envía archivos al buzón único de EQUIPO (nóminas, resumen y Seguridad Social),
-  // archivo a archivo (mismo patrón que enviarAVentas): el backend clasifica cada
-  // uno por contenido y lo encamina solo. Resumen final veraz por destino real.
+  // Envía archivos al buzón único de EQUIPO (nóminas, resumen y Seguridad Social).
+  // Va en paralelo y con tope de espera por archivo: uno que se cuelgue ya no
+  // puede dejar la tanda entera (ni el aviso) colgada para siempre.
   const enviarAEquipo = async (archivos: File[]) => {
     if (archivos.length === 0) return
-    const tid = toast.loading(`Leyendo documentos de equipo (${archivos.length})…`)
-    let nominas = 0, resumenes = 0, segSocial = 0, revisar = 0
+    const tid = toast.loading(`Leyendo documentos de equipo (0/${archivos.length})…`)
+    let nominas = 0, resumenes = 0, segSocial = 0, revisar = 0, hechos = 0
     const errs: string[] = []
-    for (const f of archivos) {
-      try {
-        const base64 = await fileABase64(f)
-        const res = await fetch('/api/equipo/subir', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ base64, nombre_archivo: f.name }),
-        })
-        const j = await res.json()
-        if (!j.ok) { errs.push(j.error || 'no reconocido'); continue }
-        if (j.destino === 'nominas') nominas++
-        else if (j.destino === 'resumen_nominas') resumenes++
-        else if (j.destino === 'seguridad_social' || j.destino === 'seguridad_social_rnt') segSocial++
-        else revisar++
-      } catch (e: any) {
-        errs.push(e?.message || 'error de red')
+    try {
+      await enParalelo(archivos, EN_PARALELO, async (f) => {
+        try {
+          const base64 = await fileABase64(f)
+          const res = await fetchConTimeout('/api/equipo/subir', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64, nombre_archivo: f.name }),
+          })
+          const j = await res.json()
+          if (!j.ok) { errs.push(`${f.name}: ${j.error || 'no reconocido'}`) }
+          else if (j.destino === 'nominas') nominas++
+          else if (j.destino === 'resumen_nominas') resumenes++
+          else if (j.destino === 'seguridad_social' || j.destino === 'seguridad_social_rnt') segSocial++
+          else revisar++
+        } catch (e: any) {
+          errs.push(`${f.name}: ${e?.name === 'AbortError' ? 'tardó demasiado' : (e?.message || 'error de red')}`)
+        } finally {
+          hechos++
+          toast.loading(`Leyendo documentos de equipo (${hechos}/${archivos.length})…`, { id: tid })
+        }
+      })
+    } finally {
+      const partes: string[] = []
+      if (nominas) partes.push(`${nominas} nómina${nominas !== 1 ? 's' : ''}`)
+      if (resumenes) partes.push(`${resumenes} resumen${resumenes !== 1 ? 'es' : ''}`)
+      if (segSocial) partes.push(`${segSocial} Seguridad Social`)
+      if (revisar) partes.push(`${revisar} por revisar`)
+      if (errs.length) partes.push(`${errs.length} con problema`)
+      if (partes.length === 0) {
+        toast.error(`No se pudo procesar: ${errs[0] || 'sin respuesta'}`, { id: tid })
+      } else if (errs.length > 0) {
+        toast.aviso(`EQUIPO · ${partes.join(' · ')} — el primero: ${errs[0]}`, { id: tid, duration: 20000 })
+      } else {
+        toast.success(`EQUIPO · ${partes.join(' · ')}`, { id: tid })
       }
-    }
-    const partes: string[] = []
-    if (nominas) partes.push(`${nominas} nómina${nominas !== 1 ? 's' : ''}`)
-    if (resumenes) partes.push(`${resumenes} resumen${resumenes !== 1 ? 'es' : ''}`)
-    if (segSocial) partes.push(`${segSocial} Seguridad Social`)
-    if (revisar) partes.push(`${revisar} por revisar`)
-    if (partes.length === 0 && errs.length > 0) {
-      toast.error(`No se pudo procesar: ${errs[0]}`, { id: tid })
-    } else {
-      toast.success(`EQUIPO · ${partes.join(' · ') || 'procesado'}`, { id: tid })
     }
   }
 
