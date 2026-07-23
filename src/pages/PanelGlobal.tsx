@@ -27,7 +27,7 @@ import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 import { toLocalDateStr } from '@/lib/dateRange'
 import { useTesoreria13Semanas, type Estado as EstadoTesoreria } from '@/lib/finanzas/useTesoreria13Semanas'
-import { OSW, LEX, GRIS, VERDE, AMA, ROJO, ROSA, cardWash } from '@/styles/neobrutal'
+import { OSW, LEX, GRIS, VERDE, AMA, ROJO, ROSA, AZUL } from '@/styles/neobrutal'
 import { fmtEur } from '@/lib/format'
 
 interface MarcaItem { id: string; nombre: string }
@@ -40,7 +40,7 @@ const FUENTE_VENTAS = 'v_facturacion_diario_unificada'
 // Theme-aware: fondo e INK salen de variables → cambian solos en claro/oscuro
 const PAGE_BG = 'var(--neo-bg)'
 const INK = 'var(--neo-ink)'
-const SHADOW = `4px 4px 0 var(--neo-shadow-color)`
+const SHADOW = `3px 3px 0 var(--neo-shadow-color)`
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'resumen',     label: 'Resumen' },
@@ -59,15 +59,18 @@ const CANALES_DISPONIBLES = [
   { id: 'dir',   label: 'Directa' },
 ]
 
-// Desplegable neobrutal: borde, cero redondez, sombra única de 4px
+// CANTERA ALEGRE: los desplegables son hermanos de las pestañas de navegación
+// (misma altura, mismo borde, misma tipografía, misma sombra de pulsable).
 const dropdownBtn: React.CSSProperties = {
-  padding: '9px 14px',
+  padding: '9px 16px',
   borderRadius: 0,
-  border: `3px solid ${INK}`,
+  border: `2px solid ${INK}`,
   background: 'var(--sl-card)',
-  fontSize: 14,
-  fontFamily: 'Lexend, sans-serif',
+  fontSize: 13,
+  fontFamily: "'Oswald', sans-serif",
   fontWeight: 600,
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
   color: INK,
   cursor: 'pointer',
   display: 'flex',
@@ -186,9 +189,9 @@ function CajaTesoreriaShortcut() {
 
   return (
     <Link to="/finanzas/tesoreria?tab=13semanas" style={{ textDecoration: 'none', display: 'block', marginBottom: 16 }}>
-      <div style={{ ...cardWash('var(--sl-card)'), display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', cursor: 'pointer' }}>
-        <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, whiteSpace: 'nowrap' }}>
-          Caja a 13 semanas →
+      <div style={{ background: 'var(--sl-card)', border: `2px solid ${INK}`, borderLeft: `7px solid ${AZUL}`, boxShadow: SHADOW, padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', cursor: 'pointer' }}>
+        <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK, whiteSpace: 'nowrap' }}>
+          🏦 Caja a 13 semanas →
         </div>
         {loading ? (
           <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Calculando…</div>
@@ -196,7 +199,7 @@ function CajaTesoreriaShortcut() {
           <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Sin previsión disponible</div>
         ) : (
           <>
-            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, color: ESTADO_TES_COLOR[estado] }}>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 20, color: ESTADO_TES_COLOR[estado] }}>
               {fmtEur(saldoMinimo, { decimals: 0, signed: true })}
             </div>
             <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
@@ -291,21 +294,24 @@ export default function PanelGlobal() {
 
   return (
     <div style={{ background: PAGE_BG, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 700, color: INK, letterSpacing: 3, textTransform: 'uppercase' }}>
+      {/* CANTERA ALEGRE · cabecera: título+fecha a la izquierda ocupando el mismo alto
+          que los desplegables de la derecha (una sola fila, alineados por arriba y por abajo). */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 24, fontWeight: 700, color: INK, letterSpacing: 3, textTransform: 'uppercase', lineHeight: 1 }}>
             PANEL GLOBAL
           </div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-secondary)', marginTop: 2 }}>
+          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12.5, fontWeight: 600, color: 'var(--sl-text-secondary)' }}>
             {subtitulo}
           </div>
         </div>
         {filtros}
       </div>
 
-      <CajaTesoreriaShortcut />
-
       <TabsPastilla tabs={TABS} activeId={activeTab} onChange={id => setActiveTab(id as TabId)} />
+
+      <div style={{ height: 16 }} />
+      <CajaTesoreriaShortcut />
 
       {contenido}
     </div>
