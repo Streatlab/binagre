@@ -15,8 +15,9 @@ import {
   type Tarea, type MaestroLite,
 } from '@/lib/cocina/platoHub'
 import { BLANCO, GRIS } from '@/styles/neobrutal'
-import { INK, CREMA, GRANATE, AMA, VERDE, NARANJA as NAR, AZUL, OSW, LEX, BORDER as BORDER_CARD, BORDER_FINO, SHADOW, eyebrow as eyebrowKit, bigNum, chip } from '@/styles/kit'
+import { INK, CREMA, GRANATE, AMA, VERDE, NARANJA as NAR, AZUL, OSW, LEX, BORDER as BORDER_CARD, BORDER_FINO, SHADOW, eyebrow as eyebrowKit, chip } from '@/styles/kit'
 import RutaPantalla from '@/components/ui/RutaPantalla'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 interface Maestro { id: number; nombre: string; es_extra: boolean | null; receta_id: string | null; euros: number | null }
 interface Receta { id: string; nombre: string; coste_rac: number | null }
@@ -27,29 +28,14 @@ const eyebrow: CSSProperties = { ...eyebrowKit }
 
 type Fila = Tarea & { maestroIds: number[] }
 
-/* ── piezas locales CANTERA ALEGRE (idénticas a la portada) ── */
-function Celda({ bg, color, label, children, ultima }: { bg: string; color: string; label: ReactNode; children: ReactNode; ultima?: boolean }) {
+/* ── piezas locales: cabecera de bloque de papel (título + acción a la derecha) ── */
+function CabezaBloque({ head, right }: { head: ReactNode; right?: ReactNode }) {
   return (
-    <div style={{ background: bg, color, padding: '16px 18px', borderRight: ultima ? 'none' : BORDER_CARD, display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ ...eyebrow, opacity: 0.75, color }}>{label}</div>
-      <div style={{ ...bigNum, fontSize: 34, color }}>{children}</div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10, paddingBottom: 8, borderBottom: `2px solid ${INK}` }}>
+      <span style={eyebrow}>{head}</span>
+      {right}
     </div>
   )
-}
-function Bloque({ ceja, head, right, children, pad = '12px 15px' }: { ceja: string; head: ReactNode; right?: ReactNode; children: ReactNode; pad?: string }) {
-  return (
-    <div style={{ background: BLANCO, border: BORDER_CARD, borderTop: `7px solid ${ceja}`, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 15px', borderBottom: `2px solid ${INK}` }}>
-        <span style={eyebrow}>{head}</span>
-        {right}
-      </div>
-      <div style={{ padding: pad, flex: 1 }}>{children}</div>
-    </div>
-  )
-}
-const chipAtencion: CSSProperties = {
-  background: BLANCO, color: INK, border: `2px solid ${INK}`, boxShadow: '2px 2px 0 rgba(0,0,0,.45)',
-  padding: '3px 10px', fontFamily: OSW, fontWeight: 600, fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase',
 }
 const btnAcceso: CSSProperties = {
   background: AMA, color: INK, border: `2px solid ${INK}`, boxShadow: SHADOW, textDecoration: 'none',
@@ -153,8 +139,16 @@ export default function Hoy() {
   const fc = Math.round(kpis.foodCostMedio)
   const fcBueno = fc > 0 && fc <= 35
 
+  const atencion = cargando ? [] : ([
+    `${rescatar.length} platos sin receta`,
+    confirmar.length > 0 ? `${confirmar.length} confirmables con 1 clic` : null,
+    fcRaros.length > 0 ? `${fcRaros.length} food cost raros` : null,
+    ingSinPrecio > 0 ? `${ingSinPrecio} ingredientes sin precio` : null,
+    epHuecos > 0 ? `${epHuecos} líneas de EP sin coste` : null,
+  ].filter(Boolean) as string[])
+
   return (
-    <div style={{ fontFamily: LEX, maxWidth: 1100, margin: '0 auto', color: INK, display: 'flex', flexDirection: 'column', gap: 16, padding: '0 0 30px' }}>
+    <PantallaCantera>
       {/* Cabecera */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
         <RutaPantalla niveles={['Hoy']} />
@@ -163,48 +157,52 @@ export default function Hoy() {
         </span>
       </div>
 
-      {/* HÉROE (naranja · área Cocina/Ops) + tira de atención pegada */}
-      <div>
-        <div style={{ background: NAR, border: BORDER_CARD, padding: 16, color: INK }}>
-          <span style={{ background: BLANCO, border: BORDER_FINO, padding: '2px 10px', fontFamily: OSW, fontSize: 11, letterSpacing: '0.1em' }}>COMER BIEN. AQUÍ Y AHORA.</span>
-          <span style={{ background: INK, color: CREMA, border: BORDER_FINO, padding: '2px 10px', fontFamily: OSW, fontSize: 11, letterSpacing: '0.1em', marginLeft: 6 }}>COCINA · HOY</span>
-          <div style={{ fontFamily: OSW, fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 700, lineHeight: 1.12, marginTop: 10, textTransform: 'uppercase' }}>
-            {cargando ? '…' : <>De cada 100 € vendidos, solo <span style={{ background: BLANCO, padding: '0 6px', border: BORDER_FINO }}>{Math.round(kpis.pctConCoste)} €</span> tienen su coste calculado</>}
-          </div>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.12em', marginTop: 10 }}>VENTAS SIN RECETA · POR RESCATAR</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: OSW, fontSize: 'clamp(30px, 5vw, 44px)', fontWeight: 700, lineHeight: 1.05 }}>{cargando ? '…' : eur0(kpis.eurosPorEscribir)}</span>
-            <span style={{ background: fcBueno ? VERDE : GRANATE, color: BLANCO, border: BORDER_FINO, padding: '3px 9px', fontFamily: OSW, fontSize: 14, fontWeight: 700 }}>
-              {cargando ? '…' : `Food cost real: ${fc}%`}
-            </span>
-          </div>
-        </div>
-        <div style={{ background: INK, color: CREMA, border: BORDER_CARD, borderTop: 'none', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ ...eyebrow, color: CREMA }}>ATENCIÓN →</span>
-          {cargando ? <span style={{ fontFamily: OSW, fontSize: 12 }}>Leyendo la cocina…</span> : (
-            <>
-              <span style={chipAtencion}>{rescatar.length} platos sin receta</span>
-              {confirmar.length > 0 && <span style={chipAtencion}>{confirmar.length} confirmables con 1 clic</span>}
-              {fcRaros.length > 0 && <span style={chipAtencion}>{fcRaros.length} food cost raros</span>}
-              {ingSinPrecio > 0 && <span style={chipAtencion}>{ingSinPrecio} ingredientes sin precio</span>}
-              {epHuecos > 0 && <span style={chipAtencion}>{epHuecos} líneas de EP sin coste</span>}
-            </>
-          )}
-        </div>
-      </div>
+      {/* HÉROE (naranja · área Cocina) + tira de atención */}
+      <HeroCantera
+        area="cocina"
+        periodo={new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+        titular={cargando ? '…' : <>De cada 100 € vendidos, solo <b>{Math.round(kpis.pctConCoste)} €</b> tienen su coste calculado.</>}
+        etiquetaDato="Ventas sin receta · por rescatar"
+        cifra={cargando ? '…' : eur0(kpis.eurosPorEscribir)}
+        resumen={cargando ? undefined : <>Food cost real: <b>{fc}%</b>{fcBueno ? ' · dentro de objetivo.' : ' · por encima de lo saludable.'}</>}
+        atencion={atencion}
+      />
 
       {/* PLANCHA DE KPIs: sólidos pegados */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: BORDER_CARD }}>
-        <Celda bg={NAR} color={INK} label="🧾 VENTAS CON COSTE">{cargando ? '…' : `${Math.round(kpis.pctConCoste)}%`}</Celda>
-        <Celda bg={fcBueno ? VERDE : GRANATE} color={BLANCO} label="🍽️ FOOD COST REAL">{cargando ? '…' : `${fc}%`}</Celda>
-        <Celda bg={AMA} color={INK} label="💶 POR RESCATAR">{cargando ? '…' : eur0(kpis.eurosPorEscribir)}</Celda>
-        <Celda bg={INK} color={CREMA} label="⚠️ SIN PRECIO" ultima>{cargando ? '…' : ingSinPrecio}</Celda>
+      <div>
+        <SeccionLabel bg={NAR}>KPIs de cocina</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={NAR} color={INK} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>🧾 Ventas con coste</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 28, lineHeight: 1.05, marginTop: 6 }}>{cargando ? '…' : `${Math.round(kpis.pctConCoste)}%`}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={fcBueno ? VERDE : GRANATE} color={BLANCO}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>🍽️ Food cost real</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 28, lineHeight: 1.05, marginTop: 6 }}>{cargando ? '…' : `${fc}%`}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={AMA} color={INK}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>💶 Por rescatar</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 28, lineHeight: 1.05, marginTop: 6 }}>{cargando ? '…' : eur0(kpis.eurosPorEscribir)}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={INK} color={CREMA}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>⚠️ Sin precio</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 28, lineHeight: 1.05, marginTop: 6 }}>{cargando ? '…' : ingSinPrecio}</div>
+          </PlanchaCelda>
+        </Plancha>
       </div>
+
+      {/* FRASE POTENTE (color por significado, distinto del héroe naranja) */}
+      {!cargando && (
+        rescatar.length > 0
+          ? <FrasePotente significado="coste">Cada plato sin receta esconde su margen real: resuélvelo antes de fijar precios.</FrasePotente>
+          : <FrasePotente significado="logro">Toda la carta tiene receta: el food cost real refleja lo que de verdad pasa en cocina.</FrasePotente>
+      )}
 
       {/* BLOQUES DE PAPEL */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
-        <Bloque ceja={NAR} head="🍲 TOP 5 A RESCATAR"
-          right={<Link to="/cocina/operativa/plato-maestro" style={{ ...eyebrow, color: GRANATE, textDecoration: 'none' }}>Ver los {rescatar.length} →</Link>}>
+        <Papel ceja={NAR}>
+          <CabezaBloque head="🍲 TOP 5 A RESCATAR"
+            right={<Link to="/cocina/operativa/plato-maestro" style={{ ...eyebrow, color: GRANATE, textDecoration: 'none' }}>Ver los {rescatar.length} →</Link>} />
           {cargando ? <span style={{ fontSize: 13 }}>Cargando…</span> : top5resc.length === 0 ? (
             <span style={{ fontSize: 13, fontWeight: 600 }}>Nada por rescatar. Todo con receta. 👌</span>
           ) : (
@@ -224,10 +222,11 @@ export default function Hoy() {
               ))}
             </div>
           )}
-        </Bloque>
+        </Papel>
 
-        <Bloque ceja={VERDE} head="✅ CONFIRMAR CON 1 CLIC"
-          right={confirmar.length > 5 ? <span style={{ ...eyebrow, color: GRIS }}>{confirmar.length} en total</span> : undefined}>
+        <Papel ceja={VERDE}>
+          <CabezaBloque head="✅ CONFIRMAR CON 1 CLIC"
+            right={confirmar.length > 5 ? <span style={{ ...eyebrow, color: GRIS }}>{confirmar.length} en total</span> : undefined} />
           {cargando ? <span style={{ fontSize: 13 }}>Cargando…</span> : top5conf.length === 0 ? (
             <span style={{ fontSize: 13, fontWeight: 600 }}>Sin sugerencias pendientes.</span>
           ) : (
@@ -244,9 +243,10 @@ export default function Hoy() {
               ))}
             </div>
           )}
-        </Bloque>
+        </Papel>
 
-        <Bloque ceja={AZUL} head="🧮 CALIDAD DEL DATO">
+        <Papel ceja={AZUL}>
+          <CabezaBloque head="🧮 CALIDAD DEL DATO" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, fontWeight: 600 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
               <span>{ingSinPrecio} ingredientes sin precio</span>
@@ -266,9 +266,10 @@ export default function Hoy() {
               </span>
             </div>
           </div>
-        </Bloque>
+        </Papel>
 
-        <Bloque ceja={GRANATE} head="⚡ ACCESOS DE COCINA" pad="14px 15px">
+        <Papel ceja={GRANATE}>
+          <CabezaBloque head="⚡ ACCESOS DE COCINA" />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Link to="/cocina/operativa/recetas" style={btnAcceso}>📋 Libro de Recetas</Link>
             <Link to="/cocina/operativa/produccion" style={btnAcceso}>🏭 Producción</Link>
@@ -276,8 +277,8 @@ export default function Hoy() {
             <Link to="/cocina/dinero/datos" style={btnAcceso}>⚖️ Escandallo</Link>
             <Link to="/cocina/dinero/analisis" style={btnAcceso}>📊 Menú Engineering</Link>
           </div>
-        </Bloque>
+        </Papel>
       </div>
-    </div>
+    </PantallaCantera>
   )
 }

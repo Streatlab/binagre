@@ -19,11 +19,13 @@ import { vincularPlato, desvincularPlato } from '@/lib/cocina/vincularCliente'
 import {
   OSW, LEX, INK, CREMA, CLARO, GRIS, GRANATE, VERDE, AMA, AZUL, BLANCO,
   VERDE_S, AMA_S, ROSA_S, AZUL_S,
-  SHADOW, BORDER, BORDER_CARD, d, eyebrow, cardWash, cardHead, pill,
+  SHADOW, BORDER, d, cardHead, pill,
 } from '@/styles/neobrutal'
 import { agruparColaPendientes, formatoCierreAlta, type GrupoColaPendiente } from '@/utils/colaRecetasPendientes'
 import ModalReceta from '@/components/escandallo/ModalReceta'
 import type { Ingrediente, EPS } from '@/components/escandallo/types'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 interface Fila {
   id: number
@@ -288,46 +290,69 @@ export default function CostePlato() {
 
   if (cargando) {
     return (
-      <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
-        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW }}><Vacio>Cargando platos y recetas…</Vacio></div>
-      </div>
+      <PantallaCantera>
+        <div style={{ background: BLANCO, border: BORDER }}><Vacio>Cargando platos y recetas…</Vacio></div>
+      </PantallaCantera>
     )
   }
 
   return (
     <>
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
-      <div style={{ marginBottom: 20 }}>
-        <span style={eyebrow(CLARO)}>COCINA</span>
-        <h1 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '10px 0 6px' }}>COSTE POR PLATO</h1>
-        <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Enlaza lo que vendes con lo que cuesta. Sin esto no hay margen real.</span>
+    <PantallaCantera>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
+        <RutaPantalla niveles={['Cocina', 'Coste por plato']} subtitulo="Enlaza lo que vendes con lo que cuesta. Sin esto no hay margen real." />
       </div>
 
-      {/* Hero */}
-      <div style={{ background: GRANATE, border: BORDER_CARD, boxShadow: SHADOW, padding: '18px 22px', marginBottom: 16, color: BLANCO }}>
-        <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.85 }}>FACTURACIÓN CON COSTE CONOCIDO</div>
-        <div style={{ fontFamily: OSW, fontSize: 16, fontWeight: 700, margin: '6px 0 10px' }}>
-          {pctCubierto >= 80 ? 'Ya sabes lo que te cuesta casi todo lo que vendes' : 'No sabes lo que te cuesta casi nada de lo que vendes'}
-        </div>
-        <div style={{ ...d('clamp(30px,4.2vw,40px)', BLANCO) }}>{pct1(pctCubierto)}</div>
-        <div style={{ fontFamily: LEX, fontSize: 12, opacity: 0.92, fontWeight: 600, marginTop: 8 }}>
-          {eur0(stats.eCon)} con coste · {eur0(stats.eSin + stats.eSug)} sin coste conocido
-        </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-          <span style={{ background: BLANCO, color: GRANATE, border: `2px solid ${BLANCO}`, padding: '4px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{nf0(stats.conReceta)} platos enlazados</span>
-          <span style={{ background: 'transparent', color: BLANCO, border: `2px solid ${BLANCO}`, padding: '4px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{nf0(stats.sinReceta)} sin receta</span>
-        </div>
+      {/* HÉROE (naranja · área Cocina) */}
+      <HeroCantera
+        area="cocina"
+        titular={pctCubierto >= 80 ? 'Ya sabes lo que te cuesta casi todo lo que vendes.' : 'No sabes lo que te cuesta casi nada de lo que vendes.'}
+        etiquetaDato="Facturación con coste conocido"
+        cifra={pct1(pctCubierto)}
+        resumen={<>{eur0(stats.eCon)} con coste · {eur0(stats.eSin + stats.eSug)} sin coste conocido</>}
+        atencion={[
+          `${nf0(stats.conReceta)} platos enlazados`,
+          `${nf0(stats.sinReceta)} sin receta`,
+          stats.sugeridas > 0 ? `${stats.sugeridas} sugeridas por confirmar` : null,
+          colaMaestros.length > 0 ? `${colaMaestros.length} altas agrupadas` : null,
+        ].filter(Boolean) as string[]}
+      />
+
+      {/* PLANCHA DE KPIs: sólidos pegados */}
+      <div>
+        <SeccionLabel bg={GRANATE}>KPIs de cobertura</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={VERDE} color={BLANCO} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Con coste</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{pct1(pctCubierto)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{eur0(stats.eCon)} de facturación</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={AZUL} color={BLANCO}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Sugeridas</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{nf0(stats.sugeridas)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{eur0(stats.eSug)} en juego</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={GRANATE} color={BLANCO}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Sin receta</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{nf0(stats.sinReceta)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{eur0(stats.eSin)} sin coste</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={AMA} color={INK}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Recetas para el 80%</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{nf0(para80)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>de {nf0(stats.sinReceta)} platos</div>
+          </PlanchaCelda>
+        </Plancha>
       </div>
 
-      <div style={{ background: AMA_S, border: `3px solid ${AMA}`, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK }}>
-        <b>No hace falta escandallar los {nf0(stats.sinReceta)} platos.</b> Con las <b>{para50}</b> primeras de la lista cubres
-        la mitad de la facturación que hoy va a ciegas. Con <b>{para80}</b> cubres el 80%. Están ordenadas de más euros a menos:
-        empieza por arriba y para cuando quieras.
-      </div>
+      {/* FRASE POTENTE (color por significado, distinto del héroe naranja) */}
+      <FrasePotente significado="oportunidad">
+        No hace falta escandallar los {nf0(stats.sinReceta)} platos: con las {para50} primeras de la lista cubres la mitad de la facturación que hoy va a ciegas, con {para80} cubres el 80%. Empieza por arriba y para cuando quieras.
+      </FrasePotente>
 
       {/* 4a/4b · Cola priorizada por plato maestro: un alta cierra de golpe todos sus alias */}
       {colaMaestros.length > 0 && (
-        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden', marginBottom: 16 }}>
+        <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
           <div style={{ ...cardHead(GRANATE), display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <div>
               <div>Altas por escribir, agrupadas</div>
@@ -377,11 +402,11 @@ export default function CostePlato() {
               )}
             </div>
           </div>
-        </div>
+        </Papel>
       )}
 
       {stats.sugeridas > 0 && (
-        <div style={{ background: AZUL_S, border: `3px solid ${AZUL}`, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <Papel ceja={AZUL} style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <span style={{ ...d('19px', AZUL), whiteSpace: 'nowrap' }}>{eur0(stats.eSug)}</span>
           <span style={{ flex: 1, fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK, minWidth: 220 }}>
             <b>{stats.sugeridas} platos con receta sugerida.</b> El nombre se parece mucho al de una receta que ya tienes. Repásalos y confírmalos.
@@ -391,37 +416,14 @@ export default function CostePlato() {
             disabled={guardando === 'todas'}
             style={{ background: AZUL, color: BLANCO, border: `2px solid ${INK}`, boxShadow: '2px 2px 0 var(--neo-shadow-color)', padding: '8px 14px', fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', whiteSpace: 'nowrap' }}
           >{guardando === 'todas' ? 'Aplicando…' : `Confirmar las ${stats.sugeridas}`}</button>
-        </div>
+        </Papel>
       )}
 
       {aviso && <Nota tono="verde">{aviso}</Nota>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12, marginBottom: 16, marginTop: aviso ? 16 : 0 }}>
-        <div style={cardWash(VERDE_S)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Con coste</div>
-          <div style={{ ...d('26px', VERDE), margin: '6px 0' }}>{pct1(pctCubierto)}</div>
-          <span style={pill(VERDE_S, VERDE)}>{eur0(stats.eCon)} de facturación</span>
-        </div>
-        <div style={cardWash(AZUL_S)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Sugeridas</div>
-          <div style={{ ...d('26px', AZUL), margin: '6px 0' }}>{nf0(stats.sugeridas)}</div>
-          <span style={pill(AZUL_S, AZUL)}>{eur0(stats.eSug)} en juego</span>
-        </div>
-        <div style={cardWash(ROSA_S)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Sin receta</div>
-          <div style={{ ...d('26px', GRANATE), margin: '6px 0' }}>{nf0(stats.sinReceta)}</div>
-          <span style={pill(ROSA_S, GRANATE)}>{eur0(stats.eSin)} sin coste</span>
-        </div>
-        <div style={cardWash(AMA_S)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Recetas para el 80%</div>
-          <div style={{ ...d('26px', AMA), margin: '6px 0' }}>{nf0(para80)}</div>
-          <span style={pill(AMA_S, AMA)}>de {nf0(stats.sinReceta)} platos</span>
-        </div>
-      </div>
-
       {/* ── A4 · Platos duplicados ── */}
       {dups.length > 0 && (
-        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden', marginBottom: 16 }}>
+        <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
           <div style={{ ...cardHead(GRANATE), display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <div>
               <div>Platos que parecen el mismo</div>
@@ -496,10 +498,10 @@ export default function CostePlato() {
               Ojo con los que solo cambian una talla o un ingrediente (por ejemplo Talla XL y Talla XXL): esos <b>no</b> son el mismo plato.
             </Nota>
           </div>
-        </div>
+        </Papel>
       )}
 
-      <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         <div style={{ ...cardHead(GRANATE), display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div>Platos ordenados por lo que facturan</div>
@@ -603,8 +605,8 @@ export default function CostePlato() {
             Si un plato no tiene receta, no aparece en el desplegable. Créala primero en Cocina → Recetas y luego vuelve aquí a enlazarla.
           </Nota>
         </div>
-      </div>
-    </div>
+      </Papel>
+    </PantallaCantera>
 
     {/* 4c · Alta por dictado de voz, en lote: dictar → guardar → siguiente, sin salir de la pantalla. */}
     {colaSesion && grupoActivo && (
