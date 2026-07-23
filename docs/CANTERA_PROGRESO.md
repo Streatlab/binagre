@@ -106,17 +106,17 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [ ] Compras · Proveedores
 
 ### Operaciones
-- [ ] Registro diario · Checklists
-- [ ] Registro diario · Tareas operativas
-- [ ] Registro diario · Temperaturas
-- [ ] Registro diario · Bitácora
-- [ ] Registro diario · Pulso cocina
+- [x] Registro diario · Checklists
+- [x] Registro diario · Tareas operativas
+- [x] Registro diario · Temperaturas
+- [x] Registro diario · Bitácora
+- [x] Registro diario · Pulso cocina
 - [ ] Mantenimiento · Libro equipos
 - [ ] Mantenimiento · Daños menaje
 - [ ] Mantenimiento · Pedidos menaje
 - [ ] Calidad · BPM/Calidad
 - [ ] Calidad · Manuales
-- [ ] Reclamación reembolsos
+- [x] Reclamación reembolsos
 - [ ] Reuniones equipo
 
 ### Equipo
