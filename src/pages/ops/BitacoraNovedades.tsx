@@ -1,5 +1,5 @@
 import { BLANCO, BORDE_SUAVE, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
-import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE, BITACORA_TAG_BG, BITACORA_TAG_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -163,7 +163,7 @@ export default function BitacoraNovedades() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, padding: '2px 8px', borderRadius: 4, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.glovo }}>{entrada.turno}</span>
                   {entrada.etiquetas && entrada.etiquetas.map(et => (
-                    <span key={et} style={{ background: '#B01D2315', border: '1px solid #B01D2340', padding: '2px 8px', borderRadius: 10, fontSize: 10, color: GRIS }}>{et}</span>
+                    <span key={et} style={{ background: BITACORA_TAG_BG, border: `1px solid ${BITACORA_TAG_BORDE}`, padding: '2px 8px', borderRadius: 10, fontSize: 10, color: GRIS }}>{et}</span>
                   ))}
                 </div>
                 <span style={{ fontSize: 12, color: GRIS, whiteSpace: 'nowrap' }}>{fmtFechaHora(entrada.fecha_hora)}</span>

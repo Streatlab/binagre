@@ -1,4 +1,4 @@
-import { BLANCO } from '@/styles/neobrutal'
+import { BLANCO, GRIS } from '@/styles/neobrutal'
 import { PARETO_WARN_BG, PARETO_WARN_TXT } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -333,7 +333,7 @@ export default function ParetoVentas() {
           {rows.map((r, i) => (
             <div key={r.key} style={{ display: 'grid', gridTemplateColumns: '28px 1.8fr 110px 70px 120px 56px', gap: 8, padding: '6px 8px', borderBottom: `0.5px solid ${COLORS.group}`, alignItems: 'center' }}>
               <span style={{ fontFamily: FONT.heading, fontSize: 12, color: COLORS.mut, textAlign: 'right' }}>{i + 1}</span>
-              <span style={{ fontFamily: FONT.body, fontSize: 12, color: r.key === SIN_VINCULAR ? '#8a6d1f' : COLORS.pri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontFamily: FONT.body, fontSize: 12, color: r.key === SIN_VINCULAR ? GRIS : COLORS.pri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {r.key}
                 {r.variantes && r.variantes > 1 && (
                   <span style={{ color: COLORS.mut, fontSize: 11 }}> · {r.variantes} variantes de plataforma</span>

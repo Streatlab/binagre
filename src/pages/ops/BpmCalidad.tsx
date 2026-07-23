@@ -1,5 +1,5 @@
 import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, ROJO_S } from '@/styles/neobrutal'
-import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE, BPM_ITEM_DONE_BG, BPM_ITEM_DONE_BORDE } from '@/styles/palettes'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -195,7 +195,7 @@ export default function BpmCalidad() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
             {items.map(item => (
-              <div key={item.id} onClick={() => toggleItem(item)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderRadius: 8, border: `1px solid ${item.completado ? '#1D9E7530' : INK}`, background: item.completado ? '#1D9E7515' : INK, cursor: 'pointer', userSelect: 'none' }}>
+              <div key={item.id} onClick={() => toggleItem(item)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderRadius: 8, border: `1px solid ${item.completado ? BPM_ITEM_DONE_BORDE : INK}`, background: item.completado ? BPM_ITEM_DONE_BG : INK, cursor: 'pointer', userSelect: 'none' }}>
                 <div style={{ width: 28, height: 28, borderRadius: 6, border: `2px solid ${item.completado ? COLORS.ok : INK}`, background: item.completado ? COLORS.ok : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {item.completado && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L6 11L12 3" stroke={BLANCO} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                 </div>

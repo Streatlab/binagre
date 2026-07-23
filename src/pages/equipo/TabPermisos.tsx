@@ -1,4 +1,5 @@
 import { BLANCO, BORDE_SUAVE, CLARO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { LIBRO_ESTADO_OK_BG, LIBRO_ESTADO_BAJA_BG, BADGE_PENDIENTE_BG } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -40,9 +41,9 @@ const TIPO_EVENTO: Record<string, string> = {
 }
 
 function estadoBadge(estado: Solicitud['estado']) {
-  if (estado === 'aprobado') return { color: VERDE, bg: '#1D9E7520', icon: <CheckCircle size={12} />, label: 'Aprobado' }
-  if (estado === 'rechazado') return { color: GRANATE, bg: '#B01D2320', icon: <XCircle size={12} />, label: 'Rechazado' }
-  return { color: NAR, bg: '#f5a62320', icon: <Clock size={12} />, label: 'Pendiente' }
+  if (estado === 'aprobado') return { color: VERDE, bg: LIBRO_ESTADO_OK_BG, icon: <CheckCircle size={12} />, label: 'Aprobado' }
+  if (estado === 'rechazado') return { color: GRANATE, bg: LIBRO_ESTADO_BAJA_BG, icon: <XCircle size={12} />, label: 'Rechazado' }
+  return { color: NAR, bg: BADGE_PENDIENTE_BG, icon: <Clock size={12} />, label: 'Pendiente' }
 }
 
 export default function TabPermisos() {

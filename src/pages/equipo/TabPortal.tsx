@@ -1,4 +1,5 @@
 import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { LIBRO_ESTADO_OK_BG, LIBRO_ESTADO_BAJA_BG, BADGE_PENDIENTE_BG, TABPORTAL_TODAY_BG } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -164,7 +165,7 @@ export default function TabPortal() {
                     const isToday = h.fecha === new Date().toISOString().slice(0, 10)
                     const isFuture = h.fecha > new Date().toISOString().slice(0, 10)
                     return (
-                      <tr key={h.id} style={{ borderBottom: `1px solid ${T.brd}`, background: isToday ? '#B01D2310' : 'transparent' }}>
+                      <tr key={h.id} style={{ borderBottom: `1px solid ${T.brd}`, background: isToday ? TABPORTAL_TODAY_BG : 'transparent' }}>
                         <td style={{ ...td, fontWeight: isToday ? 700 : 400, color: isToday ? GRANATE : isFuture ? T.pri : T.sec }}>
                           {new Date(h.fecha + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
                           {isToday && <span style={{ marginLeft: 8, fontSize: 10, color: GRANATE, fontFamily: FONT.heading }}>HOY</span>}
@@ -172,7 +173,7 @@ export default function TabPortal() {
                         <td style={td}>
                           <span style={{
                             padding: '3px 8px', borderRadius: 4, fontSize: 10,
-                            background: h.turno_tipo === 'comida' ? '#1D9E7520' : '#f5a62320',
+                            background: h.turno_tipo === 'comida' ? LIBRO_ESTADO_OK_BG : BADGE_PENDIENTE_BG,
                             color: h.turno_tipo === 'comida' ? VERDE : NAR,
                             fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase',
                           }}>
@@ -210,7 +211,7 @@ export default function TabPortal() {
                       <td style={{ ...td, fontSize: 12 }}>{s.fecha_inicio === s.fecha_fin ? s.fecha_inicio : `${s.fecha_inicio} → ${s.fecha_fin}`}</td>
                       <td style={td}>{TIPO_LABELS[s.tipo] ?? s.tipo}</td>
                       <td style={td}>
-                        <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', background: s.estado === 'aprobado' ? '#1D9E7520' : s.estado === 'rechazado' ? '#B01D2320' : '#f5a62320', color: s.estado === 'aprobado' ? VERDE : s.estado === 'rechazado' ? GRANATE : NAR }}>
+                        <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', background: s.estado === 'aprobado' ? LIBRO_ESTADO_OK_BG : s.estado === 'rechazado' ? LIBRO_ESTADO_BAJA_BG : BADGE_PENDIENTE_BG, color: s.estado === 'aprobado' ? VERDE : s.estado === 'rechazado' ? GRANATE : NAR }}>
                           {s.estado}
                         </span>
                       </td>

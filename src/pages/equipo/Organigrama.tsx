@@ -1,5 +1,5 @@
 import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
-import { ORG_DORADO, ORG_VIOLETA } from '@/styles/palettes'
+import { ORG_DORADO, ORG_VIOLETA, LIBRO_ESTADO_OK_BG } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, X, Trash2, LayoutGrid, List, Users, CheckCircle2, CircleDashed, Pencil, Star } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -360,7 +360,7 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
             <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, color: T.pri, lineHeight: 1.2 }}>{esNuevo ? 'Nuevo puesto' : data.puesto}</div>
             {!esNuevo && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                <span style={{ padding: '3px 9px', borderRadius: 5, fontSize: 12, fontWeight: 600, background: asignado ? '#1D9E7522' : T.group, color: asignado ? VERDE : T.mut }}>{data.persona}</span>
+                <span style={{ padding: '3px 9px', borderRadius: 5, fontSize: 12, fontWeight: 600, background: asignado ? LIBRO_ESTADO_OK_BG : T.group, color: asignado ? VERDE : T.mut }}>{data.persona}</span>
                 <span style={{ fontSize: 12, color: T.sec }}>{data.area} · {dedicLabel(data)}</span>
                 {data.es_responsable && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: ORG_DORADO }}><Star size={12} fill={ORG_DORADO} />Responsable de área</span>}
               </div>

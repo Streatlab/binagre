@@ -1,5 +1,5 @@
 import { AZUL_CL, GRANATE, LIMA, ROJO, VERDE } from '@/styles/neobrutal'
-import { EMP_CALENDARIO_EXTRA, PERMISO_RETRIBUIDO, FESTIVO_CALENDARIO_TXT, SIN_DATO_GRIS } from '@/styles/palettes'
+import { EMP_CALENDARIO_EXTRA, PERMISO_RETRIBUIDO, FESTIVO_CALENDARIO_TXT, SIN_DATO_GRIS, CALENDARIO_FESTIVO_BG } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -151,7 +151,7 @@ export default function TabCalendarioLaboral() {
               title={festNombre ?? undefined}
               style={{
                 minHeight: 64, borderRadius: 6, border: `1px solid ${isToday ? GRANATE : T.brd}`,
-                background: esFest ? '#e8f44215' : T.card,
+                background: esFest ? CALENDARIO_FESTIVO_BG : T.card,
                 cursor: 'pointer', padding: 4, position: 'relative',
                 boxShadow: isToday ? `0 0 0 2px ${GRANATE}` : 'none',
               }}

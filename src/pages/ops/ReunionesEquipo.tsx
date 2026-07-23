@@ -1,5 +1,5 @@
 import { BLANCO, BORDE_SUAVE, GRIS, INK, NAR, ROJO_S } from '@/styles/neobrutal'
-import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE, REUNIONES_ACUERDO_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -120,7 +120,7 @@ export default function ReunionesEquipo() {
 
       {/* Acuerdos pendientes */}
       {acuerdosPendientes.length > 0 && (
-        <div style={{ background: INK, border: '1px solid #f5a62340', borderRadius: 10, padding: '16px 18px', marginBottom: 24 }}>
+        <div style={{ background: INK, border: `1px solid ${REUNIONES_ACUERDO_BORDE}`, borderRadius: 10, padding: '16px 18px', marginBottom: 24 }}>
           <div style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', color: NAR, marginBottom: 12 }}>
             ACUERDOS PENDIENTES ({acuerdosPendientes.length})
           </div>

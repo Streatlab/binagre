@@ -1,5 +1,5 @@
 import { BLANCO, BORDE_SUAVE, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
-import { ERROR_BANNER_BG, ERROR_BANNER_BORDE, LIBRO_SELECTED_BG } from '@/styles/palettes'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE, LIBRO_SELECTED_BG, LIBRO_ESTADO_OK_BG, LIBRO_ESTADO_BAJA_BG } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -167,7 +167,7 @@ export default function LibroEquipos() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ background: (eq.estado === 'activo' || eq.activo) ? '#1D9E7520' : '#B01D2320', color: (eq.estado === 'activo' || eq.activo) ? COLORS.ok : COLORS.redSL, border: `1px solid ${(eq.estado === 'activo' || eq.activo) ? COLORS.ok : COLORS.redSL}`, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px' }}>
+                        <span style={{ background: (eq.estado === 'activo' || eq.activo) ? LIBRO_ESTADO_OK_BG : LIBRO_ESTADO_BAJA_BG, color: (eq.estado === 'activo' || eq.activo) ? COLORS.ok : COLORS.redSL, border: `1px solid ${(eq.estado === 'activo' || eq.activo) ? COLORS.ok : COLORS.redSL}`, padding: '2px 8px', borderRadius: 10, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px' }}>
                           {eq.estado ?? (eq.activo ? 'ACTIVO' : 'INACTIVO')}
                         </span>
                         <button onClick={e => { e.stopPropagation(); setEditData({ ...eq }); setShowForm(true) }}

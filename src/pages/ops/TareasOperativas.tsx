@@ -1,5 +1,5 @@
 import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, NAR, ROJO_S, VERDE } from '@/styles/neobrutal'
-import { GRANATE_DISABLED } from '@/styles/palettes'
+import { GRANATE_DISABLED, ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -391,7 +391,7 @@ export default function TareasOperativas() {
       {/* Error soft */}
       {error && (
         <div style={{
-          background: '#2d1515', border: '1px solid #aa3030', borderRadius: 8,
+          background: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, borderRadius: 8,
           padding: '10px 16px', marginBottom: 16, color: ROJO_S,
           fontFamily: FONT.body, fontSize: 13,
         }}>{error}</div>
