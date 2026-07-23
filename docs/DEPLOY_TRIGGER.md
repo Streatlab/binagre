@@ -1,6 +1,2 @@
-# Disparador de deploy
-
-Commit técnico para forzar el build de producción cuando Vercel se salta un merge
-(pasó con el PR #32, 22-jul-2026: la cola de previews de `trabajo` se tragó el build de master).
-
-Último disparo: 2026-07-22 · publicar merge #32 (Vincular en Menú Engineering + nombre madre en Pareto/Coste por plato).
+Consolidación PWA + fixes de build aplicada vía GitHub MCP el 24-jul-2026.
+Commit final de la serie: PWA 18/18. Este archivo solo dispara el build del estado final.
