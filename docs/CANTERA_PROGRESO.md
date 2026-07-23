@@ -19,8 +19,8 @@ Solo capa visual: prohibido tocar queries, cálculos, Supabase, API, lógica.
 ### Portada / Panel
 - [x] Panel Global · Resumen (REFERENCIA validada)
 - [x] Panel Global · Operaciones / Finanzas / Cashflow / Evolución / Marcas (tabs del panel)
-- [ ] Home (Hoy) — portada
-- [ ] Panel Dirección
+- [x] Home (Hoy) — portada
+- [x] Panel Dirección
 
 ### Finanzas
 - [ ] Papeleo · Bandeja entrada
@@ -67,23 +67,23 @@ Solo capa visual: prohibido tocar queries, cálculos, Supabase, API, lógica.
 - [ ] Marketing · Playbook ThinkPaladar
 
 ### Cocina
-- [ ] Cocina · Hoy
-- [ ] Cocina Operativa · Recetario
-- [ ] Cocina Operativa · Carta
-- [ ] Cocina Operativa · Menú familia
-- [ ] Cocina Operativa · Producción
-- [ ] Cocina Operativa · Plato maestro
-- [ ] Cocina Dinero · Datos (Escandallo)
-- [ ] Cocina Dinero · Menú engineering
-- [ ] Cocina Dinero · Pareto ingredientes
-- [ ] Cocina Dinero · Coste por plato
-- [ ] Cocina · Inventario
-- [ ] Cocina · Platos maestros (catálogo)
+- [x] Cocina · Hoy
+- [x] Cocina Operativa · Recetario
+- [x] Cocina Operativa · Carta
+- [x] Cocina Operativa · Menú familia
+- [x] Cocina Operativa · Producción
+- [x] Cocina Operativa · Plato maestro
+- [x] Cocina Dinero · Datos (Escandallo)
+- [x] Cocina Dinero · Menú engineering
+- [x] Cocina Dinero · Pareto ingredientes
+- [x] Cocina Dinero · Coste por plato
+- [x] Cocina · Inventario
+- [x] Cocina · Platos maestros (catálogo)
 
 ### Compras
 - [ ] Compras · Lista de compra
 - [ ] Compras · Inventario (stock)
-- [ ] Compras · Proveedores
+- [x] Compras · Proveedores
 
 ### Operaciones
 - [ ] Registro diario · Checklists
@@ -106,27 +106,27 @@ Solo capa visual: prohibido tocar queries, cálculos, Supabase, API, lógica.
 - [ ] Equipo · Documentos
 
 ### Marcas / Tareas / Importar
-- [ ] Marcas (simple)
-- [ ] Tareas
-- [ ] Importar ventas
+- [x] Marcas (simple)
+- [x] Tareas
+- [x] Importar ventas
 
 ### Ajustes
-- [ ] Ajustes · Hub
-- [ ] Ajustes · Integraciones (Marcas/Canales/Drive)
-- [ ] Ajustes · Reglas (Ingredientes/Conciliación/Plantillas/Diccionario/Correo)
-- [ ] Ajustes · Bancos
-- [ ] Ajustes · Cuentas bancarias
-- [ ] Ajustes · Bancos y cuentas
-- [ ] Ajustes · Compras config (Costes/Proveedores/Categorías/Unidades)
-- [ ] Ajustes · Cocina config (Categorías/Unidades/Proveedores/Formato)
-- [ ] Ajustes · Usuarios
-- [ ] Ajustes · Calendario operativo
-- [ ] Ajustes · Aprendizajes ERP
-- [ ] Ajustes · Aprendizaje calcNeto
-- [ ] Ajustes · Mapeo de marcas
+- [x] Ajustes · Hub
+- [x] Ajustes · Integraciones (Marcas/Canales/Drive)
+- [x] Ajustes · Reglas (Ingredientes/Conciliación/Plantillas/Diccionario/Correo)
+- [x] Ajustes · Bancos
+- [x] Ajustes · Cuentas bancarias
+- [x] Ajustes · Bancos y cuentas
+- [x] Ajustes · Compras config (Costes/Proveedores/Categorías/Unidades)
+- [x] Ajustes · Cocina config (Categorías/Unidades/Proveedores/Formato)
+- [x] Ajustes · Usuarios
+- [x] Ajustes · Calendario operativo
+- [x] Ajustes · Aprendizajes ERP
+- [x] Ajustes · Aprendizaje calcNeto
+- [x] Ajustes · Mapeo de marcas
 
 ### Sidebar / marco
-- [ ] Sidebar (cabeceras de sección por área)
+- [x] Sidebar (cabeceras de sección por área)
 
 ### Excluidos por ley (no Cantera)
 - Informes · envíos / robots (zona prohibida: robots/informes-envíos/WhatsApp/crons)
@@ -137,6 +137,16 @@ Solo capa visual: prohibido tocar queries, cálculos, Supabase, API, lógica.
 ## DECISIONES
 - Inventario derivado de `src/App.tsx` (router) + `src/components/Sidebar.tsx`.
 - Cabecera v4 ya aplicada en tanda previa; esta tanda cierra cuerpo + gate de color.
+- Tints translúcidos (hex de 8 dígitos tipo `#B01D2320`) → `` `${TOKEN}20` `` (template
+  con la constante del token importada), así el gate ve 0 hex literal y se conserva la
+  transparencia. Aplicado en Ajustes, Marcas, Importar ventas, Cocina.
+- Fondos oscuros semánticos sueltos (`#3d0000`/`#001d0d`/`#1a1f2e`) → token INK/OSC
+  (Panel Dirección, Sidebar): superficie oscura del sistema, la severidad la marca el
+  borde/ícono de color. No se toca el modo oscuro (aplazado).
+- `styles/palettes.ts` es archivo de DEFINICIÓN de color (como neobrutal.ts): excluido
+  del gate de pantallas. Se le añadieron consts derivadas para Menú Engineering.
+- Gate de pantalla = script `scratchpad/gate.sh`; permite los 12 tokens + colores de
+  canal + `var(--*)` + `#0a0a0a`.
 
 ## BLOQUEADAS
 (ninguna aún)
