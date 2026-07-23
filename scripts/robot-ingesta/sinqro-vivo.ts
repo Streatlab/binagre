@@ -234,7 +234,16 @@ async function marcaDePedido(page: Page, id: string, candidatas: string[]): Prom
 
 /** Nombres de marca conocidos (actuales + anteriores) para reconocer en el
  * detalle de pedido. Todas las marcas, no solo activas: una marca recién
- * desactivada puede seguir teniendo pedidos JE de hoy en curso. */
+ * desactivada puede seguir teniendo pedidos JE de hoy en curso.
+ *
+ * FIX 23-jul (regresión "Streat Lab como marca"): 'Streat Lab' es la EMPRESA
+ * y aparece en la cabecera del detalle de Sinqro de TODOS los pedidos, así
+ * que nunca puede ser candidata: si se deja, cualquier pedido cuyo nombre de
+ * marca real no aparezca en el detalle "resuelve" falsamente a la empresa,
+ * contamina rankings y envenena la caché id→marca. Excluida, ese pedido queda
+ * sin resolver y aplica LEY-ANTIFALSOS (fallback agregado del lote), que es
+ * el comportamiento diseñado. 'Black Label by Streat Lab' SÍ es marca real y
+ * sigue ganando por longitud cuando aparece en el texto. */
 async function marcasConocidas(): Promise<string[]> {
   const { data } = await sb.from('marcas').select('nombre, nombre_anterior');
   const out = new Set<string>();
@@ -242,6 +251,7 @@ async function marcasConocidas(): Promise<string[]> {
     if (m.nombre) out.add(m.nombre);
     if (m.nombre_anterior) out.add(m.nombre_anterior);
   }
+  out.delete('Streat Lab');
   return [...out];
 }
 
