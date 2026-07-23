@@ -34,7 +34,6 @@ export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } 
 
   const años = useMemo(() => [currentYear, currentYear - 1, currentYear - 2, currentYear - 3], [currentYear])
 
-  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
   const btnPrim: React.CSSProperties = {
     fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase',
     border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '8px 14px', cursor: 'pointer',

@@ -8,7 +8,7 @@
 import React, { useMemo, useState } from "react";
 import { useAnalisisHV, BLOQUES_ORDEN, type FilaCategoria, } from "../../lib/finanzas/useAnalisisHV";
 import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
+  OSW, LEX, INK, CREMA, SHADOW, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
 import { fmtEur, fmtPct } from "@/lib/format";
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera';
 
@@ -27,8 +27,6 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
   const hv = useAnalisisHV(año);
 
   const añosDisponibles = useMemo(() => [añoActual, añoActual - 1, añoActual - 2], [añoActual]);
-
-  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW };
 
   if (hv.loading) {
     return (

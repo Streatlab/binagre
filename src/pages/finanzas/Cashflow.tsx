@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  INK, OSC, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, AMA, GRIS, OSW, LEX, SHADOW, BORDER_CARD, PAD, CORP, CLARA, eyebrow, d, BLANCO } from '@/styles/neobrutal'
+  INK, OSC, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, AMA, GRIS, OSW, LEX, SHADOW, BORDER_CARD, PAD, CORP, CLARA, d, BLANCO } from '@/styles/neobrutal'
 import { RUNNING_MUT, RUNNING_BORDER, ZEBRA_CLARA } from '@/styles/palettes'
-import { HeroCantera, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
+import { HeroCantera, PantallaCantera, FrasePotente, SeccionLabel } from '@/components/kit/cantera'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import {
   loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
@@ -375,7 +375,7 @@ export default function Cashflow() {
 
       {/* Simulador — pulsable → sombra permitida */}
       <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <span style={eyebrow(INK, CREMA)}>Simulador</span>
+        <SeccionLabel bg={INK} color={CREMA}>Simulador</SeccionLabel>
         <div style={SUBC}>{simTabs.map(t => <button key={t.id} onClick={() => setSim(t.id)} style={sim === t.id ? subA : subI}>{t.label}</button>)}</div>
       </div>
 
@@ -386,7 +386,7 @@ export default function Cashflow() {
 
       {/* ── COBROS · GRÁFICO (blanco) ── */}
       <section style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${AMA}`, padding: `28px ${PAD}` }}>
-        <span style={eyebrow(AMA)}>Cobros · cobrado y previsto · neto</span>
+        <SeccionLabel bg={AMA}>Cobros · cobrado y previsto · neto</SeccionLabel>
         {graf.length === 0
           ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, padding: '20px 0', marginTop: 8 }}>Sin cobros en el horizonte.</div>
           : (
@@ -418,7 +418,7 @@ export default function Cashflow() {
 
       {/* ── CAJA POR MES ── */}
       <section style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${AZUL}`, padding: `22px ${PAD}` }}>
-        <span style={eyebrow(AZUL, BLANCO)}>Caja por mes · banco real · línea = saldo</span>
+        <SeccionLabel bg={AZUL} color={BLANCO}>Caja por mes · banco real · línea = saldo</SeccionLabel>
         <div style={{ marginTop: 18, background: BLANCO, border: BORDER_CARD, padding: '20px 22px 16px' }}>
         <svg viewBox={`0 0 ${CW} 170`} style={{ width: '100%', height: 'auto' }}>
           <line x1={40} y1={cb} x2={CW - 10} y2={cb} stroke={TRACK} />
@@ -447,7 +447,7 @@ export default function Cashflow() {
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, alignItems: 'stretch' }}>
         {/* Izquierda: tabla ingresos pendientes */}
         <div style={{ padding: `22px ${PAD}`, background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${VERDE}` }}>
-          <span style={eyebrow(VERDE, BLANCO)}>Ingresos pendientes · lo que el banco aún no ha pagado</span>
+          <SeccionLabel bg={VERDE} color={BLANCO}>Ingresos pendientes · lo que el banco aún no ha pagado</SeccionLabel>
           {futuros.length === 0
             ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin cobros pendientes.</div>
             : (
@@ -520,7 +520,7 @@ export default function Cashflow() {
         </div>
         {/* Derecha: caja por marca */}
         <div style={{ padding: `22px ${PAD}`, background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${INK}` }}>
-          <span style={eyebrow(INK, CREMA)}>Caja por marca · 90d · {porMarca.length} activas</span>
+          <SeccionLabel bg={INK} color={CREMA}>Caja por marca · 90d · {porMarca.length} activas</SeccionLabel>
           {porMarca.length === 0
             ? <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 14 }}>Sin marcas activas.</div>
             : (() => {
@@ -553,7 +553,7 @@ export default function Cashflow() {
       <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, alignItems: 'stretch' }}>
         {/* Izquierda: tabla gastos */}
         <div style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${ROJO}`, padding: `22px ${PAD}` }}>
-          <span style={eyebrow(ROJO, BLANCO)}>Gastos del mes · por categoría</span>
+          <SeccionLabel bg={ROJO} color={BLANCO}>Gastos del mes · por categoría</SeccionLabel>
           {gastosCat.length === 0
             ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin facturas registradas este mes.</div>
             : (
@@ -609,7 +609,7 @@ export default function Cashflow() {
         </div>
         {/* Derecha: KPI gasto */}
         <div style={{ padding: `22px ${PAD}`, background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${INK}` }}>
-          <span style={eyebrow(INK, CREMA)}>Gasto del mes</span>
+          <SeccionLabel bg={INK} color={CREMA}>Gasto del mes</SeccionLabel>
           <div style={{ marginTop: 22 }}>
             <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 8 }}>Total facturado</div>
             <div style={d('clamp(44px,6vw,72px)', ROJO)}>{nf0(gastoMesTotal)}</div>
@@ -623,7 +623,7 @@ export default function Cashflow() {
 
       {/* ── PENDIENTE DE ACTIVAR ── */}
       <section style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${GRIS}`, padding: `22px ${PAD}` }}>
-        <span style={eyebrow(GRIS, BLANCO)}>Se activa al cargar datos</span>
+        <SeccionLabel bg={GRIS} color={BLANCO}>Se activa al cargar datos</SeccionLabel>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 22 }}>
           {[
             { t: 'Recorte real vs previsto', desc: 'Reembolsos y penalizaciones de cada liquidación de plataforma.', dep: 'liquidaciones (vacías)' },

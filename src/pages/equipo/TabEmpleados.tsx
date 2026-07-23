@@ -18,7 +18,7 @@ import ModalEmpleado, { type Empleado } from '@/components/equipo/ModalEmpleado'
 import { MESES_LARGO } from '@/components/equipo/NominaSoloLectura'
 import { archivarEmpleado, reactivarEmpleado, eliminarEmpleadoDuro } from '@/components/equipo/horarios/personal'
 import { OSW, LEX, INK, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, AZUL, GRIS, BLANCO, eyebrow } from '@/styles/neobrutal'
-import { HeroCantera, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import { HeroCantera, Papel, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
 
@@ -177,7 +177,7 @@ export default function TabEmpleados() {
       {loading ? (
         <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
       ) : personas.length === 0 ? (
-        <div style={{ ...card, padding: 40, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Sin empleados. Añade el primero.</div>
+        <Papel ceja={GRANATE} style={{ padding: 40, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Sin empleados. Añade el primero.</Papel>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14, alignItems: 'stretch' }}>
           {personas.map(emp => {

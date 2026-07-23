@@ -9,7 +9,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, BLANCO } from '@/styles/neobrutal'
 import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 import {
   nuevoDocA4, pintarMarco, pintarCabecera, pintarCamposId, pintarPie,
@@ -821,7 +821,7 @@ export default function ChecklistsAperturaCierre() {
       {!loading && !error && !esHistorico && modoEdicion && (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-            <span style={eyebrow(AMA)}>EDITANDO PLANTILLA — {TIPO_LABEL[activeTab as TipoChecklist].toUpperCase()}</span>
+            <SeccionLabel bg={AMA}>EDITANDO PLANTILLA — {TIPO_LABEL[activeTab as TipoChecklist].toUpperCase()}</SeccionLabel>
             <button onClick={toggleModoEdicion} style={btnGranate}>Guardar y cerrar</button>
           </div>
 

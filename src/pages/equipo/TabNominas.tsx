@@ -18,7 +18,7 @@ import { MESES_LARGO, clasifColor, clasifLabel, DesgloseSoloLectura, ListaPagosS
 import { fmtEur, fmtDate } from '@/lib/format'
 import {
   OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, d, BLANCO } from '@/styles/neobrutal'
-import { HeroCantera, Plancha, PlanchaCelda, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 interface Empleado { id: string; nombre: string; estado: string }
 
@@ -44,7 +44,8 @@ interface NominaDetalle {
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
-const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
+// Superficie informativa: sin sombra dura (solo lo pulsable la lleva, ver PanelEmilio).
+const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD }
 
 export default function TabNominas() {
   const [empleados, setEmpleados] = useState<Empleado[]>([])
@@ -194,7 +195,7 @@ export default function TabNominas() {
       </Plancha>
 
       {kpi.descuadresReales.length > 0 && (
-        <div style={{ ...card, padding: '12px 16px' }}>
+        <Papel ceja={ROJO}>
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: ROJO, marginBottom: 8 }}>Detalle de descuadres</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {kpi.descuadresReales.map(n => (
@@ -208,7 +209,7 @@ export default function TabNominas() {
               </div>
             ))}
           </div>
-        </div>
+        </Papel>
       )}
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -257,7 +258,7 @@ export default function TabNominas() {
       {loading ? (
         <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
       ) : (
-        <div style={{ ...card, padding: 0, overflowX: 'auto' }}>
+        <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: INK }}>
@@ -334,7 +335,7 @@ export default function TabNominas() {
               })}
             </tbody>
           </table>
-        </div>
+        </Papel>
       )}
       <p style={{ marginTop: 10, fontSize: 11, color: GRIS, fontFamily: LEX }}>
         Vista de solo consulta. Sube documentos desde Papeleo · Equipo.
@@ -367,7 +368,7 @@ function PanelEmilio({ calcAnio, selectedAnio, hoverMes, setHoverMes, detalleMes
   }
   return (
     <div style={{ padding: '18px 16px' }}>
-      <span style={eyebrow(NAR, BLANCO)}>SUELDO · CÁLCULO AUTOMÁTICO {selectedAnio}</span>
+      <SeccionLabel bg={NAR} color={BLANCO}>SUELDO · CÁLCULO AUTOMÁTICO {selectedAnio}</SeccionLabel>
       <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, margin: '10px 0 16px', maxWidth: 640 }}>
         Base 1.350 € − ingresos Uber / Glovo / Just Eat + gastos del negocio (Mercadona, proveedores…) = adeudado. Los traspasos a sueldo y Hacienda no cuentan. Pasa el ratón por un mes para ver sus ingresos y gastos.
       </div>
@@ -454,7 +455,7 @@ function NominaCard({ n, expanded, onToggle }: {
   n: NominaCompleta; expanded: boolean; onToggle: () => void;
 }) {
   return (
-    <div style={{ ...card, padding: 0, borderLeft: `6px solid ${clasifColor(n.clasificacion)}` }}>
+    <Papel ceja={clasifColor(n.clasificacion)} pad="0">
       <div onClick={onToggle} style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexWrap: 'wrap' }}>
         <span style={{ color: GRIS }}>{expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
         <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', minWidth: 90 }}>{MESES_LARGO[n.mes - 1]}</span>
@@ -480,21 +481,21 @@ function NominaCard({ n, expanded, onToggle }: {
       {expanded && (
         <div style={{ padding: '0 14px 16px', borderTop: `2px solid ${INK}` }}>
           <div style={{ marginTop: 12 }}>
-            <span style={eyebrow(CLARO, INK)}>DESGLOSE</span>
+            <SeccionLabel bg={CLARO} color={INK}>DESGLOSE</SeccionLabel>
             <div style={{ marginTop: 8 }}>
               <DesgloseSoloLectura n={n} />
             </div>
           </div>
 
           <div style={{ marginTop: 16 }}>
-            <span style={eyebrow(AZUL, BLANCO)}>CRUCE CON BANCO</span>
+            <SeccionLabel bg={AZUL} color={BLANCO}>CRUCE CON BANCO</SeccionLabel>
             <div style={{ marginTop: 8 }}>
               <ListaPagosSoloLectura pagos={n.pagos} />
             </div>
           </div>
         </div>
       )}
-    </div>
+    </Papel>
   )
 }
 

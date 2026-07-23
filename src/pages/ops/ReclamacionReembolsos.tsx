@@ -8,8 +8,8 @@ import { useReclamaciones, computeMetricas, computeMetricasPorCanal, verificarPe
 import type {
   Reclamacion, Canal, EstadoReclamacion, TipoReclamacion, PedidoVerificado, } from "../../lib/reclamaciones/useReclamaciones";
 import {
-  OSW, LEX, INK, CREMA, CLARO, SHADOW, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
-import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente } from '@/components/kit/cantera';
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, BLANCO } from '@/styles/neobrutal';
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, SeccionLabel } from '@/components/kit/cantera';
 import RutaPantalla from '@/components/ui/RutaPantalla';
 import TabsPastilla from '@/components/ui/TabsPastilla';
 
@@ -324,7 +324,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
         </div>
         <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
 
-          <span style={eyebrow(NAR, BLANCO)}>PEDIDO</span>
+          <SeccionLabel bg={NAR} color={BLANCO}>PEDIDO</SeccionLabel>
           <div style={grid2}>
             <Field label="Plataforma">
               <select style={inputNeo} value={canal} onChange={e => setCanal(e.target.value as Canal)}>
@@ -372,7 +372,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
             <textarea style={{ ...inputNeo, resize: "vertical", minHeight: 55 }} value={descripcion || ""} onChange={e => setDescripcion(e.target.value)} placeholder="Producto que falta, mal estado, etc." />
           </Field>
 
-          <span style={eyebrow(NAR, BLANCO)}>EVIDENCIA</span>
+          <SeccionLabel bg={NAR} color={BLANCO}>EVIDENCIA</SeccionLabel>
           {existing?.foto_url && !file && (
             <div style={{ fontSize: 12, color: GRIS, fontFamily: LEX }}>Foto actual: <a href={existing.foto_url} target="_blank" rel="noreferrer" style={{ color: GRANATE }}>ver</a></div>
           )}
@@ -381,7 +381,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
             {file && <div style={{ fontSize: 11, color: VERDE, marginTop: 4, fontFamily: LEX }}>Seleccionado: {file.name}</div>}
           </div>
 
-          <span style={eyebrow(NAR, BLANCO)}>ESTADO</span>
+          <SeccionLabel bg={NAR} color={BLANCO}>ESTADO</SeccionLabel>
           <div style={grid2}>
             <Field label="Estado">
               <select style={inputNeo} value={estado} onChange={e => setEstado(e.target.value as EstadoReclamacion)}>

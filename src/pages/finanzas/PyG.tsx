@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, GRIS, INK, LIMA, CREMA, BORDER_CARD, BORDER_FINO, BORDE_SUAVE, SHADOW } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, INK, LIMA, CREMA, BORDER_FINO, BORDE_SUAVE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -146,12 +146,6 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
   const sel: React.CSSProperties = {
     background: BLANCO, border: BORDER_FINO, borderRadius: 0,
     color: INK, padding: '6px 10px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer',
-  }
-  const card: React.CSSProperties = {
-    background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '18px 20px',
-  }
-  const kpiCard: React.CSSProperties = {
-    background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '16px 20px',
   }
   const kpiLbl: React.CSSProperties = {
     fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '2px',

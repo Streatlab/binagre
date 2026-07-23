@@ -12,12 +12,10 @@ import { useNominasCompletas } from '@/lib/equipo/useNominasCompletas'
 import { buscarBizumMes } from '@/lib/equipo/bizumExtra'
 import { fmtEur, fmtDate } from '@/lib/format'
 import { fechaLocalStr } from '@/utils/fechaLocal'
-import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, AMA, VERDE, ROJO, GRIS, BLANCO, eyebrow, d } from '@/styles/neobrutal'
-import { HeroCantera, Plancha, PlanchaCelda, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import { OSW, LEX, INK, CREMA, CLARO, AMA, VERDE, ROJO, GRIS, BLANCO, eyebrow, d } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
-
-const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
 
 type EstadoPago = 'pagado' | 'comprometido' | 'sin_registrar'
 
@@ -261,7 +259,7 @@ export default function TabCostes() {
       {loading ? (
         <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
       ) : (
-        <div style={{ ...card, padding: 0, overflowX: 'auto' }}>
+        <Papel ceja={INK} pad="0" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: INK }}>
@@ -298,7 +296,7 @@ export default function TabCostes() {
               </tr>
             </tfoot>
           </table>
-        </div>
+        </Papel>
       )}
     </PantallaCantera>
   )

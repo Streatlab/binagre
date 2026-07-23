@@ -1,7 +1,7 @@
 import{useState,useMemo,useRef,useEffect}from'react'
 import{useRunningAnual,sumMeses,sumCatMeses,calcNetoCanal}from'@/hooks/useRunningAnual'
 import{calcDesglosePorCanal,type DesgloseCanal}from'@/lib/panel/calcNetoPlataforma'
-import{OSW,LEX,INK,CREMA,CLARO,VERDE,ROJO,NAR,AZUL,AMA,GRANATE,GRIS,SHADOW,BORDER_CARD,CORP,CLARA,eyebrow,BLANCO}from'@/styles/neobrutal'
+import{OSW,LEX,INK,CREMA,CLARO,VERDE,ROJO,NAR,AZUL,AMA,GRANATE,GRIS,SHADOW,CORP,CLARA,eyebrow,BLANCO}from'@/styles/neobrutal'
 import{supabase}from'@/lib/supabase'
 import{RUNNING_MUT,RUNNING_EST_TXT,RUNNING_BORDER}from'@/styles/palettes'
 import{HeroCantera,Plancha,PlanchaCelda,FrasePotente,PantallaCantera,SeccionLabel}from'@/components/kit/cantera'
@@ -135,7 +135,6 @@ if(loading)return(<div style={{padding:40,color:GRIS,fontFamily:OSW,textTransfor
 const grupos=categorias.filter(c=>c.nivel===1&&c.id.startsWith('2.'))
 const ingC=categorias.filter(c=>c.parent_id==='1.1'&&c.nivel===3)
 const resAño=re(ALL)
-const card:React.CSSProperties={background:BLANCO,border:BORDER_CARD,boxShadow:SHADOW,padding:'16px 20px',minWidth:0}
 const kpiLbl=(color:string):React.CSSProperties=>({fontFamily:OSW,fontSize:11,letterSpacing:'2px',textTransform:'uppercase',color,marginBottom:6})
 const kpiNum=(color:string):React.CSSProperties=>({fontFamily:OSW,fontWeight:700,fontSize:34,lineHeight:1,color})
 const kpiSub=(color:string):React.CSSProperties=>({fontFamily:LEX,fontSize:12,color,marginTop:6})
