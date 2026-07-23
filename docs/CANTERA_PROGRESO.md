@@ -208,5 +208,31 @@ construyen:
   de color (no pantallas).
 - Todo commiteado y pusheado a `trabajo`. **NO publicado**: pendiente orden de Rubén.
 
+## CIERRE FASE 2 (23-jul)
+- **74 pantallas con CUERPO REAL Cantera** (héroe de área + frase potente + plancha
+  pegada + papel sin sombra + cifras/tipografía por ley), no solo gate de color.
+  Cubiertas TODAS las de la lista de prioridad: Finanzas (Ventas, Ticket medio,
+  Repetición, ROI, Break-even, Punto equilibrio, Franja, Running, P&G, EEFF, Análisis
+  H/V, Tesorería completa), Papeleo, Cocina y Compras, Marketing/Clientes/Analítica,
+  Equipo completo, Operaciones completo, Portada (Home/Panel Dirección/Cashflow) y las
+  6 pantallas de Ajustes con contenido.
+- Pieza canónica nueva reutilizada por todas: `src/components/kit/cantera.tsx`
+  (`HeroCantera`, `Papel`, `Plancha`/`PlanchaCelda`, `FrasePotente`, `PantallaCantera`).
+- Cada archivo validado: `esbuild` limpio + `gate.sh` sin salida + verificación de
+  imports de tokens. Barrido global: 0 hex fuera de tabla en todo `src/` (salvo las
+  excepciones documentadas: marca Google en Login, ficheros de definición de color).
+- Solo capa visual: 0 cambios en queries, hooks, cálculos, props, Supabase ni lógica.
+
+### PENDIENTE (cola resumable para la próxima iteración) — 28 líneas `[ ]`
+Sub-pestañas de Ajustes (Integraciones Marcas/Canales/Drive, Reglas ×5, Bancos y
+Bancos-y-cuentas panels, Compras-config, Cocina-config, Calendario) + internos de Panel
+Global (TabOperaciones/TabFinanzas/TabMarcas/TabEvolucion), Informes (UI), FondoReserva,
+BandejaEntrada y algún tab menor. Todas tienen ya cabecera v4 + gate de color verde de
+la tanda previa; les falta el cuerpo (héroe/frase/papel). Son "pantallas menores" (último
+en la prioridad). El siguiente pase arranca por el primer `[ ]` de arriba.
+- `Objetivos` quedó `[⚠️]` (4/6): pestañas y edición inline conservan theming compartido
+  `T.*` para no romper `tokens.ts` (fuera de alcance).
+
 ## BLOQUEADAS
-(ninguna)
+- Ninguna bloqueada de verdad. Solo el `[⚠️]` de Objetivos por dependencia de tokens
+  compartidos.
