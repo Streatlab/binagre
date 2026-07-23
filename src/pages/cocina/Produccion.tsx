@@ -1,14 +1,16 @@
 import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
-import { ClipboardList, Printer, Download, Plus, Trash2, X, Check, Pencil, FileDown } from 'lucide-react'
+import { Printer, Download, Plus, Trash2, X, Check, Pencil, FileDown } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, pageTitleStyle, groupStyle, tabsContainerStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
 import { GRANATE, BLANCO } from '@/styles/neobrutal'
 import { PRINT_BN_BG, PRINT_BN_TXT } from '@/styles/palettes'
 import Esquemas from '@/pages/cocina/Esquemas'
+import { HeroCantera, PantallaCantera } from '@/components/kit/cantera'
+import TabsPastilla from '@/components/ui/TabsPastilla'
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
@@ -384,7 +386,7 @@ function descargarInventarioTodosPDF(ubis: InvUbi[], rec: M.Recursos, bn = false
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
 
 export default function Produccion() {
-  const { T, isDark } = useTheme()
+  const { T } = useTheme()
   const [activeTab, setActiveTab] = useState<'lista' | 'camara' | 'inventario' | 'esquemas'>('lista')
   const [secciones, setSecciones] = useState<Seccion[]>([])
   const [partidas, setPartidas] = useState<Partida[]>([])
@@ -406,28 +408,29 @@ export default function Produccion() {
   }
 
   const tabs = [
-    { key: 'lista', label: 'Lista de Producción' },
-    { key: 'camara', label: 'Ordenación de Cámara' },
-    { key: 'inventario', label: 'Inventario Permanente' },
-    { key: 'esquemas', label: 'Esquemas' },
+    { id: 'lista', label: 'Lista de Producción' },
+    { id: 'camara', label: 'Ordenación de Cámara' },
+    { id: 'inventario', label: 'Inventario Permanente' },
+    { id: 'esquemas', label: 'Esquemas' },
   ]
 
   return (
-    <div style={{ ...groupStyle(T), width: '100%' }}>
+    <PantallaCantera embedded>
       <style>{FICHA_CSS}</style>
 
-      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-        <ClipboardList size={24} color={GRANATE} />
-        <h1 style={{ ...pageTitleStyle(T), margin: 0 }}>PRODUCCIÓN</h1>
-      </div>
+      {/* HÉROE (naranja · área Cocina) — pantalla-lista sin KPI: titular + resumen, sin cifra */}
+      <HeroCantera
+        area="cocina"
+        titular="Plantillas y carteles de producción, listos para imprimir sin salir de aquí."
+        resumen="Lista semanal, ordenación de cámara e inventario permanente en un único sitio."
+        atencion={[
+          secciones.length > 0 ? `${secciones.length} secciones` : null,
+          partidas.length > 0 ? `${partidas.length} partidas` : null,
+        ].filter(Boolean) as string[]}
+      />
 
-      <div style={tabsContainerStyle()} className="no-print">
-        {tabs.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key as 'lista' | 'camara' | 'inventario' | 'esquemas')}
-            style={activeTab === tab.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
-            {tab.label}
-          </button>
-        ))}
+      <div className="no-print">
+        <TabsPastilla tabs={tabs} activeId={activeTab} onChange={id => setActiveTab(id as 'lista' | 'camara' | 'inventario' | 'esquemas')} />
       </div>
 
       {loading ? (
@@ -441,7 +444,7 @@ export default function Produccion() {
       ) : (
         <Esquemas />
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 

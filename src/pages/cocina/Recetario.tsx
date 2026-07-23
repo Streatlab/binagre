@@ -1,10 +1,8 @@
-import { GRANATE } from '@/styles/neobrutal'
 import { useState, useEffect } from 'react'
-import { ChefHat } from 'lucide-react'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabFichas from '@/components/escandallo/TabFichas'
 import ColaRevisionFichas from '@/components/escandallo/ColaRevisionFichas'
-import { useTheme, FONT } from '@/styles/tokens'
+import { HeroCantera, PantallaCantera } from '@/components/kit/cantera'
 
 type Tab = 'eps' | 'recetas'
 
@@ -14,19 +12,18 @@ const TABS = [
 ]
 
 export default function Recetario() {
-  const { T } = useTheme()
   const [tab, setTab] = useState<Tab>('eps')
   const [busqueda, setBusqueda] = useState(() => localStorage.getItem('sl_fichas_busqueda') ?? '')
   useEffect(() => { localStorage.setItem('sl_fichas_busqueda', busqueda) }, [busqueda])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <ChefHat size={24} color={GRANATE} />
-        <div style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: GRANATE, textTransform: 'uppercase' }}>
-          Libro de Recetas
-        </div>
-      </div>
+    <PantallaCantera embedded>
+      {/* HÉROE (naranja · área Cocina) — pantalla-lista sin KPI: titular + resumen, sin cifra */}
+      <HeroCantera
+        area="cocina"
+        titular="La base de todo el escandallo: cada plato parte de una ficha técnica."
+        resumen="Fichas de EPs y recetas listas para enlazar, imprimir y mantener al día."
+      />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <TabsPastilla
@@ -45,6 +42,6 @@ export default function Recetario() {
       <ColaRevisionFichas />
 
       <TabFichas busqueda={busqueda} tipo={tab === 'eps' ? 'ep' : 'receta'} />
-    </div>
+    </PantallaCantera>
   )
 }

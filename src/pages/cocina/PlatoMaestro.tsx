@@ -4,16 +4,20 @@
  * vincular una vez sobre el maestro se refleja en análisis, Carta, Pareto y
  * Coste por plato a la vez (RPC vincular_plato_maestro). Coste por plato y Carta
  * redirigen su acción aquí. Ver docs/LEY_PLATO_01.md.
+ *
+ * CANTERA ALEGRE v1.0 (área Cocina · naranja). Solo capa visual; datos vía Supabase.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { vincularPlato, desvincularPlato } from '@/lib/cocina/vincularCliente'
 import { requiereReceta, sugerirReceta } from '@/lib/cocina/platoHub'
+import { eur0, num0, pct1 } from '@/components/panel/sl/uiSL'
 import {
-  C, Card, CardHead, Hero, HeroPill, Kpi, KpiGrid, Pill, Nota, Vacio, Atencion,
-  eur0, num0, pct1,
-} from '@/components/panel/sl/uiSL'
-import RutaPantalla from '@/components/ui/RutaPantalla'
+  OSW, LEX, INK, GRIS, GRANATE, VERDE, AMA, AZUL, BLANCO,
+  VERDE_S, AMA_S, AZUL_S, ROSA_S,
+  cardHead, pill,
+} from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 interface Maestro { id: number; nombre: string; es_extra: boolean | null; receta_id: string | null; euros: number | null }
 interface Receta { id: string; nombre: string; coste_rac: number | null }
@@ -27,6 +31,20 @@ const FILTROS: Array<{ id: Filtro; label: string }> = [
   { id: 'con', label: 'Ya vinculados' },
   { id: 'bebidas', label: 'Bebidas / extras' },
 ]
+
+function Vacio({ children }: { children: React.ReactNode }) {
+  return <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13, fontWeight: 600 }}>{children}</div>
+}
+
+function Nota({ tono = 'verde', children }: { tono?: 'verde' | 'rojo' | 'ambar' | 'blu'; children: React.ReactNode }) {
+  const map = { verde: VERDE_S, rojo: ROSA_S, ambar: AMA_S, blu: AZUL_S } as const
+  const borde = { verde: VERDE, rojo: GRANATE, ambar: AMA, blu: AZUL } as const
+  return (
+    <div style={{ padding: '11px 14px', background: map[tono], border: `2px solid ${borde[tono]}`, fontFamily: LEX, fontSize: 12.5, fontWeight: 600, color: INK, lineHeight: 1.5 }}>
+      {children}
+    </div>
+  )
+}
 
 export default function PlatoMaestro() {
   const [maestros, setMaestros] = useState<Maestro[]>([])
@@ -109,129 +127,201 @@ export default function PlatoMaestro() {
   }, [maestros, filtro])
 
   if (cargando) {
-    return <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}><Card><Vacio>Cargando platos maestros…</Vacio></Card></div>
+    return (
+      <PantallaCantera embedded>
+        <Papel ceja={GRANATE}><Vacio>Cargando platos maestros…</Vacio></Papel>
+      </PantallaCantera>
+    )
   }
 
   return (
-    <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
-      <div style={{ marginBottom: 14 }}>
-        <RutaPantalla niveles={['Plato maestro']} subtitulo="La identidad única de cada plato. Vincula aquí una vez y se aplica en todo: Análisis, Pareto, Coste y Carta." />
-      </div>
-
-      <Hero
-        eyebrow="PLATOS CON RECETA CONOCIDA"
-        titular={pctCubierto >= 80 ? 'Casi todo lo que vendes tiene su receta detrás' : 'Falta receta en buena parte de lo que vendes'}
-        valor={pct1(pctCubierto)}
-        sub={`${eur0(stats.eCon)} con receta · ${eur0(stats.eSin)} sin vincular`}
-        objetivo={{ pct: pctCubierto, label: 'VINCULADO' }}
-        right={<>
-          <HeroPill solid>{num0(stats.conReceta)} vinculados</HeroPill>
-          <HeroPill>{num0(stats.sinReceta)} sin receta</HeroPill>
-        </>}
+    <PantallaCantera embedded>
+      {/* HÉROE (naranja · área Cocina) */}
+      <HeroCantera
+        area="cocina"
+        titular={pctCubierto >= 80 ? 'Casi todo lo que vendes tiene su receta detrás.' : 'Falta receta en buena parte de lo que vendes.'}
+        etiquetaDato="Facturación con receta vinculada"
+        cifra={pct1(pctCubierto)}
+        resumen={<>{eur0(stats.eCon)} con receta · {eur0(stats.eSin)} sin vincular</>}
+        atencion={[
+          `${num0(stats.conReceta)} vinculados`,
+          `${num0(stats.sinReceta)} sin receta`,
+          sugerencias.size > 0 ? `${sugerencias.size} sugeridas en vivo` : null,
+          revision.length > 0 ? `${revision.length} en cola de revisión` : null,
+        ].filter(Boolean) as string[]}
       />
 
       {aviso && <Nota tono="verde">{aviso}</Nota>}
 
       {propuestas.length > 0 && (
-        <Card>
-          <CardHead title="Propuestas de vínculo por confirmar" sub="El nombre coincide con una receta que ya tienes. Confirma con un clic." right={<Pill tone="blu">{propuestas.length}</Pill>} />
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead><tr><th>Plato</th><th>Receta propuesta</th><th></th></tr></thead>
-              <tbody>
-                {propuestas.map(p => {
-                  const m = maestros.find(x => x.id === p.plato_maestro_id)
-                  return (
-                    <tr key={p.id}>
-                      <td>{m?.nombre ?? p.plato_maestro_id}</td>
-                      <td>{recetaNombre.get(p.receta_id) ?? '—'}</td>
-                      <td>
-                        <button disabled={busy === p.plato_maestro_id} onClick={() => vincular(p.plato_maestro_id, p.receta_id)}
-                          style={{ padding: '7px 13px', borderRadius: 999, border: 'none', background: C.verde, color: '#fff', fontFamily: "'Nunito', sans-serif", fontSize: 11.5, fontWeight: 900, cursor: 'pointer' }}>
-                          {busy === p.plato_maestro_id ? 'Guardando…' : 'Confirmar'}
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        <Papel ceja={AZUL} pad="0" style={{ overflow: 'hidden' }}>
+          <div style={{ ...cardHead(AZUL), display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <div>Propuestas de vínculo por confirmar</div>
+            <span style={pill(AZUL_S, AZUL)}>{propuestas.length}</span>
           </div>
-        </Card>
+          <div style={{ padding: '14px 16px' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: INK }}>
+                    {['Plato', 'Receta propuesta', ''].map(h => (
+                      <th key={h} style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: BLANCO, fontWeight: 600, textAlign: 'left' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {propuestas.map(p => {
+                    const m = maestros.find(x => x.id === p.plato_maestro_id)
+                    return (
+                      <tr key={p.id}>
+                        <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}` }}>{m?.nombre ?? p.plato_maestro_id}</td>
+                        <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}` }}>{recetaNombre.get(p.receta_id) ?? '—'}</td>
+                        <td style={{ padding: '9px 12px', borderBottom: `2px solid ${INK}`, textAlign: 'right' }}>
+                          <button
+                            disabled={busy === p.plato_maestro_id}
+                            onClick={() => vincular(p.plato_maestro_id, p.receta_id)}
+                            style={{ background: VERDE, color: BLANCO, border: `2px solid ${INK}`, boxShadow: '2px 2px 0 var(--neo-shadow-color)', padding: '7px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >{busy === p.plato_maestro_id ? 'Guardando…' : 'Confirmar'}</button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Papel>
       )}
 
       {revision.length > 0 && (
-        <Atencion tono="ambar" cifra={`${revision.length}`}>
-          <b>Platos en cola de revisión.</b> Su nombre casaba con más de un plato maestro, así que no se vinculó nada solo:
+        <Nota tono="ambar">
+          <b>{revision.length} platos en cola de revisión.</b> Su nombre casaba con más de un plato maestro, así que no se vinculó nada solo:
           {' '}{revision.slice(0, 5).map(r => r.plato_muestra || r.motivo).join(' · ')}{revision.length > 5 ? '…' : ''}
-        </Atencion>
+        </Nota>
       )}
 
-      <KpiGrid>
-        <Kpi icono="✓" tono="verde" label="Vinculados" valor={num0(stats.conReceta)} pie={<Pill tone="verde" dot>{eur0(stats.eCon)}</Pill>} />
-        <Kpi icono="✕" tono="rojo" label="Sin receta" valor={num0(stats.sinReceta)} pie={<Pill tone="rojo" dot>{eur0(stats.eSin)}</Pill>} />
-        <Kpi icono="?" tono="blu" label="Sugeridas en vivo" valor={num0(sugerencias.size)} pie={<Pill tone="blu" dot>por confirmar</Pill>} />
-        <Kpi icono="🥤" tono="neutro" label="Bebidas / extras" valor={num0(stats.bebidas)} pie={<Pill tone="neutro" dot>no piden receta</Pill>} />
-      </KpiGrid>
+      {/* PLANCHA DE KPIs: sólidos pegados */}
+      <div>
+        <SeccionLabel bg={GRANATE}>KPIs de vinculación</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={VERDE} color={BLANCO} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Vinculados</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{num0(stats.conReceta)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{eur0(stats.eCon)}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={GRANATE} color={BLANCO}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Sin receta</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{num0(stats.sinReceta)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{eur0(stats.eSin)}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={AZUL} color={BLANCO}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Sugeridas en vivo</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{num0(sugerencias.size)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>por confirmar</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={AMA} color={INK}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Bebidas / extras</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{num0(stats.bebidas)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>no piden receta</div>
+          </PlanchaCelda>
+        </Plancha>
+      </div>
 
-      <Card>
-        <CardHead
-          title="Platos maestros ordenados por lo que facturan"
-          sub="Un plato = una identidad. Vincula su receta aquí."
-          right={
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {FILTROS.map(f => {
-                const on = f.id === filtro
-                return (
-                  <button key={f.id} onClick={() => setFiltro(f.id)}
-                    style={{ padding: '6px 12px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${on ? C.rojo : C.line}`, background: on ? C.rojoSoft : C.card, color: on ? C.rojoSem : C.gris, fontFamily: "'Nunito', sans-serif", fontSize: 11.5, fontWeight: 900 }}>{f.label}</button>
-                )
-              })}
-            </div>
-          }
-        />
-        {lista.length === 0 ? <Vacio>Nada en esta lista.</Vacio> : (
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead><tr><th style={{ width: 30 }}>#</th><th>Plato</th><th>Factura</th><th>Receta vinculada</th></tr></thead>
-              <tbody>
-                {lista.slice(0, 150).map((m, i) => {
-                  const sug = sugerencias.get(m.id)
-                  return (
-                    <tr key={m.id}>
-                      <td className="slnum" style={{ color: C.grisCl, fontSize: 11 }}>{i + 1}</td>
-                      <td style={{ maxWidth: 340 }}>{m.nombre}</td>
-                      <td className="slnum" style={{ minWidth: 90 }}>{eur0(Number(m.euros) || 0)}</td>
-                      <td>
-                        {filtro === 'bebidas' ? (
-                          <Pill tone="neutro" dot>No pide receta</Pill>
-                        ) : (
-                          <>
-                            <select value={m.receta_id ?? ''} disabled={busy === m.id} onChange={e => vincular(m.id, e.target.value)}
-                              style={{ padding: '7px 10px', borderRadius: 999, minWidth: 220, border: `1px solid ${m.receta_id ? C.line : C.rojoSem}`, background: C.card, color: m.receta_id ? C.ink : C.rojoSem, fontFamily: "'Nunito', sans-serif", fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-                              <option value="">— Falta la receta —</option>
-                              {recetas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                            </select>
-                            {!m.receta_id && sug && (
-                              <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'center' }}>
-                                <Pill tone="blu" dot>Se parece a «{sug.nombre}» · {Math.round(sug.score * 100)}%</Pill>
-                                <button disabled={busy === m.id} onClick={() => vincular(m.id, sug.recetaId)}
-                                  style={{ padding: '4px 10px', borderRadius: 999, border: 'none', background: C.verde, color: '#fff', fontFamily: "'Nunito', sans-serif", fontSize: 11, fontWeight: 900, cursor: 'pointer' }}>Confirmar</button>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-            {lista.length > 150 && <Nota tono="blu">Se muestran los 150 que más facturan de {num0(lista.length)}.</Nota>}
+      {/* FRASE POTENTE (color por significado, distinto del héroe naranja) */}
+      {sugerencias.size > 0 && (
+        <FrasePotente significado="oportunidad">
+          {sugerencias.size} sugerencias listas para confirmar con un clic: revisa la lista antes de escribir recetas desde cero.
+        </FrasePotente>
+      )}
+
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
+        <div style={{ ...cardHead(GRANATE), display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div>Platos maestros ordenados por lo que facturan</div>
+            <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 500, marginTop: 2, textTransform: 'none', letterSpacing: 0 }}>Un plato = una identidad. Vincula su receta aquí.</div>
           </div>
-        )}
-        <Nota tono="ambar">Si el plato no tiene receta aún, créala en Cocina · Operativa → Libro de Recetas y vuelve a vincularla aquí.</Nota>
-      </Card>
-    </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {FILTROS.map(f => {
+              const on = f.id === filtro
+              return (
+                <button key={f.id} onClick={() => setFiltro(f.id)}
+                  style={{
+                    padding: '6px 12px', cursor: 'pointer',
+                    background: on ? BLANCO : 'transparent',
+                    color: on ? GRANATE : BLANCO,
+                    border: `2px solid ${BLANCO}`,
+                    fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',
+                  }}>{f.label}</button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div style={{ padding: '14px 16px' }}>
+          {lista.length === 0 ? (
+            <Vacio>Nada en esta lista.</Vacio>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: INK }}>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: BLANCO, fontWeight: 600, textAlign: 'left', width: 30 }}>#</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: BLANCO, fontWeight: 600, textAlign: 'left' }}>Plato</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: BLANCO, fontWeight: 600, textAlign: 'right' }}>Factura</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: BLANCO, fontWeight: 600, textAlign: 'left' }}>Receta vinculada</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lista.slice(0, 150).map((m, i) => {
+                    const sug = sugerencias.get(m.id)
+                    return (
+                      <tr key={m.id}>
+                        <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 11, color: GRIS, borderBottom: `2px solid ${INK}` }}>{i + 1}</td>
+                        <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, maxWidth: 340 }}>{m.nombre}</td>
+                        <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, textAlign: 'right', minWidth: 90 }}>{eur0(Number(m.euros) || 0)}</td>
+                        <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}` }}>
+                          {filtro === 'bebidas' ? (
+                            <span style={pill('var(--sl-thead)', GRIS)}>No pide receta</span>
+                          ) : (
+                            <>
+                              <select
+                                value={m.receta_id ?? ''}
+                                disabled={busy === m.id}
+                                onChange={e => vincular(m.id, e.target.value)}
+                                style={{
+                                  padding: '6px 10px', minWidth: 220,
+                                  border: `2px solid ${m.receta_id ? INK : GRANATE}`,
+                                  background: BLANCO, color: m.receta_id ? INK : GRANATE,
+                                  fontFamily: LEX, fontSize: 13, fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <option value="">— Falta la receta —</option>
+                                {recetas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                              </select>
+                              {!m.receta_id && sug && (
+                                <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <span style={pill(AZUL_S, AZUL)}>Se parece a «{sug.nombre}» · {Math.round(sug.score * 100)}%</span>
+                                  <button disabled={busy === m.id} onClick={() => vincular(m.id, sug.recetaId)}
+                                    style={{ padding: '4px 10px', border: `2px solid ${INK}`, background: VERDE, color: BLANCO, fontFamily: OSW, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' }}>Confirmar</button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              {lista.length > 150 && <div style={{ marginTop: 10 }}><Nota tono="blu">Se muestran los 150 que más facturan de {num0(lista.length)}.</Nota></div>}
+            </div>
+          )}
+          <div style={{ marginTop: 10 }}>
+            <Nota tono="ambar">Si el plato no tiene receta aún, créala en Cocina · Operativa → Libro de Recetas y vuelve a vincularla aquí.</Nota>
+          </div>
+        </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

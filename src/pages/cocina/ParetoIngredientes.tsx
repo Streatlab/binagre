@@ -1,5 +1,4 @@
-import { BLANCO } from '@/styles/neobrutal'
-import { PARETO_WARN_BG, PARETO_WARN_TXT } from '@/styles/palettes'
+import { BLANCO, INK, GRANATE, NAR, VERDE, AMA, AZUL, OSW, LEX } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -7,8 +6,9 @@ import {
 } from 'recharts'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
-import { COLORS, FONT, CARDS, fmtDec } from '@/components/panel/resumen/tokens'
+import { COLORS, FONT, fmtDec } from '@/components/panel/resumen/tokens'
 import TabsPastilla from '@/components/ui/TabsPastilla'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 /**
  * PARETO DE INGREDIENTES · Binagre ERP
@@ -56,7 +56,7 @@ interface ParetoRow {
   meta?: string
 }
 
-const CLASE_COLOR: Record<Clase, string> = { A: COLORS.ok, B: COLORS.warn, C: COLORS.err }
+const CLASE_COLOR: Record<Clase, string> = { A: VERDE, B: AMA, C: GRANATE }
 const CLASE_DESC: Record<Clase, string> = {
   A: 'Vitales — concentran hasta el 80%',
   B: 'Importantes — siguiente 15%',
@@ -83,30 +83,18 @@ function computePareto(items: { key: string; valor: number; meta?: string }[]): 
   return { rows, total, nA: rows.filter(r => r.clase === 'A').length }
 }
 
-const cardBig = CARDS.big
-const card = CARDS.std
 const lbl: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500 }
 const lblSm: React.CSSProperties = { ...lbl, fontSize: 11, letterSpacing: 1.5 }
 
 function Pill({ active, color, children, onClick }: { active: boolean; color: string; children: React.ReactNode; onClick: () => void }) {
   return (
     <button onClick={onClick} style={{
-      padding: '5px 12px', borderRadius: 7,
+      padding: '5px 12px',
       border: active ? 'none' : `0.5px solid ${COLORS.brd}`,
       background: active ? color : COLORS.card,
       color: active ? BLANCO : COLORS.sec,
       fontFamily: FONT.body, fontSize: 12, fontWeight: 500, cursor: 'pointer',
     }}>{children}</button>
-  )
-}
-
-function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div style={{ ...card, flex: 1, minWidth: 160 }}>
-      <div style={lblSm}>{label}</div>
-      <div style={{ fontFamily: FONT.heading, fontSize: 30, fontWeight: 600, color: COLORS.pri, lineHeight: 1.1, marginTop: 6 }}>{value}</div>
-      {sub && <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 4 }}>{sub}</div>}
-    </div>
   )
 }
 
@@ -200,71 +188,90 @@ export default function ParetoIngredientes() {
           ? `Coste unitario estándar del maestro de ingredientes (no gasto total). ${excluirEps && catSel === '__todas' ? 'EPS excluidas para no duplicar sub-recetas.' : ''}`
           : `Coste agregado por familia de ingrediente del maestro.`
 
-  return (
-    <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
+  const pctA = rows.length ? (nA / rows.length) * 100 : 0
 
-      {/* Header */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: COLORS.redSL, letterSpacing: 3, textTransform: 'uppercase' }}>
-          PARETO DE INGREDIENTES
-        </div>
-        <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 2 }}>
-          {rows.length} {vista === 'categorias' ? 'categorías' : 'ingredientes'} · {tituloMetrica.toLowerCase()} · regla 80/20 sobre datos reales
-        </div>
-      </div>
+  return (
+    <PantallaCantera embedded>
+      {/* HÉROE (naranja · área Cocina) */}
+      <HeroCantera
+        area="cocina"
+        titular={rows.length > 2 ? `${nA} de ${rows.length} ${vista === 'categorias' ? 'categorías' : 'ingredientes'} concentran el 80% del coste.` : 'Pocos datos todavía para sacar el 80/20.'}
+        etiquetaDato={tituloMetrica}
+        cifra={fmtEur(total)}
+        resumen={<>{rows.length} {vista === 'categorias' ? 'categorías' : 'ingredientes'} · {tituloMetrica.toLowerCase()} · regla 80/20 sobre datos reales</>}
+        atencion={[
+          rows[0] ? `Líder: ${rows[0].key} · ${fmtDec(rows[0].pct, 0)}%` : null,
+          `${rows.filter(r => r.clase === 'C').length} en cola larga (C)`,
+        ].filter(Boolean) as string[]}
+      />
 
       {/* Vista */}
-      <div style={{ marginBottom: 14 }}>
-        <TabsPastilla tabs={VISTAS} activeId={vista} onChange={id => setVista(id as Vista)} />
-      </div>
+      <TabsPastilla tabs={VISTAS} activeId={vista} onChange={id => setVista(id as Vista)} />
 
       {/* Filtros catálogo */}
       {vista === 'catalogo' && (
-        <div style={{ ...card, display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 14 }}>
+        <Papel ceja={NAR} style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ ...lblSm, marginBottom: 8 }}>Categoría</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 720 }}>
-              <Pill active={catSel === '__todas'} color={COLORS.accent} onClick={() => setCatSel('__todas')}>Todas</Pill>
+              <Pill active={catSel === '__todas'} color={NAR} onClick={() => setCatSel('__todas')}>Todas</Pill>
               {categorias.map(c => (
-                <Pill key={c} active={catSel === c} color={COLORS.accent} onClick={() => setCatSel(c)}>{c}</Pill>
+                <Pill key={c} active={catSel === c} color={NAR} onClick={() => setCatSel(c)}>{c}</Pill>
               ))}
             </div>
           </div>
           {catSel === '__todas' && (
             <div>
               <div style={{ ...lblSm, marginBottom: 8 }}>Sub-recetas</div>
-              <Pill active={excluirEps} color={COLORS.sec} onClick={() => setExcluirEps(e => !e)}>
+              <Pill active={excluirEps} color={AZUL} onClick={() => setExcluirEps(e => !e)}>
                 {excluirEps ? 'EPS excluidas' : 'EPS incluidas'}
               </Pill>
             </div>
           )}
-        </div>
+        </Papel>
       )}
 
       {/* Nota metodología */}
-      <div style={{ background: PARETO_WARN_BG, border: `0.5px solid ${COLORS.warn}`, borderRadius: 10, padding: '8px 14px', fontFamily: FONT.body, fontSize: 12, color: PARETO_WARN_TXT, marginBottom: 14 }}>
+      <Papel ceja={AMA} style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, color: INK, lineHeight: 1.5 }}>
         {notaVista}
+      </Papel>
+
+      {/* PLANCHA DE KPIs: sólidos pegados */}
+      <div>
+        <SeccionLabel bg={GRANATE}>KPIs del Pareto</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={NAR} color={BLANCO} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>{tituloMetrica}</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(total)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{rows.length} {vista === 'categorias' ? 'categorías' : 'ingredientes'}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={VERDE} color={BLANCO}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Hacen el 80%</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{nA} de {rows.length}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{rows.length ? `${fmtDec(pctA, 0)}% del total` : '—'}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={AZUL} color={BLANCO}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Líder</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{rows[0] ? `${fmtDec(rows[0].pct, 0)}%` : '—'}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rows[0]?.key ?? '—'}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={GRANATE} color={BLANCO}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Cola larga (C)</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{rows.filter(r => r.clase === 'C').length}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>aportan solo el último 5%</div>
+          </PlanchaCelda>
+        </Plancha>
       </div>
 
-      {/* KPIs */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-        <KpiCard label={tituloMetrica} value={fmtEur(total)} sub={`${rows.length} ${vista === 'categorias' ? 'categorías' : 'ingredientes'}`} />
-        <KpiCard label="Hacen el 80%" value={`${nA} de ${rows.length}`} sub={rows.length ? `${fmtDec((nA / rows.length) * 100, 0)}% del total` : '—'} />
-        <KpiCard label="Líder" value={rows[0] ? `${fmtDec(rows[0].pct, 0)}%` : '—'} sub={rows[0]?.key} />
-        <KpiCard label="Cola larga (C)" value={`${rows.filter(r => r.clase === 'C').length}`} sub="aportan solo el último 5%" />
-      </div>
-
-      {/* Insight */}
+      {/* FRASE POTENTE (color por significado, distinto del héroe naranja) */}
       {rows.length > 2 && (
-        <div style={{ ...card, marginBottom: 14, borderLeft: `3px solid ${COLORS.redSL}` }}>
-          <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.pri }}>
-            <strong>{nA}</strong> de <strong>{rows.length}</strong> {vista === 'categorias' ? 'categorías' : 'ingredientes'} ({fmtDec((nA / rows.length) * 100, 0)}%) concentran el <strong>80%</strong> del coste. Ahí está el margen real: negocia precio, busca proveedor alternativo o ajusta gramaje en esos pocos.
-          </span>
-        </div>
+        <FrasePotente significado="oportunidad">
+          {nA} de {rows.length} {vista === 'categorias' ? 'categorías' : 'ingredientes'} ({fmtDec(pctA, 0)}%) concentran el 80% del coste. Ahí está el margen real: negocia precio, busca proveedor alternativo o ajusta gramaje en esos pocos.
+        </FrasePotente>
       )}
 
       {/* Gráfico Pareto */}
-      <div style={{ ...cardBig, marginBottom: 14 }}>
+      <Papel ceja={NAR}>
         <div style={{ ...lblSm, marginBottom: 4 }}>
           Curva de Pareto {rows.length > 20 ? '· top 20' : ''} — barras = coste, línea = % acumulado
         </div>
@@ -276,24 +283,24 @@ export default function ParetoIngredientes() {
             <YAxis yAxisId="left" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} tickFormatter={(v: number) => `${fmtDec(v, 0)}€`} />
             <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} tickFormatter={(v: number) => `${v}%`} />
             <Tooltip content={<PTooltip />} />
-            <ReferenceLine yAxisId="right" y={80} stroke={COLORS.redSL} strokeDasharray="4 4" label={{ value: '80%', position: 'right', fontSize: 10, fill: COLORS.redSL }} />
-            <Bar yAxisId="left" dataKey="valor" radius={[3, 3, 0, 0]}>
+            <ReferenceLine yAxisId="right" y={80} stroke={GRANATE} strokeDasharray="4 4" label={{ value: '80%', position: 'right', fontSize: 10, fill: GRANATE }} />
+            <Bar yAxisId="left" dataKey="valor" radius={[0, 0, 0, 0]}>
               {chartData.map((d, i) => <Cell key={i} fill={CLASE_COLOR[d.clase]} />)}
             </Bar>
-            <Line yAxisId="right" type="monotone" dataKey="acum" stroke={COLORS.redSL} strokeWidth={2} dot={{ r: 2 }} />
+            <Line yAxisId="right" type="monotone" dataKey="acum" stroke={GRANATE} strokeWidth={2} dot={{ r: 2 }} />
           </ComposedChart>
         </ResponsiveContainer>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 8 }}>
           {(['A', 'B', 'C'] as Clase[]).map(c => (
             <span key={c} style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 11, color: COLORS.sec }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: CLASE_COLOR[c] }} /> {c} · {CLASE_DESC[c]}
+              <span style={{ width: 10, height: 10, background: CLASE_COLOR[c] }} /> {c} · {CLASE_DESC[c]}
             </span>
           ))}
         </div>
-      </div>
+      </Papel>
 
       {/* Tabla ABC */}
-      <div style={card}>
+      <Papel ceja={GRANATE}>
         <div style={{ ...lblSm, marginBottom: 10 }}>Clasificación ABC completa</div>
         <div style={{ display: 'grid', gridTemplateColumns: '28px 1.8fr 100px 70px 120px 56px', gap: 8, padding: '6px 8px', borderBottom: `0.5px solid ${COLORS.brd}` }}>
           {['#', vista === 'categorias' ? 'Categoría' : 'Ingrediente', 'Coste', '%', 'Acum %', 'Clase'].map((h, i) => (
@@ -310,18 +317,18 @@ export default function ParetoIngredientes() {
               <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.pri, fontWeight: 600, textAlign: 'right' }}>{fmtEur(r.valor)}</span>
               <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.sec, textAlign: 'right' }}>{fmtDec(r.pct)}%</span>
               <span style={{ position: 'relative', textAlign: 'right', fontFamily: FONT.body, fontSize: 11, color: COLORS.mut }}>
-                <span style={{ position: 'absolute', inset: 0, width: `${Math.min(100, r.acumPct)}%`, background: `${CLASE_COLOR[r.clase]}22`, borderRadius: 3 }} />
+                <span style={{ position: 'absolute', inset: 0, width: `${Math.min(100, r.acumPct)}%`, background: `${CLASE_COLOR[r.clase]}22` }} />
                 <span style={{ position: 'relative' }}>{fmtDec(r.acumPct)}%</span>
               </span>
               <span style={{ justifySelf: 'start' }}>
-                <span style={{ fontFamily: FONT.heading, fontSize: 11, fontWeight: 600, color: BLANCO, background: CLASE_COLOR[r.clase], borderRadius: 4, padding: '1px 8px' }}>{r.clase}</span>
+                <span style={{ fontFamily: FONT.heading, fontSize: 11, fontWeight: 600, color: BLANCO, background: CLASE_COLOR[r.clase], padding: '1px 8px' }}>{r.clase}</span>
               </span>
             </div>
           ))}
           {!rows.length && <div style={{ padding: 16, color: COLORS.mut, fontFamily: FONT.body, fontSize: 13 }}>Sin datos para esta vista.</div>}
         </div>
-      </div>
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }
 
