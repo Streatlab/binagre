@@ -1,10 +1,11 @@
 /**
- * TabFinanzas — Panel Global · pestaña Finanzas (estilo neobrutal Food-Pop)
+ * TabFinanzas — Panel Global · pestaña Finanzas
+ * CANTERA ALEGRE v1.0 (área Finanzas · verde). Solo capa visual; datos/lógica intactos.
  */
 
 import { useMemo } from 'react'
-import { INK, CREMA, BLANCO, OSW, LEX, VERDE, ROJO, NAR, GRIS, CORP, BORDER_CARD, SHADOW, d, eyebrow } from '@/styles/neobrutal'
-import { tablaNeo, theadNeo, thNeo, thNeoR, tdNeo, tdNeoR, filaAlt, dotNeo, totalRow, tdTotal, tdTotalR, vacioNeo } from '@/styles/tablaNeo'
+import { INK, GRIS, OSW, LEX, VERDE, ROJO, ROJO_S, NAR, AMA, CORP, BLANCO } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 import { fmtEur } from '@/utils/format'
 import { resolverNeto } from '@/lib/panel/netoResolver'
 import { useNetoContext } from '@/lib/panel/useNetoContext'
@@ -58,31 +59,6 @@ function exportarCSV(rows: Row[], fechaDesde: Date, fechaHasta: Date) {
   document.body.appendChild(a); a.click(); a.remove()
   URL.revokeObjectURL(url)
 }
-
-function deltaChip(delta: number | null) {
-  if (delta == null || !Number.isFinite(delta)) return null
-  const up = delta >= 0
-  return (
-    <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '0.5px', color: up ? VERDE : ROJO, marginLeft: 8, whiteSpace: 'nowrap' }}>
-      {up ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%
-    </span>
-  )
-}
-
-function kpiCard(label: string, value: string, sub?: string, delta?: number | null) {
-  return (
-    <div style={{ flex: 1, minWidth: 160, background: CREMA, border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 16px' }}>
-      <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>{label}</div>
-      <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', marginTop: 8 }}>
-        <span style={d('30px')}>{value}</span>
-        {deltaChip(delta ?? null)}
-      </div>
-      {sub && <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 4 }}>{sub}</div>}
-    </div>
-  )
-}
-
-const tituloSec: React.CSSProperties = { marginBottom: 12 }
 
 export default function TabFinanzas({ rows, rowsAll, fechaDesde, fechaHasta }: Props) {
   const { configCanales: config, marcasPorCanal, ventasListas } = useNetoContext()
@@ -182,7 +158,11 @@ export default function TabFinanzas({ rows, rowsAll, fechaDesde, fechaHasta }: P
   const mostrarEvolucion = meses.length > 1
 
   if (!rows.length) {
-    return <div style={{ ...vacioNeo, marginTop: 12 }}>Sin datos para el período seleccionado</div>
+    return (
+      <PantallaCantera embedded>
+        <Papel ceja={VERDE}><div style={{ color: GRIS, fontFamily: LEX }}>Sin datos para el período seleccionado.</div></Papel>
+      </PantallaCantera>
+    )
   }
 
   // Resumen inteligente del periodo (canal líder, mejor margen, coste plataformas)
@@ -191,161 +171,187 @@ export default function TabFinanzas({ rows, rowsAll, fechaDesde, fechaHasta }: P
   const bestMargen = conVentas.length ? conVentas.reduce((a, c) => ((c.neto / c.bruto) > (a.neto / a.bruto) ? c : a)) : null
   const margenBest = bestMargen ? (bestMargen.neto / bestMargen.bruto) * 100 : 0
 
+  const titular = topBruto
+    ? <>Ingresos netos estimados de <b>{fmtEur(totalNeto)}</b>, margen <b>{margenPct.toFixed(1)}%</b> sobre {fmtEur(totalBruto)} bruto.</>
+    : 'Finanzas del periodo.'
+
+  const atencion = [
+    topBruto ? `${topBruto.label} lidera con ${fmtEur(topBruto.bruto)} (${topBruto.pct.toFixed(0)}%)` : null,
+    bestMargen ? `Mejor margen: ${bestMargen.label} (${margenBest.toFixed(0)}%)` : null,
+    plat.brutoPlat > 0 ? `Plataformas se llevaron ${fmtEur(plat.comPlat)} (${plat.pctPlat.toFixed(0)}%)` : null,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={{ paddingTop: 12 }}>
+    <PantallaCantera embedded>
+      {/* 1 · Héroe del área Finanzas (verde) */}
+      <HeroCantera
+        area="facturacion"
+        titular={titular}
+        etiquetaDato="Ingresos brutos del periodo"
+        cifra={fmtEur(totalBruto)}
+        variacionPct={deltaBruto}
+        atencion={atencion}
+      />
 
       {/* Barra de acciones */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button
           onClick={() => exportarCSV(rows, fechaDesde, fechaHasta)}
           title="Descarga la facturación diaria del periodo en CSV (Excel español) para la gestoría"
-          style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, background: CORP.glovo, border: BORDER_CARD, boxShadow: SHADOW, padding: '8px 14px', cursor: 'pointer' }}
+          style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, background: AMA, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, padding: '8px 14px', cursor: 'pointer' }}
         >
           ↓ Exportar CSV
         </button>
       </div>
 
-      {/* Resumen inteligente */}
-      {topBruto && (
-        <div style={{ background: INK, color: CREMA, border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 18, fontFamily: LEX, fontSize: 14, lineHeight: 1.55 }}>
-          <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: CORP.glovo, marginRight: 8 }}>Lectura rápida</span>
-          {deltaBruto != null && (
-            <>Facturación <b style={{ color: deltaBruto >= 0 ? VERDE : ROJO }}>{deltaBruto >= 0 ? 'al alza' : 'a la baja'} {Math.abs(deltaBruto).toFixed(0)}%</b> vs el periodo anterior. </>
-          )}
-          <b>{topBruto.label}</b> lidera con <b>{fmtEur(topBruto.bruto)}</b> ({topBruto.pct.toFixed(0)}% del total).{' '}
-          {bestMargen && <>Mejor margen: <b>{bestMargen.label}</b> ({margenBest.toFixed(0)}%).{' '}</>}
-          {plat.brutoPlat > 0 && <>Las plataformas se llevaron <b style={{ color: ROJO }}>{fmtEur(plat.comPlat)}</b> ({plat.pctPlat.toFixed(0)}% de su bruto).</>}
-        </div>
+      {/* 2 · Plancha KPIs */}
+      <Plancha>
+        <PlanchaCelda bg={VERDE} color={BLANCO} first>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Ingresos brutos</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(totalBruto)}</div>
+          {prev && <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>vs periodo anterior</div>}
+        </PlanchaCelda>
+        <PlanchaCelda bg={ROJO} color={BLANCO}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Comisiones est.</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(totalComision)}</div>
+          {totalBruto > 0 && <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{(totalComision / totalBruto * 100).toFixed(1)}% del bruto</div>}
+        </PlanchaCelda>
+        <PlanchaCelda bg={AMA} color={INK}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Ingresos netos est.</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(totalNeto)}</div>
+          {prev && <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>vs periodo anterior</div>}
+        </PlanchaCelda>
+        <PlanchaCelda bg={NAR} color={BLANCO}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Margen est.</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{margenPct.toFixed(1)}%</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>neto / bruto</div>
+        </PlanchaCelda>
+      </Plancha>
+
+      {/* 3 · Frase potente (coste · granate, distinta del héroe verde) */}
+      {plat.brutoPlat > 0 && (
+        <FrasePotente significado="coste">Las plataformas se llevaron {fmtEur(plat.comPlat)} este periodo — a este ritmo, {fmtEur(plat.comAnual)}/año.</FrasePotente>
       )}
 
-      {/* KPI cards */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 24 }}>
-        {kpiCard('Ingresos brutos', fmtEur(totalBruto), prev ? 'vs periodo anterior' : undefined, deltaBruto)}
-        {kpiCard('Comisiones est.', fmtEur(totalComision), totalBruto > 0 ? `${(totalComision / totalBruto * 100).toFixed(1)}% del bruto` : undefined)}
-        {kpiCard('Ingresos netos est.', fmtEur(totalNeto), prev ? 'vs periodo anterior' : undefined, deltaNeto)}
-        {kpiCard('Margen est.', `${margenPct.toFixed(1)}%`, 'neto / bruto')}
-      </div>
-
       {/* Desglose por canal */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={tituloSec}><span style={eyebrow(CREMA)}>Desglose por canal</span></div>
-        <table style={tablaNeo}>
-          <thead style={theadNeo}>
-            <tr>
-              <th style={thNeo}>Canal</th>
-              <th style={thNeoR}>Bruto</th>
-              <th style={thNeoR}>Comisión est.</th>
-              <th style={thNeoR}>Neto est.</th>
-              <th style={thNeoR}>% total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {canalStats.map((c, i) => (
-              <tr key={c.id} style={filaAlt(i)}>
-                <td style={tdNeo}>
-                  <span style={dotNeo(c.color)} />
-                  {c.label}
-                </td>
-                <td style={tdNeoR}>{fmtEur(c.bruto)}</td>
-                <td style={{ ...tdNeoR, color: ROJO }}>{fmtEur(c.comision)}</td>
-                <td style={{ ...tdNeoR, color: VERDE }}>{fmtEur(c.neto)}</td>
-                <td style={tdNeoR}>{c.pct.toFixed(1)}%</td>
+      <div>
+        <SeccionLabel bg={VERDE}>Desglose por canal</SeccionLabel>
+        <Papel ceja={VERDE} pad="0" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
+            <thead>
+              <tr style={{ background: INK }}>
+                {['Canal', 'Bruto', 'Comisión est.', 'Neto est.', '% total'].map((h, i) => (
+                  <th key={h} style={{ padding: '10px 12px', textAlign: i === 0 ? 'left' : 'right', fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff8e7', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
               </tr>
-            ))}
-            {/* Totales */}
-            <tr style={totalRow}>
-              <td style={tdTotal}>TOTAL</td>
-              <td style={tdTotalR}>{fmtEur(totalBruto)}</td>
-              <td style={{ ...tdTotalR, color: ROJO }}>{fmtEur(totalComision)}</td>
-              <td style={{ ...tdTotalR, color: VERDE }}>{fmtEur(totalNeto)}</td>
-              <td style={tdTotalR}>100%</td>
-            </tr>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {canalStats.map((c, i) => (
+                <tr key={c.id} style={{ borderBottom: `2px solid ${INK}`, background: i % 2 ? '#00000006' : 'transparent' }}>
+                  <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 10, height: 10, background: c.color, border: `1px solid ${INK}`, display: 'inline-block' }} />
+                    {c.label}
+                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtEur(c.bruto)}</td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', color: ROJO }}>{fmtEur(c.comision)}</td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', color: VERDE }}>{fmtEur(c.neto)}</td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>{c.pct.toFixed(1)}%</td>
+                </tr>
+              ))}
+              <tr style={{ background: INK }}>
+                <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 700, color: '#fff8e7' }}>TOTAL</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: '#fff8e7' }}>{fmtEur(totalBruto)}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: ROJO_S }}>{fmtEur(totalComision)}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: VERDE }}>{fmtEur(totalNeto)}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: '#fff8e7' }}>100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </Papel>
       </div>
 
       {/* Coste de las plataformas — cuánto se llevan Uber/Glovo/JE */}
       {plat.brutoPlat > 0 && (
-        <div style={{ marginBottom: 28 }}>
-          <div style={tituloSec}><span style={eyebrow(CREMA)}>Coste de las plataformas</span></div>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', background: CREMA, border: BORDER_CARD, boxShadow: SHADOW, padding: '18px 20px' }}>
-            {/* Bloque cifra */}
-            <div style={{ flex: '1 1 220px', minWidth: 220 }}>
-              <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Se han llevado las plataformas</div>
-              <div style={{ ...d('40px'), color: ROJO, marginTop: 6 }}>{fmtEur(plat.comPlat)}</div>
-              <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 4 }}>
-                {plat.pctPlat.toFixed(1)}% del bruto de plataforma ({fmtEur(plat.brutoPlat)})
+        <div>
+          <SeccionLabel bg={ROJO}>Coste de las plataformas</SeccionLabel>
+          <Papel ceja={ROJO}>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 220px', minWidth: 220 }}>
+                <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Se han llevado las plataformas</div>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 40, color: ROJO, marginTop: 6 }}>{fmtEur(plat.comPlat)}</div>
+                <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 4 }}>
+                  {plat.pctPlat.toFixed(1)}% del bruto de plataforma ({fmtEur(plat.brutoPlat)})
+                </div>
+                <div style={{ marginTop: 12, display: 'inline-block', background: INK, color: '#fff8e7', fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '6px 10px' }}>
+                  A este ritmo · {fmtEur(plat.comAnual)}/año est.
+                </div>
+                <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 8, maxWidth: 320 }}>
+                  Es lo que recuperarías moviendo esos pedidos a tu canal directo.
+                </div>
               </div>
-              <div style={{ marginTop: 12, display: 'inline-block', background: INK, color: CREMA, fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', padding: '6px 10px' }}>
-                A este ritmo · {fmtEur(plat.comAnual)}/año est.
-              </div>
-              <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 8, maxWidth: 320 }}>
-                Es lo que recuperarías moviendo esos pedidos a tu canal directo.
+              <div style={{ flex: '2 1 320px', minWidth: 260, display: 'flex', flexDirection: 'column', gap: 12, justifyContent: 'center' }}>
+                {plat.plataformas.map(c => {
+                  const w = (c.comision / plat.comMax) * 100
+                  const pctCanal = c.bruto > 0 ? (c.comision / c.bruto) * 100 : 0
+                  return (
+                    <div key={c.id}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                        <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 9, height: 9, background: c.color, border: `1px solid ${INK}`, display: 'inline-block' }} />{c.label}
+                        </span>
+                        <span style={{ fontFamily: LEX, fontSize: 13, color: ROJO, fontWeight: 600 }}>
+                          {fmtEur(c.comision)} <span style={{ color: GRIS, fontWeight: 400 }}>({pctCanal.toFixed(0)}%)</span>
+                        </span>
+                      </div>
+                      <div style={{ height: 14, background: BLANCO, border: `2px solid ${INK}` }}>
+                        <div style={{ width: `${w}%`, height: '100%', background: c.color }} />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
-            {/* Barras por plataforma */}
-            <div style={{ flex: '2 1 320px', minWidth: 260, display: 'flex', flexDirection: 'column', gap: 12, justifyContent: 'center' }}>
-              {plat.plataformas.map(c => {
-                const w = (c.comision / plat.comMax) * 100
-                const pctCanal = c.bruto > 0 ? (c.comision / c.bruto) * 100 : 0
-                return (
-                  <div key={c.id}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                      <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK }}>
-                        <span style={dotNeo(c.color)} />{c.label}
-                      </span>
-                      <span style={{ fontFamily: LEX, fontSize: 13, color: ROJO, fontWeight: 600 }}>
-                        {fmtEur(c.comision)} <span style={{ color: GRIS, fontWeight: 400 }}>({pctCanal.toFixed(0)}%)</span>
-                      </span>
-                    </div>
-                    <div style={{ height: 14, background: BLANCO, border: `2px solid ${INK}` }}>
-                      <div style={{ width: `${w}%`, height: '100%', background: c.color }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          </Papel>
         </div>
       )}
 
       {/* Evolución mensual — solo si hay más de 1 mes */}
       {mostrarEvolucion && (
         <div>
-          <div style={tituloSec}><span style={eyebrow(CREMA)}>Evolución mensual</span></div>
-          <table style={tablaNeo}>
-            <thead style={theadNeo}>
-              <tr>
-                <th style={thNeo}>Mes</th>
-                <th style={thNeoR}>Bruto</th>
-                <th style={thNeoR}>Neto est.</th>
-                <th style={thNeoR}>Margen est.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(() => {
-                const mejorMes = meses.reduce((best, k) => (mesMap[k].neto > mesMap[best].neto ? k : best), meses[0])
-                return meses.map((key, i) => {
-                  const { bruto, neto } = mesMap[key]
-                  const margen = bruto > 0 ? (neto / bruto) * 100 : 0
-                  const [y, m] = key.split('-')
-                  const label = `${MESES_ES[parseInt(m, 10) - 1]} ${y}`
-                  const esMejor = key === mejorMes && meses.length > 1
-                  return (
-                    <tr key={key} style={esMejor ? { ...filaAlt(i), boxShadow: `inset 3px 0 0 ${VERDE}` } : filaAlt(i)}>
-                      <td style={tdNeo}>{label}{esMejor && <span style={{ fontFamily: OSW, fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', color: VERDE, marginLeft: 8 }}>★ MEJOR</span>}</td>
-                      <td style={tdNeoR}>{fmtEur(bruto)}</td>
-                      <td style={{ ...tdNeoR, color: VERDE }}>{fmtEur(neto)}</td>
-                      <td style={{ ...tdNeoR, color: margen >= 70 ? VERDE : NAR }}>{margen.toFixed(1)}%</td>
-                    </tr>
-                  )
-                })
-              })()}
-            </tbody>
-          </table>
+          <SeccionLabel bg={AMA} color={INK}>Evolución mensual</SeccionLabel>
+          <Papel ceja={AMA} pad="0" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
+              <thead>
+                <tr style={{ background: INK }}>
+                  {['Mes', 'Bruto', 'Neto est.', 'Margen est.'].map((h, i) => (
+                    <th key={h} style={{ padding: '10px 12px', textAlign: i === 0 ? 'left' : 'right', fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff8e7', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const mejorMes = meses.reduce((best, k) => (mesMap[k].neto > mesMap[best].neto ? k : best), meses[0])
+                  return meses.map((key, i) => {
+                    const { bruto, neto } = mesMap[key]
+                    const margen = bruto > 0 ? (neto / bruto) * 100 : 0
+                    const [y, m] = key.split('-')
+                    const label = `${MESES_ES[parseInt(m, 10) - 1]} ${y}`
+                    const esMejor = key === mejorMes && meses.length > 1
+                    return (
+                      <tr key={key} style={{ borderBottom: `2px solid ${INK}`, background: esMejor ? `${VERDE}22` : (i % 2 ? `${INK}0d` : 'transparent') }}>
+                        <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600 }}>{label}{esMejor && <span style={{ fontFamily: OSW, fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', color: VERDE, marginLeft: 8 }}>★ MEJOR</span>}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtEur(bruto)}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', color: VERDE }}>{fmtEur(neto)}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', color: margen >= 70 ? VERDE : NAR }}>{margen.toFixed(1)}%</td>
+                      </tr>
+                    )
+                  })
+                })()}
+              </tbody>
+            </table>
+          </Papel>
         </div>
       )}
-
-    </div>
+    </PantallaCantera>
   )
 }

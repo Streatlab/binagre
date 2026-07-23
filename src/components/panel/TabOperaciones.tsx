@@ -1,8 +1,10 @@
 /**
  * TabOperaciones — Panel Global · pestaña Operaciones
+ * CANTERA ALEGRE v1.0 (área Operaciones · naranja). Solo capa visual; datos/lógica intactos.
  */
 
-import { COLORS, FONT, CARDS, BAR, lbl, kpiMid, kpiSm } from '@/components/panel/resumen/tokens'
+import { OSW, LEX, INK, GRIS, VERDE, ROJO, NAR, AZUL, AMA, CORP } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 import { fmtNum, fmtEur } from '@/utils/format'
 
 interface Row {
@@ -18,31 +20,21 @@ interface Row {
 interface Props { rows: Row[] }
 
 const CANALES = [
-  { id: 'uber',    label: 'Uber Eats', color: COLORS.uber },
-  { id: 'glovo',   label: 'Glovo',     color: COLORS.glovo },
-  { id: 'je',      label: 'Just Eat',  color: COLORS.je },
-  { id: 'web',     label: 'Web',       color: COLORS.web },
-  { id: 'directa', label: 'Directa',   color: COLORS.directa },
+  { id: 'uber',    label: 'Uber Eats', corp: 'uber' },
+  { id: 'glovo',   label: 'Glovo',     corp: 'glovo' },
+  { id: 'je',      label: 'Just Eat',  corp: 'je' },
+  { id: 'web',     label: 'Web',       corp: 'web' },
+  { id: 'directa', label: 'Directa',   corp: 'dir' },
 ] as const
 
 const DIAS_SEM = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
-function kpiCard(label: string, value: string, sub?: string) {
-  return (
-    <div style={{ ...CARDS.std, flex: 1, minWidth: 160 }}>
-      <div style={lbl}>{label}</div>
-      <div style={{ ...kpiMid, marginTop: 6, color: COLORS.pri }}>{value}</div>
-      {sub && <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 2 }}>{sub}</div>}
-    </div>
-  )
-}
-
 export default function TabOperaciones({ rows }: Props) {
   if (!rows.length) {
     return (
-      <div style={{ padding: 40, textAlign: 'center', color: COLORS.mut, fontFamily: FONT.body, fontSize: 14 }}>
-        Sin datos para el período seleccionado
-      </div>
+      <PantallaCantera embedded>
+        <Papel ceja={NAR}><div style={{ color: GRIS, fontFamily: LEX }}>Sin datos para el período seleccionado.</div></Papel>
+      </PantallaCantera>
     )
   }
 
@@ -72,8 +64,8 @@ export default function TabOperaciones({ rows }: Props) {
   const sumDiaSem = [0, 0, 0, 0, 0, 0, 0]
   const cntDiaSem = [0, 0, 0, 0, 0, 0, 0]
   rows.forEach(r => {
-    const d = new Date(r.fecha + 'T12:00:00')
-    const dow = (d.getDay() + 6) % 7 // lunes=0 … domingo=6
+    const dt = new Date(r.fecha + 'T12:00:00')
+    const dow = (dt.getDay() + 6) % 7 // lunes=0 … domingo=6
     sumDiaSem[dow] += r.total_pedidos
     cntDiaSem[dow] += 1
   })
@@ -89,160 +81,159 @@ export default function TabOperaciones({ rows }: Props) {
     .sort((a, b) => b.total_pedidos - a.total_pedidos)
     .slice(0, 5)
 
-  const thStyle: React.CSSProperties = {
-    fontFamily: 'Oswald, sans-serif',
-    fontSize: 11,
-    letterSpacing: '1.5px',
-    color: COLORS.mut,
-    textTransform: 'uppercase',
-    fontWeight: 500,
-    padding: '8px 10px',
-    textAlign: 'left',
-    borderBottom: `1px solid ${COLORS.brd}`,
-  }
+  const [ay, am, ad] = diaMasPedidos.fecha.split('-')
 
-  const tdStyle: React.CSSProperties = {
-    fontFamily: FONT.body,
-    fontSize: 13,
-    color: COLORS.sec,
-    padding: '8px 10px',
-    borderBottom: `1px solid ${COLORS.group}`,
-  }
+  const titular = <>Se sirvieron <b>{fmtNum(totalPedidos)}</b> pedidos en el periodo, con ticket medio de <b>{fmtEur(ticketMedio)}</b>.</>
+
+  const atencion = [
+    `Mejor día: ${ad}/${am} · ${fmtNum(diaMasPedidos.total_pedidos)} pedidos`,
+    diaFuerte ? `Día fuerte semana: ${DIAS_SEM[diaFuerte.i]}` : null,
+    mejorTicketCanal ? `Mejor ticket: ${mejorTicketCanal.label} ${fmtEur(mejorTicketCanal.ticket)}` : null,
+  ].filter(Boolean) as string[]
 
   return (
-    <div style={{ paddingTop: 12 }}>
+    <PantallaCantera embedded>
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        titular={titular}
+        etiquetaDato="Pedidos totales del periodo"
+        cifra={fmtNum(totalPedidos)}
+        resumen={<>Pico del período: <b>{fmtNum(pedidoMasAlto)}</b> pedidos en un solo día.</>}
+        atencion={atencion}
+      />
 
-      {/* KPI cards */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
-        {kpiCard('Pedidos totales', fmtNum(totalPedidos))}
-        {kpiCard('Ticket medio', fmtEur(ticketMedio))}
-        {kpiCard('Día más alto', fmtNum(pedidoMasAlto) + ' ped.', 'pico del período')}
-        {kpiCard('Mejor día', diaMasPedidos.fecha.slice(8, 10) + '/' + diaMasPedidos.fecha.slice(5, 7), fmtNum(diaMasPedidos.total_pedidos) + ' pedidos')}
-      </div>
+      {/* 2 · Plancha KPIs */}
+      <Plancha>
+        <PlanchaCelda bg={NAR} color="#fff" first>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Pedidos totales</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtNum(totalPedidos)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AMA}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Ticket medio</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(ticketMedio)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={VERDE} color="#fff">
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Día más alto</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtNum(pedidoMasAlto)}</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>pico del período</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AZUL} color="#fff">
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Mejor día</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{ad}/{am}</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{fmtNum(diaMasPedidos.total_pedidos)} pedidos</div>
+        </PlanchaCelda>
+      </Plancha>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, flexWrap: 'wrap' }}>
+      {/* 3 · Frase potente (oportunidad · rosa, distinta del héroe naranja) */}
+      {mejorTicketCanal && (
+        <FrasePotente significado="oportunidad">Empuja pedidos hacia {mejorTicketCanal.label}: es el canal con mejor ticket medio del periodo.</FrasePotente>
+      )}
 
-        {/* Mix de canales */}
-        <div style={CARDS.std}>
-          <div style={{ ...lbl, marginBottom: 14 }}>Mix de canales — pedidos</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {mixCanales.map(c => (
-              <div key={c.id}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.sec }}>{c.label}</span>
-                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: COLORS.pri }}>
-                    {fmtNum(c.pedidos)} <span style={{ color: COLORS.mut, fontSize: 11 }}>({c.pct.toFixed(1)}%)</span>
-                  </span>
+      {/* Mix de canales | Pedidos por día de semana */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div>
+          <SeccionLabel bg={NAR}>Mix de canales · pedidos</SeccionLabel>
+          <Papel ceja={NAR}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {mixCanales.map(c => (
+                <div key={c.id}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontFamily: LEX, fontSize: 13, color: INK }}>{c.label}</span>
+                    <span style={{ fontFamily: OSW, fontSize: 13, color: INK, fontWeight: 600 }}>
+                      {fmtNum(c.pedidos)} <span style={{ color: GRIS, fontSize: 11 }}>({c.pct.toFixed(1)}%)</span>
+                    </span>
+                  </div>
+                  <div style={{ height: 14, background: '#00000010', border: `2px solid ${INK}`, overflow: 'hidden' }}>
+                    <div style={{ width: `${c.pct}%`, height: '100%', background: CORP[c.corp] ?? INK }} />
+                  </div>
                 </div>
-                <div style={BAR.track}>
-                  <div style={{
-                    width: `${c.pct}%`,
-                    background: c.color,
-                    borderRadius: 4,
-                    transition: 'width 400ms ease',
-                  }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Pedidos por día de semana (media) */}
-        <div style={CARDS.std}>
-          <div style={{ ...lbl, marginBottom: 14 }}>Pedidos por día de semana · media/día</div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 100 }}>
-            {mediaDiaSem.map((v, i) => {
-              const h = maxDiaSem > 0 ? Math.max(4, (v / maxDiaSem) * 88) : 4
-              const esFuerte = diaFuerte?.i === i && v > 0
-              return (
-                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 10, color: esFuerte ? COLORS.pri : COLORS.mut }}>
-                    {cntDiaSem[i] > 0 ? fmtNum(Math.round(v)) : '—'}
-                  </span>
-                  <div style={{
-                    width: '100%',
-                    height: h,
-                    background: esFuerte ? COLORS.warn : COLORS.redSL,
-                    borderRadius: '3px 3px 0 0',
-                  }} />
-                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, color: esFuerte ? COLORS.pri : COLORS.mut, textTransform: 'uppercase', letterSpacing: 1 }}>
-                    {DIAS_SEM[i]}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-          {diaFuerte && diaFlojo && diaFuerte.i !== diaFlojo.i && (
-            <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.sec, marginTop: 12, lineHeight: 1.5 }}>
-              Día fuerte: <b style={{ color: COLORS.pri }}>{DIAS_SEM[diaFuerte.i]}</b> ({fmtNum(Math.round(diaFuerte.m))} ped/día).{' '}
-              Más flojo: <b style={{ color: COLORS.pri }}>{DIAS_SEM[diaFlojo.i]}</b> ({fmtNum(Math.round(diaFlojo.m))} ped/día).
+              ))}
             </div>
-          )}
+          </Papel>
         </div>
 
+        <div>
+          <SeccionLabel bg={AMA} color={INK}>Pedidos por día de semana · media/día</SeccionLabel>
+          <Papel ceja={AMA}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 110, marginBottom: 12 }}>
+              {mediaDiaSem.map((v, i) => {
+                const h = maxDiaSem > 0 ? Math.max(4, (v / maxDiaSem) * 96) : 4
+                const esFuerte = diaFuerte?.i === i && v > 0
+                return (
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontFamily: OSW, fontSize: 10, color: esFuerte ? INK : GRIS }}>{cntDiaSem[i] > 0 ? fmtNum(Math.round(v)) : '—'}</span>
+                    <div style={{ width: '100%', height: h, background: esFuerte ? VERDE : NAR, border: `2px solid ${INK}` }} />
+                    <span style={{ fontFamily: OSW, fontSize: 11, color: INK, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{DIAS_SEM[i]}</span>
+                  </div>
+                )
+              })}
+            </div>
+            {diaFuerte && diaFlojo && diaFuerte.i !== diaFlojo.i && (
+              <div style={{ fontFamily: LEX, fontSize: 12.5, color: INK }}>
+                Día fuerte: <b>{DIAS_SEM[diaFuerte.i]}</b> ({fmtNum(Math.round(diaFuerte.m))} ped/día). Más flojo: <b>{DIAS_SEM[diaFlojo.i]}</b> ({fmtNum(Math.round(diaFlojo.m))} ped/día).
+              </div>
+            )}
+          </Papel>
+        </div>
       </div>
 
       {/* Ticket medio por canal */}
-      <div style={{ ...CARDS.std, marginTop: 14 }}>
-        <div style={{ ...lbl, marginBottom: 14 }}>Ticket medio por canal</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {canalesConTicket.map(c => {
-            const w = (c.ticket / maxTicket) * 100
-            const best = mejorTicketCanal?.id === c.id
-            return (
-              <div key={c.id}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.sec }}>{c.label}</span>
-                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: best ? COLORS.warn : COLORS.pri }}>
-                    {fmtEur(c.ticket)}{best && <span style={{ fontSize: 11, marginLeft: 6 }}>★ mejor</span>}
-                  </span>
+      <div>
+        <SeccionLabel bg={VERDE}>Ticket medio por canal</SeccionLabel>
+        <Papel ceja={VERDE}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {canalesConTicket.map(c => {
+              const w = (c.ticket / maxTicket) * 100
+              const best = mejorTicketCanal?.id === c.id
+              return (
+                <div key={c.id}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontFamily: LEX, fontSize: 13, color: INK }}>{c.label}</span>
+                    <span style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, color: best ? VERDE : INK }}>
+                      {fmtEur(c.ticket)}{best && <span style={{ fontSize: 11, marginLeft: 6 }}>★ mejor</span>}
+                    </span>
+                  </div>
+                  <div style={{ height: 14, background: '#00000010', border: `2px solid ${INK}`, overflow: 'hidden' }}>
+                    <div style={{ width: `${w}%`, height: '100%', background: best ? VERDE : (CORP[c.corp] ?? INK) }} />
+                  </div>
                 </div>
-                <div style={BAR.track}>
-                  <div style={{ width: `${w}%`, height: '100%', background: best ? COLORS.warn : c.color, borderRadius: 4, transition: 'width 400ms ease' }} />
-                </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        </Papel>
       </div>
 
       {/* Top 5 días */}
-      <div style={{ ...CARDS.std, marginTop: 14 }}>
-        <div style={{ ...lbl, marginBottom: 12 }}>Top 5 días por pedidos</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={thStyle}>#</th>
-              <th style={thStyle}>Fecha</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Pedidos</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Bruto</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Ticket</th>
-            </tr>
-          </thead>
-          <tbody>
-            {top5.map((r, i) => {
-              const ticket = r.total_pedidos > 0 ? r.total_bruto / r.total_pedidos : 0
-              const [y, m, d] = r.fecha.split('-')
-              return (
-                <tr key={r.fecha}>
-                  <td style={tdStyle}>
-                    <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, color: COLORS.mut }}>
-                      {i + 1}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>{d}/{m}/{y}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'Oswald, sans-serif', color: COLORS.pri }}>
-                    {fmtNum(r.total_pedidos)}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtEur(r.total_bruto)}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtEur(ticket)}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+      <div>
+        <SeccionLabel bg={AZUL}>Top 5 días por pedidos</SeccionLabel>
+        <Papel ceja={AZUL} pad="0" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
+            <thead>
+              <tr style={{ background: INK }}>
+                {['#', 'Fecha', 'Pedidos', 'Bruto', 'Ticket'].map((h, i) => (
+                  <th key={h} style={{ padding: '10px 12px', textAlign: i > 1 ? 'right' : 'left', fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff8e7', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {top5.map((r, i) => {
+                const ticket = r.total_pedidos > 0 ? r.total_bruto / r.total_pedidos : 0
+                const [y, m, d] = r.fecha.split('-')
+                return (
+                  <tr key={r.fecha} style={{ borderBottom: `2px solid ${INK}` }}>
+                    <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, color: GRIS }}>{i + 1}</td>
+                    <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600 }}>{d}/{m}/{y}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700 }}>{fmtNum(r.total_pedidos)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtEur(r.total_bruto)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtEur(ticket)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </Papel>
       </div>
-
-    </div>
+    </PantallaCantera>
   )
 }

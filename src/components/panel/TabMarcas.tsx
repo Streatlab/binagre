@@ -1,10 +1,12 @@
 /**
  * TabMarcas — Panel Global · pestaña Marcas
+ * CANTERA ALEGRE v1.0 (área Marcas · rosa). Solo capa visual; datos/lógica intactos.
  */
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { COLORS, FONT, CARDS, BAR, lbl, kpiMid, kpiSm } from '@/components/panel/resumen/tokens'
+import { INK, GRIS, OSW, LEX, VERDE, NAR, AMA, AZUL, ROSA, GRANATE } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 import { fmtEur, fmtNum } from '@/utils/format'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 import { resolverNeto } from '@/lib/panel/netoResolver'
@@ -26,19 +28,7 @@ const CANALES = [
   { id: 'dir',   bk: 'directa_bruto', pk: 'directa_pedidos' },
 ] as const
 
-function kpiCard(label: string, value: string, sub?: string) {
-  return (
-    <div style={{ ...CARDS.std, flex: 1, minWidth: 160 }}>
-      <div style={lbl}>{label}</div>
-      <div style={{ ...kpiMid, marginTop: 6, color: COLORS.pri }}>{value}</div>
-      {sub && <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 2 }}>{sub}</div>}
-    </div>
-  )
-}
-
-const MARCA_COLORS = [
-  COLORS.redSL, COLORS.uber, COLORS.je, COLORS.directa, COLORS.warn,
-]
+const MARCA_COLORS = [ROSA, AZUL, VERDE, NAR, AMA]
 
 export default function TabMarcas({ rows, fechaDesde, fechaHasta }: Props) {
   const [marcasDisp, setMarcasDisp] = useState<Marca[]>([])
@@ -52,9 +42,9 @@ export default function TabMarcas({ rows, fechaDesde, fechaHasta }: Props) {
 
   if (!rows.length) {
     return (
-      <div style={{ padding: 40, textAlign: 'center', color: COLORS.mut, fontFamily: FONT.body, fontSize: 14 }}>
-        Sin datos para el período seleccionado
-      </div>
+      <PantallaCantera embedded>
+        <Papel ceja={ROSA}><div style={{ color: GRIS, fontFamily: LEX }}>Sin datos para el período seleccionado.</div></Papel>
+      </PantallaCantera>
     )
   }
 
@@ -62,31 +52,33 @@ export default function TabMarcas({ rows, fechaDesde, fechaHasta }: Props) {
   const hayServicio = rows.some(r => r.servicio != null && r.servicio !== '')
 
   if (!hayServicio) {
-    // Show summary using marcasDisp if available, otherwise just totals
     const totalBruto = rows.reduce((s, r) => s + r.total_bruto, 0)
     const totalPedidos = rows.reduce((s, r) => s + r.total_pedidos, 0)
     const ticketMedio = totalPedidos > 0 ? totalBruto / totalPedidos : 0
 
     return (
-      <div style={{ paddingTop: 12 }}>
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
-          {kpiCard('Ventas brutas', fmtEur(totalBruto))}
-          {kpiCard('Pedidos totales', fmtNum(totalPedidos))}
-          {kpiCard('Ticket medio', fmtEur(ticketMedio))}
-        </div>
-        <div style={{ ...CARDS.std, textAlign: 'center', padding: 40, color: COLORS.mut, fontFamily: FONT.body, fontSize: 14 }}>
-          Sin datos de marca en este período — el campo <em>servicio</em> no está informado en las filas cargadas.
+      <PantallaCantera embedded>
+        <HeroCantera
+          area="marcas"
+          titular={<>Ventas de <b>{fmtEur(totalBruto)}</b> sin desglose por marca este periodo.</>}
+          etiquetaDato="Ventas brutas del periodo"
+          cifra={fmtEur(totalBruto)}
+          resumen={<>{fmtNum(totalPedidos)} pedidos · ticket medio {fmtEur(ticketMedio)}</>}
+        />
+        <Papel ceja={ROSA}>
+          <div style={{ color: GRIS, fontFamily: LEX, fontSize: 14, textAlign: 'center', padding: '20px 0' }}>
+            Sin datos de marca en este período — el campo <em>servicio</em> no está informado en las filas cargadas.
+          </div>
           {marcasDisp.length > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <div style={{ ...lbl, marginBottom: 10 }}>Marcas activas registradas</div>
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 10, textAlign: 'center' }}>Marcas activas registradas</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                 {marcasDisp.map((m, i) => (
                   <span key={m.id} style={{
-                    padding: '4px 10px', borderRadius: 8,
-                    background: MARCA_COLORS[i % MARCA_COLORS.length] + '22',
-                    color: MARCA_COLORS[i % MARCA_COLORS.length],
-                    fontFamily: FONT.body, fontSize: 13,
-                    border: `1px solid ${MARCA_COLORS[i % MARCA_COLORS.length]}44`,
+                    padding: '4px 12px', border: `2px solid ${INK}`,
+                    background: MARCA_COLORS[i % MARCA_COLORS.length],
+                    color: MARCA_COLORS[i % MARCA_COLORS.length] === AMA ? INK : '#fff',
+                    fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: 'uppercase',
                   }}>
                     {m.nombre}
                   </span>
@@ -94,8 +86,8 @@ export default function TabMarcas({ rows, fechaDesde, fechaHasta }: Props) {
               </div>
             </div>
           )}
-        </div>
-      </div>
+        </Papel>
+      </PantallaCantera>
     )
   }
 
@@ -133,6 +125,8 @@ export default function TabMarcas({ rows, fechaDesde, fechaHasta }: Props) {
 
   const totalBruto = marcaList.reduce((s, m) => s + m.bruto, 0)
   const totalPedidos = marcaList.reduce((s, m) => s + m.pedidos, 0)
+  const netoTot = marcaList.reduce((s, m) => s + m.neto, 0)
+  const margenTot = totalBruto > 0 ? (netoTot / totalBruto) * 100 : 0
 
   const marcaMasVentas = marcaList[0]
   const marcaMejorTicket = [...marcaList].sort((a, b) => {
@@ -141,128 +135,121 @@ export default function TabMarcas({ rows, fechaDesde, fechaHasta }: Props) {
     return tb - ta
   })[0]
 
-  const thStyle: React.CSSProperties = {
-    fontFamily: 'Oswald, sans-serif',
-    fontSize: 11,
-    letterSpacing: '1.5px',
-    color: COLORS.mut,
-    textTransform: 'uppercase',
-    fontWeight: 500,
-    padding: '8px 10px',
-    textAlign: 'left',
-    borderBottom: `1px solid ${COLORS.brd}`,
-  }
+  const titular = marcaMasVentas
+    ? <><b>{marcaMasVentas.nombre}</b> lidera el periodo con {fmtEur(marcaMasVentas.bruto)}.</>
+    : 'Desglose por marca del periodo.'
 
-  const tdStyle: React.CSSProperties = {
-    fontFamily: FONT.body,
-    fontSize: 13,
-    color: COLORS.sec,
-    padding: '8px 10px',
-    borderBottom: `1px solid ${COLORS.group}`,
-  }
-
-  const tdR: React.CSSProperties = { ...tdStyle, textAlign: 'right' }
+  const atencion = [
+    marcaMasVentas ? `Más ventas: ${marcaMasVentas.nombre} ${fmtEur(marcaMasVentas.bruto)}` : null,
+    marcaMejorTicket && marcaMejorTicket.pedidos > 0 ? `Mejor ticket: ${marcaMejorTicket.nombre} ${fmtEur(marcaMejorTicket.bruto / marcaMejorTicket.pedidos)}` : null,
+    `${marcaList.length} marcas con ventas en el periodo`,
+  ].filter(Boolean) as string[]
 
   return (
-    <div style={{ paddingTop: 12 }}>
+    <PantallaCantera embedded>
+      {/* 1 · Héroe del área Marcas (rosa) */}
+      <HeroCantera
+        area="marcas"
+        titular={titular}
+        etiquetaDato="Ventas brutas del periodo"
+        cifra={fmtEur(totalBruto)}
+        resumen={<>{fmtNum(totalPedidos)} pedidos · margen medio {margenTot.toFixed(0)}%</>}
+        atencion={atencion}
+      />
 
-      {/* KPI cards */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
-        {kpiCard('Marca más ventas', marcaMasVentas?.nombre ?? '—', fmtEur(marcaMasVentas?.bruto ?? 0))}
-        {kpiCard('Mejor ticket medio', marcaMejorTicket?.nombre ?? '—',
-          marcaMejorTicket && marcaMejorTicket.pedidos > 0
-            ? fmtEur(marcaMejorTicket.bruto / marcaMejorTicket.pedidos)
-            : '—'
-        )}
-        {kpiCard('Marcas con ventas en el periodo', fmtNum(marcaList.length))}
-      </div>
+      {/* 2 · Plancha KPIs */}
+      <Plancha>
+        <PlanchaCelda bg={ROSA} color="#fff" first>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Marca más ventas</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1.1, marginTop: 6, textTransform: 'uppercase' }}>{marcaMasVentas?.nombre ?? '—'}</div>
+          <div style={{ fontFamily: LEX, fontSize: 13, marginTop: 4 }}>{fmtEur(marcaMasVentas?.bruto ?? 0)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AZUL} color="#fff">
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Mejor ticket medio</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1.1, marginTop: 6, textTransform: 'uppercase' }}>{marcaMejorTicket?.nombre ?? '—'}</div>
+          <div style={{ fontFamily: LEX, fontSize: 13, marginTop: 4 }}>{marcaMejorTicket && marcaMejorTicket.pedidos > 0 ? fmtEur(marcaMejorTicket.bruto / marcaMejorTicket.pedidos) : '—'}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AMA} color={INK}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Marcas con ventas</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtNum(marcaList.length)}</div>
+          <div style={{ fontFamily: LEX, fontSize: 13, marginTop: 4 }}>en el periodo</div>
+        </PlanchaCelda>
+      </Plancha>
 
-      {/* % ventas por marca — barra horizontal */}
-      <div style={{ ...CARDS.std, marginBottom: 14 }}>
-        <div style={{ ...lbl, marginBottom: 14 }}>% ventas por marca</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {marcaList.map((m, i) => {
-            const pct = totalBruto > 0 ? (m.bruto / totalBruto) * 100 : 0
-            const color = MARCA_COLORS[i % MARCA_COLORS.length]
-            return (
-              <div key={m.nombre}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.sec }}>{m.nombre}</span>
-                  <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: COLORS.pri }}>
-                    {fmtEur(m.bruto)}{' '}
-                    <span style={{ color: COLORS.mut, fontSize: 11 }}>({pct.toFixed(1)}%)</span>
-                  </span>
+      {/* 3 · Frase potente (logro · verde, distinta del héroe rosa) */}
+      {marcaMasVentas && (
+        <FrasePotente significado="logro">{marcaMasVentas.nombre} concentra el {totalBruto > 0 ? ((marcaMasVentas.bruto / totalBruto) * 100).toFixed(0) : 0}% de la facturación del periodo.</FrasePotente>
+      )}
+
+      {/* % ventas por marca */}
+      <div>
+        <SeccionLabel bg={ROSA}>% ventas por marca</SeccionLabel>
+        <Papel ceja={ROSA}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {marcaList.map((m, i) => {
+              const pct = totalBruto > 0 ? (m.bruto / totalBruto) * 100 : 0
+              const color = MARCA_COLORS[i % MARCA_COLORS.length]
+              return (
+                <div key={m.nombre}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontFamily: LEX, fontSize: 13, color: INK }}>{m.nombre}</span>
+                    <span style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, color: INK }}>
+                      {fmtEur(m.bruto)} <span style={{ color: GRIS, fontSize: 11 }}>({pct.toFixed(1)}%)</span>
+                    </span>
+                  </div>
+                  <div style={{ height: 14, background: `${INK}10`, border: `2px solid ${INK}`, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: color }} />
+                  </div>
                 </div>
-                <div style={BAR.track}>
-                  <div style={{ width: `${pct}%`, background: color, borderRadius: 4, transition: 'width 400ms ease' }} />
-                </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        </Papel>
       </div>
 
       {/* Tabla desglose por marca */}
-      <div style={CARDS.std}>
-        <div style={{ ...lbl, marginBottom: 12 }}>Desglose por marca</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Marca</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Pedidos</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Bruto</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Neto est.</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Margen est.</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>% total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {marcaList.map((m, i) => {
-              const pct = totalBruto > 0 ? (m.bruto / totalBruto) * 100 : 0
-              const margen = m.bruto > 0 ? (m.neto / m.bruto) * 100 : 0
-              const color = MARCA_COLORS[i % MARCA_COLORS.length]
-              return (
-                <tr key={m.nombre}>
-                  <td style={tdStyle}>
-                    <span style={{
-                      display: 'inline-block', width: 10, height: 10,
-                      borderRadius: '50%', background: color,
-                      marginRight: 8, verticalAlign: 'middle',
-                    }} />
-                    {m.nombre}
-                  </td>
-                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', color: COLORS.pri }}>
-                    {fmtNum(m.pedidos)}
-                  </td>
-                  <td style={tdR}>{fmtEur(m.bruto)}</td>
-                  <td style={{ ...tdR, color: COLORS.ok }}>{fmtEur(m.neto)}</td>
-                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontSize: 12, color: margen >= 70 ? COLORS.ok : COLORS.warn }}>
-                    {margen.toFixed(0)}%
-                  </td>
-                  <td style={tdR}>
-                    <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12 }}>{pct.toFixed(1)}%</span>
-                  </td>
-                </tr>
-              )
-            })}
-            {(() => {
-              const netoTot = marcaList.reduce((s, m) => s + m.neto, 0)
-              const margenTot = totalBruto > 0 ? (netoTot / totalBruto) * 100 : 0
-              return (
-                <tr style={{ background: COLORS.group }}>
-                  <td style={{ ...tdStyle, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>TOTAL</td>
-                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{fmtNum(totalPedidos)}</td>
-                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{fmtEur(totalBruto)}</td>
-                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.ok }}>{fmtEur(netoTot)}</td>
-                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600, color: COLORS.pri }}>{margenTot.toFixed(0)}%</td>
-                  <td style={{ ...tdR, fontFamily: 'Oswald, sans-serif', fontWeight: 600 }}>100%</td>
-                </tr>
-              )
-            })()}
-          </tbody>
-        </table>
+      <div>
+        <SeccionLabel bg={GRANATE}>Desglose por marca</SeccionLabel>
+        <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
+            <thead>
+              <tr style={{ background: INK }}>
+                {['Marca', 'Pedidos', 'Bruto', 'Neto est.', 'Margen est.', '% total'].map((h, i) => (
+                  <th key={h} style={{ padding: '10px 12px', textAlign: i === 0 ? 'left' : 'right', fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff8e7', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {marcaList.map((m, i) => {
+                const pct = totalBruto > 0 ? (m.bruto / totalBruto) * 100 : 0
+                const margen = m.bruto > 0 ? (m.neto / m.bruto) * 100 : 0
+                const color = MARCA_COLORS[i % MARCA_COLORS.length]
+                return (
+                  <tr key={m.nombre} style={{ borderBottom: `2px solid ${INK}` }}>
+                    <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, border: `1px solid ${INK}`, display: 'inline-block' }} />
+                      {m.nombre}
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700 }}>{fmtNum(m.pedidos)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtEur(m.bruto)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', color: VERDE }}>{fmtEur(m.neto)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, color: margen >= 70 ? VERDE : NAR }}>{margen.toFixed(0)}%</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW }}>{pct.toFixed(1)}%</td>
+                  </tr>
+                )
+              })}
+              <tr style={{ background: INK }}>
+                <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 700, color: '#fff8e7' }}>TOTAL</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: '#fff8e7' }}>{fmtNum(totalPedidos)}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: '#fff8e7' }}>{fmtEur(totalBruto)}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: VERDE }}>{fmtEur(netoTot)}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: '#fff8e7' }}>{margenTot.toFixed(0)}%</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: '#fff8e7' }}>100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </Papel>
       </div>
-
-    </div>
+    </PantallaCantera>
   )
 }
