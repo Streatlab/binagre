@@ -90,7 +90,16 @@ function Anillo({ pct, color }: { pct: number; color: string }) {
   )
 }
 
-export default function CardHoyEnVivo() {
+/** Desde el 23-jul la franja vive SOLO en la pantalla Hoy. La referencia antigua
+ * de Panel Global · Resumen (ResumenLanding) queda inerte: sin la prop
+ * pantalla="hoy" el componente no pinta nada. Limpiar esa referencia muerta
+ * cuando ResumenLanding tenga su siguiente pasada. */
+export default function CardHoyEnVivo({ pantalla }: { pantalla?: 'hoy' } = {}) {
+  if (pantalla !== 'hoy') return null
+  return <CardHoyEnVivoInterna />
+}
+
+function CardHoyEnVivoInterna() {
   const [k, setK] = useState<Kpis | null>(null)
   const [canales, setCanales] = useState<Canal[]>([])
   const [marcas, setMarcas] = useState<Marca[]>([])
