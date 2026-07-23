@@ -1,9 +1,10 @@
-import { AZUL, BLANCO, BORDER_FINO, CLARO, GRANATE, GRIS, INK, LIMA, NAR, ROJO, SHADOW, VERDE } from '@/styles/neobrutal'
+import { AZUL, BLANCO, BORDER_FINO, CLARO, GRANATE, GRIS, INK, LIMA, NAR, ROJO, AMA, VERDE } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 import { OBJ_ROW_FINDE_BG, OBJ_ROW_HOY_BG, OBJ_ROW_HOY_FESTIVO_BG, OBJ_FESTIVO_BORDE, OBJ_FESTIVO_TXT, OBJ_FESTIVO_PILL_TXT } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNumES } from '@/utils/format'
-import { useTheme, cardStyle, semaforoColor, FONT, LAYOUT, pageTitleStyle, tabActiveStyle, tabInactiveStyle, tabsContainerStyle, CANALES } from '@/styles/tokens'
+import { useTheme, semaforoColor, FONT, LAYOUT, tabActiveStyle, tabInactiveStyle, tabsContainerStyle, CANALES } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
 import { useConfig } from '@/hooks/useConfig'
 import { loadConfigCanales, loadMarcasPorCanal, type CanalConfig as CanalConfigCentral, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
@@ -499,18 +500,47 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
   void CANALES
   void LAYOUT
 
+  const tituloHero = objPeriodo <= 0
+    ? 'El objetivo de ventas del periodo aún no está definido.'
+    : pctPer >= 100 ? 'Vas cumpliendo el objetivo de ventas del periodo.' : 'El periodo va por detrás del objetivo de ventas.'
+  const atencionHero = [
+    `Objetivo semanal ${fmtEur(objSemanal)}`,
+    `Objetivo mensual ${fmtEur(objMensual)}`,
+    `Objetivo anual ${fmtEur(objAnual)}`,
+    nDiasCerradosSemana > 0 ? `${nDiasCerradosSemana} día${nDiasCerradosSemana > 1 ? 's' : ''} cerrado${nDiasCerradosSemana > 1 ? 's' : ''} esta semana` : null,
+  ].filter(Boolean) as string[]
+  const faltaObjetivo = Math.max(0, objPeriodo - ventasPeriodo)
+
   return (
-    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 0, padding: '24px 28px', width: '100%', position: 'relative' }}>
+    <PantallaCantera embedded={embedded}>
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, background: toast.ok ? VERDE : GRANATE, color: BLANCO, padding: '10px 18px', borderRadius: 0, fontFamily: FONT.body, fontSize: 13, boxShadow: SHADOW, transition: 'opacity 0.3s' }}>
+        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, background: toast.ok ? VERDE : GRANATE, color: BLANCO, padding: '10px 18px', borderRadius: 0, border: `2px solid ${INK}`, fontFamily: FONT.body, fontSize: 13, transition: 'opacity 0.3s' }}>
           {toast.msg}
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-        {!embedded && <h1 style={pageTitleStyle(T)}>OBJETIVOS</h1>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <SelectorFechaUniversal nombreModulo="objetivos" defaultOpcion="semana_actual" onChange={handlePeriodo} />
       </div>
+
+      {/* 1 · Héroe del área Objetivos (amarillo) */}
+      <HeroCantera
+        area="objetivos"
+        periodo={periodoLabel}
+        titular={tituloHero}
+        etiquetaDato="Ventas del periodo"
+        cifra={fmtEur(ventasPeriodo)}
+        variacionPct={objPeriodo > 0 ? pctPer - 100 : null}
+        resumen={<>Neto estimado <b>{fmtEur(netoEstPeriodo)}</b> ({PCT_NETO_EST_PERIODO}% sobre bruto).</>}
+        atencion={atencionHero}
+      />
+
+      {/* 3 · Frase potente (distinta del héroe amarillo) */}
+      {objPeriodo > 0 && (
+        pctPer >= 100
+          ? <FrasePotente significado="logro">Vas por encima del objetivo del periodo: mantén el ritmo para no perder la ventaja.</FrasePotente>
+          : <FrasePotente significado="peligro">Faltan {fmtEur(faltaObjetivo)} para llegar al objetivo del periodo.</FrasePotente>
+      )}
 
       <div style={tabsContainerStyle()}>
         {tabs.map(tab => (
@@ -539,7 +569,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5" style={{ alignItems: 'start' }}>
 
-            <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 0, padding: '20px 24px' }}>
+            <Papel ceja={VERDE} pad="20px 24px">
               <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase', marginBottom: 4 }}>
                 VENTAS · {periodoLabel.toUpperCase()}
               </div>
@@ -565,9 +595,9 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
               {renderPeriodRow('Semanal', weekLabel, ventasSemana, objSemanal, pctSem, 'obj-semanal', (v) => saveObjetivoGeneral('semanal', v), () => deleteObjetivoGeneral('semanal'))}
               {renderPeriodRow('Mensual', hoy.toLocaleDateString('es-ES', { month: 'long' }), ventasMes, objMensual, pctMes, 'obj-mensual', (v) => saveObjetivoGeneral('mensual', v), () => deleteObjetivoGeneral('mensual'))}
               {renderPeriodRow('Anual', String(hoy.getFullYear()), ventasAno, objAnual, pctAno, 'obj-anual', (v) => saveObjetivoGeneral('anual', v), () => deleteObjetivoGeneral('anual'))}
-            </div>
+            </Papel>
 
-            <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 0, padding: '20px 24px' }}>
+            <Papel ceja={AZUL} pad="20px 24px">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase' }}>
                   Objetivo por día · {weekLabel}
@@ -650,7 +680,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                   )
                 })}
               </div>
-            </div>
+            </Papel>
 
           </div>
 
@@ -669,7 +699,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
             </div>
           </div>
 
-          <div style={cardStyle(T)}>
+          <Papel ceja={NAR} pad="14px 16px">
             <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, padding: '6px 0 10px', borderBottom: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut }}>
               <span>Período</span><span>Cumplido · Pendiente</span>
               <span style={{ textAlign: 'right' }}>% Real</span>
@@ -707,7 +737,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                 </div>
               )
             })}
-          </div>
+          </Papel>
         </>
       )}
 
@@ -733,7 +763,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
               return (
                 <div key={grupo.grupo} style={{ marginBottom: 28 }}>
                   <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: LIMA, marginBottom: 8 }}>{grupo.label}</div>
-                  <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, overflow: 'auto' }}>
+                  <Papel ceja={GRANATE} pad="0" style={{ overflow: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                       <thead>
                         <tr style={{ background: INK }}>
@@ -745,7 +775,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                       <tbody>
                         {grupo.codigos.map(cat => (
                           <tr key={cat.codigo} style={{ borderTop: `1px solid ${T.brd}` }}>
-                            <td style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, padding: '7px 12px', position: 'sticky', left: 0, background: T.card, zIndex: 1 }}>
+                            <td style={{ fontFamily: FONT.body, fontSize: 12, color: INK, padding: '7px 12px', position: 'sticky', left: 0, background: BLANCO, zIndex: 1 }}>
                               <span style={{ fontFamily: FONT.heading, fontSize: 10, color: LIMA, marginRight: 6 }}>{cat.codigo}</span>
                               {cat.nombre}
                             </td>
@@ -763,7 +793,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                                     />
                                   ) : (
                                     <span onClick={() => { setPresEditing(cellKey); setPresEditVal(String(val)) }}
-                                      style={{ fontFamily: FONT.heading, fontSize: 11, color: val > 0 ? T.pri : T.mut, cursor: 'pointer', display: 'block', padding: '3px 2px', borderRadius: 3 }}
+                                      style={{ fontFamily: FONT.heading, fontSize: 11, color: val > 0 ? INK : GRIS, cursor: 'pointer', display: 'block', padding: '3px 2px', borderRadius: 3 }}
                                       title="Clic para editar">
                                       {val > 0 ? fmtEur(val) : '—'}
                                     </span>
@@ -791,14 +821,14 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                         </tr>
                       </tbody>
                     </table>
-                  </div>
+                  </Papel>
                 </div>
               )
             })
           )}
 
           {!presLoading && (
-            <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, overflow: 'auto', marginTop: 4 }}>
+            <Papel ceja={GRANATE} pad="0" style={{ marginTop: 4, overflow: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                 <tbody>
                   <tr style={{ background: INK }}>
@@ -814,12 +844,12 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </Papel>
           )}
         </div>
       )}
 
-    </div>
+    </PantallaCantera>
   )
 }
 
