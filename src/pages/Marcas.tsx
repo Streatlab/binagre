@@ -1,10 +1,11 @@
-import { BLANCO, GRANATE, LIMA, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, LIMA, VERDE, ROSA } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import RutaPantalla from '@/components/ui/RutaPantalla'
+import { HeroCantera, PantallaCantera, Papel, FrasePotente } from '@/components/kit/cantera'
 
 interface Marca {
   id: string
@@ -79,10 +80,12 @@ export default function Marcas() {
   }
 
   const isMobile = useIsMobile()
+  const activas = marcas.filter(m => m.activa)
+  const inactivas = marcas.filter(m => !m.activa)
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: isMobile ? '16px' : '28px', background: 'var(--neo-bg)', minHeight: '100vh', color: 'var(--sl-text-primary)' }}>
-      <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+    <PantallaCantera>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
         <RutaPantalla niveles={['Marcas']} subtitulo="Gestion de marcas del negocio" />
         <button onClick={openCreate}
           style={{ padding: '10px 18px', minHeight: 44, background: LIMA, color: 'var(--sl-text-primary)', ...NEO_CARD, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 800, cursor: 'pointer' }}>
@@ -90,7 +93,26 @@ export default function Marcas() {
         </button>
       </div>
 
-      {error && <div style={{ backgroundColor: `${GRANATE}18`, ...NEO_CARD, padding: '14px 18px', color: GRANATE, fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {!loading && (
+        <HeroCantera
+          area="marcas"
+          titular={marcas.length === 0 ? 'Aun no hay marcas registradas.' : `Gestionas ${activas.length} marca${activas.length === 1 ? '' : 's'} activa${activas.length === 1 ? '' : 's'} de ${marcas.length} en total.`}
+          atencion={[
+            `${activas.length} activas`,
+            inactivas.length > 0 ? `${inactivas.length} inactivas` : null,
+          ].filter(Boolean) as string[]}
+        />
+      )}
+
+      {!loading && marcas.length > 0 && (
+        <FrasePotente significado={inactivas.length > 0 ? 'coste' : 'logro'}>
+          {inactivas.length > 0
+            ? `Tienes ${inactivas.length} marca${inactivas.length === 1 ? '' : 's'} inactiva${inactivas.length === 1 ? '' : 's'}: revisa si conviene reactivarlas o darlas de baja del todo.`
+            : 'Todas tus marcas están activas: cartera al día.'}
+        </FrasePotente>
+      )}
+
+      {error && <div style={{ backgroundColor: `${GRANATE}18`, ...NEO_CARD, padding: '14px 18px', color: GRANATE, fontSize: 13 }}>{error}</div>}
 
       {showForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'var(--sl-overlay)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -125,7 +147,7 @@ export default function Marcas() {
       )}
 
       {loading ? <div style={{ color: 'var(--sl-text-muted)', fontSize: 13 }}>Cargando...</div> : (
-        <div style={{ overflowX: 'auto', ...NEO_CARD }}>
+        <Papel ceja={ROSA} pad="0" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--sl-thead)' }}>
@@ -160,8 +182,8 @@ export default function Marcas() {
               ))}
             </tbody>
           </table>
-        </div>
+        </Papel>
       )}
-    </div>
+    </PantallaCantera>
   )
 }

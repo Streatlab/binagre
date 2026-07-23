@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import {
   INK, OSC, CREMA, CLARO, TRACK, VERDE, ROJO, NAR, AZUL, AMA, GRIS, OSW, LEX, SHADOW, BORDER_CARD, PAD, CORP, CLARA, eyebrow, d, BLANCO } from '@/styles/neobrutal'
 import { RUNNING_MUT, RUNNING_BORDER, ZEBRA_CLARA } from '@/styles/palettes'
+import { HeroCantera, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 import {
   loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal,
   type CanalConfig, type MarcasPorCanal,
@@ -317,7 +319,8 @@ export default function Cashflow() {
 
   // Tabla canónica Escandallo (patrón Notion 38dc8b1f): contenedor 5px + sombra 7px,
   // cabecera INK, banda lateral de estado, columna-bloque del KPI crítico, total INK.
-  const CONT: CSSProperties = { background: CREMA, border: `5px solid ${INK}`, boxShadow: `7px 7px 0 ${INK}` }
+  // Tablas informativas (no pulsables) → sin sombra dura, solo borde + ceja implícita del contenedor.
+  const CONT: CSSProperties = { background: CREMA, border: `5px solid ${INK}` }
   const thT: CSSProperties = { fontFamily: OSW, fontSize: 12, fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: CREMA, background: INK, padding: '9px 8px', textAlign: 'left', whiteSpace: 'nowrap', borderRight: `1px solid ${RUNNING_BORDER}` }
   const thTR: CSSProperties = { ...thT, textAlign: 'right' }
   const thTC: CSSProperties = { ...thT, textAlign: 'center' }
@@ -348,57 +351,46 @@ export default function Cashflow() {
   const barH = (v: number) => Math.max((v / maxBar) * (cb - ct), 1)
   const ySaldo = (v: number) => cb - (v / maxBar) * (cb - ct) * 0.85
 
+  const fraseHero = frases[0] ?? null
+
   return (
-    <div style={{ background: CREMA, fontFamily: LEX, color: INK, border: `4px solid ${INK}` }}>
+    <PantallaCantera>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
+        <RutaPantalla niveles={['Finanzas', 'Cashflow']} subtitulo="Cobros y tesorería" />
+      </div>
 
-      {/* ── SECCIÓN 1 · HERO (AZUL) ── */}
-      <section style={{ background: AZUL, borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 40, alignItems: 'start' }}>
-          {/* Izquierda: eyebrow + número hero + frases */}
-          <div>
-            <span style={eyebrow(BLANCO, INK)}>CASHFLOW · COBROS Y TESORERÍA</span>
-            <div style={{ marginTop: 18 }}>
-              <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: `${BLANCO}99`, marginBottom: 6 }}>POR COBRAR</div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
-                <div style={{ ...d('clamp(44px,6.8vw,92px)', BLANCO) }}>{nf0(porCobrarTotal)}</div>
-                {sim !== 0 && <span style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, color: AMA, letterSpacing: '0.5px', marginBottom: 14 }}>· simulación {sim > 0 ? '+' : ''}{sim}%</span>}
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 18 }}>
-              {frases.map((f, i) => (
-                <div key={i} style={{ fontFamily: OSW, fontSize: 'clamp(15px,2vw,19px)', fontWeight: 600, color: f.color, letterSpacing: '0.3px' }}>{f.txt}</div>
-              ))}
-            </div>
-          </div>
-          {/* Derecha: 4 KPIs apilados */}
-          <div style={{ background: CLARO, border: `3px solid ${INK}`, boxShadow: SHADOW }}>
-            {[
-              { label: 'Por cobrar', value: nf0(porCobrarTotal), color: VERDE },
-              { label: 'Hasta fin de mes', value: nf0(hastaFinMes), color: VERDE },
-              { label: `Saldo banco · ${ultimoMov || '—'}`, value: nf0(saldoBanco), color: saldoBanco >= 0 ? VERDE : ROJO },
-              { label: 'Runway', value: runwaySem > 0 ? `${Math.round(runwaySem)} sem.` : '—', color: runwaySem >= 12 ? VERDE : runwaySem > 0 ? NAR : GRIS },
-            ].map((k, i, arr) => (
-              <div key={i} style={{ padding: '18px 20px', borderBottom: i < arr.length - 1 ? `3px solid ${INK}` : 'none' }}>
-                <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 4 }}>{k.label}</div>
-                <div style={{ fontFamily: OSW, fontSize: 26, fontWeight: 700, lineHeight: 1, color: k.color }}>{k.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* Simulador full-width debajo del grid */}
-        <div style={{ borderTop: `4px solid ${INK}`, marginTop: 32, marginLeft: `-${PAD}`, marginRight: `-${PAD}`, padding: `14px ${PAD}`, background: OSC, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={eyebrow(`${BLANCO}33`, BLANCO)}>Simulador</span>
-          <div style={SUBC}>{simTabs.map(t => <button key={t.id} onClick={() => setSim(t.id)} style={sim === t.id ? subA : subI}>{t.label}</button>)}</div>
-        </div>
-      </section>
+      {/* ── HÉROE (AZUL · área Cashflow) ── */}
+      <HeroCantera
+        area="cashflow"
+        periodo={sim !== 0 ? `Simulación ${sim > 0 ? '+' : ''}${sim}%` : undefined}
+        titular={fraseHero ? fraseHero.txt : 'Cobros y tesorería del periodo.'}
+        etiquetaDato="Por cobrar"
+        cifra={nf0(porCobrarTotal)}
+        atencion={[
+          `Hasta fin de mes ${nf0(hastaFinMes)}`,
+          `Saldo banco${ultimoMov ? ` · ${ultimoMov}` : ''} ${nf0(saldoBanco)}`,
+          runwaySem > 0 ? `Runway ${Math.round(runwaySem)} sem.` : null,
+        ].filter(Boolean) as string[]}
+      />
 
-      {/* ── SECCIÓN 2 · COBROS · GRÁFICO (blanco) ── */}
-      <section style={{ background: BLANCO, borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+      {/* Simulador — pulsable → sombra permitida */}
+      <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={eyebrow(INK, CREMA)}>Simulador</span>
+        <div style={SUBC}>{simTabs.map(t => <button key={t.id} onClick={() => setSim(t.id)} style={sim === t.id ? subA : subI}>{t.label}</button>)}</div>
+      </div>
+
+      {/* FRASE POTENTE — 1 por pantalla, color por significado, distinta del héroe azul */}
+      {frases.length > 1 && (
+        <FrasePotente significado={frases[1].color === ROJO ? 'peligro' : frases[1].color === NAR ? 'coste' : 'oportunidad'}>{frases[1].txt}</FrasePotente>
+      )}
+
+      {/* ── COBROS · GRÁFICO (blanco) ── */}
+      <section style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${AMA}`, padding: `28px ${PAD}` }}>
         <span style={eyebrow(AMA)}>Cobros · cobrado y previsto · neto</span>
         {graf.length === 0
           ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, padding: '20px 0', marginTop: 8 }}>Sin cobros en el horizonte.</div>
           : (
-            <div style={{ marginTop: 18, background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px 16px' }}>
+            <div style={{ marginTop: 18, background: BLANCO, border: BORDER_CARD, padding: '20px 22px 16px' }}>
             <div style={{ position: 'relative' }}>
               <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
                 {[0, 1, 2, 3].map(g => { const v = maxY / 3 * g; const y = Y(v); return (<g key={g}><line x1={P.l} y1={y} x2={W - P.r} y2={y} stroke={TRACK} /><text x={P.l - 6} y={y + 3} textAnchor="end" fontSize="9" fill={GRIS} fontFamily="Lexend">{nf0(v)}</text></g>) })}
@@ -424,10 +416,10 @@ export default function Cashflow() {
           )}
       </section>
 
-      {/* ── SECCIÓN 3 · CAJA POR MES (CREMA) ── */}
-      <section style={{ background: CREMA, borderBottom: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
-        <span style={eyebrow(INK, CREMA)}>Caja por mes · banco real · línea = saldo</span>
-        <div style={{ marginTop: 18, background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '20px 22px 16px' }}>
+      {/* ── CAJA POR MES ── */}
+      <section style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${AZUL}`, padding: `22px ${PAD}` }}>
+        <span style={eyebrow(AZUL, BLANCO)}>Caja por mes · banco real · línea = saldo</span>
+        <div style={{ marginTop: 18, background: BLANCO, border: BORDER_CARD, padding: '20px 22px 16px' }}>
         <svg viewBox={`0 0 ${CW} 170`} style={{ width: '100%', height: 'auto' }}>
           <line x1={40} y1={cb} x2={CW - 10} y2={cb} stroke={TRACK} />
           {cruce.map((c, i) => { const x = cx(i); return (
@@ -451,10 +443,10 @@ export default function Cashflow() {
         </div>
       </section>
 
-      {/* ── SECCIÓN 4 · INGRESOS PENDIENTES + CAJA POR MARCA (blanco / CLARO) ── */}
-      <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
+      {/* ── INGRESOS PENDIENTES + CAJA POR MARCA ── */}
+      <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, alignItems: 'stretch' }}>
         {/* Izquierda: tabla ingresos pendientes */}
-        <div style={{ padding: `44px ${PAD}`, borderRight: `4px solid ${INK}`, background: BLANCO }}>
+        <div style={{ padding: `22px ${PAD}`, background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${VERDE}` }}>
           <span style={eyebrow(VERDE, BLANCO)}>Ingresos pendientes · lo que el banco aún no ha pagado</span>
           {futuros.length === 0
             ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin cobros pendientes.</div>
@@ -527,7 +519,7 @@ export default function Cashflow() {
           <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 10 }}>Desde el 20-jun: pendiente hasta que entra en banco o lo marcas a mano.</div>
         </div>
         {/* Derecha: caja por marca */}
-        <div style={{ padding: `44px ${PAD}`, background: CLARO }}>
+        <div style={{ padding: `22px ${PAD}`, background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${INK}` }}>
           <span style={eyebrow(INK, CREMA)}>Caja por marca · 90d · {porMarca.length} activas</span>
           {porMarca.length === 0
             ? <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 14 }}>Sin marcas activas.</div>
@@ -543,7 +535,7 @@ export default function Cashflow() {
                             <span style={{ fontFamily: OSW, fontSize: 13, fontWeight: 700, color: sin ? GRIS : INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.marca}</span>
                             <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 15, color: sin ? GRIS : VERDE, flexShrink: 0 }}>{nf0(m.neto)}</span>
                           </div>
-                          <div style={{ height: 14, background: TRACK, border: BORDER_CARD, boxShadow: SHADOW }}>
+                          <div style={{ height: 14, background: TRACK, border: BORDER_CARD }}>
                             <div style={{ height: '100%', width: `${(m.neto / max) * 100}%`, background: sin ? GRIS : VERDE, borderRight: sin ? 'none' : `2px solid ${INK}` }} />
                           </div>
                         </div>
@@ -557,10 +549,10 @@ export default function Cashflow() {
         </div>
       </section>
 
-      {/* ── SECCIÓN 5 · GASTOS DEL MES (grid 2fr 1fr, fondo CLARO) ── */}
-      <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderBottom: `4px solid ${INK}` }}>
+      {/* ── GASTOS DEL MES ── */}
+      <section style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, alignItems: 'stretch' }}>
         {/* Izquierda: tabla gastos */}
-        <div style={{ background: BLANCO, borderRight: `4px solid ${INK}`, padding: `44px ${PAD}` }}>
+        <div style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${ROJO}`, padding: `22px ${PAD}` }}>
           <span style={eyebrow(ROJO, BLANCO)}>Gastos del mes · por categoría</span>
           {gastosCat.length === 0
             ? <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 14 }}>Sin facturas registradas este mes.</div>
@@ -616,7 +608,7 @@ export default function Cashflow() {
           <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 10 }}>Datos reales de facturas. El estado de pago/vencimiento aún no se registra.</div>
         </div>
         {/* Derecha: KPI gasto */}
-        <div style={{ padding: `44px ${PAD}`, background: CLARO }}>
+        <div style={{ padding: `22px ${PAD}`, background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${INK}` }}>
           <span style={eyebrow(INK, CREMA)}>Gasto del mes</span>
           <div style={{ marginTop: 22 }}>
             <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 8 }}>Total facturado</div>
@@ -629,16 +621,16 @@ export default function Cashflow() {
         </div>
       </section>
 
-      {/* ── SECCIÓN 6 · PENDIENTE DE ACTIVAR (TRACK) ── */}
-      <section style={{ background: TRACK, padding: `44px ${PAD}` }}>
-        <span style={eyebrow(INK, CREMA)}>Se activa al cargar datos</span>
+      {/* ── PENDIENTE DE ACTIVAR ── */}
+      <section style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${GRIS}`, padding: `22px ${PAD}` }}>
+        <span style={eyebrow(GRIS, BLANCO)}>Se activa al cargar datos</span>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 22 }}>
           {[
             { t: 'Recorte real vs previsto', desc: 'Reembolsos y penalizaciones de cada liquidación de plataforma.', dep: 'liquidaciones (vacías)' },
             { t: 'Coste de ADS y promos', desc: 'Descuento por publicidad y su efecto en el neto.', dep: 'liquidaciones (vacías)' },
             { t: 'Calendario 30/60/90', desc: 'Días con dinero y días secos.', dep: 'fecha de pago de gastos' },
           ].map((x, i) => (
-            <div key={i} style={{ border: `2px dashed ${INK}`, padding: '16px 18px', background: BLANCO, boxShadow: SHADOW }}>
+            <div key={i} style={{ border: `2px dashed ${INK}`, padding: '16px 18px', background: BLANCO }}>
               <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: INK, marginBottom: 7 }}>{x.t}</div>
               <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 8, lineHeight: 1.4 }}>{x.desc}</div>
               <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '0.5px', textTransform: 'uppercase', color: AZUL }}>Falta: {x.dep}</div>
@@ -647,6 +639,6 @@ export default function Cashflow() {
         </div>
       </section>
 
-    </div>
+    </PantallaCantera>
   )
 }

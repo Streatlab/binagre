@@ -18,6 +18,7 @@ import {
 } from '../lib/parsers/guardarDatosFases';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import RutaPantalla from '@/components/ui/RutaPantalla';
+import { HeroCantera, PantallaCantera, Papel, FrasePotente } from '@/components/kit/cantera';
 
 // ── Neobrutal ────────────────────────────────────────────────────
 const NEO_INK = 'var(--neo-ink)';
@@ -165,14 +166,40 @@ export default function ImportarVentas() {
   const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;
   const fmtEur = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  const heroTitular = resultado
+    ? 'Importación guardada correctamente.'
+    : error
+      ? 'Hay un problema con el archivo: revisa el error antes de continuar.'
+      : datos
+        ? `Archivo leído: listo para guardar en el ERP.`
+        : 'Sube el CSV de una plataforma para actualizar el ERP con datos reales.';
+  const fraseSig = error ? 'peligro' : resultado ? 'logro' : 'oportunidad';
+  const fraseTxt = error
+    ? 'Corrige el archivo antes de reintentar: un CSV mal formado puede duplicar o perder registros.'
+    : resultado
+      ? 'Datos guardados: el ERP ya refleja esta importación en sus paneles.'
+      : 'Cada CSV importado a tiempo mantiene el panel de ventas fiable para decidir con datos reales, no estimados.';
+
   return (
-    <div style={{ padding: 'clamp(14px,3vw,28px)', maxWidth: 960, background: 'var(--neo-bg)', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+    <PantallaCantera>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
         <RutaPantalla niveles={['Importar ventas']} subtitulo="Sube los CSVs de cada plataforma para mantener el ERP actualizado con datos reales." />
       </div>
 
+      {/* HÉROE (verde · área Ventas) */}
+      <HeroCantera
+        area="ventas"
+        titular={heroTitular}
+        etiquetaDato={datos ? 'Registros listos para guardar' : undefined}
+        cifra={datos ? String(datos.data.length) : undefined}
+        atencion={[fileName ? `Archivo: ${fileName}` : null, `Tipo: ${tipoInfo.label}`].filter(Boolean) as string[]}
+      />
+
+      {/* FRASE POTENTE (1 por pantalla, distinta del héroe verde) */}
+      <FrasePotente significado={fraseSig}>{fraseTxt}</FrasePotente>
+
       {/* Selector tipo */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <label style={{ fontSize: 14, fontWeight: 500, color: 'var(--sl-text-secondary)' }}>Tipo de archivo:</label>
         <select
           value={tipo}
@@ -194,25 +221,25 @@ export default function ImportarVentas() {
         )}
       </div>
 
-      {/* Upload */}
-      <div style={{ ...NEO_CARD, padding: 'clamp(18px,4vw,32px)', textAlign: 'center', background: 'var(--sl-card)', marginBottom: 20 }}>
+      {/* Upload — bloque informativo, sin sombra (el botón pulsable sí la lleva) */}
+      <Papel ceja={VERDE} style={{ padding: 'clamp(18px,4vw,32px)', textAlign: 'center', background: 'var(--sl-card)' }}>
         <input type="file" accept=".csv" onChange={handleFile} style={{ display: 'none' }} id="csv-upload" key={tipo} />
         <label htmlFor="csv-upload" style={{ cursor: 'pointer', display: 'inline-block', padding: '13px 24px', minHeight: 44, boxSizing: 'border-box', background: GRANATE, color: BLANCO, border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW, fontSize: 14, fontWeight: 700, textTransform: 'uppercase' }}>
           Seleccionar CSV
         </label>
         {fileName && <p style={{ marginTop: 12, fontSize: 13, color: 'var(--sl-text-muted)' }}>📄 {fileName}</p>}
-      </div>
+      </Papel>
 
       {/* Error */}
       {error && (
-        <div style={{ background: CORREO_ERROR_BORDE + '18', border: `3px solid ${CORREO_ERROR_BORDE}`, borderRadius: 0, boxShadow: NEO_SHADOW, padding: 16, marginBottom: 20, color: ROJO, fontSize: 13, fontWeight: 600, whiteSpace: 'pre-wrap' }}>
+        <div style={{ background: CORREO_ERROR_BORDE + '18', border: `3px solid ${CORREO_ERROR_BORDE}`, borderRadius: 0, padding: 16, color: ROJO, fontSize: 13, fontWeight: 600, whiteSpace: 'pre-wrap' }}>
           {error}
         </div>
       )}
 
       {/* Resultado */}
       {resultado && (
-        <div style={{ background: COBERTURA_VERDE + '18', border: `3px solid ${COBERTURA_VERDE}`, borderRadius: 0, boxShadow: NEO_SHADOW, padding: 16, marginBottom: 20, color: VERDE, fontSize: 14, fontWeight: 700 }}>
+        <div style={{ background: COBERTURA_VERDE + '18', border: `3px solid ${COBERTURA_VERDE}`, borderRadius: 0, padding: 16, color: VERDE, fontSize: 14, fontWeight: 700 }}>
           {resultado}
         </div>
       )}
@@ -220,7 +247,7 @@ export default function ImportarVentas() {
       {/* Preview tabla */}
       {datos && (
         <>
-          <div style={{ background: 'var(--sl-card)', ...NEO_CARD, overflowX: 'auto', marginBottom: 20 }}>
+          <Papel ceja={VERDE} pad="0" style={{ background: 'var(--sl-card)', overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
               <thead>
                 <tr style={{ background: 'var(--sl-app)' }}>
@@ -314,7 +341,7 @@ export default function ImportarVentas() {
                 Mostrando 50 de {datos.data.length} registros
               </div>
             )}
-          </div>
+          </Papel>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button onClick={handleGuardar} disabled={guardando}
@@ -330,7 +357,7 @@ export default function ImportarVentas() {
       )}
 
       {/* Info archivos */}
-      <div style={{ marginTop: 28, padding: 16, background: 'var(--sl-app)', ...NEO_CARD, fontSize: 12, color: 'var(--sl-text-muted)', lineHeight: 1.8 }}>
+      <Papel ceja={AZUL_CL} style={{ background: 'var(--sl-app)', fontSize: 12, color: 'var(--sl-text-muted)', lineHeight: 1.8 }}>
         <strong>¿De dónde se descarga cada archivo?</strong><br />
         <strong>Mensual (día ~5):</strong> U1: Uber Eats Manager → Informes → Detalle ganancias · G1: Glovo Manager → Historial pedidos<br />
         <strong>Semanal:</strong> U5: Uber Eats Manager → Facturación (subir en OCR)<br />
@@ -338,8 +365,8 @@ export default function ImportarVentas() {
         <strong>Fase 2:</strong> U4: Uber → Informes nivel artículo · S1: Sinqro → Exports → Sold products · R3: Rushour → Negocio → Desglose plataforma<br />
         <strong>Fase 3:</strong> R4+R5: Rushour → Informes → Ingresos / Volumen<br />
         <strong>Fase 4:</strong> G5: Glovo Manager → Rendimiento → Clientes
-      </div>
-    </div>
+      </Papel>
+    </PantallaCantera>
   );
 }
 

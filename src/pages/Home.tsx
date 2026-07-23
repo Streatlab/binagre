@@ -13,7 +13,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { INK, CREMA, GRANATE, AMA, VERDE, NARANJA, AZUL, ROJO, OSW, LEX, BORDER, SHADOW, eyebrow, bigNum, chip } from '@/styles/kit'
 import type { CSSProperties, ReactNode } from 'react'
-import HeroTocho, { Resaltado } from '@/components/kit/HeroTocho'
+import { HeroCantera, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import { AlertasBanner } from '@/pages/finanzas/PanelAlertas'
 
@@ -154,8 +154,20 @@ export default function Home() {
     { to: '/panel', label: 'Panel Global', emoji: '🧭' },
   ]
 
+  const tituloHero = cargando
+    ? '…'
+    : (hoy?.total_bruto ?? null) != null
+      ? <>Llevas <span style={{ background: NARANJA, color: INK, padding: '0 8px' }}>{eur(hoy?.total_bruto ?? null)}</span> vendidos hoy.</>
+      : 'Hoy aún no hay ventas registradas.'
+
+  const atencionHero = [
+    delta != null && semana != null ? `${delta >= 0 ? 'Buena racha' : 'Semana floja'}: ${eur(semana)} · ${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%` : (semana != null ? `Esta semana: ${eur(semana)}` : null),
+    mejorCanal ? `Ayer tiró ${mejorCanal.nombre} · ${eur(mejorCanal.v)}` : null,
+    nTareas != null && nTareas > 0 ? `${nTareas} tareas pendientes` : (nTareas === 0 ? 'Sin tareas pendientes' : null),
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={{ fontFamily: LEX, maxWidth: 1100, margin: '0 auto', color: INK, display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <PantallaCantera embedded>
       {/* Cabecera · CANTERA ALEGRE v4 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
         <RutaPantalla niveles={['Hoy']} subtitulo={new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} />
@@ -170,30 +182,15 @@ export default function Home() {
       <AlertasBanner />
 
       {/* HÉROE (amarillo · área Resumen/HOY) + tira de atención pegada */}
-      <div>
-        <HeroTocho
-          periodo="HOY EN VIVO"
-          titular={cargando ? '…' : <>Llevas <Resaltado>{eur(hoy?.total_bruto ?? null)}</Resaltado> vendidos hoy.</>}
-          etiquetaDato="AYER · FACTURACIÓN BRUTA"
-          dato={cargando ? '…' : eur(totalAyer)}
-          delta={delta == null ? undefined : `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}% semana`}
-          deltaPositivo={(delta ?? 0) >= 0}
-        />
-        <div style={{ background: INK, color: CREMA, border: BORDER, borderTop: 'none', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ ...eyebrow, color: CREMA }}>ATENCIÓN →</span>
-          {cargando ? <span style={{ fontFamily: OSW, fontSize: 12 }}>Leyendo el día…</span> : (
-            <>
-              {delta != null && semana != null && (
-                <span style={chipAtencion}>{delta >= 0 ? 'Buena racha' : 'Semana floja'}: {eur(semana)} · {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%</span>
-              )}
-              {delta == null && semana != null && <span style={chipAtencion}>Esta semana: {eur(semana)}</span>}
-              {mejorCanal && <span style={chipAtencion}>Ayer tiró {mejorCanal.nombre} · {eur(mejorCanal.v)}</span>}
-              {nTareas != null && nTareas > 0 && <span style={chipAtencion}>{nTareas} tareas pendientes</span>}
-              {nTareas === 0 && <span style={chipAtencion}>Sin tareas pendientes 👌</span>}
-            </>
-          )}
-        </div>
-      </div>
+      <HeroCantera
+        area="resumen"
+        periodo="Hoy en vivo"
+        titular={tituloHero}
+        etiquetaDato="Ayer · facturación bruta"
+        cifra={cargando ? '…' : eur(totalAyer)}
+        variacionPct={delta}
+        atencion={atencionHero}
+      />
 
       {/* PLANCHA DE KPIs: sólidos pegados, sin sombra */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: BORDER }}>
@@ -207,6 +204,15 @@ export default function Home() {
         </Celda>
         <Celda bg={INK} color={CREMA} label="🔔 PENDIENTES" ultima>{nTareas ?? '—'}</Celda>
       </div>
+
+      {/* FRASE POTENTE (1 por pantalla, color por significado, distinto del héroe amarillo) */}
+      {!cargando && (
+        delta != null && delta < 0
+          ? <FrasePotente significado="peligro">La semana afloja frente a la anterior: revisa qué canal está tirando menos antes de que se note en el mes.</FrasePotente>
+          : nTareas != null && nTareas > 0
+            ? <FrasePotente significado="oportunidad">Tienes {nTareas} tareas pendientes: despejarlas ahora es la forma más barata de no arrastrarlas al cierre.</FrasePotente>
+            : <FrasePotente significado="logro">Buena racha y bandeja al día: momento perfecto para revisar el panel global y anticipar la semana que viene.</FrasePotente>
+      )}
 
       {/* BLOQUES DE PAPEL con ceja y aire */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
@@ -254,6 +260,6 @@ export default function Home() {
           </Link>
         ))}
       </div>
-    </div>
+    </PantallaCantera>
   )
 }

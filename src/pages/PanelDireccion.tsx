@@ -2,8 +2,8 @@ import { BLANCO, GRANATE, LIMA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useMemo, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNum } from '@/utils/format'
-import { useIsMobile } from '@/hooks/useIsMobile'
 import RutaPantalla from '@/components/ui/RutaPantalla'
+import { HeroCantera, PantallaCantera, Plancha, PlanchaCelda, Papel, FrasePotente, SeccionLabel } from '@/components/kit/cantera'
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -104,7 +104,6 @@ const mutedStyle = { color: 'var(--sl-text-muted)', fontSize: 11, fontFamily: 'L
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function PanelDireccion() {
-  const isMobile = useIsMobile()
   const [diario, setDiario] = useState<DiarioRow[]>([])
   const [cobertura, setCobertura] = useState<KpiCobertura | null>(null)
   const [gastosFijos, setGastosFijos] = useState<GastoFijo[]>([])
@@ -343,77 +342,87 @@ export default function PanelDireccion() {
   const colorEstado = estadoGlobal === 'rojo' ? GRANATE : estadoGlobal === 'amarillo' ? LIMA : VERDE
   const labelEstado = estadoGlobal === 'rojo' ? 'ROJO' : estadoGlobal === 'amarillo' ? 'AMARILLO' : 'VERDE'
 
+  const heroTitular = estadoGlobal === 'rojo'
+    ? 'Hay frentes abiertos que necesitan atención hoy.'
+    : estadoGlobal === 'amarillo'
+      ? 'El negocio va, pero hay un par de cosas que vigilar.'
+      : 'Todo en orden: sin alertas activas esta semana.'
+  const heroAtencion = alertas.length > 0
+    ? alertas.slice(0, 4).map(a => a.texto)
+    : ['Sin alertas activas']
+  const fraseTop = alertas[0] ?? null
+  const fraseSignificado = fraseTop
+    ? (fraseTop.nivel === 'roja' ? 'peligro' : 'coste') as const
+    : 'logro' as const
+  const fraseTexto = fraseTop
+    ? fraseTop.texto
+    : 'Semana sin alertas: ventas, conciliación y gastos fijos dentro de rango.'
+
   if (loading) {
     return (
-      <div style={{
-        fontFamily: 'Lexend, sans-serif', background: 'var(--neo-bg)', minHeight: '100vh',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--sl-text-muted)', fontSize: 14,
-      }}>
-        Cargando Panel de Dirección…
-      </div>
+      <PantallaCantera>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: 'var(--sl-text-muted)', fontSize: 14, fontFamily: 'Lexend, sans-serif' }}>
+          Cargando Panel de Dirección…
+        </div>
+      </PantallaCantera>
     )
   }
 
   return (
-    <div style={{ fontFamily: 'Lexend, sans-serif', background: 'var(--neo-bg)', minHeight: '100vh', padding: isMobile ? '16px 12px' : '24px 20px', color: 'var(--sl-text-primary)' }}>
+    <PantallaCantera>
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16, marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
         <RutaPantalla niveles={['Panel de dirección']} subtitulo={fechaHoraStr} />
 
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          background: 'var(--sl-card-alt)', border: `3px solid ${colorEstado}`, borderRadius: 0, boxShadow: NEO_SHADOW, padding: '8px 18px',
-        }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: colorEstado, flexShrink: 0 }} />
-          <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: colorEstado, letterSpacing: '1.5px' }}>
-            ESTADO {labelEstado}
-          </span>
-        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: 'var(--sl-card-alt)', border: `3px solid ${colorEstado}`, borderRadius: 0, boxShadow: NEO_SHADOW, padding: '8px 18px',
+          }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: colorEstado, flexShrink: 0 }} />
+            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: colorEstado, letterSpacing: '1.5px' }}>
+              ESTADO {labelEstado}
+            </span>
+          </div>
 
-        <button
-          onClick={cargar}
-          style={{
-            background: GRANATE, color: BLANCO, border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW,
-            padding: '12px 20px', minHeight: 44, fontFamily: 'Oswald, sans-serif', fontSize: 13,
-            letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer',
-          }}
-        >
-          Actualizar
-        </button>
+          <button
+            onClick={cargar}
+            style={{
+              background: GRANATE, color: BLANCO, border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW,
+              padding: '12px 20px', minHeight: 44, fontFamily: 'Oswald, sans-serif', fontSize: 13,
+              letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer',
+            }}
+          >
+            Actualizar
+          </button>
+        </div>
       </div>
 
-      {/* ── KPIs PRINCIPALES ───────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 24 }}>
+      {/* ── HÉROE (tinta · área Equipo/Dirección) ── */}
+      <HeroCantera
+        area="equipo"
+        periodo={mesActual}
+        titular={heroTitular}
+        etiquetaDato="Ventas esta semana"
+        cifra={fmtEur(ventasSemActual)}
+        variacionPct={varVentas}
+        resumen={<>Proyección de mes <b>{fmtEur(proyeccionMes)}</b> sobre objetivo {fmtEur(objetivoMensual)}.</>}
+        atencion={heroAtencion}
+      />
 
-        {/* Ventas semana actual */}
-        <div style={cardStyle}>
-          <div style={labelStyle}>Ventas esta semana</div>
-          <div style={bigStyle}>{fmtEur(ventasSemActual)}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-            {renderDelta(varVentas)}
-            <span style={mutedStyle}>vs sem. ant. ({fmtEur(ventasSemAnterior)})</span>
-          </div>
-        </div>
-
-        {/* Ticket medio */}
-        <div style={cardStyle}>
-          <div style={labelStyle}>Ticket medio esta semana</div>
-          <div style={bigStyle}>{ticketSemActual > 0 ? fmtEur(ticketSemActual) : '—'}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-            {renderDelta(varTicket)}
-            <span style={mutedStyle}>vs sem. ant. ({ticketSemAnterior > 0 ? fmtEur(ticketSemAnterior) : '—'})</span>
-          </div>
-        </div>
-
-        {/* Cobertura conciliación */}
-        <div style={cardStyle}>
-          <div style={labelStyle}>Cobertura conciliación</div>
+      {/* ── KPIs PRINCIPALES: plancha sólida pegada, sin sombra ── */}
+      <Plancha>
+        <PlanchaCelda first>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.65 }}>Ticket medio semana</div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{ticketSemActual > 0 ? fmtEur(ticketSemActual) : '—'}</div>
+          <div style={{ marginTop: 6 }}>{renderDelta(varTicket)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.65 }}>Cobertura conciliación</div>
           <div style={{
-            ...bigStyle,
-            color: pctCobertura !== null
-              ? (pctCobertura >= 80 ? VERDE : pctCobertura >= 50 ? LIMA : GRANATE)
-              : 'var(--sl-text-muted)',
+            fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6,
+            color: pctCobertura !== null ? (pctCobertura >= 80 ? VERDE : pctCobertura >= 50 ? LIMA : GRANATE) : undefined,
           }}>
             {pctCobertura !== null ? `${pctCobertura.toFixed(1)}%` : '—'}
           </div>
@@ -423,17 +432,12 @@ export default function PanelDireccion() {
               {fmtNum(cobertura.movimientos_con_factura)} / {fmtNum(cobertura.movimientos_total)} movimientos
             </div>
           )}
-        </div>
-
-        {/* Días fin de mes + proyección */}
-        <div style={cardStyle}>
-          <div style={labelStyle}>Días hasta fin de mes</div>
-          <div style={bigStyle}>{diasFinMes} días</div>
+        </PlanchaCelda>
+        <PlanchaCelda>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.65 }}>Días hasta fin de mes</div>
+          <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{diasFinMes} días</div>
           <div style={{ marginTop: 8 }}>
             <div style={mutedStyle}>Ventas mes: <span style={{ color: 'var(--sl-btn-cancel-text)' }}>{fmtEur(ventasMes)}</span></div>
-            <div style={{ ...mutedStyle, marginTop: 3 }}>
-              Proyección: <span style={{ color: proyeccionMes >= objetivoMensual ? VERDE : LIMA }}>{fmtEur(proyeccionMes)}</span>
-            </div>
             <div style={{ ...mutedStyle, marginTop: 3 }}>Objetivo: <span style={{ color: 'var(--sl-btn-cancel-text)' }}>{fmtEur(objetivoMensual)}</span></div>
             <div style={{ height: 5, background: 'var(--sl-border)', borderRadius: 3, marginTop: 6 }}>
               <div style={{
@@ -443,32 +447,36 @@ export default function PanelDireccion() {
               }} />
             </div>
           </div>
-        </div>
+        </PlanchaCelda>
+      </Plancha>
 
+      {/* ── FRASE POTENTE (1 por pantalla, distinta del héroe tinta) ── */}
+      <FrasePotente significado={fraseSignificado}>{fraseTexto}</FrasePotente>
+
+      {/* ── PANEL DE ALERTAS — papel sin sombra ── */}
+      <div>
+        <SeccionLabel bg={colorEstado} color={colorEstado === LIMA ? NEO_INK : BLANCO}>Panel de alertas</SeccionLabel>
+        <Papel ceja={colorEstado}>
+          {alertas.length === 0 ? (
+            <div style={{
+              background: NEO_INK, border: `2px solid ${VERDE}`, borderRadius: 0,
+              padding: '10px 16px', display: 'flex', alignItems: 'flex-start', gap: 10,
+            }}>
+              <span style={{ fontSize: 14 }}>✓</span>
+              <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: VERDE }}>
+                Todo en orden
+              </span>
+            </div>
+          ) : (
+            alertas.map((a, i) => renderAlerta(a, i))
+          )}
+        </Papel>
       </div>
 
-      {/* ── PANEL DE ALERTAS ───────────────────────────────────────────────── */}
-      <div style={{ ...cardStyle, marginBottom: 24 }}>
-        <div style={{ ...labelStyle, marginBottom: 14 }}>Panel de alertas</div>
-        {alertas.length === 0 ? (
-          <div style={{
-            background: NEO_INK, border: `2px solid ${VERDE}`, borderRadius: 0,
-            padding: '10px 16px', display: 'flex', alignItems: 'flex-start', gap: 10,
-          }}>
-            <span style={{ fontSize: 14 }}>✓</span>
-            <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: VERDE }}>
-              Todo en orden
-            </span>
-          </div>
-        ) : (
-          alertas.map((a, i) => renderAlerta(a, i))
-        )}
-      </div>
-
-      {/* ── RESUMEN SEMANAL ────────────────────────────────────────────────── */}
-      <div style={cardStyle}>
-        <div style={{ ...labelStyle, marginBottom: 16 }}>Resumen semanal — últimas 4 semanas</div>
-        <div style={{ overflowX: 'auto' }}>
+      {/* ── RESUMEN SEMANAL — papel sin sombra ── */}
+      <div>
+        <SeccionLabel bg={NEO_INK} color={BLANCO}>Resumen semanal — últimas 4 semanas</SeccionLabel>
+        <Papel ceja={NEO_INK} pad="0" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13, minWidth: 520 }}>
             <thead>
               <tr>
@@ -517,9 +525,9 @@ export default function PanelDireccion() {
               ))}
             </tbody>
           </table>
-        </div>
+        </Papel>
       </div>
 
-    </div>
+    </PantallaCantera>
   )
 }
