@@ -1,10 +1,10 @@
-import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, ROJO, ROJO_S, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, ROJO, ROJO_S, VERDE, SHADOW_MINI } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtDate } from '@/lib/format'
-import { ConfigShell } from '@/components/configuracion/ConfigShell'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import { FONT } from '@/styles/tokens'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 import {
   APRENDIZAJES_MODULO, APRENDIZAJES_MODULO_DEFAULT, APRENDIZAJES_MODULO_CONFIG_TXT,
   APRENDIZAJES_SEC, APRENDIZAJES_OK_BG, APRENDIZAJES_OK_TXT, ERROR_BANNER_BG, ERROR_BANNER_BORDE,
@@ -143,10 +143,10 @@ export default function AprendizajesPage() {
   }
 
   const inputStyle: React.CSSProperties = {
-    backgroundColor: INK,
-    border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 4,
-    color: BLANCO,
+    backgroundColor: BLANCO,
+    border: `2px solid ${INK}`,
+    borderRadius: 0,
+    color: INK,
     fontFamily: FONT.body,
     fontSize: 13,
     padding: '7px 10px',
@@ -155,57 +155,66 @@ export default function AprendizajesPage() {
     resize: 'vertical' as const,
   }
 
+  const totalRegistrado = rows.length
+
   return (
-    <ConfigShell>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <RutaPantalla niveles={['Ajustes', 'Aprendizajes ERP']} />
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input
-            placeholder="Buscar aprendizajes..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ ...inputStyle, width: 220, resize: undefined }}
-          />
-          <button
-            onClick={() => { setShowForm(v => !v); setFeedback(null) }}
-            style={{ backgroundColor: LIMA, color: INK, border: 'none', borderRadius: 4, padding: '7px 16px', fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.5px', cursor: 'pointer', textTransform: 'uppercase' }}
-          >
-            {showForm ? 'Cancelar' : '+ Añadir aprendizaje'}
-          </button>
-        </div>
+    <PantallaCantera>
+      <RutaPantalla niveles={['Ajustes', 'Aprendizajes ERP']} />
+
+      {/* Héroe: nº de aprendizajes registrados (área Papeleo · granate) */}
+      <HeroCantera
+        area="papeleo"
+        titular={totalRegistrado === 0 ? 'Todavía no hay aprendizajes registrados.' : `${totalRegistrado} aprendizajes registrados para no repetir errores.`}
+        etiquetaDato="Aprendizajes en la base"
+        cifra={String(totalRegistrado)}
+      />
+
+      {/* Buscador y alta */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input
+          placeholder="Buscar aprendizajes..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ ...inputStyle, width: 220, resize: undefined }}
+        />
+        <button
+          onClick={() => { setShowForm(v => !v); setFeedback(null) }}
+          style={{ backgroundColor: LIMA, color: INK, border: `2px solid ${INK}`, boxShadow: SHADOW_MINI, borderRadius: 0, padding: '7px 16px', fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.5px', cursor: 'pointer', textTransform: 'uppercase' }}
+        >
+          {showForm ? 'Cancelar' : '+ Añadir aprendizaje'}
+        </button>
       </div>
 
       {/* Feedback */}
       {feedback && (
-        <div style={{ backgroundColor: feedback.ok ? APRENDIZAJES_OK_BG : ERROR_BANNER_BG, border: `1px solid ${feedback.ok ? VERDE : ERROR_BANNER_BORDE}`, color: feedback.ok ? APRENDIZAJES_OK_TXT : ROJO_S, borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontFamily: FONT.body, fontSize: 13 }}>
+        <div style={{ backgroundColor: feedback.ok ? APRENDIZAJES_OK_BG : ERROR_BANNER_BG, border: `1px solid ${feedback.ok ? VERDE : ERROR_BANNER_BORDE}`, color: feedback.ok ? APRENDIZAJES_OK_TXT : ROJO_S, borderRadius: 4, padding: '10px 14px', fontFamily: FONT.body, fontSize: 13 }}>
           {feedback.msg}
         </div>
       )}
 
       {/* Form inline */}
       {showForm && (
-        <div style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, padding: 20, marginBottom: 20 }}>
-          <h2 style={{ fontFamily: FONT.heading, fontSize: 15, color: LIMA, letterSpacing: '1px', textTransform: 'uppercase', margin: '0 0 16px' }}>Nuevo aprendizaje</h2>
+        <Papel ceja={LIMA}>
+          <h2 style={{ fontFamily: FONT.heading, fontSize: 15, color: INK, letterSpacing: '1px', textTransform: 'uppercase', margin: '0 0 16px' }}>Nuevo aprendizaje</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
-              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: APRENDIZAJES_SEC, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Síntoma *</label>
+              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: GRIS, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Síntoma *</label>
               <textarea rows={3} value={form.sintoma} onChange={e => setForm(f => ({ ...f, sintoma: e.target.value }))} style={inputStyle} />
             </div>
             <div>
-              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: APRENDIZAJES_SEC, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Módulo *</label>
+              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: GRIS, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Módulo *</label>
               <input value={form.modulo} onChange={e => setForm(f => ({ ...f, modulo: e.target.value }))} style={{ ...inputStyle, resize: undefined }} placeholder="facturacion, ocr, conciliacion…" />
             </div>
             <div>
-              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: APRENDIZAJES_SEC, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Causa raíz</label>
+              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: GRIS, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Causa raíz</label>
               <textarea rows={3} value={form.causa_raiz} onChange={e => setForm(f => ({ ...f, causa_raiz: e.target.value }))} style={inputStyle} />
             </div>
             <div>
-              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: APRENDIZAJES_SEC, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Regla preventiva</label>
+              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: GRIS, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Regla preventiva</label>
               <textarea rows={3} value={form.regla_preventiva} onChange={e => setForm(f => ({ ...f, regla_preventiva: e.target.value }))} style={inputStyle} />
             </div>
             <div>
-              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: APRENDIZAJES_SEC, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Fecha</label>
+              <label style={{ display: 'block', fontFamily: FONT.heading, fontSize: 11, color: GRIS, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>Fecha</label>
               <input type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} style={{ ...inputStyle, resize: undefined }} />
             </div>
           </div>
@@ -213,22 +222,22 @@ export default function AprendizajesPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              style={{ backgroundColor: GRANATE, color: BLANCO, border: 'none', borderRadius: 4, padding: '8px 20px', fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.5px', cursor: saving ? 'not-allowed' : 'pointer', textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
+              style={{ backgroundColor: GRANATE, color: BLANCO, border: `2px solid ${INK}`, boxShadow: SHADOW_MINI, borderRadius: 0, padding: '8px 20px', fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.5px', cursor: saving ? 'not-allowed' : 'pointer', textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
             >
               {saving ? 'Guardando…' : 'Guardar'}
             </button>
             <button
               onClick={() => { setShowForm(false); setForm({ ...FORM_EMPTY }) }}
-              style={{ backgroundColor: INK, color: GRIS, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 4, padding: '8px 16px', fontFamily: FONT.heading, fontSize: 13, cursor: 'pointer', textTransform: 'uppercase' }}
+              style={{ backgroundColor: BLANCO, color: GRIS, border: `2px solid ${INK}`, borderRadius: 0, padding: '8px 16px', fontFamily: FONT.heading, fontSize: 13, cursor: 'pointer', textTransform: 'uppercase' }}
             >
               Cancelar
             </button>
           </div>
-        </div>
+        </Papel>
       )}
 
       {/* Table */}
-      <div style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, overflow: 'hidden' }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         {loading ? (
           <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: FONT.body }}>Cargando…</div>
         ) : filtered.length === 0 ? (
@@ -252,7 +261,7 @@ export default function AprendizajesPage() {
                   <tr key={row.id} style={{ transition: 'background 0.1s' }}>
                     <td style={{ ...TD, color: GRIS, fontSize: 12, whiteSpace: 'nowrap' }}>{row.fecha ? fmtDate(row.fecha) : '—'}</td>
                     <td style={TD}>{moduleBadge(row.modulo)}</td>
-                    <td style={{ ...TD, maxWidth: 320, color: BLANCO }}>{row.sintoma || '—'}</td>
+                    <td style={{ ...TD, maxWidth: 320, color: INK }}>{row.sintoma || '—'}</td>
                     <td style={{ ...TD, maxWidth: 380, color: GRIS, fontSize: 12 }}>{row.regla_preventiva || '—'}</td>
                     <td style={{ ...TD, color: GRIS, fontSize: 12 }}>{row.origen || '—'}</td>
                   </tr>
@@ -261,11 +270,11 @@ export default function AprendizajesPage() {
             </table>
           </div>
         )}
-      </div>
-      <div style={{ marginTop: 8, color: GRIS, fontSize: 11, fontFamily: FONT.body }}>
+      </Papel>
+      <div style={{ color: GRIS, fontSize: 11, fontFamily: FONT.body }}>
         {filtered.length} registro{filtered.length !== 1 ? 's' : ''}
         {search ? ` (filtrado de ${rows.length})` : ''}
       </div>
-    </ConfigShell>
+    </PantallaCantera>
   )
 }

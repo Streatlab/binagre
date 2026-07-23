@@ -1,4 +1,5 @@
-import { AZUL_CL, BLANCO, GRANATE, LIMA, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, GRANATE, LIMA, VERDE, INK, GRIS, CREMA, OSW, LEX, SHADOW_MINI } from '@/styles/neobrutal'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 import {
   PERMISO_RETRIBUIDO, KPI_POS_VERDE, USUARIOS_ROL_SIN_DATO, USUARIOS_ROL_DEFAULT,
   USUARIOS_ROL_REPARTIDOR, USUARIOS_ROL_SOLO_LECTURA, USUARIOS_ROL_EMPLEADO,
@@ -11,8 +12,6 @@ import { Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { ModTitle } from '@/components/configuracion/ModTitle'
-import { ConfigShell } from '@/components/configuracion/ConfigShell'
-import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
 import { Avatar } from '@/components/configuracion/Avatar'
 import { useAuth } from '@/context/AuthContext'
@@ -143,14 +142,14 @@ export default function UsuariosPage() {
   }
 
   if (loading) {
-    return <ConfigShell><ModTitle>Usuarios</ModTitle><div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div></ConfigShell>
+    return <PantallaCantera embedded><ModTitle>Usuarios</ModTitle><div style={{ padding: 24, color: GRIS, fontFamily: LEX }}>Cargando…</div></PantallaCantera>
   }
   if (error) {
     return (
-      <ConfigShell>
+      <PantallaCantera embedded>
         <ModTitle>Usuarios</ModTitle>
-        <div style={{ padding: 16, background: `${GRANATE}20`, color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>{error}</div>
-      </ConfigShell>
+        <div style={{ padding: 16, background: `${GRANATE}20`, color: GRANATE, borderRadius: 10, fontFamily: LEX }}>{error}</div>
+      </PantallaCantera>
     )
   }
 
@@ -163,32 +162,47 @@ export default function UsuariosPage() {
 
   const th: React.CSSProperties = {
     padding: '10px 14px',
-    fontFamily: FONT.heading,
-    fontSize: 10,
+    fontFamily: OSW,
+    fontSize: 10.5,
     textTransform: 'uppercase',
-    letterSpacing: '2px',
-    color: T.mut,
-    fontWeight: 400,
-    background: T.group,
+    letterSpacing: '1.5px',
+    color: CREMA,
+    fontWeight: 600,
+    background: INK,
     textAlign: 'left',
   }
-  const td: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+  const td: React.CSSProperties = { padding: '10px 14px', fontFamily: LEX, fontSize: 13, color: INK, borderBottom: `2px solid ${INK}` }
 
   const okBg = isDark ? STATUSTAG.ok.bgDark : STATUSTAG.ok.bgLight
   const okFg = isDark ? STATUSTAG.ok.fgDark : STATUSTAG.ok.fgLight
   const offBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
 
+  const admins = usuarios.filter(u => u.rol === 'admin' || u.rol === 'socio').length
+
   return (
-    <ConfigShell>
+    <PantallaCantera embedded>
       <ModTitle>Usuarios</ModTitle>
+
+      {/* Héroe: nº de usuarios con acceso (área Equipo · tinta) */}
+      <HeroCantera
+        area="equipo"
+        titular={usuarios.length === 0 ? 'Todavía no hay usuarios dados de alta.' : `${usuarios.length} personas tienen acceso al ERP.`}
+        etiquetaDato="Usuarios dados de alta"
+        cifra={String(usuarios.length)}
+        atencion={[
+          `${admins} con rol admin o socio`,
+          `${modulos.length} módulos con permisos configurados`,
+        ]}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 14 }}>
         {/* Usuarios y roles */}
-        <ConfigGroupCard title="Usuarios y roles">
+        <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px 10px', fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: INK }}>Usuarios y roles</div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+                <tr style={{ background: INK }}>
                   <th style={th}>Usuario</th>
                   <th style={th}>Rol</th>
                   {esAdmin && <th style={th}>PIN</th>}
@@ -198,23 +212,23 @@ export default function UsuariosPage() {
               <tbody>
                 {usuarios.length === 0 ? (
                   <tr>
-                    <td colSpan={esAdmin ? 4 : 3} style={{ padding: '32px 22px', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>
+                    <td colSpan={esAdmin ? 4 : 3} style={{ padding: '32px 22px', textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13 }}>
                       Sin usuarios.
                     </td>
                   </tr>
                 ) : usuarios.map(u => (
-                  <tr key={u.id} onClick={() => open(u)} style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer' }}>
+                  <tr key={u.id} onClick={() => open(u)} style={{ cursor: 'pointer' }}>
                     <td style={td}>
                       <Avatar letter={u.nombre.charAt(0).toUpperCase()} color={u.avatar_color ?? rolColor(u.rol)} />
-                      <strong style={{ color: T.pri }}>{u.nombre}</strong>
+                      <strong style={{ color: INK }}>{u.nombre}</strong>
                     </td>
                     <td style={td}><RolPill rol={u.rol} isDark={isDark} /></td>
                     {esAdmin && (
-                      <td style={{ ...td, fontFamily: FONT.body, color: u.pin ? T.pri : T.mut, letterSpacing: u.pin ? 2 : 0 }}>
+                      <td style={{ ...td, color: u.pin ? INK : GRIS, letterSpacing: u.pin ? 2 : 0 }}>
                         {u.pin ? '••••' : '—'}
                       </td>
                     )}
-                    <td style={{ ...td, textAlign: 'right', color: T.sec }}>{fmtFechaMadrid(u.ultima_conexion)}</td>
+                    <td style={{ ...td, textAlign: 'right', color: GRIS }}>{fmtFechaMadrid(u.ultima_conexion)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -224,20 +238,20 @@ export default function UsuariosPage() {
             style={{
               display: 'flex',
               justifyContent: 'flex-end',
-              padding: '14px 22px 18px',
-              borderTop: `0.5px solid ${T.brd}`,
-              background: T.bg,
+              padding: '14px 20px 18px',
+              borderTop: `2px solid ${INK}`,
             }}
           >
             <button
               onClick={() => open()}
               style={{
                 padding: '7px 14px',
-                borderRadius: 6,
-                border: 'none',
+                borderRadius: 0,
+                border: `2px solid ${INK}`,
+                boxShadow: SHADOW_MINI,
                 background: GRANATE,
                 color: BLANCO,
-                fontFamily: FONT.heading,
+                fontFamily: OSW,
                 fontSize: 11,
                 letterSpacing: '1px',
                 textTransform: 'uppercase',
@@ -246,14 +260,15 @@ export default function UsuariosPage() {
               }}
             >+ Nuevo usuario</button>
           </div>
-        </ConfigGroupCard>
+        </Papel>
 
         {/* Matriz de permisos */}
-        <ConfigGroupCard title="Matriz de permisos por rol">
+        <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px 10px', fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: INK }}>Matriz de permisos por rol</div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderTop: `0.5px solid ${T.brd}`, borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
+                <tr style={{ background: INK }}>
                   <th style={th}>Módulo</th>
                   {ROLES.map(r => (
                     <th key={r.value} style={{ ...th, textAlign: 'center' }}>{r.label}</th>
@@ -264,7 +279,6 @@ export default function UsuariosPage() {
                 {modulos.map(mod => (
                   <tr
                     key={mod}
-                    style={{ borderBottom: `0.5px solid ${T.brd}` }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
@@ -282,13 +296,13 @@ export default function UsuariosPage() {
                               justifyContent: 'center',
                               width: 28,
                               height: 28,
-                              borderRadius: 6,
-                              border: 'none',
+                              borderRadius: 0,
+                              border: `2px solid ${INK}`,
                               fontSize: 14,
                               fontWeight: 700,
                               cursor: 'pointer',
                               background: on ? okBg : offBg,
-                              color: on ? okFg : T.mut,
+                              color: on ? okFg : GRIS,
                               transition: 'all 0.15s',
                             }}
                           >{on ? <Check size={16} strokeWidth={2.5} /> : '—'}</button>
@@ -300,7 +314,7 @@ export default function UsuariosPage() {
               </tbody>
             </table>
           </div>
-        </ConfigGroupCard>
+        </Papel>
       </div>
 
       {(editing || creating) && (
@@ -326,7 +340,7 @@ export default function UsuariosPage() {
           </Field>
         </EditModal>
       )}
-    </ConfigShell>
+    </PantallaCantera>
   )
 }
 

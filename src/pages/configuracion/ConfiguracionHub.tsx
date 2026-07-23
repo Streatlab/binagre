@@ -4,8 +4,10 @@
  * No reescribe ninguna pantalla: solo enlaza a las existentes.
  */
 import { Link } from 'react-router-dom'
-import { useTheme, FONT } from '@/styles/tokens'
+import { FONT } from '@/styles/tokens'
 import RutaPantalla from '@/components/ui/RutaPantalla'
+import { PantallaCantera, SHADOW_DURA } from '@/components/kit/cantera'
+import { INK, BLANCO, GRIS, LEX } from '@/styles/neobrutal'
 
 const APARTADOS = [
   { to: '/configuracion/cocina',               emoji: '🍳', label: 'Cocina',               desc: 'Categorías, unidades, proveedores y formato de números' },
@@ -20,24 +22,23 @@ const APARTADOS = [
 ]
 
 export default function ConfiguracionHub() {
-  const { T } = useTheme()
   return (
-    <div style={{ width: '100%' }}>
-      <div style={{ marginBottom: 16 }}>
-        <RutaPantalla niveles={['Configuración']} />
-      </div>
+    <PantallaCantera embedded>
+      <RutaPantalla niveles={['Configuración']} />
+      {/* Config pura sin métrica propia: se omite el héroe (D·6 criterio 2). */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
         {APARTADOS.map(a => (
           <Link key={a.to} to={a.to} style={{
             display: 'block', textDecoration: 'none',
-            background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: '18px 20px',
+            background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${GRIS}`, borderRadius: 0,
+            boxShadow: SHADOW_DURA, padding: '18px 20px',
           }}>
             <div style={{ fontSize: 24 }}>{a.emoji}</div>
-            <div style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: T.pri, marginTop: 8 }}>{a.label}</div>
-            <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginTop: 3 }}>{a.desc}</div>
+            <div style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: INK, marginTop: 8 }}>{a.label}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 3 }}>{a.desc}</div>
           </Link>
         ))}
       </div>
-    </div>
+    </PantallaCantera>
   )
 }

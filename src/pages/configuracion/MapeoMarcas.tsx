@@ -15,9 +15,10 @@ import { supabase } from '@/lib/supabase'
 import {
   OSW, LEX, INK, CREMA, GRIS, GRANATE, VERDE, AMA, AZUL, BLANCO,
   VERDE_S, AMA_S, ROSA_S, AZUL_S,
-  SHADOW, BORDER, BORDER_CARD, d, cardWash, cardHead, pill,
+  SHADOW_MINI, d, pill,
 } from '@/styles/neobrutal'
 import RutaPantalla from '@/components/ui/RutaPantalla'
+import { PantallaCantera, HeroCantera, Papel, Plancha, PlanchaCelda } from '@/components/kit/cantera'
 
 interface Fila {
   id: number
@@ -141,36 +142,34 @@ export default function MapeoMarcas() {
 
   if (cargando) {
     return (
-      <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
-        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW }}><Vacio>Cargando el diccionario de platos…</Vacio></div>
-      </div>
+      <PantallaCantera>
+        <Papel ceja={GRIS}><Vacio>Cargando el diccionario de platos…</Vacio></Papel>
+      </PantallaCantera>
     )
   }
 
-  return (
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
-      <div style={{ marginBottom: 20 }}>
-        <RutaPantalla niveles={['Ajustes', 'Mapeo de Marcas']} subtitulo="A1 · Glovo y Just Eat entran sin marca. Aquí se les pone." />
-      </div>
+  const titular = pctVisible >= 99 ? 'Ya ves toda tu facturación por marca' : 'Todavía hay facturación que no sabes de qué marca es'
+  const atencion = [
+    `${nf0(stats.listo)} platos resueltos`,
+    `${nf0(stats.pendiente + stats.sugerido)} por revisar`,
+  ]
 
-      {/* Hero */}
-      <div style={{ background: GRANATE, border: BORDER_CARD, boxShadow: SHADOW, padding: '18px 22px', marginBottom: 16, color: BLANCO }}>
-        <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.85 }}>VENTA CON MARCA CONOCIDA</div>
-        <div style={{ fontFamily: OSW, fontSize: 16, fontWeight: 700, margin: '6px 0 10px' }}>
-          {pctVisible >= 99 ? 'Ya ves toda tu facturación por marca' : 'Todavía hay facturación que no sabes de qué marca es'}
-        </div>
-        <div style={{ ...d('clamp(30px,4.2vw,40px)', BLANCO) }}>{pct1(pctVisible)}</div>
-        <div style={{ fontFamily: LEX, fontSize: 12, opacity: 0.92, fontWeight: 600, marginTop: 8 }}>
-          {eur0(visible.conMarca)} identificados · {eur0(visible.ciego)} todavía ciegos
-        </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-          <span style={{ background: BLANCO, color: GRANATE, border: `2px solid ${BLANCO}`, padding: '4px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{nf0(stats.listo)} platos resueltos</span>
-          <span style={{ background: 'transparent', color: BLANCO, border: `2px solid ${BLANCO}`, padding: '4px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{nf0(stats.pendiente + stats.sugerido)} por revisar</span>
-        </div>
-      </div>
+  return (
+    <PantallaCantera>
+      <RutaPantalla niveles={['Ajustes', 'Mapeo de Marcas']} subtitulo="A1 · Glovo y Just Eat entran sin marca. Aquí se les pone." />
+
+      {/* Héroe: venta con marca conocida (área Papeleo · granate) */}
+      <HeroCantera
+        area="papeleo"
+        titular={titular}
+        etiquetaDato="Venta con marca conocida"
+        cifra={pct1(pctVisible)}
+        resumen={<>{eur0(visible.conMarca)} identificados · {eur0(visible.ciego)} todavía ciegos</>}
+        atencion={atencion}
+      />
 
       {stats.sugerido > 0 && (
-        <div style={{ background: AMA_S, border: `3px solid ${AMA}`, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <Papel ceja={AMA} style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <span style={{ ...d('19px', AMA), whiteSpace: 'nowrap' }}>{eur0(stats.eSug)}</span>
           <span style={{ flex: 1, fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK, minWidth: 220 }}>
             <b>{stats.sugerido} platos con marca sugerida automáticamente.</b> Se parecen mucho a un plato de Uber que sí tiene marca.
@@ -179,41 +178,41 @@ export default function MapeoMarcas() {
           <button
             onClick={confirmarSugerencias}
             disabled={guardando === 'todas'}
-            style={{ background: AMA, color: INK, border: `2px solid ${INK}`, boxShadow: '2px 2px 0 var(--neo-shadow-color)', padding: '8px 14px', fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            style={{ background: AMA, color: INK, border: `2px solid ${INK}`, boxShadow: SHADOW_MINI, padding: '8px 14px', fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', whiteSpace: 'nowrap' }}
           >{guardando === 'todas' ? 'Aplicando…' : `Confirmar las ${stats.sugerido}`}</button>
-        </div>
+        </Papel>
       )}
 
       {aviso && <Nota tono="verde">{aviso}</Nota>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12, marginBottom: 16, marginTop: aviso ? 16 : 0 }}>
-        <div style={cardWash(VERDE_S)}>
+      <Plancha>
+        <PlanchaCelda bg={VERDE_S} color={INK} first>
           <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Resueltos</div>
           <div style={{ ...d('26px', VERDE), margin: '6px 0' }}>{nf0(stats.listo)}</div>
           <span style={pill(VERDE_S, VERDE)}>{eur0(stats.eListo)} recuperados</span>
-        </div>
-        <div style={cardWash(AMA_S)}>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AMA_S} color={INK}>
           <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Sugeridos sin confirmar</div>
           <div style={{ ...d('26px', AMA), margin: '6px 0' }}>{nf0(stats.sugerido)}</div>
           <span style={pill(AMA_S, AMA)}>{eur0(stats.eSug)} en juego</span>
-        </div>
-        <div style={cardWash(ROSA_S)}>
+        </PlanchaCelda>
+        <PlanchaCelda bg={ROSA_S} color={INK}>
           <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Sin asignar</div>
           <div style={{ ...d('26px', GRANATE), margin: '6px 0' }}>{nf0(stats.pendiente)}</div>
           <span style={pill(ROSA_S, GRANATE)}>{eur0(stats.ePend)} ciegos</span>
-        </div>
-        <div style={cardWash(AZUL_S)}>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AZUL_S} color={INK}>
           <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Avance del mapeo</div>
           <div style={{ ...d('26px', AZUL), margin: '6px 0' }}>{pct1(pctResuelto)}</div>
           <span style={pill(AZUL_S, AZUL)}>sobre {eur0(totalCiego)} de venta ciega</span>
-        </div>
-      </div>
+        </PlanchaCelda>
+      </Plancha>
 
-      <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
-        <div style={{ ...cardHead(GRANATE), display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
+        <div style={{ background: GRANATE, color: BLANCO, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <div>Platos de Glovo y Just Eat</div>
-            <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 500, marginTop: 2, textTransform: 'none', letterSpacing: 0 }}>Ordenados por euros: arriba lo que más pesa. Empieza por ahí.</div>
+            <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>Platos de Glovo y Just Eat</div>
+            <div style={{ fontFamily: LEX, fontSize: 11, opacity: 0.85, marginTop: 2 }}>Ordenados por euros: arriba lo que más pesa. Empieza por ahí.</div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {FILTROS.map(f => {
@@ -292,7 +291,7 @@ export default function MapeoMarcas() {
             Cada plato que asignas se aplica al momento a toda la venta histórica de ese plato. No hay que reimportar nada.
           </Nota>
         </div>
-      </div>
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }
