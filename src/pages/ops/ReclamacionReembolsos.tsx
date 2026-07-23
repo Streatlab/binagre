@@ -8,7 +8,8 @@ import { useReclamaciones, computeMetricas, computeMetricasPorCanal, verificarPe
 import type {
   Reclamacion, Canal, EstadoReclamacion, TipoReclamacion, PedidoVerificado, } from "../../lib/reclamaciones/useReclamaciones";
 import {
-  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente } from '@/components/kit/cantera';
 import RutaPantalla from '@/components/ui/RutaPantalla';
 import TabsPastilla from '@/components/ui/TabsPastilla';
 
@@ -75,7 +76,6 @@ export default function ReclamacionReembolsos() {
     { id: "incobrable", label: "Incobrables", badge: m.incobrables },
   ];
 
-  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW };
   const btnPrim: React.CSSProperties = {
     fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: "1px", textTransform: "uppercase",
     border: `3px solid ${INK}`, boxShadow: SHADOW, padding: "9px 16px", cursor: "pointer",
@@ -85,42 +85,61 @@ export default function ReclamacionReembolsos() {
   if (loading) return <div style={{ padding: 40, color: GRIS, fontFamily: OSW, textTransform: "uppercase", letterSpacing: "1px" }}>Cargando reembolsos…</div>;
   if (error)   return <div style={{ padding: 40, color: ROJO, fontFamily: LEX }}>Error: {error}</div>;
 
-  return (
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: "100vh", color: INK }}>
+  const titularHero = m.pendientes === 0 && m.reclamadas === 0
+    ? (m.cobrado > 0 ? 'Sin reembolsos pendientes: todo cobrado.' : 'Aún no hay reembolsos registrados.')
+    : m.enRiesgo === 0 ? 'Sin importe pendiente de cobrar ahora mismo.'
+    : `Hay ${fmtEur(m.enRiesgo)} pendientes de cobrar a plataformas.`
 
-      <div style={{ marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
+  const atencionHero = [
+    m.pendientes > 0 ? `${m.pendientes} sin reclamar` : null,
+    m.reclamadas > 0 ? `${m.reclamadas} reclamadas` : null,
+    `${m.tasaResolucion}% de éxito`,
+  ].filter(Boolean) as string[]
+
+  return (
+    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: "100vh", color: INK, display: "flex", flexDirection: "column", gap: 16 }}>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
         <RutaPantalla niveles={['Reembolsos', TABS.find(t => t.id === tab)?.label ?? '']} subtitulo="Reclamaciones a plataformas · seguimiento hasta el cobro" />
         <button onClick={() => setShowNew(true)} style={btnPrim}>+ Nuevo reembolso</button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 18 }}>
-        <div style={{ ...card, padding: "16px 20px", background: AMA }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: INK, marginBottom: 6 }}>Pendiente de cobrar</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: INK }}>{fmtEur(m.enRiesgo)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: INK, marginTop: 6 }}>
-            {m.pendientes} sin reclamar · {m.reclamadas} reclamadas a plataforma
-          </div>
-        </div>
-        <div style={{ ...card, padding: "16px 20px", background: VERDE }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: BLANCO, marginBottom: 6 }}>Recuperado 2026</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: BLANCO }}>{fmtEur(m.cobrado)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
-            {m.cobradas} cobradas · {m.tasaResolucion}% de éxito · perdido {fmtEur(m.perdido)}
-          </div>
-        </div>
-      </div>
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        titular={titularHero}
+        etiquetaDato="Pendiente de cobrar"
+        cifra={fmtEur(m.enRiesgo)}
+        resumen={<>Recuperado 2026: <b>{fmtEur(m.cobrado)}</b> · {m.cobradas} cobradas · perdido {fmtEur(m.perdido)}</>}
+        atencion={atencionHero}
+      />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
-        <CanalCard label="Uber Eats" color={VERDE} data={mUE} card={card} />
-        <CanalCard label="Glovo"     color={AMA}   data={mGL} card={card} />
-        <CanalCard label="Just Eat"  color={NAR}   data={mJE} card={card} />
+      {/* 3 · Frase potente (una sola, según haya o no importe en riesgo) */}
+      {m.enRiesgo > 0
+        ? <FrasePotente significado="coste">Cada reembolso sin reclamar es dinero que la plataforma no te va a devolver sola.</FrasePotente>
+        : (m.cobrado > 0 || m.pendientes > 0 || m.reclamadas > 0) && <FrasePotente significado="logro">Sin importe pendiente: los reembolsos están al día.</FrasePotente>}
+
+      {/* 2 · Plancha comparativa por canal */}
+      <div>
+        <Plancha>
+          <PlanchaCelda bg={VERDE} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>Uber Eats</div>
+            <CanalCeldaBody data={mUE} />
+          </PlanchaCelda>
+          <PlanchaCelda bg={AMA} color={INK}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>Glovo</div>
+            <CanalCeldaBody data={mGL} />
+          </PlanchaCelda>
+          <PlanchaCelda bg={NAR}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>Just Eat</div>
+            <CanalCeldaBody data={mJE} />
+          </PlanchaCelda>
+        </Plancha>
       </div>
 
       <TabsPastilla tabs={TABS} activeId={tab} onChange={id => setTab(id as TabKey)} />
 
-      <div style={{ height: 16 }} />
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <select style={selectNeo} value={filterMes} onChange={e => setFilterMes(e.target.value)}>
           <option value="all">Todos los meses</option>
           {meses.map(mes => (
@@ -136,7 +155,7 @@ export default function ReclamacionReembolsos() {
         </select>
       </div>
 
-      <div style={{ ...card, overflowX: "auto" }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: LEX }}>
           <thead>
             <tr style={{ background: INK }}>
@@ -183,7 +202,7 @@ export default function ReclamacionReembolsos() {
             })}
           </tbody>
         </table>
-      </div>
+      </Papel>
 
       {showNew && <ModalReembolso onClose={() => setShowNew(false)} onSave={async (payload, file) => {
         let foto_url: string | null = null;
@@ -205,27 +224,21 @@ export default function ReclamacionReembolsos() {
   );
 }
 
-function CanalCard({ label, color, data, card }: {
-  label: string; color: string;
+function CanalCeldaBody({ data }: {
   data: { count: number; enRiesgo: number; cobrado: number; tasa: number | null };
-  card: React.CSSProperties;
 }) {
+  if (data.count === 0) {
+    return <div style={{ fontSize: 12, fontFamily: LEX, marginTop: 6 }}>Sin reembolsos</div>
+  }
   return (
-    <div style={{ ...card, padding: "12px 16px" }}>
-      <div style={{ display: "inline-block", background: color, color: BLANCO, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", padding: "2px 8px", marginBottom: 10 }}>{label}</div>
-      {data.count === 0 ? (
-        <div style={{ color: GRIS, fontSize: 12, fontFamily: LEX, padding: "6px 0" }}>Sin reembolsos</div>
-      ) : (
-        <>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1, color: INK }}>{fmtEur(data.enRiesgo)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginBottom: 6 }}>pendiente</div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: GRIS, borderTop: `2px solid ${INK}`, paddingTop: 6, fontFamily: OSW, textTransform: "uppercase" }}>
-            <span>{data.count} reemb.</span>
-            <span>{data.tasa !== null ? `${data.tasa}% éxito` : "—"}</span>
-          </div>
-        </>
-      )}
-    </div>
+    <>
+      <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1, marginTop: 6 }}>{fmtEur(data.enRiesgo)}</div>
+      <div style={{ fontFamily: LEX, fontSize: 11, marginTop: 2 }}>pendiente</div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginTop: 6, fontFamily: OSW, textTransform: "uppercase" }}>
+        <span>{data.count} reemb.</span>
+        <span>{data.tasa !== null ? `${data.tasa}% éxito` : "—"}</span>
+      </div>
+    </>
   );
 }
 

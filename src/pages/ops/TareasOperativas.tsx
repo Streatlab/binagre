@@ -1,4 +1,5 @@
-import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, NAR, ROJO_S, VERDE } from '@/styles/neobrutal'
+import { BLANCO, CREMA, GRANATE, GRIS, INK, LIMA, NAR, ROJO_S, VERDE, AMA, SHADOW } from '@/styles/neobrutal'
+import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 import { GRANATE_DISABLED, ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -81,10 +82,9 @@ const labelSt: React.CSSProperties = {
 
 const inputSt: React.CSSProperties = {
   width: '100%',
-  background: INK,
-  border: `0.5px solid ${BORDE_SUAVE}`,
-  borderRadius: 6,
-  color: BLANCO,
+  background: BLANCO,
+  border: `3px solid ${INK}`,
+  color: INK,
   fontFamily: 'Lexend,sans-serif',
   fontSize: 13,
   padding: '8px 10px',
@@ -269,17 +269,18 @@ export default function TareasOperativas() {
         }}
         onDragEnd={() => { dragId.current = null }}
         style={{
-          background: INK,
-          border: `0.5px solid ${BORDE_SUAVE}`,
-          borderRadius: 8,
+          background: BLANCO,
+          border: `3px solid ${INK}`,
+          borderRadius: 0,
+          boxShadow: SHADOW,
           padding: '12px',
-          marginBottom: 8,
+          marginBottom: 10,
           cursor: 'grab',
           userSelect: 'none',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-          <span style={{ fontFamily: FONT.body, fontSize: 13, color: BLANCO, flex: 1, lineHeight: 1.4 }}>
+          <span style={{ fontFamily: FONT.body, fontSize: 13, color: INK, flex: 1, lineHeight: 1.4 }}>
             {t.titulo}
           </span>
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
@@ -303,14 +304,14 @@ export default function TareasOperativas() {
             fontSize: 10,
             letterSpacing: '0.5px',
             padding: '1px 6px',
-            borderRadius: 3,
+            border: `2px solid ${INK}`,
             textTransform: 'uppercase',
           }}>{t.prioridad}</span>
           {t.etiqueta && (
             <span style={{
-              background: INK, color: GRIS,
+              background: CREMA, color: GRIS, border: `2px solid ${INK}`,
               fontFamily: 'Oswald,sans-serif', fontSize: 10,
-              padding: '1px 6px', borderRadius: 3, letterSpacing: '0.5px',
+              padding: '1px 6px', letterSpacing: '0.5px',
             }}>{t.etiqueta}</span>
           )}
         </div>
@@ -344,9 +345,8 @@ export default function TareasOperativas() {
         onClick={() => toggleSort(k)}
         style={{
           background: INK, fontFamily: 'Oswald,sans-serif', fontSize: 11,
-          letterSpacing: '1.5px', textTransform: 'uppercase', color: active ? LIMA : GRIS,
+          letterSpacing: '1.5px', textTransform: 'uppercase', color: active ? LIMA : CREMA,
           padding: '10px 12px', textAlign: 'left', cursor: 'pointer', whiteSpace: 'nowrap',
-          borderBottom: `0.5px solid ${BORDE_SUAVE}`,
         }}
       >
         {label} {active ? (sortDir === 1 ? '↑' : '↓') : ''}
@@ -355,46 +355,64 @@ export default function TareasOperativas() {
   }
 
   /* ─── Render ─── */
-  return (
-    <div style={{ padding: '28px', background: INK, minHeight: '100vh', fontFamily: FONT.body }}>
+  const pendientes = tareas.filter(t => t.columna === 'pendiente').length
+  const enProgreso = tareas.filter(t => t.columna === 'en_progreso').length
+  const hechas = tareas.filter(t => t.columna === 'hecho').length
+  const urgentes = tareas.filter(t => t.prioridad === 'urgente' && t.columna !== 'hecho').length
+  const vencidas = tareas.filter(t => t.columna !== 'hecho' && isVencida(t.fecha_limite)).length
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{
-          fontFamily: 'Oswald,sans-serif', fontSize: 22, letterSpacing: '3px',
-          color: GRANATE, fontWeight: 600, textTransform: 'uppercase', margin: 0,
-        }}>TAREAS Y KANBAN</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => setVista('kanban')}
-            style={{
-              padding: '6px 14px', borderRadius: 6,
-              border: vista === 'kanban' ? 'none' : `0.5px solid ${BORDE_SUAVE}`,
-              background: vista === 'kanban' ? GRANATE : 'transparent',
-              color: BLANCO, fontFamily: 'Oswald,sans-serif', fontSize: 13,
-              cursor: 'pointer', letterSpacing: '1px',
-            }}
-          >KANBAN</button>
-          <button
-            onClick={() => setVista('lista')}
-            style={{
-              padding: '6px 14px', borderRadius: 6,
-              border: vista === 'lista' ? 'none' : `0.5px solid ${BORDE_SUAVE}`,
-              background: vista === 'lista' ? GRANATE : 'transparent',
-              color: BLANCO, fontFamily: 'Oswald,sans-serif', fontSize: 13,
-              cursor: 'pointer', letterSpacing: '1px',
-            }}
-          >LISTA</button>
-        </div>
+  const titularHero = tareas.length === 0
+    ? 'Aún no hay tareas cargadas.'
+    : vencidas > 0 ? `Hay ${vencidas} ${vencidas === 1 ? 'tarea vencida' : 'tareas vencidas'} sin cerrar.`
+    : urgentes > 0 ? `Hay ${urgentes} ${urgentes === 1 ? 'tarea urgente' : 'tareas urgentes'} pendiente de mover.`
+    : pendientes === 0 && enProgreso === 0 ? 'Todas las tareas están hechas.'
+    : `${pendientes} pendientes y ${enProgreso} en progreso.`
+
+  const atencionHero = [
+    urgentes > 0 ? `${urgentes} urgentes` : null,
+    vencidas > 0 ? `${vencidas} vencidas` : null,
+    `${hechas} hechas`,
+  ].filter(Boolean) as string[]
+
+  return (
+    <PantallaCantera>
+
+      {/* Filtros propios planos: vista */}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button
+          onClick={() => setVista('kanban')}
+          style={{
+            padding: '8px 16px', border: `3px solid ${INK}`,
+            background: vista === 'kanban' ? GRANATE : BLANCO,
+            boxShadow: vista === 'kanban' ? SHADOW : 'none',
+            color: vista === 'kanban' ? BLANCO : INK, fontFamily: 'Oswald,sans-serif', fontSize: 13,
+            fontWeight: 600, cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase',
+          }}
+        >Kanban</button>
+        <button
+          onClick={() => setVista('lista')}
+          style={{
+            padding: '8px 16px', border: `3px solid ${INK}`,
+            background: vista === 'lista' ? GRANATE : BLANCO,
+            boxShadow: vista === 'lista' ? SHADOW : 'none',
+            color: vista === 'lista' ? BLANCO : INK, fontFamily: 'Oswald,sans-serif', fontSize: 13,
+            fontWeight: 600, cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase',
+          }}
+        >Lista</button>
       </div>
+
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        titular={titularHero}
+        etiquetaDato={tareas.length > 0 ? 'Tareas pendientes' : undefined}
+        cifra={tareas.length > 0 ? String(pendientes) : undefined}
+        atencion={atencionHero}
+      />
 
       {/* Error soft */}
       {error && (
-        <div style={{
-          background: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, borderRadius: 8,
-          padding: '10px 16px', marginBottom: 16, color: ROJO_S,
-          fontFamily: FONT.body, fontSize: 13,
-        }}>{error}</div>
+        <Papel ceja={ROJO_S} style={{ background: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, color: ROJO_S }}>{error}</Papel>
       )}
 
       {/* Loading */}
@@ -402,6 +420,15 @@ export default function TareasOperativas() {
         <div style={{ color: GRIS, fontFamily: FONT.body, fontSize: 14, textAlign: 'center', padding: 40 }}>
           Cargando tareas...
         </div>
+      )}
+
+      {/* 3 · Frase potente (una sola, según el estado de las tareas) */}
+      {!loading && tareas.length > 0 && (
+        vencidas > 0
+          ? <FrasePotente significado="peligro">Hay tareas vencidas sin mover a hecho: revísalas antes de que se acumulen.</FrasePotente>
+          : urgentes > 0
+            ? <FrasePotente significado="coste">Prioriza las tareas urgentes antes que las normales.</FrasePotente>
+            : <FrasePotente significado="logro">Sin urgencias ni retrasos: el tablero está bajo control.</FrasePotente>
       )}
 
       {/* KANBAN */}
@@ -414,12 +441,12 @@ export default function TareasOperativas() {
               placeholder="Buscar..."
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              style={{ background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', width: 200, outline: 'none' }}
+              style={{ background: BLANCO, border: `3px solid ${INK}`, color: INK, fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', width: 200, outline: 'none' }}
             />
             <select
               value={filtroPrioridad}
               onChange={e => setFiltroPrioridad(e.target.value as Prioridad | '')}
-              style={{ background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 6, color: filtroPrioridad ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '7px 10px', outline: 'none' }}
+              style={{ background: BLANCO, border: `3px solid ${INK}`, color: filtroPrioridad ? INK : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '7px 10px', outline: 'none' }}
             >
               <option value="">Prioridad</option>
               <option value="urgente">Urgente</option>
@@ -430,7 +457,7 @@ export default function TareasOperativas() {
             {(busqueda || filtroPrioridad) && (
               <button
                 onClick={() => { setBusqueda(''); setFiltroPrioridad('') }}
-                style={{ background: 'transparent', border: `0.5px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, padding: '7px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
+                style={{ background: BLANCO, border: `3px solid ${INK}`, color: GRIS, padding: '7px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
               >Limpiar</button>
             )}
           </div>
@@ -449,16 +476,15 @@ export default function TareasOperativas() {
                 style={{
                   flex: '1 1 280px',
                   minWidth: 260,
-                  background: INK,
-                  border: isDragTarget ? `2px dashed ${LIMA}` : `0.5px solid ${BORDE_SUAVE}`,
-                  borderRadius: 12,
-                  overflow: 'hidden',
+                  background: CREMA,
+                  border: isDragTarget ? `3px dashed ${GRANATE}` : `3px solid ${INK}`,
                   transition: 'border 150ms',
                 }}
               >
                 <div style={{
                   background: col.headerBg,
                   padding: '10px 16px',
+                  borderBottom: `3px solid ${INK}`,
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
@@ -468,9 +494,9 @@ export default function TareasOperativas() {
                     color: BLANCO, fontWeight: 600,
                   }}>{col.label}</span>
                   <span style={{
-                    background: 'rgba(0,0,0,0.3)', color: BLANCO,
+                    background: BLANCO, color: INK, border: `2px solid ${INK}`,
                     fontFamily: 'Oswald,sans-serif', fontSize: 11,
-                    padding: '2px 8px', borderRadius: 10,
+                    padding: '2px 8px',
                   }}>{colTareas.length}</span>
                 </div>
                 <div style={{ padding: '12px 12px 4px' }}>
@@ -486,8 +512,8 @@ export default function TareasOperativas() {
                   <button
                     onClick={() => abrirNueva(col.key)}
                     style={{
-                      width: '100%', padding: '7px', borderRadius: 6,
-                      border: `0.5px dashed ${BORDE_SUAVE}`, background: 'transparent',
+                      width: '100%', padding: '7px',
+                      border: `2px dashed ${INK}`, background: 'transparent',
                       color: GRIS, fontFamily: 'Oswald,sans-serif',
                       fontSize: 12, letterSpacing: '1px', cursor: 'pointer',
                     }}
@@ -510,15 +536,15 @@ export default function TareasOperativas() {
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               style={{
-                background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 8,
-                color: BLANCO, fontFamily: FONT.body, fontSize: 13,
+                background: BLANCO, border: `3px solid ${INK}`,
+                color: INK, fontFamily: FONT.body, fontSize: 13,
                 padding: '8px 12px', width: 280, outline: 'none',
               }}
             />
             <select
               value={filtroPrioridad}
               onChange={e => setFiltroPrioridad(e.target.value as Prioridad | '')}
-              style={{ background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 8, color: filtroPrioridad ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
+              style={{ background: BLANCO, border: `3px solid ${INK}`, color: filtroPrioridad ? INK : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
             >
               <option value="">Todas las prioridades</option>
               <option value="urgente">Urgente</option>
@@ -529,7 +555,7 @@ export default function TareasOperativas() {
             <select
               value={filtroColumna}
               onChange={e => setFiltroColumna(e.target.value as Columna | '')}
-              style={{ background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 8, color: filtroColumna ? BLANCO : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
+              style={{ background: BLANCO, border: `3px solid ${INK}`, color: filtroColumna ? INK : GRIS, fontFamily: FONT.body, fontSize: 13, padding: '8px 10px', outline: 'none' }}
             >
               <option value="">Todos los estados</option>
               <option value="pendiente">Pendiente</option>
@@ -541,18 +567,19 @@ export default function TareasOperativas() {
               placeholder="Asignado a..."
               value={filtroAsignado}
               onChange={e => setFiltroAsignado(e.target.value)}
-              style={{ background: INK, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 8, color: BLANCO, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', width: 160, outline: 'none' }}
+              style={{ background: BLANCO, border: `3px solid ${INK}`, color: INK, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', width: 160, outline: 'none' }}
             />
             {(busqueda || filtroPrioridad || filtroColumna || filtroAsignado) && (
               <button
                 onClick={() => { setBusqueda(''); setFiltroPrioridad(''); setFiltroColumna(''); setFiltroAsignado('') }}
-                style={{ background: 'transparent', border: `0.5px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
+                style={{ background: BLANCO, border: `3px solid ${INK}`, color: GRIS, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12, cursor: 'pointer' }}
               >
                 Limpiar filtros
               </button>
             )}
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <SeccionLabel bg={AMA} color={INK}>Tareas</SeccionLabel>
+          <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -563,8 +590,8 @@ export default function TareasOperativas() {
                   <ThSortable label="Fecha limite" k="fecha_limite" />
                   <th style={{
                     background: INK, fontFamily: 'Oswald,sans-serif', fontSize: 11,
-                    letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS,
-                    padding: '10px 12px', borderBottom: `0.5px solid ${BORDE_SUAVE}`,
+                    letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA,
+                    padding: '10px 12px',
                   }}>Acciones</th>
                 </tr>
               </thead>
@@ -576,41 +603,41 @@ export default function TareasOperativas() {
                     </td>
                   </tr>
                 )}
-                {tareasOrdenadas.map((t, i) => {
+                {tareasOrdenadas.map(t => {
                   const colConf = COL_CONFIG.find(c => c.key === t.columna)
                   return (
-                    <tr key={t.id} style={{ background: i % 2 === 0 ? INK : INK }}>
-                      <td style={{ padding: '10px 12px', color: BLANCO, fontFamily: FONT.body, fontSize: 13, borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
+                    <tr key={t.id} style={{ borderBottom: `2px solid ${INK}` }}>
+                      <td style={{ padding: '10px 12px', color: INK, fontFamily: FONT.body, fontSize: 13 }}>
                         {t.titulo}
                         {t.etiqueta && (
                           <span style={{
-                            marginLeft: 8, background: INK, color: GRIS,
+                            marginLeft: 8, background: CREMA, color: GRIS, border: `2px solid ${INK}`,
                             fontFamily: 'Oswald,sans-serif', fontSize: 10,
-                            padding: '1px 5px', borderRadius: 3,
+                            padding: '1px 5px',
                           }}>{t.etiqueta}</span>
                         )}
                       </td>
-                      <td style={{ padding: '10px 12px', borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <span style={{
                           background: colConf?.headerBg ?? GRIS,
                           color: BLANCO, fontFamily: 'Oswald,sans-serif',
-                          fontSize: 10, padding: '2px 7px', borderRadius: 3,
+                          fontSize: 10, padding: '2px 7px', border: `2px solid ${INK}`,
                           letterSpacing: '0.5px', textTransform: 'uppercase',
                         }}>{t.columna.replace('_', ' ')}</span>
                       </td>
-                      <td style={{ padding: '10px 12px', borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <span style={{
                           background: PRIORIDAD_COLOR[t.prioridad],
                           color: PRIORIDAD_TEXT[t.prioridad],
                           fontFamily: 'Oswald,sans-serif', fontSize: 10,
-                          padding: '2px 7px', borderRadius: 3,
+                          padding: '2px 7px', border: `2px solid ${INK}`,
                           letterSpacing: '0.5px', textTransform: 'uppercase',
                         }}>{t.prioridad}</span>
                       </td>
-                      <td style={{ padding: '10px 12px', color: GRIS, fontFamily: FONT.body, fontSize: 13, borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
+                      <td style={{ padding: '10px 12px', color: GRIS, fontFamily: FONT.body, fontSize: 13 }}>
                         {t.asignado_a ?? '—'}
                       </td>
-                      <td style={{ padding: '10px 12px', borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
+                      <td style={{ padding: '10px 12px' }}>
                         {t.fecha_limite ? (
                           <span style={{
                             color: isVencida(t.fecha_limite) ? GRANATE : GRIS,
@@ -621,7 +648,7 @@ export default function TareasOperativas() {
                           </span>
                         ) : <span style={{ color: GRIS }}>—</span>}
                       </td>
-                      <td style={{ padding: '10px 12px', borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
+                      <td style={{ padding: '10px 12px' }}>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button
                             onClick={() => abrirEditar(t)}
@@ -638,12 +665,12 @@ export default function TareasOperativas() {
                 })}
               </tbody>
             </table>
-          </div>
+          </Papel>
           <div style={{ marginTop: 16 }}>
             <button
               onClick={() => abrirNueva('pendiente')}
               style={{
-                padding: '8px 18px', borderRadius: 6, border: 'none',
+                padding: '8px 18px', border: `3px solid ${INK}`, boxShadow: SHADOW,
                 background: LIMA, color: INK,
                 fontFamily: 'Oswald,sans-serif', fontSize: 13,
                 letterSpacing: '1px', cursor: 'pointer',
@@ -666,9 +693,8 @@ export default function TareasOperativas() {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              backgroundColor: INK,
-              border: `0.5px solid ${BORDE_SUAVE}`,
-              borderRadius: 12,
+              backgroundColor: CREMA,
+              border: `4px solid ${INK}`,
               padding: '28px 24px',
               width: '100%',
               maxWidth: 480,
@@ -744,7 +770,7 @@ export default function TareasOperativas() {
                     type="date"
                     value={form.fecha_limite}
                     onChange={e => setForm(f => ({ ...f, fecha_limite: e.target.value }))}
-                    style={{ ...inputSt, colorScheme: 'dark' }}
+                    style={inputSt}
                   />
                 </div>
               </div>
@@ -763,8 +789,8 @@ export default function TareasOperativas() {
               <button
                 onClick={cerrarModal}
                 style={{
-                  padding: '8px 18px', borderRadius: 6,
-                  border: `0.5px solid ${BORDE_SUAVE}`, background: INK,
+                  padding: '8px 18px',
+                  border: `3px solid ${INK}`, background: BLANCO,
                   color: GRIS, fontFamily: 'Oswald,sans-serif',
                   fontSize: 13, letterSpacing: '1px', cursor: 'pointer',
                 }}
@@ -773,7 +799,7 @@ export default function TareasOperativas() {
                 onClick={guardar}
                 disabled={saving || !form.titulo.trim()}
                 style={{
-                  padding: '8px 18px', borderRadius: 6, border: 'none',
+                  padding: '8px 18px', border: `3px solid ${INK}`, boxShadow: SHADOW,
                   background: saving || !form.titulo.trim() ? GRANATE_DISABLED : GRANATE,
                   color: BLANCO, fontFamily: 'Oswald,sans-serif',
                   fontSize: 13, letterSpacing: '1px',
@@ -798,21 +824,21 @@ export default function TareasOperativas() {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              backgroundColor: INK,
-              border: `0.5px solid ${BORDE_SUAVE}`,
-              borderRadius: 12, padding: '28px 24px',
+              backgroundColor: CREMA,
+              border: `4px solid ${INK}`,
+              padding: '28px 24px',
               width: '100%', maxWidth: 360, textAlign: 'center',
             }}
           >
-            <p style={{ fontFamily: FONT.body, fontSize: 14, color: BLANCO, margin: '0 0 20px' }}>
+            <p style={{ fontFamily: FONT.body, fontSize: 14, color: INK, margin: '0 0 20px' }}>
               Borrar esta tarea? La accion no se puede deshacer.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <button
                 onClick={() => setConfirmDelete(null)}
                 style={{
-                  padding: '8px 18px', borderRadius: 6,
-                  border: `0.5px solid ${BORDE_SUAVE}`, background: INK,
+                  padding: '8px 18px',
+                  border: `3px solid ${INK}`, background: BLANCO,
                   color: GRIS, fontFamily: 'Oswald,sans-serif',
                   fontSize: 13, letterSpacing: '1px', cursor: 'pointer',
                 }}
@@ -820,7 +846,7 @@ export default function TareasOperativas() {
               <button
                 onClick={() => borrar(confirmDelete)}
                 style={{
-                  padding: '8px 18px', borderRadius: 6, border: 'none',
+                  padding: '8px 18px', border: `3px solid ${INK}`, boxShadow: SHADOW,
                   background: GRANATE, color: BLANCO,
                   fontFamily: 'Oswald,sans-serif', fontSize: 13,
                   letterSpacing: '1px', cursor: 'pointer',
@@ -830,6 +856,6 @@ export default function TareasOperativas() {
           </div>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
 }

@@ -1,12 +1,11 @@
-import { BLANCO, BORDE_SUAVE, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
-import { ERROR_BANNER_BG, ERROR_BANNER_BORDE, BITACORA_TAG_BG, BITACORA_TAG_BORDE } from '@/styles/palettes'
+import { BLANCO, CREMA, GRANATE, GRIS, INK, ROJO_S, SHADOW } from '@/styles/neobrutal'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
-import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
+import { COLORS } from '@/components/panel/resumen/tokens'
+import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
-
-const BG_OPS = INK
 interface Entrada {
   id: string
   turno: string
@@ -80,45 +79,76 @@ export default function BitacoraNovedades() {
     setEtiquetasSeleccionadas(prev => prev.includes(et) ? prev.filter(e => e !== et) : [...prev, et])
   }
 
+  const hoyStr = new Date().toISOString().slice(0, 10)
+  const entradasHoy = entradas.filter(e => e.fecha_hora.startsWith(hoyStr))
+  const conIncidencia = entradasHoy.filter(e => e.etiquetas?.includes('Incidencia')).length
+
+  const titularHero = entradas.length === 0
+    ? 'Aún no hay novedades registradas.'
+    : conIncidencia > 0 ? `${conIncidencia} ${conIncidencia === 1 ? 'incidencia' : 'incidencias'} anotadas hoy.`
+    : entradasHoy.length > 0 ? `${entradasHoy.length} ${entradasHoy.length === 1 ? 'novedad' : 'novedades'} registradas hoy.`
+    : 'Sin novedades registradas hoy.'
+
+  const atencionHero = [
+    entradasHoy.length > 0 ? `${entradasHoy.length} hoy` : null,
+    conIncidencia > 0 ? `${conIncidencia} incidencias` : null,
+    `${entradas.length} en total`,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: BLANCO }}>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>BITÁCORA NOVEDADES</h1>
-          <span style={{ fontSize: 13, color: COLOR.textMut }}>Registro de novedades por turno</span>
-        </div>
+    <PantallaCantera>
+
+      {/* Filtros propios planos */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button onClick={() => setShowForm(s => !s)}
-          style={{ padding: '8px 18px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
+          style={{ padding: '9px 18px', background: GRANATE, color: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
           + Nueva entrada
         </button>
       </div>
 
-      {error && <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        periodo={new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^\w/, c => c.toUpperCase())}
+        titular={titularHero}
+        etiquetaDato={entradasHoy.length > 0 ? 'Novedades de hoy' : undefined}
+        cifra={entradasHoy.length > 0 ? String(entradasHoy.length) : undefined}
+        atencion={atencionHero}
+      />
+
+      {error && <Papel ceja={ROJO_S} style={{ background: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, color: ROJO_S }}>{error}</Papel>}
+
+      {/* 3 · Frase potente (una sola, según haya o no incidencias) */}
+      {!loading && entradas.length > 0 && (
+        conIncidencia > 0
+          ? <FrasePotente significado="peligro">Hay incidencias anotadas hoy: revísalas con el turno correspondiente.</FrasePotente>
+          : <FrasePotente significado="logro">Sin incidencias registradas hoy: el turno va según lo previsto.</FrasePotente>
+      )}
 
       {/* Formulario nueva entrada */}
       {showForm && (
-        <div style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 10, padding: '20px', marginBottom: 20 }}>
+        <Papel ceja={GRANATE}>
           <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Turno</label>
+              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Turno</label>
               <select value={turno} onChange={e => setTurno(e.target.value)}
-                style={{ padding: '8px 10px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontSize: 13 }}>
+                style={{ padding: '8px 10px', background: BLANCO, border: `3px solid ${INK}`, color: INK, fontSize: 13 }}>
                 {TURNOS.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 200 }}>
-              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Novedad</label>
+              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Novedad</label>
               <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={3}
                 placeholder="Escribe la novedad del turno..."
-                style={{ padding: '8px 10px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontSize: 13, resize: 'vertical', fontFamily: FONT.body }} />
+                style={{ padding: '8px 10px', background: BLANCO, border: `3px solid ${INK}`, color: INK, fontSize: 13, resize: 'vertical', fontFamily: FONT.body }} />
             </div>
           </div>
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 6 }}>Etiquetas</div>
+            <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Etiquetas</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {ETIQUETAS_PRESET.map(et => (
                 <button key={et} onClick={() => toggleEtiqueta(et)}
-                  style={{ padding: '3px 10px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: FONT.body, fontSize: 12, background: etiquetasSeleccionadas.includes(et) ? COLORS.glovo : INK, color: etiquetasSeleccionadas.includes(et) ? BG_OPS : GRIS }}>
+                  style={{ padding: '3px 10px', border: `2px solid ${INK}`, cursor: 'pointer', fontFamily: FONT.body, fontSize: 12, background: etiquetasSeleccionadas.includes(et) ? COLORS.glovo : BLANCO, color: etiquetasSeleccionadas.includes(et) ? INK : GRIS }}>
                   {et}
                 </button>
               ))}
@@ -126,53 +156,56 @@ export default function BitacoraNovedades() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={addEntrada} disabled={saving}
-              style={{ padding: '8px 18px', background: COLORS.redSL, color: BLANCO, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              style={{ padding: '8px 18px', background: GRANATE, color: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
               {saving ? 'Guardando…' : 'Guardar'}
             </button>
-            <button onClick={() => setShowForm(false)} style={{ padding: '8px 14px', background: INK, border: `1px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+            <button onClick={() => setShowForm(false)} style={{ padding: '8px 14px', background: BLANCO, border: `3px solid ${INK}`, color: GRIS, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
           </div>
-        </div>
+        </Papel>
       )}
 
       {/* Filtros */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
           placeholder="Buscar en novedades..."
-          style={{ padding: '8px 12px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontSize: 13, minWidth: 200, outline: 'none' }} />
+          style={{ padding: '8px 12px', background: BLANCO, border: `3px solid ${INK}`, color: INK, fontSize: 13, minWidth: 200, outline: 'none' }} />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button onClick={() => setFiltroEtiqueta(null)}
-            style={{ padding: '4px 12px', borderRadius: 12, border: 'none', cursor: 'pointer', background: filtroEtiqueta === null ? COLORS.glovo : INK, color: filtroEtiqueta === null ? BG_OPS : GRIS, fontSize: 12, fontFamily: FONT.body }}>
+            style={{ padding: '4px 12px', border: `2px solid ${INK}`, cursor: 'pointer', background: filtroEtiqueta === null ? COLORS.glovo : BLANCO, color: filtroEtiqueta === null ? INK : GRIS, fontSize: 12, fontFamily: FONT.body }}>
             Todas
           </button>
           {ETIQUETAS_PRESET.map(et => (
             <button key={et} onClick={() => setFiltroEtiqueta(et === filtroEtiqueta ? null : et)}
-              style={{ padding: '4px 12px', borderRadius: 12, border: 'none', cursor: 'pointer', background: filtroEtiqueta === et ? COLORS.glovo : INK, color: filtroEtiqueta === et ? BG_OPS : GRIS, fontSize: 12, fontFamily: FONT.body }}>
+              style={{ padding: '4px 12px', border: `2px solid ${INK}`, cursor: 'pointer', background: filtroEtiqueta === et ? COLORS.glovo : BLANCO, color: filtroEtiqueta === et ? INK : GRIS, fontSize: 12, fontFamily: FONT.body }}>
               {et}
             </button>
           ))}
         </div>
       </div>
 
-      {loading ? <div style={{ color: COLOR.textMut, fontSize: 13 }}>Cargando…</div> : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {entradas.length === 0 ? (
-            <div style={{ color: COLOR.textMut, fontSize: 13 }}>Sin entradas{busqueda || filtroEtiqueta ? ' para esta búsqueda' : ' aún'}.</div>
-          ) : entradas.map(entrada => (
-            <div key={entrada.id} style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 10, padding: '16px 18px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, padding: '2px 8px', borderRadius: 4, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.glovo }}>{entrada.turno}</span>
-                  {entrada.etiquetas && entrada.etiquetas.map(et => (
-                    <span key={et} style={{ background: BITACORA_TAG_BG, border: `1px solid ${BITACORA_TAG_BORDE}`, padding: '2px 8px', borderRadius: 10, fontSize: 10, color: GRIS }}>{et}</span>
-                  ))}
+      {loading ? <div style={{ color: GRIS, fontSize: 13 }}>Cargando…</div> : (
+        <div>
+          <SeccionLabel bg={GRANATE}>Entradas</SeccionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {entradas.length === 0 ? (
+              <div style={{ color: GRIS, fontSize: 13 }}>Sin entradas{busqueda || filtroEtiqueta ? ' para esta búsqueda' : ' aún'}.</div>
+            ) : entradas.map(entrada => (
+              <Papel key={entrada.id} ceja={GRANATE}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ background: CREMA, border: `2px solid ${INK}`, padding: '2px 8px', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: INK }}>{entrada.turno}</span>
+                    {entrada.etiquetas && entrada.etiquetas.map(et => (
+                      <span key={et} style={{ background: CREMA, border: `2px solid ${INK}`, padding: '2px 8px', fontSize: 10, color: GRIS }}>{et}</span>
+                    ))}
+                  </div>
+                  <span style={{ fontSize: 12, color: GRIS, whiteSpace: 'nowrap' }}>{fmtFechaHora(entrada.fecha_hora)}</span>
                 </div>
-                <span style={{ fontSize: 12, color: GRIS, whiteSpace: 'nowrap' }}>{fmtFechaHora(entrada.fecha_hora)}</span>
-              </div>
-              <p style={{ margin: 0, fontSize: 14, color: GRIS, lineHeight: 1.5 }}>{entrada.texto}</p>
-            </div>
-          ))}
+                <p style={{ margin: 0, fontSize: 14, color: INK, lineHeight: 1.5 }}>{entrada.texto}</p>
+              </Papel>
+            ))}
+          </div>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
 }

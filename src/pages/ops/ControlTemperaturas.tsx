@@ -1,12 +1,11 @@
-import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
+import { BLANCO, CREMA, GRANATE, GRIS, INK, ROJO_S, SHADOW } from '@/styles/neobrutal'
 import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
+import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
-
-const BG_OPS = INK
 interface Equipo {
   id: string
   nombre: string
@@ -119,88 +118,113 @@ export default function ControlTemperaturas() {
     setSaving(false)
   }
 
+  const registrosAlerta = registros.filter(r => semaforo(r.temperatura, r.equipo_temp_min ?? null, r.equipo_temp_max ?? null).label === 'ALERTA')
+
+  const titularHero = equiposSinRegistroHoy.length > 0
+    ? `${equiposSinRegistroHoy.length} ${equiposSinRegistroHoy.length === 1 ? 'equipo sin registrar' : 'equipos sin registrar'} hoy.`
+    : registrosAlerta.length > 0
+      ? `${registrosAlerta.length} ${registrosAlerta.length === 1 ? 'lectura fuera de rango' : 'lecturas fuera de rango'}.`
+      : registros.length === 0 ? 'Aún no hay registros de temperatura.' : 'Todas las temperaturas dentro de rango.'
+
+  const atencionHero = [
+    equiposSinRegistroHoy.length > 0 ? `${equiposSinRegistroHoy.length} sin registrar hoy` : null,
+    registrosAlerta.length > 0 ? `${registrosAlerta.length} fuera de rango` : null,
+    `${equipos.length} equipos activos`,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: BLANCO }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>CONTROL TEMPERATURAS</h1>
-        <span style={{ fontSize: 13, color: COLOR.textMut }}>{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
-      </div>
+    <PantallaCantera>
 
-      {error && <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        periodo={new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^\w/, c => c.toUpperCase())}
+        titular={titularHero}
+        etiquetaDato={registrosAlerta.length > 0 ? 'Lecturas fuera de rango' : undefined}
+        cifra={registrosAlerta.length > 0 ? String(registrosAlerta.length) : undefined}
+        atencion={atencionHero}
+      />
 
-      {equiposSinRegistroHoy.length > 0 && (
-        <div style={{ background: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, borderRadius: 8, padding: '12px 16px', marginBottom: 20 }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: ROJO_S, marginBottom: 6 }}>Equipos sin registro hoy</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {equiposSinRegistroHoy.map(n => (
-              <span key={n} style={{ background: GRANATE + '30', border: `1px solid ${GRANATE}`, borderRadius: 12, padding: '2px 10px', fontSize: 12, color: ROJO_S }}>{n}</span>
-            ))}
-          </div>
-        </div>
+      {error && <Papel ceja={ROJO_S} style={{ background: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, color: ROJO_S }}>{error}</Papel>}
+
+      {/* 3 · Frase potente (una sola, según el estado del control) */}
+      {!loading && (
+        equiposSinRegistroHoy.length > 0
+          ? <FrasePotente significado="peligro">Registra hoy la temperatura de: {equiposSinRegistroHoy.join(', ')}.</FrasePotente>
+          : registrosAlerta.length > 0
+            ? <FrasePotente significado="peligro">Hay lecturas fuera del rango seguro: revísalas cuanto antes.</FrasePotente>
+            : registros.length > 0
+              ? <FrasePotente significado="logro">Todos los equipos dentro del rango de temperatura seguro.</FrasePotente>
+              : <FrasePotente significado="coste">Añade el primer registro del día para empezar el control.</FrasePotente>
       )}
 
       {/* Formulario añadir */}
-      <div style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 10, padding: '20px', marginBottom: 24 }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 14 }}>Nuevo Registro</div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
-            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Equipo</label>
-            <select value={form.equipo_id} onChange={e => setForm(p => ({ ...p, equipo_id: e.target.value }))}
-              style={{ padding: '8px 10px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontFamily: FONT.body, fontSize: 13 }}>
-              {equipos.map(eq => <option key={eq.id} value={eq.id}>{eq.nombre}</option>)}
-            </select>
+      <div>
+        <SeccionLabel bg={GRANATE}>Nuevo registro</SeccionLabel>
+        <Papel ceja={GRANATE}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
+              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Equipo</label>
+              <select value={form.equipo_id} onChange={e => setForm(p => ({ ...p, equipo_id: e.target.value }))}
+                style={{ padding: '8px 10px', background: BLANCO, border: `3px solid ${INK}`, color: INK, fontFamily: FONT.body, fontSize: 13 }}>
+                {equipos.map(eq => <option key={eq.id} value={eq.id}>{eq.nombre}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Temperatura (°C)</label>
+              <input type="number" step="0.1" value={form.temperatura} onChange={e => setForm(p => ({ ...p, temperatura: e.target.value }))}
+                style={{ padding: '8px 10px', background: BLANCO, border: `3px solid ${INK}`, color: INK, fontFamily: FONT.body, fontSize: 13, width: 120 }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 160 }}>
+              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Nota</label>
+              <input type="text" value={form.nota} onChange={e => setForm(p => ({ ...p, nota: e.target.value }))}
+                placeholder="Opcional..." style={{ padding: '8px 10px', background: BLANCO, border: `3px solid ${INK}`, color: INK, fontFamily: FONT.body, fontSize: 13 }} />
+            </div>
+            <button onClick={addRegistro} disabled={saving}
+              style={{ padding: '9px 18px', background: COLORS.glovo, color: INK, border: `3px solid ${INK}`, boxShadow: SHADOW, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving ? 'Guardando…' : '+ Añadir'}
+            </button>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Temperatura (°C)</label>
-            <input type="number" step="0.1" value={form.temperatura} onChange={e => setForm(p => ({ ...p, temperatura: e.target.value }))}
-              style={{ padding: '8px 10px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontFamily: FONT.body, fontSize: 13, width: 120 }} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 160 }}>
-            <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>Nota</label>
-            <input type="text" value={form.nota} onChange={e => setForm(p => ({ ...p, nota: e.target.value }))}
-              placeholder="Opcional..." style={{ padding: '8px 10px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontFamily: FONT.body, fontSize: 13 }} />
-          </div>
-          <button onClick={addRegistro} disabled={saving}
-            style={{ padding: '8px 18px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-            {saving ? 'Guardando…' : '+ Añadir'}
-          </button>
-        </div>
+        </Papel>
       </div>
 
-      {loading ? <div style={{ color: COLOR.textMut, fontSize: 13 }}>Cargando…</div> : (
-        <div style={{ overflowX: 'auto', borderRadius: 10, border: `1px solid ${BORDE_SUAVE}` }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: INK }}>
-                {['Equipo', 'Temperatura', 'Rango', 'Estado', 'Nota', 'Fecha/Hora'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, fontWeight: 600, borderBottom: `1px solid ${BORDE_SUAVE}`, whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {registros.length === 0 ? (
-                <tr><td colSpan={6} style={{ padding: '20px 14px', color: COLOR.textMut, textAlign: 'center' }}>Sin registros aún</td></tr>
-              ) : registros.map((r, i) => {
-                const sem = semaforo(r.temperatura, r.equipo_temp_min ?? null, r.equipo_temp_max ?? null)
-                return (
-                  <tr key={r.id} style={{ background: i % 2 === 0 ? BG_OPS : INK, borderBottom: `1px solid ${BORDE_SUAVE}` }}>
-                    <td style={{ padding: '10px 14px', color: GRIS }}>{r.equipo_nombre ?? '—'}</td>
-                    <td style={{ padding: '10px 14px', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: sem.color }}>{r.temperatura}°C</td>
-                    <td style={{ padding: '10px 14px', color: COLOR.textMut, fontSize: 12 }}>
-                      {r.equipo_temp_min !== null && r.equipo_temp_max !== null ? `${r.equipo_temp_min}°C – ${r.equipo_temp_max}°C` : '—'}
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{ background: sem.color + '22', color: sem.color, border: `1px solid ${sem.color}`, padding: '2px 8px', borderRadius: 10, fontSize: 11, fontFamily: FONT.heading, letterSpacing: '1px' }}>{sem.label}</span>
-                    </td>
-                    <td style={{ padding: '10px 14px', color: COLOR.textMut, fontSize: 12 }}>{r.nota ?? '—'}</td>
-                    <td style={{ padding: '10px 14px', color: COLOR.textMut, fontSize: 12, whiteSpace: 'nowrap' }}>{fmtFechaHora(r.fecha_hora)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+      {loading ? <div style={{ color: GRIS, fontSize: 13 }}>Cargando…</div> : (
+        <div>
+          <SeccionLabel bg={GRANATE}>Registros</SeccionLabel>
+          <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: INK }}>
+                  {['Equipo', 'Temperatura', 'Rango', 'Estado', 'Nota', 'Fecha/Hora'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {registros.length === 0 ? (
+                  <tr><td colSpan={6} style={{ padding: '20px 14px', color: GRIS, textAlign: 'center' }}>Sin registros aún</td></tr>
+                ) : registros.map(r => {
+                  const sem = semaforo(r.temperatura, r.equipo_temp_min ?? null, r.equipo_temp_max ?? null)
+                  return (
+                    <tr key={r.id} style={{ borderBottom: `2px solid ${INK}` }}>
+                      <td style={{ padding: '10px 14px', color: GRIS }}>{r.equipo_nombre ?? '—'}</td>
+                      <td style={{ padding: '10px 14px', fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: sem.color }}>{r.temperatura}°C</td>
+                      <td style={{ padding: '10px 14px', color: GRIS, fontSize: 12 }}>
+                        {r.equipo_temp_min !== null && r.equipo_temp_max !== null ? `${r.equipo_temp_min}°C – ${r.equipo_temp_max}°C` : '—'}
+                      </td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ background: sem.color, color: BLANCO, border: `2px solid ${INK}`, padding: '2px 8px', fontSize: 11, fontFamily: FONT.heading, letterSpacing: '1px' }}>{sem.label}</span>
+                      </td>
+                      <td style={{ padding: '10px 14px', color: GRIS, fontSize: 12 }}>{r.nota ?? '—'}</td>
+                      <td style={{ padding: '10px 14px', color: GRIS, fontSize: 12, whiteSpace: 'nowrap' }}>{fmtFechaHora(r.fecha_hora)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </Papel>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
 }
