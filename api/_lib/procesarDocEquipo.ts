@@ -12,6 +12,11 @@
 // en `equipo_docs_revision` — nunca se descarta en silencio. EXCEPCIÓN explícita
 // y deseada: el empleador (es_empleador=true, p.ej. Rubén) y la RNT (decisión de
 // Rubén: se archiva y punto) no generan ni dato ni aviso — ver comentarios abajo.
+//
+// REENCAMINADO (LEY-BANDEJA-01): si por el botón de Equipo entra algo que NO es
+// de personal (una liquidación de plataforma, una factura, un extracto), NO se
+// queda parado en revisión: se manda solo al buzón que le toca, igual que hacen
+// los demás botones. En una carpeta suele haber de todo mezclado.
 import { supabaseAdmin } from './supabase-admin.js'
 import { subirArchivoACarpetaExacta } from './google-drive.js'
 import { extraerTextoPDF, pdfTieneTexto } from './extractores.js'
@@ -21,6 +26,7 @@ import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResu
 import { cargarCandidatosEmpleados, cargarEmpleadores, resolverEmpleado, resolverEmpleadoEnTexto, resolverEmpleadosEnTexto } from './matchEmpleado.js'
 import { contarRecibos, partirNominas } from './splitNominas.js'
 import { extraerNominaAnthropicTexto } from './extraerNomina.js'
+import { detectarDocumentoPlataforma } from './detectarDocumentoPlataforma.js'
 
 export interface ResultadoDocEquipo {
   status: number
@@ -37,6 +43,69 @@ function nombreSeguroArchivo(nombre: string): string {
     .replace(/[^A-Za-z0-9._-]+/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '') || 'documento.pdf'
+}
+
+/** Base absoluta del propio despliegue, para el reencaminado interno. */
+function baseUrlPropia(): string {
+  const v = process.env.VERCEL_URL
+  if (v) return v.startsWith('http') ? v : `https://${v}`
+  return 'https://binagre.vercel.app'
+}
+
+// ── REENCAMINADO ────────────────────────────────────────────────────────────
+// Un documento que entra por Equipo pero NO es de personal se manda a su buzón:
+//   · liquidaciones / pedidos / resúmenes de plataforma → Ventas
+//   · facturas (incluidas las de Uber, Glovo, Just Eat) → Facturas
+// Si no se reconoce nada, devuelve null y sigue el camino normal (revisión).
+async function reencaminarFueraDeEquipo(
+  buffer: Buffer,
+  nombreOriginal: string,
+  texto: string,
+  ext: string,
+): Promise<ResultadoDocEquipo['body'] | null> {
+  const det = detectarDocumentoPlataforma(nombreOriginal, texto)
+  if (!det.tipo) return null
+
+  const base = baseUrlPropia()
+  const b64 = buffer.toString('base64')
+
+  try {
+    if (det.destino === 'ventas_pedidos' || det.destino === 'ventas_resumen') {
+      const r = await fetch(`${base}/api/importar/plataforma`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64: b64, nombre: nombreOriginal, mimeType: null, modulo: 'equipo_reencaminado' }),
+      })
+      const j = await r.json() as Record<string, unknown>
+      if (j?.ok) {
+        return {
+          ok: true, destino: 'ventas', reencaminado: true,
+          motivo: `No es un documento de personal: es ${det.tipo.replace(/_/g, ' ')}. Se ha enviado solo a Ventas.`,
+          plataforma: det.plataforma, resultado: j,
+        }
+      }
+      return null
+    }
+
+    if (det.destino === 'facturacion') {
+      const r = await fetch(`${base}/api/facturas?action=procesar-factura`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64: b64, filename: nombreOriginal, extension: ext }),
+      })
+      const j = await r.json() as Record<string, unknown>
+      if (j?.ok || j?.factura_id) {
+        return {
+          ok: true, destino: 'facturas', reencaminado: true,
+          motivo: `No es un documento de personal: es una factura de ${det.plataforma ?? 'proveedor'}. Se ha enviado sola a Facturas.`,
+          resultado: j,
+        }
+      }
+      return null
+    }
+  } catch (err) {
+    console.error('[reencaminarFueraDeEquipo] no se pudo reencaminar:', err instanceof Error ? err.message : String(err))
+    return null
+  }
+  return null
 }
 
 async function archivarParaRevision(
@@ -132,7 +201,8 @@ export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: st
   await registrarImportEquipo(nombreOriginal, estado, `equipo:${destino}`, {
     tipo_detectado: String((body.clasificacion as { tipo?: string } | undefined)?.tipo || body.tipo || 'equipo'),
     destino,
-    motivo: (body as { error?: unknown }).error ?? (body.detalles ? 'multi-documento, ver cola de revisión' : undefined),
+    reencaminado: body.reencaminado === true || undefined,
+    motivo: (body as { error?: unknown }).error ?? body.motivo ?? (body.detalles ? 'multi-documento, ver cola de revisión' : undefined),
     multi: body.multi === true || undefined,
     nominas_ok: body.nominas_ok,
     sin_texto_legible: sinTexto || undefined,
@@ -144,13 +214,19 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
   const ext = (nombreOriginal.split('.').pop() || 'pdf').toLowerCase()
 
   let texto = ''
-  try { texto = await extraerTextoPDF(buffer) } catch (err) {
-    console.error('[procesarDocEquipo] extraerTextoPDF lanzó:', err instanceof Error ? err.message : String(err))
-    texto = ''
-  }
-  if (!pdfTieneTexto(texto)) {
-    console.error(`[procesarDocEquipo] "${nombreOriginal}": lectura directa sin texto (PDF digital que debería tener capa de texto) — cayendo a OCR de respaldo`)
-    try { texto = await extraerTextoOCRGratis(buffer, 'pdf') } catch { /* noop */ }
+  // CSV/TXT no son PDF: se leen como texto plano. Antes se les pasaba el lector
+  // de PDF, no sacaba nada y acababan en revisión aunque fueran de plataforma.
+  if (['csv', 'txt', 'html', 'htm'].includes(ext)) {
+    try { texto = buffer.toString('utf8') } catch { texto = '' }
+  } else {
+    try { texto = await extraerTextoPDF(buffer) } catch (err) {
+      console.error('[procesarDocEquipo] extraerTextoPDF lanzó:', err instanceof Error ? err.message : String(err))
+      texto = ''
+    }
+    if (!pdfTieneTexto(texto)) {
+      console.error(`[procesarDocEquipo] "${nombreOriginal}": lectura directa sin texto (PDF digital que debería tener capa de texto) — cayendo a OCR de respaldo`)
+      try { texto = await extraerTextoOCRGratis(buffer, 'pdf') } catch { /* noop */ }
+    }
   }
   // Si ni la lectura directa ni el respaldo sacaron texto, el documento igualmente
   // acabará en revisión (clasificación 'desconocido'), pero el registro de la
@@ -158,6 +234,14 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
   const sinTextoLegible = !pdfTieneTexto(texto)
 
   const clasif = await clasificarDocEquipoTexto(texto)
+
+  // ── Reencaminado: ¿esto no es de personal? Se manda a su buzón antes de nada.
+  // Solo cuando NO hay marcador de documento de personal: si es una nómina o un
+  // RLC de verdad, se procesa aquí y no se toca.
+  if (!clasif.cierto || clasif.tipo === 'desconocido') {
+    const desviado = await reencaminarFueraDeEquipo(buffer, nombreOriginal, texto, ext)
+    if (desviado) return { status: 200, body: desviado }
+  }
 
   // RNT: fuera del resto del flujo, ni siquiera intenta partirse como multi-nómina.
   if (clasif.cierto && clasif.tipo === 'rnt') {
