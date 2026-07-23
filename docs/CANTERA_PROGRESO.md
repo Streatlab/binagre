@@ -77,14 +77,14 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [x] Analítica · Pareto ventas
 - [x] Analítica · Revenue & ticket
 - [x] Analítica · Predicción demanda (contenido real: Pulso operativa)
-- [ ] Clientes · CRM tienda propia
-- [ ] Clientes · Club fidelización
+- [x] Clientes · CRM tienda propia
+- [x] Clientes · Club fidelización
 - [x] Marketing · Panel MKT
 - [x] Marketing · Plan campañas
 - [x] Marketing · Rendimiento ads/promo
 - [x] Marketing · Panel reseñas
-- [ ] Marketing · Benchmark
-- [ ] Marketing · Playbook ThinkPaladar
+- [x] Marketing · Benchmark
+- [x] Marketing · Playbook ThinkPaladar
 
 ### Cocina
 - [x] Cocina · Hoy
