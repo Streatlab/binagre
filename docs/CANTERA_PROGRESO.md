@@ -72,11 +72,11 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [ ] Bandeja de pendientes
 
 ### Ventas y Clientes (áreas)
-- [ ] Analítica · Margen por canal
-- [ ] Analítica · Ventas por marca
-- [ ] Analítica · Pareto ventas
-- [ ] Analítica · Revenue & ticket
-- [ ] Analítica · Predicción demanda
+- [x] Analítica · Margen por canal
+- [x] Analítica · Ventas por marca
+- [x] Analítica · Pareto ventas
+- [x] Analítica · Revenue & ticket
+- [x] Analítica · Predicción demanda (contenido real: Pulso operativa)
 - [ ] Clientes · CRM tienda propia
 - [ ] Clientes · Club fidelización
 - [ ] Marketing · Panel MKT
