@@ -3,8 +3,9 @@ import { TITULARES_BG_LIGHT } from '@/styles/palettes'
 import { useCallback, useEffect, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, pageTitleStyle, cardStyle } from '@/styles/tokens'
+import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import { useTitular, type Titular } from '@/contexts/TitularContext'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 
 async function fileToBase64(file: File): Promise<string> {
   const buffer = await file.arrayBuffer()
@@ -99,7 +100,9 @@ export default function CuentasBancarias() {
 
   return (
     <div style={{ padding: 24, background: T.bg, minHeight: '100vh', color: T.pri }}>
-      <h1 style={pageTitleStyle(T)}>CUENTAS BANCARIAS</h1>
+      <div style={{ marginBottom: 20 }}>
+        <RutaPantalla niveles={['Ajustes', 'Cuentas bancarias']} />
+      </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {titulares.map((t) => {

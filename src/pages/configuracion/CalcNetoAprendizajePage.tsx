@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtPct } from '@/lib/format'
 import { FONT } from '@/styles/tokens'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 import {
   calcNetoPorCanal,
   loadConfigCanales,
@@ -259,9 +260,7 @@ export default function CalcNetoAprendizajePage() {
     <ConfigShell>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontFamily: 'Oswald,sans-serif', fontSize: 22, letterSpacing: '3px', color: GRANATE, fontWeight: 600, textTransform: 'uppercase', margin: 0 }}>
-          Aprendizaje calcNeto
-        </h1>
+        <RutaPantalla niveles={['Ajustes', 'Aprendizaje calcNeto']} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>Año</span>
           <select

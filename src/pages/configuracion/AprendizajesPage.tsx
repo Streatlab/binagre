@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtDate } from '@/lib/format'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 import { FONT } from '@/styles/tokens'
 import {
   APRENDIZAJES_MODULO, APRENDIZAJES_MODULO_DEFAULT, APRENDIZAJES_MODULO_CONFIG_TXT,
@@ -158,9 +159,7 @@ export default function AprendizajesPage() {
     <ConfigShell>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: GRANATE, fontWeight: 600, textTransform: 'uppercase', margin: 0 }}>
-          Aprendizajes ERP
-        </h1>
+        <RutaPantalla niveles={['Ajustes', 'Aprendizajes ERP']} />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             placeholder="Buscar aprendizajes..."

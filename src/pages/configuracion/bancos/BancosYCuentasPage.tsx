@@ -7,6 +7,8 @@ import { toast } from '@/lib/toastStore'
 import ReglasPanel from './ReglasPanel'
 import ReglasGlobalesPanel from './ReglasGlobalesPanel'
 import CuentasPanel from './CuentasPanel'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import TabsPastilla from '@/components/ui/TabsPastilla'
 
 interface CategoriaPyg {
   id: string
@@ -22,6 +24,13 @@ interface CategoriaPyg {
 function stripBanda(nombre: string): string {
   return nombre.replace(/\s*·?\s*banda\s+[\d.]+-[\d.]+\s*%/i, '').trim()
 }
+
+const SUBTAB_ITEMS: { id: string; label: string; path: string }[] = [
+  { id: 'cuentas', label: 'Cuentas bancarias', path: '/configuracion/bancos-y-cuentas/cuentas' },
+  { id: 'categorias', label: 'Categorías', path: '/configuracion/bancos-y-cuentas/categorias' },
+  { id: 'reglas', label: 'Reglas de matching', path: '/configuracion/bancos-y-cuentas/reglas' },
+  { id: 'reglas-globales', label: 'Reglas del sistema', path: '/configuracion/bancos-y-cuentas/reglas-globales' },
+]
 
 export default function BancosYCuentasPage() {
   const location = useLocation()
@@ -72,42 +81,16 @@ export default function BancosYCuentasPage() {
   return (
     <div style={{ background: CREMA, padding: '24px 28px' }}>
 
-      <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', marginBottom: 4 }}>
-        Configuración
+      <div style={{ marginBottom: 16 }}>
+        <RutaPantalla niveles={['Ajustes', 'Bancos y Cuentas']} />
       </div>
 
-      <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', color: GRANATE, margin: '0 0 18px', textTransform: 'uppercase' }}>
-        Bancos y Cuentas
-      </h1>
-
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-        {[
-          { id: 'cuentas', label: 'Cuentas bancarias', path: '/configuracion/bancos-y-cuentas/cuentas' },
-          { id: 'categorias', label: 'Categorías', path: '/configuracion/bancos-y-cuentas/categorias' },
-          { id: 'reglas', label: 'Reglas de matching', path: '/configuracion/bancos-y-cuentas/reglas' },
-          { id: 'reglas-globales', label: 'Reglas del sistema', path: '/configuracion/bancos-y-cuentas/reglas-globales' },
-        ].map(st => {
-          const isActive = st.id === subTab
-          return (
-            <button
-              key={st.id}
-              onClick={() => navigate(st.path)}
-              style={{
-                padding: '5px 12px',
-                borderRadius: 6,
-                border: isActive ? 'none' : `0.5px solid ${BORDE_SUAVE}`,
-                background: isActive ? ROJO : BLANCO,
-                color: isActive ? BLANCO : OSC,
-                fontFamily: 'Lexend, sans-serif',
-                fontSize: 12,
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              {st.label}
-            </button>
-          )
-        })}
+      <div style={{ marginBottom: 16 }}>
+        <TabsPastilla
+          tabs={SUBTAB_ITEMS}
+          activeId={subTab}
+          onChange={id => navigate(SUBTAB_ITEMS.find(st => st.id === id)?.path ?? SUBTAB_ITEMS[0].path)}
+        />
       </div>
 
       {subTab === 'categorias' && (

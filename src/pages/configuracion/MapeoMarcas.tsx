@@ -13,10 +13,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  OSW, LEX, INK, CREMA, CLARO, GRIS, GRANATE, VERDE, AMA, AZUL, BLANCO,
+  OSW, LEX, INK, CREMA, GRIS, GRANATE, VERDE, AMA, AZUL, BLANCO,
   VERDE_S, AMA_S, ROSA_S, AZUL_S,
-  SHADOW, BORDER, BORDER_CARD, d, eyebrow, cardWash, cardHead, pill,
+  SHADOW, BORDER, BORDER_CARD, d, cardWash, cardHead, pill,
 } from '@/styles/neobrutal'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 
 interface Fila {
   id: number
@@ -149,9 +150,7 @@ export default function MapeoMarcas() {
   return (
     <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
       <div style={{ marginBottom: 20 }}>
-        <span style={eyebrow(CLARO)}>CONFIGURACIÓN</span>
-        <h1 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '10px 0 6px' }}>MAPEO DE MARCAS</h1>
-        <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>A1 · Glovo y Just Eat entran sin marca. Aquí se les pone.</span>
+        <RutaPantalla niveles={['Ajustes', 'Mapeo de Marcas']} subtitulo="A1 · Glovo y Just Eat entran sin marca. Aquí se les pone." />
       </div>
 
       {/* Hero */}

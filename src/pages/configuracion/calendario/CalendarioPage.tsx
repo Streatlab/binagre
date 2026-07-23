@@ -4,7 +4,8 @@ import {
   APRENDIZAJES_SEC, ESTIMADO_BADGE_TXT, CALENDARIO_MODAL_BG, CALENDARIO_MODAL_BORDE,
 } from '@/styles/palettes'
 import { useState } from 'react'
-import { FONT, useTheme, pageTitleStyle } from '@/styles/tokens'
+import { FONT, useTheme } from '@/styles/tokens'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
 import MesGrid from './MesGrid'
 import ModalRangoBulk from './ModalRangoBulk'
@@ -62,7 +63,7 @@ export default function CalendarioPage() {
     <ConfigShell>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={pageTitleStyle(T)}>Calendario operativo</h1>
+        <RutaPantalla niveles={['Ajustes', 'Calendario operativo']} />
         <button
           onClick={() => setShowBulk(true)}
           style={{ padding: '9px 18px', backgroundColor: LIMA, color: INK, border: 'none', borderRadius: 8, fontFamily: FONT.heading, fontSize: 12, cursor: 'pointer', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600 }}

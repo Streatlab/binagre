@@ -5,6 +5,7 @@
  */
 import { Link } from 'react-router-dom'
 import { useTheme, FONT } from '@/styles/tokens'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 
 const APARTADOS = [
   { to: '/configuracion/cocina',               emoji: '🍳', label: 'Cocina',               desc: 'Categorías, unidades, proveedores y formato de números' },
@@ -22,9 +23,9 @@ export default function ConfiguracionHub() {
   const { T } = useTheme()
   return (
     <div style={{ width: '100%' }}>
-      <h1 style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: T.pri, margin: '0 0 16px' }}>
-        Configuración
-      </h1>
+      <div style={{ marginBottom: 16 }}>
+        <RutaPantalla niveles={['Configuración']} />
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
         {APARTADOS.map(a => (
           <Link key={a.to} to={a.to} style={{
