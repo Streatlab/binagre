@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { fmtDate } from '@/lib/format'
 import ModalRevisionEquipo from '@/components/equipo/ModalRevisionEquipo'
 import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, AZUL, GRIS, BLANCO } from '@/styles/neobrutal'
+import { HeroCantera, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
@@ -112,8 +113,21 @@ export default function TabDocumentos() {
   const tipos: Tipo[] = ['Nómina', 'RLC', 'RNT', 'Cuota autónomos', 'Contrato', 'Otro documento']
 
   return (
-    <div style={{ fontFamily: LEX, color: INK }}>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={`Tienes ${docs.length} documento${docs.length !== 1 ? 's' : ''} del equipo archivados`}
+        etiquetaDato="Documentos con estos filtros"
+        cifra={filtrados.length}
+        resumen={pendientesRevision > 0
+          ? <>{pendientesRevision} documento{pendientesRevision !== 1 ? 's' : ''} por revisar antes de dar por buenos.</>
+          : 'Nada pendiente de revisión.'}
+        atencion={[
+          personas.length > 0 ? `${personas.length} personas` : null,
+          pendientesRevision > 0 ? `${pendientesRevision} por revisar` : null,
+        ]}
+      />
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <select value={filtroPersona} onChange={e => setFiltroPersona(e.target.value)} style={selectNeo}>
           <option value="todas">Todas las personas</option>
           {personas.map(p => <option key={p} value={p}>{p}</option>)}
@@ -156,6 +170,7 @@ export default function TabDocumentos() {
         />
       )}
 
+      <SeccionLabel bg={GRANATE}>Documentos archivados</SeccionLabel>
       {loading ? (
         <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
       ) : (
@@ -193,7 +208,7 @@ export default function TabDocumentos() {
           </table>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 

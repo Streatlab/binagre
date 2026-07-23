@@ -13,6 +13,7 @@ import { buscarBizumMes } from '@/lib/equipo/bizumExtra'
 import { fmtEur, fmtDate } from '@/lib/format'
 import { fechaLocalStr } from '@/utils/fechaLocal'
 import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, AMA, VERDE, ROJO, GRIS, BLANCO, eyebrow, d } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
@@ -207,10 +208,16 @@ export default function TabCostes() {
   }, [todasLasFilas])
 
   const loading = loadingNominas || loadingResto
+  const mesLabel = `${MESES_LARGO[mes - 1]} ${anio}`
+  const tituloHero = kpis.total === 0
+    ? `Aún no hay coste de equipo registrado en ${mesLabel}.`
+    : kpis.comprometido > 0
+    ? `Este mes el equipo cuesta ${fmtEur(kpis.total, { decimals: 0 })}, con parte aún sin ver en banco.`
+    : `Este mes el equipo cuesta ${fmtEur(kpis.total, { decimals: 0 })}, todo pagado.`
 
   return (
-    <div style={{ fontFamily: LEX, color: INK }}>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+    <PantallaCantera embedded>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <select value={mes} onChange={e => setMes(parseInt(e.target.value))} style={selectNeo}>
           {MESES_LARGO.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
         </select>
@@ -224,21 +231,33 @@ export default function TabCostes() {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
-        <div style={{ ...card, padding: '16px 20px' }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Coste total del mes</div>
-          <div style={{ ...d('30px'), lineHeight: 1 }}>{fmtEur(kpis.total, { decimals: 2 })}</div>
-        </div>
-        <div style={{ ...card, padding: '16px 20px', background: kpis.comprometido > 0 ? AMA : BLANCO }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 6 }}>Comprometido</div>
-          <div style={{ ...d('30px', INK), lineHeight: 1 }}>{fmtEur(kpis.comprometido, { decimals: 2 })}</div>
-        </div>
-        <div style={{ ...card, padding: '16px 20px', background: VERDE }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Pagado</div>
-          <div style={{ ...d('30px', BLANCO), lineHeight: 1 }}>{fmtEur(kpis.pagado, { decimals: 2 })}</div>
-        </div>
-      </div>
+      <HeroCantera
+        area="equipo"
+        periodo={mesLabel}
+        titular={tituloHero}
+        etiquetaDato="Coste total del equipo"
+        cifra={fmtEur(kpis.total, { decimals: 2 })}
+        atencion={[
+          kpis.comprometido > 0 ? `Comprometido ${fmtEur(kpis.comprometido, { decimals: 0 })}` : null,
+          kpis.pagado > 0 ? `Pagado ${fmtEur(kpis.pagado, { decimals: 0 })}` : null,
+        ]}
+      />
+      <Plancha>
+        <PlanchaCelda bg={BLANCO} first>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600, color: GRIS }}>Coste total del mes</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(kpis.total, { decimals: 2 })}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={kpis.comprometido > 0 ? AMA : BLANCO}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Comprometido</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(kpis.comprometido, { decimals: 2 })}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={VERDE}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Pagado</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(kpis.pagado, { decimals: 2 })}</div>
+        </PlanchaCelda>
+      </Plancha>
 
+      <SeccionLabel bg={INK} color={CREMA}>Detalle de partidas</SeccionLabel>
       {loading ? (
         <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
       ) : (
@@ -281,7 +300,7 @@ export default function TabCostes() {
           </table>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 

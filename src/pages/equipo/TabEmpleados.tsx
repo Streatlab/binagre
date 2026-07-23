@@ -18,6 +18,7 @@ import ModalEmpleado, { type Empleado } from '@/components/equipo/ModalEmpleado'
 import { MESES_LARGO } from '@/components/equipo/NominaSoloLectura'
 import { archivarEmpleado, reactivarEmpleado, eliminarEmpleadoDuro } from '@/components/equipo/horarios/personal'
 import { OSW, LEX, INK, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, AZUL, GRIS, BLANCO, eyebrow } from '@/styles/neobrutal'
+import { HeroCantera, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
 
@@ -119,8 +120,41 @@ export default function TabEmpleados() {
   const loading = loadingBase || loadingNominas
   const mesLabel = `${MESES_LARGO[mesActual - 1].toLowerCase()} ${anioActual}`
 
+  // Agregado solo para el héroe visual (no altera el cálculo por tarjeta, que sigue igual abajo).
+  const activosHero = useMemo(() => empleados.filter(e => e.tipo_relacion !== 'socio' && e.estado === 'activo'), [empleados])
+  const { totalCosteMesHero, pendientesHero } = useMemo(() => {
+    let total = 0, pendientes = 0
+    for (const emp of activosHero) {
+      const esExtra = emp.tipo_relacion === 'extra'
+      const esEmilio = /emilio/i.test(emp.nombre)
+      if (esEmilio) { if (emilioMes?.adeudado != null) total += emilioMes.adeudado }
+      else if (esExtra) { const b = bizumPorExtra[emp.id!]; if (b?.importe != null) total += b.importe }
+      else {
+        const nomMes = nominas.filter(n => n.empleado_id === emp.id).find(n => n.mes === mesActual)
+        if (nomMes) {
+          total += nomMes.clasificacion === 'sin_pago' ? nomMes.importe_neto : nomMes.totalPagado
+          if (nomMes.estado === 'revisar') pendientes += 1
+        }
+      }
+    }
+    return { totalCosteMesHero: total, pendientesHero: pendientes }
+  }, [activosHero, nominas, mesActual, emilioMes, bizumPorExtra])
+
   return (
-    <div style={{ fontFamily: LEX, color: INK }}>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={`Tu equipo son ${activosHero.length} persona${activosHero.length !== 1 ? 's' : ''}`}
+        etiquetaDato={`Coste del equipo · ${mesLabel}`}
+        cifra={fmtEur(totalCosteMesHero, { decimals: 0 })}
+        resumen={pendientesHero > 0
+          ? <>{pendientesHero} nómina{pendientesHero !== 1 ? 's' : ''} pendiente{pendientesHero !== 1 ? 's' : ''} de revisar este mes.</>
+          : 'Todo el equipo está al día este mes.'}
+        atencion={[
+          pendientesHero > 0 ? `${pendientesHero} nóminas pendientes` : null,
+          `${activosHero.length} activos`,
+        ]}
+      />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', color: GRIS, cursor: 'pointer' }}>
           <input type="checkbox" checked={verArchivados} onChange={e => setVerArchivados(e.target.checked)} />
@@ -139,6 +173,7 @@ export default function TabEmpleados() {
         </button>
       </div>
 
+      <SeccionLabel bg={GRANATE}>Plantilla</SeccionLabel>
       {loading ? (
         <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
       ) : personas.length === 0 ? (
@@ -243,7 +278,7 @@ export default function TabEmpleados() {
           onSaved={() => { fetchEmpleados(); setModal({ open: false, empleado: null }) }}
         />
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 

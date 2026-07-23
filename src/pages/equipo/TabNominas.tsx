@@ -18,6 +18,7 @@ import { MESES_LARGO, clasifColor, clasifLabel, DesgloseSoloLectura, ListaPagosS
 import { fmtEur, fmtDate } from '@/lib/format'
 import {
   OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, d, BLANCO } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 interface Empleado { id: string; nombre: string; estado: string }
 
@@ -140,44 +141,60 @@ export default function TabNominas() {
 
   if (errorNominas) return <div style={{ padding: 30, color: ROJO, fontFamily: LEX }}>Error cargando nóminas: {errorNominas}</div>
 
+  const tituloHero = kpi.descuadresReales.length > 0
+    ? 'Hay diferencias sin cuadrar en nómina.'
+    : kpi.revisar > 0
+    ? `${kpi.revisar} nómina${kpi.revisar !== 1 ? 's' : ''} por revisar este año.`
+    : `Las nóminas de ${selectedAnio} están en orden.`
+
   return (
-    <div style={{ fontFamily: LEX, color: INK }}>
+    <PantallaCantera embedded>
 
       {/* Hero KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
-        <div style={{ ...card, padding: '16px 20px' }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Nóminas del año {selectedAnio}</div>
-          <div style={{ ...d('34px'), lineHeight: 1 }}>{kpi.total}</div>
-        </div>
-        <div style={{ ...card, padding: '16px 20px', background: kpi.revisar > 0 ? AMA : BLANCO }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 6 }}>Pendientes de revisar</div>
-          <div style={{ ...d('34px', INK), lineHeight: 1 }}>{kpi.revisar}</div>
-        </div>
+      <HeroCantera
+        area="equipo"
+        periodo={`Año ${selectedAnio}`}
+        titular={tituloHero}
+        etiquetaDato={`Nóminas registradas · ${selectedAnio}`}
+        cifra={kpi.total}
+        resumen={kpi.descuadresReales.length > 0
+          ? 'Hay pagos vistos en banco que no coinciden con el importe de la nómina.'
+          : kpi.sinPagoCount > 0
+          ? <>{kpi.sinPagoCount} nómina{kpi.sinPagoCount !== 1 ? 's' : ''} comprometida{kpi.sinPagoCount !== 1 ? 's' : ''} por {fmtEur(kpi.sumaSinPago, { decimals: 2 })}, sin extracto importado todavía.</>
+          : 'Todo cuadrado con el banco.'}
+        atencion={[
+          kpi.revisar > 0 ? `${kpi.revisar} por revisar` : null,
+          kpi.descuadresReales.length > 0 ? `${kpi.descuadresReales.length} descuadres` : null,
+          kpi.sinPagoCount > 0 ? `${kpi.sinPagoCount} sin extracto` : null,
+        ]}
+      />
+      <Plancha>
+        <PlanchaCelda bg={BLANCO} first>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600, color: GRIS }}>Nóminas del año</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{kpi.total}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={kpi.revisar > 0 ? AMA : BLANCO}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Pendientes de revisar</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{kpi.revisar}</div>
+        </PlanchaCelda>
         {kpi.descuadresReales.length > 0 ? (
-          <div style={{ ...card, padding: '16px 20px', background: ROJO }}>
-            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Diferencias sin cuadrar</div>
-            <div style={{ ...d('34px', BLANCO), lineHeight: 1 }}>{kpi.descuadresReales.length}</div>
-            <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 4 }}>Pago visto en banco que no coincide con la nómina</div>
-          </div>
+          <PlanchaCelda bg={ROJO}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Diferencias sin cuadrar</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{kpi.descuadresReales.length}</div>
+            <div style={{ fontFamily: LEX, fontSize: 11, marginTop: 4 }}>Pago visto en banco que no coincide con la nómina</div>
+          </PlanchaCelda>
         ) : (
-          <div style={{ ...card, padding: '16px 20px' }}>
-            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Estado del banco</div>
-            {kpi.sinPagoCount > 0 ? (
-              <>
-                <div style={{ ...d('20px'), lineHeight: 1.3 }}>Sin extracto importado todavía</div>
-                <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 4 }}>
-                  {kpi.sinPagoCount} nómina{kpi.sinPagoCount !== 1 ? 's' : ''} comprometida{kpi.sinPagoCount !== 1 ? 's' : ''} por {fmtEur(kpi.sumaSinPago, { decimals: 2 })}
-                </div>
-              </>
-            ) : (
-              <div style={{ ...d('20px', VERDE), lineHeight: 1.3 }}>Todo cuadrado</div>
-            )}
-          </div>
+          <PlanchaCelda bg={kpi.sinPagoCount > 0 ? BLANCO : VERDE} color={kpi.sinPagoCount > 0 ? INK : BLANCO}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Estado del banco</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 16, marginTop: 6 }}>
+              {kpi.sinPagoCount > 0 ? 'Sin extracto importado' : 'Todo cuadrado'}
+            </div>
+          </PlanchaCelda>
         )}
-      </div>
+      </Plancha>
 
       {kpi.descuadresReales.length > 0 && (
-        <div style={{ ...card, padding: '12px 16px', marginBottom: 20 }}>
+        <div style={{ ...card, padding: '12px 16px' }}>
           <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: ROJO, marginBottom: 8 }}>Detalle de descuadres</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {kpi.descuadresReales.map(n => (
@@ -236,6 +253,7 @@ export default function TabNominas() {
         <ModalVerNomina n={verNomina} onClose={() => setVerNomina(null)} onConfirmado={reload} />
       )}
 
+      <SeccionLabel bg={GRANATE}>Detalle por empleado y mes</SeccionLabel>
       {loading ? (
         <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
       ) : (
@@ -321,7 +339,7 @@ export default function TabNominas() {
       <p style={{ marginTop: 10, fontSize: 11, color: GRIS, fontFamily: LEX }}>
         Vista de solo consulta. Sube documentos desde Papeleo · Equipo.
       </p>
-    </div>
+    </PantallaCantera>
   )
 }
 
