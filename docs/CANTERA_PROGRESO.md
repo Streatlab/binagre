@@ -68,8 +68,8 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [x] Tesorería · 13 semanas
 - [x] Tesorería · Escenarios
 - [x] Tesorería · Salud financiera (fondo maniobra)
-- [ ] Panel de alertas
-- [ ] Bandeja de pendientes
+- [x] Panel de alertas
+- [x] Bandeja de pendientes
 
 ### Ventas y Clientes (áreas)
 - [x] Analítica · Margen por canal
@@ -120,9 +120,9 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [x] Reuniones equipo
 
 ### Equipo
-- [ ] Equipo · Personas (Fichas/Organigrama/Incentivos/Portal)
+- [x] Equipo · Personas (Fichas/Organigrama/Incentivos/Portal)
 - [x] Equipo · Dinero (Nóminas/Costes/SegSocial)
-- [ ] Equipo · Día a día (Horarios/Fichajes/Calendario/Permisos)
+- [x] Equipo · Día a día (Horarios/Fichajes/Calendario/Permisos)
 - [x] Equipo · Documentos
 
 ### Marcas / Tareas / Importar
