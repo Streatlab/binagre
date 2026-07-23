@@ -1,4 +1,4 @@
-import { BLANCO, BORDE_SUAVE, GRIS, INK, OSC, ROJO } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRIS, INK, OSC, ROJO, ROSA_S, SHADOW } from '@/styles/neobrutal'
 import { VENTAS_CANAL_CHIP } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useRef, Suspense, lazy } from 'react'
 import { ChevronDown } from 'lucide-react'
@@ -60,7 +60,7 @@ function PastillaPlataforma({ plataforma }: { plataforma: string }) {
   const c = pillPlat(plataforma)
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 999,
+      display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 0,
       background: c.bg, color: c.tx, fontFamily: OSWALD, fontSize: 12, fontWeight: 600,
       letterSpacing: '0.3px', whiteSpace: 'nowrap',
     }}>{nombrePlat(plataforma)}</span>
@@ -69,13 +69,13 @@ function PastillaPlataforma({ plataforma }: { plataforma: string }) {
 
 // ── Multi-selector (mismo patrón que Panel Global) ─────────────────────────
 const dropdownBtn: React.CSSProperties = {
-  padding: '6px 10px', borderRadius: 8, border: `0.5px solid ${BORDE_SUAVE}`,
+  padding: '6px 10px', borderRadius: 0, border: `0.5px solid ${BORDE_SUAVE}`,
   background: BLANCO, fontSize: 13, fontFamily: 'Lexend, sans-serif', color: INK,
   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', position: 'relative',
 }
 const menuStyle: React.CSSProperties = {
   position: 'absolute', top: 38, right: 0, background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`,
-  borderRadius: 8, width: 260, fontSize: 12, color: OSC, boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+  borderRadius: 0, width: 260, fontSize: 12, color: OSC, boxShadow: SHADOW,
   zIndex: 100, maxHeight: 360, overflowY: 'auto', paddingTop: 2, paddingBottom: 2,
 }
 
@@ -118,7 +118,7 @@ function MultiSelect({
           {options.map(o => (
             <label key={o.id} style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '2px 10px', cursor: 'pointer', lineHeight: 1.3,
-              background: selected.includes(o.id) ? '#FF475715' : 'transparent',
+              background: selected.includes(o.id) ? ROSA_S : 'transparent',
               color: selected.includes(o.id) ? ROJO : GRIS,
               fontFamily: 'Lexend, sans-serif', fontSize: 12, whiteSpace: 'nowrap',
             }}>
@@ -235,7 +235,7 @@ const TIPO_OPTS: Array<{ id: string; label: string }> = [
 function Pildora({ activo, children, onClick }: { activo: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
     <button onClick={onClick} style={{
-      padding: '6px 12px', borderRadius: 999, cursor: 'pointer',
+      padding: '6px 12px', borderRadius: 0, cursor: 'pointer',
       border: `0.5px solid ${activo ? COLORS.redSL : COLORS.brd}`,
       background: activo ? COLORS.redSL : BLANCO,
       color: activo ? BLANCO : COLORS.sec,

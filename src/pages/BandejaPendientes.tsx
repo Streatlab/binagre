@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, INK, ROSA_S } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import RutaPantalla from '@/components/ui/RutaPantalla'
@@ -92,7 +92,7 @@ export default function BandejaPendientes() {
       </div>
 
       {error && (
-        <div style={{ background: '#B01D2318', color: GRANATE, padding: '10px 14px', borderRadius: 8, fontFamily: 'Lexend, sans-serif', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ background: ROSA_S, color: GRANATE, border: `2px solid ${GRANATE}`, padding: '10px 14px', borderRadius: 0, fontFamily: 'Lexend, sans-serif', fontSize: 13, marginBottom: 16 }}>
           {error}
         </div>
       )}
@@ -116,7 +116,7 @@ export default function BandejaPendientes() {
       <div style={{ background: 'var(--sl-card)', overflow: 'hidden', ...NEO_CARD }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
-            <tr style={{ background: '#1e2233', color: BLANCO, textAlign: 'left' }}>
+            <tr style={{ background: INK, color: BLANCO, textAlign: 'left' }}>
               <th style={th}>Motivo</th>
               <th style={th}>Proveedor</th>
               <th style={{ ...th, textAlign: 'right' }}>Importe</th>
@@ -154,7 +154,7 @@ function chip(activo: boolean): React.CSSProperties {
     background: activo ? GRANATE : 'var(--sl-card)',
     color: activo ? BLANCO : 'var(--sl-text-secondary)',
     border: '1px solid ' + (activo ? GRANATE : 'var(--sl-border)'),
-    borderRadius: 999,
+    borderRadius: 0,
     padding: '6px 14px',
     fontFamily: 'Oswald, sans-serif',
     fontSize: 11,
@@ -168,9 +168,9 @@ function chip(activo: boolean): React.CSSProperties {
 function badge(motivo: string): React.CSSProperties {
   const rojo = motivo === 'Sin importe' || motivo === 'Importe pendiente de releer' || motivo === 'Sin NIF'
   return {
-    background: rojo ? '#B01D2318' : 'var(--sl-thead)',
+    background: rojo ? ROSA_S : 'var(--sl-thead)',
     color: rojo ? GRANATE : 'var(--sl-text-secondary)',
-    borderRadius: 6,
+    borderRadius: 0,
     padding: '3px 9px',
     fontSize: 11,
     fontWeight: 600,

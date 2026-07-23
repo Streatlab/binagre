@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
 /**
  * PagosCobros — Módulo de gestión de cobros y pagos
  * Tabs: Calendario | Gastos Fijos | Historial
@@ -598,7 +598,7 @@ export function TabGastos() {
   return (
     <div>
       {toast && (
-        <div style={{ marginBottom: 16, padding: '10px 16px', borderRadius: 8, backgroundColor: toast.ok ? '#1D9E7520' : '#B01D2320', color: toast.ok ? VERDE : GRANATE, fontSize: 13, border: `1px solid ${toast.ok ? VERDE : GRANATE}` }}>
+        <div style={{ marginBottom: 16, padding: '10px 16px', borderRadius: 0, backgroundColor: toast.ok ? `${VERDE}20` : `${GRANATE}20`, color: toast.ok ? VERDE : GRANATE, fontSize: 13, border: `1px solid ${toast.ok ? VERDE : GRANATE}` }}>
           {toast.msg}
         </div>
       )}
@@ -625,7 +625,7 @@ export function TabGastos() {
               <select
                 value={form.periodicidad}
                 onChange={e => setForm(f => ({ ...f, periodicidad: e.target.value }))}
-                style={{ width: '100%', padding: '10px 10px', minHeight: 42, backgroundColor: 'var(--sl-input-edit)', border: '0.5px solid var(--sl-border)', borderRadius: 6, color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: 'Lexend, sans-serif', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '10px 10px', minHeight: 42, backgroundColor: 'var(--sl-input-edit)', border: '0.5px solid var(--sl-border)', borderRadius: 0, color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: 'Lexend, sans-serif', boxSizing: 'border-box' }}
               >
                 {PERIODICIDADES.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -637,7 +637,7 @@ export function TabGastos() {
               type="checkbox"
               checked={form.estimado}
               onChange={e => setForm(f => ({ ...f, estimado: e.target.checked }))}
-              style={{ width: 18, height: 18, accentColor: '#e8f442', cursor: 'pointer' }}
+              style={{ width: 18, height: 18, accentColor: LIMA, cursor: 'pointer' }}
             />
             Importe estimado (pendiente de factura/confirmación)
           </label>
@@ -659,7 +659,7 @@ export function TabGastos() {
         </div>
       )}
 
-      <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
           <thead>
@@ -697,7 +697,7 @@ export function TabGastos() {
                 <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--sl-btn-cancel-text)', textTransform: 'capitalize' }}>{g.periodicidad}</td>
                 <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)', whiteSpace: 'nowrap' }}>{fmtDate(g.proxima_fecha_pago)}</td>
                 <td style={{ padding: '12px 16px' }}>
-                  <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, backgroundColor: g.activo ? '#1D9E7520' : '#77777720', color: g.activo ? VERDE : 'var(--sl-text-muted)', fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
+                  <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 0, backgroundColor: g.activo ? `${VERDE}20` : `${GRIS}20`, color: g.activo ? VERDE : 'var(--sl-text-muted)', fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
                     {g.activo ? 'ACTIVO' : 'ARCHIVADO'}
                   </span>
                 </td>
@@ -705,14 +705,14 @@ export function TabGastos() {
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       onClick={() => iniciarEdicion(g)}
-                      style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '9px 12px', minHeight: 38, borderRadius: 6, border: '0.5px solid var(--sl-btn-cancel-border)', backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', cursor: 'pointer' }}
+                      style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '9px 12px', minHeight: 38, borderRadius: 0, border: '0.5px solid var(--sl-btn-cancel-border)', backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', cursor: 'pointer' }}
                     >
                       EDITAR
                     </button>
                     {g.activo && (
                       <button
                         onClick={() => archivar(g.id)}
-                        style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '9px 12px', minHeight: 38, borderRadius: 6, border: 'none', backgroundColor: '#B01D2330', color: GRANATE, cursor: 'pointer' }}
+                        style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '9px 12px', minHeight: 38, borderRadius: 0, border: 'none', backgroundColor: `${GRANATE}30`, color: GRANATE, cursor: 'pointer' }}
                       >
                         ARCHIVAR
                       </button>
@@ -791,7 +791,7 @@ export function TabHistorial() {
         </span>
       </div>
 
-      <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
           <thead>
@@ -858,9 +858,9 @@ function EstimadoBadge({ estimado }: { estimado: boolean }) {
       fontSize: 10,
       padding: '2px 7px',
       borderRadius: 0,
-      border: `2px solid ${estimado ? '#e8f442' : '#1D9E75'}`,
-      backgroundColor: estimado ? '#e8f44222' : '#1D9E7522',
-      color: estimado ? '#aabc00' : '#1D9E75',
+      border: `2px solid ${estimado ? LIMA : VERDE}`,
+      backgroundColor: estimado ? `${LIMA}22` : `${VERDE}22`,
+      color: estimado ? LIMA : VERDE,
       fontFamily: 'Oswald, sans-serif',
       fontWeight: 600,
       letterSpacing: 1,
@@ -881,9 +881,9 @@ function EstadoNominaBadge({ estado }: { estado?: 'COMPROMETIDO' | 'PAGADO' }) {
       fontSize: 10,
       padding: '2px 7px',
       borderRadius: 0,
-      border: `2px solid ${pagado ? '#1D9E75' : '#e8f442'}`,
-      backgroundColor: pagado ? '#1D9E7522' : '#e8f44222',
-      color: pagado ? '#1D9E75' : '#aabc00',
+      border: `2px solid ${pagado ? VERDE : LIMA}`,
+      backgroundColor: pagado ? `${VERDE}22` : `${LIMA}22`,
+      color: pagado ? VERDE : LIMA,
       fontFamily: 'Oswald, sans-serif',
       fontWeight: 600,
       letterSpacing: 1,
@@ -902,8 +902,8 @@ function TipoBadge({ tipo }: { tipo: 'COBRO' | 'PAGO' }) {
     <span style={{
       fontSize: 11,
       padding: '3px 8px',
-      borderRadius: 4,
-      backgroundColor: isCobro ? '#1D9E7520' : '#B01D2320',
+      borderRadius: 0,
+      backgroundColor: isCobro ? `${VERDE}20` : `${GRANATE}20`,
       color: isCobro ? VERDE : GRANATE,
       fontFamily: 'Oswald, sans-serif',
       letterSpacing: 1,
@@ -928,7 +928,7 @@ function InputField({ label, value, onChange, type = 'text' }: {
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        style={{ width: '100%', padding: '10px 10px', minHeight: 42, backgroundColor: 'var(--sl-input-edit)', border: '0.5px solid var(--sl-border)', borderRadius: 6, color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: 'Lexend, sans-serif', boxSizing: 'border-box' }}
+        style={{ width: '100%', padding: '10px 10px', minHeight: 42, backgroundColor: 'var(--sl-input-edit)', border: '0.5px solid var(--sl-border)', borderRadius: 0, color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: 'Lexend, sans-serif', boxSizing: 'border-box' }}
       />
     </div>
   )
@@ -944,7 +944,7 @@ function LoadingSpinner() {
 
 function ErrorMsg({ msg }: { msg: string }) {
   return (
-    <div style={{ padding: 24, borderRadius: 8, backgroundColor: '#B01D2320', border: '1px solid #B01D23', color: GRANATE, fontSize: 13 }}>
+    <div style={{ padding: 24, borderRadius: 0, backgroundColor: `${GRANATE}20`, border: `1px solid ${GRANATE}`, color: GRANATE, fontSize: 13 }}>
       Error: {msg}
     </div>
   )

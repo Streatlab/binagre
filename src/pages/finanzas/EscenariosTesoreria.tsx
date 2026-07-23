@@ -241,7 +241,7 @@ export function EscenariosTesoreria({ embedded = false }: { embedded?: boolean }
   const cardStyle: React.CSSProperties = {
     backgroundColor: C.card,
     border: `1px solid ${C.border}`,
-    borderRadius: 8,
+    borderRadius: 0,
     padding: '16px 20px',
     ...LEXEND,
   }
@@ -288,7 +288,7 @@ export function EscenariosTesoreria({ embedded = false }: { embedded?: boolean }
                     style={{
                       backgroundColor: INK,
                       border: `1px solid ${C.borderStrong}`,
-                      borderRadius: 4,
+                      borderRadius: 0,
                       color: C.text,
                       padding: '6px 10px',
                       fontSize: 16,
@@ -374,7 +374,7 @@ export function EscenariosTesoreria({ embedded = false }: { embedded?: boolean }
                   backgroundColor: C.amarillo,
                   color: INK,
                   border: 'none',
-                  borderRadius: 4,
+                  borderRadius: 0,
                   padding: '6px 14px',
                   cursor: 'pointer',
                   ...OSWALD,

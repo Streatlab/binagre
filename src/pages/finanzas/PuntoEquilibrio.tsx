@@ -93,7 +93,7 @@ return(<div style={{background:embedded?'transparent':CREMA,padding:embedded?0:'
 </div>
 </div>
 <TabsPastilla tabs={[{id:'resumen',label:'Resumen'},{id:'simulador',label:'Simulador'}]} activeId={tab} onChange={(id)=>setTab(id as Tab)}/>
-{error&&<div style={{background:ROSA_S,border:`1px solid ${ROJO}`,color:ERR,padding:16,borderRadius:8,fontFamily:FONT.body,fontSize:13,marginTop:16}}>Error: {error}</div>}
+{error&&<div style={{background:ROSA_S,border:`1px solid ${ROJO}`,color:ERR,padding:16,borderRadius:0,fontFamily:FONT.body,fontSize:13,marginTop:16}}>Error: {error}</div>}
 {loading&&!error&&<div style={{padding:40,color:T.mut,fontFamily:FONT.body}}>Cargando datos reales...</div>}
 {!loading&&!error&&tab==='resumen'&&<TabResumen totalBruto={totalBruto} totalNeto={totalNeto} totalPedidos={totalPedidos} totalFijos={totalFijos} totalComisiones={totalComisiones} totalVariables={totalVariables} margenContribPct={margenContribPct} margenNetoPct={margenNetoPct} peMensual={peMensual} diaCubreInfo={diaCubreInfo} datosPorCanal={datosPorCanal} gastosPorGrupo={gastosPorGrupo} diasOperativos={diasOperativos} brutoMedioDiario={brutoMedioDiario} colorEstado={colorEstado} beneficio={beneficio} ebitdaPct={ebitdaPct} ticketMedioBruto={ticketMedioBruto} ticketMedioNeto={ticketMedioNeto}/>}
 {!loading&&!error&&tab==='simulador'&&<TabSimulador totalBruto={totalBruto} totalFijos={totalFijos} margenContribPct={margenContribPct} peMensual={peMensual} totalPedidos={totalPedidos} brutoMedioDiario={brutoMedioDiario}/>}
@@ -132,13 +132,13 @@ return(<div style={cardBig}>
 </div>)
 }
 function CardCanalBig({label,bg,border,colorLabel,bruto,neto,margenPct,pctMix}:{label:string;bg:string;border:string;colorLabel:string;bruto:number;neto:number;margenPct:number;pctMix:number}){
-return(<div style={{background:bg,border:`0.5px solid ${border}`,borderRadius:14,padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+return(<div style={{background:bg,border:`0.5px solid ${border}`,borderRadius:0,padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
 <div><div style={{...lblXs,color:colorLabel}}>{label} · {fmtPct(pctMix,2)}</div><div style={{fontFamily:OSWALD,fontSize:24,fontWeight:600,color:INK,marginTop:2}}>{fmtEur(bruto,{showEuro:false,decimals:2})}</div><div style={{fontSize:11,color:OSC,fontFamily:LEXEND}}>Bruto</div></div>
 <div style={{textAlign:'right'}}><div style={{fontFamily:OSWALD,fontSize:24,fontWeight:600,color:VERDE}}>{fmtEur(neto,{showEuro:false,decimals:2})}</div><div style={{fontSize:12,color:VERDE,fontFamily:LEXEND}}>Margen {fmtPct(margenPct,2)}</div></div>
 </div>)
 }
 function CardCanalMini({label,bg,border,colorLabel,bruto,neto,margenPct,pctMix}:{label:string;bg:string;border:string;colorLabel:string;bruto:number;neto:number;margenPct:number;pctMix:number}){
-return(<div style={{background:bg,border:`0.5px solid ${border}`,borderRadius:14,padding:'10px 12px'}}>
+return(<div style={{background:bg,border:`0.5px solid ${border}`,borderRadius:0,padding:'10px 12px'}}>
 <div style={{...lblXs,color:colorLabel}}>{label} · {fmtPct(pctMix,2)}</div>
 <div style={{fontFamily:OSWALD,fontSize:15,fontWeight:600,color:INK,marginTop:2}}>{fmtEur(bruto,{showEuro:false,decimals:2})}</div>
 <div style={{fontSize:10,color:COLOR.textMut,fontFamily:LEXEND}}>{fmtEur(neto,{showEuro:false,decimals:2})} neto · {fmtPct(margenPct,2)}</div>
@@ -235,10 +235,10 @@ const deltaBeneficio=calc.beneficio-calcBase.beneficio
 return(<div style={{...cardBig,borderWidth:e.bloqueado?'1.5px':'0.5px',borderColor:e.bloqueado?OSC:BORDE_SUAVE,borderStyle:'solid'}}>
 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:14}}>
 <div style={{flex:1}}>
-{e.bloqueado?<div style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'1px',textTransform:'uppercase',color:INK}}>Datos reales del periodo</div>:<select value={e.preset} onChange={(ev)=>onChangePreset(ev.target.value as PresetKey)} style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'0.5px',color:INK,background:BLANCO,border:`0.5px solid ${BORDE_SUAVE}`,borderRadius:6,padding:'5px 8px',cursor:'pointer',width:'100%'}}>{PRESETS.filter(p=>p.key!=='base').map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</select>}
+{e.bloqueado?<div style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'1px',textTransform:'uppercase',color:INK}}>Datos reales del periodo</div>:<select value={e.preset} onChange={(ev)=>onChangePreset(ev.target.value as PresetKey)} style={{fontFamily:OSWALD,fontSize:13,fontWeight:600,letterSpacing:'0.5px',color:INK,background:BLANCO,border:`0.5px solid ${BORDE_SUAVE}`,borderRadius:0,padding:'5px 8px',cursor:'pointer',width:'100%'}}>{PRESETS.filter(p=>p.key!=='base').map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</select>}
 </div>
 <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
-<span style={{fontFamily:OSWALD,fontSize:10,fontWeight:500,letterSpacing:'1px',padding:'3px 8px',borderRadius:4,textTransform:'uppercase',background:PILL_BG[tipo],color:BLANCO}}>{PILL_LABEL[tipo]}</span>
+<span style={{fontFamily:OSWALD,fontSize:10,fontWeight:500,letterSpacing:'1px',padding:'3px 8px',borderRadius:0,textTransform:'uppercase',background:PILL_BG[tipo],color:BLANCO}}>{PILL_LABEL[tipo]}</span>
 {!e.bloqueado&&<button onClick={onDelete} style={{background:'transparent',border:'none',cursor:'pointer',color:GRIS,fontSize:18,lineHeight:1,padding:'0 4px'}} title="Eliminar">×</button>}
 </div>
 </div>
@@ -246,7 +246,7 @@ return(<div style={{...cardBig,borderWidth:e.bloqueado?'1.5px':'0.5px',borderCol
 <RowInput label="Margen contribución (%)" value={e.margenPct} decimales={2} onChange={v=>onChange('margenPct',v)} bloqueado={e.bloqueado}/>
 <RowInput label="Costes fijos" value={e.fijos} decimales={2} onChange={v=>onChange('fijos',v)} bloqueado={e.bloqueado}/>
 <RowInput label="Pedidos mes" value={e.pedidosMes} decimales={0} onChange={v=>onChange('pedidosMes',v)} bloqueado={e.bloqueado}/>
-<div style={{background:BORDE_SUAVE,borderRadius:10,padding:14,marginTop:14}}>
+<div style={{background:BORDE_SUAVE,borderRadius:0,padding:14,marginTop:14}}>
 <RowResultado label="Bruto esperado" valor={fmtEur(calc.brutoEsperado,{showEuro:false,decimals:2})} color={INK}/>
 <RowResultado label="Punto equilibrio" valor={calc.peValor!=null?fmtEur(calc.peValor,{showEuro:false,decimals:2}):'—'} color={INK}/>
 <RowResultado label="Pedidos para PE" valor={calc.pedNec!=null?fmtEur(calc.pedNec,{showEuro:false,decimals:0}):'—'} color={INK}/>
@@ -258,7 +258,7 @@ return(<div style={{...cardBig,borderWidth:e.bloqueado?'1.5px':'0.5px',borderCol
 }
 function RowResultado({label,valor,color,big}:{label:string;valor:string;color:string;big?:boolean}){return(<div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:5}}><span style={{fontFamily:OSWALD,fontSize:10,fontWeight:500,letterSpacing:'1px',textTransform:'uppercase',color:GRIS}}>{label}</span><span style={{fontFamily:OSWALD,fontSize:big?22:15,fontWeight:600,color}}>{valor}</span></div>)}
 function RowInput({label,value,decimales,onChange,bloqueado}:{label:string;value:number;decimales:number;onChange:(v:number)=>void;bloqueado?:boolean}){
-const styleInput:CSSProperties={width:'100%',padding:'6px 10px',border:`0.5px solid ${BORDE_SUAVE}`,borderRadius:6,fontSize:13,fontFamily:OSWALD,fontWeight:500,background:bloqueado?BORDE_SUAVE:BLANCO,color:bloqueado?GRIS:INK,textAlign:'right',outline:'none',cursor:bloqueado?'not-allowed':'text'}
+const styleInput:CSSProperties={width:'100%',padding:'6px 10px',border:`0.5px solid ${BORDE_SUAVE}`,borderRadius:0,fontSize:13,fontFamily:OSWALD,fontWeight:500,background:bloqueado?BORDE_SUAVE:BLANCO,color:bloqueado?GRIS:INK,textAlign:'right',outline:'none',cursor:bloqueado?'not-allowed':'text'}
 return(<div style={{display:'grid',gridTemplateColumns:'1fr 110px',gap:10,alignItems:'center',padding:'5px 0'}}><span style={{fontFamily:LEXEND,fontSize:12,color:OSC}}>{label}</span><input type="number" step={decimales>0?0.01:1} value={Number.isFinite(value)?value.toFixed(decimales):''} disabled={bloqueado} onChange={(ev)=>{const n=parseFloat(ev.target.value);if(!isNaN(n))onChange(n)}} style={styleInput}/></div>)
 }
 

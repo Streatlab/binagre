@@ -1,4 +1,4 @@
-import { AMA, AMA_S, AZUL, BLANCO, BORDE_SUAVE, CLARO, GRANATE, GRIS, INK, NAR, OSC, ROJO, ROSA_S, VERDE, VERDE_S } from '@/styles/neobrutal'
+import { AMA, AMA_S, AZUL, BLANCO, BORDE_SUAVE, CLARO, GRANATE, GRIS, INK, NAR, OSC, ROJO, ROSA_S, SHADOW, VERDE, VERDE_S } from '@/styles/neobrutal'
 import { DRIVE_TRIM, DRIVE_ANIO_BG, DRIVE_ANIO_TEXT } from '@/styles/palettes'
 import { useMultiSort } from '@/hooks/useMultiSort'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
@@ -311,12 +311,12 @@ export default function GestionFacturas() {
     return(
       <div ref={ref} style={{position:'relative'}}>
         <button onClick={()=>setOpen(o=>!o)}
-          style={{padding:'6px 10px',borderRadius:8,border:`0.5px solid ${T.brd}`,background:T.card,fontSize:13,fontFamily:FONT.body,color:T.pri,cursor:'pointer',display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
+          style={{padding:'6px 10px',borderRadius:0,border:`0.5px solid ${T.brd}`,background:T.card,fontSize:13,fontFamily:FONT.body,color:T.pri,cursor:'pointer',display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
           <span>{labelActual}</span>
           <span style={{fontSize:10}}>▾</span>
         </button>
         {open&&(
-          <div style={{position:'absolute',top:'100%',right:0,background:T.card,border:`0.5px solid ${T.brd}`,borderRadius:8,zIndex:50,maxHeight:260,overflowY:'auto',boxShadow:'0 4px 12px rgba(0,0,0,0.06)',minWidth:180}}>
+          <div style={{position:'absolute',top:'100%',right:0,background:T.card,border:`0.5px solid ${T.brd}`,borderRadius:0,zIndex:50,maxHeight:260,overflowY:'auto',boxShadow:SHADOW,minWidth:180}}>
             {mesesDisp.map(m=>(
               <button key={m.valor} onClick={()=>{setMesSeleccionado(m.valor);setOpen(false)}}
                 style={{display:'block',width:'100%',textAlign:'left',padding:'8px 12px',background:m.valor===mesSeleccionado?CLARO:'transparent',color:m.valor===mesSeleccionado?ROJO:T.mut,fontFamily:FONT.body,fontSize:13,border:'none',cursor:'pointer'}}>
@@ -337,19 +337,19 @@ export default function GestionFacturas() {
   ]
 
   const tdStyle: CSSProperties = {padding:'11px 12px',fontSize:13,fontFamily:FONT.body,color:COLORS.pri,borderBottom:`0.5px solid ${COLORS.brd}`,whiteSpace:'nowrap'}
-  const islaStyle: CSSProperties = {background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:8,padding:'4px 6px',display:'flex',alignItems:'center',gap:4}
+  const islaStyle: CSSProperties = {background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,padding:'4px 6px',display:'flex',alignItems:'center',gap:4}
 
   return(
     <div style={{fontFamily:FONT.body,position:'relative'}}>
 
       {bannerVisible&&(
-        <div style={{background:AMA_S,border:`2px solid ${AMA}`,borderRadius:8,padding:'8px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:INK}}>
+        <div style={{background:AMA_S,border:`2px solid ${AMA}`,borderRadius:0,padding:'8px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:INK}}>
           <span style={{flexShrink:0,fontSize:14}}>⚠️</span>
           <span style={{flex:1,fontSize:13}}>
             Plazo gestoría <strong>{mesLabel}</strong>: {plazoLabel}
           </span>
           <button onClick={()=>setActiveTab('exportar')}
-            style={{background:GRANATE,color:BLANCO,border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,fontFamily:'Oswald, sans-serif',fontWeight:600,cursor:'pointer',textTransform:'uppercase',letterSpacing:'0.05em',flexShrink:0}}>
+            style={{background:GRANATE,color:BLANCO,border:'none',borderRadius:0,padding:'6px 12px',fontSize:12,fontFamily:'Oswald, sans-serif',fontWeight:600,cursor:'pointer',textTransform:'uppercase',letterSpacing:'0.05em',flexShrink:0}}>
             Exportar ZIP
           </button>
           <button onClick={()=>setBannerVisible(false)}
@@ -373,7 +373,7 @@ export default function GestionFacturas() {
             <div style={{display:'flex',gap:10,alignItems:'center',marginTop:14,marginBottom:14,flexWrap:'wrap'}}>
               <ToggleTitular titularKey={titularKey} setTitularKey={setTitularKey}/>
               <input type="text" placeholder="Buscar proveedor, NIF, importe…" value={busqueda} onChange={e=>setBusqueda(e.target.value)}
-                style={{flex:1,minWidth:220,height:36,padding:'0 12px',borderRadius:8,border:`0.5px solid ${COLORS.brd}`,background:COLORS.card,fontSize:13,fontFamily:FONT.body,color:COLORS.pri,outline:'none'}}/>
+                style={{flex:1,minWidth:220,height:36,padding:'0 12px',borderRadius:0,border:`0.5px solid ${COLORS.brd}`,background:COLORS.card,fontSize:13,fontFamily:FONT.body,color:COLORS.pri,outline:'none'}}/>
               <div style={{...islaStyle,padding:0,overflow:'hidden'}}>
                 <select value={categoriaId} onChange={e=>setCategoria(e.target.value)}
                   style={{...DROPDOWN_BTN,border:'none',background:'transparent',minWidth:280,height:36,paddingRight:28,cursor:'pointer'}}>
@@ -385,12 +385,12 @@ export default function GestionFacturas() {
             </div>
 
             <div style={{display:'grid',gridTemplateColumns:'280px 1fr',gap:14}}>
-              <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:14,fontSize:13,fontFamily:FONT.body,alignSelf:'start'}}>
+              <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,padding:14,fontSize:13,fontFamily:FONT.body,alignSelf:'start'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,paddingBottom:8,borderBottom:`0.5px solid ${COLORS.brd}`}}>
                   <span style={{fontFamily:FONT.heading,fontSize:12,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.pri,fontWeight:600}}>📁 Drive</span>
                   {driveFiltro.anio&&(
                     <button type="button" onClick={()=>setDriveFiltro({})}
-                      style={{fontSize:10,padding:'3px 9px',border:'none',background:COLORS.group,borderRadius:4,color:COLORS.sec,cursor:'pointer',fontFamily:FONT.body}}>
+                      style={{fontSize:10,padding:'3px 9px',border:'none',background:COLORS.group,borderRadius:0,color:COLORS.sec,cursor:'pointer',fontFamily:FONT.body}}>
                       limpiar
                     </button>
                   )}
@@ -403,7 +403,7 @@ export default function GestionFacturas() {
                 ))}
               </div>
 
-              <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,overflow:'hidden'}}>
+              <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,overflow:'hidden'}}>
                 <div style={{overflowX:'auto'}}>
                   <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0}}>
                     <thead>
@@ -432,7 +432,7 @@ export default function GestionFacturas() {
                             <td style={tdStyle}>{f.proveedor_nombre||'—'}</td>
                             <td style={{...tdStyle,color:COLORS.mut,fontSize:12}}>{f.nif_emisor||'—'}</td>
                             <td style={{...tdStyle,textAlign:'right',fontWeight:500}}>{fmtNum(f.total,2)}</td>
-                            <td style={tdStyle}><span style={{background:COLORS.bg,fontSize:11,padding:'3px 9px',borderRadius:4,border:`0.5px solid ${COLORS.brd}`,fontFamily:FONT.body,color:COLORS.sec}}>{catLbl}</span></td>
+                            <td style={tdStyle}><span style={{background:COLORS.bg,fontSize:11,padding:'3px 9px',borderRadius:0,border:`0.5px solid ${COLORS.brd}`,fontFamily:FONT.body,color:COLORS.sec}}>{catLbl}</span></td>
                             {f.pdf_drive_url?(
                               <td style={tdDoc} onClick={e=>{e.stopPropagation();window.open(f.pdf_drive_url!,'_blank','noopener,noreferrer')}} title="Ver factura">
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',minHeight:38,fontSize:22,lineHeight:1,color:COLORS.pri,cursor:'pointer',userSelect:'none'}}>📎</div>
@@ -442,7 +442,7 @@ export default function GestionFacturas() {
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',minHeight:38,fontSize:18,lineHeight:1,color:NAR,fontWeight:600}}>✕</div>
                               </td>
                             )}
-                            <td style={tdStyle}><span style={{background:est.bg,color:est.col,fontFamily:FONT.heading,fontSize:9,letterSpacing:'0.5px',padding:'2px 8px',borderRadius:9,fontWeight:500}}>{est.lbl}</span></td>
+                            <td style={tdStyle}><span style={{background:est.bg,color:est.col,fontFamily:FONT.heading,fontSize:9,letterSpacing:'0.5px',padding:'2px 8px',borderRadius:0,fontWeight:500}}>{est.lbl}</span></td>
                             <td style={{...tdDoc,padding:'6px 8px'}} onClick={e=>e.stopPropagation()}>
                               {f.estado==='no_conciliable'?(
                                 <span style={{fontSize:11,color:COLORS.mut,fontFamily:FONT.body}}>descartada</span>
@@ -454,7 +454,7 @@ export default function GestionFacturas() {
                                     total:f.total, titular_id:f.titular_id,
                                   })}
                                   title="Descartar"
-                                  style={{background:'transparent',border:`0.5px solid ${COLORS.brd}`,borderRadius:6,color:NAR,cursor:'pointer',padding:'5px 9px',fontSize:11,fontFamily:FONT.body}}>
+                                  style={{background:'transparent',border:`0.5px solid ${COLORS.brd}`,borderRadius:0,color:NAR,cursor:'pointer',padding:'5px 9px',fontSize:11,fontFamily:FONT.body}}>
                                   Descartar
                                 </button>
                               )}
@@ -478,7 +478,7 @@ export default function GestionFacturas() {
             <div style={{display:'flex',gap:10,alignItems:'center',marginTop:14,marginBottom:14}}>
               <ToggleTitular titularKey={titularKey} setTitularKey={setTitularKey}/>
             </div>
-            <div style={{marginTop:24,padding:60,textAlign:'center',background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,color:COLORS.mut,fontFamily:FONT.body,fontSize:14}}>
+            <div style={{marginTop:24,padding:60,textAlign:'center',background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,color:COLORS.mut,fontFamily:FONT.body,fontSize:14}}>
               Subida de resúmenes de ventas (Uber Eats CSV, Glovo, Just Eat) · Próximamente
             </div>
           </>
@@ -522,7 +522,7 @@ function ToggleTitular({titularKey,setTitularKey}:{titularKey:'ruben'|'emilio';s
         const bd: string = isActive?'none':`0.5px solid ${COLORS.brd}`
         return(
           <button key={t} onClick={()=>setTitularKey(t)}
-            style={{padding:'8px 18px',borderRadius:8,border:bd,background:bg,fontFamily:FONT.body,fontSize:13,color:clr,cursor:'pointer',fontWeight:500,minWidth:90}}>
+            style={{padding:'8px 18px',borderRadius:0,border:bd,background:bg,fontFamily:FONT.body,fontSize:13,color:clr,cursor:'pointer',fontWeight:500,minWidth:90}}>
             {t==='ruben'?'Rubén':'Emilio'}
           </button>
         )
@@ -608,12 +608,12 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
 
-        <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:'20px 22px'}}>
+        <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,padding:'20px 22px'}}>
           <p style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',margin:'0 0 14px'}}>
             Antes de exportar
           </p>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:facturasConfirmadas?VERDE_S:ROSA_S,borderRadius:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:facturasConfirmadas?VERDE_S:ROSA_S,borderRadius:0}}>
               <input type="checkbox" checked={facturasConfirmadas} onChange={e=>setFacturasConfirmadas(e.target.checked)}
                 style={{width:18,height:18,accentColor:VERDE,cursor:'pointer',flexShrink:0}}/>
               <span style={{flex:1,fontSize:13,color:facturasConfirmadas?VERDE:GRANATE,fontWeight:500}}>
@@ -621,7 +621,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
               </span>
               <span style={{fontSize:12,color:facturasConfirmadas?VERDE:ROJO}}>{numFacturas} facturas</span>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:ventasConfirmadas?VERDE_S:ROSA_S,borderRadius:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:ventasConfirmadas?VERDE_S:ROSA_S,borderRadius:0}}>
               <input type="checkbox" checked={ventasConfirmadas} onChange={e=>setVentasConfirmadas(e.target.checked)}
                 style={{width:18,height:18,accentColor:VERDE,cursor:'pointer',flexShrink:0}}/>
               <span style={{flex:1,fontSize:13,color:ventasConfirmadas?VERDE:GRANATE,fontWeight:500}}>
@@ -634,7 +634,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
           </div>
         </div>
 
-        <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:'20px 22px'}}>
+        <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,padding:'20px 22px'}}>
           <p style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',margin:'0 0 14px'}}>El ZIP contendrá</p>
           <div style={{display:'flex',flexDirection:'column',gap:10,fontSize:13,fontFamily:FONT.body}}>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -649,7 +649,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
         </div>
 
         {errorZip&&(
-          <div style={{background:ROSA_S,border:`2px solid ${ROJO}`,borderRadius:8,padding:'10px 14px',fontSize:13,color:COLORS.redSL,fontFamily:FONT.body,wordBreak:'break-word'}}>
+          <div style={{background:ROSA_S,border:`2px solid ${ROJO}`,borderRadius:0,padding:'10px 14px',fontSize:13,color:COLORS.redSL,fontFamily:FONT.body,wordBreak:'break-word'}}>
             ⚠️ {errorZip}
           </div>
         )}
@@ -657,7 +657,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
         <button
           disabled={!todoOk||generando}
           onClick={handleGenerarZip}
-          style={{width:'100%',padding:'14px 20px',background:todoOk&&!generando?INK:BORDE_SUAVE,color:BLANCO,border:'none',borderRadius:8,fontSize:14,fontWeight:500,fontFamily:FONT.body,cursor:todoOk&&!generando?'pointer':'not-allowed'}}>
+          style={{width:'100%',padding:'14px 20px',background:todoOk&&!generando?INK:BORDE_SUAVE,color:BLANCO,border:'none',borderRadius:0,fontSize:14,fontWeight:500,fontFamily:FONT.body,cursor:todoOk&&!generando?'pointer':'not-allowed'}}>
           {generando?'Generando ZIP…':`Generar paquete ZIP · ${mesLabel}`}
         </button>
       </div>
@@ -705,7 +705,7 @@ function NodoArbolItem({node,level,filtroActivo,expansionMap,titularColor,onSele
           <span style={{width:24,display:'inline-block',textAlign:'center',color:COLORS.mut,flexShrink:0}}>·</span>
         )}
         <button type="button" onClick={()=>onSelect(node.filtro)}
-          style={{width:'100%',display:'flex',alignItems:'center',padding:'6px 8px',paddingLeft:6+level*12,background:nodoBg,border:'none',borderLeft:nodoBl,borderRadius:node.kind==='mes'?'0 4px 4px 0':'0 6px 6px 0',cursor:'pointer',fontFamily:nodoFf,fontSize:nodoFs,textAlign:'left',color:nodoColor,fontWeight:nodoFw,opacity:node.count===0&&!esActivo?0.5:1,marginBottom:node.kind==='titular'?4:1,letterSpacing:node.kind==='titular'?'1px':'normal',textTransform:node.kind==='titular'?'uppercase':'none'}}>
+          style={{width:'100%',display:'flex',alignItems:'center',padding:'6px 8px',paddingLeft:6+level*12,background:nodoBg,border:'none',borderLeft:nodoBl,borderRadius:0,cursor:'pointer',fontFamily:nodoFf,fontSize:nodoFs,textAlign:'left',color:nodoColor,fontWeight:nodoFw,opacity:node.count===0&&!esActivo?0.5:1,marginBottom:node.kind==='titular'?4:1,letterSpacing:node.kind==='titular'?'1px':'normal',textTransform:node.kind==='titular'?'uppercase':'none'}}>
           <span style={{flex:1}}>{node.label}</span>
           <span style={{color:esActivo?BLANCO:COLORS.mut,fontSize:11,marginLeft:8,fontWeight:500,opacity:esActivo?0.9:1}}>{node.count>0?node.count:'—'}</span>
         </button>

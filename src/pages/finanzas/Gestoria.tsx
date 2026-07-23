@@ -297,7 +297,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
   const selectStyle: React.CSSProperties = {
     background: BLANCO,
     border: BORDER_FINO,
-    borderRadius: 6,
+    borderRadius: 0,
     color: INK,
     fontFamily: 'Oswald, sans-serif',
     fontSize: 13,
@@ -310,7 +310,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
     background: GRANATE,
     color: BLANCO,
     border: 'none',
-    borderRadius: 6,
+    borderRadius: 0,
     fontFamily: 'Oswald, sans-serif',
     fontSize: 13,
     padding: '9px 18px',
@@ -386,7 +386,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
       </div>
 
       {/* Tabs pastilla */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: CLARO, border: BORDER_FINO, borderRadius: 8, padding: 4, width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: CLARO, border: BORDER_FINO, borderRadius: 0, padding: 4, width: 'fit-content' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
@@ -395,7 +395,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
               background: activeTab === tab.key ? GRANATE : 'transparent',
               color: activeTab === tab.key ? BLANCO : GRIS,
               border: 'none',
-              borderRadius: 6,
+              borderRadius: 0,
               fontFamily: 'Oswald, sans-serif',
               fontSize: 13,
               padding: '8px 18px',
@@ -422,7 +422,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
             <div style={{
               background: CLARO,
               border: BORDER_FINO,
-              borderRadius: 8,
+              borderRadius: 0,
               padding: '12px 16px',
               color: GRIS,
               fontFamily: 'Lexend, sans-serif',
@@ -452,7 +452,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
             </label>
           </div>
 
-          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -511,7 +511,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
             <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: INK, margin: 0, letterSpacing: '0.05em' }}>
               IVA REPERCUTIDO ESTIMADO
             </h2>
-            <span style={{ background: AMA, color: INK, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, fontFamily: 'Oswald, sans-serif' }}>
+            <span style={{ background: AMA, color: INK, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 0, fontFamily: 'Oswald, sans-serif' }}>
               #ESTIMADO
             </span>
           </div>
@@ -519,7 +519,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
           <div style={{
             background: CLARO,
             border: BORDER_FINO,
-            borderRadius: 8,
+            borderRadius: 0,
             padding: '12px 16px',
             marginBottom: 20,
             color: GRIS,
@@ -529,7 +529,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
             Este cálculo es orientativo. Para modelo 303/130 real se requieren datos de facturación formal. El IVA se estima aplicando 21% sobre ventas brutas de plataformas.
           </div>
 
-          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -578,7 +578,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
           </h2>
 
           {/* Modelo 303 */}
-          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 10, padding: '20px 24px' }}>
+          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '20px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: INK, marginBottom: 6 }}>
@@ -600,7 +600,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
           </div>
 
           {/* Export gastos */}
-          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 10, padding: '20px 24px' }}>
+          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '20px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: INK, marginBottom: 6 }}>
@@ -620,7 +620,7 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
           </div>
 
           {/* Export movimientos */}
-          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 10, padding: '20px 24px' }}>
+          <div style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '20px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: INK, marginBottom: 6 }}>

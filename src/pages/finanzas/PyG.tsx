@@ -144,14 +144,14 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
   const years = [now.getFullYear() - 1, now.getFullYear()]
 
   const sel: React.CSSProperties = {
-    background: BLANCO, border: BORDER_FINO, borderRadius: 6,
+    background: BLANCO, border: BORDER_FINO, borderRadius: 0,
     color: INK, padding: '6px 10px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer',
   }
   const card: React.CSSProperties = {
-    background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 8, padding: '18px 20px',
+    background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '18px 20px',
   }
   const kpiCard: React.CSSProperties = {
-    background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 8, padding: '16px 20px',
+    background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, borderRadius: 0, padding: '16px 20px',
   }
   const kpiLbl: React.CSSProperties = {
     fontFamily: 'Oswald,sans-serif', fontSize: 11, letterSpacing: '2px',
