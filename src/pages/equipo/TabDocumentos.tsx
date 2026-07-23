@@ -2,8 +2,8 @@
  * TabDocumentos — lista-archivo de todo lo del equipo (nóminas, RLC, RNT,
  * cuotas de autónomos, contratos), filtrable por persona/mes/tipo, con enlace
  * a Drive/Storage. Solo lectura: la subida vive únicamente en Papeleo →
- * Equipo. La cola "por revisar" (equipo_docs_revision) se integra aquí con
- * el modal ya existente.
+ * Bandeja de entrada (botón EQUIPO). La cola "por revisar"
+ * (equipo_docs_revision) se integra aquí con el modal ya existente.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -142,10 +142,10 @@ export default function TabDocumentos() {
         </select>
 
         <Link
-          to="/finanzas/papeleo?tab=equipo"
+          to="/finanzas/papeleo?tab=bandeja"
           style={{ fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', color: GRANATE, textDecoration: 'none' }}
         >
-          Subir documentos → Papeleo · Equipo
+          Subir documentos → Papeleo · Bandeja de entrada
         </Link>
 
         {pendientesRevision > 0 && (
