@@ -10,6 +10,7 @@ Manual: Notion CEREBRO-SL > LEY-ESTILO-01 · Drive "📚 Documentación Streat L
 - 23-jul-2026 · Cabecera del Panel Global (src/pages/PanelGlobal.tsx): título+fecha a la izquierda ocupando el mismo alto que los desplegables; desplegables y pestañas (TabsPastilla) rediseñados como hermanos (mismo alto, borde 2px, Oswald, sombra 3px; activa hundida). Orden fijo: cabecera → pestañas → caja 13 semanas → contenido. Caja 13 semanas como tarjeta del sistema (blanca, ceja azul lateral, sombra por ser pulsable).
 - 23-jul-2026 · Frases-insight: batería ampliada de 20 a 46 (tabla `frases_insight` en Supabase + espejo en frasesInsight.ts), con variantes gemelas que rotan por día y `elegirFrases(n)` que devuelve mensajes distintos. El héroe del Resumen (v22) usa la frase nº1 (lenguaje natural anclado a datos reales del periodo) y la sección "frase potente" la nº2. REGLA para el resto de pantallas principales: el titular del héroe SIEMPRE es una frase-insight, nunca un dato suelto.
 - 23-jul-2026 · Build de consolidación (este commit): fuerza un deployment con TODO lo anterior en HEAD, tras un build encolado fuera de orden.
+- 23-jul-2026 · Reintento de build tras pausa de Vercel.
 
 ## Pendiente (orden)
 Tesorería → EEFF → Objetivos → Papeleo → resto de pestañas del Panel → Cocina → Compras → Operaciones → Ajustes. En cada una: héroe con frase-insight de su categoría.
