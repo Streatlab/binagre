@@ -13,10 +13,10 @@
 // y deseada: el empleador (es_empleador=true, p.ej. Rubén) y la RNT (decisión de
 // Rubén: se archiva y punto) no generan ni dato ni aviso — ver comentarios abajo.
 //
-// REENCAMINADO (LEY-BANDEJA-01): si por el botón de Equipo entra algo que NO es
-// de personal (una liquidación de plataforma, una factura, un extracto), NO se
-// queda parado en revisión: se manda solo al buzón que le toca, igual que hacen
-// los demás botones. En una carpeta suele haber de todo mezclado.
+// LEY-BANDEJA-01 (reencaminado con verdad): lo que entra por Equipo y NO es de
+// personal se entrega al MISMO motor que usan Ventas y Facturas. Si ese motor lo
+// acepta, se informa de a qué módulo fue. Si no lo quiere nadie, se RECHAZA con
+// el motivo. Nunca se deja tirado ni se cuela donde no toca.
 import { supabaseAdmin } from './supabase-admin.js'
 import { subirArchivoACarpetaExacta } from './google-drive.js'
 import { extraerTextoPDF, pdfTieneTexto } from './extractores.js'
@@ -26,7 +26,7 @@ import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResu
 import { cargarCandidatosEmpleados, cargarEmpleadores, resolverEmpleado, resolverEmpleadoEnTexto, resolverEmpleadosEnTexto } from './matchEmpleado.js'
 import { contarRecibos, partirNominas } from './splitNominas.js'
 import { extraerNominaAnthropicTexto } from './extraerNomina.js'
-import { detectarDocumentoPlataforma } from './detectarDocumentoPlataforma.js'
+import { procesarArchivo } from './procesarArchivo.js'
 
 export interface ResultadoDocEquipo {
   status: number
@@ -45,67 +45,72 @@ function nombreSeguroArchivo(nombre: string): string {
     .replace(/^_|_$/g, '') || 'documento.pdf'
 }
 
-/** Base absoluta del propio despliegue, para el reencaminado interno. */
-function baseUrlPropia(): string {
-  const v = process.env.VERCEL_URL
-  if (v) return v.startsWith('http') ? v : `https://${v}`
-  return 'https://binagre.vercel.app'
-}
-
-// ── REENCAMINADO ────────────────────────────────────────────────────────────
-// Un documento que entra por Equipo pero NO es de personal se manda a su buzón:
-//   · liquidaciones / pedidos / resúmenes de plataforma → Ventas
-//   · facturas (incluidas las de Uber, Glovo, Just Eat) → Facturas
-// Si no se reconoce nada, devuelve null y sigue el camino normal (revisión).
+// ── REENCAMINADO REAL ───────────────────────────────────────────────────────
+// Se pasa el documento por el motor común y se cree lo que responda de verdad:
+//   · ok / duplicada / lectura_manual → otro módulo lo ha recogido → REENCAMINADO
+//   · ignorada                        → nadie lo quiere            → RECHAZADO
+//   · error                           → no se pudo leer            → RECHAZADO con motivo
 async function reencaminarFueraDeEquipo(
   buffer: Buffer,
   nombreOriginal: string,
-  texto: string,
-  ext: string,
-): Promise<ResultadoDocEquipo['body'] | null> {
-  const det = detectarDocumentoPlataforma(nombreOriginal, texto)
-  if (!det.tipo) return null
-
-  const base = baseUrlPropia()
-  const b64 = buffer.toString('base64')
-
+): Promise<{ aceptado: boolean; modulo: string; motivo: string; resultado: unknown } | null> {
   try {
-    if (det.destino === 'ventas_pedidos' || det.destino === 'ventas_resumen') {
-      const r = await fetch(`${base}/api/importar/plataforma`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64: b64, nombre: nombreOriginal, mimeType: null, modulo: 'equipo_reencaminado' }),
-      })
-      const j = await r.json() as Record<string, unknown>
-      if (j?.ok) {
-        return {
-          ok: true, destino: 'ventas', reencaminado: true,
-          motivo: `No es un documento de personal: es ${det.tipo.replace(/_/g, ' ')}. Se ha enviado solo a Ventas.`,
-          plataforma: det.plataforma, resultado: j,
-        }
+    const res = await procesarArchivo(supabaseAdmin, { nombre: nombreOriginal, buffer, mimeType: null })
+    if (!Array.isArray(res) || res.length === 0) return null
+
+    const aceptada = res.find(r => r.estado === 'ok' || r.estado === 'duplicada' || r.estado === 'lectura_manual')
+    if (aceptada) {
+      const pista = String(aceptada.motivo ?? '') + ' ' + String((aceptada as { destino?: string }).destino ?? '')
+      const modulo = /venta|plataforma|liquidaci|pedido|producto/i.test(pista) ? 'Ventas' : 'Facturas'
+      return {
+        aceptado: true,
+        modulo,
+        motivo: `No es un documento de personal. Lo ha recogido ${modulo}.`,
+        resultado: res,
       }
-      return null
     }
 
-    if (det.destino === 'facturacion') {
-      const r = await fetch(`${base}/api/facturas?action=procesar-factura`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64: b64, filename: nombreOriginal, extension: ext }),
-      })
-      const j = await r.json() as Record<string, unknown>
-      if (j?.ok || j?.factura_id) {
-        return {
-          ok: true, destino: 'facturas', reencaminado: true,
-          motivo: `No es un documento de personal: es una factura de ${det.plataforma ?? 'proveedor'}. Se ha enviado sola a Facturas.`,
-          resultado: j,
-        }
-      }
-      return null
-    }
+    const ignorada = res.find(r => r.estado === 'ignorada')
+    const errorRes = res.find(r => r.estado === 'error')
+    const porQue = String(ignorada?.motivo || errorRes?.motivo || 'ningún módulo del ERP reconoce este documento')
+    return { aceptado: false, modulo: '', motivo: porQue, resultado: res }
   } catch (err) {
-    console.error('[reencaminarFueraDeEquipo] no se pudo reencaminar:', err instanceof Error ? err.message : String(err))
+    console.error('[reencaminarFueraDeEquipo] el motor común falló:', err instanceof Error ? err.message : String(err))
     return null
   }
-  return null
+}
+
+// Rechazo explícito: el documento NO es de ningún buzón (una foto de un plato, un
+// justificante del paro...). Se archiva para dejar rastro y se registra como
+// descartado con el motivo, pero NO ensucia la cola de revisión: esa cola es solo
+// para lo que SÍ es de personal y le falta un dato.
+async function rechazarDocumento(
+  buffer: Buffer,
+  nombreOriginal: string,
+  ext: string,
+  clasif: ClasificacionDocEquipo,
+  motivo: string,
+): Promise<ResultadoDocEquipo['body']> {
+  let driveUrl: string | null = null
+  let storagePath: string | null = null
+  try {
+    const drive = await subirArchivoACarpetaExacta(buffer, nombreSeguroArchivo(nombreOriginal), ['EQUIPO', 'RECHAZADOS'], ext)
+    driveUrl = drive.webViewLink || null
+    storagePath = drive.storagePath || null
+  } catch { /* el rechazo nunca pierde el archivo: se registra igual */ }
+
+  await supabaseAdmin.from('equipo_docs_revision').insert({
+    nombre_archivo: nombreOriginal,
+    tipo_detectado: clasif.tipo,
+    confianza: 0,
+    motivo,
+    empleado_nombre: null,
+    drive_url: driveUrl,
+    storage_path: storagePath,
+    estado: 'descartado',
+  })
+
+  return { ok: true, destino: 'rechazado', motivo, drive_url: driveUrl }
 }
 
 async function archivarParaRevision(
@@ -147,10 +152,8 @@ async function archivarParaRevision(
   }
 }
 
-// RNT (decisión de Rubén, PARTE 0.D del encargo): se reconoce y se archiva para
-// trazabilidad, pero NO vuelca datos, NO genera avisos, NO deja nada en la cola
-// de revisión — que no moleste. Un fallo de Drive tampoco genera aviso: el
-// documento simplemente no queda respaldado hasta el próximo reintento manual.
+// RNT (decisión de Rubén): se reconoce y se archiva para trazabilidad, pero NO
+// vuelca datos, NO genera avisos, NO deja nada en la cola de revisión.
 async function archivarRntEnSilencio(buffer: Buffer, nombreOriginal: string, ext: string): Promise<ResultadoDocEquipo['body']> {
   let driveUrl: string | null = null
   try {
@@ -161,10 +164,8 @@ async function archivarRntEnSilencio(buffer: Buffer, nombreOriginal: string, ext
 }
 
 // Registro OBLIGATORIO en imports_log de TODO documento que entra por el tubo de
-// Equipo (botón o cartero). Antes este flujo no escribía NUNCA en la bandeja:
-// 146 entradas en 30 días, cero errores, cero de Equipo — fallos invisibles.
-// Estados: 'procesado' (acabó en su módulo), 'pendiente_revision' (en la cola de
-// revisión, visible), 'error' (ni siquiera se pudo leer el texto — en rojo).
+// Equipo (botón o cartero). Estados: 'procesado' (acabó en su módulo),
+// 'pendiente_revision' (en la cola, visible), 'error' (ilegible o rechazado).
 async function registrarImportEquipo(
   nombreArchivo: string,
   estado: 'procesado' | 'pendiente_revision' | 'error',
@@ -183,25 +184,26 @@ async function registrarImportEquipo(
       detalle,
     })
   } catch (err) {
-    // El registro nunca tumba el procesado, pero su fallo tampoco es mudo.
     console.error('[registrarImportEquipo] no se pudo registrar en imports_log:', err instanceof Error ? err.message : String(err))
   }
 }
 
 /** Núcleo de ingesta: clasifica y encamina un documento de personal. Usado tanto
- *  por el botón de Equipo (HTTP) como por el cartero de correo — un único motor.
- *  Deja SIEMPRE rastro en imports_log (ver registrarImportEquipo). */
+ *  por el botón de Equipo (HTTP) como por el cartero de correo — un único motor. */
 export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: string): Promise<ResultadoDocEquipo> {
   const resultado = await procesarDocumentoEquipoNucleo(buffer, nombreOriginal)
   const body = resultado.body || {}
   const destino = String(body.destino || 'equipo')
   const sinTexto = body.sin_texto_legible === true
   const estado: 'procesado' | 'pendiente_revision' | 'error' =
-    sinTexto ? 'error' : destino === 'revision' ? 'pendiente_revision' : 'procesado'
+    sinTexto ? 'error'
+      : destino === 'revision' ? 'pendiente_revision'
+      : destino === 'rechazado' ? 'error'
+      : 'procesado'
   await registrarImportEquipo(nombreOriginal, estado, `equipo:${destino}`, {
     tipo_detectado: String((body.clasificacion as { tipo?: string } | undefined)?.tipo || body.tipo || 'equipo'),
     destino,
-    reencaminado: body.reencaminado === true || undefined,
+    modulo_destino: destino === 'reencaminado' ? String(body.modulo ?? '') : undefined,
     motivo: (body as { error?: unknown }).error ?? body.motivo ?? (body.detalles ? 'multi-documento, ver cola de revisión' : undefined),
     multi: body.multi === true || undefined,
     nominas_ok: body.nominas_ok,
@@ -214,8 +216,8 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
   const ext = (nombreOriginal.split('.').pop() || 'pdf').toLowerCase()
 
   let texto = ''
-  // CSV/TXT no son PDF: se leen como texto plano. Antes se les pasaba el lector
-  // de PDF, no sacaba nada y acababan en revisión aunque fueran de plataforma.
+  // CSV/TXT/HTML no son PDF: se leen como texto plano. Antes se les pasaba el
+  // lector de PDF, no sacaba nada y acababan en revisión aunque fueran de ventas.
   if (['csv', 'txt', 'html', 'htm'].includes(ext)) {
     try { texto = buffer.toString('utf8') } catch { texto = '' }
   } else {
@@ -224,23 +226,26 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
       texto = ''
     }
     if (!pdfTieneTexto(texto)) {
-      console.error(`[procesarDocEquipo] "${nombreOriginal}": lectura directa sin texto (PDF digital que debería tener capa de texto) — cayendo a OCR de respaldo`)
+      console.error(`[procesarDocEquipo] "${nombreOriginal}": lectura directa sin texto — cayendo a OCR de respaldo`)
       try { texto = await extraerTextoOCRGratis(buffer, 'pdf') } catch { /* noop */ }
     }
   }
-  // Si ni la lectura directa ni el respaldo sacaron texto, el documento igualmente
-  // acabará en revisión (clasificación 'desconocido'), pero el registro de la
-  // bandeja lo marcará en ROJO como error de lectura, no como procesado.
   const sinTextoLegible = !pdfTieneTexto(texto)
 
   const clasif = await clasificarDocEquipoTexto(texto)
 
-  // ── Reencaminado: ¿esto no es de personal? Se manda a su buzón antes de nada.
-  // Solo cuando NO hay marcador de documento de personal: si es una nómina o un
-  // RLC de verdad, se procesa aquí y no se toca.
+  // ── Reencaminado / rechazo: ¿esto no es de personal?
+  // Se entrega al motor común (el mismo de Ventas y Facturas) y se cree lo que
+  // responda: si lo acepta, queda reenviado de verdad; si nadie lo quiere, se
+  // RECHAZA con el motivo. Nada se queda tirado ni se cuela donde no toca.
   if (!clasif.cierto || clasif.tipo === 'desconocido') {
-    const desviado = await reencaminarFueraDeEquipo(buffer, nombreOriginal, texto, ext)
-    if (desviado) return { status: 200, body: desviado }
+    const r = await reencaminarFueraDeEquipo(buffer, nombreOriginal)
+    if (r?.aceptado) {
+      return { status: 200, body: { ok: true, destino: 'reencaminado', modulo: r.modulo, motivo: r.motivo, resultado: r.resultado } }
+    }
+    if (r && !r.aceptado) {
+      return { status: 200, body: await rechazarDocumento(buffer, nombreOriginal, ext, clasif, r.motivo) }
+    }
   }
 
   // RNT: fuera del resto del flujo, ni siquiera intenta partirse como multi-nómina.
@@ -250,8 +255,7 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
 
   // La gestoría manda SIEMPRE un único PDF con todas las nóminas del mes juntas:
   // aquí se parte en una nómina por trabajador y se procesa cada una igual que si
-  // hubieran llegado por separado. Solo si no se puede partir con seguridad (o
-  // alguna nómina falla), esa parte va a revisión — cero pérdidas.
+  // hubieran llegado por separado.
   const nRecibos = contarRecibos(texto)
   const esResumen = clasif.cierto && clasif.tipo === 'resumen_nominas'
   if (nRecibos >= 2 && !esResumen && ['pdf'].includes(ext)) {
@@ -267,9 +271,6 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
       cargarCandidatosEmpleados(supabaseAdmin),
       cargarEmpleadores(supabaseAdmin),
     ])
-    // Ruido del empleador: el nombre de la empresa/autónomo sale en TODAS las páginas.
-    // Un empleado que aparezca en TODOS los segmentos se descarta como candidato de
-    // cada segmento (salvo que sea el ÚNICO que aparece: entonces es SU nómina).
     const matchesPorSegmento = segmentos.map(seg => resolverEmpleadosEnTexto(seg.texto, candidatos))
     const idsComunes = new Set(
       (matchesPorSegmento[0] ?? [])
@@ -284,8 +285,6 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
       const clasifSeg = await clasificarDocEquipoTexto(seg.texto)
       const nombreSeg = nombreOriginal.replace(/\.pdf$/i, '') + `_parte${i + 1}.pdf`
 
-      // El empleador nunca genera nómina ni aviso: se descarta en silencio si su
-      // nombre quedó aislado en la cabecera del segmento.
       if (clasifSeg.empleado_nombre && resolverEmpleado(clasifSeg.empleado_nombre, clasifSeg.nif_trabajador, empleadores)) {
         descartadosEmpleador++
         detalles.push({ parte: i + 1, descartado: 'empleador', ok: true })
@@ -297,11 +296,6 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
       const porTexto = sinRuido.length === 1 ? sinRuido[0]
         : (sinRuido.length === 0 && enTexto.length === 1 ? enTexto[0] : null)
       let resolucion = resolverEmpleado(clasifSeg.empleado_nombre, clasifSeg.nif_trabajador, candidatos) || porTexto
-      // Último recurso AUTOMÁTICO: si ni cabecera ni texto resuelven, se pide a la
-      // IA el nombre del trabajador tal cual figura en el recibo (campo
-      // empleado_nombre_detectado) y se resuelve con el mismo matcher. Solo si
-      // TAMBIÉN falla eso, el segmento va a revisión — y con ese nombre como
-      // titular, no con el nombre del archivo (que lleva el del empleador).
       let nombreIA: string | null = null
       if (!resolucion) {
         const ia = await extraerNominaAnthropicTexto(seg.texto).catch(() => null)
@@ -330,8 +324,7 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
     return { status: 200, body: { ok: true, destino: 'revision', multi: true, nominas_ok: 0, total_partes: segmentos.length, detalles } }
   }
 
-  // Sin marcador determinista → SIEMPRE a revisión, sin importar qué tipo haya
-  // adivinado la IA de respaldo. "Certeza, no probabilidad": nada intermedio.
+  // Sin marcador determinista y sin que nadie más lo haya querido: a revisión.
   if (!clasif.cierto) {
     const body = await archivarParaRevision(buffer, nombreOriginal, ext, clasif,
       sinTextoLegible ? 'No se pudo extraer texto del PDF (ni lectura directa ni OCR de respaldo) — revisar el archivo y los logs de la función' : clasif.motivo)
@@ -343,12 +336,9 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
       cargarCandidatosEmpleados(supabaseAdmin),
       cargarEmpleadores(supabaseAdmin),
     ])
-    // El empleador nunca genera nómina ni aviso.
     if (clasif.empleado_nombre && resolverEmpleado(clasif.empleado_nombre, clasif.nif_trabajador, empleadores)) {
       return { status: 200, body: { ok: true, destino: 'descartado_empleador', clasificacion: clasif } }
     }
-    // 1) por el nombre/NIF aislado de la cabecera; 2) si no, buscando al empleado
-    // dentro del texto completo del recibo (solo vale si aparece uno y solo uno).
     const resolucion = resolverEmpleado(clasif.empleado_nombre, clasif.nif_trabajador, candidatos)
       || resolverEmpleadoEnTexto(texto, candidatos)
     if (resolucion) {
@@ -383,7 +373,6 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
     return { status: 200, body: await archivarParaRevision(buffer, nombreOriginal, ext, clasif, String(out.motivo_extraccion || out.error || 'no se pudo procesar la cuota de autónomos')) }
   }
 
-  // 'desconocido': a revisión con el motivo.
   const bodyDesconocido = await archivarParaRevision(buffer, nombreOriginal, ext, clasif,
     sinTextoLegible ? 'No se pudo extraer texto del PDF (ni lectura directa ni OCR de respaldo) — revisar el archivo y los logs de la función' : clasif.motivo)
   return { status: 200, body: { ...bodyDesconocido, sin_texto_legible: sinTextoLegible || undefined } }
