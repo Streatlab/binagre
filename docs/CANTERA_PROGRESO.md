@@ -53,10 +53,10 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [ ] Ventas · Objetivos
 - [x] Ventas · Ticket medio (héroe ventas, plancha canal, frase, papel)
 - [ ] Ventas · Repetición clientes
-- [ ] Resultados · Running
-- [ ] Resultados · P&G
-- [ ] Resultados · Estados financieros
-- [ ] Resultados · Evolución (análisis horiz/vert)
+- [x] Resultados · Running
+- [x] Resultados · P&G
+- [x] Resultados · Estados financieros
+- [x] Resultados · Evolución (análisis horiz/vert)
 - [x] Rentabilidad · Punto de equilibrio
 - [x] Rentabilidad · Por marca y canal (break-even)
 - [x] Rentabilidad · ROI por canal (héroe resultados, plancha mejor/peor/medio, frase)
