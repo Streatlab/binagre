@@ -181,7 +181,7 @@ export default function TabGenerador() {
           <div key={idx} style={{
             marginBottom: 24, padding: 14, borderRadius: 12,
             border: `2px solid ${aprobada ? VERDE : T.brd}`,
-            background: aprobada ? '#1D9E7510' : 'transparent',
+            background: aprobada ? `${VERDE}10` : 'transparent',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
               <div>

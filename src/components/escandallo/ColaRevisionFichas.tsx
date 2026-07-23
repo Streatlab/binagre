@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Link2, PlusCircle, XCircle, Inbox } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { GRANATE, BLANCO, GRIS } from '@/styles/neobrutal'
+import { GRANATE, BLANCO, GRIS, AZUL } from '@/styles/neobrutal'
 import { ESCANDALLO_OK_BG, ESCANDALLO_OK_TXT, ESCANDALLO_WARN_BG, ESCANDALLO_WARN_BORDE, ESCANDALLO_WARN_TXT } from '@/styles/palettes'
 import { campoAporta, type EstadoCampo } from '@/utils/fichasHuerfanas'
 
@@ -146,7 +146,7 @@ export default function ColaRevisionFichas() {
           return (
             <div key={f.id} style={{ background: 'var(--sl-thead)', border: '1px solid var(--sl-border)', borderRadius: 10, padding: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: f.tipo === 'ep' ? '#2D5BFF22' : `${GRANATE}22`, color: f.tipo === 'ep' ? '#2D5BFF' : GRANATE, borderRadius: 99, padding: '2px 9px' }}>
+                <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: f.tipo === 'ep' ? `${AZUL}22` : `${GRANATE}22`, color: f.tipo === 'ep' ? AZUL : GRANATE, borderRadius: 99, padding: '2px 9px' }}>
                   {f.tipo === 'ep' ? 'EP' : 'Receta'}
                 </span>
                 <span style={{ fontSize: 11, color: GRIS, fontFamily: 'Lexend, sans-serif' }}>{f.codigo}</span>
@@ -170,7 +170,7 @@ export default function ColaRevisionFichas() {
                     const cTiene = { foto: !!c.foto_url, pasos: c.elaboracion_len > 0, alerg: c.alergenos_n > 0, conserv: c.conservacion_n > 0 }
                     return (
                       <div key={`${c.target_tipo}-${c.target_id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: 'var(--sl-card)', border: '1px solid var(--sl-border)', borderRadius: 8, padding: '7px 10px' }}>
-                        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: c.target_tipo === 'ep' ? '#2D5BFF' : GRANATE }}>
+                        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: c.target_tipo === 'ep' ? AZUL : GRANATE }}>
                           {c.target_tipo === 'ep' ? 'EP' : 'Receta'}
                         </span>
                         <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-primary)', flexShrink: 0 }}>{c.target_nombre}</span>

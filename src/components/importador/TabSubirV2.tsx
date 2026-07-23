@@ -118,7 +118,7 @@ function BadgeEstado({ estado }: { estado: EstadoFila }) {
   if (estado.tag === 'asociada') {
     return (
       <span style={{
-        background: '#1D9E7515',
+        background: `${VERDE}15`,
         color: VERDE,
         fontFamily: 'Lexend',
         fontSize: 10,

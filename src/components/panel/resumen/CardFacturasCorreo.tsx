@@ -139,7 +139,7 @@ export default function CardFacturasCorreo({ tipo, desde, hasta, activa, onClick
         border: activa ? `1px solid ${CORREO_ALERTA_BORDE}` : `0.5px solid ${BORDE_SUAVE}`,
         borderRadius: 14, padding: '16px 16px',
         cursor: onClick ? 'pointer' : 'default',
-        boxShadow: activa ? '0 0 0 3px #FF475715' : 'none',
+        boxShadow: activa ? `0 0 0 3px ${CORREO_ALERTA_BORDE}15` : 'none',
         transition: 'border-color 0.15s, box-shadow 0.15s',
       }}
     >

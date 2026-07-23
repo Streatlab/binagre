@@ -106,7 +106,7 @@ export default function ModalSolicitud({ empleados, empleadoPreseleccionado, onC
             <label style={labelStyle}>Nota (opcional)</label>
             <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 72 }} value={nota} onChange={e => setNota(e.target.value)} placeholder="Descripción adicional…" />
           </div>
-          {error && <div style={{ padding: '8px 12px', background: '#B01D2320', color: GRANATE, borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
+          {error && <div style={{ padding: '8px 12px', background: `${GRANATE}20`, color: GRANATE, borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
         </div>
 
         <div style={{ padding: '16px 24px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>

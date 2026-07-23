@@ -6,7 +6,7 @@ import ModalEditarFicha from './ModalEditarFicha'
 import { fmtEur, fmtNum } from '@/lib/format'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
-import { GRANATE, BLANCO, GRIS } from '@/styles/neobrutal'
+import { GRANATE, BLANCO, GRIS, INK } from '@/styles/neobrutal'
 import {
   PRINT_BN_BG, PRINT_BN_TXT,
   ESCANDALLO_OK_BG, ESCANDALLO_OK_TXT, ESCANDALLO_WARN_BG, ESCANDALLO_WARN_BORDE,
@@ -663,27 +663,27 @@ const FICHA_CSS = `
     position: absolute; left: 0; top: 0; width: 100%;
     min-height: 245mm; box-sizing: border-box; padding: 6mm;
     display: flex; flex-direction: column;
-    background: #fff !important; color: #111 !important;
-    border: 1px solid #111 !important; border-radius: 6px !important;
+    background: #fff !important; color: ${INK} !important;
+    border: 1px solid ${INK} !important; border-radius: 6px !important;
   }
   .print-ficha .sec-prep { flex: 1 1 auto; min-height: 60mm; }
-  .print-ficha .ficha-head { border-bottom: 2px solid #111 !important; padding: 4mm 6mm; }
-  .print-ficha .ficha-id { background: #111 !important; color: #fff !important; font-size: 21px !important; padding: 2px 14px !important; }
+  .print-ficha .ficha-head { border-bottom: 2px solid ${INK} !important; padding: 4mm 6mm; }
+  .print-ficha .ficha-id { background: ${INK} !important; color: #fff !important; font-size: 21px !important; padding: 2px 14px !important; }
   .print-ficha .ficha-table-ing { font-size: 16px !important; }
   .print-ficha .ficha-table-ing td { padding: 0.4mm 0 !important; line-height: 1.1 !important; }
-  .print-ficha .ficha-title { color: #111 !important; }
-  .print-ficha .ficha-meta { border-color: #ccc !important; }
-  .print-ficha .ficha-meta .cell { border-color: #ccc !important; }
-  .print-ficha .ficha-meta .lbl { color: #555 !important; }
-  .print-ficha .ficha-meta .val { color: #111 !important; }
-  .print-ficha .ficha-meta .val-calc { background: #fff !important; border-color: #111 !important; color: #111 !important; }
-  .print-ficha .ficha-section { border-color: #ccc !important; padding: 4mm 6mm; }
-  .print-ficha .ficha-seclabel { color: #444 !important; border-color: #111 !important; }
-  .print-ficha .ficha-grupo { color: #666 !important; border-color: #111 !important; }
-  .print-ficha .ficha-table td { color: #111 !important; }
-  .print-ficha .ficha-table th { color: #555 !important; }
-  .print-ficha .ficha-equiv { color: #777 !important; }
-  .print-ficha .ficha-steps, .print-ficha .ficha-alerg-val { color: #111 !important; }
+  .print-ficha .ficha-title { color: ${INK} !important; }
+  .print-ficha .ficha-meta { border-color: ${GRIS} !important; }
+  .print-ficha .ficha-meta .cell { border-color: ${GRIS} !important; }
+  .print-ficha .ficha-meta .lbl { color: ${GRIS} !important; }
+  .print-ficha .ficha-meta .val { color: ${INK} !important; }
+  .print-ficha .ficha-meta .val-calc { background: #fff !important; border-color: ${INK} !important; color: ${INK} !important; }
+  .print-ficha .ficha-section { border-color: ${GRIS} !important; padding: 4mm 6mm; }
+  .print-ficha .ficha-seclabel { color: ${GRIS} !important; border-color: ${INK} !important; }
+  .print-ficha .ficha-grupo { color: ${GRIS} !important; border-color: ${INK} !important; }
+  .print-ficha .ficha-table td { color: ${INK} !important; }
+  .print-ficha .ficha-table th { color: ${GRIS} !important; }
+  .print-ficha .ficha-equiv { color: ${GRIS} !important; }
+  .print-ficha .ficha-steps, .print-ficha .ficha-alerg-val { color: ${INK} !important; }
   .print-ficha ol { list-style-type: decimal !important; padding-left: 22px !important; }
   .print-ficha ol li { display: list-item !important; }
 }

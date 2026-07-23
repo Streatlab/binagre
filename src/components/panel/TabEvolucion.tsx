@@ -525,7 +525,7 @@ export default function TabEvolucion({ rowsAll, periodoHasta }: Props) {
           </div>
           <div style={{ marginTop: 12 }}><Spark serie={serieOnline} color={BLANCO} w={300} h={56} /></div>
           <div style={{ marginTop: 'auto', paddingTop: 18 }}>
-            <Barra nombre="Online" pct={pesoOnline} color={AMA} valor={E(mesActual.online)} alto={26} track="#ffffff33" />
+            <Barra nombre="Online" pct={pesoOnline} color={AMA} valor={E(mesActual.online)} alto={26} track={`${BLANCO}33`} />
             <div style={{ fontFamily: LEX, fontSize: 13, fontWeight: 600, opacity: 0.9, marginTop: 12 }}>
               Cuanto más peso propio, menos comisión de plataforma. Web 7% vs marketplaces 30%.
             </div>

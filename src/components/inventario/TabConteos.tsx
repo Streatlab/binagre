@@ -1,5 +1,5 @@
 import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, ROJO_S } from '@/styles/neobrutal'
-import { DARK_WASH_VERDE_BG, DARK_WASH_AZUL_BG, VERDE_POSITIVO } from '@/styles/palettes'
+import { DARK_WASH_VERDE_BG, DARK_WASH_AZUL_BG, VERDE_POSITIVO, ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -47,8 +47,8 @@ export default function TabConteos({ desde, hasta }: Props) {
   const [editMap, setEditMap] = useState<Record<string, string>>({})
 
   const calcStyle: React.CSSProperties = {
-    backgroundColor: '#2d1515',
-    border: '1px solid #aa3030',
+    backgroundColor: ERROR_BANNER_BG,
+    border: `1px solid ${ERROR_BANNER_BORDE}`,
     color: ROJO_S,
     padding: '4px 8px',
     borderRadius: 4,

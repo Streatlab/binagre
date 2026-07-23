@@ -1,4 +1,4 @@
-import { BLANCO, VERDE } from '@/styles/neobrutal'
+import { BLANCO, VERDE, GRANATE, INK } from '@/styles/neobrutal'
 /**
  * uiSL — primitivas visuales del skin SL (Ley Visual SL v2).
  * Escritas desde cero: no heredan nada de neobrutal.ts ni de tablaNeo.ts.
@@ -196,7 +196,7 @@ export function HeroPill({ children, solid }: { children: ReactNode; solid?: boo
       display: 'inline-flex', alignItems: 'center', gap: 5,
       background: solid ? BLANCO : 'rgba(255,255,255,0.16)',
       border: `1px solid ${solid ? BLANCO : 'rgba(255,255,255,0.3)'}`,
-      color: solid ? '#951218' : BLANCO,
+      color: solid ? GRANATE : BLANCO,
       padding: '6px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: 800,
       whiteSpace: 'nowrap', backdropFilter: solid ? undefined : 'blur(4px)',
     }}>{children}</span>
@@ -337,7 +337,7 @@ export function Euro({ base, tramos, frase }: {
               flex: pct, background: t.color, display: 'flex', alignItems: 'center',
               justifyContent: 'center', minWidth: 0, overflow: 'hidden',
               fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, fontSize: 12,
-              color: t.textoOscuro ? '#4a3a00' : BLANCO,
+              color: t.textoOscuro ? INK : BLANCO,
             }}>
               {pct >= 4 ? `${pct.toFixed(1)}%` : ''}
             </div>
