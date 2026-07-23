@@ -5,14 +5,13 @@ import {
 } from '@/styles/neobrutal'
 import { PANEL_MARCA_MORADO, PANEL_MARCA_CIAN, RESUMEN_ROW_BOLD, ZEBRA_CLARA } from '@/styles/palettes'
 /**
- * ResumenLanding v22 — pestaña Resumen del Panel Global · CANTERA ALEGRE v1.0.
+ * ResumenLanding v23 — pestaña Resumen del Panel Global · CANTERA ALEGRE v4.
+ * v23: menos negro — la tira de atención pasa de banda de tinta a banda blanca
+ * con chips (sombra ligera). El resto igual que v22.
  * v22: el titular del héroe es la frase-insight nº1 (lenguaje natural anclado a
  * datos reales del periodo, batería `frases_insight` con rotación diaria); la
  * sección "frase potente" usa la frase nº2 (mensaje distinto). Los pedidos del
  * periodo pasan a pastilla de cabecera del héroe.
- * v21: derogadas las bandas a sangre encadenadas: cada pieza es un objeto con
- * borde 3px y la pantalla es una columna con aire de 16px. Sombra SOLO en lo
- * pulsable y en el resumen/neto del héroe. Lógica y datos intactos (v20).
  */
 import { useState } from 'react'
 import { fmtEur, fmtPct, fmtNum } from '@/lib/format'
@@ -270,7 +269,7 @@ export default function ResumenLanding(p: Props) {
   const Bloque: React.FC<{ ceja: string; children: React.ReactNode; pad?: string; style?: React.CSSProperties }> = ({ ceja, children, pad = `22px ${PAD}`, style }) => (
     <div style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${ceja}`, padding: pad, ...style }}>{children}</div>
   )
-  const chipAtencion: React.CSSProperties = { display: 'inline-block', background: BLANCO, color: INK, border: `2px solid ${INK}`, boxShadow: '2px 2px 0 rgba(0,0,0,.45)', fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '5px 11px' }
+  const chipAtencion: React.CSSProperties = { display: 'inline-block', background: BLANCO, color: INK, border: `2px solid ${INK}`, boxShadow: '2px 2px 0 rgba(36,29,18,.25)', fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '5px 11px' }
 
   // Frase potente · color por SIGNIFICADO (rojo peligro · granate coste · verde logro · rosa oportunidad)
   const fraseColor = saludNivel === 'rojo' ? ROJO
@@ -287,7 +286,7 @@ export default function ResumenLanding(p: Props) {
       {/* 0 · HOY EN VIVO (solo en horario de servicio) */}
       {enServicio && <CardHoyEnVivo />}
 
-      {/* 1 · HÉROE (amarillo · área Resumen · mark naranja) + tira de atención pegada */}
+      {/* 1 · HÉROE (amarillo · área Resumen · mark naranja) + tira de atención pegada (blanca: menos negro) */}
       <div>
         <section style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 26, border: `3px solid ${INK}`, background: AMA, padding: '26px 28px', alignItems: 'center' }}>
           <div>
@@ -328,14 +327,14 @@ export default function ResumenLanding(p: Props) {
             ))}
           </div>
         </section>
-        <div style={{ background: INK, color: CREMA, border: `3px solid ${INK}`, borderTop: 'none', padding: `12px ${PAD}`, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ ...d('15px', CREMA) }}>Atención →</span>
-          <span style={{ ...chipAtencion, background: saludBg, color: BLANCO, borderColor: BLANCO }}>{saludTitulo}</span>
+        <div style={{ background: BLANCO, color: INK, border: `3px solid ${INK}`, borderTop: 'none', padding: `12px ${PAD}`, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ ...d('15px', INK) }}>Atención →</span>
+          <span style={{ ...chipAtencion, background: saludBg, color: BLANCO, borderColor: saludBg }}>{saludTitulo}</span>
           {atencionChips.length === 0
             ? <span style={chipAtencion}>Todo en orden</span>
             : atencionChips.map((a, i) => <span key={i} style={chipAtencion}>{a.t}</span>)}
-          {atencionResto > 0 && <span style={{ ...chipAtencion, background: INK, color: CREMA, borderColor: CREMA }}>+{atencionResto} más</span>}
-          <span style={{ marginLeft: 'auto', fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.7 }}>Actualizado {actualizado}</span>
+          {atencionResto > 0 && <span style={{ ...chipAtencion, background: CREMA }}>+{atencionResto} más</span>}
+          <span style={{ marginLeft: 'auto', fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.6 }}>Actualizado {actualizado}</span>
         </div>
       </div>
 
