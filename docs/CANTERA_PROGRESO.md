@@ -79,10 +79,10 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [x] Analítica · Predicción demanda (contenido real: Pulso operativa)
 - [ ] Clientes · CRM tienda propia
 - [ ] Clientes · Club fidelización
-- [ ] Marketing · Panel MKT
-- [ ] Marketing · Plan campañas
-- [ ] Marketing · Rendimiento ads/promo
-- [ ] Marketing · Panel reseñas
+- [x] Marketing · Panel MKT
+- [x] Marketing · Plan campañas
+- [x] Marketing · Rendimiento ads/promo
+- [x] Marketing · Panel reseñas
 - [ ] Marketing · Benchmark
 - [ ] Marketing · Playbook ThinkPaladar
 
