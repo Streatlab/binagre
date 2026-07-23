@@ -43,8 +43,8 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [x] Panel Dirección
 
 ### Finanzas
-- [ ] Papeleo · Bandeja entrada
-- [ ] Papeleo · Facturas (OCR)
+- [x] Papeleo · Bandeja entrada
+- [x] Papeleo · Facturas (OCR)
 - [x] Papeleo · Conciliación
 - [x] Papeleo · Gestor documental (GestionFacturas)
 - [x] Papeleo · Facturación
@@ -63,7 +63,7 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [x] Rentabilidad · Por franja horaria
 - [x] Tesorería · Calendario
 - [x] Tesorería · Gastos fijos
-- [ ] Tesorería · Fondo & reserva
+- [x] Tesorería · Fondo & reserva
 - [x] Tesorería · Historial
 - [x] Tesorería · 13 semanas
 - [x] Tesorería · Escenarios
