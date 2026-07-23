@@ -132,8 +132,8 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 
 ### Ajustes
 - [ ] Ajustes · Hub
-- [ ] Ajustes · Integraciones (Marcas/Canales/Drive)
-- [ ] Ajustes · Reglas (Ingredientes/Conciliación/Plantillas/Diccionario/Correo)
+- [x] Ajustes · Integraciones (Marcas/Canales/Drive)
+- [x] Ajustes · Reglas (Ingredientes/Conciliación/Plantillas/Diccionario/Correo)
 - [ ] Ajustes · Bancos
 - [ ] Ajustes · Cuentas bancarias
 - [ ] Ajustes · Bancos y cuentas
