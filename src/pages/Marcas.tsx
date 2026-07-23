@@ -90,7 +90,7 @@ export default function Marcas() {
         </button>
       </div>
 
-      {error && <div style={{ backgroundColor: '#B01D2318', ...NEO_CARD, padding: '14px 18px', color: GRANATE, fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ backgroundColor: `${GRANATE}18`, ...NEO_CARD, padding: '14px 18px', color: GRANATE, fontSize: 13, marginBottom: 20 }}>{error}</div>}
 
       {showForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'var(--sl-overlay)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -142,7 +142,7 @@ export default function Marcas() {
                   <td style={{ padding: '12px 14px', color: 'var(--sl-text-primary)', fontWeight: 500 }}>{m.nombre}</td>
                   <td style={{ padding: '12px 14px', color: 'var(--sl-text-muted)', fontSize: 12 }}>{m.descripcion ?? '—'}</td>
                   <td style={{ padding: '12px 14px' }}>
-                    <span style={{ background: m.activa ? '#1D9E7520' : '#B01D2320', color: m.activa ? VERDE : GRANATE, border: `2px solid ${m.activa ? VERDE : GRANATE}`, padding: '3px 8px', borderRadius: 0, fontSize: 10, fontFamily: FONT.heading, fontWeight: 800, letterSpacing: '1px' }}>
+                    <span style={{ background: m.activa ? `${VERDE}20` : `${GRANATE}20`, color: m.activa ? VERDE : GRANATE, border: `2px solid ${m.activa ? VERDE : GRANATE}`, padding: '3px 8px', borderRadius: 0, fontSize: 10, fontFamily: FONT.heading, fontWeight: 800, letterSpacing: '1px' }}>
                       {m.activa ? 'ACTIVA' : 'INACTIVA'}
                     </span>
                   </td>

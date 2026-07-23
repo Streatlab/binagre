@@ -317,7 +317,7 @@ export default function PanelDireccion() {
   }
 
   function renderAlerta(a: Alerta, i: number) {
-    const bgMap = { roja: '#3d0000', amarilla: '#2d2000', verde: '#001d0d' }
+    const bgMap = { roja: NEO_INK, amarilla: NEO_INK, verde: NEO_INK }
     const borderMap = { roja: GRANATE, amarilla: LIMA, verde: VERDE }
     const iconoMap = { roja: '❌', amarilla: '⚠️', verde: '✓' }
     return (
@@ -452,7 +452,7 @@ export default function PanelDireccion() {
         <div style={{ ...labelStyle, marginBottom: 14 }}>Panel de alertas</div>
         {alertas.length === 0 ? (
           <div style={{
-            background: '#001d0d', border: '2px solid #1D9E75', borderRadius: 0,
+            background: NEO_INK, border: `2px solid ${VERDE}`, borderRadius: 0,
             padding: '10px 16px', display: 'flex', alignItems: 'flex-start', gap: 10,
           }}>
             <span style={{ fontSize: 14 }}>✓</span>

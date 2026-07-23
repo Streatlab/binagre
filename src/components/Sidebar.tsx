@@ -1,5 +1,5 @@
 import React from 'react'
-import { BLANCO, GRANATE, INK, NAR_S, VERDE, AMA as AMA_TOK, NAR, AZUL, ROSA, GRIS } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, INK, NAR_S, VERDE, AMA as AMA_TOK, NAR, AZUL, ROSA, GRIS, OSC } from '@/styles/neobrutal'
 import { NavLink } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
@@ -185,7 +185,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const sidebarWidth = collapsed ? 56 : 248
 
   const asideStyle: CSSProperties = {
-    background: isDark ? '#1a1f2e' : CREMA,
+    background: isDark ? OSC : CREMA,
     border: `4px solid ${INK}`,
     width: sidebarWidth,
     minWidth: sidebarWidth,

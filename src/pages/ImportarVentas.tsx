@@ -50,10 +50,10 @@ type DatosParseados =
   | { kind: 'clientes';   data: MetricasClientes[] };
 
 const TAG_COLORS: Record<string, { bg: string; color: string }> = {
-  'Activo': { bg: '#1D9E7522', color: VERDE },
-  'Fase 2': { bg: '#f5a62322', color: NAR },
+  'Activo': { bg: `${VERDE}22`, color: VERDE },
+  'Fase 2': { bg: `${NAR}22`, color: NAR },
   'Fase 3': { bg: NAR, color: NAR },
-  'Fase 4': { bg: '#1E5BCC22', color: AZUL_CL },
+  'Fase 4': { bg: `${AZUL_CL}22`, color: AZUL_CL },
 };
 
 export default function ImportarVentas() {
