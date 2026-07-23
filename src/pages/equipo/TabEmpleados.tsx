@@ -127,12 +127,12 @@ export default function TabEmpleados() {
     for (const emp of activosHero) {
       const esExtra = emp.tipo_relacion === 'extra'
       const esEmilio = /emilio/i.test(emp.nombre)
-      if (esEmilio) { if (emilioMes?.adeudado != null) total += emilioMes.adeudado }
+      if (esEmilio) { const a = emilioMes ? emilioMes.adeudado : null; if (a != null) total += a }
       else if (esExtra) { const b = bizumPorExtra[emp.id!]; if (b?.importe != null) total += b.importe }
       else {
         const nomMes = nominas.filter(n => n.empleado_id === emp.id).find(n => n.mes === mesActual)
         if (nomMes) {
-          total += nomMes.clasificacion === 'sin_pago' ? nomMes.importe_neto : nomMes.totalPagado
+          total += nomMes.clasificacion === 'sin_pago' ? (nomMes.importe_neto ?? 0) : nomMes.totalPagado
           if (nomMes.estado === 'revisar') pendientes += 1
         }
       }
