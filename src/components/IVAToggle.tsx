@@ -1,4 +1,4 @@
-import { BLANCO } from '@/styles/neobrutal'
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useIVA } from '@/contexts/IVAContext'
 import { useTheme, FONT } from '@/styles/tokens'
 
