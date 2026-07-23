@@ -54,7 +54,7 @@ export default function TesoreriaPage() {
       {tab === 'gastos' && <TabGastos />}
       {tab === 'reserva' && <FondoReserva embedded />}
       {tab === 'historial' && <TabHistorial />}
-      {tab === '13semanas' && <Tesoreria13Semanas />}
+      {tab === '13semanas' && <Tesoreria13Semanas embedded />}
       {tab === 'escenarios' && <EscenariosTesoreria embedded />}
       {tab === 'salud' && <FondoManiobra embedded />}
     </div>

@@ -1,7 +1,9 @@
-import { BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, INK, LIMA, VERDE, AMA, NAR, OSW, LEX } from '@/styles/neobrutal'
 /**
  * PagosCobros — Módulo de gestión de cobros y pagos
  * Tabs: Calendario | Gastos Fijos | Historial
+ * CANTERA ALEGRE v1.0 (área Tesorería · azul) en TabCalendario/TabGastos/TabHistorial —
+ * cuerpos embebidos en TesoreriaPage. Solo capa visual, datos/lógica sin tocar.
  */
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
@@ -9,6 +11,9 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { FondoReserva } from '@/components/tesoreria/FondoReserva'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import TabsPastilla from '@/components/ui/TabsPastilla'
 
 // ─── Neobrutal ───────────────────────────────────────────────────────────────
 const NEO_INK = 'var(--neo-ink)'
@@ -266,52 +271,13 @@ export default function PagosCobros() {
 
   return (
     <div style={{ padding: isMobile ? '18px 12px' : '28px 28px', fontFamily: 'Lexend, sans-serif', color: 'var(--sl-text-primary)', minHeight: '100vh', backgroundColor: 'var(--neo-bg)' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 'clamp(16px,5vw,22px)', fontWeight: 600, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--sl-text-primary)', margin: 0 }}>
-          Pagos y Cobros
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--sl-text-muted)', margin: '4px 0 0' }}>
-          Calendario de cobros de plataformas y gestión de pagos
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Tesorería', TABS.find(t => t.id === tab)?.label ?? '']} subtitulo="Calendario de cobros de plataformas y gestión de pagos" />
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 24, flexWrap: 'wrap' }}>
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => selectTab(t.id)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              fontFamily: 'Oswald, sans-serif',
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              padding: '10px 18px',
-              minHeight: 44,
-              borderRadius: 0,
-              border: `3px solid ${NEO_INK}`,
-              cursor: 'pointer',
-              backgroundColor: tab === t.id ? LIMA : 'var(--sl-card-alt)',
-              color: tab === t.id ? INK : 'var(--sl-text-secondary)',
-              boxShadow: tab === t.id ? NEO_SHADOW : 'none',
-              transition: 'all 0.15s',
-            }}
-          >
-            {t.label}
-            {t.id === 'reserva' && ordPend > 0 && (
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                minWidth: 20, height: 20, padding: '0 5px', borderRadius: 0,
-                border: `2px solid ${NEO_INK}`, backgroundColor: '#B01D23', color: '#fff',
-                fontSize: 11, fontWeight: 700, lineHeight: 1,
-              }}>{ordPend}</span>
-            )}
-          </button>
-        ))}
-      </div>
+      <TabsPastilla tabs={TABS.map(t => ({ id: t.id, label: t.label, badge: t.id === 'reserva' ? ordPend : undefined }))} activeId={tab} onChange={id => selectTab(id as TabId)} />
+
+      <div style={{ height: 16 }} />
 
       {tab === 'calendario' && <TabCalendario />}
       {tab === 'gastos' && <TabGastos />}
@@ -394,105 +360,122 @@ export function TabCalendario() {
   if (loading) return <LoadingSpinner />
   if (error) return <ErrorMsg msg={error} />
 
+  const titular = totalPagos > totalCobros
+    ? 'Tienes más pagos comprometidos que cobros previstos a la vista.'
+    : totalCobros > 0 ? 'Los cobros previstos superan tus pagos comprometidos.'
+    : 'Sin movimientos previstos en los próximos 90 días.'
+
+  const atencion = [
+    `${pagos.length} pago${pagos.length !== 1 ? 's' : ''} programado${pagos.length !== 1 ? 's' : ''}`,
+    `${cobros.length} cobro${cobros.length !== 1 ? 's' : ''} previsto${cobros.length !== 1 ? 's' : ''}`,
+  ]
+
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 28 }}>
-        <KpiCard label="Pagos comprometidos" value={fmtEur(totalPagos)} color={GRANATE} />
-        <KpiCard label="Cobros previstos (aún no han llegado)" value={fmtEur(totalCobros)} color={VERDE} />
+    <PantallaCantera embedded>
+      {/* 1 · Héroe del área Tesorería (azul) */}
+      <HeroCantera
+        area="tesoreria"
+        periodo="Próximos 90 días"
+        titular={titular}
+        etiquetaDato="Pagos comprometidos"
+        cifra={fmtEur(totalPagos)}
+        resumen={<>Cobros previstos (aún no confirmados): <b>{fmtEur(totalCobros)}</b>. No se compensan con los pagos: solo cuentan cuando el banco los confirma.</>}
+        atencion={atencion}
+      />
+
+      {/* 2 · Plancha comparativa pagos / cobros */}
+      <div>
+        <SeccionLabel bg={AMA} color={INK}>Resumen 90 días</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={GRANATE} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Pagos comprometidos</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(totalPagos)}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={VERDE}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Cobros previstos (aún no han llegado)</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(totalCobros)}</div>
+          </PlanchaCelda>
+        </Plancha>
       </div>
 
-      {/* ── Pagos: en firme ── */}
-      <div style={{ marginBottom: 12 }}>
-        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: GRANATE }}>Pagos comprometidos</span>
-        <p style={{ fontSize: 12, color: 'var(--sl-text-muted)', margin: '2px 0 0' }}>Salidas conocidas, aunque todavía no hayan salido del banco.</p>
-      </div>
-      {pagos.length === 0 ? (
-        <div style={{ color: 'var(--sl-text-muted)', fontSize: 13, textAlign: 'center', padding: 24, marginBottom: 28 }}>
-          No hay pagos comprometidos en los próximos 90 días.
-        </div>
-      ) : (
-        <div style={{ background: 'var(--sl-card)', ...NEO_CARD, overflow: 'hidden', marginBottom: 28 }}>
-          <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-            <thead>
-              <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
-                {['Fecha', 'Concepto', 'Importe', 'Estado'].map(h => (
-                  <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {pagos.map(item => (
-                <tr
-                  key={item.id}
-                  style={{ borderTop: '0.5px solid var(--sl-border)' }}
-                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--sl-hover)')}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)', whiteSpace: 'nowrap' }}>
-                    {item.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                  </td>
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)' }}>
-                    {item.concepto}
-                  </td>
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)', fontFamily: 'Oswald, sans-serif', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {fmtEur(item.importe)}
-                  </td>
-                  <td style={{ padding: '12px 16px' }}>
-                    <EstadoNominaBadge estado={item.estadoNomina} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </div>
-      )}
+      {/* 3 · Frase potente (coste · distinta del héroe azul) */}
+      <FrasePotente significado="coste">Los cobros previstos son solo planificación: no reduzcas gastos pensando que ese dinero ya está en el banco.</FrasePotente>
 
-      {/* ── Cobros previstos: informativos, nunca compensan pagos ── */}
-      <div style={{ marginBottom: 12 }}>
-        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: VERDE }}>Cobros previstos (aún no han llegado)</span>
-        <p style={{ fontSize: 12, color: 'var(--sl-text-muted)', margin: '2px 0 0' }}>Información de planificación. No es caja: solo cuentan cuando el banco los confirma.</p>
-      </div>
-      {cobros.length === 0 ? (
-        <div style={{ color: 'var(--sl-text-muted)', fontSize: 13, textAlign: 'center', padding: 24 }}>
-          No hay cobros previstos en los próximos 90 días.
-        </div>
-      ) : (
-        <div style={{ background: 'var(--sl-card)', border: `3px dashed ${NEO_INK}`, borderRadius: 0, opacity: 0.85, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-            <thead>
-              <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
-                {['Fecha', 'Concepto', 'Importe estimado'].map(h => (
-                  <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {cobros.map(item => (
-                <tr key={item.id} style={{ borderTop: '0.5px dashed var(--sl-border)' }}>
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-muted)', whiteSpace: 'nowrap' }}>
-                    {item.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                  </td>
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-muted)' }}>
-                    {item.concepto}
-                  </td>
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-muted)', fontFamily: 'Oswald, sans-serif', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {fmtEur(item.importe)}
-                  </td>
+      {/* Pagos comprometidos — papel (sin sombra) */}
+      <div>
+        <SeccionLabel bg={GRANATE}>Pagos comprometidos</SeccionLabel>
+        <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 8, marginTop: -4 }}>Salidas conocidas, aunque todavía no hayan salido del banco.</div>
+        {pagos.length === 0 ? (
+          <Papel ceja={GRANATE}><div style={{ color: GRIS, fontFamily: LEX, fontSize: 13, textAlign: 'center' }}>No hay pagos comprometidos en los próximos 90 días.</div></Papel>
+        ) : (
+          <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX, minWidth: 560 }}>
+              <thead>
+                <tr style={{ background: INK }}>
+                  {['Fecha', 'Concepto', 'Importe', 'Estado'].map(h => (
+                    <th key={h} style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: BLANCO, padding: '10px 12px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </div>
-      )}
-    </div>
+              </thead>
+              <tbody>
+                {pagos.map(item => (
+                  <tr key={item.id} style={{ borderBottom: `2px solid ${INK}` }}>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                      {item.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>{item.concepto}</td>
+                    <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 700, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {fmtEur(item.importe)}
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <EstadoNominaBadge estado={item.estadoNomina} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Papel>
+        )}
+      </div>
+
+      {/* Cobros previstos: informativos, nunca compensan pagos — papel (sin sombra) */}
+      <div>
+        <SeccionLabel bg={VERDE}>Cobros previstos (aún no han llegado)</SeccionLabel>
+        <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 8, marginTop: -4 }}>Información de planificación. No es caja: solo cuentan cuando el banco los confirma.</div>
+        {cobros.length === 0 ? (
+          <Papel ceja={VERDE}><div style={{ color: GRIS, fontFamily: LEX, fontSize: 13, textAlign: 'center' }}>No hay cobros previstos en los próximos 90 días.</div></Papel>
+        ) : (
+          <Papel ceja={VERDE} pad="0" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX, minWidth: 560 }}>
+              <thead>
+                <tr style={{ background: INK }}>
+                  {['Fecha', 'Concepto', 'Importe estimado'].map(h => (
+                    <th key={h} style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: BLANCO, padding: '10px 12px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {cobros.map(item => (
+                  <tr key={item.id} style={{ borderBottom: `2px dashed ${GRIS}`, color: GRIS }}>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                      {item.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>{item.concepto}</td>
+                    <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {fmtEur(item.importe)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Papel>
+        )}
+      </div>
+    </PantallaCantera>
   )
 }
 
@@ -595,44 +578,62 @@ export function TabGastos() {
 
   if (loading) return <LoadingSpinner />
 
+  const gastosActivos = gastos.filter(g => g.activo)
+  const titular = gastosActivos.length > 0 ? 'Tus gastos fijos programados.' : 'Aún no tienes gastos fijos registrados.'
+  const atencion = [
+    `${gastosActivos.length} activo${gastosActivos.length !== 1 ? 's' : ''}`,
+    `${gastos.length - gastosActivos.length} archivado${(gastos.length - gastosActivos.length) !== 1 ? 's' : ''}`,
+    `${gastosActivos.filter(g => g.periodicidad === 'mensual').length} mensuales`,
+  ]
+
   return (
-    <div>
+    <PantallaCantera embedded>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(v => !v) }}
+          style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: 1, padding: '12px 20px', minHeight: 44, borderRadius: 0, border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, cursor: 'pointer', backgroundColor: LIMA, color: INK, textTransform: 'uppercase' }}
+        >
+          + Añadir gasto fijo
+        </button>
+      </div>
+
+      {/* 1 · Héroe del área Tesorería (azul) */}
+      <HeroCantera
+        area="tesoreria"
+        titular={titular}
+        etiquetaDato="Gastos fijos activos"
+        cifra={String(gastosActivos.length)}
+        resumen="Alquileres, nóminas, suscripciones y demás salidas recurrentes que alimentan la previsión de caja."
+        atencion={atencion}
+      />
+
       {toast && (
-        <div style={{ marginBottom: 16, padding: '10px 16px', borderRadius: 0, backgroundColor: toast.ok ? `${VERDE}20` : `${GRANATE}20`, color: toast.ok ? VERDE : GRANATE, fontSize: 13, border: `1px solid ${toast.ok ? VERDE : GRANATE}` }}>
+        <div style={{ padding: '10px 16px', border: `3px solid ${INK}`, background: toast.ok ? VERDE : GRANATE, color: BLANCO, fontFamily: LEX, fontSize: 13 }}>
           {toast.msg}
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button
-          onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(v => !v) }}
-          style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, letterSpacing: 1, padding: '12px 20px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, cursor: 'pointer', backgroundColor: LIMA, color: INK }}
-        >
-          + AÑADIR GASTO FIJO
-        </button>
-      </div>
-
       {showForm && (
-        <div style={{ backgroundColor: 'var(--sl-card-alt)', ...NEO_CARD, padding: 'clamp(14px,3vw,24px)', marginBottom: 20 }}>
-          <h3 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: 1.5, color: 'var(--sl-btn-cancel-text)', margin: '0 0 16px', textTransform: 'uppercase' }}>
+        <Papel ceja={LIMA}>
+          <h3 style={{ fontFamily: OSW, fontSize: 14, letterSpacing: 1.5, color: INK, margin: '0 0 16px', textTransform: 'uppercase' }}>
             {editId !== null ? 'Editar gasto fijo' : 'Nuevo gasto fijo'}
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 12, alignItems: 'end' }}>
             <InputField label="Concepto" value={form.concepto} onChange={v => setForm(f => ({ ...f, concepto: v }))} />
             <InputField label="Importe (€)" value={form.importe} onChange={v => setForm(f => ({ ...f, importe: v }))} type="number" />
             <div>
-              <label style={{ display: 'block', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1, color: 'var(--sl-text-muted)', marginBottom: 6, textTransform: 'uppercase' }}>Periodicidad</label>
+              <label style={{ display: 'block', fontFamily: OSW, fontSize: 11, letterSpacing: 1, color: GRIS, marginBottom: 6, textTransform: 'uppercase' }}>Periodicidad</label>
               <select
                 value={form.periodicidad}
                 onChange={e => setForm(f => ({ ...f, periodicidad: e.target.value }))}
-                style={{ width: '100%', padding: '10px 10px', minHeight: 42, backgroundColor: 'var(--sl-input-edit)', border: '0.5px solid var(--sl-border)', borderRadius: 0, color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: 'Lexend, sans-serif', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '10px 10px', minHeight: 42, backgroundColor: BLANCO, border: `2px solid ${INK}`, borderRadius: 0, color: INK, fontSize: 13, fontFamily: LEX, boxSizing: 'border-box' }}
               >
                 {PERIODICIDADES.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <InputField label="Próximo pago" value={form.proxima_fecha_pago} onChange={v => setForm(f => ({ ...f, proxima_fecha_pago: v }))} type="date" />
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-secondary)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, cursor: 'pointer', fontFamily: LEX, fontSize: 13, color: INK }}>
             <input
               type="checkbox"
               checked={form.estimado}
@@ -644,88 +645,85 @@ export function TabGastos() {
           <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <button
               onClick={() => { setShowForm(false); setForm(emptyForm); setEditId(null) }}
-              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, padding: '12px 16px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', cursor: 'pointer' }}
+              style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, padding: '12px 16px', minHeight: 44, borderRadius: 0, border: `3px solid ${INK}`, backgroundColor: BLANCO, color: INK, cursor: 'pointer', textTransform: 'uppercase' }}
             >
-              CANCELAR
+              Cancelar
             </button>
             <button
               onClick={guardar}
               disabled={saving}
-              style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 600, padding: '12px 20px', minHeight: 44, borderRadius: 0, border: `3px solid ${NEO_INK}`, boxShadow: NEO_SHADOW, backgroundColor: GRANATE, color: BLANCO, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
+              style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, padding: '12px 20px', minHeight: 44, borderRadius: 0, border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, backgroundColor: GRANATE, color: BLANCO, cursor: 'pointer', opacity: saving ? 0.6 : 1, textTransform: 'uppercase' }}
             >
-              {saving ? 'GUARDANDO...' : 'GUARDAR'}
+              {saving ? 'Guardando...' : 'Guardar'}
             </button>
           </div>
-        </div>
+        </Papel>
       )}
 
-      <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-          <thead>
-            <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
-              {['Concepto', 'Importe', 'Periodicidad', 'Próximo pago', 'Estado', 'Acciones'].map(h => (
-                <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {gastos.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--sl-text-muted)', fontSize: 13 }}>
-                  Sin gastos fijos registrados.
-                </td>
+      {/* Listado — papel (sin sombra) */}
+      <div>
+        <SeccionLabel bg={NAR}>Listado de gastos fijos</SeccionLabel>
+        <Papel ceja={NAR} pad="0" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX, minWidth: 560 }}>
+            <thead>
+              <tr style={{ background: INK }}>
+                {['Concepto', 'Importe', 'Periodicidad', 'Próximo pago', 'Estado', 'Acciones'].map(h => (
+                  <th key={h} style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: BLANCO, padding: '10px 12px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {h}
+                  </th>
+                ))}
               </tr>
-            )}
-            {gastos.map(g => (
-              <tr
-                key={g.id}
-                style={{ borderTop: '0.5px solid var(--sl-border)' }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--sl-hover)')}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-              >
-                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    {g.concepto}
-                    <EstimadoBadge estimado={g.estimado} />
-                    <EstadoNominaBadge estado={estadoNominaDe(g, nominasPagadas)} />
-                  </span>
-                </td>
-                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)', fontFamily: 'Oswald, sans-serif', whiteSpace: 'nowrap' }}>{fmtEur(g.importe)}</td>
-                <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--sl-btn-cancel-text)', textTransform: 'capitalize' }}>{g.periodicidad}</td>
-                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)', whiteSpace: 'nowrap' }}>{fmtDate(g.proxima_fecha_pago)}</td>
-                <td style={{ padding: '12px 16px' }}>
-                  <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 0, backgroundColor: g.activo ? `${VERDE}20` : `${GRIS}20`, color: g.activo ? VERDE : 'var(--sl-text-muted)', fontFamily: 'Oswald, sans-serif', letterSpacing: 1 }}>
-                    {g.activo ? 'ACTIVO' : 'ARCHIVADO'}
-                  </span>
-                </td>
-                <td style={{ padding: '12px 16px' }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      onClick={() => iniciarEdicion(g)}
-                      style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '9px 12px', minHeight: 38, borderRadius: 0, border: '0.5px solid var(--sl-btn-cancel-border)', backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', cursor: 'pointer' }}
-                    >
-                      EDITAR
-                    </button>
-                    {g.activo && (
+            </thead>
+            <tbody>
+              {gastos.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ padding: 32, textAlign: 'center', color: GRIS, fontSize: 13 }}>
+                    Sin gastos fijos registrados.
+                  </td>
+                </tr>
+              )}
+              {gastos.map(g => (
+                <tr key={g.id} style={{ borderBottom: `2px solid ${INK}` }}>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {g.concepto}
+                      <EstimadoBadge estimado={g.estimado} />
+                      <EstadoNominaBadge estado={estadoNominaDe(g, nominasPagadas)} />
+                    </span>
+                  </td>
+                  <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtEur(g.importe)}</td>
+                  <td style={{ padding: '10px 12px', fontSize: 12, color: GRIS, textTransform: 'capitalize' }}>{g.periodicidad}</td>
+                  <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{fmtDate(g.proxima_fecha_pago)}</td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span style={{ fontSize: 11, padding: '3px 8px', border: `2px solid ${INK}`, backgroundColor: g.activo ? VERDE : GRIS, color: BLANCO, fontFamily: OSW, letterSpacing: 1, textTransform: 'uppercase' }}>
+                      {g.activo ? 'Activo' : 'Archivado'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <button
-                        onClick={() => archivar(g.id)}
-                        style={{ fontSize: 12, fontFamily: 'Oswald, sans-serif', padding: '9px 12px', minHeight: 38, borderRadius: 0, border: 'none', backgroundColor: `${GRANATE}30`, color: GRANATE, cursor: 'pointer' }}
+                        onClick={() => iniciarEdicion(g)}
+                        style={{ fontSize: 12, fontFamily: OSW, padding: '8px 12px', minHeight: 36, borderRadius: 0, border: `2px solid ${INK}`, backgroundColor: BLANCO, color: INK, cursor: 'pointer', textTransform: 'uppercase' }}
                       >
-                        ARCHIVAR
+                        Editar
                       </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
+                      {g.activo && (
+                        <button
+                          onClick={() => archivar(g.id)}
+                          style={{ fontSize: 12, fontFamily: OSW, padding: '8px 12px', minHeight: 36, borderRadius: 0, border: `2px solid ${GRANATE}`, backgroundColor: BLANCO, color: GRANATE, cursor: 'pointer', textTransform: 'uppercase' }}
+                        >
+                          Archivar
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Papel>
       </div>
-    </div>
+    </PantallaCantera>
   )
 }
 
@@ -760,80 +758,113 @@ export function TabHistorial() {
 
   if (loading) return <LoadingSpinner />
 
-  return (
-    <div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        {(['todos', 'ingreso', 'pago'] as FiltroHistorial[]).map(f => (
+  const totalIngresos = movs.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + Math.abs(Number(m.importe)), 0)
+  const totalPagos = movs.filter(m => m.tipo === 'pago').reduce((s, m) => s + Math.abs(Number(m.importe)), 0)
+  const neto = totalIngresos - totalPagos
+
+  const titular = neto >= 0 ? 'El último mes cierra en positivo.' : 'El último mes cierra en negativo.'
+
+  const atencion = [
+    `${movs.length} movimiento${movs.length !== 1 ? 's' : ''} en el período`,
+    `Ingresos ${fmtEur(totalIngresos)}`,
+    `Pagos ${fmtEur(totalPagos)}`,
+  ]
+
+  const filtros = (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+      {(['todos', 'ingreso', 'pago'] as FiltroHistorial[]).map(f => {
+        const on = filtro === f
+        return (
           <button
             key={f}
             onClick={() => setFiltro(f)}
             style={{
-              fontFamily: 'Oswald, sans-serif',
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: 1,
-              padding: '10px 14px',
-              minHeight: 44,
-              borderRadius: 0,
-              border: `3px solid ${NEO_INK}`,
-              cursor: 'pointer',
-              textTransform: 'uppercase',
-              backgroundColor: filtro === f ? LIMA : 'var(--sl-card-alt)',
-              color: filtro === f ? INK : 'var(--sl-text-secondary)',
-              boxShadow: filtro === f ? NEO_SHADOW : 'none',
+              fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: 1, padding: '10px 14px', minHeight: 44,
+              borderRadius: 0, border: `3px solid ${INK}`, cursor: 'pointer', textTransform: 'uppercase',
+              backgroundColor: on ? LIMA : BLANCO, color: INK, boxShadow: on ? SHADOW_DURA : 'none',
             }}
           >
             {f === 'todos' ? 'Todos' : f === 'ingreso' ? 'Ingresos' : 'Pagos'}
           </button>
-        ))}
-        <span style={{ fontSize: 12, color: 'var(--sl-text-muted)', alignSelf: 'center', marginLeft: 8 }}>
-          {filtrados.length} movimiento{filtrados.length !== 1 ? 's' : ''}
-        </span>
+        )
+      })}
+    </div>
+  )
+
+  return (
+    <PantallaCantera embedded>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{filtros}</div>
+
+      {/* 1 · Héroe del área Tesorería (azul) */}
+      <HeroCantera
+        area="tesoreria"
+        periodo="Último mes"
+        titular={titular}
+        etiquetaDato="Balance neto (ingresos − pagos)"
+        cifra={fmtEur(neto)}
+        atencion={atencion}
+      />
+
+      {/* 2 · Plancha comparativa ingresos / pagos */}
+      <div>
+        <SeccionLabel bg={AMA} color={INK}>Ingresos vs pagos</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={VERDE} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Ingresos</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(totalIngresos)}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={GRANATE}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Pagos</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(totalPagos)}</div>
+          </PlanchaCelda>
+        </Plancha>
       </div>
 
-      <div style={{ background: 'var(--sl-card)', border: '0.5px solid var(--sl-border)', borderRadius: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
-          <thead>
-            <tr style={{ backgroundColor: 'var(--sl-thead)' }}>
-              {['Fecha', 'Concepto', 'Importe', 'Categoría', 'Tipo'].map(h => (
-                <th key={h} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--sl-text-muted)', padding: '12px 16px', textAlign: 'left', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                  {h}
-                </th>
+      {/* 3 · Frase potente (color por significado, distinta del héroe azul) */}
+      {neto >= 0
+        ? <FrasePotente significado="logro">Los ingresos del período superan a los pagos: la caja del último mes suma.</FrasePotente>
+        : <FrasePotente significado="peligro">Los pagos superan a los ingresos del período: revisa qué está tirando del balance.</FrasePotente>}
+
+      {/* Movimientos — papel (sin sombra) */}
+      <div>
+        <SeccionLabel bg={NAR}>Movimientos ({filtrados.length})</SeccionLabel>
+        <Papel ceja={NAR} pad="0" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX, minWidth: 560 }}>
+            <thead>
+              <tr style={{ background: INK }}>
+                {['Fecha', 'Concepto', 'Importe', 'Categoría', 'Tipo'].map(h => (
+                  <th key={h} style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: BLANCO, padding: '10px 12px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ padding: 32, textAlign: 'center', color: GRIS, fontSize: 13 }}>
+                    Sin movimientos en el período.
+                  </td>
+                </tr>
+              )}
+              {filtrados.map(m => (
+                <tr key={m.id} style={{ borderBottom: `2px solid ${INK}` }}>
+                  <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{fmtDate(m.fecha)}</td>
+                  <td style={{ padding: '10px 12px' }}>{m.concepto}</td>
+                  <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 700, color: m.tipo === 'ingreso' ? VERDE : GRANATE, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {m.tipo === 'pago' ? '-' : '+'}{fmtEur(Math.abs(Number(m.importe)))}
+                  </td>
+                  <td style={{ padding: '10px 12px', fontSize: 12, color: GRIS, textTransform: 'capitalize' }}>{m.categoria || '—'}</td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <TipoBadge tipo={m.tipo === 'ingreso' ? 'COBRO' : 'PAGO'} />
+                  </td>
+                </tr>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtrados.length === 0 && (
-              <tr>
-                <td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--sl-text-muted)', fontSize: 13 }}>
-                  Sin movimientos en el período.
-                </td>
-              </tr>
-            )}
-            {filtrados.map(m => (
-              <tr
-                key={m.id}
-                style={{ borderTop: '0.5px solid var(--sl-border)' }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--sl-hover)')}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-              >
-                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-btn-cancel-text)', whiteSpace: 'nowrap' }}>{fmtDate(m.fecha)}</td>
-                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--sl-text-primary)' }}>{m.concepto}</td>
-                <td style={{ padding: '12px 16px', fontSize: 13, fontFamily: 'Oswald, sans-serif', color: m.tipo === 'ingreso' ? VERDE : GRANATE, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  {m.tipo === 'pago' ? '-' : '+'}{fmtEur(Math.abs(Number(m.importe)))}
-                </td>
-                <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--sl-text-muted)', textTransform: 'capitalize' }}>{m.categoria || '—'}</td>
-                <td style={{ padding: '12px 16px' }}>
-                  <TipoBadge tipo={m.tipo === 'ingreso' ? 'COBRO' : 'PAGO'} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
+            </tbody>
+          </table>
+        </Papel>
       </div>
-    </div>
+    </PantallaCantera>
   )
 }
 
