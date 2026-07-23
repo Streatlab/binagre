@@ -5,13 +5,14 @@ import {
 } from '@/styles/neobrutal'
 import { PANEL_MARCA_MORADO, PANEL_MARCA_CIAN, RESUMEN_ROW_BOLD, ZEBRA_CLARA } from '@/styles/palettes'
 /**
- * ResumenLanding v21 — pestaña Resumen del Panel Global · CANTERA ALEGRE v1.0 (22-jul-2026).
- * Derogadas las bandas a sangre encadenadas: cada pieza es un objeto con borde 3px y
- * la pantalla es una columna con aire de 16px. Orden fijo del sistema:
- * héroe amarillo (área Resumen, mark naranja) + tira de atención pegada →
- * plancha comparativa (celdas blancas pegadas) → frase potente (color por SIGNIFICADO) →
- * bloques de papel con ceja de color por familia de dato. Sombra SOLO en lo pulsable
- * y en el resumen/neto del héroe. Lógica y datos intactos (v20).
+ * ResumenLanding v22 — pestaña Resumen del Panel Global · CANTERA ALEGRE v1.0.
+ * v22: el titular del héroe es la frase-insight nº1 (lenguaje natural anclado a
+ * datos reales del periodo, batería `frases_insight` con rotación diaria); la
+ * sección "frase potente" usa la frase nº2 (mensaje distinto). Los pedidos del
+ * periodo pasan a pastilla de cabecera del héroe.
+ * v21: derogadas las bandas a sangre encadenadas: cada pieza es un objeto con
+ * borde 3px y la pantalla es una columna con aire de 16px. Sombra SOLO en lo
+ * pulsable y en el resumen/neto del héroe. Lógica y datos intactos (v20).
  */
 import { useState } from 'react'
 import { fmtEur, fmtPct, fmtNum } from '@/lib/format'
@@ -19,7 +20,7 @@ import type { CanalStat, ObjetivosVentas, PagoProximoItem, TopVentaItem } from '
 import type { GrupoGasto } from './ColGruposGasto'
 import type { DiaPico } from './ColDiasPico'
 import type { PorCobrarResult } from '@/lib/panel/calcPorCobrar'
-import { elegirFrase, type MetricasInsight } from './frasesInsight'
+import { elegirFrase, elegirFrases, type MetricasInsight } from './frasesInsight'
 import CardHoyEnVivo, { enHorarioServicio } from './CardHoyEnVivo'
 
 const CREMA = NAR_S
@@ -183,7 +184,8 @@ export default function ResumenLanding(p: Props) {
   const hayPedidos = p.pedidosPeriodo > 0
   const beneficioPedido = p.tmBruto - p.costePorPedido.total
 
-  const frase = elegirFrase(p.metricas)
+  // Héroe = mejor frase-insight del periodo; sección frase potente = la segunda (mensaje distinto)
+  const [frase, frase2] = elegirFrases(p.metricas, 2)
   const fraseCostes = elegirFrase(p.metricas, 'costes')
   const mostrarCostes = fraseCostes.lead !== 'Comer bien'
 
@@ -292,12 +294,13 @@ export default function ResumenLanding(p: Props) {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={eyebrow(BLANCO)}>Comer bien. Aquí y ahora.</span>
               {p.periodoLabel && <span style={{ ...eyebrow(INK, CREMA), fontSize: 12 }}>{p.periodoLabel}{p.periodoRango ? ` · ${p.periodoRango}` : ''}</span>}
+              {p.pedidosPeriodo > 0 && <span style={{ ...eyebrow(BLANCO), fontSize: 12 }}>{N(p.pedidosPeriodo)} pedidos</span>}
             </div>
-            <div style={{ ...d('clamp(26px,3.4vw,44px)'), margin: '14px 0 0', maxWidth: 640, lineHeight: 0.98 }}>
-              {p.pedidosPeriodo > 0
-                ? <>Has entregado <span style={{ background: NAR, color: BLANCO, padding: '0 10px', display: 'inline-block' }}>{N(p.pedidosPeriodo)}</span> pedidos.</>
-                : 'Aún no hay pedidos entregados.'}
+            {/* Titular = frase-insight nº1: lenguaje natural anclado a los datos del periodo */}
+            <div style={{ ...d('clamp(24px,3.2vw,42px)'), margin: '14px 0 0', maxWidth: 680, lineHeight: 0.98 }}>
+              {frase.lead} <span style={{ background: NAR, color: BLANCO, padding: '0 10px', display: 'inline-block' }}>{frase.mark}</span> {frase.tail}
             </div>
+            <div style={{ fontFamily: LEX, fontSize: 'clamp(13px,1.5vw,15px)', fontWeight: 600, marginTop: 8, maxWidth: 640, opacity: 0.8 }}>{frase.sub}</div>
             <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', opacity: 0.55, marginTop: 16 }}>Facturación bruta</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
               <div style={d('clamp(44px,6vw,76px)')}>{EUR(p.ventasPeriodo)}</div>
@@ -346,10 +349,10 @@ export default function ResumenLanding(p: Props) {
         ))}
       </section>
 
-      {/* 3 · FRASE POTENTE (color por significado, máx 1) */}
+      {/* 3 · FRASE POTENTE (frase-insight nº2, color por significado, máx 1) */}
       <section style={{ background: fraseColor, color: BLANCO, border: `3px solid ${INK}`, padding: `22px ${PAD}` }}>
-        <div style={{ ...d('clamp(26px,3.4vw,44px)', BLANCO), maxWidth: 1000, lineHeight: 0.98 }}>{frase.lead} <span style={{ background: BLANCO, color: fraseColor, padding: '0 10px' }}>{frase.mark}</span> {frase.tail}</div>
-        <div style={{ fontSize: 'clamp(14px,1.7vw,17px)', fontWeight: 600, marginTop: 12, maxWidth: 820, opacity: 0.92 }}>{frase.sub}</div>
+        <div style={{ ...d('clamp(26px,3.4vw,44px)', BLANCO), maxWidth: 1000, lineHeight: 0.98 }}>{frase2.lead} <span style={{ background: BLANCO, color: fraseColor, padding: '0 10px' }}>{frase2.mark}</span> {frase2.tail}</div>
+        <div style={{ fontSize: 'clamp(14px,1.7vw,17px)', fontWeight: 600, marginTop: 12, maxWidth: 820, opacity: 0.92 }}>{frase2.sub}</div>
       </section>
 
       {/* 4 · CANALES | Cuándo te compran + Días pico + Beneficio por pedido */}
