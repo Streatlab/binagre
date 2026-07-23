@@ -132,7 +132,7 @@ export default function TabEmpleados() {
       else {
         const nomMes = nominas.filter(n => n.empleado_id === emp.id).find(n => n.mes === mesActual)
         if (nomMes) {
-          total += nomMes.clasificacion === 'sin_pago' ? (nomMes.importe_neto ?? 0) : nomMes.totalPagado
+          total += nomMes.clasificacion === 'sin_pago' ? (nomMes.importe_neto ?? 0) : (nomMes.totalPagado ?? 0)
           if (nomMes.estado === 'revisar') pendientes += 1
         }
       }
