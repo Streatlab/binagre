@@ -1,6 +1,6 @@
-import { BLANCO, GRANATE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, INK, OSW, SHADOW_MINI } from '@/styles/neobrutal'
 import { useState } from 'react'
-import { useTheme, FONT } from '@/styles/tokens'
+import { useTheme } from '@/styles/tokens'
 import { ModTitle } from '@/components/configuracion/ModTitle'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
 import CategoriasPanel from './CategoriasPanel'
@@ -28,7 +28,7 @@ export default function BancosPage() {
   return (
     <ConfigShell>
       <ModTitle>Bancos y cuentas</ModTitle>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
         {PILLS.map(p => {
           const isActive = sub === p.id
           return (
@@ -37,15 +37,16 @@ export default function BancosPage() {
               onClick={() => setSub(p.id)}
               style={{
                 padding: '7px 14px',
-                borderRadius: 6,
-                fontFamily: FONT.heading,
+                borderRadius: 0,
+                fontFamily: OSW,
                 fontSize: 11,
                 letterSpacing: '1.5px',
                 textTransform: 'uppercase',
-                fontWeight: isActive ? 600 : 500,
+                fontWeight: isActive ? 700 : 500,
                 background: isActive ? GRANATE : T.card,
                 color: isActive ? BLANCO : T.sec,
-                border: `0.5px solid ${isActive ? GRANATE : T.brd}`,
+                border: `2px solid ${isActive ? INK : T.brd}`,
+                boxShadow: isActive ? SHADOW_MINI : 'none',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}

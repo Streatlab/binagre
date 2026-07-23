@@ -1,11 +1,11 @@
-import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, INK, OSW } from '@/styles/neobrutal'
 import { TITULARES_BG_LIGHT } from '@/styles/palettes'
 import { useCallback, useEffect, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { useTitular, type Titular } from '@/contexts/TitularContext'
-import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
+import { Papel, SHADOW_DURA } from '@/components/kit/cantera'
 
 async function fileToBase64(file: File): Promise<string> {
   const buffer = await file.arrayBuffer()
@@ -99,8 +99,11 @@ export default function TitularesPanel() {
   }, [])
 
   return (
-    <ConfigGroupCard title="Titulares" subtitle={`${titulares.length}`}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 18 }}>
+    <Papel ceja={GRANATE}>
+      <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, fontWeight: 700, marginBottom: 14 }}>
+        Titulares <span style={{ color: GRANATE }}>· {titulares.length}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {titulares.map((t) => {
           const ed = editando[t.id]
           if (!ed) return null
@@ -112,14 +115,14 @@ export default function TitularesPanel() {
               key={t.id}
               style={{
                 background: T.card,
-                border: `0.5px solid ${T.brd}`,
+                border: `1px solid ${T.brd}`,
                 borderLeft: `4px solid ${t.color || GRANATE}`,
-                borderRadius: 10,
+                borderRadius: 0,
                 padding: 18,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <div style={{ width: 12, height: 12, borderRadius: 3, background: t.color || GRANATE }} />
+                <div style={{ width: 12, height: 12, borderRadius: 0, background: t.color || GRANATE }} />
                 <div style={{
                   fontFamily: FONT.heading, fontSize: 14, letterSpacing: '1.8px',
                   textTransform: 'uppercase', color: T.pri, fontWeight: 600,
@@ -164,8 +167,9 @@ export default function TitularesPanel() {
                     padding: '7px 14px',
                     background: GRANATE,
                     color: BLANCO,
-                    border: 'none',
-                    borderRadius: 6,
+                    border: `2px solid ${INK}`,
+                    borderRadius: 0,
+                    boxShadow: SHADOW_DURA,
                     fontFamily: FONT.heading,
                     fontSize: 11,
                     letterSpacing: '1px',
@@ -195,7 +199,7 @@ export default function TitularesPanel() {
                       padding: '12px 16px',
                       background: isDark ? INK : TITULARES_BG_LIGHT,
                       border: `1.5px dashed ${T.brd}`,
-                      borderRadius: 8,
+                      borderRadius: 0,
                       cursor: isSubiendo ? 'wait' : 'pointer',
                       opacity: isSubiendo ? 0.6 : 1,
                     }}
@@ -228,7 +232,7 @@ export default function TitularesPanel() {
           </div>
         )}
       </div>
-    </ConfigGroupCard>
+    </Papel>
   )
 }
 

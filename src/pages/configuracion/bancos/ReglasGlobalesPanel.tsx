@@ -1,10 +1,10 @@
-import { AZUL, BLANCO, BORDE_SUAVE, CLARO, CREMA, GRANATE, GRIS, INK } from '@/styles/neobrutal'
+import { AZUL, BLANCO, CREMA, GRANATE, GRIS, INK, OSW, LEX, AMA } from '@/styles/neobrutal'
 import { CONFIG_AMBER_WASH, CANAL_UBER_DARK } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT, useTheme } from '@/styles/tokens'
-import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
+import { PantallaCantera, HeroCantera, Papel, SHADOW_DURA } from '@/components/kit/cantera'
 
 interface ReglaGlobal {
   id: string
@@ -93,7 +93,11 @@ export default function ReglasGlobalesPanel() {
     await refetch()
   }
 
-  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
+  if (loading) return (
+    <PantallaCantera embedded>
+      <Papel ceja={GRANATE}><div style={{ padding: 20, color: T.mut, fontFamily: LEX }}>Cargando…</div></Papel>
+    </PantallaCantera>
+  )
 
   const moduloColor = {
     ocr: AZUL,
@@ -108,15 +112,25 @@ export default function ReglasGlobalesPanel() {
 
   const reglasPorModulo: Record<string, ReglaGlobal[]> = { ocr: [], conciliacion: [], global: [] }
   for (const r of reglas) reglasPorModulo[r.modulo].push(r)
+  const bloqueantes = reglas.filter(r => r.bloqueante).length
 
   return (
-    <>
-      <ConfigGroupCard
-        title="Reglas globales del sistema"
-        subtitle={`${reglas.length} reglas activas — políticas de comportamiento OCR / Conciliación`}
-      >
-        <div style={{ margin: '0 22px 14px', padding: 14, background: CONFIG_AMBER_WASH.bgLight, border: `1px solid ${CONFIG_AMBER_WASH.brdLight}`, borderRadius: 8, fontSize: 12.5, color: CONFIG_AMBER_WASH.txtSubLight, fontFamily: FONT.body }}>
-          <strong style={{ color: CONFIG_AMBER_WASH.txtStrongLight }}>Cómo funcionan:</strong> Las reglas con <em>Bloqueante = sí</em> se aplican vía triggers en BBDD y no se pueden saltar. Las reglas con <em>Bloqueante = no</em> son políticas que la UI y los procesos respetan pero pueden tener excepciones. Cualquier chat o agente que toque OCR/Conciliación debe leer estas reglas antes de actuar.
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular="Así se comportan OCR y Conciliación por debajo"
+        etiquetaDato="Reglas del sistema"
+        cifra={reglas.length}
+        resumen={<>{bloqueantes} bloqueantes vía trigger BBDD · el resto son políticas que la UI respeta</>}
+      />
+
+      <Papel ceja={AMA} style={{ fontSize: 12.5, color: CONFIG_AMBER_WASH.txtSubLight, fontFamily: FONT.body }}>
+        <strong style={{ color: CONFIG_AMBER_WASH.txtStrongLight }}>Cómo funcionan:</strong> Las reglas con <em>Bloqueante = sí</em> se aplican vía triggers en BBDD y no se pueden saltar. Las reglas con <em>Bloqueante = no</em> son políticas que la UI y los procesos respetan pero pueden tener excepciones. Cualquier chat o agente que toque OCR/Conciliación debe leer estas reglas antes de actuar.
+      </Papel>
+
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
+        <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, fontWeight: 700, padding: '18px 22px 10px' }}>
+          Reglas globales del sistema <span style={{ color: GRANATE }}>· {reglas.length}</span>
         </div>
 
         {(['ocr', 'conciliacion', 'global'] as const).map(modulo => {
@@ -124,11 +138,11 @@ export default function ReglasGlobalesPanel() {
           if (items.length === 0) return null
           return (
             <div key={modulo} style={{ marginBottom: 18 }}>
-              <div style={{ padding: '8px 22px', background: CREMA, borderTop: `0.5px solid ${BORDE_SUAVE}`, borderBottom: `0.5px solid ${BORDE_SUAVE}`, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: moduloColor[modulo] }}>
+              <div style={{ padding: '8px 22px', background: CREMA, borderTop: `2px solid ${INK}`, borderBottom: `2px solid ${INK}`, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: moduloColor[modulo] }}>
                 {moduloLabel[modulo]} — {items.length} regla{items.length !== 1 ? 's' : ''}
               </div>
               {items.map(r => (
-                <div key={r.id} onClick={() => open(r)} style={{ padding: '12px 22px', borderBottom: `0.5px solid ${CLARO}`, cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 14, background: BLANCO }}>
+                <div key={r.id} onClick={() => open(r)} style={{ padding: '12px 22px', borderBottom: `1px solid ${INK}`, cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 14, background: BLANCO }}>
                   <div style={{ flexShrink: 0, fontFamily: FONT.heading, fontSize: 11, fontWeight: 500, color: moduloColor[modulo], letterSpacing: '1px', width: 70 }}>
                     {r.codigo}
                   </div>
@@ -138,7 +152,7 @@ export default function ReglasGlobalesPanel() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
                     {r.bloqueante && (
-                      <span style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRANATE, background: `${GRANATE}15`, padding: '2px 6px', borderRadius: 4 }}>Bloqueante</span>
+                      <span style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRANATE, background: `${GRANATE}15`, padding: '2px 6px', borderRadius: 0 }}>Bloqueante</span>
                     )}
                     <label onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: GRIS, fontFamily: FONT.body, cursor: 'pointer' }}>
                       <input type="checkbox" checked={r.activa} onChange={() => toggleActiva(r)} style={{ cursor: 'pointer' }} />
@@ -151,10 +165,10 @@ export default function ReglasGlobalesPanel() {
           )
         })}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 22px 18px', borderTop: `0.5px solid ${BORDE_SUAVE}`, background: CREMA }}>
-          <button onClick={() => open()} style={{ padding: '7px 14px', borderRadius: 6, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>+ Nueva regla</button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 22px 18px', borderTop: `2px solid ${INK}`, background: CREMA }}>
+          <button onClick={() => open()} style={{ padding: '7px 14px', borderRadius: 0, border: `2px solid ${INK}`, boxShadow: SHADOW_DURA, background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>+ Nueva regla</button>
         </div>
-      </ConfigGroupCard>
+      </Papel>
 
       {(editing || creating) && (
         <EditModal title={editing ? 'Editar regla global' : 'Nueva regla global'} onSave={handleSave} onCancel={close} onDelete={editing ? handleDelete : undefined} saving={saving} canSave={!!fCodigo && !!fTitulo && !!fDescripcion}>
@@ -192,6 +206,6 @@ export default function ReglasGlobalesPanel() {
           </Field>
         </EditModal>
       )}
-    </>
+    </PantallaCantera>
   )
 }

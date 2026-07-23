@@ -1,4 +1,4 @@
-import { BLANCO, BORDE_SUAVE, CLARO, CREMA, GRANATE, GRIS, INK, OSC, ROJO } from '@/styles/neobrutal'
+import { CREMA, GRANATE, GRIS, INK, OSW, LEX, ROJO } from '@/styles/neobrutal'
 import { CORREO_ALERTA_BORDE } from '@/styles/palettes'
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -9,6 +9,7 @@ import ReglasGlobalesPanel from './ReglasGlobalesPanel'
 import CuentasPanel from './CuentasPanel'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import TabsPastilla from '@/components/ui/TabsPastilla'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 
 interface CategoriaPyg {
   id: string
@@ -103,6 +104,11 @@ export default function BancosYCuentasPage() {
   )
 }
 
+const th: React.CSSProperties = { fontFamily: OSW, fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', textAlign: 'left', padding: '12px 0', borderBottom: `2px solid ${INK}` }
+const tdN1: React.CSSProperties = { padding: '18px 0 10px', borderBottom: `2px solid ${INK}` }
+const tdN2: React.CSSProperties = { padding: '14px 0 8px', borderBottom: `1px solid ${INK}` }
+const tdN3: React.CSSProperties = { padding: '12px 0', borderBottom: `1px solid ${INK}` }
+
 function TabCategorias({
   categorias,
   loading,
@@ -117,100 +123,117 @@ function TabCategorias({
   const [editValues, setEditValues] = useState<Record<string, string>>({})
 
   if (loading) return (
-    <div style={{ padding: 40, textAlign: 'center', color: GRIS, fontFamily: 'Lexend, sans-serif' }}>
-      Cargando categorías…
-    </div>
+    <PantallaCantera embedded>
+      <Papel ceja={GRANATE}>
+        <div style={{ padding: 20, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando categorías…</div>
+      </Papel>
+    </PantallaCantera>
   )
 
+  const totalN3 = categorias.filter(c => c.nivel === 3).length
+  const totalN1 = categorias.filter(c => c.nivel === 1).length
+
   return (
-    <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 14, padding: '24px 28px' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', textAlign: 'left', padding: '12px 0', borderBottom: `0.5px solid ${BORDE_SUAVE}`, width: 90 }}>ID</th>
-            <th style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', textAlign: 'left', padding: '12px 0', borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>Nombre</th>
-            <th style={{ width: 80, borderBottom: `0.5px solid ${BORDE_SUAVE}` }}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {categorias.map(cat => {
-            if (cat.nivel === 1) {
-              return (
-                <tr key={cat.id}>
-                  <td style={{ padding: '18px 0 10px', borderBottom: `0.5px solid ${CLARO}`, fontFamily: 'Oswald, sans-serif', fontSize: 14, fontWeight: 600, color: GRANATE, letterSpacing: '2px' }}>
-                    {cat.id}
-                  </td>
-                  <td style={{ padding: '18px 0 10px', borderBottom: `0.5px solid ${CLARO}`, fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, letterSpacing: '2.5px', color: INK, textTransform: 'uppercase' }}>
-                    {stripBanda(cat.nombre)}
-                  </td>
-                  <td style={{ padding: '18px 0 10px', borderBottom: `0.5px solid ${CLARO}` }}></td>
-                </tr>
-              )
-            }
-            if (cat.nivel === 2) {
-              return (
-                <tr key={cat.id}>
-                  <td style={{ padding: '14px 0 8px', borderBottom: `0.5px solid ${CLARO}`, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 600, color: OSC, letterSpacing: '1.5px' }}>
-                    {cat.id}
-                  </td>
-                  <td style={{ padding: '14px 0 8px', borderBottom: `0.5px solid ${CLARO}`, fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: OSC, textTransform: 'uppercase' }}>
-                    {stripBanda(cat.nombre)}
-                  </td>
-                  <td style={{ padding: '14px 0 8px', borderBottom: `0.5px solid ${CLARO}` }}></td>
-                </tr>
-              )
-            }
-            const valEdit = editValues[cat.id] ?? cat.nombre
-            return (
-              <tr key={cat.id}>
-                <td style={{ padding: '12px 0', borderBottom: `0.5px solid ${CLARO}`, fontFamily: 'Oswald, sans-serif', fontSize: 12, fontWeight: 500, color: GRIS, letterSpacing: '1px', whiteSpace: 'nowrap' }}>
-                  {cat.id}
-                </td>
-                <td style={{ padding: '12px 0', borderBottom: `0.5px solid ${CLARO}` }}>
-                  <input
-                    value={valEdit}
-                    onChange={e => setEditValues(prev => ({ ...prev, [cat.id]: e.target.value }))}
-                    onBlur={() => {
-                      const v = (editValues[cat.id] ?? cat.nombre).trim()
-                      if (!v) {
-                        setEditValues(prev => ({ ...prev, [cat.id]: cat.nombre }))
-                        toast.success('Restaurado')
-                      } else if (v !== cat.nombre) {
-                        onRename(cat.id, v)
-                      }
-                    }}
-                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                    onFocus={e => {
-                      e.target.style.borderBottom = `1px dashed ${CORREO_ALERTA_BORDE}`
-                      e.target.style.background = `${ROJO}08`
-                    }}
-                    style={{
-                      fontFamily: 'Lexend, sans-serif',
-                      fontSize: 13,
-                      color: INK,
-                      border: 'none',
-                      background: 'transparent',
-                      width: '100%',
-                      padding: 0,
-                      outline: 'none',
-                    }}
-                  />
-                </td>
-                <td style={{ padding: '12px 0', borderBottom: `0.5px solid ${CLARO}`, textAlign: 'right', width: 80 }}>
-                  <span
-                    onClick={() => onDelete(cat)}
-                    style={{ fontSize: 13, color: GRIS, cursor: 'pointer', padding: '4px 6px', borderRadius: 4, display: 'inline-block' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = ROJO; (e.currentTarget as HTMLElement).style.background = `${ROJO}15` }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = GRIS; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-                  >
-                    🗑
-                  </span>
-                </td>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular="Así están organizadas tus categorías de P&G"
+        etiquetaDato="Detalles de categoría activos"
+        cifra={totalN3}
+        resumen={<>{totalN1} bloques principales · edita el nombre haciendo clic en el detalle</>}
+      />
+
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ ...th, width: 90, padding: '12px 16px' }}>ID</th>
+                <th style={{ ...th, padding: '12px 16px' }}>Nombre</th>
+                <th style={{ ...th, width: 80, padding: '12px 16px' }}></th>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
+            </thead>
+            <tbody>
+              {categorias.map(cat => {
+                if (cat.nivel === 1) {
+                  return (
+                    <tr key={cat.id}>
+                      <td style={{ ...tdN1, padding: '18px 16px 10px', fontFamily: OSW, fontSize: 14, fontWeight: 600, color: GRANATE, letterSpacing: '2px' }}>
+                        {cat.id}
+                      </td>
+                      <td style={{ ...tdN1, padding: '18px 16px 10px', fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2.5px', color: INK, textTransform: 'uppercase' }}>
+                        {stripBanda(cat.nombre)}
+                      </td>
+                      <td style={{ ...tdN1, padding: '18px 16px 10px' }}></td>
+                    </tr>
+                  )
+                }
+                if (cat.nivel === 2) {
+                  return (
+                    <tr key={cat.id}>
+                      <td style={{ ...tdN2, padding: '14px 16px 8px', fontFamily: OSW, fontSize: 11, fontWeight: 600, color: GRIS, letterSpacing: '1.5px' }}>
+                        {cat.id}
+                      </td>
+                      <td style={{ ...tdN2, padding: '14px 16px 8px', fontFamily: OSW, fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase' }}>
+                        {stripBanda(cat.nombre)}
+                      </td>
+                      <td style={{ ...tdN2, padding: '14px 16px 8px' }}></td>
+                    </tr>
+                  )
+                }
+                const valEdit = editValues[cat.id] ?? cat.nombre
+                return (
+                  <tr key={cat.id}>
+                    <td style={{ ...tdN3, padding: '12px 16px', fontFamily: OSW, fontSize: 12, fontWeight: 500, color: GRIS, letterSpacing: '1px', whiteSpace: 'nowrap' }}>
+                      {cat.id}
+                    </td>
+                    <td style={{ ...tdN3, padding: '12px 16px' }}>
+                      <input
+                        value={valEdit}
+                        onChange={e => setEditValues(prev => ({ ...prev, [cat.id]: e.target.value }))}
+                        onBlur={() => {
+                          const v = (editValues[cat.id] ?? cat.nombre).trim()
+                          if (!v) {
+                            setEditValues(prev => ({ ...prev, [cat.id]: cat.nombre }))
+                            toast.success('Restaurado')
+                          } else if (v !== cat.nombre) {
+                            onRename(cat.id, v)
+                          }
+                        }}
+                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                        onFocus={e => {
+                          e.target.style.borderBottom = `1px dashed ${CORREO_ALERTA_BORDE}`
+                          e.target.style.background = `${ROJO}08`
+                        }}
+                        style={{
+                          fontFamily: LEX,
+                          fontSize: 13,
+                          color: INK,
+                          border: 'none',
+                          background: 'transparent',
+                          width: '100%',
+                          padding: 0,
+                          outline: 'none',
+                        }}
+                      />
+                    </td>
+                    <td style={{ ...tdN3, padding: '12px 16px', textAlign: 'right', width: 80 }}>
+                      <span
+                        onClick={() => onDelete(cat)}
+                        style={{ fontSize: 13, color: GRIS, cursor: 'pointer', padding: '4px 6px', borderRadius: 0, display: 'inline-block' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = ROJO; (e.currentTarget as HTMLElement).style.background = `${ROJO}15` }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = GRIS; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                      >
+                        🗑
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Papel>
+    </PantallaCantera>
   )
 }
