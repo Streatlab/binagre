@@ -1,4 +1,4 @@
-import { AZUL_CL, BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, NAR, ROJO, ROJO_S, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, AMA, BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, NAR, ROJO, ROJO_S, VERDE } from '@/styles/neobrutal'
 import {
   APRENDIZAJES_SEC, APRENDIZAJES_OK_BG, APRENDIZAJES_OK_TXT, ERROR_BANNER_BG, ERROR_BANNER_BORDE,
   PANEL_MODAL_BG, ESTIMADO_BADGE_TXT, ALERTA_WASH_BG, SIN_DATO_GRIS, COBERTURA_VERDE, DARK_WASH_ROJO_BG,
@@ -360,7 +360,7 @@ export default function CalcNetoAprendizajePage() {
                         <span style={{
                           backgroundColor: f.estado === 'ok' ? APRENDIZAJES_OK_BG : f.estado === 'alerta' ? ALERTA_WASH_BG : ERROR_BANNER_BG,
                           color: f.estado === 'ok' ? APRENDIZAJES_OK_TXT : f.estado === 'alerta' ? LIMA : ROJO_S,
-                          border: `1px solid ${f.estado === 'ok' ? VERDE : f.estado === 'alerta' ? '#e8f44233' : ROJO}`,
+                          border: `1px solid ${f.estado === 'ok' ? VERDE : f.estado === 'alerta' ? `${AMA}33` : ROJO}`,
                           fontSize: 10, padding: '2px 8px', borderRadius: 3,
                           fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px', textTransform: 'uppercase',
                         }}>

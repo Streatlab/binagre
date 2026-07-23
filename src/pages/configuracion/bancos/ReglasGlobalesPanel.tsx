@@ -138,7 +138,7 @@ export default function ReglasGlobalesPanel() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
                     {r.bloqueante && (
-                      <span style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRANATE, background: '#B01D2315', padding: '2px 6px', borderRadius: 4 }}>Bloqueante</span>
+                      <span style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRANATE, background: `${GRANATE}15`, padding: '2px 6px', borderRadius: 4 }}>Bloqueante</span>
                     )}
                     <label onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: GRIS, fontFamily: FONT.body, cursor: 'pointer' }}>
                       <input type="checkbox" checked={r.activa} onChange={() => toggleActiva(r)} style={{ cursor: 'pointer' }} />

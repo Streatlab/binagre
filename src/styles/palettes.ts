@@ -95,6 +95,8 @@ export const VENTASMARCA_CHART_EXTRA = ['#e8617a', '#3aa8c1', '#c17d3a', '#5a5a5
 /** ParetoVentas · caja de aviso amarilla (tono propio, distinto de AMA_S del kit). */
 export const PARETO_WARN_BG = '#fff8e6'
 export const PARETO_WARN_TXT = '#8a6d1f'
+export const PARETO_WARN_BORDER = '#f0dca0'
+export const PARETO_WARN_MUT = '#a08a4a'
 
 /** Toggle "Imprimir en blanco y negro" (Cocina): gris fijo de vista previa de
  * impresión, deliberadamente ajeno al tema claro/oscuro de la app. */
@@ -162,6 +164,30 @@ export const ERROR_BANNER_BORDE = '#aa3030'
 
 /** Fila/tarjeta seleccionada en Libro de Equipos (navy oscuro). */
 export const LIBRO_SELECTED_BG = '#1a1f2e'
+
+/** Bitácora de Novedades · chip de etiqueta (GRANATE alpha, wash sobre fondo oscuro). */
+export const BITACORA_TAG_BG = 'rgba(176,29,35,0.08)'
+export const BITACORA_TAG_BORDE = 'rgba(176,29,35,0.25)'
+
+/** Libro de Equipos · badge de estado (VERDE/GRANATE alpha, wash sobre fondo oscuro). */
+export const LIBRO_ESTADO_OK_BG = 'rgba(15,184,107,0.13)'
+export const LIBRO_ESTADO_BAJA_BG = 'rgba(176,29,35,0.13)'
+
+/** BPM Calidad · item completado (VERDE alpha, wash + borde sobre fondo oscuro). */
+export const BPM_ITEM_DONE_BG = 'rgba(15,184,107,0.08)'
+export const BPM_ITEM_DONE_BORDE = 'rgba(15,184,107,0.19)'
+
+/** Reuniones de Equipo · borde de acuerdos pendientes (NAR alpha). */
+export const REUNIONES_ACUERDO_BORDE = 'rgba(255,106,26,0.25)'
+
+/** Calendario Laboral (Equipo) · wash de celda festivo (LIMA alpha, mismo tono que la leyenda). */
+export const CALENDARIO_FESTIVO_BG = 'rgba(232,244,66,0.08)'
+
+/** Badge de estado genérico (VERDE/GRANATE/NAR alpha ~12,5%) · Permisos, Portal, etc. */
+export const BADGE_PENDIENTE_BG = 'rgba(255,106,26,0.13)'
+
+/** Portal (Equipo) · fila "hoy" resaltada (GRANATE alpha suave). */
+export const TABPORTAL_TODAY_BG = 'rgba(176,29,35,0.06)'
 
 /** Incentivos · documento HTML imprimible independiente (window.open), fijo
  * como un "hoja" — no sigue el tema claro/oscuro de la app a propósito. */

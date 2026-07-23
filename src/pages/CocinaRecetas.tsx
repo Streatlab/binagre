@@ -324,7 +324,7 @@ export default function CocinaRecetas() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {(selected.alergenos ?? []).length > 0
                   ? (selected.alergenos ?? []).map(a => (
-                    <span key={a} style={{ fontFamily: FONT.body, fontSize: 11, padding: '3px 10px', borderRadius: 99, background: isDark ? '#2a1500' : '#fff3e0', color: NAR, border: '0.5px solid #f5a623' }}>
+                    <span key={a} style={{ fontFamily: FONT.body, fontSize: 11, padding: '3px 10px', borderRadius: 99, background: isDark ? NAR + '2e' : NAR + '14', color: NAR, border: `0.5px solid ${NAR}` }}>
                       {a}
                     </span>
                   ))

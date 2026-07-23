@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, VERDE, ROJO } from '@/styles/neobrutal'
 import { TABCOSTES_MANUAL_FG_LIGHT } from '@/styles/palettes'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -91,7 +91,7 @@ export default function DrivePanel() {
           <div style={{
             padding: 12,
             borderRadius: 8,
-            background: msg.startsWith('❌') ? '#A32D2D22' : '#1D9E7522',
+            background: msg.startsWith('❌') ? `${ROJO}22` : `${VERDE}22`,
             borderLeft: `3px solid ${msg.startsWith('❌') ? TABCOSTES_MANUAL_FG_LIGHT : VERDE}`,
             fontFamily: FONT.body, fontSize: 12, color: T.pri,
             marginBottom: 14,

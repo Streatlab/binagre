@@ -1,4 +1,4 @@
-import { VERDE } from '@/styles/neobrutal'
+import { VERDE, GRIS } from '@/styles/neobrutal'
 import { DICCIONARIO_PLANTILLA_AZUL } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -43,9 +43,9 @@ export default function TabDiccionarioNif() {
 
   function badgeOrigen(o: string | null) {
     const map: Record<string, { txt: string; bg: string; fg: string }> = {
-      banco:   { txt: 'Banco',   bg: '#06C16722', fg: VERDE },
+      banco:   { txt: 'Banco',   bg: `${VERDE}22`, fg: VERDE },
       regla:   { txt: 'Plantilla', bg: DICCIONARIO_PLANTILLA_AZUL + '22', fg: DICCIONARIO_PLANTILLA_AZUL },
-      factura: { txt: 'Factura', bg: '#9999991f', fg: T.sec },
+      factura: { txt: 'Factura', bg: `${GRIS}1f`, fg: T.sec },
     }
     const m = map[o ?? ''] ?? { txt: '—', bg: 'transparent', fg: T.mut }
     return <span style={{ background: m.bg, color: m.fg, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>{m.txt}</span>

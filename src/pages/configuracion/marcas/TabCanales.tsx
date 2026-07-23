@@ -222,7 +222,7 @@ export default function TabCanales() {
                 const fmtEur = (n: number | null) => n == null || Number(n) === 0 ? '—' : `${Number(n).toFixed(2)}€`
 
                 return (
-                  <tr key={c.id} style={{ background: justSaved ? (isDark ? '#1D9E7520' : '#1D9E7515') : 'transparent', transition: 'background 600ms' }}>
+                  <tr key={c.id} style={{ background: justSaved ? (isDark ? `${VERDE}20` : `${VERDE}15`) : 'transparent', transition: 'background 600ms' }}>
                     <td style={{ ...td, fontFamily: FONT.heading, fontSize: 16, fontWeight: 600 }}>{c.canal}</td>
 
                     <td style={tdR}>

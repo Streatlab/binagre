@@ -436,7 +436,7 @@ export default function Proveedores() {
       </div>
 
       {error && (
-        <div style={{ color: GRANATE, backgroundColor: '#B01D2318', border: '1px solid #B01D2355', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
+        <div style={{ color: GRANATE, backgroundColor: GRANATE + '18', border: `1px solid ${GRANATE}55`, borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
           {error}
         </div>
       )}

@@ -182,7 +182,7 @@ function TabCategorias({
                     onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                     onFocus={e => {
                       e.target.style.borderBottom = `1px dashed ${CORREO_ALERTA_BORDE}`
-                      e.target.style.background = '#FF475708'
+                      e.target.style.background = `${ROJO}08`
                     }}
                     style={{
                       fontFamily: 'Lexend, sans-serif',
@@ -200,7 +200,7 @@ function TabCategorias({
                   <span
                     onClick={() => onDelete(cat)}
                     style={{ fontSize: 13, color: GRIS, cursor: 'pointer', padding: '4px 6px', borderRadius: 4, display: 'inline-block' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = ROJO; (e.currentTarget as HTMLElement).style.background = '#E24B4A15' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = ROJO; (e.currentTarget as HTMLElement).style.background = `${ROJO}15` }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = GRIS; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                   >
                     🗑

@@ -266,7 +266,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>
                   {foodCost != null ? (
-                    <span style={{ color: fcOver ? '#ff6b70' : T.pri }}>
+                    <span style={{ color: fcOver ? ROJO : T.pri }}>
                       {fmtEur(foodCost)} {fcPct != null ? `(${fcPct.toFixed(1)}%)` : ''}
                       {fcOver && ' ⚠'}
                     </span>
@@ -285,7 +285,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
                   <span style={{
                     display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11,
                     fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase',
-                    background: p.activo ? '#1D9E7533' : 'var(--sl-hover)',
+                    background: p.activo ? VERDE + '33' : 'var(--sl-hover)',
                     color: p.activo ? VERDE : T.mut,
                   }}>
                     {p.activo ? 'Activo' : 'Pausado'}
@@ -486,7 +486,7 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
             {recetas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
           </select>
         </div>
-        {err && <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#ff6b70' }}>{err}</div>}
+        {err && <div style={{ fontFamily: FONT.body, fontSize: 12, color: ROJO }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button onClick={onClose} style={{ background: 'var(--sl-btn-cancel-bg)', border: `3px solid ${NEO_INK}`, color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.body, fontSize: 13, padding: '11px 16px', minHeight: 44, borderRadius: 0, cursor: 'pointer' }}>
             Cancelar

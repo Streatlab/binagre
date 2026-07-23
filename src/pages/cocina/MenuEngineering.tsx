@@ -1,5 +1,5 @@
 import { AZUL, BLANCO, NAR, ROJO, VERDE } from '@/styles/neobrutal'
-import { PARETO_WARN_BG, PARETO_WARN_TXT } from '@/styles/palettes'
+import { PARETO_WARN_BG, PARETO_WARN_TXT, PARETO_WARN_BORDER, PARETO_WARN_MUT } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -360,15 +360,15 @@ export default function MenuEngineering() {
 
       {/* Enlace asistido: platos de ventas sin receta enlazada (CA-5) */}
       {sinEnlazar.n > 0 && (
-        <div style={{ background: '#fff8e6', border: `0.5px solid ${COLORS.warn}`, borderRadius: 10, padding: '10px 14px', fontFamily: FONT.body, fontSize: 12, color: '#8a6d1f', marginBottom: 14 }}>
+        <div style={{ background: PARETO_WARN_BG, border: `0.5px solid ${COLORS.warn}`, borderRadius: 10, padding: '10px 14px', fontFamily: FONT.body, fontSize: 12, color: PARETO_WARN_TXT, marginBottom: 14 }}>
           <div style={{ marginBottom: 8 }}>
             ⚠ {fmtEur(sinEnlazar.euros)} de ventas todavía sin receta enlazada ({sinEnlazar.n} platos) — no participan en el análisis. Vincúlalos aquí en un clic:
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {sinEnlazarLista.slice(0, 8).map(({ row, nombre, sugerencia }) => (
-              <div key={row.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: '#fff', border: '0.5px solid #f0dca0', borderRadius: 8, padding: '6px 10px' }}>
+              <div key={row.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: BLANCO, border: `0.5px solid ${PARETO_WARN_BORDER}`, borderRadius: 8, padding: '6px 10px' }}>
                 <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={nombre}>
-                  {nombre} <span style={{ color: '#a08a4a' }}>· {fmtEur(Number(row.euros ?? 0))}</span>
+                  {nombre} <span style={{ color: PARETO_WARN_MUT }}>· {fmtEur(Number(row.euros ?? 0))}</span>
                 </div>
                 {sugerencia ? (
                   <button
@@ -384,7 +384,7 @@ export default function MenuEngineering() {
                     value=""
                     disabled={vinculando === row.id}
                     onChange={e => { if (e.target.value) vincular(row.id, e.target.value) }}
-                    style={{ flexShrink: 0, maxWidth: 180, fontFamily: FONT.body, fontSize: 11, border: '0.5px solid #f0dca0', borderRadius: 6, padding: '4px 6px' }}
+                    style={{ flexShrink: 0, maxWidth: 180, fontFamily: FONT.body, fontSize: 11, border: `0.5px solid ${PARETO_WARN_BORDER}`, borderRadius: 6, padding: '4px 6px' }}
                   >
                     <option value="">Vincular a…</option>
                     {recetas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}

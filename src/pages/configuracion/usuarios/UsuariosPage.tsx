@@ -149,7 +149,7 @@ export default function UsuariosPage() {
     return (
       <ConfigShell>
         <ModTitle>Usuarios</ModTitle>
-        <div style={{ padding: 16, background: '#B01D2320', color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>{error}</div>
+        <div style={{ padding: 16, background: `${GRANATE}20`, color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>{error}</div>
       </ConfigShell>
     )
   }

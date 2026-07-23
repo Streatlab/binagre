@@ -316,7 +316,7 @@ function TabConteo({ ingredientes, conteos, onRefresh }: { ingredientes: Ingredi
                 const bajo = ing.stock_minimo > 0 && diff < 0
                 const ultimo = ultimoPorIng[ing.id]
                 return (
-                  <tr key={ing.id} style={{ backgroundColor: bajo ? '#B01D2314' : 'transparent' }}>
+                  <tr key={ing.id} style={{ backgroundColor: bajo ? GRANATE + '14' : 'transparent' }}>
                     <td style={S.td}>
                       <span style={{ fontWeight: 600 }}>{ing.nombre}</span>
                       {bajo && <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 5px', borderRadius: 0, backgroundColor: GRANATE, color: BLANCO, fontFamily: FONT.heading, letterSpacing: '0.5px', textTransform: 'uppercase' as const }}>bajo mín.</span>}
