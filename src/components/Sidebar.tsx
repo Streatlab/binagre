@@ -5,23 +5,20 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import {
   LayoutDashboard,
-  TrendingUp,
-  ChefHat,
-  ShoppingCart,
-  Settings,
   ChevronRight,
   BellRing,
-  ClipboardList,
   Compass,
   Users,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme, FONT } from '@/styles/tokens'
 import { supabase } from '@/lib/supabase'
 import SidebarBadge from '@/components/ui/SidebarBadge'
 import { useEsMovil } from '@/hooks/useEsMovil'
+// Fuente ÚNICA de navegación (compartida con la app móvil). No duplicar aquí.
+import { SECTIONS, SECTION_ICONS } from '@/nav/navModel'
+import type { NavItem } from '@/nav/navModel'
 
 // ── Variante B del mock (bloques de color sólido). FONDO del sidebar (header,
 // cuerpo y footer) en crema. Texto de módulos y submódulos grande (~85% ancho)
@@ -30,92 +27,9 @@ const CREMA  = NAR_S
 const AMA    = AMA_TOK
 const LOGO_SRC = '/loco-icon.svg.svg'
 
-interface NavItem   { path: string; label: string; emoji: string; perfiles: string[]; pendiente?: boolean; grupo?: string }
-interface NavSection { key: string; label: string; perfiles: string[]; items: NavItem[] }
-interface SectionIconConfig { icon: LucideIcon; headBg: string; headColor: string }
+// SECTIONS y SECTION_ICONS viven ahora en `@/nav/navModel` (fuente única
+// compartida con la app móvil). Aquí solo se consumen.
 
-const SECTIONS: NavSection[] = [
-  {
-    key: 'finanzas', label: 'Finanzas', perfiles: ['admin'],
-    items: [
-      { path: '/finanzas/papeleo',       label: 'Papeleo',      emoji: '📥', perfiles: ['admin'] },
-      { path: '/finanzas/ventas-panel',  label: 'Ventas',       emoji: '💰', perfiles: ['admin'] },
-      { path: '/finanzas/tesoreria',     label: 'Tesorería',    emoji: '💳', perfiles: ['admin'] },
-      { path: '/finanzas/resultados',    label: 'Resultados',   emoji: '📊', perfiles: ['admin'] },
-      { path: '/finanzas/rentabilidad',  label: 'Rentabilidad', emoji: '🎯', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'cocina', label: 'Cocina', perfiles: ['admin', 'cocina'],
-    items: [
-      { path: '/cocina/hoy',       label: 'Hoy',       emoji: '🏠', perfiles: ['admin'] },
-      { path: '/cocina/operativa', label: 'Operativa', emoji: '🍳', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/dinero',    label: 'Dinero',    emoji: '💶', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'operaciones', label: 'Operaciones', perfiles: ['admin'],
-    items: [
-      { path: '/ops/registro-diario', label: 'Registro diario',  emoji: '✅', perfiles: ['admin'] },
-      { path: '/ops/mantenimiento',   label: 'Mantenimiento',    emoji: '🔧', perfiles: ['admin'] },
-      { path: '/ops/calidad',         label: 'Calidad',          emoji: '📚', perfiles: ['admin'] },
-      { path: '/ops/reembolsos',      label: 'Reclamaciones',    emoji: '💸', perfiles: ['admin'] },
-      { path: '/ops/reuniones',       label: 'Reuniones Equipo', emoji: '🤝', perfiles: ['admin'] },
-      { path: '/marcas',              label: 'Marcas',           emoji: '🏷️', perfiles: ['admin'] },
-    ],
-  },
-  {
-    // Equipo vuelve a ser sección propia del sidebar (antes era un item suelto
-    // dentro de Operaciones que abría una pantalla con 12 pestañas seguidas:
-    // imposible de usar). Cada entrada agrupa sus pestañas por sentido:
-    // quiénes son / qué cuestan / cómo trabajan / qué papeles hay.
-    key: 'equipo', label: 'Equipo', perfiles: ['admin'],
-    items: [
-      { path: '/equipo/personas',   label: 'Personas',   emoji: '👥', perfiles: ['admin'] },
-      { path: '/equipo/dinero',     label: 'Dinero',     emoji: '💶', perfiles: ['admin'] },
-      { path: '/equipo/dia-a-dia',  label: 'Día a día',  emoji: '🗓️', perfiles: ['admin'] },
-      { path: '/equipo/documentos', label: 'Documentos', emoji: '📁', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'compras', label: 'Compras', perfiles: ['admin'],
-    items: [
-      { path: '/compras',                          label: 'Lista de Compra',    emoji: '🛒', perfiles: ['admin'] },
-      { path: '/compras/inventario',               label: 'Inventario',         emoji: '📦', perfiles: ['admin'] },
-      { path: '/compras/proveedores',              label: 'Proveedores',        emoji: '🏢', perfiles: ['admin'] },
-      { path: '/configuracion/compras/categorias', label: 'Catálogos·Compras',  emoji: '📚', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'ventas', label: 'Ventas y Clientes', perfiles: ['admin'],
-    items: [
-      { path: '/ventas',           label: 'Ventas',    emoji: '💰', perfiles: ['admin'] },
-      { path: '/ventas/analitica', label: 'Analítica', emoji: '📊', perfiles: ['admin'] },
-      { path: '/ventas/clientes',  label: 'Clientes',  emoji: '🛍️', perfiles: ['admin'] },
-      { path: '/ventas/marketing', label: 'Marketing', emoji: '📣', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'ajustes', label: 'Ajustes', perfiles: ['admin'],
-    items: [
-      { path: '/configuracion', label: 'Configuración', emoji: '⚙️', perfiles: ['admin'] },
-      { path: '/informes',      label: 'Informes',      emoji: '📊', perfiles: ['admin'] },
-    ],
-  },
-]
-
-// CANTERA ALEGRE v1.0: cabeceras de sección con los tokens de área del sistema
-// (Finanzas verde · Cocina amarillo/tinta · Operaciones naranja · Equipo tinta ·
-//  Compras azul · Ventas y Clientes rosa · Ajustes gris neutro). Cero hex sueltos.
-const SECTION_ICONS: Record<string, SectionIconConfig> = {
-  finanzas:      { icon: TrendingUp,    headBg: VERDE,   headColor: BLANCO },
-  cocina:        { icon: ChefHat,       headBg: AMA_TOK, headColor: INK },
-  operaciones:   { icon: ClipboardList, headBg: NAR,     headColor: BLANCO },
-  equipo:        { icon: Users,         headBg: INK,     headColor: BLANCO },
-  compras:       { icon: ShoppingCart,  headBg: AZUL,    headColor: BLANCO },
-  ventas:        { icon: TrendingUp,    headBg: ROSA,    headColor: BLANCO },
-  ajustes:       { icon: Settings,      headBg: GRIS,    headColor: INK },
-}
 
 const OPEN_SECTIONS_LS_KEY = 'streatlab.sidebar.openSections'
 
