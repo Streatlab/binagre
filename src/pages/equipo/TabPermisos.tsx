@@ -211,7 +211,7 @@ export default function TabPermisos() {
                     </td>
                     <td style={td}>{TIPO_LABELS[sol.tipo] ?? sol.tipo}</td>
                     <td style={td}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 4, background: badge.bg, color: badge.color, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 0, background: badge.bg, color: badge.color, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>
                         {badge.icon}{badge.label}
                       </span>
                     </td>
@@ -220,12 +220,12 @@ export default function TabPermisos() {
                       <td style={{ ...td, textAlign: 'right' }}>
                         {sol.estado === 'pendiente' && (
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                            <button onClick={() => aprobar(sol.id)} style={{ padding: '5px 10px', borderRadius: 5, border: 'none', background: VERDE, color: BLANCO, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Aprobar</button>
-                            <button onClick={() => setNotaRej({ id: sol.id, nota: '' })} style={{ padding: '5px 10px', borderRadius: 5, border: `1px solid ${T.brd}`, background: T.card, color: GRANATE, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Rechazar</button>
+                            <button onClick={() => aprobar(sol.id)} style={{ padding: '5px 10px', borderRadius: 0, border: 'none', background: VERDE, color: BLANCO, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Aprobar</button>
+                            <button onClick={() => setNotaRej({ id: sol.id, nota: '' })} style={{ padding: '5px 10px', borderRadius: 0, border: `1px solid ${T.brd}`, background: T.card, color: GRANATE, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Rechazar</button>
                           </div>
                         )}
                         {sol.estado === 'aprobado' && (
-                          <button onClick={() => revocarAprobacion(sol.id)} style={{ padding: '5px 10px', borderRadius: 5, border: `1px solid ${T.brd}`, background: T.card, color: T.mut, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer' }}>Revocar</button>
+                          <button onClick={() => revocarAprobacion(sol.id)} style={{ padding: '5px 10px', borderRadius: 0, border: `1px solid ${T.brd}`, background: T.card, color: T.mut, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer' }}>Revocar</button>
                         )}
                       </td>
                     )}
@@ -240,20 +240,20 @@ export default function TabPermisos() {
       {/* Modal rechazo con nota */}
       {notaRej && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-          <div style={{ backgroundColor: INK, borderRadius: 12, border: `1px solid ${T.brd}`, width: 380, padding: 24, boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}>
+          <div style={{ backgroundColor: INK, borderRadius: 0, border: `1px solid ${T.brd}`, width: 380, padding: 24, boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}>
             <div style={{ fontFamily: FONT.heading, fontSize: 14, color: T.pri, marginBottom: 14, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Rechazar solicitud</div>
             <textarea
               placeholder="Motivo del rechazo (obligatorio)…"
               value={notaRej.nota}
               onChange={e => setNotaRej(n => n ? { ...n, nota: e.target.value } : null)}
-              style={{ width: '100%', padding: '8px 10px', background: INK, border: `1px solid ${T.brd}`, borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13, minHeight: 80, resize: 'vertical', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', background: INK, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, minHeight: 80, resize: 'vertical', boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
-              <button onClick={() => setNotaRej(null)} style={{ padding: '7px 14px', borderRadius: 6, border: `1px solid ${T.brd}`, background: CLARO, color: T.pri, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={() => setNotaRej(null)} style={{ padding: '7px 14px', borderRadius: 0, border: `1px solid ${T.brd}`, background: CLARO, color: T.pri, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
               <button
                 onClick={() => rechazar(notaRej.id, notaRej.nota)}
                 disabled={!notaRej.nota.trim()}
-                style={{ padding: '7px 16px', borderRadius: 6, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: notaRej.nota.trim() ? 'pointer' : 'not-allowed', opacity: notaRej.nota.trim() ? 1 : 0.5 }}
+                style={{ padding: '7px 16px', borderRadius: 0, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: notaRej.nota.trim() ? 'pointer' : 'not-allowed', opacity: notaRej.nota.trim() ? 1 : 0.5 }}
               >
                 Confirmar rechazo
               </button>

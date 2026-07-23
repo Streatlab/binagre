@@ -89,18 +89,18 @@ const SUBTAB_CONTAINER: CSSProperties = {
   display: 'inline-flex',
   gap: 4,
   padding: '3px 4px',
-  borderRadius: 10,
+  borderRadius: 0,
   background: COLORS.accent,
   border: `0.5px solid ${COLORS.accent}`,
 }
 const SUBTAB_ACTIVE: CSSProperties = {
-  padding: '4px 10px', borderRadius: 6, border: 'none',
+  padding: '4px 10px', borderRadius: 0, border: 'none',
   background: COLORS.card, color: COLORS.pri,
   fontFamily: FONT.heading, fontSize: 10, fontWeight: 700,
   letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer', outline: 'none',
 }
 const SUBTAB_INACTIVE: CSSProperties = {
-  padding: '4px 10px', borderRadius: 6, border: 'none',
+  padding: '4px 10px', borderRadius: 0, border: 'none',
   background: 'rgba(255,255,255,0.25)', color: BLANCO,
   fontFamily: FONT.heading, fontSize: 10, fontWeight: 500,
   letterSpacing: '1.2px', textTransform: 'uppercase', cursor: 'pointer', outline: 'none',
@@ -277,7 +277,7 @@ export default function Facturacion({ embedded = false }: { embedded?: boolean }
               {canalesVisibles.length===5?'Canales':`${canalesVisibles.length} canales`} <span style={{ fontSize:9 }}>▾</span>
             </button>
             {dropCanalOpen && (
-              <div style={{ position:'absolute', top:'110%', left:0, background:COLORS.card, border:`0.5px solid ${COLORS.brd}`, borderRadius:10, padding:'6px 0', zIndex:20, minWidth:160, boxShadow:'0 4px 16px rgba(0,0,0,0.08)' }}>
+              <div style={{ position:'absolute', top:'110%', left:0, background:COLORS.card, border:`0.5px solid ${COLORS.brd}`, borderRadius:0, padding:'6px 0', zIndex:20, minWidth:160, boxShadow:'0 4px 16px rgba(0,0,0,0.08)' }}>
                 {ALL_COLS.map(c=>(
                   <label key={c.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 14px', cursor:'pointer', fontFamily:FONT.body, fontSize:13, color:COLORS.sec }}>
                     <input type="checkbox" checked={canalesVisibles.includes(c.id)} onChange={()=>toggleCanal(c.id)} style={{ width:13, height:13, accentColor:c.color }} />
@@ -421,7 +421,7 @@ function TabDiario({ allData, cols, weekFilter, onEdit, onAdd, tipoDia, totals, 
     <>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
       {ms.showClearButton && <div style={{marginBottom:10}}><ClearSortButton show={true} onClear={ms.clearSorts} /></div>}
-      {weekFilter && <div style={{ marginBottom:10 }}><span style={{ padding:'4px 10px', background:`${COLORS.redSL}12`, color:COLORS.redSL, borderRadius:8, border:`0.5px solid ${COLORS.redSL}30`, fontFamily:FONT.body, fontSize:12 }}>S{weekFilter.week}</span></div>}
+      {weekFilter && <div style={{ marginBottom:10 }}><span style={{ padding:'4px 10px', background:`${COLORS.redSL}12`, color:COLORS.redSL, borderRadius:0, border:`0.5px solid ${COLORS.redSL}30`, fontFamily:FONT.body, fontSize:12 }}>S{weekFilter.week}</span></div>}
       <SeccionLabel bg={NAR}>Detalle diario</SeccionLabel>
       <Papel ceja={NAR} pad="0" style={{ overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
@@ -520,7 +520,7 @@ function TabMeses({ allData, cols, totals, dias, tm, tmNeto, netoEstimado, media
   return (
     <>
       <KpiCards totals={totals} dias={dias} tm={tm} tmNeto={tmNeto} netoEstimado={netoEstimado} mediadiaria={mediadiaria} mediaDiariaNeta={mediaDiariaNeta} onAdd={onAdd} onExport={exportar} />
-      {years.length>1&&(<div style={{ marginBottom:12 }}><select value={selYear} onChange={e=>setSelYear(Number(e.target.value))} style={{ padding:'9px 14px', borderRadius:10, border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, fontFamily:FONT.body, fontSize:13, color:COLORS.sec, cursor:'pointer' }}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select></div>)}
+      {years.length>1&&(<div style={{ marginBottom:12 }}><select value={selYear} onChange={e=>setSelYear(Number(e.target.value))} style={{ padding:'9px 14px', borderRadius:0, border:`0.5px solid ${COLORS.brd}`, background:COLORS.card, fontFamily:FONT.body, fontSize:13, color:COLORS.sec, cursor:'pointer' }}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select></div>)}
       <SeccionLabel bg={AMA} color={INK}>Detalle mensual</SeccionLabel>
       <Papel ceja={AMA} pad="0" style={{ overflow:'hidden' }}>
         <div style={{ overflowX:'auto' }}>
@@ -560,7 +560,7 @@ function TabAnual({ allData, totals, dias, tm, tmNeto, netoEstimado, mediadiaria
             {years.map((y,idx)=>{ const prev=years[idx+1]; const delta=prev?((y.bruto-prev.bruto)/prev.bruto)*100:null; const barW=`${Math.round((y.bruto/maxBruto)*100)}%`
               return (<tr key={y.anio} style={{ transition:'background 120ms' }} onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=COLORS.bg}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=''}}>
                 <td style={{ ...TD_BASE, ...bb(idx===years.length-1), fontFamily:FONT.heading, color:COLORS.redSL, fontWeight:600, fontSize:15 }}>{y.anio}</td>
-                <td style={{ ...TD_BASE, ...bb(idx===years.length-1), textAlign:'right' }}><div style={{ fontFamily:FONT.heading, fontSize:15, fontWeight:600, color:COLORS.pri, marginBottom:5 }}>{fmtBru(y.bruto)}</div><div style={{ height:5, background:COLORS.group, borderRadius:3, overflow:'hidden' }}><div style={{ height:5, width:barW, background:COLORS.redSL, borderRadius:3 }} /></div></td>
+                <td style={{ ...TD_BASE, ...bb(idx===years.length-1), textAlign:'right' }}><div style={{ fontFamily:FONT.heading, fontSize:15, fontWeight:600, color:COLORS.pri, marginBottom:5 }}>{fmtBru(y.bruto)}</div><div style={{ height:5, background:COLORS.group, borderRadius:0, overflow:'hidden' }}><div style={{ height:5, width:barW, background:COLORS.redSL, borderRadius:0 }} /></div></td>
                 <td style={{ ...TD_BASE, ...bb(idx===years.length-1) }}>{delta!=null?<DesvBadge pct={delta} />:<span style={{ color:COLORS.mut }}>—</span>}</td>
                 <td style={{ ...TD_BASE, ...bb(idx===years.length-1), ...NUM_CH, textAlign:'right', color:COLORS.sec }}>{fmtBru(y.mediaMensual)}</td>
                 <td style={{ ...TD_BASE, ...bb(idx===years.length-1), textAlign:'right', color:COLORS.mut }}>{fmtInt(y.pedidos)}</td>
@@ -696,10 +696,10 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
   }
 
   const handleDelete=async()=>{ if(!confirm('¿Eliminar este día?'))return; const{error}=await supabase.from('facturacion_diario').delete().eq('id',existing!.id); if(error){setFormError(`Error borrando: ${error.message} [${error.code}]`);return}; onSaved() }
-  const inp: CSSProperties={ width:'100%', background:COLORS.card, color:COLORS.pri, border:`1px solid ${COLORS.brd}`, borderRadius:8, padding:'8px 12px', fontSize:13, fontFamily:FONT.body, outline:'none' }
+  const inp: CSSProperties={ width:'100%', background:COLORS.card, color:COLORS.pri, border:`1px solid ${COLORS.brd}`, borderRadius:0, padding:'8px 12px', fontSize:13, fontFamily:FONT.body, outline:'none' }
   return (
     <div style={{ position:'fixed', inset:0, zIndex:50, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', padding:16 }}>
-      <div style={{ background:'var(--sl-modal-bg)', border:`0.5px solid ${COLORS.brd}`, borderRadius:16, width:'100%', maxWidth:560, maxHeight:'90vh', overflowY:'auto' }}>
+      <div style={{ background:'var(--sl-modal-bg)', border:`0.5px solid ${COLORS.brd}`, borderRadius:0, width:'100%', maxWidth:560, maxHeight:'90vh', overflowY:'auto' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', borderBottom:`0.5px solid ${COLORS.brd}` }}>
           <h3 style={{ color:COLORS.pri, fontFamily:FONT.heading, fontSize:16, fontWeight:600, margin:0, letterSpacing:'2px' }}>{isEdit?'EDITAR DÍA':'AÑADIR DÍA'}</h3>
           <button onClick={onClose} title="Cerrar (cancela los cambios)" style={{ background:'none', border:'none', color:COLORS.mut, fontSize:24, cursor:'pointer', lineHeight:1, padding:0 }}>&times;</button>
@@ -707,26 +707,26 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
         <form onSubmit={handleSubmit} style={{ padding:20, display:'flex', flexDirection:'column', gap:16 }}>
           <div style={{ display:'flex', gap:12, alignItems:'flex-end' }}>
             <div style={{ flex:'0 0 43%' }}><label style={{ display:'block', fontSize:11, color:COLORS.mut, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.5px', fontFamily:FONT.heading }}>Fecha</label><input type="date" value={fecha} onChange={e=>setFecha(e.target.value)} style={inp} /></div>
-            <div style={{ flex:1 }}><label style={{ display:'block', fontSize:11, color:COLORS.mut, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.5px', fontFamily:FONT.heading }}>Servicio</label><div style={{ display:'flex', gap:4 }}>{[{key:'ALM',label:'ALM'},{key:'CENAS',label:'CENAS'},{key:'TODO',label:'TODOS'},{key:'CENAS_ALM',label:'CENAS/ALM'}].map(s=>{ const isA=servicio===s.key; const isCA=s.key==='CENAS_ALM'; return (<button key={s.key} type="button" onClick={()=>setServicio(s.key)} style={{ flex:1, padding:'8px 4px', borderRadius:8, fontSize:10, fontWeight:600, border:isA?'none':`0.5px solid ${COLORS.brd}`, background:isA?(isCA?'#7c3aed':COLORS.redSL):BLANCO, color:isA?BLANCO:COLORS.mut, cursor:'pointer', fontFamily:FONT.heading, letterSpacing:'0.5px', whiteSpace:'nowrap' }}>{s.label}</button>) })}</div></div>
+            <div style={{ flex:1 }}><label style={{ display:'block', fontSize:11, color:COLORS.mut, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.5px', fontFamily:FONT.heading }}>Servicio</label><div style={{ display:'flex', gap:4 }}>{[{key:'ALM',label:'ALM'},{key:'CENAS',label:'CENAS'},{key:'TODO',label:'TODOS'},{key:'CENAS_ALM',label:'CENAS/ALM'}].map(s=>{ const isA=servicio===s.key; const isCA=s.key==='CENAS_ALM'; return (<button key={s.key} type="button" onClick={()=>setServicio(s.key)} style={{ flex:1, padding:'8px 4px', borderRadius:0, fontSize:10, fontWeight:600, border:isA?'none':`0.5px solid ${COLORS.brd}`, background:isA?(isCA?'#7c3aed':COLORS.redSL):BLANCO, color:isA?BLANCO:COLORS.mut, cursor:'pointer', fontFamily:FONT.heading, letterSpacing:'0.5px', whiteSpace:'nowrap' }}>{s.label}</button>) })}</div></div>
           </div>
           {esCenasAlm&&!filaAlm&&<p style={{ margin:0, fontSize:11, color:COLORS.warn, fontFamily:FONT.body }}>No hay almuerzo guardado para esta fecha. Selecciona otro servicio o crea primero el ALM.</p>}
           {esCenasAlm&&filaAlm&&<p style={{ margin:0, fontSize:11, color:COLORS.mut, fontFamily:FONT.body }}>Introduce el TOTAL del día en cada canal (la referencia gris es lo que ya hubo en el almuerzo). En Just Eat los pedidos del almuerzo ya están cargados: añade debajo solo los de la cena.</p>}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            {FORM_COLS.slice(0,2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'var(--sl-thead)', border:`1px solid ${cc?.border??'var(--sl-border)'}`, borderRadius:10, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??COLORS.mut, fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="text" inputMode="numeric" placeholder={phPed(c.label)} value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="text" inputMode="decimal" placeholder={phBru(c.label)} value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}
+            {FORM_COLS.slice(0,2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'var(--sl-thead)', border:`1px solid ${cc?.border??'var(--sl-border)'}`, borderRadius:0, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??COLORS.mut, fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="text" inputMode="numeric" placeholder={phPed(c.label)} value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="text" inputMode="decimal" placeholder={phBru(c.label)} value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}
           </div>
-          <div style={{ background:`${NAR}12`, border:`1px solid ${NAR}`, borderRadius:10, padding:14 }}>
+          <div style={{ background:`${NAR}12`, border:`1px solid ${NAR}`, borderRadius:0, padding:14 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}><span style={{ fontFamily:FONT.heading, fontSize:11, letterSpacing:2, color:NAR, textTransform:'uppercase' }}>Just Eat</span>{jeItems.length>0&&<span style={{ fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>{jeItems.length} pedido{jeItems.length!==1?'s':''} · {jeItems.reduce((a,b)=>a+parseNum(b.raw),0).toFixed(2)} €</span>}</div>
-            {jeItems.length>0&&(<div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:10 }}>{jeItems.map((item,idx)=>(<div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', borderRadius:8, background:item.alm?'var(--sl-hover)':COLORS.card, border:`0.5px solid ${COLORS.brd}` }}><div style={{ display:'flex', alignItems:'center', gap:8, flex:1 }}><span style={{ fontFamily:FONT.heading, fontSize:11, color:COLORS.mut, width:18, flexShrink:0 }}>{idx+1}.</span><input type="text" inputMode="decimal" value={item.raw} onChange={e=>{const nv=e.target.value; setJeItems(p=>p.map((it,i)=>i===idx?{...it,raw:nv}:it))}} style={{ ...inp, width:96, padding:'4px 8px' }} /><span style={{ fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>€</span>{item.alm&&<span style={{ fontSize:9, letterSpacing:1, color:NAR, fontFamily:FONT.heading, textTransform:'uppercase' }}>almuerzo</span>}</div><button type="button" onClick={()=>setJeItems(p=>p.filter((_,i)=>i!==idx))} style={{ background:'none', border:'none', cursor:'pointer', color:COLORS.err, fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button></div>))}</div>)}
-            <div style={{ display:'flex', gap:8, alignItems:'center' }}><input ref={jeRef} type="text" inputMode="decimal" placeholder="Importe (€)" value={jeInput} onChange={e=>setJeInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addJe()}}} style={{ ...inp, flex:1, width:'auto', padding:'6px 10px' }} /><button type="button" onClick={addJe} style={{ padding:'6px 14px', borderRadius:8, background:NAR, color:BLANCO, border:'none', cursor:'pointer', fontFamily:FONT.heading, fontSize:14, fontWeight:600, flexShrink:0 }}>+</button></div>
+            {jeItems.length>0&&(<div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:10 }}>{jeItems.map((item,idx)=>(<div key={idx} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', borderRadius:0, background:item.alm?'var(--sl-hover)':COLORS.card, border:`0.5px solid ${COLORS.brd}` }}><div style={{ display:'flex', alignItems:'center', gap:8, flex:1 }}><span style={{ fontFamily:FONT.heading, fontSize:11, color:COLORS.mut, width:18, flexShrink:0 }}>{idx+1}.</span><input type="text" inputMode="decimal" value={item.raw} onChange={e=>{const nv=e.target.value; setJeItems(p=>p.map((it,i)=>i===idx?{...it,raw:nv}:it))}} style={{ ...inp, width:96, padding:'4px 8px' }} /><span style={{ fontFamily:FONT.body, fontSize:12, color:COLORS.mut }}>€</span>{item.alm&&<span style={{ fontSize:9, letterSpacing:1, color:NAR, fontFamily:FONT.heading, textTransform:'uppercase' }}>almuerzo</span>}</div><button type="button" onClick={()=>setJeItems(p=>p.filter((_,i)=>i!==idx))} style={{ background:'none', border:'none', cursor:'pointer', color:COLORS.err, fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button></div>))}</div>)}
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}><input ref={jeRef} type="text" inputMode="decimal" placeholder="Importe (€)" value={jeInput} onChange={e=>setJeInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addJe()}}} style={{ ...inp, flex:1, width:'auto', padding:'6px 10px' }} /><button type="button" onClick={addJe} style={{ padding:'6px 14px', borderRadius:0, background:NAR, color:BLANCO, border:'none', cursor:'pointer', fontFamily:FONT.heading, fontSize:14, fontWeight:600, flexShrink:0 }}>+</button></div>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            {FORM_COLS.slice(2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'var(--sl-thead)', border:`1px solid ${cc?.border??'var(--sl-border)'}`, borderRadius:10, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??COLORS.mut, fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="text" inputMode="numeric" placeholder={phPed(c.label)} value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="text" inputMode="decimal" placeholder={phBru(c.label)} value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}
+            {FORM_COLS.slice(2).map(c=>{const cc=CANAL_COLORS_M[c.label];return(<div key={c.label} style={{ background:cc?.bg??'var(--sl-thead)', border:`1px solid ${cc?.border??'var(--sl-border)'}`, borderRadius:0, padding:12 }}><p style={{ fontSize:11, fontWeight:600, marginBottom:10, color:cc?.label??COLORS.mut, fontFamily:FONT.heading, letterSpacing:1, textTransform:'uppercase' }}>{c.label}</p><div style={{ display:'flex', flexDirection:'column', gap:10 }}><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Pedidos</label><input type="text" inputMode="numeric" placeholder={phPed(c.label)} value={fields[c.ped]} onChange={e=>set(c.ped,e.target.value)} style={inp} /></div><div><label style={{ display:'block', fontSize:10, color:COLORS.mut, marginBottom:4 }}>Bruto (EUR)</label><input type="text" inputMode="decimal" placeholder={phBru(c.label)} value={fields[c.bru]} onChange={e=>set(c.bru,e.target.value)} style={inp} /></div></div></div>)})}
           </div>
-          {formError&&<p style={{ color:COLORS.err, fontSize:12, margin:0, fontFamily:FONT.body, background:`${COLORS.err}18`, padding:'8px 12px', borderRadius:8, border:`1px solid ${COLORS.err}30` }}>{formError}</p>}
+          {formError&&<p style={{ color:COLORS.err, fontSize:12, margin:0, fontFamily:FONT.body, background:`${COLORS.err}18`, padding:'8px 12px', borderRadius:0, border:`1px solid ${COLORS.err}30` }}>{formError}</p>}
           <div style={{ display:'flex', gap:12, paddingTop:8 }}>
-            {isEdit&&(<button type="button" onClick={handleDelete} style={{ flex:1, padding:'10px 16px', borderRadius:8, fontSize:13, fontWeight:600, border:`1px solid ${COLORS.redSL}`, background:'none', color:COLORS.redSL, cursor:'pointer', fontFamily:FONT.body }}>Eliminar</button>)}
-            <button type="button" onClick={onClose} style={{ flex:1, padding:'10px 16px', borderRadius:8, fontSize:13, fontWeight:600, border:`0.5px solid ${COLORS.brd}`, background:'none', color:COLORS.mut, cursor:'pointer', fontFamily:FONT.body }}>Cancelar</button>
-            <button type="submit" disabled={saving} style={{ flex:1, padding:'10px 16px', borderRadius:8, fontSize:13, fontWeight:600, border:'none', background:COLORS.redSL, color:BLANCO, cursor:saving?'not-allowed':'pointer', fontFamily:FONT.body, opacity:saving?0.6:1 }}>{saving?'Guardando...':isEdit?'Actualizar':'Guardar'}</button>
+            {isEdit&&(<button type="button" onClick={handleDelete} style={{ flex:1, padding:'10px 16px', borderRadius:0, fontSize:13, fontWeight:600, border:`1px solid ${COLORS.redSL}`, background:'none', color:COLORS.redSL, cursor:'pointer', fontFamily:FONT.body }}>Eliminar</button>)}
+            <button type="button" onClick={onClose} style={{ flex:1, padding:'10px 16px', borderRadius:0, fontSize:13, fontWeight:600, border:`0.5px solid ${COLORS.brd}`, background:'none', color:COLORS.mut, cursor:'pointer', fontFamily:FONT.body }}>Cancelar</button>
+            <button type="submit" disabled={saving} style={{ flex:1, padding:'10px 16px', borderRadius:0, fontSize:13, fontWeight:600, border:'none', background:COLORS.redSL, color:BLANCO, cursor:saving?'not-allowed':'pointer', fontFamily:FONT.body, opacity:saving?0.6:1 }}>{saving?'Guardando...':isEdit?'Actualizar':'Guardar'}</button>
           </div>
         </form>
       </div>
@@ -736,12 +736,12 @@ function DayModal({ allData, existing, onClose, onSaved }: { allData:RawDiario[]
 
 function ServicioBadge({ s }: { s:string }) {
   const color = s==='ALM' ? COLORS.warn : s==='CENAS' ? '#7c3aed' : s==='TODO' ? COLOR_TODOS : COLORS.mut
-  return (<span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:6, fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', fontWeight:500, textTransform:'uppercase', background:`${color}15`, color }}>{s==='TODO'?'TODOS':s}</span>)
+  return (<span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:0, fontFamily:FONT.heading, fontSize:10, letterSpacing:'1.5px', fontWeight:500, textTransform:'uppercase', background:`${color}15`, color }}>{s==='TODO'?'TODOS':s}</span>)
 }
 function TipoPill({ tipo }: { tipo:TipoDia }) {
-  if(tipo==='cerrado'||tipo==='festivo'||tipo==='vacaciones') return (<span style={{ background:COLORS.redSL, color:BLANCO, padding:'2px 6px', borderRadius:4, fontSize:9, fontFamily:FONT.heading, letterSpacing:0.5, textTransform:'uppercase' }}>CERRADO</span>)
-  if(tipo==='solo_comida') return (<span style={{ background:COLORS.glovo, color:INK, padding:'2px 6px', borderRadius:4, fontSize:9, fontFamily:FONT.heading, letterSpacing:0.5 }}>ALM</span>)
-  if(tipo==='solo_cena') return (<span style={{ background:COLORS.je, color:BLANCO, padding:'2px 6px', borderRadius:4, fontSize:9, fontFamily:FONT.heading, letterSpacing:0.5 }}>CENA</span>)
+  if(tipo==='cerrado'||tipo==='festivo'||tipo==='vacaciones') return (<span style={{ background:COLORS.redSL, color:BLANCO, padding:'2px 6px', borderRadius:0, fontSize:9, fontFamily:FONT.heading, letterSpacing:0.5, textTransform:'uppercase' }}>CERRADO</span>)
+  if(tipo==='solo_comida') return (<span style={{ background:COLORS.glovo, color:INK, padding:'2px 6px', borderRadius:0, fontSize:9, fontFamily:FONT.heading, letterSpacing:0.5 }}>ALM</span>)
+  if(tipo==='solo_cena') return (<span style={{ background:COLORS.je, color:BLANCO, padding:'2px 6px', borderRadius:0, fontSize:9, fontFamily:FONT.heading, letterSpacing:0.5 }}>CENA</span>)
   return null
 }
 function DesvBadge({ pct }: { pct:number }) {

@@ -294,7 +294,7 @@ export default function CalcNetoAprendizajePage() {
 
       {/* Feedback */}
       {feedback && (
-        <div style={{ backgroundColor: APRENDIZAJES_OK_BG, border: `1px solid ${COBERTURA_VERDE}`, color: APRENDIZAJES_OK_TXT, borderRadius: 4, padding: '10px 14px', fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>
+        <div style={{ backgroundColor: APRENDIZAJES_OK_BG, border: `1px solid ${COBERTURA_VERDE}`, color: APRENDIZAJES_OK_TXT, borderRadius: 0, padding: '10px 14px', fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>
           {feedback}
         </div>
       )}
@@ -307,12 +307,12 @@ export default function CalcNetoAprendizajePage() {
           { color: GRANATE, label: '> 10% — Error' },
         ].map(l => (
           <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: l.color }} />
+            <div style={{ width: 10, height: 10, borderRadius: 0, backgroundColor: l.color }} />
             <span style={{ fontFamily: 'Lexend,sans-serif', fontSize: 11, color: GRIS }}>{l.label}</span>
           </div>
         ))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ backgroundColor: PANEL_MODAL_BG, color: ESTIMADO_BADGE_TXT, fontSize: 10, padding: '1px 6px', borderRadius: 3, fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px' }}>ESTIMADO</span>
+          <span style={{ backgroundColor: PANEL_MODAL_BG, color: ESTIMADO_BADGE_TXT, fontSize: 10, padding: '1px 6px', borderRadius: 0, fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px' }}>ESTIMADO</span>
           <span style={{ fontFamily: 'Lexend,sans-serif', fontSize: 11, color: GRIS }}>neto teórico calculado por fórmula</span>
         </div>
       </div>
@@ -321,7 +321,7 @@ export default function CalcNetoAprendizajePage() {
       {loading ? (
         <Papel ceja={AZUL_CL}><div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: 'Lexend,sans-serif' }}>Calculando…</div></Papel>
       ) : error ? (
-        <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, color: ROJO_S, borderRadius: 4, padding: '12px 16px', fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>
+        <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, color: ROJO_S, borderRadius: 0, padding: '12px 16px', fontFamily: 'Lexend,sans-serif', fontSize: 13 }}>
           Error: {error}
         </div>
       ) : (
@@ -359,7 +359,7 @@ export default function CalcNetoAprendizajePage() {
                       <td style={{ ...TD, textAlign: 'right', color: GRIS }}>{fmtEur(f.bruto, { decimals: 0 })}</td>
                       <td style={{ ...TD, textAlign: 'right' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ backgroundColor: PANEL_MODAL_BG, color: ESTIMADO_BADGE_TXT, fontSize: 9, padding: '1px 5px', borderRadius: 3, fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px' }}>EST</span>
+                          <span style={{ backgroundColor: PANEL_MODAL_BG, color: ESTIMADO_BADGE_TXT, fontSize: 9, padding: '1px 5px', borderRadius: 0, fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px' }}>EST</span>
                           <span style={{ color: GRIS }}>{fmtEur(f.netoTeorico, { decimals: 0 })}</span>
                         </span>
                       </td>
@@ -371,7 +371,7 @@ export default function CalcNetoAprendizajePage() {
                           backgroundColor: f.estado === 'ok' ? APRENDIZAJES_OK_BG : f.estado === 'alerta' ? ALERTA_WASH_BG : ERROR_BANNER_BG,
                           color: f.estado === 'ok' ? APRENDIZAJES_OK_TXT : f.estado === 'alerta' ? LIMA : ROJO_S,
                           border: `1px solid ${f.estado === 'ok' ? VERDE : f.estado === 'alerta' ? `${AMA}33` : ROJO}`,
-                          fontSize: 10, padding: '2px 8px', borderRadius: 3,
+                          fontSize: 10, padding: '2px 8px', borderRadius: 0,
                           fontFamily: 'Oswald,sans-serif', letterSpacing: '0.5px', textTransform: 'uppercase',
                         }}>
                           {f.estado === 'ok' ? 'OK' : f.estado === 'alerta' ? 'Alerta' : 'Error'}

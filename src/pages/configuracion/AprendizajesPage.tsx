@@ -34,7 +34,7 @@ function moduleBadge(mod: string) {
       backgroundColor: c.bg,
       color: c.color,
       border: `1px solid ${c.color}33`,
-      borderRadius: 4,
+      borderRadius: 0,
       padding: '2px 8px',
       fontSize: 11,
       fontFamily: FONT.heading,
@@ -187,7 +187,7 @@ export default function AprendizajesPage() {
 
       {/* Feedback */}
       {feedback && (
-        <div style={{ backgroundColor: feedback.ok ? APRENDIZAJES_OK_BG : ERROR_BANNER_BG, border: `1px solid ${feedback.ok ? VERDE : ERROR_BANNER_BORDE}`, color: feedback.ok ? APRENDIZAJES_OK_TXT : ROJO_S, borderRadius: 4, padding: '10px 14px', fontFamily: FONT.body, fontSize: 13 }}>
+        <div style={{ backgroundColor: feedback.ok ? APRENDIZAJES_OK_BG : ERROR_BANNER_BG, border: `1px solid ${feedback.ok ? VERDE : ERROR_BANNER_BORDE}`, color: feedback.ok ? APRENDIZAJES_OK_TXT : ROJO_S, borderRadius: 0, padding: '10px 14px', fontFamily: FONT.body, fontSize: 13 }}>
           {feedback.msg}
         </div>
       )}

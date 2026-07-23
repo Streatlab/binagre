@@ -474,7 +474,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
         <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 6 }}>
           Faltan <span style={{ color: col, fontWeight: 500 }}>{fmtNumES(falta, 2)}</span> de {renderInlineEditNoEur(editId, obj, onSave, onReset)}
         </div>
-        <div style={{ height: 4, background: INK, borderRadius: 2, display: 'flex', overflow: 'hidden' }}>
+        <div style={{ height: 4, background: INK, borderRadius: 0, display: 'flex', overflow: 'hidden' }}>
           <div style={{ height: 4, background: barColor(pct), width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
           <div style={{ height: 4, background: INCUMPLIDO, width: `${100 - pctCap}%` }} />
         </div>
@@ -643,7 +643,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                           {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: NAR, color: BLANCO, padding: '1px 5px', borderRadius: 0, fontSize: 9, fontFamily: OSW }}>CENA</span>}
                         </div>
                       </div>
-                      <div style={{ height: 5, background: INK, borderRadius: 3, display: 'flex', overflow: 'hidden' }}>
+                      <div style={{ height: 5, background: INK, borderRadius: 0, display: 'flex', overflow: 'hidden' }}>
                         {importe > 0 && (
                           <>
                             <div style={{ height: 5, background: barColor(pct), width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
@@ -717,7 +717,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                 <div key={idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${INK}` : 'none', background: enCurso ? OBJ_ROW_HOY_BG : 'transparent', borderLeft: enCurso ? `3px solid ${AZUL}` : '3px solid transparent', paddingLeft: enCurso ? 8 : 0, marginLeft: enCurso ? -8 : 0, borderRadius: 0 }}>
                   <span style={{ fontFamily: LEX, fontSize: 13, color: enCurso ? AZUL : INK, fontWeight: enCurso ? 600 : 400 }}>{h.label}</span>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <div style={{ flex: 1, height: 8, background: INK, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
+                    <div style={{ flex: 1, height: 8, background: INK, borderRadius: 0, display: 'flex', overflow: 'hidden' }}>
                       <div style={{ height: 8, background: bc, width: `${pctCap}%` }} />
                       <div style={{ height: 8, background: INCUMPLIDO, width: `${100 - pctCap}%` }} />
                     </div>
@@ -786,7 +786,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                                     />
                                   ) : (
                                     <span onClick={() => { setPresEditing(cellKey); setPresEditVal(String(val)) }}
-                                      style={{ fontFamily: OSW, fontSize: 11, color: val > 0 ? INK : GRIS, cursor: 'pointer', display: 'block', padding: '3px 2px', borderRadius: 3 }}
+                                      style={{ fontFamily: OSW, fontSize: 11, color: val > 0 ? INK : GRIS, cursor: 'pointer', display: 'block', padding: '3px 2px', borderRadius: 0 }}
                                       title="Clic para editar">
                                       {val > 0 ? fmtEur(val) : '—'}
                                     </span>

@@ -102,7 +102,7 @@ export default function Inventario() {
             onChange={e => setPeriodo(e.target.value as PeriodoInventario)}
             style={{
               padding: '7px 12px',
-              borderRadius: 8,
+              borderRadius: 0,
               border: `0.5px solid ${T.brd}`,
               background: T.inp,
               color: T.pri,

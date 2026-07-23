@@ -40,7 +40,7 @@ export default function TabDiccionarioNif() {
     (f.proveedor_canonico ?? '').toLowerCase().includes(busca.toLowerCase()) ||
     (f.categoria_codigo ?? '').toLowerCase().includes(busca.toLowerCase()))
 
-  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
+  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
 
   function badgeOrigen(o: string | null) {
     const map: Record<string, { txt: string; bg: string; fg: string }> = {
@@ -49,7 +49,7 @@ export default function TabDiccionarioNif() {
       factura: { txt: 'Factura', bg: `${GRIS}1f`, fg: T.sec },
     }
     const m = map[o ?? ''] ?? { txt: '—', bg: 'transparent', fg: T.mut }
-    return <span style={{ background: m.bg, color: m.fg, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>{m.txt}</span>
+    return <span style={{ background: m.bg, color: m.fg, borderRadius: 0, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>{m.txt}</span>
   }
 
   if (loading) return (

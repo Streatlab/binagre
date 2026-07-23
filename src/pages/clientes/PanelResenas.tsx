@@ -20,9 +20,9 @@ const PLAT_COLOR: Record<string, string> = { UE: COLORS.uber, GL: COLORS.glovo, 
 const PLAT_TXT: Record<string, string> = { GL: COLORS.glovoText }
 const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
-const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: `0.5px solid ${COLORS.brd}`, background: COLORS.card, color: COLORS.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none', width: '100%' }
-const btnPri: React.CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.accent, color: BLANCO, fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
-const btnMini: React.CSSProperties = { padding: '3px 9px', borderRadius: 6, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
+const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 0, border: `0.5px solid ${COLORS.brd}`, background: COLORS.card, color: COLORS.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none', width: '100%' }
+const btnPri: React.CSSProperties = { padding: '8px 16px', borderRadius: 0, border: 'none', background: COLORS.accent, color: BLANCO, fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
+const btnMini: React.CSSProperties = { padding: '3px 9px', borderRadius: 0, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
 const th: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, fontWeight: 500, padding: '8px 10px', textAlign: 'left', borderBottom: `1px solid ${COLORS.brd}` }
 const td: React.CSSProperties = { fontFamily: LEX, fontSize: 13, color: COLORS.sec, padding: '8px 10px', borderBottom: `1px solid ${COLORS.group}` }
 
@@ -218,8 +218,8 @@ function TabResumen({ registros, onSaved }: { registros: Registro[]; onSaved: ()
                           <button onClick={() => { setEditK(k); setEd({ rating: String(m.rating), num_resenas: String(m.num_resenas) }) }} style={{ ...btnMini, padding: '2px 7px' }} title="Editar nota">✎</button>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                          <div style={{ flex: 1, height: 6, background: COLORS.group, borderRadius: 3 }}>
-                            <div style={{ height: 6, width: `${(Number(m.rating) / 5) * 100}%`, background: ratingColor(Number(m.rating)), borderRadius: 3 }} />
+                          <div style={{ flex: 1, height: 6, background: COLORS.group, borderRadius: 0 }}>
+                            <div style={{ height: 6, width: `${(Number(m.rating) / 5) * 100}%`, background: ratingColor(Number(m.rating)), borderRadius: 0 }} />
                           </div>
                           <span style={{ fontFamily: LEX, fontSize: 11, color: GRIS, whiteSpace: 'nowrap' }}>{fmtNumES(m.num_resenas)} res.</span>
                         </div>

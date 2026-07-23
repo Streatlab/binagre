@@ -122,7 +122,7 @@ export default function CuentasBancarias() {
                 style={{
                   width: 14,
                   height: 14,
-                  borderRadius: 3,
+                  borderRadius: 0,
                   background: t.color || GRANATE,
                 }}
               />

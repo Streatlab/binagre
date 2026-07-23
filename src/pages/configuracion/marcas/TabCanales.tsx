@@ -174,7 +174,7 @@ export default function TabCanales() {
   const inp: CSSProperties = {
     fontFamily: FONT.heading, fontSize: 16, fontWeight: 600,
     background: BLANCO, color: INK,
-    border: `1px solid ${T.brd}`, borderRadius: 6,
+    border: `1px solid ${T.brd}`, borderRadius: 0,
     padding: '5px 10px', width: 90, textAlign: 'right', outline: 'none',
   }
   const sel: CSSProperties = { ...inp, width: 170, textAlign: 'left', cursor: 'pointer' }

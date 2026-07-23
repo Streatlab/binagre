@@ -156,7 +156,7 @@ export default function ReglasPanel() {
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
   if (error) {
     return (
-      <div style={{ padding: 16, background: `${GRANATE}20`, color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>
+      <div style={{ padding: 16, background: `${GRANATE}20`, color: GRANATE, borderRadius: 0, fontFamily: FONT.body }}>
         {error}
       </div>
     )
@@ -191,7 +191,7 @@ export default function ReglasPanel() {
             padding: 14,
             background: washBg,
             border: `1px solid ${washBrd}`,
-            borderRadius: 8,
+            borderRadius: 0,
             fontSize: 12.5,
             color: washSub,
             fontFamily: FONT.body,
@@ -200,8 +200,8 @@ export default function ReglasPanel() {
           <strong style={{ color: washTxt }}>Cómo funcionan:</strong>{' '}
           Cada vez que categorizas un movimiento manualmente, se crea una regla con su <em>concepto normalizado</em>.
           Al importar nuevos movimientos, los conceptos similares se categorizan automáticamente. Patrones soportan
-          <code style={{ background: codeBg, padding: '1px 6px', borderRadius: 3, border: `0.5px solid ${codeBrd}`, color: washTxt, marginLeft: 4 }}>*</code>{' '}
-          <code style={{ background: codeBg, padding: '1px 6px', borderRadius: 3, border: `0.5px solid ${codeBrd}`, color: washTxt }}>?</code>.
+          <code style={{ background: codeBg, padding: '1px 6px', borderRadius: 0, border: `0.5px solid ${codeBrd}`, color: washTxt, marginLeft: 4 }}>*</code>{' '}
+          <code style={{ background: codeBg, padding: '1px 6px', borderRadius: 0, border: `0.5px solid ${codeBrd}`, color: washTxt }}>?</code>.
         </div>
 
         <div style={{ overflowX: 'auto' }}>
@@ -270,7 +270,7 @@ export default function ReglasPanel() {
             onClick={() => open()}
             style={{
               padding: '7px 14px',
-              borderRadius: 6,
+              borderRadius: 0,
               border: 'none',
               background: GRANATE,
               color: BLANCO,

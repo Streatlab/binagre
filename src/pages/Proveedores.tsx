@@ -68,7 +68,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
   const inp: CSSProperties = {
     background: 'var(--sl-input-edit)',
     border: '1px solid var(--sl-border)',
-    borderRadius: 6,
+    borderRadius: 0,
     color: 'var(--sl-text-primary)',
     padding: '7px 10px',
     fontSize: 13,
@@ -200,7 +200,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
             {!isNew && !confirmDelete && (
               <button
                 onClick={() => setConfirmDelete(true)}
-                style={{ background: 'none', border: `1px solid ${GRANATE}`, color: GRANATE, borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: FONT.body }}
+                style={{ background: 'none', border: `1px solid ${GRANATE}`, color: GRANATE, borderRadius: 0, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: FONT.body }}
               >
                 Eliminar
               </button>
@@ -217,7 +217,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
           <div style={{ display: 'flex', gap: 10 }}>
             <button
               onClick={onClose}
-              style={{ background: 'var(--sl-btn-cancel-bg)', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', borderRadius: 6, padding: '7px 16px', cursor: 'pointer', fontSize: 13, fontFamily: FONT.body }}
+              style={{ background: 'var(--sl-btn-cancel-bg)', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', borderRadius: 0, padding: '7px 16px', cursor: 'pointer', fontSize: 13, fontFamily: FONT.body }}
             >
               Cancelar
             </button>
@@ -414,7 +414,7 @@ export default function Proveedores() {
           style={{
             background: 'var(--sl-input-edit)',
             border: '1px solid var(--sl-border)',
-            borderRadius: 8,
+            borderRadius: 0,
             color: 'var(--sl-text-primary)',
             padding: '8px 14px',
             fontSize: 13,
@@ -449,7 +449,7 @@ export default function Proveedores() {
       </div>
 
       {error && (
-        <div style={{ color: GRANATE, backgroundColor: GRANATE + '18', border: `1px solid ${GRANATE}55`, borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
+        <div style={{ color: GRANATE, backgroundColor: GRANATE + '18', border: `1px solid ${GRANATE}55`, borderRadius: 0, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -518,7 +518,7 @@ export default function Proveedores() {
                   </td>
                   <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                     {p.facturas_count > 0
-                      ? <span style={{ background: 'var(--sl-input-edit)', border: '1px solid var(--sl-btn-cancel-border)', borderRadius: 4, padding: '2px 8px', fontSize: 11, color: 'var(--sl-btn-cancel-text)' }}>{p.facturas_count}</span>
+                      ? <span style={{ background: 'var(--sl-input-edit)', border: '1px solid var(--sl-btn-cancel-border)', borderRadius: 0, padding: '2px 8px', fontSize: 11, color: 'var(--sl-btn-cancel-text)' }}>{p.facturas_count}</span>
                       : <span style={{ color: 'var(--sl-text-muted)', fontSize: 12 }}>—</span>
                     }
                   </td>
@@ -526,7 +526,7 @@ export default function Proveedores() {
                     <span style={{
                       fontSize: 11,
                       padding: '2px 8px',
-                      borderRadius: 4,
+                      borderRadius: 0,
                       background: p.activo ? 'rgba(29,158,117,0.15)' : 'rgba(176,29,35,0.15)',
                       color: p.activo ? VERDE : GRANATE,
                       border: `1px solid ${p.activo ? VERDE : GRANATE}`,
@@ -627,7 +627,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
                 </svg>
                 <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: 'var(--sl-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</span>
               </span>
-              <span style={{ fontFamily: FONT.body, fontSize: 11, color: 'var(--sl-btn-cancel-text)', background: 'var(--sl-btn-cancel-bg)', padding: '3px 9px', borderRadius: 20, flexShrink: 0 }}>{items.length}</span>
+              <span style={{ fontFamily: FONT.body, fontSize: 11, color: 'var(--sl-btn-cancel-text)', background: 'var(--sl-btn-cancel-bg)', padding: '3px 9px', borderRadius: 0, flexShrink: 0 }}>{items.length}</span>
             </button>
             {open && (
               <div style={{ borderTop: '0.5px solid var(--sl-border)' }}>

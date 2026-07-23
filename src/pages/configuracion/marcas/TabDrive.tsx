@@ -30,7 +30,7 @@ export default function TabDrive() {
   const btnPrimario: React.CSSProperties = {
     display: 'inline-block',
     fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px',
-    textTransform: 'uppercase', padding: '11px 26px', borderRadius: 6,
+    textTransform: 'uppercase', padding: '11px 26px', borderRadius: 0,
     background: GRANATE, border: 'none', color: BLANCO,
     cursor: 'pointer', fontWeight: 600, textDecoration: 'none',
   }
@@ -74,7 +74,7 @@ export default function TabDrive() {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
             background: 'rgba(29,158,117,0.1)', border: `0.5px solid ${COBERTURA_VERDE}`,
-            borderRadius: 8, padding: '12px 14px', marginBottom: 16,
+            borderRadius: 0, padding: '12px 14px', marginBottom: 16,
           }}>
             <span style={{ color: VERDE, fontSize: 18 }}>✓</span>
             <div>
@@ -89,7 +89,7 @@ export default function TabDrive() {
               onClick={desconectar}
               style={{
                 fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px',
-                textTransform: 'uppercase', padding: '9px 20px', borderRadius: 6,
+                textTransform: 'uppercase', padding: '9px 20px', borderRadius: 0,
                 background: 'transparent', border: `0.5px solid ${T.brd}`,
                 color: T.mut, cursor: 'pointer',
               }}
@@ -103,7 +103,7 @@ export default function TabDrive() {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
             background: 'rgba(176,29,35,0.08)', border: `0.5px solid ${GRANATE}`,
-            borderRadius: 8, padding: '12px 14px', marginBottom: 16,
+            borderRadius: 0, padding: '12px 14px', marginBottom: 16,
           }}>
             <span style={{ color: GRANATE, fontSize: 18 }}>✗</span>
             <div style={{ fontSize: 13, color: GRANATE, fontWeight: 600 }}>No conectado</div>

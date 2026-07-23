@@ -322,7 +322,7 @@ function CategoriaModal({
       {check('Gasto fijo', 'Se repite cada mes: Running lo estima si falta', estimable, setEstimable)}
 
       {error && (
-        <div style={{ marginTop: 12, padding: 8, background: CONFIG_ROJO_WASH, color: GRANATE, fontSize: 12, borderRadius: 6 }}>
+        <div style={{ marginTop: 12, padding: 8, background: CONFIG_ROJO_WASH, color: GRANATE, fontSize: 12, borderRadius: 0 }}>
           {error}
         </div>
       )}
@@ -550,7 +550,7 @@ function ReglaModal({
         </label>
       </ConfigField>
       {error && (
-        <div style={{ marginTop: 12, padding: 8, background: CONFIG_ROJO_WASH, color: GRANATE, fontSize: 12, borderRadius: 6 }}>
+        <div style={{ marginTop: 12, padding: 8, background: CONFIG_ROJO_WASH, color: GRANATE, fontSize: 12, borderRadius: 0 }}>
           {error}
         </div>
       )}

@@ -119,14 +119,14 @@ export default function TabCalendarioLaboral() {
       {/* Header navegación */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
         <button onClick={() => { if (month === 0) { setYear(y => y - 1); setMonth(11) } else setMonth(m => m - 1) }}
-          style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', color: T.pri, display: 'flex', alignItems: 'center' }}>
+          style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, padding: '6px 10px', cursor: 'pointer', color: T.pri, display: 'flex', alignItems: 'center' }}>
           <ChevronLeft size={16} />
         </button>
         <span style={{ fontFamily: FONT.heading, fontSize: 16, letterSpacing: '2px', textTransform: 'uppercase', color: T.pri, minWidth: 200, textAlign: 'center' }}>
           {monthName}
         </span>
         <button onClick={() => { if (month === 11) { setYear(y => y + 1); setMonth(0) } else setMonth(m => m + 1) }}
-          style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', color: T.pri, display: 'flex', alignItems: 'center' }}>
+          style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, padding: '6px 10px', cursor: 'pointer', color: T.pri, display: 'flex', alignItems: 'center' }}>
           <ChevronRight size={16} />
         </button>
       </div>
@@ -140,11 +140,11 @@ export default function TabCalendarioLaboral() {
           </div>
         ))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontFamily: FONT.body, color: T.sec }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: LIMA }} />
+          <div style={{ width: 10, height: 10, borderRadius: 0, background: LIMA }} />
           Festivo
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontFamily: FONT.body, color: T.sec }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: ROJO }} />
+          <div style={{ width: 10, height: 10, borderRadius: 0, background: ROJO }} />
           Baja médica
         </div>
       </div>
@@ -171,7 +171,7 @@ export default function TabCalendarioLaboral() {
               onClick={e => { e.stopPropagation(); setDropdown(d => d?.fecha === fecha ? null : { fecha, x: e.clientX, y: e.clientY }) }}
               title={festNombre ?? undefined}
               style={{
-                minHeight: 64, borderRadius: 6, border: `1px solid ${isToday ? GRANATE : T.brd}`,
+                minHeight: 64, borderRadius: 0, border: `1px solid ${isToday ? GRANATE : T.brd}`,
                 background: esFest ? CALENDARIO_FESTIVO_BG : T.card,
                 cursor: 'pointer', padding: 4, position: 'relative',
                 boxShadow: isToday ? `0 0 0 2px ${GRANATE}` : 'none',
@@ -216,7 +216,7 @@ export default function TabCalendarioLaboral() {
           <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setDropdown(null)} />
           <div style={{
             position: 'fixed', left: Math.min(dropdown.x, window.innerWidth - 220), top: dropdown.y + 8,
-            background: T.card, border: `1px solid ${T.brd}`, borderRadius: 8, zIndex: 100,
+            background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, zIndex: 100,
             minWidth: 200, padding: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
           }}>
             <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, padding: '4px 8px 8px' }}>

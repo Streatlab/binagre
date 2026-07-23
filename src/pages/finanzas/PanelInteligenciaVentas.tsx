@@ -68,7 +68,7 @@ const INF_CATEGORIAS: Fila[] = [
   { etiqueta: 'Postres', u: 6 }, { etiqueta: 'Bebidas', u: 5 }, { etiqueta: 'Extras', u: 3 },
 ]
 
-const tooltipStyle = { background: COLORS.sidebar, border: 'none', borderRadius: 8, color: BLANCO, fontFamily: LEXEND, fontSize: 12 }
+const tooltipStyle = { background: COLORS.sidebar, border: 'none', borderRadius: 0, color: BLANCO, fontFamily: LEXEND, fontSize: 12 }
 const tituloCard = { ...lbl, marginBottom: 12 }
 
 function descargarCSV(nombre: string, dim: string, data: Fila[]) {
@@ -115,7 +115,7 @@ function Barras({ data, color, sufijo }: { data: Fila[]; color: string; sufijo: 
         <div key={d.etiqueta} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ width: 170, fontFamily: LEXEND, fontSize: 12, color: COLORS.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={d.etiqueta}>{d.etiqueta}</span>
           <div style={{ ...BAR.track, flex: 1, height: 10 }}>
-            <div style={{ width: `${(d.u / max) * 100}%`, background: color, borderRadius: 4 }} />
+            <div style={{ width: `${(d.u / max) * 100}%`, background: color, borderRadius: 0 }} />
           </div>
           <span style={{ width: 84, textAlign: 'right', fontFamily: OSWALD, fontSize: 13, fontWeight: 600, color: COLORS.pri }}>
             {nf0(d.u)}{sufijo} <span style={{ color: COLORS.mut, fontSize: 11, fontFamily: LEXEND }}>{Math.round((d.u / total) * 100)}%</span>
@@ -220,14 +220,14 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
   ]
 
   const btn = (activo: boolean): React.CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
+    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 0,
     border: `0.5px solid ${COLORS.brd}`, background: BLANCO, color: COLORS.sec,
     fontFamily: LEXEND, fontSize: 12, fontWeight: 500, cursor: activo ? 'pointer' : 'default', opacity: activo ? 1 : 0.5,
   })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 8, background: `${COLORS.glovo}33`, border: `0.5px solid ${COLORS.glovoDark}55`, borderRadius: 10, padding: '5px 12px' }}>
+      <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 8, background: `${COLORS.glovo}33`, border: `0.5px solid ${COLORS.glovoDark}55`, borderRadius: 0, padding: '5px 12px' }}>
         <span style={{ width: 8, height: 8, borderRadius: 999, background: COLORS.redSL }} />
         <span style={{ ...lblXs, color: COLORS.glovoDark }}>UNIDADES REALES DEL PERIODO · IMPORTES ESTIMADOS HASTA ENCHUFAR EXPORT</span>
       </div>
@@ -318,7 +318,7 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
               <span style={{ width: 110, fontFamily: OSWALD, fontSize: 12, fontWeight: 600, color: COLORS.sec, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 999, background: PLAT_COLOR[p.plataforma] || COLORS.mut }} />{p.plataforma}
               </span>
-              <div style={{ flex: 1, height: 24, borderRadius: 8, overflow: 'hidden', display: 'flex', background: COLORS.group }}>
+              <div style={{ flex: 1, height: 24, borderRadius: 0, overflow: 'hidden', display: 'flex', background: COLORS.group }}>
                 <div style={{ width: `${p.bruto ? (p.neto / p.bruto) * 100 : 0}%`, background: COLORS.ok }} />
                 <div style={{ width: `${p.bruto ? (p.comision / p.bruto) * 100 : 0}%`, background: COLORS.redSL }} />
               </div>
@@ -344,7 +344,7 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ ...lblXs }}>VENTAS POR {inf.toUpperCase()}</span>
-            <span style={{ fontFamily: OSWALD, fontSize: 9, fontWeight: 600, letterSpacing: '0.5px', padding: '1px 6px', borderRadius: 3, background: cur.nota === 'REAL' ? `${COLORS.ok}22` : `${COLORS.glovo}44`, color: cur.nota === 'REAL' ? COLORS.ok : COLORS.glovoDark }}>{cur.nota}</span>
+            <span style={{ fontFamily: OSWALD, fontSize: 9, fontWeight: 600, letterSpacing: '0.5px', padding: '1px 6px', borderRadius: 0, background: cur.nota === 'REAL' ? `${COLORS.ok}22` : `${COLORS.glovo}44`, color: cur.nota === 'REAL' ? COLORS.ok : COLORS.glovoDark }}>{cur.nota}</span>
             <span style={{ fontFamily: LEXEND, fontSize: 11, color: COLORS.mut }}>· {periodoStr}</span>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>

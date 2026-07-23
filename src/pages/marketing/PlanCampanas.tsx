@@ -49,8 +49,8 @@ const TABS = [
 
 const th: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, padding: '9px 10px', textAlign: 'left', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { fontFamily: LEX, fontSize: 13, color: INK, padding: '9px 10px', borderBottom: `2px solid ${INK}` }
-const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: `0.5px solid ${COLORS.brd}`, background: COLORS.card, color: COLORS.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none' }
-const btnGhost: React.CSSProperties = { padding: '4px 10px', borderRadius: 6, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
+const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 0, border: `0.5px solid ${COLORS.brd}`, background: COLORS.card, color: COLORS.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none' }
+const btnGhost: React.CSSProperties = { padding: '4px 10px', borderRadius: 0, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
 
 const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
 const iso = (d: Date) => d.toISOString().slice(0, 10)
@@ -66,7 +66,7 @@ function KpiCard({ label, value, sub, color, first }: { label: string; value: st
   )
 }
 function Pill({ text, bg, txt }: { text: string; bg: string; txt?: string }) {
-  return <span style={{ fontSize: 10, fontFamily: OSW, letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 4, background: bg, color: txt ?? BLANCO, textTransform: 'uppercase' }}>{text}</span>
+  return <span style={{ fontSize: 10, fontFamily: OSW, letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 0, background: bg, color: txt ?? BLANCO, textTransform: 'uppercase' }}>{text}</span>
 }
 function Bar({ pct, color, h = 8 }: { pct: number; color: string; h?: number }) {
   return (
@@ -265,7 +265,7 @@ export default function PlanCampanas() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {alertas.map((a, i) => {
               const col = a.sev === 'urgente' ? COLORS.err : a.sev === 'aviso' ? COLORS.warn : COLORS.ok
-              return <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: LEX, fontSize: 13, color: INK }}><span style={{ width: 8, height: 8, borderRadius: 4, background: col, flexShrink: 0 }} />{a.txt}</div>
+              return <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: LEX, fontSize: 13, color: INK }}><span style={{ width: 8, height: 8, borderRadius: 0, background: col, flexShrink: 0 }} />{a.txt}</div>
             })}
           </div>
         </Papel>
@@ -315,7 +315,7 @@ function TabResumen({ tot, porCanal, mesData, porMarca }: any) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
               {tipoSegs.map(s => (
                 <div key={s.label} style={{ fontFamily: LEX, fontSize: 12, color: COLORS.sec }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: s.color, marginRight: 6 }} />{s.label}</span><b style={{ color: COLORS.pri }}>{fmtEur(s.value)}</b></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 0, background: s.color, marginRight: 6 }} />{s.label}</span><b style={{ color: COLORS.pri }}>{fmtEur(s.value)}</b></div>
                 </div>
               ))}
             </div>
@@ -328,7 +328,7 @@ function TabResumen({ tot, porCanal, mesData, porMarca }: any) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
               {canalSegs.sort((a, b) => b.value - a.value).map(s => (
                 <div key={s.label} style={{ fontFamily: LEX, fontSize: 12, color: COLORS.sec }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: s.color, marginRight: 6 }} />{s.label}</span><b style={{ color: COLORS.pri }}>{fmtEur(s.value)}</b></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 0, background: s.color, marginRight: 6 }} />{s.label}</span><b style={{ color: COLORS.pri }}>{fmtEur(s.value)}</b></div>
                 </div>
               ))}
             </div>
@@ -451,8 +451,8 @@ function TabCronograma({ camp }: { camp: Campana[] }) {
                 <div style={{ width: 200, flexShrink: 0, fontFamily: LEX, fontSize: 12, color: COLORS.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   <span style={{ color: CANAL_TXT[c.canal] || CANAL_COLOR[c.canal], fontWeight: 600 }}>{c.marca || 'Multi'}</span> <span style={{ color: GRIS }}>· {c.producto || c.tipo}</span>
                 </div>
-                <div style={{ flex: 1, position: 'relative', height: 24, background: COLORS.group, borderRadius: 6 }}>
-                  <div style={{ position: 'absolute', left: `${x1}%`, width: `${Math.max(4, x2 - x1)}%`, top: 2, bottom: 2, background: CANAL_COLOR[c.canal] || COLORS.mut, borderRadius: 5, display: 'flex', alignItems: 'center', paddingLeft: 8, overflow: 'hidden', opacity: c.estado === 'pausada' ? 0.4 : 1 }} title={`${c.nombre} · ${fmtEur(Number(c.presupuesto))} · ${c.estado}`}>
+                <div style={{ flex: 1, position: 'relative', height: 24, background: COLORS.group, borderRadius: 0 }}>
+                  <div style={{ position: 'absolute', left: `${x1}%`, width: `${Math.max(4, x2 - x1)}%`, top: 2, bottom: 2, background: CANAL_COLOR[c.canal] || COLORS.mut, borderRadius: 0, display: 'flex', alignItems: 'center', paddingLeft: 8, overflow: 'hidden', opacity: c.estado === 'pausada' ? 0.4 : 1 }} title={`${c.nombre} · ${fmtEur(Number(c.presupuesto))} · ${c.estado}`}>
                     <span style={{ fontFamily: OSW, fontSize: 9, color: CANAL_TXT[c.canal] || BLANCO, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || c.tipo}</span>
                   </div>
                 </div>

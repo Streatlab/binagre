@@ -288,9 +288,9 @@ export default function Conciliacion({ periodoExterno }: { periodoExterno?: { de
       />
 
       {ultimaPropagacion && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: INK, color: BLANCO, borderRadius: 10, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14, zIndex: 200, fontFamily: 'Lexend, sans-serif', fontSize: 13, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: INK, color: BLANCO, borderRadius: 0, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14, zIndex: 200, fontFamily: 'Lexend, sans-serif', fontSize: 13, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
           <span>{ultimaPropagacion.length} movimiento{ultimaPropagacion.length > 1 ? 's' : ''} categorizados</span>
-          <button onClick={handleDeshacerPropagacion} style={{ background: LIMA, color: INK, border: 'none', borderRadius: 6, padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600 }}>Deshacer</button>
+          <button onClick={handleDeshacerPropagacion} style={{ background: LIMA, color: INK, border: 'none', borderRadius: 0, padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600 }}>Deshacer</button>
           <button onClick={() => setUltimaPropagacion(null)} style={{ background: 'transparent', color: 'var(--sl-text-muted)', border: 'none', fontSize: 16, cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
         </div>
       )}

@@ -366,12 +366,12 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
   }
 
   const lbl: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 6, display: 'block' }
-  const inp: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${T.brd}`, background: T.inp, color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
+  const inp: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 0, border: `1px solid ${T.brd}`, background: T.inp, color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
   const ta = (lines = 5): React.CSSProperties => ({ ...inp, minHeight: lines * 22, resize: 'vertical' })
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, padding: 16, overflowY: 'auto' }}>
-      <div onMouseDown={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 14, width: 'min(720px, 100%)', margin: '24px 0', border: `1px solid ${T.brd}`, borderTop: `4px solid ${data.color ?? GRANATE}` }}>
+      <div onMouseDown={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 0, width: 'min(720px, 100%)', margin: '24px 0', border: `1px solid ${T.brd}`, borderTop: `4px solid ${data.color ?? GRANATE}` }}>
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '20px 24px', borderBottom: `1px solid ${T.brd}`, gap: 12 }}>
@@ -379,7 +379,7 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
             <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, color: T.pri, lineHeight: 1.2 }}>{esNuevo ? 'Nuevo puesto' : data.puesto}</div>
             {!esNuevo && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                <span style={{ padding: '3px 9px', borderRadius: 5, fontSize: 12, fontWeight: 600, background: asignado ? LIBRO_ESTADO_OK_BG : T.group, color: asignado ? VERDE : T.mut }}>{data.persona}</span>
+                <span style={{ padding: '3px 9px', borderRadius: 0, fontSize: 12, fontWeight: 600, background: asignado ? LIBRO_ESTADO_OK_BG : T.group, color: asignado ? VERDE : T.mut }}>{data.persona}</span>
                 <span style={{ fontSize: 12, color: T.sec }}>{data.area} · {dedicLabel(data)}</span>
                 {data.es_responsable && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: ORG_DORADO }}><Star size={12} fill={ORG_DORADO} />Responsable de área</span>}
               </div>
@@ -387,7 +387,7 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             {mode === 'view' && (
-              <button onClick={() => setMode('edit')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'transparent', color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}><Pencil size={13} />Editar</button>
+              <button onClick={() => setMode('edit')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 0, border: `1px solid ${T.brd}`, background: 'transparent', color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}><Pencil size={13} />Editar</button>
             )}
             <X size={22} style={{ cursor: 'pointer', color: T.mut }} onClick={onClose} />
           </div>
@@ -457,11 +457,11 @@ function DetalleCargo({ T, data, puestos, editInit, onClose, onSaved }: { T: any
         {mode === 'edit' && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderTop: `1px solid ${T.brd}` }}>
             {!esNuevo ? (
-              <button onClick={borrar} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'transparent', color: GRANATE, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}><Trash2 size={13} /> Eliminar</button>
+              <button onClick={borrar} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 0, border: `1px solid ${T.brd}`, background: 'transparent', color: GRANATE, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}><Trash2 size={13} /> Eliminar</button>
             ) : <span />}
             <div style={{ display: 'flex', gap: 8 }}>
-              {!esNuevo && <button onClick={() => setMode('view')} style={{ padding: '12px 16px', borderRadius: 8, border: `1px solid ${T.brd}`, background: 'transparent', color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>}
-              <button onClick={guardar} disabled={saving || !form.puesto} style={{ padding: '12px 20px', minHeight: 44, borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: saving || !form.puesto ? 'default' : 'pointer', opacity: saving || !form.puesto ? 0.5 : 1 }}>{saving ? 'Guardando…' : 'Guardar'}</button>
+              {!esNuevo && <button onClick={() => setMode('view')} style={{ padding: '12px 16px', borderRadius: 0, border: `1px solid ${T.brd}`, background: 'transparent', color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>}
+              <button onClick={guardar} disabled={saving || !form.puesto} style={{ padding: '12px 20px', minHeight: 44, borderRadius: 0, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: saving || !form.puesto ? 'default' : 'pointer', opacity: saving || !form.puesto ? 0.5 : 1 }}>{saving ? 'Guardando…' : 'Guardar'}</button>
             </div>
           </div>
         )}

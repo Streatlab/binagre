@@ -272,7 +272,7 @@ function Campo({
           background: T.inp,
           color: T.pri,
           border: `0.5px solid ${T.brd}`,
-          borderRadius: 6,
+          borderRadius: 0,
           fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : FONT.body,
           fontSize: 13,
           boxSizing: 'border-box',

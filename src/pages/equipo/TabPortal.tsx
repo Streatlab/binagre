@@ -190,7 +190,7 @@ export default function TabPortal() {
                         </td>
                         <td style={td}>
                           <span style={{
-                            padding: '3px 8px', borderRadius: 4, fontSize: 10,
+                            padding: '3px 8px', borderRadius: 0, fontSize: 10,
                             background: h.turno_tipo === 'comida' ? LIBRO_ESTADO_OK_BG : BADGE_PENDIENTE_BG,
                             color: h.turno_tipo === 'comida' ? VERDE : NAR,
                             fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase',
@@ -229,7 +229,7 @@ export default function TabPortal() {
                       <td style={{ ...td, fontSize: 12 }}>{s.fecha_inicio === s.fecha_fin ? s.fecha_inicio : `${s.fecha_inicio} → ${s.fecha_fin}`}</td>
                       <td style={td}>{TIPO_LABELS[s.tipo] ?? s.tipo}</td>
                       <td style={td}>
-                        <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', background: s.estado === 'aprobado' ? LIBRO_ESTADO_OK_BG : s.estado === 'rechazado' ? LIBRO_ESTADO_BAJA_BG : BADGE_PENDIENTE_BG, color: s.estado === 'aprobado' ? VERDE : s.estado === 'rechazado' ? GRANATE : NAR }}>
+                        <span style={{ padding: '3px 8px', borderRadius: 0, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', background: s.estado === 'aprobado' ? LIBRO_ESTADO_OK_BG : s.estado === 'rechazado' ? LIBRO_ESTADO_BAJA_BG : BADGE_PENDIENTE_BG, color: s.estado === 'aprobado' ? VERDE : s.estado === 'rechazado' ? GRANATE : NAR }}>
                           {s.estado}
                         </span>
                       </td>
@@ -295,7 +295,7 @@ export default function TabPortal() {
                 href={`https://drive.google.com/drive/folders/${empleado.drive_folder_id}`}
                 target="_blank"
                 rel="noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, background: INK, border: `1px solid ${T.brd}`, color: AZUL_CL, textDecoration: 'none', fontFamily: FONT.body, fontSize: 13 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 0, background: INK, border: `1px solid ${T.brd}`, color: AZUL_CL, textDecoration: 'none', fontFamily: FONT.body, fontSize: 13 }}
               >
                 Abrir carpeta Drive
               </a>

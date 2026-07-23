@@ -309,8 +309,8 @@ export default function PanelDireccion() {
   function renderBarraProgreso(pct: number) {
     const color = pct >= 80 ? VERDE : pct >= 50 ? LIMA : GRANATE
     return (
-      <div style={{ height: 8, background: 'var(--sl-border)', borderRadius: 4, marginTop: 8 }}>
-        <div style={{ height: 8, width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 4, transition: 'width 0.4s' }} />
+      <div style={{ height: 8, background: 'var(--sl-border)', borderRadius: 0, marginTop: 8 }}>
+        <div style={{ height: 8, width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 0, transition: 'width 0.4s' }} />
       </div>
     )
   }
@@ -439,11 +439,11 @@ export default function PanelDireccion() {
           <div style={{ marginTop: 8 }}>
             <div style={mutedStyle}>Ventas mes: <span style={{ color: 'var(--sl-btn-cancel-text)' }}>{fmtEur(ventasMes)}</span></div>
             <div style={{ ...mutedStyle, marginTop: 3 }}>Objetivo: <span style={{ color: 'var(--sl-btn-cancel-text)' }}>{fmtEur(objetivoMensual)}</span></div>
-            <div style={{ height: 5, background: 'var(--sl-border)', borderRadius: 3, marginTop: 6 }}>
+            <div style={{ height: 5, background: 'var(--sl-border)', borderRadius: 0, marginTop: 6 }}>
               <div style={{
                 height: 5,
                 width: `${Math.min(objetivoMensual > 0 ? (ventasMes / objetivoMensual) * 100 : 0, 100)}%`,
-                background: GRANATE, borderRadius: 3,
+                background: GRANATE, borderRadius: 0,
               }} />
             </div>
           </div>

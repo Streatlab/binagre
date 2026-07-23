@@ -363,7 +363,7 @@ export default function ListaCompra() {
                       <td style={{ ...tdCmp(T), color: T.pri }}>{g.nombre} <span style={{ color: T.mut, fontSize: 11 }}>/{g.unidad}</span></td>
                       <td style={{ ...tdCmp(T), color: T.mut }}>{PROVEEDOR_LABEL[g.prov]}</td>
                       <td style={{ ...tdCmp(T), textAlign: 'right' }}>
-                        <span style={{ background: g.origen === 'sin' ? (GRANATE + '18') : (COBERTURA_NARANJA + '18'), color: g.origen === 'sin' ? GRANATE : COBERTURA_NARANJA, borderRadius: 6, padding: '2px 8px', fontFamily: FONT.heading, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        <span style={{ background: g.origen === 'sin' ? (GRANATE + '18') : (COBERTURA_NARANJA + '18'), color: g.origen === 'sin' ? GRANATE : COBERTURA_NARANJA, borderRadius: 0, padding: '2px 8px', fontFamily: FONT.heading, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                           {g.origen === 'sin' ? 'sin precio' : 'escandallo'}
                         </span>
                       </td>
@@ -423,7 +423,7 @@ export default function ListaCompra() {
                           {it.cheaper === 'empate' ? (
                             <span style={{ color: T.mut, fontSize: 12 }}>igual</span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: COBERTURA_VERDE + '18', color: COBERTURA_VERDE, borderRadius: 6, padding: '2px 8px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '0.04em' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: COBERTURA_VERDE + '18', color: COBERTURA_VERDE, borderRadius: 0, padding: '2px 8px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '0.04em' }}>
                               {merGana ? 'Mercadona' : 'Alcampo'} · −{fmtPct(it.ahorroPct)}
                             </span>
                           )}
@@ -535,9 +535,9 @@ export default function ListaCompra() {
 
 /* ═══ STYLES ═══ */
 
-const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }
-const btnGhost: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '8px 14px', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer', letterSpacing: '0.04em' }
-const inputSt = (T: TokenSet): React.CSSProperties => ({ background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', outline: 'none' })
+const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 0, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }
+const btnGhost: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 0, padding: '8px 14px', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer', letterSpacing: '0.04em' }
+const inputSt = (T: TokenSet): React.CSSProperties => ({ background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', outline: 'none' })
 const chip = (T: TokenSet, active: boolean): React.CSSProperties => ({ background: active ? GRANATE : 'transparent', color: active ? BLANCO : 'var(--sl-text-secondary)', border: `0.5px solid ${active ? GRANATE : 'var(--sl-border)'}`, borderRadius: 999, padding: '6px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '0.04em', cursor: 'pointer', whiteSpace: 'nowrap' })
 const thPap = (T: TokenSet): React.CSSProperties => ({ padding: '10px 14px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', color: T.mut, fontWeight: 400, textAlign: 'left' })
 const tdPap = (T: TokenSet): React.CSSProperties => ({ padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri })

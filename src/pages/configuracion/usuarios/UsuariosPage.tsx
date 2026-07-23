@@ -148,7 +148,7 @@ export default function UsuariosPage() {
     return (
       <PantallaCantera embedded>
         <ModTitle>Usuarios</ModTitle>
-        <div style={{ padding: 16, background: `${GRANATE}20`, color: GRANATE, borderRadius: 10, fontFamily: LEX }}>{error}</div>
+        <div style={{ padding: 16, background: `${GRANATE}20`, color: GRANATE, borderRadius: 0, fontFamily: LEX }}>{error}</div>
       </PantallaCantera>
     )
   }
@@ -362,7 +362,7 @@ function RolPill({ rol, isDark }: { rol: Rol | null; isDark: boolean }) {
       style={{
         display: 'inline-flex',
         padding: '5px 14px',
-        borderRadius: 5,
+        borderRadius: 0,
         fontSize: 11,
         letterSpacing: '0.06em',
         fontWeight: 600,

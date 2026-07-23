@@ -277,7 +277,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
                       onClick={() => onVincular(p.id, sugerencia.receta.id)}
                       title={`Similitud ${Math.round(sugerencia.score * 100)}%`}
                       style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 4,
+                        display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 0,
                         fontSize: 11, fontFamily: FONT.body, fontStyle: 'normal', cursor: 'pointer',
                         background: `${COLOR_AMARILLO}22`, color: COLOR_AMARILLO, border: `1px solid ${COLOR_AMARILLO}55`,
                       }}
@@ -286,7 +286,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
                     </button>
                   ) : (
                     <span style={{
-                      display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 10,
+                      display: 'inline-block', padding: '2px 8px', borderRadius: 0, fontSize: 10,
                       fontFamily: FONT.heading, letterSpacing: '0.5px', textTransform: 'uppercase',
                       background: `${COLOR_AMARILLO}33`, color: COLOR_AMARILLO,
                     }}>
@@ -313,7 +313,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
                 </td>
                 <td style={tdStyle}>
                   <span style={{
-                    display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11,
+                    display: 'inline-block', padding: '2px 8px', borderRadius: 0, fontSize: 11,
                     fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase',
                     background: p.activo ? VERDE + '33' : 'var(--sl-hover)',
                     color: p.activo ? VERDE : T.mut,
@@ -324,13 +324,13 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
                 <td style={{ ...tdStyle, display: 'flex', gap: 6 }}>
                   <button
                     onClick={() => onEdit(p.id)}
-                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '8px 12px', minHeight: 36, borderRadius: 4, cursor: 'pointer', fontFamily: FONT.body }}
+                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '8px 12px', minHeight: 36, borderRadius: 0, cursor: 'pointer', fontFamily: FONT.body }}
                   >
                     Editar
                   </button>
                   <button
                     onClick={() => onToggle(p.id, p.activo)}
-                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '8px 12px', minHeight: 36, borderRadius: 4, cursor: 'pointer', fontFamily: FONT.body }}
+                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '8px 12px', minHeight: 36, borderRadius: 0, cursor: 'pointer', fontFamily: FONT.body }}
                   >
                     {p.activo ? 'Pausar' : 'Activar'}
                   </button>
@@ -484,7 +484,7 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
   }
   const labelStyle: CSSProperties = { fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 4, display: 'block' }
   const inputStyle: CSSProperties = {
-    background: 'var(--sl-input-edit)', border: `1px solid ${T.brd}`, borderRadius: 6,
+    background: 'var(--sl-input-edit)', border: `1px solid ${T.brd}`, borderRadius: 0,
     color: T.pri, fontFamily: FONT.body, fontSize: 13,
     padding: '10px 10px', minHeight: 42, width: '100%', boxSizing: 'border-box',
   }

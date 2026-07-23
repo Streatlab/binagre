@@ -336,7 +336,7 @@ function PTooltip({ active, payload }: { active?: boolean; payload?: Array<{ pay
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 8, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 0, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 13, marginBottom: 2 }}>{d.name}</div>
       <div>{fmtEur(d.valor)}</div>
       <div>Acumulado: {fmtDec(d.acum)}%</div>

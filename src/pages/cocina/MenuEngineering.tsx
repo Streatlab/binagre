@@ -146,7 +146,7 @@ const lblSm: React.CSSProperties = { ...lbl, fontSize: 11, letterSpacing: 1.5 }
 function Pill({ active, color, children, onClick }: { active: boolean; color: string; children: React.ReactNode; onClick: () => void }) {
   return (
     <button onClick={onClick} style={{
-      padding: '5px 12px', borderRadius: 7,
+      padding: '5px 12px', borderRadius: 0,
       border: active ? 'none' : `0.5px solid ${COLORS.brd}`,
       background: active ? color : COLORS.card,
       color: active ? BLANCO : COLORS.sec,
@@ -413,7 +413,7 @@ export default function MenuEngineering() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {sinEnlazarLista.slice(0, 8).map(({ row, nombre, sugerencia }) => (
-              <div key={row.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: BLANCO, border: `0.5px solid ${PARETO_WARN_BORDER}`, borderRadius: 8, padding: '6px 10px' }}>
+              <div key={row.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: BLANCO, border: `0.5px solid ${PARETO_WARN_BORDER}`, borderRadius: 0, padding: '6px 10px' }}>
                 <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={nombre}>
                   {nombre} <span style={{ color: PARETO_WARN_MUT }}>· {fmtEur(Number(row.euros ?? 0))}</span>
                 </div>
@@ -422,7 +422,7 @@ export default function MenuEngineering() {
                     onClick={() => vincular(row.id, sugerencia.receta.id)}
                     disabled={vinculando === row.id}
                     title={`Similitud ${Math.round(sugerencia.score * 100)}%`}
-                    style={{ flexShrink: 0, background: COLORS.accent, color: BLANCO, border: 'none', borderRadius: 6, padding: '4px 10px', fontFamily: FONT.body, fontSize: 11, cursor: vinculando === row.id ? 'default' : 'pointer', opacity: vinculando === row.id ? 0.6 : 1 }}
+                    style={{ flexShrink: 0, background: COLORS.accent, color: BLANCO, border: 'none', borderRadius: 0, padding: '4px 10px', fontFamily: FONT.body, fontSize: 11, cursor: vinculando === row.id ? 'default' : 'pointer', opacity: vinculando === row.id ? 0.6 : 1 }}
                   >
                     ¿{sugerencia.receta.nombre}? · Vincular
                   </button>
@@ -431,7 +431,7 @@ export default function MenuEngineering() {
                     value=""
                     disabled={vinculando === row.id}
                     onChange={e => { if (e.target.value) vincular(row.id, e.target.value) }}
-                    style={{ flexShrink: 0, maxWidth: 180, fontFamily: FONT.body, fontSize: 11, border: `0.5px solid ${PARETO_WARN_BORDER}`, borderRadius: 6, padding: '4px 6px' }}
+                    style={{ flexShrink: 0, maxWidth: 180, fontFamily: FONT.body, fontSize: 11, border: `0.5px solid ${PARETO_WARN_BORDER}`, borderRadius: 0, padding: '4px 6px' }}
                   >
                     <option value="">Vincular a…</option>
                     {recetas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
@@ -457,7 +457,7 @@ export default function MenuEngineering() {
               <CartesianGrid strokeDasharray="3 3" stroke={COLORS.group} />
               <XAxis dataKey="mes" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} />
               <YAxis tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} />
-              <Tooltip contentStyle={{ fontFamily: FONT.body, fontSize: 12, borderRadius: 8 }} />
+              <Tooltip contentStyle={{ fontFamily: FONT.body, fontSize: 12, borderRadius: 0 }} />
               <Line type="monotone" dataKey="uds" stroke={COLORS.accent} strokeWidth={2} dot={{ r: 3 }} name="Unidades" />
             </LineChart>
           </ResponsiveContainer>
@@ -570,7 +570,7 @@ function BTooltip({ active, payload }: { active?: boolean; payload?: Array<{ pay
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 8, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 0, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 13, marginBottom: 2 }}>{d.nombre}</div>
       <div>Popularidad: {fmtDec(d.mix)}% {d.estimado && <span style={{ color: COLORS.warn }}>(est.)</span>}</div>
       <div>Margen: {fmtEur(d.margen)} ({fmtDec(d.margenPct * 100)}%)</div>
@@ -658,7 +658,7 @@ function PTooltip({ active, payload }: { active?: boolean; payload?: Array<{ pay
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 8, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 0, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 13, marginBottom: 2 }}>{d.nombre}</div>
       <div>Food cost: {fmtDec(d.foodCostPct * 100)}%</div>
       <div>Margen pond.: {fmtEur(d.mcw)}</div>
@@ -766,7 +766,7 @@ function Omnes({ dishes }: { dishes: Dish[] }) {
           <span>{fmtEur(t.rango[0])} – {fmtEur(t.rango[1])}</span>
           <span style={{ color: col, fontWeight: 600 }}>{fmtDec(t.pct)}%</span>
         </div>
-        <div style={{ height: 8, borderRadius: 4, background: COLORS.group, overflow: 'hidden' }}>
+        <div style={{ height: 8, borderRadius: 0, background: COLORS.group, overflow: 'hidden' }}>
           <div style={{ width: `${Math.min(100, t.pct)}%`, height: '100%', background: col }} />
         </div>
       </div>
@@ -822,7 +822,7 @@ function Omnes({ dishes }: { dishes: Dish[] }) {
             <CartesianGrid strokeDasharray="3 3" stroke={COLORS.group} />
             <XAxis dataKey="tramo" tick={{ fontFamily: FONT.body, fontSize: 10, fill: COLORS.sec }} />
             <YAxis tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} tickFormatter={(v: number) => `${v}%`} />
-            <Tooltip contentStyle={{ fontFamily: FONT.body, fontSize: 12, borderRadius: 8 }} />
+            <Tooltip contentStyle={{ fontFamily: FONT.body, fontSize: 12, borderRadius: 0 }} />
             <Legend wrapperStyle={{ fontFamily: FONT.body, fontSize: 12 }} />
             <Bar dataKey="Oferta" fill={COLORS.sec} radius={[3, 3, 0, 0]} />
             <Bar dataKey="Demanda" fill={COLORS.accent} radius={[3, 3, 0, 0]} />
@@ -868,7 +868,7 @@ function Atkinson({ dishes }: { dishes: Dish[] }) {
               <span style={{ fontFamily: FONT.body, fontSize: 12, color: r.margen >= 0 ? COLORS.sec : COLORS.err }}>{fmtEur(r.margen)}</span>
               <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.pri, fontWeight: 600 }}>{fmtEur(r.contribTotal)}</span>
               <span style={{ position: 'relative', fontFamily: FONT.body, fontSize: 11, color: COLORS.mut }}>
-                <span style={{ position: 'absolute', inset: 0, width: `${Math.min(100, acum)}%`, background: `${COLORS.accent}22`, borderRadius: 3 }} />
+                <span style={{ position: 'absolute', inset: 0, width: `${Math.min(100, acum)}%`, background: `${COLORS.accent}22`, borderRadius: 0 }} />
                 <span style={{ position: 'relative' }}>{fmtDec(acum)}%</span>
               </span>
             </div>
@@ -914,7 +914,7 @@ function Taylor({ dishes }: { dishes: Dish[] }) {
           <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '28px 1.6fr 1fr 64px', gap: 10, alignItems: 'center' }}>
             <span style={{ fontFamily: FONT.heading, fontSize: 13, color: COLORS.mut, textAlign: 'right' }}>{i + 1}</span>
             <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.pri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre}{r.estimado ? ' ·est' : ''}</span>
-            <div style={{ height: 10, borderRadius: 5, background: COLORS.group, overflow: 'hidden' }}>
+            <div style={{ height: 10, borderRadius: 0, background: COLORS.group, overflow: 'hidden' }}>
               <div style={{ width: `${r.score}%`, height: '100%', background: colorScore(r.score) }} />
             </div>
             <span style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: colorScore(r.score), textAlign: 'right' }}>{fmtDec(r.score)}</span>

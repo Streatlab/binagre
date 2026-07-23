@@ -351,7 +351,7 @@ function TarjetaEsquema({ esquema: e, T, isDark, onEdit, onChange }: { esquema: 
   const archivado = e.estado !== 'vigente'
 
   return (
-    <div className="print-card esquema-card" style={{ background: T.card, border: '2px solid var(--m-acento)', borderRadius: 9, overflow: 'hidden', position: 'relative', opacity: archivado ? 0.7 : 1 }}>
+    <div className="print-card esquema-card" style={{ background: T.card, border: '2px solid var(--m-acento)', borderRadius: 0, overflow: 'hidden', position: 'relative', opacity: archivado ? 0.7 : 1 }}>
       <div className="no-print" style={{ position: 'absolute', top: 3, right: 3, display: 'flex', gap: 2 }}>
         {!archivado && <button onClick={onEdit} style={iconBtn(T)} title="Editar"><Pencil size={12} /></button>}
         {!archivado
@@ -504,7 +504,7 @@ function ModalFicha({ T, esquema, gamaDefault, gamas, onClose, onSaved }: { T: R
         </div>
 
         {/* Dictado SOLO ingredientes */}
-        <div style={{ border: `0.5px dashed ${T.brd}`, borderRadius: 10, padding: 12, marginBottom: 16 }}>
+        <div style={{ border: `0.5px dashed ${T.brd}`, borderRadius: 0, padding: 12, marginBottom: 16 }}>
           <label style={lblStyle(T)}>Dictar ingredientes (se añaden a la lista, no tocan el nombre)</label>
           <textarea value={dictado} onChange={ev => setDictado(ev.target.value)} rows={2}
             placeholder="Ej: tres trozos de pollo crujiente, arroz blanco, tres minutos microondas, salsa de limón, furikake"
@@ -589,11 +589,11 @@ function ModalGamas({ T, gamas, onClose, onSaved }: { T: ReturnType<typeof useTh
 const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: `2px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
 const btnGhost = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: T.sec, border: `2px solid ${INK}`, borderRadius: 0, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' })
 const lblStyle = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ display: 'block', fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 5 })
-const inputStyle = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ width: '100%', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' })
-const miniBtn = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', fontSize: 10, lineHeight: 1, padding: '2px 5px', width: 24 })
-const iconBtn = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' })
+const inputStyle = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ width: '100%', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' })
+const miniBtn = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 0, color: T.sec, cursor: 'pointer', fontSize: 10, lineHeight: 1, padding: '2px 5px', width: 24 })
+const iconBtn = (T: ReturnType<typeof useTheme>['T']): React.CSSProperties => ({ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 0, color: T.sec, cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' })
 const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }
-const modalBox: React.CSSProperties = { borderRadius: 16, width: 600, maxWidth: '100%', maxHeight: '90vh', overflow: 'auto', padding: 24 }
+const modalBox: React.CSSProperties = { borderRadius: 0, width: 600, maxWidth: '100%', maxHeight: '90vh', overflow: 'auto', padding: 24 }
 
 // Vista: masonry uniforme (tarjetas mismo ancho, fluyen sin huecos). Impresión: PDF (jsPDF) generado en construirEsquemasPDF.
 const PRINT_CSS = `

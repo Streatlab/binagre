@@ -66,10 +66,10 @@ export default function TabCorreoOcr() {
     await supabase.from('reglas_correo_ocr').delete().eq('id', id); cargar()
   }
 
-  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
-  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
-  const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
-  const chip = (activo: boolean): React.CSSProperties => ({ padding: '8px 14px', borderRadius: 8, border: `1px solid ${activo ? GRANATE : T.brd}`, background: activo ? GRANATE : 'transparent', color: activo ? BLANCO : T.sec, fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' })
+  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
+  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 0, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
+  const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 0, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
+  const chip = (activo: boolean): React.CSSProperties => ({ padding: '8px 14px', borderRadius: 0, border: `1px solid ${activo ? GRANATE : T.brd}`, background: activo ? GRANATE : 'transparent', color: activo ? BLANCO : T.sec, fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' })
 
   if (loading) return (
     <PantallaCantera embedded>
@@ -142,7 +142,7 @@ export default function TabCorreoOcr() {
                 <td style={{ padding: '10px 14px', color: T.pri }}>{r.remitente ?? '—'}</td>
                 <td style={{ padding: '10px 14px', color: T.sec }}>{r.asunto_contiene ?? '—'}</td>
                 <td style={{ padding: '10px 14px' }}>
-                  <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: r.destino === 'factura' ? 'rgba(176,29,35,0.12)' : 'rgba(6,193,103,0.12)', color: r.destino === 'factura' ? GRANATE : VERDE }}>
+                  <span style={{ padding: '3px 10px', borderRadius: 0, fontSize: 12, fontWeight: 600, background: r.destino === 'factura' ? 'rgba(176,29,35,0.12)' : 'rgba(6,193,103,0.12)', color: r.destino === 'factura' ? GRANATE : VERDE }}>
                     {r.destino === 'factura' ? 'Facturas' : 'Resúmenes ventas'}
                   </span>
                 </td>
