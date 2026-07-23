@@ -1,8 +1,7 @@
-import { BLANCO, GRANATE } from '@/styles/neobrutal'
+import { GRANATE, INK, CREMA, GRIS, BLANCO, OSW, LEX } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT } from '@/styles/tokens'
-import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
+import { PantallaCantera, HeroCantera, Papel, SHADOW_DURA } from '@/components/kit/cantera'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
 import { StatusTag } from '@/components/configuracion/StatusTag'
 
@@ -18,7 +17,6 @@ interface Prov {
 }
 
 export default function TabProveedores() {
-  const { T, isDark } = useTheme()
   const [provs, setProvs] = useState<Prov[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -89,36 +87,44 @@ export default function TabProveedores() {
     await refetch(); close()
   }
 
-  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
+  if (loading) {
+    return (
+      <PantallaCantera embedded>
+        <Papel ceja={GRANATE}><div style={{ padding: 12, fontFamily: LEX, fontSize: 13 }}>Cargando…</div></Papel>
+      </PantallaCantera>
+    )
+  }
   if (error) {
     return (
-      <div style={{ padding: 16, background: `${GRANATE}20`, color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>
-        {error}
-      </div>
+      <PantallaCantera embedded>
+        <Papel ceja={GRANATE}><div style={{ padding: 12, fontFamily: LEX, fontSize: 13, color: GRANATE, fontWeight: 600 }}>{error}</div></Papel>
+      </PantallaCantera>
     )
   }
 
+  const activos = provs.filter(p => p.activo).length
+
   const th: React.CSSProperties = {
-    padding: '10px 14px',
-    fontFamily: FONT.heading,
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: '1.3px',
-    color: T.mut,
-    fontWeight: 500,
-    background: T.bg,
-    borderBottom: `1px solid ${T.brd}`,
-    textAlign: 'left',
+    padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px',
+    textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'left',
   }
-  const td: React.CSSProperties = { padding: '12px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
+  const td: React.CSSProperties = { padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}` }
 
   return (
-    <>
-      <ConfigGroupCard title="Proveedores" subtitle={`${provs.length}`}>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular="Así tienes organizados tus proveedores"
+        etiquetaDato="Proveedores dados de alta"
+        cifra={provs.length}
+        resumen={`${activos} activos de ${provs.length} en total.`}
+      />
+
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>
+              <tr style={{ background: INK }}>
                 <th style={th}>ABV</th>
                 <th style={th}>Categoría</th>
                 <th style={th}>Nombre</th>
@@ -129,38 +135,20 @@ export default function TabProveedores() {
             <tbody>
               {provs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: '32px 22px', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>
+                  <td colSpan={5} style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13, fontWeight: 600 }}>
                     Sin proveedores.
                   </td>
                 </tr>
               ) : provs.map(p => (
-                <tr
-                  key={p.id}
-                  onClick={() => open(p)}
-                  style={{ borderBottom: `0.5px solid ${T.brd}`, cursor: 'pointer', transition: 'background 0.15s' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                >
+                <tr key={p.id} onClick={() => open(p)} style={{ cursor: 'pointer' }}>
                   <td style={td}>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        padding: '4px 10px',
-                        background: isDark ? T.card : T.pri,
-                        color: isDark ? T.pri : T.bg,
-                        borderRadius: 6,
-                        fontSize: 11,
-                        letterSpacing: '0.8px',
-                        fontWeight: 600,
-                        fontFamily: FONT.heading,
-                      }}
-                    >
+                    <span style={{ display: 'inline-block', padding: '3px 9px', background: INK, color: CREMA, fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.8px' }}>
                       {p.abv}
                     </span>
                   </td>
-                  <td style={{ ...td, color: T.sec }}>{p.categoria ?? '—'}</td>
+                  <td style={td}>{p.categoria ?? '—'}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{nomDe(p)}</td>
-                  <td style={{ ...td, color: T.sec }}>{marcaDe(p) || '—'}</td>
+                  <td style={td}>{marcaDe(p) || '—'}</td>
                   <td style={td}>
                     <StatusTag variant={p.activo ? 'ok' : 'off'}>{p.activo ? 'Activo' : 'Inactivo'}</StatusTag>
                   </td>
@@ -169,33 +157,17 @@ export default function TabProveedores() {
             </tbody>
           </table>
         </div>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            padding: '14px 22px 18px',
-            borderTop: `0.5px solid ${T.brd}`,
-            background: T.bg,
-          }}
-        >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 16px', borderTop: `2px solid ${INK}` }}>
           <button
             onClick={() => open()}
             style={{
-              padding: '7px 14px',
-              borderRadius: 6,
-              border: 'none',
-              background: GRANATE,
-              color: BLANCO,
-              fontFamily: FONT.heading,
-              fontSize: 11,
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-              fontWeight: 600,
-              cursor: 'pointer',
+              padding: '8px 14px', border: `2px solid ${INK}`, boxShadow: SHADOW_DURA,
+              background: GRANATE, color: BLANCO, fontFamily: OSW, fontSize: 12,
+              letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 700, cursor: 'pointer',
             }}
           >+ Nuevo proveedor</button>
         </div>
-      </ConfigGroupCard>
+      </Papel>
 
       {(editing || creating) && (
         <EditModal
@@ -216,6 +188,6 @@ export default function TabProveedores() {
           </Field>
         </EditModal>
       )}
-    </>
+    </PantallaCantera>
   )
 }

@@ -1,10 +1,5 @@
-import { BLANCO, BORDE_SUAVE, GRIS, INK, LIMA, NAR, ROJO_S } from '@/styles/neobrutal'
-import {
-  ERROR_BANNER_BG, ERROR_BANNER_BORDE, PANEL_SIDEBAR_BG, PANEL_MODAL_BG,
-  CALENDARIO_FESTIVO_BORDE, CALENDARIO_VACACIONES_BORDE, APRENDIZAJES_SEC, ESTIMADO_BADGE_TXT, ME_CABALLO,
-} from '@/styles/palettes'
+import { BLANCO, GRIS, INK, LIMA, NAR, GRANATE, AMA, AMA_S, AZUL, AZUL_S, ROSA_S, OSW, LEX } from '@/styles/neobrutal'
 import { useState } from 'react'
-import { FONT } from '@/styles/tokens'
 import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
 import ModalTipoDia from './ModalTipoDia'
 
@@ -19,30 +14,30 @@ function toKey(d: Date): string {
 
 function cellStyle(tipo: TipoDia): React.CSSProperties {
   switch (tipo) {
-    case 'cerrado':     return { backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}` }
-    case 'festivo':     return { backgroundColor: PANEL_SIDEBAR_BG, border: `1px solid ${CALENDARIO_FESTIVO_BORDE}` }
-    case 'vacaciones':  return { backgroundColor: PANEL_MODAL_BG, border: `1px solid ${CALENDARIO_VACACIONES_BORDE}` }
-    case 'solo_comida': return { backgroundColor: INK, border: `1px solid ${LIMA}` }
-    case 'solo_cena':   return { backgroundColor: INK, border: `1px solid ${ME_CABALLO}` }
-    default:            return { backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}` }
+    case 'cerrado':     return { backgroundColor: ROSA_S, border: `2px solid ${GRANATE}` }
+    case 'festivo':     return { backgroundColor: AMA_S, border: `2px solid ${AMA}` }
+    case 'vacaciones':  return { backgroundColor: AZUL_S, border: `2px solid ${AZUL}` }
+    case 'solo_comida': return { backgroundColor: INK, border: `2px solid ${LIMA}` }
+    case 'solo_cena':   return { backgroundColor: INK, border: `2px solid ${NAR}` }
+    default:            return { backgroundColor: INK, border: `2px solid ${INK}` }
   }
 }
 
 function CellBadge({ tipo }: { tipo: TipoDia }) {
   if (tipo === 'solo_comida') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, backgroundColor: LIMA, color: INK, padding: '1px 4px', borderRadius: 3, letterSpacing: 0.5 }}>ALM</span>
+    <span style={{ fontSize: 9, fontFamily: OSW, fontWeight: 700, backgroundColor: LIMA, color: INK, padding: '1px 4px', letterSpacing: 0.5 }}>ALM</span>
   )
   if (tipo === 'solo_cena') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, backgroundColor: NAR, color: BLANCO, padding: '1px 4px', borderRadius: 3, letterSpacing: 0.5 }}>CENA</span>
+    <span style={{ fontSize: 9, fontFamily: OSW, fontWeight: 700, backgroundColor: NAR, color: BLANCO, padding: '1px 4px', letterSpacing: 0.5 }}>CENA</span>
   )
   if (tipo === 'cerrado') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, color: ROJO_S }}>CERRADO</span>
+    <span style={{ fontSize: 9, fontFamily: OSW, fontWeight: 700, color: GRANATE }}>CERRADO</span>
   )
   if (tipo === 'festivo') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, color: APRENDIZAJES_SEC }}>FEST</span>
+    <span style={{ fontSize: 9, fontFamily: OSW, fontWeight: 700, color: INK }}>FEST</span>
   )
   if (tipo === 'vacaciones') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, color: BLANCO }}>VAC</span>
+    <span style={{ fontSize: 9, fontFamily: OSW, fontWeight: 700, color: INK }}>VAC</span>
   )
   return null
 }
@@ -76,7 +71,7 @@ export default function MesGrid({ year, month }: Props) {
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
         {DIAS_SEMANA.map(d => (
-          <div key={d} style={{ textAlign: 'center', fontFamily: FONT.heading, fontSize: 11, color: GRIS, padding: '4px 0', letterSpacing: 1 }}>
+          <div key={d} style={{ textAlign: 'center', fontFamily: OSW, fontWeight: 700, fontSize: 11, color: GRIS, padding: '4px 0', letterSpacing: 1 }}>
             {d}
           </div>
         ))}
@@ -94,7 +89,7 @@ export default function MesGrid({ year, month }: Props) {
               onClick={() => setModalFecha(dateStr)}
               style={{
                 ...cellStyle(tipo),
-                borderRadius: 6,
+                borderRadius: 0,
                 padding: '6px 4px',
                 cursor: 'pointer',
                 minHeight: 52,
@@ -107,9 +102,9 @@ export default function MesGrid({ year, month }: Props) {
               }}
             >
               <span style={{
-                fontFamily: FONT.body,
+                fontFamily: LEX,
                 fontSize: 13,
-                color: tipo === 'cerrado' ? ROJO_S : tipo === 'festivo' ? APRENDIZAJES_SEC : tipo === 'vacaciones' ? ESTIMADO_BADGE_TXT : BLANCO,
+                color: tipo === 'cerrado' ? GRANATE : tipo === 'festivo' ? INK : tipo === 'vacaciones' ? INK : BLANCO,
                 fontWeight: isToday ? 700 : 400,
               }}>
                 {day}

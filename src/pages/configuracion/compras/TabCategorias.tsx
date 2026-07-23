@@ -9,14 +9,22 @@
  */
 import EditorCategoriasIngredientes from '@/components/escandallo/EditorCategoriasIngredientes'
 import EditorListaConfigJson from '@/components/configuracion/EditorListaConfigJson'
+import { PantallaCantera, HeroCantera } from '@/components/kit/cantera'
 
 export default function TabCategorias() {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
-      <EditorCategoriasIngredientes />
-      <EditorListaConfigJson clave="categorias_recetas" titulo="Categorías de recetas" placeholder="Nueva categoría de receta..." />
-      <EditorListaConfigJson clave="categorias_eps" titulo="Categorías de EPS" placeholder="Nueva categoría de EPS..." />
-      <EditorListaConfigJson clave="categorias" titulo="Categorías (genérico, mermas)" placeholder="Nueva categoría..." />
-    </div>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular="Así tienes organizadas tus categorías"
+        resumen="Ingredientes, recetas, EPS y mermas: cada una con su propia lista de categorías."
+      />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
+        <EditorCategoriasIngredientes />
+        <EditorListaConfigJson clave="categorias_recetas" titulo="Categorías de recetas" placeholder="Nueva categoría de receta..." />
+        <EditorListaConfigJson clave="categorias_eps" titulo="Categorías de EPS" placeholder="Nueva categoría de EPS..." />
+        <EditorListaConfigJson clave="categorias" titulo="Categorías (genérico, mermas)" placeholder="Nueva categoría..." />
+      </div>
+    </PantallaCantera>
   )
 }
