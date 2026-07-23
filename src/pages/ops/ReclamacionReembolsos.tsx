@@ -341,7 +341,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
           </div>
 
           {verif && (
-            <div style={{ border: `3px solid ${INK}`, boxShadow: SHADOW, padding: "10px 14px", background: verif.encontrado ? VERDE : ROJO, color: BLANCO, fontFamily: LEX, fontSize: 13 }}>
+            <div style={{ border: `3px solid ${INK}`, padding: "10px 14px", background: verif.encontrado ? VERDE : ROJO, color: BLANCO, fontFamily: LEX, fontSize: 13 }}>
               {verif.encontrado ? (
                 <span><strong>Pedido encontrado</strong>{verif.marca ? ` · ${verif.marca}` : ""}{verif.fecha ? ` · ${fmtFechaCorta(verif.fecha)}` : ""}{verif.importe_pedido != null ? ` · pedido de ${fmtEur(verif.importe_pedido)}` : ""}. Vino en la factura de origen.</span>
               ) : (

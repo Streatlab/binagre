@@ -16,7 +16,7 @@ import { HeroCantera, PantallaCantera, SeccionLabel } from '@/components/kit/can
 
 const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
+const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD }
 
 type Tipo = 'Nómina' | 'RLC' | 'RNT' | 'Cuota autónomos' | 'Contrato' | 'Otro documento'
 

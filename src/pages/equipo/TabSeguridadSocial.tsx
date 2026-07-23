@@ -39,7 +39,7 @@ const TOLERANCIA_CUADRE = 0.5 // € — diferencias de céntimos por redondeo n
 
 const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
+const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD }
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
