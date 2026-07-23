@@ -351,9 +351,9 @@ export default function PanelDireccion() {
     ? alertas.slice(0, 4).map(a => a.texto)
     : ['Sin alertas activas']
   const fraseTop = alertas[0] ?? null
-  const fraseSignificado = fraseTop
-    ? (fraseTop.nivel === 'roja' ? 'peligro' : 'coste') as const
-    : 'logro' as const
+  const fraseSignificado: 'peligro' | 'coste' | 'logro' = fraseTop
+    ? (fraseTop.nivel === 'roja' ? 'peligro' : 'coste')
+    : 'logro'
   const fraseTexto = fraseTop
     ? fraseTop.texto
     : 'Semana sin alertas: ventas, conciliación y gastos fijos dentro de rango.'
