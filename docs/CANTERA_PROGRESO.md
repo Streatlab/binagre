@@ -61,13 +61,13 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [x] Rentabilidad · Por marca y canal (break-even)
 - [x] Rentabilidad · ROI por canal (héroe resultados, plancha mejor/peor/medio, frase)
 - [x] Rentabilidad · Por franja horaria
-- [ ] Tesorería · Calendario
-- [ ] Tesorería · Gastos fijos
+- [x] Tesorería · Calendario
+- [x] Tesorería · Gastos fijos
 - [ ] Tesorería · Fondo & reserva
-- [ ] Tesorería · Historial
-- [ ] Tesorería · 13 semanas
-- [ ] Tesorería · Escenarios
-- [ ] Tesorería · Salud financiera (fondo maniobra)
+- [x] Tesorería · Historial
+- [x] Tesorería · 13 semanas
+- [x] Tesorería · Escenarios
+- [x] Tesorería · Salud financiera (fondo maniobra)
 - [ ] Panel de alertas
 - [ ] Bandeja de pendientes
 
