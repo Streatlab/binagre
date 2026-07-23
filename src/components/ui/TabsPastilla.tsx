@@ -1,9 +1,10 @@
 import { BLANCO, INK } from '@/styles/neobrutal'
 /**
- * TabsPastilla — pestañas de navegación · CANTERA ALEGRE v1.0.
- * Hermanas de los desplegables de cabecera: mismo alto, mismo borde 2px, misma
- * Oswald mayúsculas y misma sombra dura de pulsable. La activa va en ROSA y se
- * "hunde" (translate + sin sombra); las inactivas en blanco con sombra.
+ * TabsPastilla — navegación primaria · CANTERA ALEGRE v4.
+ * UNA plancha segmentada: celdas blancas unidas por bordes internos, la activa
+ * en ROSA. Sombra suave (no negra). Cuanto más importante, más sólido: este es
+ * el único elemento con cuerpo de la cabecera; los filtros son planos y las
+ * subpestañas (SubTabs) van solo subrayadas.
  * En móvil (.movil-scope) se convierte en una tira deslizable: ver movil-scope.css.
  */
 
@@ -24,8 +25,8 @@ interface TabsPastillaProps {
 
 export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaProps) {
   return (
-    <div className="tabs-pastilla" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      {tabs.map(tab => {
+    <div className="tabs-pastilla" style={{ display: 'inline-flex', flexWrap: 'wrap', border: `2px solid ${INK}`, background: 'var(--sl-card, #FFFFFF)', boxShadow: '4px 4px 0 rgba(36,29,18,0.15)', maxWidth: '100%' }}>
+      {tabs.map((tab, idx) => {
         const active = tab.id === activeId
         return (
           <button
@@ -35,17 +36,16 @@ export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaP
             style={{
               fontFamily: OSW,
               fontWeight: 600,
-              fontSize: 13,
-              letterSpacing: '0.5px',
+              fontSize: 14,
+              letterSpacing: '0.6px',
               textTransform: 'uppercase',
-              padding: '9px 16px',
+              padding: '12px 22px',
               cursor: 'pointer',
-              border: `2px solid ${INK}`,
+              border: 'none',
+              borderLeft: idx > 0 ? `2px solid ${INK}` : 'none',
               borderRadius: 0,
-              background: active ? ROSA : 'var(--sl-card, #FFFFFF)',
+              background: active ? ROSA : 'transparent',
               color: active ? BLANCO : INK,
-              boxShadow: active ? 'none' : `3px 3px 0 ${INK}`,
-              transform: active ? 'translate(2px, 2px)' : 'none',
               display: 'inline-flex',
               alignItems: 'center',
               flex: '0 0 auto',
