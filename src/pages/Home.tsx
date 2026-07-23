@@ -189,7 +189,7 @@ export default function Home() {
 
       {/* FRANJA HOY EN VIVO — trasladada desde Panel Global · Resumen (23-jul).
           Autocontenida: lee del robot (v_vivo_*) y se refresca sola. */}
-      {enHorarioServicio() && <CardHoyEnVivo />}
+      {enHorarioServicio() && <CardHoyEnVivo pantalla="hoy" />}
 
       {/* HÉROE (amarillo · área Resumen/HOY) + tira de atención pegada.
           Habla de AYER y la semana: el hoy ya lo cuenta la franja en vivo. */}
