@@ -358,7 +358,7 @@ export default function Cashflow() {
           <div>
             <span style={eyebrow(BLANCO, INK)}>CASHFLOW · COBROS Y TESORERÍA</span>
             <div style={{ marginTop: 18 }}>
-              <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#ffffff99', marginBottom: 6 }}>POR COBRAR</div>
+              <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: `${BLANCO}99`, marginBottom: 6 }}>POR COBRAR</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
                 <div style={{ ...d('clamp(44px,6.8vw,92px)', BLANCO) }}>{nf0(porCobrarTotal)}</div>
                 {sim !== 0 && <span style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, color: AMA, letterSpacing: '0.5px', marginBottom: 14 }}>· simulación {sim > 0 ? '+' : ''}{sim}%</span>}
@@ -387,7 +387,7 @@ export default function Cashflow() {
         </div>
         {/* Simulador full-width debajo del grid */}
         <div style={{ borderTop: `4px solid ${INK}`, marginTop: 32, marginLeft: `-${PAD}`, marginRight: `-${PAD}`, padding: `14px ${PAD}`, background: OSC, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={eyebrow('#ffffff33', BLANCO)}>Simulador</span>
+          <span style={eyebrow(`${BLANCO}33`, BLANCO)}>Simulador</span>
           <div style={SUBC}>{simTabs.map(t => <button key={t.id} onClick={() => setSim(t.id)} style={sim === t.id ? subA : subI}>{t.label}</button>)}</div>
         </div>
       </section>

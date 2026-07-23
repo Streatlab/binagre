@@ -369,7 +369,7 @@ export default function InformesPanel() {
                     <td style={{ padding: 10 }}>
                       <span style={{
                         padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-                        background: e.estado === 'enviado' ? '#06C16720' : e.estado === 'fallido' ? '#B01D2320' : T.brd,
+                        background: e.estado === 'enviado' ? `${VERDE}20` : e.estado === 'fallido' ? `${GRANATE}20` : T.brd,
                         color: e.estado === 'enviado' ? VERDE : e.estado === 'fallido' ? GRANATE : T.mut,
                       }}>
                         {e.estado.toUpperCase()}

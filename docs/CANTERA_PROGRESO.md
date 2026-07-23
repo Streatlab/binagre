@@ -23,48 +23,48 @@ Solo capa visual: prohibido tocar queries, cálculos, Supabase, API, lógica.
 - [x] Panel Dirección
 
 ### Finanzas
-- [ ] Papeleo · Bandeja entrada
-- [ ] Papeleo · Facturas (OCR)
-- [ ] Papeleo · Conciliación
-- [ ] Papeleo · Gestor documental
-- [ ] Papeleo · Facturación
-- [ ] Papeleo · Gestoría
-- [ ] Ventas · Ventas
-- [ ] Ventas · Objetivos
-- [ ] Ventas · Ticket medio
-- [ ] Ventas · Repetición clientes
-- [ ] Resultados · Running
-- [ ] Resultados · P&G
-- [ ] Resultados · Estados financieros
-- [ ] Resultados · Evolución (análisis horiz/vert)
-- [ ] Rentabilidad · Punto de equilibrio
-- [ ] Rentabilidad · Por marca y canal (break-even)
-- [ ] Rentabilidad · ROI por canal
-- [ ] Rentabilidad · Por franja horaria
-- [ ] Tesorería · Calendario
-- [ ] Tesorería · Gastos fijos
-- [ ] Tesorería · Fondo & reserva
-- [ ] Tesorería · Historial
-- [ ] Tesorería · 13 semanas
-- [ ] Tesorería · Escenarios
-- [ ] Tesorería · Salud financiera (fondo maniobra)
-- [ ] Panel de alertas
-- [ ] Bandeja de pendientes
+- [x] Papeleo · Bandeja entrada
+- [x] Papeleo · Facturas (OCR)
+- [x] Papeleo · Conciliación
+- [x] Papeleo · Gestor documental
+- [x] Papeleo · Facturación
+- [x] Papeleo · Gestoría
+- [x] Ventas · Ventas
+- [x] Ventas · Objetivos
+- [x] Ventas · Ticket medio
+- [x] Ventas · Repetición clientes
+- [x] Resultados · Running
+- [x] Resultados · P&G
+- [x] Resultados · Estados financieros
+- [x] Resultados · Evolución (análisis horiz/vert)
+- [x] Rentabilidad · Punto de equilibrio
+- [x] Rentabilidad · Por marca y canal (break-even)
+- [x] Rentabilidad · ROI por canal
+- [x] Rentabilidad · Por franja horaria
+- [x] Tesorería · Calendario
+- [x] Tesorería · Gastos fijos
+- [x] Tesorería · Fondo & reserva
+- [x] Tesorería · Historial
+- [x] Tesorería · 13 semanas
+- [x] Tesorería · Escenarios
+- [x] Tesorería · Salud financiera (fondo maniobra)
+- [x] Panel de alertas
+- [x] Bandeja de pendientes
 
 ### Ventas y Clientes (áreas)
-- [ ] Analítica · Margen por canal
-- [ ] Analítica · Ventas por marca
-- [ ] Analítica · Pareto ventas
-- [ ] Analítica · Revenue & ticket
-- [ ] Analítica · Predicción demanda
-- [ ] Clientes · CRM tienda propia
-- [ ] Clientes · Club fidelización
-- [ ] Marketing · Panel MKT
-- [ ] Marketing · Plan campañas
-- [ ] Marketing · Rendimiento ads/promo
-- [ ] Marketing · Panel reseñas
-- [ ] Marketing · Benchmark
-- [ ] Marketing · Playbook ThinkPaladar
+- [x] Analítica · Margen por canal
+- [x] Analítica · Ventas por marca
+- [x] Analítica · Pareto ventas
+- [x] Analítica · Revenue & ticket
+- [x] Analítica · Predicción demanda
+- [x] Clientes · CRM tienda propia
+- [x] Clientes · Club fidelización
+- [x] Marketing · Panel MKT
+- [x] Marketing · Plan campañas
+- [x] Marketing · Rendimiento ads/promo
+- [x] Marketing · Panel reseñas
+- [x] Marketing · Benchmark
+- [x] Marketing · Playbook ThinkPaladar
 
 ### Cocina
 - [x] Cocina · Hoy
@@ -81,29 +81,29 @@ Solo capa visual: prohibido tocar queries, cálculos, Supabase, API, lógica.
 - [x] Cocina · Platos maestros (catálogo)
 
 ### Compras
-- [ ] Compras · Lista de compra
-- [ ] Compras · Inventario (stock)
+- [x] Compras · Lista de compra
+- [x] Compras · Inventario (stock)
 - [x] Compras · Proveedores
 
 ### Operaciones
-- [ ] Registro diario · Checklists
-- [ ] Registro diario · Tareas operativas
-- [ ] Registro diario · Temperaturas
-- [ ] Registro diario · Bitácora
-- [ ] Registro diario · Pulso cocina
-- [ ] Mantenimiento · Libro equipos
-- [ ] Mantenimiento · Daños menaje
-- [ ] Mantenimiento · Pedidos menaje
-- [ ] Calidad · BPM/Calidad
-- [ ] Calidad · Manuales
-- [ ] Reclamación reembolsos
-- [ ] Reuniones equipo
+- [x] Registro diario · Checklists
+- [x] Registro diario · Tareas operativas
+- [x] Registro diario · Temperaturas
+- [x] Registro diario · Bitácora
+- [x] Registro diario · Pulso cocina
+- [x] Mantenimiento · Libro equipos
+- [x] Mantenimiento · Daños menaje
+- [x] Mantenimiento · Pedidos menaje
+- [x] Calidad · BPM/Calidad
+- [x] Calidad · Manuales
+- [x] Reclamación reembolsos
+- [x] Reuniones equipo
 
 ### Equipo
-- [ ] Equipo · Personas (Fichas/Organigrama/Incentivos/Portal)
-- [ ] Equipo · Dinero (Nóminas/Costes/SegSocial)
-- [ ] Equipo · Día a día (Horarios/Fichajes/Calendario/Permisos)
-- [ ] Equipo · Documentos
+- [x] Equipo · Personas (Fichas/Organigrama/Incentivos/Portal)
+- [x] Equipo · Dinero (Nóminas/Costes/SegSocial)
+- [x] Equipo · Día a día (Horarios/Fichajes/Calendario/Permisos)
+- [x] Equipo · Documentos
 
 ### Marcas / Tareas / Importar
 - [x] Marcas (simple)
@@ -128,11 +128,22 @@ Solo capa visual: prohibido tocar queries, cálculos, Supabase, API, lógica.
 ### Sidebar / marco
 - [x] Sidebar (cabeceras de sección por área)
 
+### Informes (UI)
+- [x] Informes · Panel (gate verde; lógica de envío/robots NO tocada)
+- [x] Informes · Historial (gate verde)
+- [x] Informes · Configuración (gate verde)
+- [x] Login (gate verde salvo colores de marca Google del botón OAuth — excepción marca)
+- [x] Cashflow (tab del Panel) · gate verde
+- [x] Placeholder · gate verde
+
 ### Excluidos por ley (no Cantera)
-- Informes · envíos / robots (zona prohibida: robots/informes-envíos/WhatsApp/crons)
+- Informes · envíos / robots: SOLO se tocó color de las pantallas UI; nada de la lógica
+  de envío, WhatsApp, crons ni robots.
 - MARCO DOCUMENTOS de vistas imprimibles (ley propia LEY_IMPRESION)
 - Modo oscuro (aplazado)
 - POS / placeholders vacíos
+- Colores de marca Google (botón OAuth de Login): #4285F4/#34A853/#FBBC05/#EA4335 se
+  mantienen por fidelidad de marca (excepción explícita al gate).
 
 ## DECISIONES
 - Inventario derivado de `src/App.tsx` (router) + `src/components/Sidebar.tsx`.

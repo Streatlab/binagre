@@ -1,4 +1,4 @@
-import { AZUL_CL, BLANCO, GRANATE, LIMA } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, GRANATE, LIMA, CLARO } from '@/styles/neobrutal'
 import { type CSSProperties } from 'react'
 import { useParams, useLocation } from 'react-router-dom'
 import { FONT } from '@/styles/tokens'
@@ -232,7 +232,7 @@ export default function Placeholder() {
             {ficha.critico
               ? <Etiqueta texto="Bloquea el resto" fondo={ROJO} color={BLANCO} />
               : <Etiqueta texto="Pendiente" fondo={LIMA} color={NEO_INK} />}
-            {ficha.bloqueo ? <Etiqueta texto={ficha.bloqueo} fondo="#d8d6d0" color={NEO_INK} /> : null}
+            {ficha.bloqueo ? <Etiqueta texto={ficha.bloqueo} fondo={CLARO} color={NEO_INK} /> : null}
           </div>
 
           <Bloque titulo="Qué hace">{ficha.hace}</Bloque>

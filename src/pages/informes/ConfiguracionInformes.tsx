@@ -1,4 +1,4 @@
-import { GRANATE, VERDE } from '@/styles/neobrutal'
+import { GRANATE, VERDE, GRIS } from '@/styles/neobrutal'
 /**
  * Módulo Informes — Configuración técnica
  *
@@ -142,10 +142,10 @@ export default function ConfiguracionInformes() {
 
 function Estado({ v }: { v: 'conectado' | 'desconectado' | 'desconocido' }) {
   const cfg = v === 'conectado'
-    ? { bg: '#06C16720', fg: VERDE, label: '🟢 OK' }
+    ? { bg: `${VERDE}20`, fg: VERDE, label: '🟢 OK' }
     : v === 'desconectado'
-      ? { bg: '#B01D2320', fg: GRANATE, label: '🔴 KO' }
-      : { bg: '#88888820', fg: '#888', label: '⚪ —' }
+      ? { bg: `${GRANATE}20`, fg: GRANATE, label: '🔴 KO' }
+      : { bg: `${GRIS}20`, fg: GRIS, label: '⚪ —' }
   return (
     <span style={{ background: cfg.bg, color: cfg.fg, padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
       {cfg.label}

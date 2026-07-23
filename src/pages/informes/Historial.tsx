@@ -186,9 +186,9 @@ export default function Historial() {
 
 function Estado({ e, T }: { e: 'pendiente' | 'enviado' | 'fallido'; T: ReturnType<typeof useTheme>['T'] }) {
   const cfg = e === 'enviado'
-    ? { bg: '#06C16720', fg: VERDE, label: '✅ ENVIADO' }
+    ? { bg: `${VERDE}20`, fg: VERDE, label: '✅ ENVIADO' }
     : e === 'fallido'
-      ? { bg: '#B01D2320', fg: GRANATE, label: '❌ FALLIDO' }
+      ? { bg: `${GRANATE}20`, fg: GRANATE, label: '❌ FALLIDO' }
       : { bg: T.brd, fg: T.mut, label: '⏳ PENDIENTE' }
   return (
     <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: cfg.bg, color: cfg.fg }}>
