@@ -1,9 +1,11 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import TabsPastilla from '@/components/ui/TabsPastilla'
 import { supabase } from '@/lib/supabase'
 import { fechaLocalStr } from '@/utils/fechaLocal'
 import {
-  OSW, LEX, INK, CREMA, CLARO, VERDE, NAR, ROJO, AMA, GRANATE, GRIS, SHADOW, BORDER, BORDER_CARD, d, eyebrow, BLANCO } from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, VERDE, NAR, ROJO, AMA, GRIS, SHADOW, BORDER, d } from '@/styles/neobrutal'
 import BandejaEntrada from '@/components/documentacion/BandejaEntrada'
 import ResolverPendientes from '@/components/documentacion/ResolverPendientes'
 
@@ -102,30 +104,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'equipo', label: 'Equipo' },
 ]
 
-function TabsNeo({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
-  return (
-    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-      {TABS.map(t => {
-        const activo = t.id === tab
-        return (
-          <button key={t.id} onClick={() => onChange(t.id)} style={{
-            background: activo ? GRANATE : BLANCO,
-            color: activo ? BLANCO : INK,
-            border: BORDER_CARD,
-            boxShadow: activo ? `2px 2px 0 ${INK}` : SHADOW,
-            transform: activo ? 'translate(2px, 2px)' : 'none',
-            padding: '9px 18px',
-            fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1.5px',
-            textTransform: 'uppercase', cursor: 'pointer', transition: 'transform 0.08s, box-shadow 0.08s',
-          }}>
-            {t.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 export default function Documentacion() {
   const [tab, setTab] = useState<Tab>(loadTab())
   const cambiar = (t: Tab) => {
@@ -167,11 +145,8 @@ export default function Documentacion() {
 
   return (
     <div style={{ background: CREMA, padding: '24px 28px', minHeight: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <span style={eyebrow(CLARO)}>Finanzas · Documentos</span>
-          <h2 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '8px 0 0 0' }}>PAPELEO</h2>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Papeleo', TABS.find(t => t.id === tab)?.label ?? '']} />
         <SelectorFechaUniversal
           nombreModulo="documentacion"
           defaultOpcion="este_mes"
@@ -181,8 +156,8 @@ export default function Documentacion() {
 
       <FraseCabecera kpi={kpi} avisos={avisos} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
-        <TabsNeo tab={tab} onChange={cambiar} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+        <TabsPastilla tabs={TABS} activeId={tab} onChange={id => cambiar(id as Tab)} />
         <ResolverPendientes onDone={() => setReloadTick(x => x + 1)} />
       </div>
 
