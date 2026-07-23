@@ -89,8 +89,8 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 ### Cocina
 - [x] Cocina · Hoy
 - [x] Cocina Operativa · Recetario
-- [ ] Cocina Operativa · Carta
-- [ ] Cocina Operativa · Menú familia
+- [x] Cocina Operativa · Carta
+- [x] Cocina Operativa · Menú familia
 - [x] Cocina Operativa · Producción
 - [x] Cocina Operativa · Plato maestro
 - [x] Cocina Dinero · Datos (Escandallo · cabecera; KPIs viven en sub-tabs)
@@ -98,12 +98,12 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [x] Cocina Dinero · Pareto ingredientes
 - [x] Cocina Dinero · Coste por plato
 - [x] Cocina · Inventario
-- [ ] Cocina · Platos maestros (catálogo)
+- [x] Cocina · Platos maestros (catálogo)
 
 ### Compras
-- [ ] Compras · Lista de compra
-- [ ] Compras · Inventario (stock)
-- [ ] Compras · Proveedores
+- [x] Compras · Lista de compra
+- [x] Compras · Inventario (stock)
+- [x] Compras · Proveedores
 
 ### Operaciones
 - [x] Registro diario · Checklists
