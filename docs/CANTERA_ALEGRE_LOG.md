@@ -12,5 +12,45 @@ Manual: Notion CEREBRO-SL > LEY-ESTILO-01 · Drive "📚 Documentación Streat L
 - 23-jul-2026 · Build de consolidación (este commit): fuerza un deployment con TODO lo anterior en HEAD, tras un build encolado fuera de orden.
 - 23-jul-2026 · Reintento de build tras pausa de Vercel.
 
+## CANTERA ALEGRE v4 — Migración de cabeceras (23-jul-2026)
+
+Sistema v4 (referencia canónica src/pages/PanelGlobal.tsx): `RutaPantalla` (miga de
+pan "Módulo ▸ Pestaña", color por nivel + subtítulo) + `TabsPastilla` (plancha
+segmentada, activa rosa) + `SubTabs` (segundo nivel subrayado). Filtros planos a la
+derecha (flex-end). Solo se tocó cabecera/navegación; lógica de datos intacta.
+
+### Selector de fecha
+- `src/components/ui/SelectorFechaUniversal.tsx`: "Personalizado" rehecho con dos
+  inputs `type=date` grandes Desde/Hasta, validación desde≤hasta, botón Aplicar rosa
+  + Cancelar plano. Presets agrupados con separadores (Ahora / Semanas / Meses /
+  Largo), ordenados de hoy hacia atrás. Menú blanco borde 2px v4. Botón cerrado con
+  etiqueta "Periodo" + label elegido.
+
+### Componentes compartidos migrados (arrastran muchas páginas)
+- `src/components/kit/TabsContainer.tsx` → v4 (RutaPantalla + plancha para nivel
+  primario con título; SubTabs para nivel secundario sin título). Cubre por ruta:
+  Analítica, Clientes, Marketing, Compras, Operaciones (Registro diario /
+  Mantenimiento / Calidad), Cocina Operativa y Cocina Dinero.
+- `src/components/configuracion/ModTitle.tsx` + `TabPills.tsx` → v4. Cubre todo
+  Ajustes con esos componentes: Integraciones, Reglas, Compras (config), Cocina
+  (config), Usuarios, Bancos, etc.
+
+### Páginas migradas (cabecera propia)
+- Finanzas: Tesorería, Resultados (EEFF), Ventas, Rentabilidad, Papeleo
+  (Documentacion), Panel de alertas, Bandeja de pendientes.
+- Ajustes: ConfiguracionHub, Cuentas bancarias, Mapeo de marcas, Bancos y cuentas,
+  Calendario operativo, Aprendizajes ERP, Aprendizaje calcNeto.
+- Portada: Home (Hoy). Equipo (Personas / Dinero / Día a día / Documentos).
+- Cocina: Hoy, Cocina inventario, Plato maestro, Platos maestros.
+- Operaciones: Reclamación reembolsos (contadores → badges), Reuniones equipo.
+- Otros: Importar ventas, Panel dirección, Proveedores, Marcas, Inventario, Tareas.
+
+### Notas
+- Páginas internas que se renderizan dentro de TabsContainer y aún conservan un
+  título propio antiguo (p.ej. Panel MKT, Margen por canal, Producción) quedan con la
+  cabecera v4 del contenedor + su subtítulo interno preexistente; limpiar ese
+  subtítulo interno es trabajo posterior, fuera del alcance de esta tanda.
+- PENDIENTE: ninguna página del encargo quedó sin migrar.
+
 ## Pendiente (orden)
 Tesorería → EEFF → Objetivos → Papeleo → resto de pestañas del Panel → Cocina → Compras → Operaciones → Ajustes. En cada una: héroe con frase-insight de su categoría.
