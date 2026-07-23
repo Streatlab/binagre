@@ -39,8 +39,8 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 ### Portada / Panel
 - [x] Panel Global · Resumen (REFERENCIA validada · cumple los 6 criterios)
 - [ ] Panel Global · Operaciones / Finanzas / Cashflow / Evolución / Marcas (tabs del panel)
-- [ ] Home (Hoy) — portada
-- [ ] Panel Dirección
+- [x] Home (Hoy) — portada
+- [x] Panel Dirección
 
 ### Finanzas
 - [ ] Papeleo · Bandeja entrada
@@ -126,9 +126,9 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [x] Equipo · Documentos
 
 ### Marcas / Tareas / Importar
-- [ ] Marcas (simple)
-- [ ] Tareas
-- [ ] Importar ventas
+- [x] Marcas (simple)
+- [x] Tareas
+- [x] Importar ventas
 
 ### Ajustes
 - [ ] Ajustes · Hub
@@ -153,7 +153,7 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [ ] Informes · Historial (gate verde)
 - [ ] Informes · Configuración (gate verde)
 - [ ] Login (gate verde salvo colores de marca Google del botón OAuth — excepción marca)
-- [ ] Cashflow (tab del Panel) · gate verde
+- [x] Cashflow (héroe azul, plancha, frase, papel)
 - [ ] Placeholder · gate verde
 
 ### Excluidos por ley (no Cantera)
