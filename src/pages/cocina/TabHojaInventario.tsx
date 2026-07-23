@@ -20,8 +20,9 @@ import { Printer, FileDown } from 'lucide-react'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT } from '@/styles/tokens'
-import { GRANATE, BLANCO, VERDE, AMA, ROJO } from '@/styles/neobrutal'
+import { FONT } from '@/styles/tokens'
+import { GRANATE, BLANCO, VERDE, AMA, ROJO, INK, GRIS, OSW, LEX } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
 import { fmtEur, fmtNum, fmtDate } from '@/utils/format'
 
 const API = '/api/papeleo/escandallo-auto'
@@ -137,7 +138,6 @@ function construirHojaInventarioPDF(cats: CatGrupo[], meta: string, rec: M.Recur
 // ─── Componente ─────────────────────────────────────────────────────────────
 
 export default function TabHojaInventario() {
-  const { T } = useTheme()
   const [ingredientes, setIngredientes] = useState<IngLite[]>([])
   const [loading, setLoading] = useState(true)
   const [inventario, setInventario] = useState<InventarioRow | null>(null)
@@ -244,10 +244,10 @@ export default function TabHojaInventario() {
     } catch (e: any) { setMsg(`Error: ${e.message}`) } finally { setBusy(null) }
   }
 
-  const btnGhost: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: T.card, color: T.pri, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer' }
-  const btnPrimary: React.CSSProperties = { ...btnGhost, background: GRANATE, color: BLANCO, border: 'none' }
+  const btnGhost: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 0, border: `2px solid ${INK}`, background: BLANCO, color: INK, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer' }
+  const btnPrimary: React.CSSProperties = { ...btnGhost, background: GRANATE, color: BLANCO, boxShadow: SHADOW_DURA }
 
-  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
+  if (loading) return <div style={{ padding: 24, color: GRIS, fontFamily: FONT.body }}>Cargando…</div>
 
   return (
     <div>
@@ -262,21 +262,65 @@ export default function TabHojaInventario() {
 @media (max-width: 820px) { .inv-cats { column-count: 1; } .inv-cat { border-right: none; } .inv-name { font-size: 17px; } }
       `}</style>
 
+      {/* HÉROE (naranja · área Cocina) — chrome únicamente, no toca la hoja imprimible */}
+      <HeroCantera
+        area="cocina"
+        titular={!inventario
+          ? 'Sin conteo abierto: genera la hoja de hoy para imprimirla y contar a mano.'
+          : invLineas.length === 0
+            ? 'Conteo generado, listo para imprimir y contar.'
+            : sinVincular > 0
+              ? 'Hay líneas leídas sin vincular: revísalas antes de confirmar.'
+              : 'Conteo leído y listo para confirmar.'}
+        etiquetaDato={inventario && invLineas.length > 0 ? 'Valor del conteo leído' : undefined}
+        cifra={inventario && invLineas.length > 0 ? fmtEur(valorTotal) : undefined}
+        resumen={inventario ? <>Conteo del {fmtDate(inventario.fecha)} (borrador, ref. {inventario.id.slice(0, 8).toUpperCase()}).</> : undefined}
+        atencion={inventario ? [
+          `${invLineas.length} líneas leídas`,
+          sinVincular > 0 ? `${sinVincular} sin vincular` : null,
+        ].filter(Boolean) as string[] : undefined}
+      />
+
+      {inventario && invLineas.length > 0 && (
+        <div style={{ margin: '16px 0' }}>
+          <SeccionLabel bg={GRANATE}>KPIs del conteo</SeccionLabel>
+          <Plancha>
+            <PlanchaCelda bg={VERDE} color={BLANCO} first>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Líneas leídas</div>
+              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, marginTop: 6 }}>{invLineas.length}</div>
+            </PlanchaCelda>
+            <PlanchaCelda bg={GRANATE} color={BLANCO}>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Sin vincular</div>
+              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, marginTop: 6 }}>{sinVincular}</div>
+            </PlanchaCelda>
+            <PlanchaCelda bg={AMA} color={INK}>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Valor total</div>
+              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, marginTop: 6 }}>{fmtEur(valorTotal)}</div>
+            </PlanchaCelda>
+          </Plancha>
+        </div>
+      )}
+
+      {inventario && invLineas.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          {sinVincular > 0
+            ? <FrasePotente significado="peligro">{sinVincular} línea{sinVincular !== 1 ? 's' : ''} sin vincular quedará{sinVincular !== 1 ? 'n' : ''} fuera del valorado si confirmas ahora.</FrasePotente>
+            : <FrasePotente significado="oportunidad">Confirma para alimentar la desviación de consumo teórico en Escandallo → Auto.</FrasePotente>}
+        </div>
+      )}
+
       {msg && (
-        <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: GRANATE + '20', color: GRANATE, fontFamily: FONT.body, fontSize: 13 }}>{msg}</div>
+        <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 0, border: `2px solid ${GRANATE}`, background: BLANCO, color: GRANATE, fontFamily: FONT.body, fontSize: 13 }}>{msg}</div>
       )}
 
       {!inventario ? (
         <div style={{ padding: 24, textAlign: 'center' }}>
-          <p style={{ fontFamily: FONT.body, color: T.sec, marginBottom: 14 }}>Sin conteo abierto. Genera la hoja de hoy para imprimirla, rellenarla a mano y subir la foto.</p>
+          <p style={{ fontFamily: FONT.body, color: GRIS, marginBottom: 14 }}>Sin conteo abierto. Genera la hoja de hoy para imprimirla, rellenarla a mano y subir la foto.</p>
           <button style={btnPrimary} disabled={busy === 'generar'} onClick={generarHoja}>{busy === 'generar' ? 'Generando…' : 'Generar hoja de hoy'}</button>
         </div>
       ) : (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-            <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec }}>
-              Conteo del {fmtDate(inventario.fecha)} (borrador, ref. {inventario.id.slice(0, 8).toUpperCase()})
-            </span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button style={btnGhost} onClick={() => imprimir(false)}><Printer size={15} /> Imprimir hoja</button>
               <button style={btnGhost} onClick={() => descargar(false)}><FileDown size={15} /> Descargar PDF</button>
@@ -312,16 +356,16 @@ export default function TabHojaInventario() {
               </HojaDoc>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
+            <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ borderBottom: `0.5px solid ${T.brd}`, background: T.group }}>
-                    <th style={{ padding: '10px 14px', textAlign: 'left', color: T.mut, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Leído</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'left', color: T.mut, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Ingrediente</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right', color: T.mut, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Cantidad</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'left', color: T.mut, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Ud.</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right', color: T.mut, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Valor</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'center', color: T.mut, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Confianza</th>
+                  <tr style={{ background: INK }}>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', color: BLANCO, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Leído</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', color: BLANCO, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Ingrediente</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right', color: BLANCO, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Cantidad</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', color: BLANCO, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Ud.</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right', color: BLANCO, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Valor</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'center', color: BLANCO, fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px' }}>Confianza</th>
                     <th />
                   </tr>
                 </thead>
@@ -332,24 +376,24 @@ export default function TabHojaInventario() {
                     const conf = l.ingrediente_id ? (l.confianza ?? 0) : 0
                     const col = conf >= 1 ? VERDE : conf > 0 ? AMA : ROJO
                     return (
-                      <tr key={l.id} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: T.mut }}>{l.texto_leido ?? ''}</td>
-                        <td style={{ padding: '10px 14px', fontWeight: 600, color: T.pri }}>{l.ingredientes?.nombre ?? 'SIN VINCULAR'}</td>
-                        <td style={{ padding: '10px 14px', textAlign: 'right', color: T.pri }}>{fmtNum(l.cantidad)}</td>
-                        <td style={{ padding: '10px 14px', color: T.sec }}>{l.unidad ?? ''}</td>
-                        <td style={{ padding: '10px 14px', textAlign: 'right', color: T.pri }}>{ing ? fmtEur(valor) : '—'}</td>
+                      <tr key={l.id} style={{ borderBottom: `2px solid ${INK}` }}>
+                        <td style={{ padding: '10px 14px', fontSize: 12, color: GRIS }}>{l.texto_leido ?? ''}</td>
+                        <td style={{ padding: '10px 14px', fontWeight: 600, color: INK }}>{l.ingredientes?.nombre ?? 'SIN VINCULAR'}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right', color: INK }}>{fmtNum(l.cantidad)}</td>
+                        <td style={{ padding: '10px 14px', color: GRIS }}>{l.unidad ?? ''}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right', color: INK }}>{ing ? fmtEur(valor) : '—'}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                          <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 6, background: col }} />
+                          <span style={{ display: 'inline-block', width: 12, height: 12, border: `2px solid ${INK}`, background: col }} />
                         </td>
                         <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                          <button onClick={() => borrarLinea(l.id)} style={{ background: 'transparent', border: 'none', color: T.mut, fontSize: 11, cursor: 'pointer', fontFamily: FONT.heading, textTransform: 'uppercase', fontWeight: 600 }}>Quitar</button>
+                          <button onClick={() => borrarLinea(l.id)} style={{ background: 'transparent', border: 'none', color: GRIS, fontSize: 11, cursor: 'pointer', fontFamily: FONT.heading, textTransform: 'uppercase', fontWeight: 600 }}>Quitar</button>
                         </td>
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
-            </div>
+            </Papel>
           )}
         </>
       )}

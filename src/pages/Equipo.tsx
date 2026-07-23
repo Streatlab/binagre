@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom'
-import { useTheme, FONT } from '@/styles/tokens'
+import { FONT } from '@/styles/tokens'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -17,10 +17,10 @@ import Organigrama from './equipo/Organigrama'
 import Horarios from './equipo/Horarios'
 import ControlPresencia from './equipo/ControlPresencia'
 
-// Neobrutal — theme-aware: superficies/bordes salen de variables
+// Neobrutal — theme-aware: superficies/bordes salen de variables.
+// Contenedor informativo (no pulsable): borde sin sombra dura.
 const NEO_INK = 'var(--neo-ink)'
-const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
-const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
+const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0 }
 
 type TabKey = 'empleados' | 'nominas' | 'costes' | 'segsocial' | 'documentos' | 'incentivos' | 'calendario' | 'permisos' | 'horarios' | 'presencia' | 'organigrama' | 'portal'
 export type GrupoEquipo = 'personas' | 'dinero' | 'dia' | 'documentos'
@@ -63,23 +63,7 @@ const GRUPOS: Record<GrupoEquipo, { titulo: string; tabs: { key: TabKey; label: 
   },
 }
 
-const tabBase: React.CSSProperties = {
-  fontFamily: 'Oswald, sans-serif',
-  fontWeight: 600,
-  fontSize: 14,
-  letterSpacing: '0.5px',
-  textTransform: 'uppercase',
-  padding: '9px 18px',
-  minHeight: 44,
-  cursor: 'pointer',
-  border: `3px solid ${NEO_INK}`,
-  borderRadius: 0,
-  display: 'inline-flex',
-  alignItems: 'center',
-}
-
 export default function Equipo({ grupo = 'personas' }: { grupo?: GrupoEquipo }) {
-  const { T } = useTheme()
   const isMobile = useIsMobile()
   const { usuario } = useAuth()
   const [params, setParams] = useSearchParams()

@@ -1,10 +1,11 @@
-import { AZUL, BLANCO, BORDER_FINO, CLARO, GRANATE, GRIS, INK, LIMA, NAR, ROJO, AMA, VERDE } from '@/styles/neobrutal'
+import { AZUL, BLANCO, BORDER_FINO, CLARO, GRANATE, GRIS, INK, LIMA, NAR, ROJO, AMA, VERDE, CREMA, OSW, LEX } from '@/styles/neobrutal'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import TabsPastilla from '@/components/ui/TabsPastilla'
 import { OBJ_ROW_FINDE_BG, OBJ_ROW_HOY_BG, OBJ_ROW_HOY_FESTIVO_BG, OBJ_FESTIVO_BORDE, OBJ_FESTIVO_TXT, OBJ_FESTIVO_PILL_TXT } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNumES } from '@/utils/format'
-import { useTheme, semaforoColor, FONT, LAYOUT, tabActiveStyle, tabInactiveStyle, tabsContainerStyle, CANALES } from '@/styles/tokens'
+import { semaforoColor, LAYOUT, CANALES } from '@/styles/tokens'
 import { useCalendario } from '@/contexts/CalendarioContext'
 import { useConfig } from '@/hooks/useConfig'
 import { loadConfigCanales, loadMarcasPorCanal, type CanalConfig as CanalConfigCentral, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
@@ -73,7 +74,6 @@ function barColor(pct: number): string {
 }
 
 export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
-  const { T, isDark } = useTheme()
   const { diasCerradosSemana, diasOperativosEnRango, tipoDia } = useCalendario()
   const { canales } = useConfig()
 
@@ -413,7 +413,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
   }, [ventas, histTipo, histAnio, diasSemana, objSemanal, objMensual, objAnual, hoyStr, hoy, curYear, curWeek])
 
   if (loading) return (
-    <div style={{ background: T.group, border: `0.5px solid ${T.brd}`, borderRadius: 0, padding: '24px 28px', color: T.sec, fontFamily: FONT.body }}>Cargando…</div>
+    <div style={{ background: CREMA, border: `0.5px solid ${INK}`, borderRadius: 0, padding: '24px 28px', color: GRIS, fontFamily: LEX }}>Cargando…</div>
   )
 
   const pctPer = objPeriodo > 0 ? Math.round((ventasPeriodo / objPeriodo) * 100) : 0
@@ -425,14 +425,14 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
   const KPI_SIZE = 36
 
   const inputSelectStyle = {
-    background: T.card,
-    border: `1px solid ${T.brd}`,
-    color: T.pri, fontFamily: FONT.body, fontSize: 12, borderRadius: 0, padding: '4px 10px', cursor: 'pointer',
+    background: BLANCO,
+    border: `1px solid ${INK}`,
+    color: INK, fontFamily: LEX, fontSize: 12, borderRadius: 0, padding: '4px 10px', cursor: 'pointer',
   }
-  const sectionLabel = { fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase' as const, color: T.mut, margin: '24px 0 10px' }
-  const editableNumberStyle = (color: string = T.pri) => ({ color, fontWeight: 600 as const, cursor: 'pointer', borderBottom: `1px dashed ${T.mut}`, paddingBottom: 1 })
+  const sectionLabel = { fontFamily: OSW, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase' as const, color: GRIS, margin: '24px 0 10px' }
+  const editableNumberStyle = (color: string = INK) => ({ color, fontWeight: 600 as const, cursor: 'pointer', borderBottom: `1px dashed ${GRIS}`, paddingBottom: 1 })
 
-  const renderInlineEditNoEur = (id: string, currentVal: number, onSave: (v: number) => void, onReset?: () => void, color: string = T.pri) => {
+  const renderInlineEditNoEur = (id: string, currentVal: number, onSave: (v: number) => void, onReset?: () => void, color: string = INK) => {
     const commit = () => {
       const trimmed = editValue.trim()
       if (trimmed === '' && onReset) { onReset(); return }
@@ -447,7 +447,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
           onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditingId(null) }}
           autoFocus placeholder="vacío o 0 = restaurar"
-          style={{ fontFamily: FONT.heading, fontSize: 'inherit', fontWeight: 600, color, background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, padding: '2px 6px', width: 110, textAlign: 'right' }}
+          style={{ fontFamily: OSW, fontSize: 'inherit', fontWeight: 600, color, background: BLANCO, border: `1px solid ${INK}`, borderRadius: 0, padding: '2px 6px', width: 110, textAlign: 'right' }}
         />
       )
     }
@@ -466,15 +466,15 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
     return (
       <div style={{ marginBottom: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-          <span style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: T.mut, textTransform: 'uppercase' }}>
+          <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', color: GRIS, textTransform: 'uppercase' }}>
             {titulo} <span style={{ fontWeight: 400, opacity: 0.7 }}>— {sub}</span>
           </span>
-          <span style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color: col }}>{pct}%</span>
+          <span style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, color: col }}>{pct}%</span>
         </div>
-        <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 6 }}>
+        <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 6 }}>
           Faltan <span style={{ color: col, fontWeight: 500 }}>{fmtNumES(falta, 2)}</span> de {renderInlineEditNoEur(editId, obj, onSave, onReset)}
         </div>
-        <div style={{ height: 4, background: T.brd, borderRadius: 2, display: 'flex', overflow: 'hidden' }}>
+        <div style={{ height: 4, background: INK, borderRadius: 2, display: 'flex', overflow: 'hidden' }}>
           <div style={{ height: 4, background: barColor(pct), width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
           <div style={{ height: 4, background: INCUMPLIDO, width: `${100 - pctCap}%` }} />
         </div>
@@ -493,8 +493,8 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
   }
 
   const tabs = [
-    { key: 'objetivos', label: 'Objetivos de venta' },
-    { key: 'presupuestos', label: 'Presupuesto de gastos' },
+    { id: 'objetivos', label: 'Objetivos de venta' },
+    { id: 'presupuestos', label: 'Presupuesto de gastos' },
   ]
 
   void CANALES
@@ -514,7 +514,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
   return (
     <PantallaCantera embedded={embedded}>
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, background: toast.ok ? VERDE : GRANATE, color: BLANCO, padding: '10px 18px', borderRadius: 0, border: `2px solid ${INK}`, fontFamily: FONT.body, fontSize: 13, transition: 'opacity 0.3s' }}>
+        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, background: toast.ok ? VERDE : GRANATE, color: BLANCO, padding: '10px 18px', borderRadius: 0, border: `2px solid ${INK}`, fontFamily: LEX, fontSize: 13, transition: 'opacity 0.3s' }}>
           {toast.msg}
         </div>
       )}
@@ -542,14 +542,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
           : <FrasePotente significado="peligro">Faltan {fmtEur(faltaObjetivo)} para llegar al objetivo del periodo.</FrasePotente>
       )}
 
-      <div style={tabsContainerStyle()}>
-        {tabs.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key as 'objetivos' | 'presupuestos')}
-            style={activeTab === tab.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <TabsPastilla tabs={tabs} activeId={activeTab} onChange={id => setActiveTab(id as 'objetivos' | 'presupuestos')} />
 
       {activeTab === 'objetivos' && (
         <>
@@ -561,7 +554,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                 ) || 1) * diasOperativosSemana
               : null
             return (
-              <div style={{ backgroundColor: LIMA, color: INK, padding: '10px 16px', borderRadius: 0, marginBottom: 12, fontFamily: FONT.heading, fontSize: 13, letterSpacing: 0.5 }}>
+              <div style={{ backgroundColor: LIMA, color: INK, padding: '10px 16px', borderRadius: 0, marginBottom: 12, fontFamily: OSW, fontSize: 13, letterSpacing: 0.5 }}>
                 Esta semana hay {nDiasCerradosSemana} día{nDiasCerradosSemana > 1 ? 's' : ''} cerrado{nDiasCerradosSemana > 1 ? 's' : ''}, objetivo ajustado a {objAjustado != null ? fmtNumES(objAjustado, 2) : '—'}
               </div>
             )
@@ -570,25 +563,25 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5" style={{ alignItems: 'start' }}>
 
             <Papel ceja={VERDE} pad="20px 24px">
-              <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase', marginBottom: 4 }}>
+              <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase', marginBottom: 4 }}>
                 VENTAS · {periodoLabel.toUpperCase()}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: FONT.heading, fontSize: KPI_SIZE, fontWeight: 700, color: T.pri, lineHeight: 1, letterSpacing: '-0.5px' }}>
+                <span style={{ fontFamily: OSW, fontSize: KPI_SIZE, fontWeight: 700, color: INK, lineHeight: 1, letterSpacing: '-0.5px' }}>
                   {fmtNumES(ventasPeriodo, 2)}
                 </span>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontFamily: FONT.heading, fontSize: KPI_SIZE, fontWeight: 700, color: VERDE, lineHeight: 1, letterSpacing: '-0.5px' }}>
+                  <span style={{ fontFamily: OSW, fontSize: KPI_SIZE, fontWeight: 700, color: VERDE, lineHeight: 1, letterSpacing: '-0.5px' }}>
                     {fmtNumES(netoEstPeriodo, 2)}
                   </span>
-                  <span style={{ fontFamily: FONT.body, fontSize: 9, color: T.mut, letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: 3 }}>
+                  <span style={{ fontFamily: LEX, fontSize: 9, color: GRIS, letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: 3 }}>
                     NETO EST. {PCT_NETO_EST_PERIODO}%
                   </span>
                 </div>
               </div>
 
-              <div style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 500, color: semaforoColor(pctPer), marginBottom: 22 }}>
+              <div style={{ fontFamily: LEX, fontSize: 12, fontWeight: 500, color: semaforoColor(pctPer), marginBottom: 22 }}>
                 {pctPer >= 100 ? '▲' : '▼'} {pctPer}% del objetivo · {fmtNumES(objPeriodo, 2)}
               </div>
 
@@ -599,10 +592,10 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
 
             <Papel ceja={AZUL} pad="20px 24px">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <span style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', color: T.mut, textTransform: 'uppercase' }}>
+                <span style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase' }}>
                   Objetivo por día · {weekLabel}
                 </span>
-                <span style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', color: T.mut, textTransform: 'uppercase', opacity: 0.7 }}>click editar</span>
+                <span style={{ fontFamily: OSW, fontSize: 9, letterSpacing: '1.5px', color: GRIS, textTransform: 'uppercase', opacity: 0.7 }}>click editar</span>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -621,36 +614,36 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                   const tipoDiaActual = tipoDia(fechaDiaStr)
                   const esCerrado = tipoDiaActual === 'cerrado' || tipoDiaActual === 'festivo' || tipoDiaActual === 'vacaciones'
 
-                  let rowBg = 'transparent', rowBorderLeft = '3px solid transparent', diaColor = T.sec
+                  let rowBg = 'transparent', rowBorderLeft = '3px solid transparent', diaColor = GRIS
                   if (finde) { rowBg = OBJ_ROW_FINDE_BG; rowBorderLeft = `3px solid ${VERDE}`; diaColor = VERDE }
                   if (festivo) { rowBg = FESTIVO_BG; rowBorderLeft = `3px solid ${FESTIVO_BORDE}`; diaColor = FESTIVO_TXT }
                   if (hoyFl) { rowBorderLeft = `3px solid ${AZUL}`; if (!festivo) rowBg = OBJ_ROW_HOY_FESTIVO_BG }
 
                   const fechaStr = `${fechaDiaD.getDate()} ${fechaDiaD.toLocaleDateString('es-ES', { month: 'short' })}`
                   const editId = `dia-${dia}`
-                  const textoFecha = festivo ? FESTIVO_TXT : (hoyFl ? AZUL : T.mut)
+                  const textoFecha = festivo ? FESTIVO_TXT : (hoyFl ? AZUL : GRIS)
                   void esCerrado
 
                   return (
                     <div key={dia} style={{
                       display: 'grid', gridTemplateColumns: '70px 1fr 80px', alignItems: 'center', gap: 14,
                       padding: hoyFl ? '12px 14px' : '10px 14px', margin: '0 -14px', background: rowBg,
-                      borderLeft: rowBorderLeft, borderBottom: idx < 6 ? `0.5px solid ${T.brd}` : 'none',
+                      borderLeft: rowBorderLeft, borderBottom: idx < 6 ? `0.5px solid ${INK}` : 'none',
                       borderRadius: 0,
                     }}>
                       <div>
-                        <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: festivo ? FESTIVO_TXT : (hoyFl ? AZUL : diaColor), textTransform: 'uppercase', fontWeight: festivo || hoyFl ? 700 : 500 }}>
+                        <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', color: festivo ? FESTIVO_TXT : (hoyFl ? AZUL : diaColor), textTransform: 'uppercase', fontWeight: festivo || hoyFl ? 700 : 500 }}>
                           {NOMBRES_DIA[dia - 1]}
                         </div>
-                        <div style={{ fontFamily: FONT.body, fontSize: 10, color: textoFecha, marginTop: 1, fontWeight: festivo || hoyFl ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                        <div style={{ fontFamily: LEX, fontSize: 10, color: textoFecha, marginTop: 1, fontWeight: festivo || hoyFl ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                           {fechaStr}{hoyFl ? ' · HOY' : ''}
-                          {festivo && <span style={{ backgroundColor: FESTIVO_BORDE, color: OBJ_FESTIVO_PILL_TXT, padding: '1px 5px', borderRadius: 0, fontSize: 9, fontFamily: FONT.heading, fontWeight: 700 }} title={festNombre ?? undefined}>FESTIVO</span>}
-                          {esCerrado && !festivo && <span style={{ backgroundColor: GRANATE, color: BLANCO, padding: '1px 5px', borderRadius: 0, fontSize: 9, fontFamily: FONT.heading }}>CERRADO</span>}
-                          {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: LIMA, color: INK, padding: '1px 5px', borderRadius: 0, fontSize: 9, fontFamily: FONT.heading }}>ALM</span>}
-                          {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: NAR, color: BLANCO, padding: '1px 5px', borderRadius: 0, fontSize: 9, fontFamily: FONT.heading }}>CENA</span>}
+                          {festivo && <span style={{ backgroundColor: FESTIVO_BORDE, color: OBJ_FESTIVO_PILL_TXT, padding: '1px 5px', borderRadius: 0, fontSize: 9, fontFamily: OSW, fontWeight: 700 }} title={festNombre ?? undefined}>FESTIVO</span>}
+                          {esCerrado && !festivo && <span style={{ backgroundColor: GRANATE, color: BLANCO, padding: '1px 5px', borderRadius: 0, fontSize: 9, fontFamily: OSW }}>CERRADO</span>}
+                          {tipoDiaActual === 'solo_comida' && <span style={{ backgroundColor: LIMA, color: INK, padding: '1px 5px', borderRadius: 0, fontSize: 9, fontFamily: OSW }}>ALM</span>}
+                          {tipoDiaActual === 'solo_cena' && <span style={{ backgroundColor: NAR, color: BLANCO, padding: '1px 5px', borderRadius: 0, fontSize: 9, fontFamily: OSW }}>CENA</span>}
                         </div>
                       </div>
-                      <div style={{ height: 5, background: T.brd, borderRadius: 3, display: 'flex', overflow: 'hidden' }}>
+                      <div style={{ height: 5, background: INK, borderRadius: 3, display: 'flex', overflow: 'hidden' }}>
                         {importe > 0 && (
                           <>
                             <div style={{ height: 5, background: barColor(pct), width: `${pctCap}%`, transition: 'width 0.4s ease' }} />
@@ -667,11 +660,11 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                               if (e.key === 'Escape') setEditingId(null)
                             }}
                             autoFocus
-                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: T.pri, background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, padding: '3px 6px', width: 72, textAlign: 'right' }}
+                            style={{ fontFamily: OSW, fontSize: 14, fontWeight: 600, color: INK, background: BLANCO, border: `1px solid ${INK}`, borderRadius: 0, padding: '3px 6px', width: 72, textAlign: 'right' }}
                           />
                         ) : (
                           <span onClick={() => { setEditingId(editId); setEditValue(String(Math.round(importe))) }}
-                            style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: hoyFl || festivo ? 700 : 600, color: festivo ? OBJ_FESTIVO_PILL_TXT : T.pri, cursor: 'pointer' }}>
+                            style={{ fontFamily: OSW, fontSize: 14, fontWeight: hoyFl || festivo ? 700 : 600, color: festivo ? OBJ_FESTIVO_PILL_TXT : INK, cursor: 'pointer' }}>
                             {fmtNumES(importe, 0)}
                           </span>
                         )}
@@ -700,7 +693,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
           </div>
 
           <Papel ceja={NAR} pad="14px 16px">
-            <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, padding: '6px 0 10px', borderBottom: `0.5px solid ${T.brd}`, fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, padding: '6px 0 10px', borderBottom: `0.5px solid ${INK}`, fontFamily: OSW, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>
               <span>Período</span><span>Cumplido · Pendiente</span>
               <span style={{ textAlign: 'right' }}>% Real</span>
               <span style={{ textAlign: 'right' }}>Real</span>
@@ -709,7 +702,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
               <span style={{ textAlign: 'right' }}>% Desv.</span>
             </div>
             {historico.length === 0 && (
-              <div style={{ padding: '24px 0', textAlign: 'center', fontFamily: FONT.body, fontSize: 13, color: T.mut }}>Sin datos históricos</div>
+              <div style={{ padding: '24px 0', textAlign: 'center', fontFamily: LEX, fontSize: 13, color: GRIS }}>Sin datos históricos</div>
             )}
             {historico.map((h, idx) => {
               const pct = h.objetivo > 0 ? Math.round((h.real / h.objetivo) * 100) : 0
@@ -721,19 +714,19 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
               const pctDesv = h.objetivo > 0 ? Math.round(((h.real - h.objetivo) / h.objetivo) * 100) : 0
               const enCurso = (h as any).enCurso === true
               return (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${T.brd}` : 'none', background: enCurso ? OBJ_ROW_HOY_BG : 'transparent', borderLeft: enCurso ? `3px solid ${AZUL}` : '3px solid transparent', paddingLeft: enCurso ? 8 : 0, marginLeft: enCurso ? -8 : 0, borderRadius: 0 }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: enCurso ? AZUL : T.pri, fontWeight: enCurso ? 600 : 400 }}>{h.label}</span>
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 72px 80px 100px 100px 90px 80px', gap: 6, alignItems: 'center', padding: '10px 0', borderBottom: idx < historico.length - 1 ? `0.5px solid ${INK}` : 'none', background: enCurso ? OBJ_ROW_HOY_BG : 'transparent', borderLeft: enCurso ? `3px solid ${AZUL}` : '3px solid transparent', paddingLeft: enCurso ? 8 : 0, marginLeft: enCurso ? -8 : 0, borderRadius: 0 }}>
+                  <span style={{ fontFamily: LEX, fontSize: 13, color: enCurso ? AZUL : INK, fontWeight: enCurso ? 600 : 400 }}>{h.label}</span>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <div style={{ flex: 1, height: 8, background: T.brd, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
+                    <div style={{ flex: 1, height: 8, background: INK, borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
                       <div style={{ height: 8, background: bc, width: `${pctCap}%` }} />
                       <div style={{ height: 8, background: INCUMPLIDO, width: `${100 - pctCap}%` }} />
                     </div>
                   </div>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, color: sc, textAlign: 'right' }}>{pct}%</span>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: T.pri, textAlign: 'right' }}>{fmtEur(h.real)}</span>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, textAlign: 'right' }}>{fmtEur(h.objetivo)}</span>
-                  <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 500, color: desvColor, textAlign: 'right' }}>{(desv >= 0 ? '+' : '') + fmtEur(desv)}</span>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, color: desvColor, textAlign: 'right' }}>{(pctDesv >= 0 ? '+' : '') + pctDesv + '%'}</span>
+                  <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, color: sc, textAlign: 'right' }}>{pct}%</span>
+                  <span style={{ fontFamily: LEX, fontSize: 13, fontWeight: 500, color: INK, textAlign: 'right' }}>{fmtEur(h.real)}</span>
+                  <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS, textAlign: 'right' }}>{fmtEur(h.objetivo)}</span>
+                  <span style={{ fontFamily: LEX, fontSize: 13, fontWeight: 500, color: desvColor, textAlign: 'right' }}>{(desv >= 0 ? '+' : '') + fmtEur(desv)}</span>
+                  <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, color: desvColor, textAlign: 'right' }}>{(pctDesv >= 0 ? '+' : '') + pctDesv + '%'}</span>
                 </div>
               )
             })}
@@ -748,35 +741,35 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
               {[hoy.getFullYear() - 1, hoy.getFullYear(), hoy.getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
             </select>
             <button onClick={copiarAnioAnterior} disabled={presSaving}
-              style={{ background: CLARO, color: T.sec, border: BORDER_FINO, borderRadius: 0, padding: '5px 14px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: presSaving ? 'default' : 'pointer', opacity: presSaving ? 0.5 : 1 }}>
+              style={{ background: CLARO, color: GRIS, border: BORDER_FINO, borderRadius: 0, padding: '5px 14px', fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: presSaving ? 'default' : 'pointer', opacity: presSaving ? 0.5 : 1 }}>
               Copiar año anterior
             </button>
-            {presSaving && <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>Guardando…</span>}
+            {presSaving && <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Guardando…</span>}
           </div>
 
           {presLoading ? (
-            <div style={{ color: T.mut, fontFamily: FONT.body, padding: '24px 0' }}>Cargando presupuesto…</div>
+            <div style={{ color: GRIS, fontFamily: LEX, padding: '24px 0' }}>Cargando presupuesto…</div>
           ) : (
             presupuestoGrupos.map(grupo => {
               const totalGrupoMes = (mes: number) => grupo.codigos.reduce((a, c) => a + getPresVal(c.codigo, mes), 0)
               const totalGrupoAnual = () => grupo.codigos.reduce((a, c) => a + totalCodigo(c.codigo), 0)
               return (
                 <div key={grupo.grupo} style={{ marginBottom: 28 }}>
-                  <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: LIMA, marginBottom: 8 }}>{grupo.label}</div>
+                  <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: LIMA, marginBottom: 8 }}>{grupo.label}</div>
                   <Papel ceja={GRANATE} pad="0" style={{ overflow: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                       <thead>
                         <tr style={{ background: INK }}>
-                          <th style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, padding: '8px 12px', textAlign: 'left', position: 'sticky', left: 0, background: INK, zIndex: 1, minWidth: 160 }}>Categoría</th>
-                          {MESES.map(m => <th key={m} style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, padding: '8px 6px', textAlign: 'right', minWidth: 72 }}>{m}</th>)}
-                          <th style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, padding: '8px 10px', textAlign: 'right', minWidth: 90 }}>Total</th>
+                          <th style={{ fontFamily: OSW, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, padding: '8px 12px', textAlign: 'left', position: 'sticky', left: 0, background: INK, zIndex: 1, minWidth: 160 }}>Categoría</th>
+                          {MESES.map(m => <th key={m} style={{ fontFamily: OSW, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS, padding: '8px 6px', textAlign: 'right', minWidth: 72 }}>{m}</th>)}
+                          <th style={{ fontFamily: OSW, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS, padding: '8px 10px', textAlign: 'right', minWidth: 90 }}>Total</th>
                         </tr>
                       </thead>
                       <tbody>
                         {grupo.codigos.map(cat => (
-                          <tr key={cat.codigo} style={{ borderTop: `1px solid ${T.brd}` }}>
-                            <td style={{ fontFamily: FONT.body, fontSize: 12, color: INK, padding: '7px 12px', position: 'sticky', left: 0, background: BLANCO, zIndex: 1 }}>
-                              <span style={{ fontFamily: FONT.heading, fontSize: 10, color: LIMA, marginRight: 6 }}>{cat.codigo}</span>
+                          <tr key={cat.codigo} style={{ borderTop: `1px solid ${INK}` }}>
+                            <td style={{ fontFamily: LEX, fontSize: 12, color: INK, padding: '7px 12px', position: 'sticky', left: 0, background: BLANCO, zIndex: 1 }}>
+                              <span style={{ fontFamily: OSW, fontSize: 10, color: LIMA, marginRight: 6 }}>{cat.codigo}</span>
                               {cat.nombre}
                             </td>
                             {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => {
@@ -789,11 +782,11 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                                       onBlur={() => commitPresEdit(cat.codigo, mes)}
                                       onKeyDown={e => { if (e.key === 'Enter') commitPresEdit(cat.codigo, mes); if (e.key === 'Escape') setPresEditing(null) }}
                                       autoFocus
-                                      style={{ fontFamily: FONT.heading, fontSize: 11, color: T.pri, background: INK, border: `1px solid ${LIMA}`, borderRadius: 0, padding: '3px 5px', width: 66, textAlign: 'right' }}
+                                      style={{ fontFamily: OSW, fontSize: 11, color: INK, background: INK, border: `1px solid ${LIMA}`, borderRadius: 0, padding: '3px 5px', width: 66, textAlign: 'right' }}
                                     />
                                   ) : (
                                     <span onClick={() => { setPresEditing(cellKey); setPresEditVal(String(val)) }}
-                                      style={{ fontFamily: FONT.heading, fontSize: 11, color: val > 0 ? INK : GRIS, cursor: 'pointer', display: 'block', padding: '3px 2px', borderRadius: 3 }}
+                                      style={{ fontFamily: OSW, fontSize: 11, color: val > 0 ? INK : GRIS, cursor: 'pointer', display: 'block', padding: '3px 2px', borderRadius: 3 }}
                                       title="Clic para editar">
                                       {val > 0 ? fmtEur(val) : '—'}
                                     </span>
@@ -801,21 +794,21 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
                                 </td>
                               )
                             })}
-                            <td style={{ fontFamily: FONT.heading, fontSize: 11, color: LIMA, padding: '7px 10px', textAlign: 'right', fontWeight: 600 }}>
+                            <td style={{ fontFamily: OSW, fontSize: 11, color: LIMA, padding: '7px 10px', textAlign: 'right', fontWeight: 600 }}>
                               {fmtEur(totalCodigo(cat.codigo))}
                             </td>
                           </tr>
                         ))}
-                        <tr style={{ borderTop: `2px solid ${T.brd}`, background: INK }}>
-                          <td style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', color: LIMA, padding: '8px 12px', textTransform: 'uppercase', position: 'sticky', left: 0, background: INK, zIndex: 1 }}>
+                        <tr style={{ borderTop: `2px solid ${INK}`, background: INK }}>
+                          <td style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1px', color: LIMA, padding: '8px 12px', textTransform: 'uppercase', position: 'sticky', left: 0, background: INK, zIndex: 1 }}>
                             Total {grupo.label.split(' ')[0]}
                           </td>
                           {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => (
-                            <td key={mes} style={{ fontFamily: FONT.heading, fontSize: 11, color: LIMA, padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>
+                            <td key={mes} style={{ fontFamily: OSW, fontSize: 11, color: LIMA, padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>
                               {fmtEur(totalGrupoMes(mes))}
                             </td>
                           ))}
-                          <td style={{ fontFamily: FONT.heading, fontSize: 12, color: LIMA, padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>
+                          <td style={{ fontFamily: OSW, fontSize: 12, color: LIMA, padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>
                             {fmtEur(totalGrupoAnual())}
                           </td>
                         </tr>
@@ -832,13 +825,13 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                 <tbody>
                   <tr style={{ background: INK }}>
-                    <td style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', color: LIMA, padding: '10px 12px', textTransform: 'uppercase', minWidth: 160 }}>Total gastos {presAnio}</td>
+                    <td style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', color: LIMA, padding: '10px 12px', textTransform: 'uppercase', minWidth: 160 }}>Total gastos {presAnio}</td>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(mes => (
-                      <td key={mes} style={{ fontFamily: FONT.heading, fontSize: 11, color: T.pri, padding: '10px 6px', textAlign: 'right', fontWeight: 600, minWidth: 72 }}>
+                      <td key={mes} style={{ fontFamily: OSW, fontSize: 11, color: INK, padding: '10px 6px', textAlign: 'right', fontWeight: 600, minWidth: 72 }}>
                         {fmtEur(totalMesPres(mes))}
                       </td>
                     ))}
-                    <td style={{ fontFamily: FONT.heading, fontSize: 13, color: LIMA, padding: '10px 10px', textAlign: 'right', fontWeight: 700, minWidth: 90 }}>
+                    <td style={{ fontFamily: OSW, fontSize: 13, color: LIMA, padding: '10px 10px', textAlign: 'right', fontWeight: 700, minWidth: 90 }}>
                       {fmtEur(totalAnual())}
                     </td>
                   </tr>
