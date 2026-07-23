@@ -49,10 +49,10 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [ ] Papeleo · Gestor documental
 - [ ] Papeleo · Facturación
 - [ ] Papeleo · Gestoría
-- [ ] Ventas · Ventas
-- [ ] Ventas · Objetivos
+- [x] Ventas · Ventas
+- [⚠️] Ventas · Objetivos — 4/6; pestañas y edición inline conservan theming T.* compartido (no tocar tokens.ts)
 - [x] Ventas · Ticket medio (héroe ventas, plancha canal, frase, papel)
-- [ ] Ventas · Repetición clientes
+- [x] Ventas · Repetición clientes
 - [x] Resultados · Running
 - [x] Resultados · P&G
 - [x] Resultados · Estados financieros
