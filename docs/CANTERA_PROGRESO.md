@@ -131,19 +131,19 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [x] Importar ventas
 
 ### Ajustes
-- [ ] Ajustes · Hub
+- [x] Ajustes · Hub
 - [x] Ajustes · Integraciones (Marcas/Canales/Drive)
 - [x] Ajustes · Reglas (Ingredientes/Conciliación/Plantillas/Diccionario/Correo)
-- [ ] Ajustes · Bancos
-- [ ] Ajustes · Cuentas bancarias
-- [ ] Ajustes · Bancos y cuentas
+- [x] Ajustes · Bancos
+- [x] Ajustes · Cuentas bancarias
+- [x] Ajustes · Bancos y cuentas
 - [x] Ajustes · Compras config (ComprasPage, Costes, Proveedores, Categorías, Unidades)
 - [x] Ajustes · Cocina config (CocinaPage, Formato números)
-- [ ] Ajustes · Usuarios
+- [x] Ajustes · Usuarios
 - [x] Ajustes · Calendario operativo (+ MesGrid, modales)
-- [ ] Ajustes · Aprendizajes ERP
-- [ ] Ajustes · Aprendizaje calcNeto
-- [ ] Ajustes · Mapeo de marcas
+- [x] Ajustes · Aprendizajes ERP
+- [x] Ajustes · Aprendizaje calcNeto
+- [x] Ajustes · Mapeo de marcas
 
 ### Sidebar / marco
 - [ ] Sidebar (cabeceras de sección por área)
