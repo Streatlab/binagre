@@ -9,7 +9,7 @@
  * que los platos tengan receta enlazada (Cocina → Coste por plato). Hasta
  * entonces, esto es margen sobre comisión, no margen final. Se avisa en pantalla.
  *
- * Estilo: Neobrutal (@/styles/neobrutal).
+ * CANTERA ALEGRE v1.0 (área Resultados · amarillo). Solo capa visual; cálculos intactos.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -18,11 +18,8 @@ import {
   type CanalConfig, type MarcasPorCanal,
 } from '@/lib/panel/calcNetoPlataforma'
 import { resolverNeto } from '@/lib/panel/netoResolver'
-import {
-  OSW, LEX, INK, CREMA, CLARO, GRIS, GRANATE, VERDE, ROJO, AMA, NAR, BLANCO,
-  VERDE_S, AMA_S, ROSA_S,
-  SHADOW, BORDER, BORDER_CARD, d, eyebrow, cardWash, cardHead, pill,
-} from '@/styles/neobrutal'
+import { OSW, LEX, INK, CREMA, CLARO, GRIS, GRANATE, VERDE, ROJO, AMA, NAR, BLANCO, VERDE_S, AMA_S, ROSA_S } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 interface Franja {
   canal: string
@@ -210,194 +207,177 @@ export function RentabilidadFranja({ embedded = false }: { embedded?: boolean } 
   const maxNetoHora = porHora.reduce((m, h) => Math.max(m, h.neto), 0) || 1
   const maxBrutoDia = porDia.reduce((m, d) => Math.max(m, d.bruto), 0) || 1
 
-  const wrapStyle: React.CSSProperties = { fontFamily: LEX, padding: embedded ? 0 : 28, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : '100vh', color: INK }
-
   if (cargando) {
-    return <div style={wrapStyle}><div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW }}><Vacio>Cargando franjas…</Vacio></div></div>
+    return <PantallaCantera embedded={embedded}><Papel ceja={AMA}><Vacio>Cargando franjas…</Vacio></Papel></PantallaCantera>
   }
   if (conNeto.length === 0) {
-    return <div style={wrapStyle}><div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW }}><Vacio>No hay datos de franjas horarias todavía.</Vacio></div></div>
+    return <PantallaCantera embedded={embedded}><Papel ceja={AMA}><Vacio>No hay datos de franjas horarias todavía.</Vacio></Papel></PantallaCantera>
   }
 
   const th: React.CSSProperties = { padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }
   const td: React.CSSProperties = { padding: '9px 12px', fontFamily: LEX, fontSize: 13, color: INK, borderBottom: `2px solid ${INK}` }
 
+  const titular = mejorHora && mejorDia
+    ? <>Tu hora fuerte son las <b>{mejorHora.hora}:00</b> y tu día fuerte el <b>{DIAS_LARGO[mejorDia.dia]}</b>.</>
+    : 'Ventas por franja horaria del periodo.'
+
+  const pctSobreBruto = totalBruto > 0 ? (totalNeto / totalBruto) * 100 : null
+
+  const atencion = [
+    `${eur0(totalNeto)} neto total`,
+    `${nf0(totalPedidos)} pedidos`,
+    peorDia ? `Día flojo: ${DIAS_LARGO[peorDia.dia]}` : null,
+    horasFlojas.length > 0 ? `${horasFlojas.length} horas casi sin ventas` : null,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={wrapStyle}>
-      {!embedded && (
-        <div style={{ marginBottom: 20 }}>
-          <span style={eyebrow(CLARO)}>ANALÍTICA</span>
-          <h1 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '10px 0 6px' }}>RENTABILIDAD POR FRANJA</h1>
-          <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>A qué horas y qué días te queda dinero de verdad.</span>
-        </div>
-      )}
+    <PantallaCantera embedded={embedded}>
+      {/* 1 · Héroe del área Resultados (amarillo) */}
+      <HeroCantera
+        area="eeff"
+        titular={titular}
+        etiquetaDato="Mejor franja · neto acumulado"
+        cifra={mejorHora ? eur0(mejorHora.neto) : '—'}
+        variacionPct={pctSobreBruto}
+        resumen={mejorHora ? <>{nf0(mejorHora.pedidos)} pedidos · ticket medio <b>{eur2(mejorHora.ticket)}</b> a las {mejorHora.hora}:00.</> : undefined}
+        atencion={atencion}
+      />
 
-      {/* Hero */}
-      <div style={{ background: GRANATE, border: BORDER_CARD, boxShadow: SHADOW, padding: '18px 22px', marginBottom: 16, color: BLANCO }}>
-        <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.85 }}>MEJOR FRANJA</div>
-        <div style={{ fontFamily: OSW, fontSize: 16, fontWeight: 700, margin: '6px 0 10px' }}>
-          {mejorHora && mejorDia
-            ? `Tu hora fuerte son las ${mejorHora.hora}:00 y tu día fuerte el ${DIAS_LARGO[mejorDia.dia]}`
-            : 'Ventas por franja horaria'}
-        </div>
-        <div style={{ ...d('clamp(30px,4.2vw,40px)', BLANCO) }}>{mejorHora ? eur0(mejorHora.neto) : '—'}</div>
-        {mejorHora && (
-          <div style={{ fontFamily: LEX, fontSize: 12, opacity: 0.92, fontWeight: 600, marginTop: 8 }}>
-            Neto acumulado a las {mejorHora.hora}:00 · {nf0(mejorHora.pedidos)} pedidos · ticket {eur2(mejorHora.ticket)}
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-          <span style={{ background: BLANCO, color: GRANATE, border: `2px solid ${BLANCO}`, padding: '4px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{eur0(totalNeto)} neto total</span>
-          <span style={{ background: 'transparent', color: BLANCO, border: `2px solid ${BLANCO}`, padding: '4px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{nf0(totalPedidos)} pedidos</span>
-          {peorDia && <span style={{ background: 'transparent', color: BLANCO, border: `2px solid ${BLANCO}`, padding: '4px 10px', fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Tu día flojo: {DIAS_LARGO[peorDia.dia]}</span>}
-        </div>
-      </div>
-
-      <div style={{ background: AMA_S, border: `3px solid ${AMA}`, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK }}>
+      <Papel ceja={AMA}>
         <b>Esto es lo que te queda después de la comisión, no después de cocinar.</b> Para saber el margen de verdad
         hace falta el coste de la materia prima de cada plato. Lo tienes a un paso en Cocina → Coste por plato.
-      </div>
+      </Papel>
 
       {madrugada > 0 && (
-        <div style={{ background: CLARO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK }}>
+        <Papel ceja={NAR}>
           <b>Hay ventas registradas entre las 00:00 y las 05:00 ({eur0(madrugada)}).</b> Si la cocina no está abierta a esas horas,
           las plataformas están mandando la hora en otro huso y hay que corregirlo: te desplaza todos los picos.
-        </div>
+        </Papel>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12, marginBottom: 16 }}>
-        <div style={cardWash(VERDE_S)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Neto tras comisión</div>
-          <div style={{ ...d('26px', VERDE), margin: '6px 0' }}>{eur0(totalNeto)}</div>
-          <span style={pill(VERDE_S, VERDE)}>{pct1(totalBruto > 0 ? (totalNeto / totalBruto) * 100 : 0)} del bruto</span>
-        </div>
-        <div style={cardWash(CLARO)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Hora más rentable</div>
-          <div style={{ ...d('26px', INK), margin: '6px 0' }}>{mejorHora ? `${mejorHora.hora}:00` : '—'}</div>
-          {mejorHora && <span style={pill(CLARO, INK)}>{eur0(mejorHora.neto)} netos</span>}
-        </div>
-        <div style={cardWash(AMA_S)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Día más fuerte</div>
-          <div style={{ ...d('26px', INK), margin: '6px 0' }}>{mejorDia ? DIAS[mejorDia.dia] : '—'}</div>
-          {mejorDia && <span style={pill(AMA_S, AMA)}>{eur0(mejorDia.brutoMedio)} de media</span>}
-        </div>
-        <div style={cardWash(ROSA_S)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Horas que casi no venden</div>
-          <div style={{ ...d('26px', GRANATE), margin: '6px 0' }}>{nf0(horasFlojas.length)}</div>
-          <span style={pill(ROSA_S, GRANATE)}>abiertas y a media máquina</span>
-        </div>
+      {/* 2 · Plancha comparativa */}
+      <div>
+        <SeccionLabel bg={AMA} color={INK}>Comparativa del periodo</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={VERDE} first>
+            <div style={etq}>Neto tras comisión</div>
+            <div style={cifra(24)}>{eur0(totalNeto)}</div>
+            <div style={sub}>{pct1(totalBruto > 0 ? (totalNeto / totalBruto) * 100 : 0)} del bruto</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={BLANCO}>
+            <div style={etq}>Hora más rentable</div>
+            <div style={cifra(24)}>{mejorHora ? `${mejorHora.hora}:00` : '—'}</div>
+            {mejorHora && <div style={sub}>{eur0(mejorHora.neto)} netos</div>}
+          </PlanchaCelda>
+          <PlanchaCelda bg={AMA} color={INK}>
+            <div style={etq}>Día más fuerte</div>
+            <div style={cifra(24)}>{mejorDia ? DIAS[mejorDia.dia] : '—'}</div>
+            {mejorDia && <div style={sub}>{eur0(mejorDia.brutoMedio)} de media</div>}
+          </PlanchaCelda>
+          <PlanchaCelda bg={GRANATE}>
+            <div style={etq}>Horas que casi no venden</div>
+            <div style={cifra(24)}>{nf0(horasFlojas.length)}</div>
+            <div style={sub}>abiertas y a media máquina</div>
+          </PlanchaCelda>
+        </Plancha>
       </div>
 
+      {/* 3 · Frase potente */}
+      {mejorDia && mejorHora && (
+        <FrasePotente significado="oportunidad">Mete promoción, personal y stock el {DIAS_LARGO[mejorDia.dia]} a las {mejorHora.hora}:00: un euro invertido en tu pico rinde más que uno en tu valle.</FrasePotente>
+      )}
+
       {/* Mapa de calor */}
-      <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden', marginBottom: 16 }}>
-        <div style={{ ...cardHead(GRANATE), display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-          <div>
-            <div>Dónde está el dinero, hora a hora</div>
-            <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 500, marginTop: 2, textTransform: 'none', letterSpacing: 0 }}>Cuanto más oscura la casilla, más neto deja esa franja</div>
-          </div>
-          <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, color: BLANCO }}>{rango.length} horas activas</span>
-        </div>
-        <div style={{ padding: '14px 16px' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'separate', borderSpacing: 3 }}>
-              <thead>
-                <tr>
-                  <th style={{ border: 'none', paddingBottom: 4 }}></th>
-                  {rango.map(h => (
-                    <th key={h} style={{
-                      border: 'none', textAlign: 'center', fontSize: 10, fontFamily: OSW,
-                      color: GRIS, padding: '0 0 4px', minWidth: 34,
-                    }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {DIAS.map((dia, di) => (
-                  <tr key={dia}>
-                    <td style={{
-                      border: 'none', padding: '0 8px 0 0', fontSize: 11.5, fontFamily: OSW,
-                      fontWeight: 700, color: INK, whiteSpace: 'nowrap',
-                    }}>{dia}</td>
-                    {rango.map(h => {
-                      const v = heat.m.get(`${di}-${h}`) ?? 0
-                      const int = v / heat.max
-                      return (
-                        <td key={h} title={`${DIAS_LARGO[di]} ${h}:00 · ${eur0(v)} netos`}
-                          style={{
-                            border: `2px solid ${INK}`, padding: 0, height: 30, minWidth: 34,
-                            background: v === 0 ? CLARO : `rgba(176,29,35,${0.12 + int * 0.82})`,
-                            color: int > 0.55 ? BLANCO : INK,
-                            textAlign: 'center', fontSize: 9.5, fontFamily: OSW, fontWeight: 700,
-                          }}>
-                          {v >= 200 ? Math.round(v) : ''}
-                        </td>
-                      )
-                    })}
-                  </tr>
+      <div>
+        <SeccionLabel bg={GRANATE}>Dónde está el dinero, hora a hora</SeccionLabel>
+        <Papel ceja={GRANATE} style={{ overflowX: 'auto' }}>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 10 }}>Cuanto más oscura la casilla, más neto deja esa franja · {rango.length} horas activas</div>
+          <table style={{ borderCollapse: 'separate', borderSpacing: 3 }}>
+            <thead>
+              <tr>
+                <th style={{ border: 'none', paddingBottom: 4 }}></th>
+                {rango.map(h => (
+                  <th key={h} style={{ border: 'none', textAlign: 'center', fontSize: 10, fontFamily: OSW, color: GRIS, padding: '0 0 4px', minWidth: 34 }}>{h}</th>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody>
+              {DIAS.map((dia, di) => (
+                <tr key={dia}>
+                  <td style={{ border: 'none', padding: '0 8px 0 0', fontSize: 11.5, fontFamily: OSW, fontWeight: 700, color: INK, whiteSpace: 'nowrap' }}>{dia}</td>
+                  {rango.map(h => {
+                    const v = heat.m.get(`${di}-${h}`) ?? 0
+                    const int = v / heat.max
+                    return (
+                      <td key={h} title={`${DIAS_LARGO[di]} ${h}:00 · ${eur0(v)} netos`}
+                        style={{
+                          border: `2px solid ${INK}`, padding: 0, height: 30, minWidth: 34,
+                          background: v === 0 ? CLARO : `rgba(176,29,35,${0.12 + int * 0.82})`,
+                          color: int > 0.55 ? BLANCO : INK,
+                          textAlign: 'center', fontSize: 9.5, fontFamily: OSW, fontWeight: 700,
+                        }}>
+                        {v >= 200 ? Math.round(v) : ''}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
           {mejorDia && mejorHora && (
             <Nota tono="verde">
               El pico está el <b>{DIAS_LARGO[mejorDia.dia]}</b> a las <b>{mejorHora.hora}:00</b>. Ahí es donde tiene sentido
               meter promoción, personal y stock: un euro invertido en tu pico rinde más que uno en tu valle.
             </Nota>
           )}
-        </div>
+        </Papel>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12 }}>
-        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
-          <div style={cardHead(GRANATE)}>
-            <div>Hora a hora</div>
-            <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 500, marginTop: 2, textTransform: 'none', letterSpacing: 0 }}>Bruto, neto tras comisión y ticket medio</div>
-          </div>
-          <div style={{ padding: '14px 16px' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: INK }}>
-                    <th style={th}>Hora</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Pedidos</th>
-                    <th style={th}>Neto</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Ticket</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Te queda</th>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
+        <div>
+          <SeccionLabel bg={GRANATE}>Hora a hora</SeccionLabel>
+          <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: INK }}>
+                  <th style={th}>Hora</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Pedidos</th>
+                  <th style={th}>Neto</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Ticket</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Te queda</th>
+                </tr>
+              </thead>
+              <tbody>
+                {porHora.map(h => (
+                  <tr key={h.hora}>
+                    <td style={td}>{String(h.hora).padStart(2, '0')}:00</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{nf0(h.pedidos)}</td>
+                    <td style={{ ...td, minWidth: 120 }}>
+                      <span>{eur0(h.neto)}</span>
+                      <InBar pct={(h.neto / maxNetoHora) * 100} color={ROJO} />
+                    </td>
+                    <td style={{ ...td, textAlign: 'right' }}>{h.ticket > 0 ? eur2(h.ticket) : '—'}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>
+                      <span style={{ background: h.margen >= 65 ? VERDE_S : h.margen >= 50 ? AMA_S : ROSA_S, border: `2px solid ${h.margen >= 65 ? VERDE : h.margen >= 50 ? AMA : GRANATE}`, padding: '1px 8px', fontSize: 11.5, fontWeight: 700, display: 'inline-block' }}>{pct1(h.margen)}</span>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {porHora.map(h => (
-                    <tr key={h.hora}>
-                      <td style={td}>{String(h.hora).padStart(2, '0')}:00</td>
-                      <td style={{ ...td, textAlign: 'right' }}>{nf0(h.pedidos)}</td>
-                      <td style={{ ...td, minWidth: 120 }}>
-                        <span>{eur0(h.neto)}</span>
-                        <InBar pct={(h.neto / maxNetoHora) * 100} color={ROJO} />
-                      </td>
-                      <td style={{ ...td, textAlign: 'right' }}>{h.ticket > 0 ? eur2(h.ticket) : '—'}</td>
-                      <td style={{ ...td, textAlign: 'right' }}>
-                        <span style={pill(h.margen >= 65 ? VERDE_S : h.margen >= 50 ? AMA_S : ROSA_S, h.margen >= 65 ? VERDE : h.margen >= 50 ? AMA : GRANATE)}>{pct1(h.margen)}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
             {horasFlojas.length > 0 && (
-              <Nota tono="rojo">
-                <b>Horas abiertas casi sin ventas:</b> {horasFlojas.slice(0, 5).map(h => `${h.hora}:00`).join(', ')}.
-                Si tienes gente en cocina en esas franjas, ahí se te va el margen sin que lo veas.
-              </Nota>
+              <div style={{ padding: '0 16px 16px' }}>
+                <Nota tono="rojo">
+                  <b>Horas abiertas casi sin ventas:</b> {horasFlojas.slice(0, 5).map(h => `${h.hora}:00`).join(', ')}.
+                  Si tienes gente en cocina en esas franjas, ahí se te va el margen sin que lo veas.
+                </Nota>
+              </div>
             )}
-          </div>
+          </Papel>
         </div>
 
-        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
-          <div style={cardHead(GRANATE)}>
-            <div>Día de la semana</div>
-            <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 500, marginTop: 2, textTransform: 'none', letterSpacing: 0 }}>Facturación media de cada día</div>
-          </div>
-          <div style={{ padding: '14px 16px' }}>
+        <div>
+          <SeccionLabel bg={GRANATE}>Día de la semana</SeccionLabel>
+          <Papel ceja={GRANATE}>
             {porDia.map(dd => (
               <div key={dd.dia} style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: OSW, fontSize: 12.5, fontWeight: 700, marginBottom: 5 }}>
@@ -419,11 +399,15 @@ export function RentabilidadFranja({ embedded = false }: { embedded?: boolean } 
                 Si abres las mismas horas los dos días con la misma gente, el {DIAS_LARGO[peorDia.dia]} te está costando dinero.
               </Nota>
             )}
-          </div>
+          </Papel>
         </div>
       </div>
-    </div>
+    </PantallaCantera>
   )
 }
+
+const etq: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }
+const cifra = (size: number): React.CSSProperties => ({ fontFamily: OSW, fontWeight: 700, fontSize: size, lineHeight: 1.15, marginTop: 6 })
+const sub: React.CSSProperties = { fontFamily: LEX, fontSize: 12, marginTop: 4 }
 
 export default RentabilidadFranja
