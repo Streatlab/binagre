@@ -3,18 +3,16 @@
  *
  * Regla: **nada de lo que se sube puede desaparecer en silencio.**
  *
- * Antes, cada archivo se mandaba directo a leer, de uno en uno y sin tope de
- * espera: si uno se colgaba, los siguientes se quedaban en la cola del
- * navegador y morían al cerrar la página, sin dejar rastro en ningún sitio.
- *
- * Ahora el orden es otro:
+ * Orden de las cosas:
  *   1. GUARDAR el archivo (rápido y sin IA) y apuntarlo en el manifiesto.
  *   2. INTENTAR leerlo.
  *   3. Si la lectura falla o tarda demasiado, el archivo YA está a salvo y su
  *      fila queda en 'registrado' → la repesca automática (cada 15 min) lo
  *      recoge y lo procesa solo, hasta 3 intentos.
  *
- * Así, aunque se cierre el navegador a mitad, no se pierde ni un documento.
+ * Y el resultado se cuenta con verdad: cuántos son de personal, cuántos NO lo
+ * eran y a qué módulo se han reenviado de verdad, y cuántos se han rechazado
+ * por no ser de ningún buzón.
  */
 import { supabase } from '@/lib/supabase'
 
@@ -28,6 +26,10 @@ export interface ResultadoEquipo {
   resumenes: number
   segSocial: number
   revisar: number
+  /** Reenviados a otro módulo, con el conteo real por módulo. */
+  reencaminados: Record<string, number>
+  /** Rechazados: ningún módulo del ERP los reconoce. */
+  rechazados: { nombre: string; motivo: string }[]
   aRepescar: number
   errores: string[]
 }
@@ -61,6 +63,14 @@ function aBase64(buf: ArrayBuffer): string {
   return btoa(bin)
 }
 
+/** Huella del contenido: el mismo archivo no se procesa dos veces aunque se envíe dos veces. */
+async function huellaDe(buf: ArrayBuffer): Promise<string | null> {
+  try {
+    const h = await crypto.subtle.digest('SHA-256', buf)
+    return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join('')
+  } catch { return null }
+}
+
 function rutaSegura(nombre: string): string {
   const limpio = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '_')
   return `${CARPETA}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${limpio}`
@@ -74,24 +84,36 @@ export async function enviarAEquipoSeguro(
   archivos: File[],
   onProgreso?: (hechos: number, total: number) => void,
 ): Promise<ResultadoEquipo> {
-  const r: ResultadoEquipo = { nominas: 0, resumenes: 0, segSocial: 0, revisar: 0, aRepescar: 0, errores: [] }
+  const r: ResultadoEquipo = {
+    nominas: 0, resumenes: 0, segSocial: 0, revisar: 0,
+    reencaminados: {}, rechazados: [], aRepescar: 0, errores: [],
+  }
   let hechos = 0
 
   await enParalelo(archivos, EN_PARALELO, async (f) => {
     let filaId: string | null = null
     try {
       const buf = await f.arrayBuffer()
+      const huella = await huellaDe(buf)
+
+      // Anti doble envío: si este mismo contenido ya se procesó, no se repite.
+      if (huella) {
+        const { data: ya } = await supabase.from('equipo_manifiesto')
+          .select('id, estado, destino').eq('huella', huella).eq('estado', 'procesado').maybeSingle()
+        if (ya?.id) return
+      }
+
       const path = rutaSegura(f.name)
 
-      // 1) Guardar primero. Si esto falla, el archivo no se ha perdido: no ha entrado.
+      // 1) Guardar primero. Si esto falla, el archivo no ha entrado.
       const { error: eUp } = await supabase.storage.from(BUCKET).upload(path, buf, {
         contentType: f.type || 'application/octet-stream', upsert: false,
       })
       if (eUp) throw new Error(`no se pudo guardar: ${eUp.message}`)
 
-      // 2) Apuntarlo en el manifiesto: a partir de aquí la repesca puede rescatarlo.
+      // 2) Apuntarlo: a partir de aquí la repesca puede rescatarlo.
       const { data: fila } = await supabase.from('equipo_manifiesto')
-        .insert({ nombre_archivo: f.name, storage_path: path, estado: 'registrado', origen: 'boton' })
+        .insert({ nombre_archivo: f.name, storage_path: path, huella, estado: 'registrado', origen: 'boton' })
         .select('id').single()
       filaId = fila?.id ?? null
 
@@ -103,13 +125,22 @@ export async function enviarAEquipoSeguro(
       const j = await res.json()
 
       if (j?.ok) {
-        if (j.destino === 'nominas') r.nominas++
-        else if (j.destino === 'resumen_nominas') r.resumenes++
-        else if (j.destino === 'seguridad_social' || j.destino === 'seguridad_social_rnt') r.segSocial++
-        else r.revisar++
+        const d = String(j.destino ?? '')
+        if (d === 'nominas') r.nominas++
+        else if (d === 'resumen_nominas') r.resumenes++
+        else if (d === 'seguridad_social' || d === 'archivado_silencioso') r.segSocial++
+        else if (d === 'reencaminado') {
+          const mod = String(j.modulo || 'otro módulo')
+          r.reencaminados[mod] = (r.reencaminados[mod] || 0) + 1
+        } else if (d === 'rechazado') {
+          r.rechazados.push({ nombre: f.name, motivo: String(j.motivo || 'no reconocido') })
+        } else if (d === 'descartado_empleador') {
+          // El titular no genera nómina: no es error ni cuenta como nada.
+        } else r.revisar++
+
         if (filaId) {
           await supabase.from('equipo_manifiesto')
-            .update({ estado: 'procesado', destino: String(j.destino ?? ''), intentos: 1, updated_at: new Date().toISOString() })
+            .update({ estado: 'procesado', destino: d, intentos: 1, updated_at: new Date().toISOString() })
             .eq('id', filaId)
         }
       } else {
@@ -125,7 +156,6 @@ export async function enviarAEquipoSeguro(
     } catch (e: unknown) {
       const err = e as { name?: string; message?: string }
       const motivo = err?.name === 'AbortError' ? 'tardó demasiado' : (err?.message || 'error de red')
-      // Si llegó a guardarse, la repesca lo recuperará; si no, es un fallo real.
       if (filaId) {
         r.aRepescar++
         await supabase.from('equipo_manifiesto')
@@ -140,10 +170,4 @@ export async function enviarAEquipoSeguro(
   })
 
   return r
-}
-
-/** Lanza la repesca al momento, sin esperar al repaso de cada 15 minutos. */
-export async function repescarAhora(): Promise<number> {
-  const { data } = await supabase.from('v_equipo_repesca').select('id')
-  return data?.length ?? 0
 }
