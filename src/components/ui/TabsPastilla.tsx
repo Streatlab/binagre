@@ -1,13 +1,13 @@
-import { BLANCO, INK, NAR_S } from '@/styles/neobrutal'
+import { BLANCO, INK } from '@/styles/neobrutal'
 /**
- * TabsPastilla — pestañas del Panel Global (Resumen, Operaciones, Finanzas…).
- * v10: modelo T3 — pastilla dura, activa en ROSA con sombra negra, inactivas en
- * crema con borde negro. Oswald mayúsculas.
+ * TabsPastilla — pestañas de navegación · CANTERA ALEGRE v1.0.
+ * Hermanas de los desplegables de cabecera: mismo alto, mismo borde 2px, misma
+ * Oswald mayúsculas y misma sombra dura de pulsable. La activa va en ROSA y se
+ * "hunde" (translate + sin sombra); las inactivas en blanco con sombra.
  * En móvil (.movil-scope) se convierte en una tira deslizable: ver movil-scope.css.
  */
 
 const ROSA = '#FF2E63'
-const CREMA = NAR_S
 const OSW = "'Oswald', sans-serif"
 
 interface TabItem {
@@ -35,16 +35,17 @@ export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaP
             style={{
               fontFamily: OSW,
               fontWeight: 600,
-              fontSize: 14,
+              fontSize: 13,
               letterSpacing: '0.5px',
               textTransform: 'uppercase',
-              padding: '9px 18px',
+              padding: '9px 16px',
               cursor: 'pointer',
-              border: `3px solid ${INK}`,
+              border: `2px solid ${INK}`,
               borderRadius: 0,
-              background: active ? ROSA : CREMA,
+              background: active ? ROSA : 'var(--sl-card, #FFFFFF)',
               color: active ? BLANCO : INK,
-              boxShadow: active ? `4px 4px 0 ${INK}` : 'none',
+              boxShadow: active ? 'none' : `3px 3px 0 ${INK}`,
+              transform: active ? 'translate(2px, 2px)' : 'none',
               display: 'inline-flex',
               alignItems: 'center',
               flex: '0 0 auto',
