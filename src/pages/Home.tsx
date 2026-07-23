@@ -7,6 +7,11 @@ import { BLANCO, GRIS } from '@/styles/neobrutal'
  * (pulsables = con sombra). Derogados los lavados/pasteles como fondo de tarjeta.
  * Fuentes reales: v_facturacion_diario_unificada + tareas_pendientes.
  * LEY-ANTIFALSOS-01: si falta un dato, se enseña el hueco, nunca se inventa.
+ *
+ * 23-jul-2026: la franja "HOY EN VIVO" (CardHoyEnVivo) se TRASLADA aquí desde
+ * Panel Global · Resumen y abre la pantalla, arriba del héroe. Para no duplicar
+ * el dato del directo: la celda "HOY EN VIVO" pasa a MEDIA/DÍA (7d) y el héroe
+ * habla de AYER (el hoy ya lo cuenta la franja en vivo).
  */
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -16,6 +21,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { HeroCantera, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import { AlertasBanner } from '@/pages/finanzas/PanelAlertas'
+import CardHoyEnVivo, { enHorarioServicio } from '@/components/panel/resumen/CardHoyEnVivo'
 
 type Dia = {
   fecha: string
@@ -116,7 +122,6 @@ export default function Home() {
     }
     return acc
   }, [dias])
-  const hoy = porFecha[hoyISO()]
   const ayer = porFecha[diasAtras(1)]
   const suma = (desde: number, hasta: number) => {
     let acc = 0, hay = false
@@ -129,6 +134,7 @@ export default function Home() {
   const semana = suma(1, 7)
   const semanaAnt = suma(8, 14)
   const delta = semana != null && semanaAnt != null && semanaAnt > 0 ? ((semana - semanaAnt) / semanaAnt) * 100 : null
+  const mediaDia7 = semana != null ? semana / 7 : null
 
   const canales: { clave: keyof Dia; nombre: string; color: string }[] = [
     { clave: 'uber_bruto', nombre: 'UBER EATS', color: VERDE },
@@ -154,14 +160,14 @@ export default function Home() {
     { to: '/panel', label: 'Panel Global', emoji: '🧭' },
   ]
 
+  // El "hoy" vive en la franja EN VIVO de arriba: el héroe habla de AYER y de la semana.
   const tituloHero = cargando
     ? '…'
-    : (hoy?.total_bruto ?? null) != null
-      ? <>Llevas <span style={{ background: NARANJA, color: INK, padding: '0 8px' }}>{eur(hoy?.total_bruto ?? null)}</span> vendidos hoy.</>
-      : 'Hoy aún no hay ventas registradas.'
+    : totalAyer != null
+      ? <>Ayer cerraste en <span style={{ background: NARANJA, color: INK, padding: '0 8px' }}>{eur(totalAyer)}</span>.</>
+      : 'Ayer no hay ventas registradas.'
 
   const atencionHero = [
-    delta != null && semana != null ? `${delta >= 0 ? 'Buena racha' : 'Semana floja'}: ${eur(semana)} · ${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%` : (semana != null ? `Esta semana: ${eur(semana)}` : null),
     mejorCanal ? `Ayer tiró ${mejorCanal.nombre} · ${eur(mejorCanal.v)}` : null,
     nTareas != null && nTareas > 0 ? `${nTareas} tareas pendientes` : (nTareas === 0 ? 'Sin tareas pendientes' : null),
   ].filter(Boolean) as string[]
@@ -181,20 +187,24 @@ export default function Home() {
 
       <AlertasBanner />
 
-      {/* HÉROE (amarillo · área Resumen/HOY) + tira de atención pegada */}
+      {/* FRANJA HOY EN VIVO — trasladada desde Panel Global · Resumen (23-jul).
+          Autocontenida: lee del robot (v_vivo_*) y se refresca sola. */}
+      {enHorarioServicio() && <CardHoyEnVivo />}
+
+      {/* HÉROE (amarillo · área Resumen/HOY) + tira de atención pegada.
+          Habla de AYER y la semana: el hoy ya lo cuenta la franja en vivo. */}
       <HeroCantera
         area="resumen"
-        periodo="Hoy en vivo"
         titular={tituloHero}
-        etiquetaDato="Ayer · facturación bruta"
-        cifra={cargando ? '…' : eur(totalAyer)}
+        etiquetaDato="Últimos 7 días · facturación bruta"
+        cifra={cargando ? '…' : eur(semana)}
         variacionPct={delta}
         atencion={atencionHero}
       />
 
       {/* PLANCHA DE KPIs: sólidos pegados, sin sombra */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: BORDER }}>
-        <Celda bg={AMA} color={INK} label="💰 HOY EN VIVO">{cargando ? '…' : eur(hoy?.total_bruto ?? null)}</Celda>
+        <Celda bg={AMA} color={INK} label="📈 MEDIA/DÍA (7D)">{cargando ? '…' : eur(mediaDia7)}</Celda>
         <Celda bg={VERDE} color={BLANCO} label="📆 AYER">{cargando ? '…' : eur(totalAyer)}</Celda>
         <Celda bg={AZUL} color={BLANCO} label="🗓️ ÚLTIMOS 7 DÍAS">
           <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
