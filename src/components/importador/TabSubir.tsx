@@ -278,7 +278,7 @@ export default function TabSubir({ onUploadSuccess }: Props) {
         onClick={() => !uploading && inputRef.current?.click()}
         style={{
           border: `${dragOver ? 2 : 1.5}px dashed ${dropzoneBorder}`,
-          borderRadius: 14,
+          borderRadius: 0,
           padding: '40px 24px',
           textAlign: 'center',
           cursor: uploading ? 'wait' : 'pointer',
@@ -344,7 +344,7 @@ export default function TabSubir({ onUploadSuccess }: Props) {
               style={{
                 background: INK,
                 border: `1px solid ${T.brd}`,
-                borderRadius: 6,
+                borderRadius: 0,
                 color: T.pri,
                 fontFamily: FONT.body,
                 fontSize: 13,
@@ -374,7 +374,7 @@ export default function TabSubir({ onUploadSuccess }: Props) {
                 style={{
                   background: GRANATE,
                   border: 'none',
-                  borderRadius: 6,
+                  borderRadius: 0,
                   color: BLANCO,
                   fontFamily: FONT.heading,
                   fontSize: 11,

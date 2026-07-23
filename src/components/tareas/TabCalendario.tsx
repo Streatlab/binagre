@@ -126,7 +126,7 @@ export default function TabCalendario() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
         {celdas.map((dia, idx) => {
           if (dia === null) {
-            return <div key={`empty-${idx}`} style={{ minHeight: 64, borderRadius: 6 }} />
+            return <div key={`empty-${idx}`} style={{ minHeight: 64, borderRadius: 0 }} />
           }
           const fechaStr = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
           const esHoy = fechaStr === hoy
@@ -139,7 +139,7 @@ export default function TabCalendario() {
               onClick={() => hasTareas && setModalDia(fechaStr)}
               style={{
                 minHeight: 64,
-                borderRadius: 6,
+                borderRadius: 0,
                 border: `1px solid ${esHoy ? LIMA : T.brd}`,
                 background: esHoy ? 'rgba(232,244,66,0.06)' : T.card,
                 padding: '6px 8px',
@@ -183,7 +183,7 @@ export default function TabCalendario() {
           onClick={() => setModalDia(null)}
         >
           <div
-            style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 12, padding: 24, minWidth: 320, maxWidth: 480 }}
+            style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, padding: 24, minWidth: 320, maxWidth: 480 }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -204,7 +204,7 @@ export default function TabCalendario() {
                       alignItems: 'center',
                       gap: 10,
                       padding: '8px 12px',
-                      borderRadius: 6,
+                      borderRadius: 0,
                       background: INK,
                       border: `1px solid ${BORDE_SUAVE}`,
                     }}
@@ -215,7 +215,7 @@ export default function TabCalendario() {
                       marginLeft: 'auto',
                       fontSize: 11,
                       padding: '2px 8px',
-                      borderRadius: 4,
+                      borderRadius: 0,
                       background: estadoColor[t.estado] + '22',
                       color: estadoColor[t.estado],
                       fontFamily: 'Oswald, sans-serif',

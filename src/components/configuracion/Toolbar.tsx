@@ -30,7 +30,7 @@ export function BtnRed({ children, ...rest }: ButtonHTMLAttributes<HTMLButtonEle
       {...rest}
       style={{
         padding: '9px 16px',
-        borderRadius: 8,
+        borderRadius: 0,
         fontSize: 12,
         fontWeight: 600,
         letterSpacing: '0.04em',
@@ -58,7 +58,7 @@ export function BtnGhost({ children, ...rest }: ButtonHTMLAttributes<HTMLButtonE
       {...rest}
       style={{
         padding: '9px 16px',
-        borderRadius: 8,
+        borderRadius: 0,
         fontSize: 12,
         fontWeight: 600,
         letterSpacing: '0.04em',
@@ -97,7 +97,7 @@ export function SearchInput(props: InputHTMLAttributes<HTMLInputElement>) {
         style={{
           background: isDark ? INK : BLANCO,
           border: `1px solid ${isDark ? INK : CONFIG_BORDE}`,
-          borderRadius: 8,
+          borderRadius: 0,
           padding: '8px 12px 8px 30px',
           fontSize: 13,
           color: isDark ? BLANCO : INK,

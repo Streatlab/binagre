@@ -61,7 +61,7 @@ export const EditableInline: React.FC<Props> = ({
         onKeyDown={onKey}
         style={{
           width: 80, padding: '0 4px', border: `1px solid ${ROJO}`,
-          borderRadius: 3, fontFamily: 'inherit', fontSize: 'inherit',
+          borderRadius: 0, fontFamily: 'inherit', fontSize: 'inherit',
           color, background: BLANCO
         }}
       />

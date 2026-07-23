@@ -51,7 +51,7 @@ export default function TabConteos({ desde, hasta }: Props) {
     border: `1px solid ${ERROR_BANNER_BORDE}`,
     color: ROJO_S,
     padding: '4px 8px',
-    borderRadius: 4,
+    borderRadius: 0,
     fontSize: 13,
     fontFamily: FONT.body,
     minWidth: 80,
@@ -177,7 +177,7 @@ export default function TabConteos({ desde, hasta }: Props) {
             onClick={confirmarConteo}
             style={{
               padding: '8px 18px',
-              borderRadius: 8,
+              borderRadius: 0,
               border: `0.5px solid ${T.brd}`,
               background: 'transparent',
               color: T.sec,
@@ -195,7 +195,7 @@ export default function TabConteos({ desde, hasta }: Props) {
             onClick={() => setModalOpen(true)}
             style={{
               padding: '8px 18px',
-              borderRadius: 8,
+              borderRadius: 0,
               border: 'none',
               background: LIMA,
               color: INK,
@@ -252,7 +252,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                     <span style={{
                       fontSize: 11,
                       padding: '2px 7px',
-                      borderRadius: 4,
+                      borderRadius: 0,
                       background: c.periodicidad === 'mensual' ? DARK_WASH_VERDE_BG : DARK_WASH_AZUL_BG,
                       color: c.periodicidad === 'mensual' ? VERDE_POSITIVO : AZUL_CL,
                       fontFamily: FONT.heading,
@@ -278,7 +278,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                       style={{
                         width: 90,
                         padding: '4px 8px',
-                        borderRadius: 4,
+                        borderRadius: 0,
                         border: `1px solid ${T.brd}`,
                         background: INK,
                         color: T.pri,
@@ -315,7 +315,7 @@ export default function TabConteos({ desde, hasta }: Props) {
             style={{
               backgroundColor: INK,
               border: `1px solid ${T.brd}`,
-              borderRadius: 12,
+              borderRadius: 0,
               padding: '28px 32px',
               width: 380,
               fontFamily: FONT.body,
@@ -333,7 +333,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                 value={periodicidad}
                 onChange={e => setPeriodicidad(e.target.value as 'semanal' | 'mensual')}
                 style={{
-                  width: '100%', padding: '8px 12px', borderRadius: 8,
+                  width: '100%', padding: '8px 12px', borderRadius: 0,
                   border: `1px solid ${T.brd}`, background: INK,
                   color: T.pri, fontSize: 14, fontFamily: FONT.body,
                 }}
@@ -352,7 +352,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                 value={fechaNuevo}
                 onChange={e => setFechaNuevo(e.target.value)}
                 style={{
-                  width: '100%', padding: '8px 12px', borderRadius: 8,
+                  width: '100%', padding: '8px 12px', borderRadius: 0,
                   border: `1px solid ${T.brd}`, background: INK,
                   color: T.pri, fontSize: 14, fontFamily: FONT.body,
                 }}
@@ -368,7 +368,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                 onClick={() => setModalOpen(false)}
                 disabled={saving}
                 style={{
-                  padding: '9px 18px', borderRadius: 8,
+                  padding: '9px 18px', borderRadius: 0,
                   border: `1px solid ${T.brd}`, background: INK,
                   color: T.sec, fontSize: 13, fontFamily: FONT.heading,
                   fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase',
@@ -381,7 +381,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                 onClick={crearConteo}
                 disabled={saving}
                 style={{
-                  padding: '9px 18px', borderRadius: 8,
+                  padding: '9px 18px', borderRadius: 0,
                   border: 'none', background: GRANATE,
                   color: BLANCO, fontSize: 13, fontFamily: FONT.heading,
                   fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',

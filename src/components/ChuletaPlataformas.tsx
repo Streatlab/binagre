@@ -18,7 +18,7 @@ export default function ChuletaPlataformas() {
       style={{
         background: COLORS.card,
         border: `0.5px solid ${COLORS.brd}`,
-        borderRadius: 14,
+        borderRadius: 0,
         padding: '16px 16px',
         height: '100%',
         boxSizing: 'border-box',

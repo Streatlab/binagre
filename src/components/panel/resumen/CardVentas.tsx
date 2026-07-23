@@ -223,7 +223,7 @@ function ObjetivoEditable({
         placeholder="vacío o 0 = restaurar"
         style={{
           width: 110, padding: '0 4px', border: `1px solid ${COLOR.verde}`,
-          borderRadius: 3, fontFamily: 'inherit', fontSize: 'inherit',
+          borderRadius: 0, fontFamily: 'inherit', fontSize: 'inherit',
           color: OSC, background: BLANCO,
         }}
       />

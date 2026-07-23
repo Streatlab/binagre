@@ -75,7 +75,7 @@ interface Props {
 
 // Estilo común de inputs/selects de este modal (tema claro).
 const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '10px 12px', borderRadius: 8, border: `0.5px solid ${BORDE_SUAVE}`,
+  width: '100%', padding: '10px 12px', borderRadius: 0, border: `0.5px solid ${BORDE_SUAVE}`,
   background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK,
   boxSizing: 'border-box',
 }
@@ -291,7 +291,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}>
-      <div style={{ background: BLANCO, borderRadius: 14, width: 'min(640px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.18)' }}>
+      <div style={{ background: BLANCO, borderRadius: 0, width: 'min(640px, 100%)', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 12px 32px rgba(0,0,0,0.18)' }}>
         <div style={{ padding: '20px 24px', borderBottom: `0.5px solid ${BORDE_SUAVE}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 4 }}>Completar factura</div>
@@ -306,11 +306,11 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
           {/* Aviso de qué falta por completar */}
           {faltan.length > 0 ? (
-            <div style={{ padding: '8px 12px', borderRadius: 8, background: OCR_NAR_WASH_BG, border: `0.5px solid ${NAR}`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: OCR_NAR_WASH_TXT }}>
+            <div style={{ padding: '8px 12px', borderRadius: 0, background: OCR_NAR_WASH_BG, border: `0.5px solid ${NAR}`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: OCR_NAR_WASH_TXT }}>
               Faltan por completar: <strong>{faltan.join(', ')}</strong>
             </div>
           ) : (
-            <div style={{ padding: '8px 12px', borderRadius: 8, background: COBERTURA_VERDE + '10', border: `0.5px solid ${COBERTURA_VERDE}40`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: CANAL_UBER_DARK }}>
+            <div style={{ padding: '8px 12px', borderRadius: 0, background: COBERTURA_VERDE + '10', border: `0.5px solid ${COBERTURA_VERDE}40`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: CANAL_UBER_DARK }}>
               ✓ Factura completa
             </div>
           )}
@@ -318,7 +318,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
           {tienePdf && (
             <div>
               <div style={labelStyle}>Documento</div>
-              <a href={factura.pdf_drive_url!} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, background: COBERTURA_VERDE + '15', color: CANAL_UBER_DARK, textDecoration: 'none', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500 }}>
+              <a href={factura.pdf_drive_url!} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 0, background: COBERTURA_VERDE + '15', color: CANAL_UBER_DARK, textDecoration: 'none', fontFamily: 'Lexend, sans-serif', fontSize: 13, fontWeight: 500 }}>
                 📎 Abrir en Drive
               </a>
             </div>
@@ -353,7 +353,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
 
           {/* D07: mostrar mensaje_matching */}
           {factura.mensaje_matching && (
-            <div style={{ padding: '8px 12px', borderRadius: 8, background: CREMA, border: `0.5px solid ${BORDE_SUAVE}`, fontFamily: 'Lexend, sans-serif', fontSize: 11, color: GRIS, lineHeight: 1.4 }}>
+            <div style={{ padding: '8px 12px', borderRadius: 0, background: CREMA, border: `0.5px solid ${BORDE_SUAVE}`, fontFamily: 'Lexend, sans-serif', fontSize: 11, color: GRIS, lineHeight: 1.4 }}>
               {factura.mensaje_matching}
             </div>
           )}
@@ -373,7 +373,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
             ) : cargandoMovs ? (
               <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS }}>Buscando candidatos…</div>
             ) : movsCandidatos.length === 0 ? (
-              <div style={{ padding: '10px 12px', borderRadius: 8, background: OCR_ROJO_WASH_CLARO, border: `0.5px solid ${CORREO_ERROR_BORDE}40`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRANATE }}>
+              <div style={{ padding: '10px 12px', borderRadius: 0, background: OCR_ROJO_WASH_CLARO, border: `0.5px solid ${CORREO_ERROR_BORDE}40`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRANATE }}>
                 No hay movimientos {titularId ? 'del mismo titular ' : ''}con importe {fmtEur(-Math.abs(totalNum))} ±{TOLERANCIA}€ en ventana ({ventana.antes}d antes / {ventana.despues}d después).
               </div>
             ) : (
@@ -418,7 +418,7 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
           </div>
 
           {error && (
-            <div style={{ padding: '10px 12px', borderRadius: 8, background: OCR_ROJO_WASH_CLARO, border: `0.5px solid ${CORREO_ERROR_BORDE}`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRANATE }}>
+            <div style={{ padding: '10px 12px', borderRadius: 0, background: OCR_ROJO_WASH_CLARO, border: `0.5px solid ${CORREO_ERROR_BORDE}`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRANATE }}>
               {error}
             </div>
           )}
@@ -427,29 +427,29 @@ export default function ModalDetalleFactura({ factura, categoriasPyg, titulares 
         <div style={{ padding: '14px 24px', borderTop: `0.5px solid ${BORDE_SUAVE}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: OCR_FOOTER_BG }}>
           {!confirmarBorrar ? (
             <button onClick={() => setConfirmarBorrar(true)} disabled={guardando || borrando}
-              style={{ padding: '8px 14px', borderRadius: 8, border: `0.5px solid ${CORREO_ERROR_BORDE}`, background: BLANCO, color: ROJO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>
+              style={{ padding: '8px 14px', borderRadius: 0, border: `0.5px solid ${CORREO_ERROR_BORDE}`, background: BLANCO, color: ROJO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500 }}>
               Borrar factura
             </button>
           ) : (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRANATE, fontWeight: 500 }}>¿Seguro?</span>
               <button onClick={() => setConfirmarBorrar(false)} disabled={borrando}
-                style={{ padding: '8px 12px', borderRadius: 8, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, color: OSC, fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
+                style={{ padding: '8px 12px', borderRadius: 0, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, color: OSC, fontFamily: 'Lexend, sans-serif', fontSize: 12, cursor: 'pointer' }}>
                 Cancelar
               </button>
               <button onClick={handleBorrar} disabled={borrando}
-                style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: ROJO, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrando ? 0.6 : 1 }}>
+                style={{ padding: '8px 14px', borderRadius: 0, border: 'none', background: ROJO, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 500, opacity: borrando ? 0.6 : 1 }}>
                 {borrando ? 'Borrando…' : 'Sí, borrar'}
               </button>
             </div>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onClose} disabled={guardando || borrando}
-              style={{ padding: '8px 14px', borderRadius: 8, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, color: OSC, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer' }}>
+              style={{ padding: '8px 14px', borderRadius: 0, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, color: OSC, fontFamily: 'Lexend, sans-serif', fontSize: 13, cursor: 'pointer' }}>
               Cancelar
             </button>
             <button onClick={handleGuardar} disabled={guardando || borrando}
-              style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: GRANATE, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600, opacity: guardando ? 0.6 : 1 }}>
+              style={{ padding: '8px 18px', borderRadius: 0, border: 'none', background: GRANATE, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600, opacity: guardando ? 0.6 : 1 }}>
               {guardando ? 'Guardando…' : 'Guardar'}
             </button>
           </div>

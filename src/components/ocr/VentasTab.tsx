@@ -406,7 +406,7 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
         </span>
       </div>
       {logs.length > 0 && (
-        <div style={{ marginBottom: 16, padding: 12, background: CREMA, borderRadius: 8 }}>
+        <div style={{ marginBottom: 16, padding: 12, background: CREMA, borderRadius: 0 }}>
           {logs.map((l, i) => (
             <div key={i} style={{ marginBottom: 4, fontSize: 13 }}>
               <strong>{l.archivo}</strong> — {l.plataforma}: {l.nuevas} nuevas, {l.duplicadas} duplicadas, {l.actualizadas} actualizadas
@@ -416,7 +416,7 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
         </div>
       )}
       <VentasPlatosFranjas fechaDesde={fechaDesde} fechaHasta={fechaHasta} />
-      <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 14, overflow: 'hidden', marginTop: 16 }}>
+      <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 0, overflow: 'hidden', marginTop: 16 }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
             <tr>

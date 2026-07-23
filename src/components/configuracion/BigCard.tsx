@@ -23,7 +23,7 @@ export function BigCard({
       style={{
         background: bg,
         border: `1px solid ${border}`,
-        borderRadius: 12,
+        borderRadius: 0,
         padding: '24px 26px',
         marginBottom: 14,
       }}

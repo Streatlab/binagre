@@ -12,7 +12,7 @@ const TAG_STYLE: React.CSSProperties = {
   alignItems: 'center',
   gap: 4,
   padding: '2px 8px',
-  borderRadius: 10,
+  borderRadius: 0,
   background: `${ROJO}15`,
   color: ROJO,
   fontSize: 11,

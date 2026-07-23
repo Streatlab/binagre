@@ -290,7 +290,7 @@ function BarraPrimeCost({ pctActual, objetivo }: { pctActual: number; objetivo: 
   const colorFill = dentroObjetivo ? VERDE : GRANATE
 
   return (
-    <div style={{ height: 8, borderRadius: 4, background: BORDE_SUAVE, overflow: 'hidden' }}>
+    <div style={{ height: 8, borderRadius: 0, background: BORDE_SUAVE, overflow: 'hidden' }}>
       <div style={{ height: '100%', width: `${fillPct}%`, background: colorFill, transition: 'width 0.4s' }} />
     </div>
   )

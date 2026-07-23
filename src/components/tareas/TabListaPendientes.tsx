@@ -144,7 +144,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
               background: filtroResponsable === r ? GRANATE : INK,
               color: filtroResponsable === r ? BLANCO : GRIS,
               border: `1px solid ${BORDE_SUAVE}`,
-              borderRadius: 6,
+              borderRadius: 0,
               padding: '6px 14px',
               fontSize: 12,
               fontFamily: 'Oswald, sans-serif',
@@ -201,7 +201,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{
                       padding: '3px 10px',
-                      borderRadius: 4,
+                      borderRadius: 0,
                       background: (RESPONSABLE_COLORS[t.responsable ?? ''] ?? GRIS) + '22',
                       color: RESPONSABLE_COLORS[t.responsable ?? ''] ?? GRIS,
                       fontFamily: 'Oswald, sans-serif',
@@ -213,7 +213,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{
                       padding: '3px 10px',
-                      borderRadius: 4,
+                      borderRadius: 0,
                       background: (ESTADO_COLORS[t.estado] ?? GRIS) + '22',
                       color: ESTADO_COLORS[t.estado] ?? GRIS,
                       fontFamily: 'Oswald, sans-serif',
@@ -234,7 +234,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                           background: GRANATE,
                           color: BLANCO,
                           border: 'none',
-                          borderRadius: 6,
+                          borderRadius: 0,
                           padding: '5px 10px',
                           fontSize: 11,
                           fontFamily: 'Oswald, sans-serif',
@@ -251,7 +251,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                           background: INK,
                           color: GRIS,
                           border: `1px solid ${BORDE_SUAVE}`,
-                          borderRadius: 6,
+                          borderRadius: 0,
                           padding: '5px 10px',
                           fontSize: 11,
                           fontFamily: 'Oswald, sans-serif',
@@ -268,7 +268,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                           background: 'none',
                           color: GRIS,
                           border: `1px solid ${BORDE_SUAVE}`,
-                          borderRadius: 6,
+                          borderRadius: 0,
                           padding: '5px 10px',
                           fontSize: 11,
                           fontFamily: 'Oswald, sans-serif',

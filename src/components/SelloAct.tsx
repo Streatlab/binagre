@@ -64,7 +64,7 @@ export default function SelloAct({
         whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ width: 8, height: 8, borderRadius: 99, background: VERDE, display: 'inline-block' }} />
+      <span style={{ width: 8, height: 8, borderRadius: 0, background: VERDE, display: 'inline-block' }} />
       {texto}
     </span>
   )

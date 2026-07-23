@@ -47,7 +47,7 @@ export default function CardTopVentas({ tab, onTab, items, datosDemo }: Props) {
                     fontSize: 9,
                     letterSpacing: '0.5px',
                     padding: '1px 5px',
-                    borderRadius: 3,
+                    borderRadius: 0,
                     fontWeight: 500,
                   }}>
                     {badge.abrev}

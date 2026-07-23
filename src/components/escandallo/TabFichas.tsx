@@ -164,7 +164,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
   const etiquetaLista = tipo === 'receta' ? 'Recetas' : tipo === 'ep' ? 'EPS' : 'Fichas EPS / Receta'
 
   const pill = (active: boolean): React.CSSProperties => ({
-    padding: '4px 11px', borderRadius: 99, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+    padding: '4px 11px', borderRadius: 0, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
     border: active ? 'none' : '1px solid var(--sl-border)',
     background: active ? GRANATE : 'transparent',
     color: active ? BLANCO : 'var(--sl-text-secondary)',
@@ -439,10 +439,10 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
       <td className="ficha-equiv" style={{ textAlign: 'right', width: 78, whiteSpace: 'nowrap', padding: '1px 0' }}>{i.equivalencia || '—'}</td>
       <td className="no-print" style={{ textAlign: 'right', width: 86, paddingLeft: 6 }}>
         {i.match
-          ? <span style={{ background: ESCANDALLO_OK_BG, color: ESCANDALLO_OK_TXT, fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>✓ {i.match.prov}</span>
+          ? <span style={{ background: ESCANDALLO_OK_BG, color: ESCANDALLO_OK_TXT, fontSize: 10, padding: '2px 7px', borderRadius: 0 }}>✓ {i.match.prov}</span>
           : NO_COSTE(i)
             ? <span style={{ color: GRIS, fontSize: 11 }}>no coste</span>
-            : <span style={{ background: ESCANDALLO_WARN_BG, color: ESCANDALLO_WARN_TXT, fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>⚠ sin enlazar</span>}
+            : <span style={{ background: ESCANDALLO_WARN_BG, color: ESCANDALLO_WARN_TXT, fontSize: 10, padding: '2px 7px', borderRadius: 0 }}>⚠ sin enlazar</span>}
       </td>
     </tr>
   )
@@ -469,12 +469,12 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
       </div>
 
       {sinEnlazar.length > 0 && (
-        <div className="no-print" style={{ background: ESCANDALLO_WARN_BG, border: `1px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="no-print" style={{ background: ESCANDALLO_WARN_BG, border: `1px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 0, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
           <AlertTriangle size={18} color={ESCANDALLO_WARN_BTN} />
           <div style={{ flex: 1, fontSize: 13, color: ESCANDALLO_WARN_TXT }}>
             <strong>{sinEnlazar.length} sin enlazar al escandallo:</strong> {sinEnlazar.map(i => i.ingrediente).join(', ')}.
           </div>
-          <button onClick={() => setEditando(true)} style={{ background: ESCANDALLO_WARN_BTN, color: BLANCO, border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <button onClick={() => setEditando(true)} style={{ background: ESCANDALLO_WARN_BTN, color: BLANCO, border: 'none', borderRadius: 0, padding: '5px 10px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
             <Link2 size={13} /> Resolver
           </button>
         </div>
@@ -564,7 +564,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
                   const on = alergManual.includes(a)
                   return (
                     <button key={a} onClick={() => setAlergManual(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a])}
-                      style={{ padding: '4px 9px', borderRadius: 99, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? 'var(--m-acento)' : 'transparent', color: on ? BLANCO : 'var(--sl-text-secondary)' }}>
+                      style={{ padding: '4px 9px', borderRadius: 0, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? 'var(--m-acento)' : 'transparent', color: on ? BLANCO : 'var(--sl-text-secondary)' }}>
                       {a}
                     </button>
                   )
@@ -575,7 +575,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
                 ? <div className="ficha-alerg-val">Ninguno</div>
                 : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, paddingTop: 2 }}>
                     {alergAuto.map(a => (
-                      <span key={a} style={{ padding: '3px 9px', borderRadius: 99, fontSize: 11, fontFamily: "'Oswald', sans-serif", background: 'var(--m-soft)', color: 'var(--m-acento)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{a}</span>
+                      <span key={a} style={{ padding: '3px 9px', borderRadius: 0, fontSize: 11, fontFamily: "'Oswald', sans-serif", background: 'var(--m-soft)', color: 'var(--m-acento)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{a}</span>
                     ))}
                   </div>
             )}
@@ -595,7 +595,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
   )
 }
 
-const btn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'Oswald, sans-serif', letterSpacing: '0.04em' }
+const btn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 0, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'Oswald, sans-serif', letterSpacing: '0.04em' }
 
 const FICHA_CSS = `
 /* ── Ficha EPS/Receta — misma superficie clara que el modal Ingredientes (--bg-card) ── */

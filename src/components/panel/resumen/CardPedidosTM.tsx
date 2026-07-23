@@ -105,7 +105,7 @@ export default function CardPedidosTM({
                   <span style={{ color: COLOR.verde }}>{fmtNum(tNeto, 2)}</span>
                 </span>
               </div>
-              <div style={{ height: 5, borderRadius: 3, background: COLOR.bordeClaro, overflow: 'hidden' }}>
+              <div style={{ height: 5, borderRadius: 0, background: COLOR.bordeClaro, overflow: 'hidden' }}>
                 <div style={{
                   height: '100%',
                   width: `${Math.max(pctBarra, ped > 0 ? 2 : 0)}%`,

@@ -49,7 +49,7 @@ export function KpiCardGrande({
   const wrap: CSSProperties = {
     background: T.card,
     border: `0.5px solid ${T.brd}`,
-    borderRadius: 16,
+    borderRadius: 0,
     padding: '24px 28px',
     ...(highlight ? { background: `linear-gradient(180deg, ${T.card} 0%, ${VERDE}08 100%)` } : {}),
   }
@@ -105,7 +105,7 @@ export function KpiCardGrande({
       {/* BARRA APILADA */}
       {segs.length > 0 && (
         <div style={{
-          height: 8, borderRadius: 4,
+          height: 8, borderRadius: 0,
           background: T.brd, overflow: 'hidden',
           display: 'flex', marginTop: 12,
         }}>
@@ -131,7 +131,7 @@ export function KpiCardGrande({
             }}>
               <span style={{ color: T.sec, fontFamily: FONT.body, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{
-                  width: 8, height: 8, borderRadius: 4,
+                  width: 8, height: 8, borderRadius: 0,
                   background: s.color, display: 'inline-block',
                 }} />
                 {s.label}

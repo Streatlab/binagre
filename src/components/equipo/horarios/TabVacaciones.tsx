@@ -87,7 +87,7 @@ export default function TabVacaciones() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         {filtros.map(f => (
           <button key={f.key} onClick={() => setFiltro(f.key)}
-            style={{ padding: '6px 14px', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: filtro === f.key ? ROJO : T.card, color: filtro === f.key ? BLANCO : T.sec, fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+            style={{ padding: '6px 14px', borderRadius: 0, border: `0.5px solid ${T.brd}`, background: filtro === f.key ? ROJO : T.card, color: filtro === f.key ? BLANCO : T.sec, fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
             {f.label}
           </button>
         ))}
@@ -123,7 +123,7 @@ export default function TabVacaciones() {
                     </td>
                     <td style={td}>{TIPO_LABELS[sol.tipo] ?? sol.tipo}</td>
                     <td style={td}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 4, background: badge.bg, color: badge.color, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 0, background: badge.bg, color: badge.color, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>
                         {badge.icon}{badge.label}
                       </span>
                     </td>

@@ -99,7 +99,7 @@ export default function EditorListaConfigJson({ clave, titulo, placeholder = 'Nu
   return (
     <ConfigGroupCard title={titulo} subtitle={`${items.length}`}>
       {error && (
-        <div style={{ margin: '0 22px 10px', padding: '8px 12px', background: GRANATE + '20', color: GRANATE, borderRadius: 8, fontFamily: FONT.body, fontSize: 12.5 }}>
+        <div style={{ margin: '0 22px 10px', padding: '8px 12px', background: GRANATE + '20', color: GRANATE, borderRadius: 0, fontFamily: FONT.body, fontSize: 12.5 }}>
           {error}
         </div>
       )}
@@ -157,11 +157,11 @@ export default function EditorListaConfigJson({ clave, titulo, placeholder = 'Nu
           onChange={(e) => setNuevo(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { crear(nuevo); setNuevo('') } }}
           placeholder={placeholder}
-          style={{ flex: 1, padding: '7px 12px', border: `0.5px dashed ${T.brd}`, borderRadius: 6, background: T.inp, color: T.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none' }}
+          style={{ flex: 1, padding: '7px 12px', border: `0.5px dashed ${T.brd}`, borderRadius: 0, background: T.inp, color: T.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none' }}
         />
         <button
           onClick={async () => { await crear(nuevo); setNuevo('') }}
-          style={{ padding: '7px 14px', borderRadius: 6, border: 'none', background: LIMA, color: BOTON_ANADIR_TXT, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
+          style={{ padding: '7px 14px', borderRadius: 0, border: 'none', background: LIMA, color: BOTON_ANADIR_TXT, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
         >+ Añadir</button>
       </div>
     </ConfigGroupCard>

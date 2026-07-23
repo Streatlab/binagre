@@ -41,7 +41,7 @@ export function PanelCobertura() {
       style={{
         background: BLANCO,
         border: `1px solid ${GRIS}`,
-        borderRadius: 14,
+        borderRadius: 0,
         padding: '20px 28px',
         marginBottom: 18,
         display: 'flex',
@@ -68,13 +68,13 @@ export function PanelCobertura() {
         <div style={{ fontFamily: OSWALD, fontSize: 48, fontWeight: 700, color: barColor, lineHeight: 1 }}>
           {pct.toFixed(1)}%
         </div>
-        <div style={{ height: 5, borderRadius: 3, background: `${GRIS}`, marginTop: 8, overflow: 'hidden' }}>
+        <div style={{ height: 5, borderRadius: 0, background: `${GRIS}`, marginTop: 8, overflow: 'hidden' }}>
           <div
             style={{
               width: `${Math.min(pct, 100)}%`,
               height: '100%',
               background: barColor,
-              borderRadius: 3,
+              borderRadius: 0,
               transition: 'width 0.6s ease',
             }}
           />

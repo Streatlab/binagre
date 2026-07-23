@@ -496,7 +496,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
   const cardStyle = (filtro: FiltroCard, isActive: boolean): React.CSSProperties => ({
     background: BLANCO,
     border: isActive ? `1px solid ${CORREO_ALERTA_BORDE}` : `0.5px solid ${BORDE_SUAVE}`,
-    borderRadius: 14,
+    borderRadius: 0,
     padding: '18px 20px',
     cursor: 'pointer',
     boxShadow: isActive ? `0 0 0 3px ${ROJO}15` : 'none',
@@ -552,7 +552,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             <button
               onClick={() => onCambiarFiltroCard('pend_sin_cat')}
               style={{
-                flex: 1, padding: '5px 6px', borderRadius: 5,
+                flex: 1, padding: '5px 6px', borderRadius: 0,
                 border: filtroCard === 'pend_sin_cat' ? `1px solid ${CORREO_ERROR_BORDE}` : `0.5px solid ${BORDE_SUAVE}`,
                 background: filtroCard === 'pend_sin_cat' ? `${ROJO}10` : BLANCO,
                 cursor: 'pointer', textAlign: 'center',
@@ -565,7 +565,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             <button
               onClick={() => onCambiarFiltroCard('pend_sin_doc')}
               style={{
-                flex: 1, padding: '5px 6px', borderRadius: 5,
+                flex: 1, padding: '5px 6px', borderRadius: 0,
                 border: filtroCard === 'pend_sin_doc' ? `1px solid ${NAR}` : `0.5px solid ${BORDE_SUAVE}`,
                 background: filtroCard === 'pend_sin_doc' ? NAR : BLANCO,
                 cursor: 'pointer', textAlign: 'center',
@@ -578,7 +578,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
           </div>
         </div>
 
-        <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 14, padding: '14px 16px' }}>
+        <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 0, padding: '14px 16px' }}>
           <div style={{ marginBottom: 6 }}>
             <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase' }}>Titular</span>
           </div>
@@ -590,7 +590,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               const bd  = isActive ? 'none' : `0.5px solid ${BORDE_SUAVE}`
               return (
                 <button key={t} onClick={() => onCambiarFiltroTitular(t)}
-                  style={{ flex: 1, padding: '7px 6px', borderRadius: 6, border: bd, background: bg, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: clr, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}>
+                  style={{ flex: 1, padding: '7px 6px', borderRadius: 0, border: bd, background: bg, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: clr, cursor: 'pointer', textAlign: 'center', fontWeight: 500 }}>
                   {t === 'todos' ? 'Todos' : t === 'ruben' ? 'Rubén' : 'Emilio'}
                 </button>
               )
@@ -615,7 +615,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             value={busqueda}
             onChange={e => onCambiarBusqueda(e.target.value)}
             placeholder="Buscar concepto, notas o proveedor en toda la BBDD"
-            style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK, outline: 'none', boxSizing: 'border-box' }}
+            style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 0, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK, outline: 'none', boxSizing: 'border-box' }}
           />
           {busqueda && (
             <button
@@ -633,7 +633,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         <select
           value={catFiltro}
           onChange={e => onCambiarCatFiltro(e.target.value)}
-          style={{ padding: '10px 14px', borderRadius: 10, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK, minWidth: 280, cursor: 'pointer' }}
+          style={{ padding: '10px 14px', borderRadius: 0, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK, minWidth: 280, cursor: 'pointer' }}
         >
           <option value="todas">Categorías</option>
           {categoriasPyg.filter(c => c.nivel === 3).map(c => (
@@ -644,7 +644,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         <button
           onClick={handleExportar}
           disabled={exportando}
-          style={{ padding: '10px 18px', borderRadius: 10, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: OSC, cursor: exportando ? 'default' : 'pointer', fontWeight: 500, opacity: exportando ? 0.6 : 1 }}
+          style={{ padding: '10px 18px', borderRadius: 0, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: OSC, cursor: exportando ? 'default' : 'pointer', fontWeight: 500, opacity: exportando ? 0.6 : 1 }}
         >
           {exportando ? 'Exportando...' : 'Exportar'}
         </button>
@@ -654,7 +654,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
         <div style={{
           background: OCR_ROJO_WASH_CLARO,
           border: `0.5px solid ${GRANATE}`,
-          borderRadius: 8,
+          borderRadius: 0,
           padding: '10px 14px',
           margin: '0 0 12px 0',
           display: 'flex',
@@ -671,7 +671,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               background: GRANATE,
               color: BLANCO,
               border: 'none',
-              borderRadius: 6,
+              borderRadius: 0,
               padding: '6px 14px',
               fontFamily: 'Oswald, sans-serif',
               fontSize: 11,
@@ -685,12 +685,12 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
       )}
 
       {!cargando && total === 0 && !errorCarga ? (
-        <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
+        <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 0, padding: '48px 28px', textAlign: 'center' }}>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRIS, letterSpacing: 1, marginBottom: 8 }}>No hay movimientos</div>
           <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS, marginBottom: 24 }}>Prueba a cambiar la búsqueda o el periodo</div>
         </div>
       ) : (
-        <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 0, overflow: 'hidden' }}>
           {cargando && (
             <div style={{ padding: '24px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS }}>
               Cargando…
@@ -756,12 +756,12 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                         </td>
                         <td style={{ ...tdBase, whiteSpace: 'nowrap' }}>
                           {catInfo ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 6, background: CREMA, border: `0.5px solid ${BORDE_SUAVE}`, fontFamily: 'Lexend, sans-serif', fontSize: 11, color: OSC, whiteSpace: 'nowrap' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', borderRadius: 0, background: CREMA, border: `0.5px solid ${BORDE_SUAVE}`, fontFamily: 'Lexend, sans-serif', fontSize: 11, color: OSC, whiteSpace: 'nowrap' }}>
                               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', color: GRIS, fontWeight: 500 }}>{catInfo.id}</span>
                               {catInfo.nombre}
                             </span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: `${ROJO}10`, border: `0.5px dashed ${ROJO}50`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: ROJO, fontStyle: 'italic' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 0, background: `${ROJO}10`, border: `0.5px dashed ${ROJO}50`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: ROJO, fontStyle: 'italic' }}>
                               sin categoría
                             </span>
                           )}
@@ -804,31 +804,31 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                         )}
                         <td style={tdBase}>
                           {noConc ? (
-                            <span title={(m as unknown as { motivo_no_conciliable?: string }).motivo_no_conciliable ?? 'No conciliable'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: CONCILIACION_VIOLETA + '15', color: CONCILIACION_VIOLETA }}>
+                            <span title={(m as unknown as { motivo_no_conciliable?: string }).motivo_no_conciliable ?? 'No conciliable'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 0, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: CONCILIACION_VIOLETA + '15', color: CONCILIACION_VIOLETA }}>
                               No conciliable
                             </span>
                           ) : estado === 'conciliado' ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: `${VERDE}15`, color: CANAL_UBER_DARK }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 0, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: `${VERDE}15`, color: CANAL_UBER_DARK }}>
                               Conciliado
                             </span>
                           ) : estado === 'parcial' ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: NAR, color: NAR }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 0, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: NAR, color: NAR }}>
                               Parcial
                             </span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: `${ROJO}15`, color: ROJO }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 0, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: `${ROJO}15`, color: ROJO }}>
                               Pendiente
                             </span>
                           )}
                         </td>
                         <td style={tdBase}>
                           {isRuben ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: NAR, color: NAR, whiteSpace: 'nowrap' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 0, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: NAR, color: NAR, whiteSpace: 'nowrap' }}>
                               <span style={{ width: 6, height: 6, borderRadius: '50%', background: NAR, flexShrink: 0 }} />
                               Rubén
                             </span>
                           ) : isEmilio ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: `${AZUL}15`, color: AZUL, whiteSpace: 'nowrap' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 0, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: `${AZUL}15`, color: AZUL, whiteSpace: 'nowrap' }}>
                               <span style={{ width: 6, height: 6, borderRadius: '50%', background: AZUL, flexShrink: 0 }} />
                               Emilio
                             </span>
@@ -853,7 +853,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
             const btnBase: React.CSSProperties = {
               background: BLANCO,
               border: `0.5px solid ${BORDE_SUAVE}`,
-              borderRadius: 8,
+              borderRadius: 0,
               padding: '6px 12px',
               fontFamily: 'Lexend, sans-serif',
               fontSize: 13,
@@ -885,7 +885,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                       onChange={e => updateUrl({ page: 1, size: Number(e.target.value) as PageSize })}
                       style={{
                         padding: '6px 10px',
-                        borderRadius: 8,
+                        borderRadius: 0,
                         border: `0.5px solid ${BORDE_SUAVE}`,
                         background: BLANCO,
                         fontFamily: 'Lexend, sans-serif',

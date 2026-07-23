@@ -78,9 +78,9 @@ export default function TabStockReal() {
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' }}>
         <input type="text" placeholder="Buscar ingrediente..." value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          style={{ padding: '7px 12px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 220 }} />
+          style={{ padding: '7px 12px', borderRadius: 0, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 220 }} />
         <button onClick={() => setSoloBajo(!soloBajo)}
-          style={{ padding: '6px 14px', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: soloBajo ? GRANATE : 'transparent', color: soloBajo ? BLANCO : T.sec, fontSize: 12, fontFamily: FONT.heading, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer' }}>
+          style={{ padding: '6px 14px', borderRadius: 0, border: `0.5px solid ${T.brd}`, background: soloBajo ? GRANATE : 'transparent', color: soloBajo ? BLANCO : T.sec, fontSize: 12, fontFamily: FONT.heading, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer' }}>
           Solo bajo mínimo
         </button>
       </div>
@@ -105,20 +105,20 @@ export default function TabStockReal() {
                     {editando === r.id ? (
                       <input autoFocus value={nuevoValor} onChange={e => setNuevoValor(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') guardarConteo(r); if (e.key === 'Escape') setEditando(null) }}
-                        style={{ width: 70, padding: '4px 6px', borderRadius: 6, border: `1px solid ${GRANATE}`, background: INK, color: T.pri, textAlign: 'right' }} />
+                        style={{ width: 70, padding: '4px 6px', borderRadius: 0, border: `1px solid ${GRANATE}`, background: INK, color: T.pri, textAlign: 'right' }} />
                     ) : fmtNum(r.stock_actual)}
                   </td>
                   <td style={{ ...td, textAlign: 'right', color: T.mut }}>{fmtNum(r.stock_minimo)}</td>
                   <td style={{ ...td, color: T.mut }}>{r.ud_std || ''}</td>
                   <td style={{ ...td, textAlign: 'right' }}>{fmtEur(r.valor_stock)}</td>
                   <td style={td}>
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: r.bajo_minimo ? DARK_WASH_ROJO_BG : DARK_WASH_VERDE_BG, color: r.bajo_minimo ? ROJO : VERDE_POSITIVO, fontFamily: FONT.heading, textTransform: 'uppercase' }}>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 0, background: r.bajo_minimo ? DARK_WASH_ROJO_BG : DARK_WASH_VERDE_BG, color: r.bajo_minimo ? ROJO : VERDE_POSITIVO, fontFamily: FONT.heading, textTransform: 'uppercase' }}>
                       {r.bajo_minimo ? 'Reponer' : 'OK'}
                     </span>
                   </td>
                   <td style={td}>
                     <button onClick={() => { setEditando(r.id); setNuevoValor(String(r.stock_actual)) }}
-                      style={{ padding: '3px 10px', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: 'transparent', color: T.sec, fontSize: 11, cursor: 'pointer' }}>
+                      style={{ padding: '3px 10px', borderRadius: 0, border: `0.5px solid ${T.brd}`, background: 'transparent', color: T.sec, fontSize: 11, cursor: 'pointer' }}>
                       Contar
                     </button>
                   </td>

@@ -75,7 +75,7 @@ function ModalEditar({
   const inputStyle: CSSProperties = {
     background: INK,
     border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 6,
+    borderRadius: 0,
     color: BLANCO,
     fontFamily: 'Lexend, sans-serif',
     fontSize: 13,
@@ -89,7 +89,7 @@ function ModalEditar({
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: INK, borderRadius: 14, padding: 28, minWidth: 380, maxWidth: 500, width: '90%' }}
+        style={{ backgroundColor: INK, borderRadius: 0, padding: 28, minWidth: 380, maxWidth: 500, width: '90%' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRANATE, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 18 }}>
@@ -123,13 +123,13 @@ function ModalEditar({
           <button
             onClick={guardar}
             disabled={saving}
-            style={{ background: GRANATE, border: 'none', borderRadius: 6, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 18px', cursor: 'pointer' }}
+            style={{ background: GRANATE, border: 'none', borderRadius: 0, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 18px', cursor: 'pointer' }}
           >
             {saving ? 'Guardando…' : 'Guardar'}
           </button>
           <button
             onClick={onClose}
-            style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
+            style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
           >
             Cancelar
           </button>
@@ -206,7 +206,7 @@ export default function TabPendientes({ refresh, onRefresh }: Props) {
   const selectStyle: CSSProperties = {
     background: INK,
     border: `1px solid ${T.brd}`,
-    borderRadius: 6,
+    borderRadius: 0,
     color: T.pri,
     fontFamily: FONT.body,
     fontSize: 12,

@@ -45,7 +45,7 @@ export function Ctag({ abv }: { abv: CanalAbv }) {
         display: 'inline-flex',
         alignItems: 'center',
         padding: '2px 8px',
-        borderRadius: 5,
+        borderRadius: 0,
         fontSize: 10,
         letterSpacing: '0.06em',
         fontWeight: 700,

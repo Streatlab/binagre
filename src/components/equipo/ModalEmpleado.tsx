@@ -160,8 +160,8 @@ export default function ModalEmpleado({ empleado, onClose, onSaved, tabInicial }
     finally { setSaving(false) }
   }
 
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
-  const calcStyle: React.CSSProperties = { background: `${VERDE}20`, border: `1px solid ${VERDE}`, color: VERDE, padding: '8px 10px', borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
+  const calcStyle: React.CSSProperties = { background: `${VERDE}20`, border: `1px solid ${VERDE}`, color: VERDE, padding: '8px 10px', borderRadius: 0, fontFamily: FONT.body, fontSize: 13 }
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'personales', label: 'Personales' },
@@ -179,7 +179,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved, tabInicial }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 1000, padding: 16, overflowY: 'auto' }}>
-      <div onMouseDown={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.brd}`, width: '100%', maxWidth: 620, margin: '24px 0', boxShadow: '0 24px 48px rgba(0,0,0,0.35)' }}>
+      <div onMouseDown={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 0, border: `1px solid ${T.brd}`, width: '100%', maxWidth: 620, margin: '24px 0', boxShadow: '0 24px 48px rgba(0,0,0,0.35)' }}>
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center', minWidth: 0 }}>
@@ -240,7 +240,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved, tabInicial }
               <div style={{ width: 120, height: 120, borderRadius: '50%', background: GRANATE, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BLANCO, fontFamily: FONT.heading, fontSize: 36, fontWeight: 600 }}>
                 {fotoUrl ? <img src={fotoUrl} alt={nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (initials || '—')}
               </div>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 8, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 0, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>
                 <Upload size={14} />{uploading ? 'Subiendo…' : 'Subir foto'}
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(f) }} />
               </label>
@@ -304,12 +304,12 @@ export default function ModalEmpleado({ empleado, onClose, onSaved, tabInicial }
             )
           )}
 
-          {error && <div style={{ marginTop: 12, padding: '8px 12px', background: `${GRANATE}20`, color: GRANATE, borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
+          {error && <div style={{ marginTop: 12, padding: '8px 12px', background: `${GRANATE}20`, color: GRANATE, borderRadius: 0, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
         </div>
 
         <div style={{ padding: '16px 24px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 6, border: `1px solid ${T.brd}`, background: T.inp, color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 6, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? 'Guardando…' : isNew ? 'Crear empleado' : 'Guardar cambios'}</button>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 0, border: `1px solid ${T.brd}`, background: T.inp, color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 0, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? 'Guardando…' : isNew ? 'Crear empleado' : 'Guardar cambios'}</button>
         </div>
       </div>
     </div>
@@ -322,12 +322,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function Chip({ children, color }: { children: React.ReactNode; color: string }) {
-  return <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 5, fontSize: 11, fontWeight: 600, fontFamily: FONT.body, background: color + '22', color }}>{children}</span>
+  return <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 0, fontSize: 11, fontWeight: 600, fontFamily: FONT.body, background: color + '22', color }}>{children}</span>
 }
 
 function MiniKpi({ T, label, value, accent }: { T: any; label: string; value: string; accent?: string }) {
   return (
-    <div style={{ flex: 1, minWidth: 110, background: T.group, border: `1px solid ${T.brd}`, borderRadius: 8, padding: '10px 12px' }}>
+    <div style={{ flex: 1, minWidth: 110, background: T.group, border: `1px solid ${T.brd}`, borderRadius: 0, padding: '10px 12px' }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 4 }}>{label}</div>
       <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, color: accent ?? T.pri }}>{value}</div>
     </div>
@@ -394,7 +394,7 @@ function ListaHijos({ T, filas, vacios }: { T: any; vacios: string; filas: { id:
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
       {filas.map(f => (
-        <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: T.group, border: `1px solid ${T.brd}`, borderRadius: 8 }}>
+        <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: T.group, border: `1px solid ${T.brd}`, borderRadius: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{f.izq} · <span style={{ color: T.sec }}>{f.centro}</span></div>
             {f.nota && <div style={{ fontSize: 11, color: T.mut, marginTop: 2 }}>{f.nota}</div>}
@@ -413,7 +413,7 @@ function ListaDocumentos({ T, docs, onDel }: { T: any; docs: Documento[]; onDel:
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
       {docs.map(d => (
-        <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: T.group, border: `1px solid ${T.brd}`, borderRadius: 8 }}>
+        <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: T.group, border: `1px solid ${T.brd}`, borderRadius: 0 }}>
           <FileIcon size={16} style={{ color: T.mut, flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.nombre}</div>
@@ -452,7 +452,7 @@ function AltaDocumento({ empId, onSaved, inputStyle, T, setError }: { empId: str
       <div><label style={lblMini(T)}>Fecha</label><input type="date" style={inputStyle} value={fecha} onChange={e => setFecha(e.target.value)} /></div>
       <div style={{ gridColumn: '1 / -1' }}><label style={lblMini(T)}>Nombre (opcional)</label><input style={inputStyle} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Nómina mayo 2026" /></div>
       <div style={{ gridColumn: '1 / -1' }}>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 8, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 0, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>
           <Upload size={14} />{subiendo ? 'Subiendo…' : 'Subir documento'}
           <input type="file" accept="application/pdf,image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) subir(f) }} />
         </label>
@@ -514,5 +514,5 @@ function AltaAnticipo({ empId, onSaved, inputStyle, T }: { empId: string; onSave
   )
 }
 
-const btnAdd: React.CSSProperties = { padding: '8px 16px', borderRadius: 6, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }
+const btnAdd: React.CSSProperties = { padding: '8px 16px', borderRadius: 0, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }
 const lblMini = (T: any): React.CSSProperties => ({ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, marginBottom: 3, display: 'block' })

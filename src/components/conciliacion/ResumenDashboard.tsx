@@ -186,7 +186,7 @@ function BadgeEjemplo({ texto = 'EJEMPLO' }: { texto?: string }) {
     <span style={{
       fontFamily: FONT.heading, fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
       color: BLANCO, background: GRANATE, padding: '1px 5px', marginLeft: 6,
-      textTransform: 'uppercase', verticalAlign: 'middle', borderRadius: 3,
+      textTransform: 'uppercase', verticalAlign: 'middle', borderRadius: 0,
     }}>
       {texto}
     </span>
@@ -310,7 +310,7 @@ function FilaDistribucion({ color, nombre, importe, deltaPct, porcentaje, esIngr
       <div style={{
         height: 3,
         backgroundColor: T.bg,
-        borderRadius: 2,
+        borderRadius: 0,
         overflow: 'hidden',
         marginBottom: 4,
       }}>
@@ -397,13 +397,13 @@ function PresupuestoVsRealSection() {
           const pctCap = Math.min(pct, 100)
           const barColor = pct > 100 ? ROJO : pct > 85 ? NAR : VERDE
           return (
-            <div key={cat.grupo} style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 10, padding: '14px 16px' }}>
+            <div key={cat.grupo} style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, padding: '14px 16px' }}>
               <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>{cat.label}</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
                 <span style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 600, color: barColor }}>{fmtEur(cat.real)}</span>
                 <span style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>/ {fmtEur(cat.presupuesto)}</span>
               </div>
-              <div style={{ height: 4, background: T.brd, borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
+              <div style={{ height: 4, background: T.brd, borderRadius: 0, overflow: 'hidden', marginBottom: 4 }}>
                 <div style={{ height: 4, width: `${pctCap}%`, background: barColor, transition: 'width 0.4s ease' }} />
               </div>
               <div style={{ fontFamily: FONT.heading, fontSize: 11, color: barColor, textAlign: 'right' }}>{pct}%</div>
@@ -480,7 +480,7 @@ export function ResumenDashboard(_props: Props) {
   /* — Styles compartidos — */
   const cardBase: CSSProperties = {
     backgroundColor: T.card,
-    borderRadius: 14,
+    borderRadius: 0,
     padding: '22px 24px',
     border: `1px solid ${T.brd}`,
     display: 'flex',
@@ -610,7 +610,7 @@ export function ResumenDashboard(_props: Props) {
               <span>Hoy</span>
               <span>30d</span>
             </div>
-            <div style={{ height: 6, backgroundColor: T.bg, borderRadius: 3, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ height: 6, backgroundColor: T.bg, borderRadius: 0, position: 'relative', overflow: 'hidden' }}>
               <div style={{
                 position: 'absolute',
                 left: 0,

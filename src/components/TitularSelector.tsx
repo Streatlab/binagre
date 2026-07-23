@@ -18,7 +18,7 @@ export default function TitularSelector() {
         gap: 3,
         padding: 3,
         backgroundColor: T.inp,
-        borderRadius: 8,
+        borderRadius: 0,
         border: `0.5px solid ${T.brd}`,
       }}
     >
@@ -31,7 +31,7 @@ export default function TitularSelector() {
             style={{
               padding: '6px 12px',
               border: 'none',
-              borderRadius: 6,
+              borderRadius: 0,
               backgroundColor: active ? GRANATE : 'transparent',
               color: active ? BLANCO : T.sec,
               fontFamily: FONT.heading,

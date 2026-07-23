@@ -58,7 +58,7 @@ export function Num({ children, style }: { children: ReactNode; style?: CSSPrope
 export function Card({ children, style }: { children: ReactNode; style?: CSSProperties }) {
   return (
     <div style={{
-      background: C.card, border: `1px solid ${C.line}`, borderRadius: 16,
+      background: C.card, border: `1px solid ${C.line}`, borderRadius: 0,
       padding: 15, boxShadow: C.shadow, marginBottom: 14, ...style,
     }}>{children}</div>
   )
@@ -161,7 +161,7 @@ export function Hero({ eyebrow, titular, valor, sub, right, spark, objetivo }: {
   return (
     <section style={{
       background: `linear-gradient(115deg, ${C.rojoDeep}, ${C.rojo} 45%, ${C.naranja})`,
-      borderRadius: 20, padding: '20px 24px', color: BLANCO, marginBottom: 12,
+      borderRadius: 0, padding: '20px 24px', color: BLANCO, marginBottom: 12,
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       gap: 22, flexWrap: 'wrap', boxShadow: C.shadow, position: 'relative', overflow: 'hidden',
     }}>
@@ -218,7 +218,7 @@ export function Atencion({ tono = 'rojo', cifra, children, accion, onAccion }: {
   const t = TONES[tono]
   return (
     <div style={{
-      background: t.bg, border: `1px solid ${t.c}22`, borderRadius: 14,
+      background: t.bg, border: `1px solid ${t.c}22`, borderRadius: 0,
       padding: '11px 14px', marginBottom: 12,
       display: 'flex', alignItems: 'center', gap: 13, flexWrap: 'wrap',
     }}>
@@ -280,7 +280,7 @@ export function Kpi({ icono, tono = 'neutro', label, valor, pie, spark, delta: d
     <Card style={{ marginBottom: 0, padding: 13 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
         <div style={{
-          width: 30, height: 30, borderRadius: 9, display: 'grid', placeItems: 'center',
+          width: 30, height: 30, borderRadius: 0, display: 'grid', placeItems: 'center',
           fontSize: 13, fontWeight: 900, background: t.bg, color: t.c, flexShrink: 0,
         }}>{icono}</div>
         {deltaPill}
@@ -329,7 +329,7 @@ export function Euro({ base, tramos, frase }: {
         sub={`Sobre los ${eur0(base)} facturados`}
         right={<Pill tone="neutro">Base {eur0(base)}</Pill>}
       />
-      <div style={{ display: 'flex', height: 38, borderRadius: 11, overflow: 'hidden', gap: 2 }}>
+      <div style={{ display: 'flex', height: 38, borderRadius: 0, overflow: 'hidden', gap: 2 }}>
         {tramos.map((t, i) => {
           const pct = (t.importe / total) * 100
           return (
@@ -347,14 +347,14 @@ export function Euro({ base, tramos, frase }: {
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10 }}>
         {tramos.map((t, i) => (
           <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 800, color: C.gris }}>
-            <span style={{ width: 9, height: 9, borderRadius: 3, background: t.color, display: 'block' }} />
+            <span style={{ width: 9, height: 9, borderRadius: 0, background: t.color, display: 'block' }} />
             {t.label} {eur0(t.importe)}
           </span>
         ))}
       </div>
       {frase && (
         <div style={{
-          marginTop: 12, background: C.ambarSoft, color: C.ambar, borderRadius: 12,
+          marginTop: 12, background: C.ambarSoft, color: C.ambar, borderRadius: 0,
           padding: '11px 13px', fontSize: 12.5, fontWeight: 800, lineHeight: 1.5,
         }}>{frase}</div>
       )}
@@ -367,8 +367,8 @@ export function Euro({ base, tramos, frase }: {
    ══════════════════════════════════════════════════════════ */
 export function InBar({ pct, color }: { pct: number; color: string }) {
   return (
-    <div style={{ height: 5, background: C.track, borderRadius: 99, marginTop: 5, overflow: 'hidden', width: '100%' }}>
-      <div style={{ height: '100%', width: `${Math.max(1, Math.min(100, pct))}%`, background: color, borderRadius: 99 }} />
+    <div style={{ height: 5, background: C.track, borderRadius: 0, marginTop: 5, overflow: 'hidden', width: '100%' }}>
+      <div style={{ height: '100%', width: `${Math.max(1, Math.min(100, pct))}%`, background: color, borderRadius: 0 }} />
     </div>
   )
 }
@@ -381,8 +381,8 @@ export function Bar({ label, valor, pct, color }: { label: string; valor: string
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
         <span className="slnum" style={{ color: C.gris, flexShrink: 0, fontSize: 12 }}>{valor}</span>
       </div>
-      <div style={{ height: 9, background: C.track, borderRadius: 99, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${Math.max(0, Math.min(100, pct))}%`, background: color, borderRadius: 99 }} />
+      <div style={{ height: 9, background: C.track, borderRadius: 0, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${Math.max(0, Math.min(100, pct))}%`, background: color, borderRadius: 0 }} />
       </div>
     </div>
   )
@@ -401,7 +401,7 @@ export function Nota({ tono = 'verde', children, accion, onAccion }: {
   const t = TONES[tono]
   return (
     <div style={{
-      marginTop: 13, padding: '11px 13px', borderRadius: 12, fontSize: 12.5, fontWeight: 800,
+      marginTop: 13, padding: '11px 13px', borderRadius: 0, fontSize: 12.5, fontWeight: 800,
       background: t.bg, color: t.c, lineHeight: 1.5,
     }}>
       {children}

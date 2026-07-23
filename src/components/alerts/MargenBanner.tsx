@@ -26,7 +26,7 @@ export function MargenBanner({ alertas, onDismiss }: Props) {
     gap: 12,
     background: LIMA,
     color: INK,
-    borderRadius: 8,
+    borderRadius: 0,
     padding: '10px 14px',
     marginBottom: 12,
     fontFamily: FONT.body,

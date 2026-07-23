@@ -36,7 +36,7 @@ export function ConfigModal({
         style={{
           background: bg,
           border: `1px solid ${border}`,
-          borderRadius: 12,
+          borderRadius: 0,
           padding: 24,
           width: 480,
           maxWidth: '90vw',
@@ -93,7 +93,7 @@ export function useInputStyle() {
     width: '100%',
     padding: '8px 12px',
     border: `1px solid ${isDark ? INK : CONFIG_BORDE}`,
-    borderRadius: 8,
+    borderRadius: 0,
     fontSize: 13,
     background: isDark ? INK : BLANCO,
     color: isDark ? BLANCO : INK,
@@ -121,7 +121,7 @@ export function ModalActions({
         onClick={onCancel}
         style={{
           padding: '9px 16px',
-          borderRadius: 8,
+          borderRadius: 0,
           fontSize: 12,
           fontWeight: 600,
           letterSpacing: '0.04em',
@@ -141,7 +141,7 @@ export function ModalActions({
         disabled={saving || disabled}
         style={{
           padding: '9px 16px',
-          borderRadius: 8,
+          borderRadius: 0,
           fontSize: 12,
           fontWeight: 600,
           letterSpacing: '0.04em',

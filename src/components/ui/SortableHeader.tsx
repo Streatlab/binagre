@@ -59,7 +59,7 @@ export default function SortableHeader<Col extends string = string>({
             padding: '1px 6px',
             background: `${GRANATE}18`,
             color: GRANATE,
-            borderRadius: 4,
+            borderRadius: 0,
             fontSize: 10,
             fontWeight: 600,
             letterSpacing: 0,
@@ -86,7 +86,7 @@ export function ClearSortButton({ show, onClear, style }: ClearSortButtonProps) 
       onClick={onClear}
       style={{
         padding: '6px 12px',
-        borderRadius: 8,
+        borderRadius: 0,
         border: '0.5px solid var(--sl-border)',
         background: BLANCO,
         fontFamily: 'Oswald, sans-serif',

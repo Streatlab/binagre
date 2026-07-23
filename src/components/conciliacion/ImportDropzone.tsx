@@ -251,7 +251,7 @@ export default function ImportDropzone({ onFileLoaded, importResult }: Props) {
           alignItems: 'center',
           gap: 12,
           padding: '10px 18px',
-          borderRadius: 10,
+          borderRadius: 0,
           border: `2px dashed ${dragging ? GRANATE : T.brd}`,
           backgroundColor: dragging ? T.card : 'transparent',
           cursor: 'pointer',

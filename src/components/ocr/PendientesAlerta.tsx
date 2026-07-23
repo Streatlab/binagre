@@ -54,7 +54,7 @@ function Grupo({ titulo, color, items }: { titulo: string; color: string; items:
         <span style={{ fontSize: 11, color: GRIS }}>{abierto ? '▲' : '▼'}</span>
       </button>
       {abierto && (
-        <div style={{ marginTop: 8, border: `0.5px solid ${CLARO}`, borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ marginTop: 8, border: `0.5px solid ${CLARO}`, borderRadius: 0, overflow: 'hidden' }}>
           {items.map((p, i) => (
             <div key={p.factura_id} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 12px', borderTop: i === 0 ? 'none' : `0.5px solid ${CLARO}`, background: BLANCO }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: INK }}>
@@ -97,7 +97,7 @@ export default function PendientesAlerta({ desde, hasta, onReconciliado }: Props
   const bloqueantes = informe ? informe.sin_regla.length + informe.sin_plantilla.length : 0
 
   return (
-    <div style={{ background: BLANCO, border: `0.5px solid ${informe && bloqueantes > 0 ? NARANJA : BORDE_SUAVE}`, borderRadius: 14, padding: '14px 18px', marginBottom: 14 }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${informe && bloqueantes > 0 ? NARANJA : BORDE_SUAVE}`, borderRadius: 0, padding: '14px 18px', marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: ROJO }}>
           Barrido de pendientes
@@ -105,7 +105,7 @@ export default function PendientesAlerta({ desde, hasta, onReconciliado }: Props
         <button
           onClick={reconciliar}
           disabled={cargando}
-          style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: cargando ? BORDE_SUAVE : ROJO, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: cargando ? 'wait' : 'pointer', fontWeight: 600 }}
+          style={{ padding: '9px 18px', borderRadius: 0, border: 'none', background: cargando ? BORDE_SUAVE : ROJO, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: cargando ? 'wait' : 'pointer', fontWeight: 600 }}
         >
           {cargando ? 'Re-conciliando…' : 'Re-conciliar pendientes'}
         </button>
@@ -116,7 +116,7 @@ export default function PendientesAlerta({ desde, hasta, onReconciliado }: Props
       </div>
 
       {error && (
-        <div style={{ marginTop: 10, background: OCR_ROJO_WASH_CLARO, border: `0.5px solid ${ROJO}`, borderRadius: 8, padding: '8px 12px', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: ROJO }}>{error}</div>
+        <div style={{ marginTop: 10, background: OCR_ROJO_WASH_CLARO, border: `0.5px solid ${ROJO}`, borderRadius: 0, padding: '8px 12px', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: ROJO }}>{error}</div>
       )}
 
       {informe && (
@@ -128,7 +128,7 @@ export default function PendientesAlerta({ desde, hasta, onReconciliado }: Props
           </div>
 
           {informe.cien_por_cien ? (
-            <div style={{ marginTop: 10, background: COBERTURA_VERDE + '10', border: `0.5px solid ${VERDE}`, borderRadius: 8, padding: '10px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: '1px', color: CANAL_UBER_DARK, textTransform: 'uppercase' }}>
+            <div style={{ marginTop: 10, background: COBERTURA_VERDE + '10', border: `0.5px solid ${VERDE}`, borderRadius: 0, padding: '10px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: '1px', color: CANAL_UBER_DARK, textTransform: 'uppercase' }}>
               ✓ 100% conciliado
             </div>
           ) : (

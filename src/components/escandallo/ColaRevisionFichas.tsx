@@ -27,7 +27,7 @@ function PillCampo({ label, estado }: { label: string; estado: EstadoCampo }) {
   const txt = estado.tono === 'ok' ? ESCANDALLO_OK_TXT : estado.tono === 'gana' ? ESCANDALLO_WARN_TXT : GRIS
   const brd = estado.tono === 'sin' ? '1px solid var(--sl-border)' : 'none'
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: bg, color: txt, border: brd, borderRadius: 99, padding: '2px 8px', fontSize: 10.5, fontFamily: 'Lexend, sans-serif', whiteSpace: 'nowrap' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: bg, color: txt, border: brd, borderRadius: 0, padding: '2px 8px', fontSize: 10.5, fontFamily: 'Lexend, sans-serif', whiteSpace: 'nowrap' }}>
       {label}: {estado.texto}
     </span>
   )
@@ -114,7 +114,7 @@ export default function ColaRevisionFichas() {
   if (fichas.length === 0) return null
 
   return (
-    <div className="no-print" style={{ background: 'var(--sl-card)', border: `1px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
+    <div className="no-print" style={{ background: 'var(--sl-card)', border: `1px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 0, padding: '14px 16px', marginBottom: 16 }}>
       <button type="button" onClick={() => setAbierta(a => !a)}
         style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: abierta ? 4 : 0, textAlign: 'left' }}>
         <Inbox size={17} color={GRANATE} />
@@ -131,7 +131,7 @@ export default function ColaRevisionFichas() {
       </p>
 
       {aviso && (
-        <div style={{ background: ESCANDALLO_OK_BG, color: ESCANDALLO_OK_TXT, borderRadius: 8, padding: '7px 12px', fontSize: 12.5, fontFamily: 'Lexend, sans-serif', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <div style={{ background: ESCANDALLO_OK_BG, color: ESCANDALLO_OK_TXT, borderRadius: 0, padding: '7px 12px', fontSize: 12.5, fontFamily: 'Lexend, sans-serif', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <span>{aviso}</span>
           <button onClick={() => setAviso(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: ESCANDALLO_OK_TXT, fontSize: 13, lineHeight: 1 }}>✕</button>
         </div>
@@ -144,9 +144,9 @@ export default function ColaRevisionFichas() {
           const creandoF = creando === f.id
           const hTiene = { foto: !!f.foto_url, pasos: (f.pasos ?? []).length > 0, alerg: (f.alergenos ?? []).length > 0, conserv: (f.conservacion ?? []).length > 0 }
           return (
-            <div key={f.id} style={{ background: 'var(--sl-thead)', border: '1px solid var(--sl-border)', borderRadius: 10, padding: 12 }}>
+            <div key={f.id} style={{ background: 'var(--sl-thead)', border: '1px solid var(--sl-border)', borderRadius: 0, padding: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: f.tipo === 'ep' ? `${AZUL}22` : `${GRANATE}22`, color: f.tipo === 'ep' ? AZUL : GRANATE, borderRadius: 99, padding: '2px 9px' }}>
+                <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', background: f.tipo === 'ep' ? `${AZUL}22` : `${GRANATE}22`, color: f.tipo === 'ep' ? AZUL : GRANATE, borderRadius: 0, padding: '2px 9px' }}>
                   {f.tipo === 'ep' ? 'EP' : 'Receta'}
                 </span>
                 <span style={{ fontSize: 11, color: GRIS, fontFamily: 'Lexend, sans-serif' }}>{f.codigo}</span>
@@ -160,7 +160,7 @@ export default function ColaRevisionFichas() {
               </div>
 
               {cs.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: ESCANDALLO_WARN_BG, border: `1px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: ESCANDALLO_WARN_BG, border: `1px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 0, padding: '8px 10px', marginBottom: 8 }}>
                   <AlertTriangle size={14} color={ESCANDALLO_WARN_TXT} />
                   <span style={{ fontSize: 12, color: ESCANDALLO_WARN_TXT, fontFamily: 'Lexend, sans-serif' }}>Sin candidato con parecido suficiente. No adivinamos: crea la ficha desde cero o descarta.</span>
                 </div>
@@ -169,12 +169,12 @@ export default function ColaRevisionFichas() {
                   {cs.map(c => {
                     const cTiene = { foto: !!c.foto_url, pasos: c.elaboracion_len > 0, alerg: c.alergenos_n > 0, conserv: c.conservacion_n > 0 }
                     return (
-                      <div key={`${c.target_tipo}-${c.target_id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: 'var(--sl-card)', border: '1px solid var(--sl-border)', borderRadius: 8, padding: '7px 10px' }}>
+                      <div key={`${c.target_tipo}-${c.target_id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: 'var(--sl-card)', border: '1px solid var(--sl-border)', borderRadius: 0, padding: '7px 10px' }}>
                         <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: c.target_tipo === 'ep' ? AZUL : GRANATE }}>
                           {c.target_tipo === 'ep' ? 'EP' : 'Receta'}
                         </span>
                         <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-primary)', flexShrink: 0 }}>{c.target_nombre}</span>
-                        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 600, color: BLANCO, background: c.similitud >= 0.9 ? '#0FB86B' : c.similitud >= 0.55 ? ESCANDALLO_WARN_BORDE : GRIS, borderRadius: 99, padding: '1px 8px' }}>
+                        <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 600, color: BLANCO, background: c.similitud >= 0.9 ? '#0FB86B' : c.similitud >= 0.55 ? ESCANDALLO_WARN_BORDE : GRIS, borderRadius: 0, padding: '1px 8px' }}>
                           {Math.round(c.similitud * 100)}%
                         </span>
                         <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -184,7 +184,7 @@ export default function ColaRevisionFichas() {
                           <PillCampo label="Conservación" estado={campoAporta(hTiene.conserv, cTiene.conserv)} />
                         </span>
                         <button onClick={() => enlazar(f, c)} disabled={busyF || creandoF}
-                          style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 12, fontWeight: 500, cursor: busyF ? 'default' : 'pointer', opacity: busyF ? 0.6 : 1, fontFamily: 'Oswald, sans-serif', letterSpacing: '0.03em' }}>
+                          style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 0, padding: '5px 10px', fontSize: 12, fontWeight: 500, cursor: busyF ? 'default' : 'pointer', opacity: busyF ? 0.6 : 1, fontFamily: 'Oswald, sans-serif', letterSpacing: '0.03em' }}>
                           <Link2 size={12} /> {busyF ? 'Enlazando…' : 'Enlazar'}
                         </button>
                       </div>
@@ -195,11 +195,11 @@ export default function ColaRevisionFichas() {
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={() => crearNueva(f)} disabled={busyF || creandoF}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '1px solid var(--sl-border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, cursor: creandoF ? 'default' : 'pointer', opacity: creandoF ? 0.6 : 1, fontFamily: 'Oswald, sans-serif', letterSpacing: '0.03em' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '1px solid var(--sl-border)', borderRadius: 0, padding: '6px 12px', fontSize: 12, cursor: creandoF ? 'default' : 'pointer', opacity: creandoF ? 0.6 : 1, fontFamily: 'Oswald, sans-serif', letterSpacing: '0.03em' }}>
                   <PlusCircle size={13} /> {creandoF ? 'Creando…' : `Crear ${f.tipo === 'ep' ? 'EP' : 'receta'} nueva`}
                 </button>
                 <button onClick={() => descartar(f)} disabled={busyF || creandoF}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: GRIS, border: '1px solid var(--sl-border)', borderRadius: 7, padding: '6px 12px', fontSize: 12, cursor: busyF ? 'default' : 'pointer', opacity: busyF ? 0.6 : 1, fontFamily: 'Oswald, sans-serif', letterSpacing: '0.03em' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: GRIS, border: '1px solid var(--sl-border)', borderRadius: 0, padding: '6px 12px', fontSize: 12, cursor: busyF ? 'default' : 'pointer', opacity: busyF ? 0.6 : 1, fontFamily: 'Oswald, sans-serif', letterSpacing: '0.03em' }}>
                   <XCircle size={13} /> Descartar
                 </button>
               </div>

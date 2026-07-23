@@ -113,7 +113,7 @@ export default function OcrCompletadoGlobal() {
         return (
           <div key={n.id} style={{
             background: BLANCO,
-            borderRadius: 14,
+            borderRadius: 0,
             padding: '16px 18px',
             minWidth: 300,
             maxWidth: 360,
@@ -144,7 +144,7 @@ export default function OcrCompletadoGlobal() {
               onClick={() => { setNotifs(prev => prev.filter(x => x.id !== n.id)); navigate('/finanzas/papeleo?tab=bandeja') }}
               style={{
                 width: '100%', background: acento, color: BLANCO, border: 'none',
-                borderRadius: 8, padding: '10px 12px', cursor: 'pointer',
+                borderRadius: 0, padding: '10px 12px', cursor: 'pointer',
                 fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px',
                 textTransform: 'uppercase', fontWeight: 700,
               }}

@@ -13,7 +13,7 @@ interface CardFiltroProps {
 const FILTER_BASE: React.CSSProperties = {
   background: BLANCO,
   border: `0.5px solid ${GRIS}`,
-  borderRadius: 12,
+  borderRadius: 0,
   padding: '14px 16px',
   cursor: 'pointer',
   transition: 'all 150ms',
@@ -81,7 +81,7 @@ export default function CardFiltro({ tipo, count, importe, active, onClick }: Ca
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '2px 8px',
-                borderRadius: 9,
+                borderRadius: 0,
                 background: ROJO,
                 color: BLANCO,
                 fontFamily: 'Lexend, sans-serif',

@@ -70,7 +70,7 @@ export default function TabAnalisisFoodCost() {
           value={periodo}
           onChange={e => setPeriodo(e.target.value as PeriodoInventario)}
           style={{
-            padding: '7px 12px', borderRadius: 8,
+            padding: '7px 12px', borderRadius: 0,
             border: `0.5px solid ${T.brd}`, background: INK,
             color: T.pri, fontSize: 13, fontFamily: FONT.body, cursor: 'pointer',
           }}
@@ -85,7 +85,7 @@ export default function TabAnalisisFoodCost() {
       {data && data.desviacion !== null && data.desviacion > 3 && (
         <div style={{
           background: DARK_WASH_ROJO_BG, border: `1px solid ${GRANATE}`,
-          borderRadius: 8, padding: '12px 16px', marginBottom: 16,
+          borderRadius: 0, padding: '12px 16px', marginBottom: 16,
           color: ROJO, fontFamily: FONT.body, fontSize: 13,
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
@@ -172,7 +172,7 @@ export default function TabAnalisisFoodCost() {
                     axisLine={false}
                   />
                   <Tooltip
-                    contentStyle={{ backgroundColor: INK, border: `1px solid ${T.brd}`, borderRadius: 8, fontFamily: FONT.body, fontSize: 12 }}
+                    contentStyle={{ backgroundColor: INK, border: `1px solid ${T.brd}`, borderRadius: 0, fontFamily: FONT.body, fontSize: 12 }}
                     labelStyle={{ color: T.sec }}
                     formatter={(value: unknown) => [typeof value === 'number' ? value.toFixed(1) + '%' : '—', '']}
                   />

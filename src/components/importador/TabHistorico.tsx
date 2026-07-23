@@ -69,7 +69,7 @@ function ModalDetalle({ log, onClose }: { log: ImportLog; onClose: () => void })
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: INK, borderRadius: 14, padding: 28, minWidth: 380, maxWidth: 560, width: '90%' }}
+        style={{ backgroundColor: INK, borderRadius: 0, padding: 28, minWidth: 380, maxWidth: 560, width: '90%' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRANATE, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 18 }}>
@@ -113,7 +113,7 @@ function ModalDetalle({ log, onClose }: { log: ImportLog; onClose: () => void })
         )}
         <button
           onClick={onClose}
-          style={{ marginTop: 20, background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer', display: 'block' }}
+          style={{ marginTop: 20, background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer', display: 'block' }}
         >
           Cerrar
         </button>
@@ -178,7 +178,7 @@ export default function TabHistorico({ refresh }: Props) {
   const selectStyle: CSSProperties = {
     background: INK,
     border: `1px solid ${T.brd}`,
-    borderRadius: 6,
+    borderRadius: 0,
     color: T.pri,
     fontFamily: FONT.body,
     fontSize: 13,

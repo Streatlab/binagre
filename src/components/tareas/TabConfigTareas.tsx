@@ -101,7 +101,7 @@ export default function TabConfigTareas() {
   const inputStyle: React.CSSProperties = {
     background: INK,
     border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 6,
+    borderRadius: 0,
     color: BLANCO,
     padding: '7px 10px',
     fontSize: 13,
@@ -145,7 +145,7 @@ export default function TabConfigTareas() {
             background: LIMA,
             color: INK,
             border: 'none',
-            borderRadius: 6,
+            borderRadius: 0,
             padding: '7px 16px',
             fontSize: 12,
             fontFamily: 'Oswald, sans-serif',
@@ -191,7 +191,7 @@ export default function TabConfigTareas() {
                 <td style={{ padding: '10px 12px' }}>
                   <span style={{
                     padding: '3px 10px',
-                    borderRadius: 4,
+                    borderRadius: 0,
                     background: (RESPONSABLE_COLORS[t.responsable ?? ''] ?? GRIS) + '22',
                     color: RESPONSABLE_COLORS[t.responsable ?? ''] ?? GRIS,
                     fontFamily: 'Oswald, sans-serif',
@@ -205,7 +205,7 @@ export default function TabConfigTareas() {
                 <td style={{ padding: '10px 12px' }}>
                   <span style={{
                     padding: '3px 10px',
-                    borderRadius: 4,
+                    borderRadius: 0,
                     background: t.activa ? (VERDE + '22') : (GRIS + '22'),
                     color: t.activa ? VERDE : GRIS,
                     fontFamily: 'Oswald, sans-serif',
@@ -218,11 +218,11 @@ export default function TabConfigTareas() {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button
                       onClick={() => abrirEditar(t)}
-                      style={{ background: CLARO, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 5, color: GRIS, padding: '4px 10px', fontSize: 11, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
+                      style={{ background: CLARO, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, color: GRIS, padding: '4px 10px', fontSize: 11, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
                     >Editar</button>
                     <button
                       onClick={() => toggleActiva(t)}
-                      style={{ background: t.activa ? (GRIS + '22') : (VERDE + '22'), border: `1px solid ${BORDE_SUAVE}`, borderRadius: 5, color: t.activa ? GRIS : VERDE, padding: '4px 10px', fontSize: 11, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
+                      style={{ background: t.activa ? (GRIS + '22') : (VERDE + '22'), border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, color: t.activa ? GRIS : VERDE, padding: '4px 10px', fontSize: 11, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
                     >{t.activa ? 'Desactivar' : 'Activar'}</button>
                   </div>
                 </td>
@@ -239,7 +239,7 @@ export default function TabConfigTareas() {
           onClick={() => setModalOpen(false)}
         >
           <div
-            style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 12, padding: 28, minWidth: 360, maxWidth: 520, width: '100%' }}
+            style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, padding: 28, minWidth: 360, maxWidth: 520, width: '100%' }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -334,12 +334,12 @@ export default function TabConfigTareas() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
               <button
                 onClick={() => setModalOpen(false)}
-                style={{ background: CLARO, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: GRIS, padding: '8px 20px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
+                style={{ background: CLARO, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, color: GRIS, padding: '8px 20px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
               >Cancelar</button>
               <button
                 onClick={guardar}
                 disabled={saving || !form.nombre.trim()}
-                style={{ background: GRANATE, color: BLANCO, border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
+                style={{ background: GRANATE, color: BLANCO, border: 'none', borderRadius: 0, padding: '8px 20px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
               >{saving ? 'Guardando...' : 'Guardar'}</button>
             </div>
           </div>

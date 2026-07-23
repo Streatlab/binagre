@@ -55,9 +55,9 @@ export default function TabPricingGen() {
     <div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' }}>
         <input type="text" placeholder="Buscar plato..." value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          style={{ padding: '7px 12px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 200 }} />
+          style={{ padding: '7px 12px', borderRadius: 0, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 200 }} />
         <select value={canal} onChange={e => setCanal(e.target.value)}
-          style={{ padding: '7px 12px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body }}>
+          style={{ padding: '7px 12px', borderRadius: 0, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body }}>
           <option value="">Todos los canales</option>
           {Object.entries(CANAL_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
@@ -90,7 +90,7 @@ export default function TabPricingGen() {
                     <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: s.color }}>{r.food_cost_pct != null ? `${r.food_cost_pct}%` : '—'}</td>
                     <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: subir ? LIMA : T.pri }}>{fmtEur(r.pvp_sugerido)}{subir ? ' ↑' : ''}</td>
                     <td style={td}>
-                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: s.bg, color: s.color, fontFamily: FONT.heading, textTransform: 'uppercase' }}>{s.txt}</span>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 0, background: s.bg, color: s.color, fontFamily: FONT.heading, textTransform: 'uppercase' }}>{s.txt}</span>
                     </td>
                   </tr>
                 )

@@ -34,7 +34,7 @@ export function StatusTag({
       style={{
         display: 'inline-flex',
         padding: '5px 14px',
-        borderRadius: 5,
+        borderRadius: 0,
         fontSize: 11,
         letterSpacing: '0.06em',
         fontWeight: 600,

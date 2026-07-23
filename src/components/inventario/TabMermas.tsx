@@ -67,7 +67,7 @@ export default function TabMermas({ desde, hasta }: Props) {
         <div style={{
           background: DARK_WASH_ROJO_BG,
           border: `1px solid ${GRANATE}`,
-          borderRadius: 8,
+          borderRadius: 0,
           padding: '12px 16px',
           marginBottom: 16,
           display: 'flex',
@@ -123,7 +123,7 @@ export default function TabMermas({ desde, hasta }: Props) {
                   <span style={{ fontFamily: FONT.heading, fontSize: 16, color: T.mut, minWidth: 20 }}>{i + 1}.</span>
                   <span style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{m.nombre}</span>
                   {m.merma_pct !== null && m.merma_pct > 5 && (
-                    <span style={{ fontSize: 10, background: DARK_WASH_ROJO_BG, color: ROJO, padding: '1px 6px', borderRadius: 4, fontFamily: FONT.heading }}>
+                    <span style={{ fontSize: 10, background: DARK_WASH_ROJO_BG, color: ROJO, padding: '1px 6px', borderRadius: 0, fontFamily: FONT.heading }}>
                       {m.merma_pct.toFixed(1)}%
                     </span>
                   )}

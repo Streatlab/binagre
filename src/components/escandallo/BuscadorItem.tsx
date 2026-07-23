@@ -41,7 +41,7 @@ export default function BuscadorItem({ value, opciones, onSelect, placeholder, i
         onFocus={() => { setQ(''); setOpen(true) }}
       />
       {open && filtradas.length > 0 && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 60, maxHeight: 240, overflowY: 'auto', background: 'var(--sl-card)', border: '1px solid var(--sl-border)', borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', marginTop: 2 }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 60, maxHeight: 240, overflowY: 'auto', background: 'var(--sl-card)', border: '1px solid var(--sl-border)', borderRadius: 0, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', marginTop: 2 }}>
           {filtradas.map(o => (
             <div
               key={o.id}

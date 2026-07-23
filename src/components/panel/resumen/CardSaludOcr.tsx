@@ -72,7 +72,7 @@ export default function CardSaludOcr() {
     : []
 
   return (
-    <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 14, padding: '16px 16px' }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 0, padding: '16px 16px' }}>
       <div style={{ marginBottom: 8 }}>
         <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: GRIS, textTransform: 'uppercase' }}>Salud OCR</span>
       </div>

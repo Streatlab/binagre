@@ -113,9 +113,9 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
                 </td>
                 <td style={tdBase}>
                   {isRuben
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: NAR, color: NAR, whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: NAR, flexShrink: 0 }} />Rubén</span>
+                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 0, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: NAR, color: NAR, whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: NAR, flexShrink: 0 }} />Rubén</span>
                     : isEmilio
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: `${AZUL}15`, color: AZUL, whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: AZUL, flexShrink: 0 }} />Emilio</span>
+                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 0, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: `${AZUL}15`, color: AZUL, whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: AZUL, flexShrink: 0 }} />Emilio</span>
                     : <span style={{ color: GRIS, fontSize: 12 }}>—</span>
                   }
                 </td>

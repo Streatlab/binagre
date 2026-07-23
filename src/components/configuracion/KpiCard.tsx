@@ -35,7 +35,7 @@ export function KpiCard({
       style={{
         background: cardBg,
         border: `1px solid ${border}`,
-        borderRadius: 12,
+        borderRadius: 0,
         padding: '24px 26px',
       }}
     >
