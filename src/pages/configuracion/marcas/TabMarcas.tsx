@@ -1,4 +1,4 @@
-import { AZUL, AZUL_CL, BLANCO, GRANATE, INK, VERDE } from '@/styles/neobrutal'
+import { AZUL, AZUL_CL, BLANCO, GRANATE, INK, VERDE, GRIS, LEX } from '@/styles/neobrutal'
 import { MARCA_GLOVO, MARCA_JE, ROJO_WASH_BG_DARK, CONFIG_ROJO_WASH } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { Trash2, Edit3, Power, Plus, Search } from 'lucide-react'
@@ -9,6 +9,7 @@ import { EditModal, Field } from '@/components/configuracion/EditModal'
 import { calcDesglosePorCanal, loadConfigCanales, loadMarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { fmtEur } from '@/lib/format'
 import type { CanalAbv, EstadoMarca } from '@/types/configuracion'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 
 interface AccesoRow { plataforma: CanalAbv; activo: boolean; email_acceso?: string | null }
 interface MarcaRow {
@@ -277,8 +278,16 @@ export default function TabMarcas() {
   const fmtN = (n: number) => Math.round(n || 0).toLocaleString('es-ES')
   const pctOf = (n: number, total: number) => total > 0 ? `${((n / total) * 100).toFixed(2)}%` : '—'
 
-  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
-  if (error) return <div style={{ padding: 16, background: isDark ? ROJO_WASH_BG_DARK : CONFIG_ROJO_WASH, color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>{error}</div>
+  if (loading) return (
+    <PantallaCantera embedded>
+      <Papel ceja={GRIS}><div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13, fontWeight: 600 }}>Cargando marcas…</div></Papel>
+    </PantallaCantera>
+  )
+  if (error) return (
+    <PantallaCantera embedded>
+      <Papel ceja={GRANATE}><div style={{ padding: 16, background: isDark ? ROJO_WASH_BG_DARK : CONFIG_ROJO_WASH, color: GRANATE, fontFamily: FONT.body }}>{error}</div></Papel>
+    </PantallaCantera>
+  )
 
   const thStyle: React.CSSProperties = { padding: '14px 16px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', color: T.mut, fontWeight: 400, background: T.group, textAlign: 'left' }
   const thCenterStyle: React.CSSProperties = { ...thStyle, textAlign: 'center' }
@@ -455,8 +464,17 @@ export default function TabMarcas() {
   const top3 = ['uber', 'glovo', 'je']
   const bottom2 = ['web', 'dir']
 
+  const marcasActivasCount = marcas.filter(m => !m.archivada_at).length
+
   return (
-    <>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={marcas.length === 0 ? 'Todavía no has dado de alta ninguna marca' : 'Así están organizadas tus marcas y sus canales de venta'}
+        etiquetaDato={marcas.length > 0 ? 'Marcas activas' : undefined}
+        cifra={marcas.length > 0 ? String(marcasActivasCount) : undefined}
+        resumen={marcas.length > 0 ? <>de {marcas.length} en total · histórico {rangoTxt}</> : undefined}
+      />
       <div style={{ ...lblXs, marginBottom: 14, color: T.mut }}>HISTÓRICO COMPLETO · {rangoTxt}</div>
 
       {/* Fila 1: UE, GL, JE */}
@@ -493,7 +511,7 @@ export default function TabMarcas() {
         </button>
       </div>
 
-      <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, overflow: 'hidden' }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
             <thead>
@@ -545,7 +563,7 @@ export default function TabMarcas() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Papel>
 
       {(editing || creating) && (
         <EditModal title={creating ? 'Nueva marca' : `Editar ${editing?.nombre}`} onCancel={close} onSave={handleSave} saving={saving}>
@@ -658,6 +676,6 @@ export default function TabMarcas() {
           </div>
         </div>
       )}
-    </>
+    </PantallaCantera>
   )
 }

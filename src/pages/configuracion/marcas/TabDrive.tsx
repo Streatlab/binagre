@@ -2,6 +2,7 @@ import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
 import { COBERTURA_VERDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { useTheme, FONT } from '@/styles/tokens'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 
 export default function TabDrive() {
   const { T } = useTheme()
@@ -34,15 +35,26 @@ export default function TabDrive() {
     cursor: 'pointer', fontWeight: 600, textDecoration: 'none',
   }
 
+  const titular = loading
+    ? 'Comprobando la conexión con Google Drive…'
+    : estado?.conectado
+    ? 'Google Drive está conectado'
+    : 'Google Drive no está conectado todavía'
+
   return (
-    <div style={{
-      background: T.card,
-      border: `0.5px solid ${T.brd}`,
-      borderRadius: 14,
-      padding: 28,
-      maxWidth: 520,
-      marginTop: 4,
-    }}>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={titular}
+        etiquetaDato={loading ? undefined : 'Estado de la conexión'}
+        cifra={loading ? undefined : (estado?.conectado ? 'Conectado' : 'Sin conectar')}
+        resumen={
+          estado?.conectado
+            ? (estado.email ? <>Cuenta enlazada: <b>{estado.email}</b></> : 'Cuenta enlazada correctamente.')
+            : 'Conecta tu cuenta de Google para subir facturas automáticamente a Drive y mantener los PDFs organizados por titular y trimestre.'
+        }
+      />
+      <Papel ceja={estado?.conectado ? VERDE : GRANATE} style={{ maxWidth: 520 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
         <span style={{ fontSize: 36 }}>📂</span>
         <div>
@@ -102,6 +114,7 @@ export default function TabDrive() {
           <a href="/api/oauth/google?action=start" style={btnPrimario}>🔗 Conectar Google Drive</a>
         </>
       )}
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

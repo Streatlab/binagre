@@ -1,8 +1,9 @@
-import { BLANCO, GRANATE, GRIS, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, VERDE, OSW, LEX, INK } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { Plus, Trash2, Mail, FileText, BarChart3, HelpCircle } from 'lucide-react'
+import { PantallaCantera, HeroCantera, Papel, Plancha, PlanchaCelda, SeccionLabel } from '@/components/kit/cantera'
 
 // Aprendizaje del cartero de correo -> OCR.
 // El barrido diario (8:00) lee el buzón de facturas, coge cada PDF y, segun
@@ -70,39 +71,60 @@ export default function TabCorreoOcr() {
   const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
   const chip = (activo: boolean): React.CSSProperties => ({ padding: '8px 14px', borderRadius: 8, border: `1px solid ${activo ? GRANATE : T.brd}`, background: activo ? GRANATE : 'transparent', color: activo ? BLANCO : T.sec, fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' })
 
-  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
-
-  const kpi = (icon: React.ReactNode, label: string, valor: string, color?: string) => (
-    <div style={{ flex: 1, minWidth: 150, background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, padding: '14px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: T.mut, fontFamily: FONT.body, fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' }}>{icon}{label}</div>
-      <div style={{ fontFamily: FONT.body, fontSize: 26, fontWeight: 700, color: color ?? T.pri, marginTop: 6 }}>{valor}</div>
-    </div>
+  if (loading) return (
+    <PantallaCantera embedded>
+      <Papel ceja={GRIS}><div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13, fontWeight: 600 }}>Cargando…</div></Papel>
+    </PantallaCantera>
   )
 
+  const pendientes = estado?.pendientes_clasificar ?? 0
+  const titular = !estado?.buzon_conectado
+    ? 'El buzón de facturas todavía no está conectado'
+    : pendientes > 0
+    ? 'El cartero tiene correos esperando a que los clasifiques'
+    : 'El cartero está al día: clasifica solo cada correo que entra'
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-        El sistema revisa el buzón de facturas cada día a las 8:00, coge los PDF y los manda solo al OCR correcto: facturas de proveedor al OCR de Facturas, liquidaciones de plataforma al OCR de Resúmenes de ventas. Aprende de cada remitente que clasificas: a las pocas veces deja de preguntar.
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={titular}
+        etiquetaDato={estado ? 'Correos por clasificar' : undefined}
+        cifra={estado ? String(pendientes) : undefined}
+        resumen="El sistema revisa el buzón de facturas cada día a las 8:00, coge los PDF y los manda solo al OCR correcto: facturas de proveedor al OCR de Facturas, liquidaciones de plataforma al OCR de Resúmenes de ventas. Aprende de cada remitente que clasificas: a las pocas veces deja de preguntar."
+      />
+
+      <Plancha>
+        <PlanchaCelda bg={BLANCO} color={INK} first>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase' }}><Mail size={13} />Buzón</div>
+          <div style={{ fontFamily: OSW, fontSize: 24, fontWeight: 700, marginTop: 6, color: estado?.buzon_conectado ? VERDE : GRIS }}>{estado?.buzon_conectado ? 'Conectado' : 'Sin conectar'}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={BLANCO} color={INK}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase' }}><BarChart3 size={13} />Procesados hoy</div>
+          <div style={{ fontFamily: OSW, fontSize: 24, fontWeight: 700, marginTop: 6 }}>{estado?.procesados_hoy ?? 0}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={BLANCO} color={INK}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase' }}><HelpCircle size={13} />Por clasificar</div>
+          <div style={{ fontFamily: OSW, fontSize: 24, fontWeight: 700, marginTop: 6, color: pendientes > 0 ? GRANATE : INK }}>{pendientes}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={BLANCO} color={INK}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase' }}><FileText size={13} />Último barrido</div>
+          <div style={{ fontFamily: OSW, fontSize: 24, fontWeight: 700, marginTop: 6 }}>{estado?.ultimo_barrido ? new Date(estado.ultimo_barrido).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}</div>
+        </PlanchaCelda>
+      </Plancha>
+
+      <div>
+        <SeccionLabel bg={GRANATE}>Reglas de clasificación aprendidas</SeccionLabel>
+        <Papel ceja={GRANATE} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input value={nRem} onChange={e => setNRem(e.target.value)} placeholder="Llega de… (ej: @glovoapp.com)" style={{ ...inp, flex: 1.3, minWidth: 200 }} />
+          <input value={nAsunto} onChange={e => setNAsunto(e.target.value)} placeholder="Asunto contiene (opcional)" style={{ ...inp, flex: 1, minWidth: 160 }} />
+          <button onClick={() => setNDest('factura')} style={chip(nDest === 'factura')}>Factura</button>
+          <button onClick={() => setNDest('ventas')} style={chip(nDest === 'ventas')}>Ventas</button>
+          <button onClick={crear} style={btnP}><Plus size={16} /> Añadir</button>
+        </Papel>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        {kpi(<Mail size={13} />, 'Buzón', estado?.buzon_conectado ? 'Conectado' : 'Sin conectar', estado?.buzon_conectado ? VERDE : GRIS)}
-        {kpi(<BarChart3 size={13} />, 'Procesados hoy', String(estado?.procesados_hoy ?? 0))}
-        {kpi(<HelpCircle size={13} />, 'Por clasificar', String(estado?.pendientes_clasificar ?? 0), (estado?.pendientes_clasificar ?? 0) > 0 ? GRANATE : undefined)}
-        {kpi(<FileText size={13} />, 'Último barrido', estado?.ultimo_barrido ? new Date(estado.ultimo_barrido).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—')}
-      </div>
-
-      <div style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: T.pri, marginTop: 4 }}>Reglas de clasificación aprendidas</div>
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input value={nRem} onChange={e => setNRem(e.target.value)} placeholder="Llega de… (ej: @glovoapp.com)" style={{ ...inp, flex: 1.3, minWidth: 200 }} />
-        <input value={nAsunto} onChange={e => setNAsunto(e.target.value)} placeholder="Asunto contiene (opcional)" style={{ ...inp, flex: 1, minWidth: 160 }} />
-        <button onClick={() => setNDest('factura')} style={chip(nDest === 'factura')}>Factura</button>
-        <button onClick={() => setNDest('ventas')} style={chip(nDest === 'ventas')}>Ventas</button>
-        <button onClick={crear} style={btnP}><Plus size={16} /> Añadir</button>
-      </div>
-
-      <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, overflow: 'hidden' }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body, fontSize: 14 }}>
           <thead>
             <tr style={{ background: T.group }}>
@@ -138,7 +160,7 @@ export default function TabCorreoOcr() {
             {reglas.length === 0 && <tr><td colSpan={6} style={{ padding: 20, textAlign: 'center', color: T.mut }}>Aún sin reglas. El sistema las irá creando a medida que clasifiques los primeros correos.</td></tr>}
           </tbody>
         </table>
-      </div>
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }
