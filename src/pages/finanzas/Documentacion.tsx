@@ -15,15 +15,20 @@ import ResolverPendientes from '@/components/documentacion/ResolverPendientes'
 // 20-jul: fuera las 3 cards blancas (Pendiente/En proceso/Conciliado) — repetían
 // lo que ya dicen el hero y el panel de Avisos con números distintos. Una sola
 // fuente de verdad: hero (conciliado) + Avisos (pendientes).
+// 23-jul: fuera la pestaña "Equipo". Duplicaba el botón EQUIPO de la Bandeja de
+// entrada pero por una vía peor: subía directa a /api/equipo/subir sin guardar
+// antes ni apuntar el archivo, así que un fallo de red dejaba el documento
+// perdido y sin repesca. El botón de la Bandeja usa enviarAEquipoSeguro
+// (guarda → apunta en equipo_manifiesto → lee, y lo que falla lo rescata el
+// barrido). Una sola puerta de entrada, la que no pierde nada.
 const OcrConToast = lazy(() => import('@/pages/OcrConToast'))
 const Conciliacion = lazy(() => import('@/pages/Conciliacion'))
 const GestionFacturas = lazy(() => import('@/pages/finanzas/GestionFacturas'))
 const Facturacion = lazy(() => import('@/pages/Facturacion'))
 const Gestoria = lazy(() => import('@/pages/finanzas/Gestoria'))
-const TabEquipoSubir = lazy(() => import('@/pages/finanzas/TabEquipoSubir'))
 
-type Tab = 'bandeja' | 'facturas' | 'conciliacion' | 'documental' | 'facturacion' | 'gestoria' | 'equipo'
-const VALID_TABS: Tab[] = ['bandeja', 'facturas', 'conciliacion', 'documental', 'facturacion', 'gestoria', 'equipo']
+type Tab = 'bandeja' | 'facturas' | 'conciliacion' | 'documental' | 'facturacion' | 'gestoria'
+const VALID_TABS: Tab[] = ['bandeja', 'facturas', 'conciliacion', 'documental', 'facturacion', 'gestoria']
 
 const STORAGE_KEY = 'documentacion:tab'
 
@@ -101,7 +106,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'documental', label: 'Gestor documental' },
   { id: 'facturacion', label: 'Facturación' },
   { id: 'gestoria', label: 'Gestoría' },
-  { id: 'equipo', label: 'Equipo' },
 ]
 
 export default function Documentacion() {
@@ -168,7 +172,6 @@ export default function Documentacion() {
         {tab === 'documental' && <GestionFacturas />}
         {tab === 'facturacion' && <Facturacion embedded />}
         {tab === 'gestoria' && <Gestoria embedded />}
-        {tab === 'equipo' && <TabEquipoSubir />}
       </Suspense>
     </div>
   )
