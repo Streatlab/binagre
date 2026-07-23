@@ -1,17 +1,17 @@
 import { useState, useRef } from 'react'
 import { useOcrUpload, TAM_LOTE } from '@/lib/ocrUploadStore'
 import { toast } from '@/lib/toastStore'
+import { enviarAEquipoSeguro } from '@/lib/equipo/subidaSegura'
 import AvisosBandeja from '@/components/documentacion/AvisosBandeja'
 import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER, BORDER_CARD, GRANATE, VERDE, NAR, AZUL, ROJO, GRIS, BLANCO } from '@/styles/neobrutal'
 
-// ── Bandeja de entrada — 4 BOTONES ──────────────────────────────────────────
+// ── Bandeja de entrada — 5 BOTONES ──────────────────────────────────────────
 //   · BANCO    → extracto (CSV/PDF). Pregunta titular y vuelca a Conciliación.
 //   · VENTAS   → liquidaciones, resúmenes, historial de pedidos y productos de
 //     plataforma (Uber, Glovo, Just Eat, Sinqro, Rushour). Van directos a Ventas.
 //   · FACTURAS → OCR + Drive + contraste con Conciliación.
+//   · EQUIPO   → nóminas, resumen de nóminas y Seguridad Social (RLC/RNT).
 //   · CORREO   → acción directa: recoge el buzón ahora mismo (no sube archivos).
-//   Al pulsar Banco/Ventas/Facturas se elige entre archivos sueltos o una
-//   carpeta entera. Arrastrar y soltar admite archivos y carpetas.
 
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
@@ -25,29 +25,23 @@ const ACCEPT = EXT_ACEPTADAS.map(e => `.${e}`).join(',')
 // Ningún documento puede colgar la tanda entera. Si el servidor no contesta en
 // este tiempo, ese archivo se da por fallido y se sigue con el resto.
 const TIMEOUT_DOC_MS = 90_000
-// Cuántos documentos se envían a la vez. Antes iban de uno en uno: 32 archivos
-// eran 32 esperas encadenadas y bastaba con que uno se colgara para que el
-// aviso se quedase clavado para siempre.
 const EN_PARALELO = 4
 
 async function fetchConTimeout(url: string, init: RequestInit, ms = TIMEOUT_DOC_MS): Promise<Response> {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), ms)
-  try {
-    return await fetch(url, { ...init, signal: ctrl.signal })
-  } finally {
-    clearTimeout(t)
-  }
+  try { return await fetch(url, { ...init, signal: ctrl.signal }) }
+  finally { clearTimeout(t) }
 }
 
 /** Recorre una lista con varias tareas a la vez, sin que una lenta frene al resto. */
-async function enParalelo<T>(items: T[], limite: number, tarea: (item: T, i: number) => Promise<void>) {
+async function enParalelo<T>(items: T[], limite: number, tarea: (item: T) => Promise<void>) {
   let siguiente = 0
   const obreros = Array.from({ length: Math.min(limite, items.length) }, async () => {
-    while (true) {
+    for (;;) {
       const i = siguiente++
       if (i >= items.length) return
-      await tarea(items[i], i)
+      await tarea(items[i])
     }
   })
   await Promise.all(obreros)
@@ -57,20 +51,14 @@ async function enParalelo<T>(items: T[], limite: number, tarea: (item: T, i: num
 function esResumenUberTexto(texto: string): boolean {
   const cab = (texto || '').slice(0, 2000).toLowerCase()
   const primera = (texto.split('\n')[0] || '').toLowerCase()
-  // Historial de pedidos Uber
   if (primera.includes('restaurante') && primera.includes('valor del recibo') && primera.includes('estado del pedido')) return true
-  // Detalle a nivel de artículo Uber
   if (primera.includes('id. del pedido') && primera.includes('nombre del artículo') && primera.includes('precio unitario')) return true
-  // Just Eat / Glovo orderDetails (inglés)
   if (primera.includes('order id') && primera.includes('order received at') && primera.includes('order status')) return true
-  // Glovo orderDetails en español (Historial de pedidos del portal)
   if (cab.includes('nombre del local') && cab.includes('total parcial')) return true
-  // Productos vendidos sueltos (Sinqro/Rushour): pocas columnas nombre+cantidad
   const cols = primera.replace(/csv\./g, '').split(',')
   const nombre = cols.some(c => c.includes('nombre') || c.includes('producto') || c.includes('name'))
   const cantidad = cols.some(c => c.includes('cantidad') || c.includes('unidades') || c.includes('vendidas'))
   if (nombre && cantidad && cols.length <= 6) return true
-  // Resumen de ganancias Uber
   const marca = cab.includes('nombre del restaurante') || cab.includes('store name') || cab.includes('restaurant name')
   const pago = cab.includes('pago total') || cab.includes('net payout') || cab.includes('total payout')
   const ref = cab.includes('referencia de ganancias') || cab.includes('earnings reference') || cab.includes('payment reference')
@@ -157,8 +145,6 @@ function BtnCorreo({ label, sub, color, colorHover, onClick, ocupado }: {
 
 type Destino = 'banco' | 'ventas' | 'facturas' | 'equipo'
 
-// ── Botón: al pulsar abre modal (archivos sueltos o carpeta); también admite
-//    arrastrar y soltar archivos o carpetas directamente ──
 function BtnSubir({ label, sub, color, colorHover, onArchivos, preparando }: {
   label: string; sub: string; color: string; colorHover: string
   onArchivos: (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => void
@@ -204,7 +190,6 @@ function BtnSubir({ label, sub, color, colorHover, onArchivos, preparando }: {
         </div>
       )}
 
-      {/* ── Modal: archivos sueltos o carpeta entera ── */}
       {elegir && (
         <div onClick={e => { e.stopPropagation(); setElegir(false) }}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 120 }}>
@@ -232,7 +217,6 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
   const [verRechazados, setVerRechazados] = useState(false)
   const [recogiendoCorreo, setRecogiendoCorreo] = useState(false)
 
-  // Recoge el buzón de correo al instante (no espera al cron). Acción directa: no sube archivos.
   const recogerCorreo = async () => {
     if (recogiendoCorreo) return
     setRecogiendoCorreo(true)
@@ -261,8 +245,6 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
   }
 
   const [modal, setModal] = useState<{ destino: Destino; archivos: File[]; rechazados: string[]; visible: boolean }>({ destino: 'facturas', archivos: [], rechazados: [], visible: false })
-  // Subida masiva (miles de archivos de golpe): por encima de este umbral hace falta
-  // confirmación explícita de que se subirán por tandas, no todo de una sentada.
   const UMBRAL_CONFIRMACION_MASIVA = 2000
   const [confirmoLotes, setConfirmoLotes] = useState(false)
 
@@ -277,7 +259,6 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
   const requiereConfirmacionMasiva = modal.archivos.length > UMBRAL_CONFIRMACION_MASIVA
   const bloqueadoPorLotes = requiereConfirmacionMasiva && !confirmoLotes
 
-  // Separa documentos de ventas (CSV) del resto por contenido
   const separarVentas = async (archivos: File[]): Promise<{ ventas: File[]; resto: File[] }> => {
     const ventas: File[] = []
     const resto: File[] = []
@@ -291,7 +272,6 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
     return { ventas, resto }
   }
 
-  // Envía archivos de ventas al endpoint de plataformas con un único aviso veraz
   const enviarAVentas = async (ventas: File[]) => {
     if (ventas.length === 0) return
     const tid = toast.loading(`Leyendo documentos de ventas (${ventas.length})…`)
@@ -340,62 +320,43 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
     }
   }
 
-  // Envía archivos al buzón único de EQUIPO (nóminas, resumen y Seguridad Social).
-  // Va en paralelo y con tope de espera por archivo: uno que se cuelgue ya no
-  // puede dejar la tanda entera (ni el aviso) colgada para siempre.
+  // EQUIPO: subida segura. Guarda primero, lee después. Lo que no se lea queda
+  // apuntado y la repesca automática lo recupera: no se pierde ningún documento.
   const enviarAEquipo = async (archivos: File[]) => {
     if (archivos.length === 0) return
     const tid = toast.loading(`Leyendo documentos de equipo (0/${archivos.length})…`)
-    let nominas = 0, resumenes = 0, segSocial = 0, revisar = 0, hechos = 0
-    const errs: string[] = []
     try {
-      await enParalelo(archivos, EN_PARALELO, async (f) => {
-        try {
-          const base64 = await fileABase64(f)
-          const res = await fetchConTimeout('/api/equipo/subir', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ base64, nombre_archivo: f.name }),
-          })
-          const j = await res.json()
-          if (!j.ok) { errs.push(`${f.name}: ${j.error || 'no reconocido'}`) }
-          else if (j.destino === 'nominas') nominas++
-          else if (j.destino === 'resumen_nominas') resumenes++
-          else if (j.destino === 'seguridad_social' || j.destino === 'seguridad_social_rnt') segSocial++
-          else revisar++
-        } catch (e: any) {
-          errs.push(`${f.name}: ${e?.name === 'AbortError' ? 'tardó demasiado' : (e?.message || 'error de red')}`)
-        } finally {
-          hechos++
-          toast.loading(`Leyendo documentos de equipo (${hechos}/${archivos.length})…`, { id: tid })
-        }
+      const r = await enviarAEquipoSeguro(archivos, (hechos, total) => {
+        toast.loading(`Leyendo documentos de equipo (${hechos}/${total})…`, { id: tid })
       })
-    } finally {
       const partes: string[] = []
-      if (nominas) partes.push(`${nominas} nómina${nominas !== 1 ? 's' : ''}`)
-      if (resumenes) partes.push(`${resumenes} resumen${resumenes !== 1 ? 'es' : ''}`)
-      if (segSocial) partes.push(`${segSocial} Seguridad Social`)
-      if (revisar) partes.push(`${revisar} por revisar`)
-      if (errs.length) partes.push(`${errs.length} con problema`)
-      if (partes.length === 0) {
-        toast.error(`No se pudo procesar: ${errs[0] || 'sin respuesta'}`, { id: tid })
-      } else if (errs.length > 0) {
-        toast.aviso(`EQUIPO · ${partes.join(' · ')} — el primero: ${errs[0]}`, { id: tid, duration: 20000 })
+      if (r.nominas) partes.push(`${r.nominas} nómina${r.nominas !== 1 ? 's' : ''}`)
+      if (r.resumenes) partes.push(`${r.resumenes} resumen${r.resumenes !== 1 ? 'es' : ''}`)
+      if (r.segSocial) partes.push(`${r.segSocial} Seguridad Social`)
+      if (r.revisar) partes.push(`${r.revisar} por revisar`)
+
+      if (r.aRepescar > 0) {
+        partes.push(`${r.aRepescar} en repesca`)
+        toast.aviso(
+          `EQUIPO · ${partes.join(' · ')}. Los de repesca están guardados y se reintentan solos; no hace falta volver a subirlos.`,
+          { id: tid, duration: 20000 },
+        )
+      } else if (partes.length === 0) {
+        toast.error(`No se pudo procesar: ${r.errores[0] || 'sin respuesta'}`, { id: tid })
       } else {
         toast.success(`EQUIPO · ${partes.join(' · ')}`, { id: tid })
       }
+    } catch (e: any) {
+      toast.error(e?.message || 'Error al enviar los documentos de equipo', { id: tid })
     }
   }
 
-  // ── Envío según destino, con redirección automática de documentos mal ubicados ──
   const enviar = async (titular?: string) => {
     const { destino, archivos } = modal
     setModal(m => ({ ...m, visible: false, archivos: [], rechazados: [] }))
     if (archivos.length === 0) return
 
     if (destino === 'banco') {
-      // Candado duro: un extracto nunca se envía sin titular. Si por lo que sea
-      // se llega aquí sin uno (no debería, los dos únicos botones lo fijan),
-      // se bloquea y se avisa en vez de procesar a ciegas.
       if (!titular) {
         toast.error('Falta decir de quién es el extracto. Elige Rubén o Emilio.')
         return
@@ -423,7 +384,6 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
       return
     }
 
-    // destino === 'facturas'
     if (ventas.length > 0) {
       toast.success(`${ventas.length} documento${ventas.length !== 1 ? 's' : ''} de ventas detectado${ventas.length !== 1 ? 's' : ''}: enviado${ventas.length !== 1 ? 's' : ''} a Ventas.`)
       await enviarAVentas(ventas)
@@ -437,7 +397,6 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
 
   return (
     <div style={{ marginTop: 16 }}>
-      {/* ── 4 botones: Banco · Ventas · Facturas · Correo ── */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
         <BtnSubir
           label="Banco" color={AZUL} colorHover="#16459e"
@@ -469,10 +428,8 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
         Si un documento entra por el botón equivocado, el sistema lo detecta por contenido, lo redirige solo y te avisa.
       </div>
 
-      {/* ── Avisos autoaprendibles ── */}
       <AvisosBandeja onResuelto={() => onProcesado?.()} />
 
-      {/* ── Modal único de confirmación ── */}
       {modal.visible && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ background: CREMA, padding: 28, minWidth: 380, maxWidth: 560, border: BORDER, boxShadow: '8px 8px 0 rgba(0,0,0,0.25)' }}>
@@ -518,7 +475,9 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
             ) : (
               <>
                 <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 8, marginBottom: 18 }}>
-                  El sistema clasifica cada documento por su contenido, aplica el diccionario de proveedores y lo redirige si no corresponde a este botón.
+                  {modal.destino === 'equipo'
+                    ? 'Cada documento se guarda antes de leerse: si alguno no se puede leer ahora, queda apuntado y el sistema lo reintenta solo. No se pierde ninguno.'
+                    : 'El sistema clasifica cada documento por su contenido, aplica el diccionario de proveedores y lo redirige si no corresponde a este botón.'}
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => { setModal(m => ({ ...m, visible: false, archivos: [], rechazados: [] })); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, background: BLANCO, color: INK, fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
