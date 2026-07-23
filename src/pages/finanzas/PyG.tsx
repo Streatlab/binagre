@@ -1,10 +1,11 @@
 import { BLANCO, GRANATE, GRIS, INK, LIMA, CREMA, BORDER_CARD, BORDER_FINO, BORDE_SUAVE, SHADOW } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, pageTitleStyle, FONT } from '@/styles/tokens'
+import { FONT } from '@/styles/tokens'
 import { fmtEur, fmtPct } from '@/utils/format'
 import { loadConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 const MESES = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -35,7 +36,6 @@ function toMonthly(importe: number, periodicidad: string): number {
 }
 
 export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
-  const { T } = useTheme()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -175,12 +175,17 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
   const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
   const empty: React.CSSProperties = { color: GRIS, fontSize: 13, padding: '12px 0' }
 
-  return (
-    <div style={{ padding: embedded ? 0 : 28, fontFamily: FONT.body, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : '100vh' }}>
-      {!embedded && <h1 style={pageTitleStyle(T)}>Cuenta de Resultados</h1>}
+  const atencion = [
+    `Ingresos brutos ${fmtEur(ingresosBrutos)}`,
+    `EBITDA estimado ${fmtEur(ebitda)}`,
+    `Gastos variables ${fmtEur(totalGastos)}`,
+    `Gastos fijos ${fmtEur(totalFijos)}`,
+  ]
 
-      {/* Selector */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 24 }}>
+  return (
+    <PantallaCantera embedded={embedded} style={{ fontFamily: FONT.body }}>
+      {/* Selector — filtros propios arriba-derecha */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center' }}>
         <select style={sel} value={month} onChange={e => setMonth(Number(e.target.value))}>
           {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
             <option key={m} value={m}>{MESES[m - 1]}</option>
@@ -189,47 +194,65 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
         <select style={sel} value={year} onChange={e => setYear(Number(e.target.value))}>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
-        <span style={{ color: GRIS, fontSize: 13 }}>
-          {loading ? 'Cargando...' : monthLabel(year, month)}
-        </span>
+        {loading && <span style={{ color: GRIS, fontSize: 13 }}>Cargando...</span>}
       </div>
 
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12, marginBottom: 24 }}>
-        <div style={kpiCard}>
-          <div style={kpiLbl}>Ingresos brutos</div>
-          <div style={kpiVal}>{fmtEur(ingresosBrutos)}</div>
-        </div>
-        <div style={kpiCard}>
-          <div style={kpiLbl}>Ingresos netos</div>
-          <div style={{ ...kpiVal, color: LIMA }}>{fmtEur(ingresosNetos)}</div>
-          <div style={{ fontSize: 11, color: GRIS, marginTop: 4 }}>Tras comisiones</div>
-        </div>
-        <div style={kpiCard}>
-          <div style={kpiLbl}>Total gastos</div>
-          <div style={{ ...kpiVal, color: GRANATE }}>{fmtEur(totalGastosAll)}</div>
-        </div>
-        <div style={kpiCard}>
-          <div style={kpiLbl}>Resultado neto</div>
-          <div style={{ ...kpiVal, color: resColor }}>{fmtEur(resultado)}</div>
-        </div>
-        <div style={kpiCard}>
-          <div style={kpiLbl}>Margen neto</div>
-          <div style={{ ...kpiVal, color: resColor }}>{fmtPct(margen)}</div>
-        </div>
-        <div style={kpiCard}>
-          <div style={kpiLbl}>EBITDA estimado</div>
-          <div style={{ ...kpiVal, color: ebitda >= 0 ? LIMA : GRANATE }}>{fmtEur(ebitda)}</div>
-          <div style={{ fontSize: 11, color: GRIS, marginTop: 4 }}>Sin gastos fijos</div>
-        </div>
+      {/* 1 · Héroe del área Resultados (amarillo) */}
+      <HeroCantera
+        area="eeff"
+        periodo={monthLabel(year, month)}
+        titular={resultado >= 0 ? 'El mes cierra en positivo: los ingresos cubren los gastos.' : 'El mes va en negativo: los gastos superan a los ingresos netos.'}
+        etiquetaDato="Resultado neto del mes"
+        cifra={fmtEur(resultado)}
+        resumen={<>Ingresos netos <b>{fmtEur(ingresosNetos)}</b> · Gastos totales <b>{fmtEur(totalGastosAll)}</b> · Margen <b>{fmtPct(margen)}</b></>}
+        atencion={atencion}
+      />
+
+      {/* 2 · Plancha comparativa de KPIs (celdas sólidas pegadas) */}
+      <div>
+        <SeccionLabel bg={LIMA} color={INK}>KPIs del mes</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={BLANCO} first>
+            <div style={kpiLbl}>Ingresos brutos</div>
+            <div style={kpiVal}>{fmtEur(ingresosBrutos)}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={LIMA} color={INK}>
+            <div style={{ ...kpiLbl, color: INK }}>Ingresos netos</div>
+            <div style={kpiVal}>{fmtEur(ingresosNetos)}</div>
+            <div style={{ fontSize: 11, marginTop: 4 }}>Tras comisiones</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={GRANATE} color={BLANCO}>
+            <div style={{ ...kpiLbl, color: BLANCO }}>Total gastos</div>
+            <div style={kpiVal}>{fmtEur(totalGastosAll)}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={resultado >= 0 ? LIMA : GRANATE} color={resultado >= 0 ? INK : BLANCO}>
+            <div style={{ ...kpiLbl, color: resultado >= 0 ? INK : BLANCO }}>Resultado neto</div>
+            <div style={kpiVal}>{fmtEur(resultado)}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={BLANCO}>
+            <div style={kpiLbl}>Margen neto</div>
+            <div style={{ ...kpiVal, color: resColor }}>{fmtPct(margen)}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={BLANCO}>
+            <div style={kpiLbl}>EBITDA estimado</div>
+            <div style={{ ...kpiVal, color: ebitda >= 0 ? LIMA : GRANATE }}>{fmtEur(ebitda)}</div>
+            <div style={{ fontSize: 11, color: GRIS, marginTop: 4 }}>Sin gastos fijos</div>
+          </PlanchaCelda>
+        </Plancha>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-        {/* Gastos variables */}
-        <div style={card}>
-          <h3 style={secTitle}>Gastos variables por categoría</h3>
+      {/* 3 · Frase potente (color por significado, distinto del héroe amarillo) */}
+      {resultado >= 0
+        ? <FrasePotente significado="logro">El mes cierra en positivo: cada euro de resultado es margen ya asegurado.</FrasePotente>
+        : <FrasePotente significado="peligro">El mes va en negativo: revisa gastos variables y fijos antes de que se coma la caja.</FrasePotente>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* Gastos variables — papel (sin sombra) */}
+        <div>
+          <SeccionLabel bg={GRANATE}>Gastos variables por categoría</SeccionLabel>
+          <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
           {gruposGasto.length === 0 && !loading
-            ? <div style={empty}>Sin gastos registrados para este periodo</div>
+            ? <div style={{ ...empty, padding: '18px 20px' }}>Sin gastos registrados para este periodo</div>
             : (
               <table style={tbl}>
                 <thead>
@@ -256,13 +279,15 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
               </table>
             )
           }
+          </Papel>
         </div>
 
-        {/* Gastos fijos */}
-        <div style={card}>
-          <h3 style={secTitle}>Gastos fijos activos</h3>
+        {/* Gastos fijos — papel (sin sombra) */}
+        <div>
+          <SeccionLabel bg={GRANATE}>Gastos fijos activos</SeccionLabel>
+          <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
           {gastosFijos.length === 0 && !loading
-            ? <div style={empty}>Sin gastos fijos configurados</div>
+            ? <div style={{ ...empty, padding: '18px 20px' }}>Sin gastos fijos configurados</div>
             : (
               <table style={tbl}>
                 <thead>
@@ -288,12 +313,14 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
               </table>
             )
           }
+          </Papel>
         </div>
       </div>
 
-      {/* Resumen P&G */}
-      <div style={card}>
-        <h3 style={secTitle}>Resumen P&amp;G — {monthLabel(year, month)}</h3>
+      {/* Resumen P&G — papel (sin sombra) */}
+      <div>
+        <SeccionLabel bg={GRANATE}>Resumen P&amp;G — {monthLabel(year, month)}</SeccionLabel>
+        <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
         <table style={tbl}>
           <tbody>
             <tr>
@@ -334,8 +361,9 @@ export function PyG({ embedded = false }: { embedded?: boolean } = {}) {
             </tr>
           </tbody>
         </table>
+        </Papel>
       </div>
-    </div>
+    </PantallaCantera>
   )
 }
 
