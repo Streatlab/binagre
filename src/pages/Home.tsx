@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { INK, CREMA, GRANATE, AMA, VERDE, NARANJA, AZUL, ROJO, OSW, LEX, BORDER, SHADOW, eyebrow, bigNum, chip } from '@/styles/kit'
 import type { CSSProperties, ReactNode } from 'react'
 import HeroTocho, { Resaltado } from '@/components/kit/HeroTocho'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 import { AlertasBanner } from '@/pages/finanzas/PanelAlertas'
 
 type Dia = {
@@ -155,15 +156,9 @@ export default function Home() {
 
   return (
     <div style={{ fontFamily: LEX, maxWidth: 1100, margin: '0 auto', color: INK, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Cabecera */}
+      {/* Cabecera · CANTERA ALEGRE v4 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <span style={{ ...eyebrow, background: CREMA, display: 'inline-block', padding: '3px 10px', border: `2px solid ${INK}` }}>PORTADA</span>
-          <h1 style={{ fontFamily: OSW, fontSize: 'clamp(26px, 4vw, 34px)', fontWeight: 700, letterSpacing: '0.04em', margin: '6px 0 0', textTransform: 'uppercase' }}>Hoy</h1>
-        </div>
-        <span style={{ ...eyebrow, color: GRIS }}>
-          {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </span>
+        <RutaPantalla niveles={['Hoy']} subtitulo={new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} />
       </div>
 
       {error && (

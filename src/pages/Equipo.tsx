@@ -1,6 +1,7 @@
-import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useSearchParams } from 'react-router-dom'
-import { useTheme, FONT, pageTitleStyle } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import TabsPastilla from '@/components/ui/TabsPastilla'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { useAuth } from '@/context/AuthContext'
 import TabEmpleados from './equipo/TabEmpleados'
@@ -106,30 +107,16 @@ export default function Equipo({ grupo = 'personas' }: { grupo?: GrupoEquipo }) 
 
   return (
     <div style={{ background: 'var(--neo-bg)', minHeight: '100vh', padding: isMobile ? '14px 12px' : '24px 28px', fontFamily: FONT.body }}>
-      <h1 style={{ ...pageTitleStyle(T), fontSize: 'clamp(22px, 5vw, 30px)' }}>{titulo}</h1>
-
-      {/* Tabs neobrutal — una sola fila, scroll horizontal en móvil (nunca dos filas apiladas) */}
-      {tabs.length > 1 && (
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24, overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 4 }}>
-        {tabs.map(t => {
-          const active = activeTab === t.key
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              style={{
-                ...tabBase,
-                flexShrink: 0,
-                background: active ? GRANATE : 'var(--sl-card)',
-                color: active ? BLANCO : NEO_INK,
-                boxShadow: active ? NEO_SHADOW : 'none',
-              }}
-            >
-              {t.label}
-            </button>
-          )
-        })}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={[...titulo.split('·').map(s => s.trim()), tabs.find(t => t.key === activeTab)?.label ?? ''].filter(Boolean)} />
       </div>
+
+      {/* Pestañas v4 — plancha segmentada; el grupo Documentos tiene una sola, sin barra */}
+      {tabs.length > 1 && (
+        <>
+          <TabsPastilla tabs={tabs.map(t => ({ id: t.key, label: t.label }))} activeId={activeTab} onChange={id => setTab(id as TabKey)} />
+          <div style={{ height: 16 }} />
+        </>
       )}
 
       {/* Tab content */}
