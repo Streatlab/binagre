@@ -159,5 +159,34 @@ Solo capa visual: prohibido tocar queries, cálculos, Supabase, API, lógica.
 - Gate de pantalla = script `scratchpad/gate.sh`; permite los 12 tokens + colores de
   canal + `var(--*)` + `#0a0a0a`.
 
+## COMPONENTES (gate de color)
+Además de las pantallas, se pasó el gate a los componentes de presentación que las
+construyen:
+- [x] Componentes compartidos: NavIcon (colores de área del sidebar), SortableHeader,
+  EditableInline, MargenBanner, SelloAct, IVAToggle, SelectorFechaUniversal,
+  KpiCardGrande, ChuletaPlataformas, kit/ProgresoGlobal, kit/TabsContainer,
+  ui/RutaPantalla, ui/SubTabs.
+- [x] Conciliación: TabMovimientos, ResumenDashboard, CardFiltro, PanelCobertura,
+  ModalDetalleMovimiento, TagFiltroActivo, BandejaPropuestas.
+- [x] Documentación: BandejaEntrada, ModalDescartarFactura, ResolverPendientes,
+  AvisosBandeja. Factura: ModalDetalleFactura. OCR: ExtractosTabla.
+- [x] Escandallo: TabFichas, ColaRevisionFichas. Equipo: horarios/TabVacaciones,
+  horarios/TabGenerador, ModalSolicitud. Inventario: TabConteos. Importador: TabSubirV2.
+- [x] Panel: resumen/CardFacturasCorreo, sl/uiSL, TabEvolucion. Mobile: PantallasMovil.
+- Referencia `panel/resumen/ResumenLanding.tsx`: intacta; sus overlays negro/blanco con
+  alpha (`#000000xx`/`#ffffffxx`) son atenuados/sombra, no color de paleta → tolerados.
+
+## CIERRE (FASE FINAL)
+- Barrido global `src/` (excl. definiciones de token y `marco/HojaDoc`): **0 pantallas y
+  0 componentes con hex fuera de tabla**, salvo las 2 excepciones documentadas.
+- Cada archivo validado con `esbuild` (build limpio) + `gate.sh` (0 hex stray) +
+  verificación de imports de los tokens usados en templates.
+- Sin tocar queries, cálculos, props, Supabase ni lógica: solo capa visual (color,
+  radio, superficie). Nada de David, ni modo oscuro, ni MARCO DOCUMENTOS.
+- Excepciones al gate (por diseño): colores de marca Google del botón OAuth (Login);
+  `src/mobile/kit.tsx` y `styles/palettes.ts`/`neobrutal.ts` son archivos de DEFINICIÓN
+  de color (no pantallas).
+- Todo commiteado y pusheado a `trabajo`. **NO publicado**: pendiente orden de Rubén.
+
 ## BLOQUEADAS
-(ninguna aún)
+(ninguna)

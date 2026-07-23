@@ -4,6 +4,7 @@
  * en móvil NO se pierde ningún dato.
  */
 import { INK, BLANCO, AMA } from '@/mobile/mapaMovil'
+import { CLARO } from '@/styles/neobrutal'
 
 const OSW = 'Oswald, sans-serif'
 
@@ -31,7 +32,7 @@ export function Fila({ emoji, bg, titulo, desc, chip, chipBg, chipColor, onClick
     }}>
       <span style={{
         fontSize: '1.6rem', flexShrink: 0, width: '3rem', height: '3rem', border: `3px solid ${INK}`,
-        background: bg || '#F3D9A8', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: bg || CLARO, display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>{emoji}</span>
       <div style={{ minWidth: 0, flex: 1 }}>
         <p style={{ fontFamily: OSW, fontWeight: 700, fontSize: '1.02rem', textTransform: 'uppercase', lineHeight: 1.15 }}>{titulo}</p>
