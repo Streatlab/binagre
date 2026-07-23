@@ -16,6 +16,7 @@ import {
 } from '@/lib/cocina/platoHub'
 import { BLANCO, GRIS } from '@/styles/neobrutal'
 import { INK, CREMA, GRANATE, AMA, VERDE, NARANJA as NAR, AZUL, OSW, LEX, BORDER as BORDER_CARD, BORDER_FINO, SHADOW, eyebrow as eyebrowKit, bigNum, chip } from '@/styles/kit'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 
 interface Maestro { id: number; nombre: string; es_extra: boolean | null; receta_id: string | null; euros: number | null }
 interface Receta { id: string; nombre: string; coste_rac: number | null }
@@ -156,10 +157,7 @@ export default function Hoy() {
     <div style={{ fontFamily: LEX, maxWidth: 1100, margin: '0 auto', color: INK, display: 'flex', flexDirection: 'column', gap: 16, padding: '0 0 30px' }}>
       {/* Cabecera */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <span style={{ ...eyebrow, background: CREMA, display: 'inline-block', padding: '3px 10px', border: `2px solid ${INK}` }}>COCINA</span>
-          <h1 style={{ fontFamily: OSW, fontSize: 'clamp(26px, 4vw, 34px)', fontWeight: 700, letterSpacing: '0.04em', margin: '6px 0 0', textTransform: 'uppercase' }}>Hoy</h1>
-        </div>
+        <RutaPantalla niveles={['Hoy']} />
         <span style={{ ...eyebrow, color: GRIS }}>
           {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
         </span>

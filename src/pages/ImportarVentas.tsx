@@ -17,6 +17,7 @@ import {
   guardarMetricasClientes,
 } from '../lib/parsers/guardarDatosFases';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import RutaPantalla from '@/components/ui/RutaPantalla';
 
 // ── Neobrutal ────────────────────────────────────────────────────
 const NEO_INK = 'var(--neo-ink)';
@@ -166,12 +167,9 @@ export default function ImportarVentas() {
 
   return (
     <div style={{ padding: 'clamp(14px,3vw,28px)', maxWidth: 960, background: 'var(--neo-bg)', minHeight: '100vh' }}>
-      <h2 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 'clamp(22px,5vw,30px)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--sl-text-primary)', marginBottom: 6 }}>
-        Importar datos de ventas
-      </h2>
-      <p style={{ fontSize: 13, color: 'var(--sl-text-muted)', marginBottom: 24 }}>
-        Sube los CSVs de cada plataforma para mantener el ERP actualizado con datos reales.
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Importar ventas']} subtitulo="Sube los CSVs de cada plataforma para mantener el ERP actualizado con datos reales." />
+      </div>
 
       {/* Selector tipo */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>

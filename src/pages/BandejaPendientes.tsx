@@ -1,6 +1,7 @@
 import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 
 // ──────────────────────────────────────────────────────────────────────────
 // BANDEJA DE PENDIENTES (cola única de Documentación)
@@ -83,16 +84,11 @@ export default function BandejaPendientes() {
   )
 
   const wrap: React.CSSProperties = { background: 'var(--neo-bg)', padding: '24px 28px', minHeight: '100vh' }
-  const h2: React.CSSProperties = { color: GRANATE, fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }
-  const sub: React.CSSProperties = { fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-muted)', display: 'block', marginTop: 4 }
 
   return (
     <div style={wrap}>
-      <div style={{ marginBottom: 18 }}>
-        <h2 style={h2}>PENDIENTES</h2>
-        <span style={sub}>
-          {cargando ? 'Cargando…' : `${filas.length} documento${filas.length === 1 ? '' : 's'} aún sin cerrar al 100%`}
-        </span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Pendientes']} subtitulo={cargando ? 'Cargando…' : `${filas.length} documento${filas.length === 1 ? '' : 's'} aún sin cerrar al 100%`} />
       </div>
 
       {error && (

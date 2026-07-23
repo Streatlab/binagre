@@ -9,7 +9,8 @@ import { Link } from "react-router-dom";
 import { usePanelAlertas } from "../../lib/finanzas/usePanelAlertas";
 import type { Alerta } from "../../lib/finanzas/usePanelAlertas";
 import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
+  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, AMA, VERDE, ROJO, GRIS, BLANCO } from '@/styles/neobrutal';
+import RutaPantalla from '@/components/ui/RutaPantalla';
 
 /** Bloque compacto para la portada "Hoy": si no hay alertas, no ocupa espacio. */
 export function AlertasBanner() {
@@ -55,14 +56,8 @@ export default function PanelAlertas() {
   return (
     <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: "100vh", color: INK }}>
 
-      <div style={{ marginBottom: 20 }}>
-        <span style={eyebrow(NAR, BLANCO)}>FINANZAS</span>
-        <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
-          PANEL DE ALERTAS
-        </h1>
-        <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>
-          Ratios financieros fuera de rango · solo avisa cuando algo se rompe
-        </span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Panel de alertas']} subtitulo="Ratios financieros fuera de rango · solo avisa cuando algo se rompe" />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 24 }}>

@@ -1,7 +1,8 @@
 import { BLANCO, GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
 import { useState, useEffect, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, pageTitleStyle, FONT } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { useEsMovil } from '@/hooks/useEsMovil'
 
@@ -236,7 +237,6 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
 
 /* ─── Main Component ────────────────────────────────────── */
 export default function Proveedores() {
-  const { T } = useTheme()
   const movil = useEsMovil()
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
   const [proveedores, setProveedores] = useState<ProveedorEnriquecido[]>([])
@@ -388,7 +388,9 @@ export default function Proveedores() {
 
   return (
     <div style={{ padding: 28, fontFamily: FONT.body, background: 'var(--sl-app)', minHeight: '100vh' }}>
-      <h1 style={pageTitleStyle(T)}>Proveedores</h1>
+      <div style={{ marginBottom: 14 }}>
+        <RutaPantalla niveles={['Proveedores']} />
+      </div>
 
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>

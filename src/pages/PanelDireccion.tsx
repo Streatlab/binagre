@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo, useCallback, type CSSProperties } from 'r
 import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNum } from '@/utils/format'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -357,15 +358,8 @@ export default function PanelDireccion() {
     <div style={{ fontFamily: 'Lexend, sans-serif', background: 'var(--neo-bg)', minHeight: '100vh', padding: isMobile ? '16px 12px' : '24px 20px', color: 'var(--sl-text-primary)' }}>
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginBottom: 28 }}>
-        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 'clamp(18px,5.5vw,26px)', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--sl-text-primary)' }}>
-            Panel de Dirección
-          </div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: 'var(--sl-text-muted)', marginTop: 2, textTransform: 'capitalize' }}>
-            {fechaHoraStr}
-          </div>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16, marginBottom: 14 }}>
+        <RutaPantalla niveles={['Panel de dirección']} subtitulo={fechaHoraStr} />
 
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
