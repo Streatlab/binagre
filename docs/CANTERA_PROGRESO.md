@@ -57,10 +57,10 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [ ] Resultados · P&G
 - [ ] Resultados · Estados financieros
 - [ ] Resultados · Evolución (análisis horiz/vert)
-- [ ] Rentabilidad · Punto de equilibrio
-- [ ] Rentabilidad · Por marca y canal (break-even)
+- [x] Rentabilidad · Punto de equilibrio
+- [x] Rentabilidad · Por marca y canal (break-even)
 - [x] Rentabilidad · ROI por canal (héroe resultados, plancha mejor/peor/medio, frase)
-- [ ] Rentabilidad · Por franja horaria
+- [x] Rentabilidad · Por franja horaria
 - [ ] Tesorería · Calendario
 - [ ] Tesorería · Gastos fijos
 - [ ] Tesorería · Fondo & reserva
