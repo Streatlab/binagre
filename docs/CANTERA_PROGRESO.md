@@ -254,8 +254,21 @@ en la prioridad). El siguiente pase arranca por el primer `[ ]` de arriba.
 - Un solo `git push` a `trabajo` al cierre. NO publicado a `master`: espera orden de Rubén.
 
 ## FASE 4 · REPASO FINO (cola)
-- [ ] Fleco 1 · `src/pages/ops/RecetasFichasTecnicas.tsx` — cuerpo Cantera completo (6 criterios, área naranja).
-- [ ] Fleco 2 · Sombras informativas fuera en Equipo: TabNominas, TabEmpleados, TabCostes → superficies a `Papel`; solo pulsables conservan sombra.
-- [ ] Fleco 3 · `eyebrow(...)` → `SeccionLabel`: Cashflow (8), ReclamacionReembolsos (3), TabNominas (3), ChecklistsAperturaCierre (1). Limpiar import eyebrow si queda huérfano. POS NO se toca.
-- [ ] Fleco 4 · Barrido radio 0: `borderRadius` 1–99 → 0 en `src/pages/**` + `src/components/**` (conservar 999/'50%'/9999). Exclusiones: marco/HojaDoc, mobile/kit, definiciones token, POS, Login, Placeholder.
-- [ ] Fleco 5 · Borrar consts muertas `card`/`kpiCard` con SHADOW sin uso (PyG, Ventas, EstadosFinancieros, AnalisisHorizontalVertical y similares).
+- [x] Fleco 1 · `src/pages/ops/RecetasFichasTecnicas.tsx` — cuerpo Cantera completo (6 criterios, área naranja).
+- [x] Fleco 2 · Sombras informativas fuera en Equipo: TabNominas, TabEmpleados, TabCostes → superficies a `Papel`; solo pulsables conservan sombra.
+- [x] Fleco 3 · `eyebrow(...)` → `SeccionLabel`: Cashflow (8), ReclamacionReembolsos (3), TabNominas (3), ChecklistsAperturaCierre (1). Limpiar import eyebrow si queda huérfano. POS NO se toca.
+- [x] Fleco 4 · (pages 36 + components 85 + 12 excluidos, 0 residuales) Barrido radio 0: `borderRadius` 1–99 → 0 en `src/pages/**` + `src/components/**` (conservar 999/'50%'/9999). Exclusiones: marco/HojaDoc, mobile/kit, definiciones token, POS, Login, Placeholder.
+- [x] Fleco 5 · Borrar consts muertas `card`/`kpiCard` con SHADOW sin uso (PyG, Ventas, EstadosFinancieros, AnalisisHorizontalVertical y similares).
+
+## CIERRE FASE 4 (23-jul)
+- 5 flecos cerrados: RecetasFichasTecnicas con cuerpo completo; sombras informativas
+  fuera de Equipo (Nóminas/Costes/Documentos/Seg.Social) y del banner de reembolsos;
+  `eyebrow()` → `SeccionLabel` (Cashflow, Reembolsos, Nóminas, Checklists); barrido
+  radio 0 en pages+components (pills 999/'50%' intactas); consts muertas borradas.
+- Barrido de verificación: `borderRadius` 1–99 = 0 en pages+components; `eyebrow(` solo
+  en POS; cada `boxShadow: SHADOW` restante es pulsable (Links, botones, tabs, cards
+  arrastrables, dropdowns) — verificado uno a uno; gate de color 0 hex fuera de tabla;
+  0 imports de token faltantes.
+- Solo capa visual. No publicado a `master`.
+
+**ERP 100% Cantera — pendiente validación a ojo de Rubén.**
