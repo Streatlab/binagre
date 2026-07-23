@@ -29,8 +29,8 @@
 // Facturas en vez de repartirlo. De ahí la guarda `contarRecibos(texto) < 2`.
 import { supabaseAdmin } from './supabase-admin.js'
 import { subirArchivoACarpetaExacta } from './google-drive.js'
-import { extraerTextoPDF, pdfTieneTexto } from './extractores.js'
-import { extraerTextoOCRGratis } from './ocr-tesseract.js'
+import { pdfTieneTexto } from './extractores.js'
+import { extraerTextoDocumento } from './extraerTextoDocumento.js'
 import { clasificarDocEquipoTexto, type ClasificacionDocEquipo } from './clasificarDocEquipo.js'
 import { procesarNominaIndividual, procesarResumenNominas, procesarSegSocialResumen, procesarAutonomoCuota } from './subidaDocEquipo.js'
 import { cargarCandidatosEmpleados, cargarEmpleadores, resolverEmpleado, resolverEmpleadoEnTexto, resolverEmpleadosEnTexto } from './matchEmpleado.js'
@@ -99,6 +99,7 @@ async function rechazarDocumento(
   ext: string,
   clasif: ClasificacionDocEquipo,
   motivo: string,
+  origen: string,
 ): Promise<ResultadoDocEquipo['body']> {
   let driveUrl: string | null = null
   let storagePath: string | null = null
@@ -118,6 +119,8 @@ async function rechazarDocumento(
     drive_url: driveUrl,
     storage_path: storagePath,
     estado: 'descartado',
+    // De qué botón/tubo vino el documento, para el bloque de rechazados.
+    payload: { origen_boton: origen },
   })
 
   return { ok: true, destino: 'rechazado', motivo, drive_url: driveUrl }
@@ -199,8 +202,8 @@ async function registrarImportEquipo(
 
 /** Núcleo de ingesta: clasifica y encamina un documento de personal. Usado tanto
  *  por el botón de Equipo (HTTP) como por el cartero de correo — un único motor. */
-export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: string): Promise<ResultadoDocEquipo> {
-  const resultado = await procesarDocumentoEquipoNucleo(buffer, nombreOriginal)
+export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: string, origen: string = 'equipo'): Promise<ResultadoDocEquipo> {
+  const resultado = await procesarDocumentoEquipoNucleo(buffer, nombreOriginal, origen)
   const body = resultado.body || {}
   const destino = String(body.destino || 'equipo')
   const sinTexto = body.sin_texto_legible === true
@@ -221,24 +224,13 @@ export async function procesarDocumentoEquipo(buffer: Buffer, nombreOriginal: st
   return resultado
 }
 
-async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: string): Promise<ResultadoDocEquipo> {
+async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: string, origen: string = 'equipo'): Promise<ResultadoDocEquipo> {
   const ext = (nombreOriginal.split('.').pop() || 'pdf').toLowerCase()
 
-  let texto = ''
-  // CSV/TXT/HTML no son PDF: se leen como texto plano. Antes se les pasaba el
-  // lector de PDF, no sacaba nada y acababan en revisión aunque fueran de ventas.
-  if (['csv', 'txt', 'html', 'htm'].includes(ext)) {
-    try { texto = buffer.toString('utf8') } catch { texto = '' }
-  } else {
-    try { texto = await extraerTextoPDF(buffer) } catch (err) {
-      console.error('[procesarDocEquipo] extraerTextoPDF lanzó:', err instanceof Error ? err.message : String(err))
-      texto = ''
-    }
-    if (!pdfTieneTexto(texto)) {
-      console.error(`[procesarDocEquipo] "${nombreOriginal}": lectura directa sin texto — cayendo a OCR de respaldo`)
-      try { texto = await extraerTextoOCRGratis(buffer, 'pdf') } catch { /* noop */ }
-    }
-  }
+  // Lectura agnóstica al formato: PDF, imagen (OCR), Excel, Word, CSV/TXT/HTML…
+  // se leen con el lector que toque (mismo criterio que Facturas). Quien decide
+  // qué es el documento es el contenido, nunca la extensión.
+  const texto = await extraerTextoDocumento(buffer, nombreOriginal)
   const sinTextoLegible = !pdfTieneTexto(texto)
 
   const clasif = await clasificarDocEquipoTexto(texto)
@@ -368,7 +360,7 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
     return { status: 200, body: { ok: true, destino: 'reencaminado', modulo: r.modulo, motivo: r.motivo, resultado: r.resultado } }
   }
   if (r && !r.aceptado) {
-    return { status: 200, body: await rechazarDocumento(buffer, nombreOriginal, ext, clasif, r.motivo) }
+    return { status: 200, body: await rechazarDocumento(buffer, nombreOriginal, ext, clasif, r.motivo, origen) }
   }
 
   // El motor común ni siquiera pudo responder: a revisión, nunca se pierde.

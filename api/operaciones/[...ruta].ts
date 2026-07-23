@@ -15,6 +15,7 @@ import peAction from '../_puertas/pe-action.js'
 import equipoReintentarDrive from '../_puertas/equipo-reintentar-drive.js'
 import equipoReprocessRevision from '../_puertas/equipo-reprocess-revision.js'
 import equipoSubir from '../_puertas/equipo-subir.js'
+import equipoRechazados from '../_puertas/equipo-rechazados.js'
 import equipoRevisionResolver from '../_puertas/equipo-revision-resolver.js'
 import equipoPdfFirmado from '../_puertas/equipo-pdf-firmado.js'
 import nominasSubir from '../_puertas/nominas-subir.js'
@@ -51,6 +52,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (b === 'reintentar-drive') return equipoReintentarDrive(req, res)
     if (b === 'reprocess-revision') return equipoReprocessRevision(req, res)
     if (b === 'subir') return equipoSubir(req, res)
+    if (b === 'rechazados') {
+      if (c) req.query.action = c   // /api/equipo/rechazados/descargar|reenviado
+      if (d) req.query.id = d        // /api/equipo/rechazados/<action>/<id>
+      return equipoRechazados(req, res)
+    }
     if (b === 'pdf-firmado') return equipoPdfFirmado(req, res)
     if (b === 'revision' && c && d === 'resolver') {
       req.query.id = c

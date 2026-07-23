@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useOcrUpload, TAM_LOTE } from '@/lib/ocrUploadStore'
 import { toast } from '@/lib/toastStore'
 import { enviarAEquipoSeguro } from '@/lib/equipo/subidaSegura'
@@ -64,6 +64,24 @@ function esResumenUberTexto(texto: string): boolean {
   const pago = cab.includes('pago total') || cab.includes('net payout') || cab.includes('total payout')
   const ref = cab.includes('referencia de ganancias') || cab.includes('earnings reference') || cab.includes('payment reference')
   return marca && (pago || ref)
+}
+
+interface RechazadoRow {
+  id: string
+  nombre_archivo: string
+  tipo_detectado: string | null
+  motivo: string | null
+  drive_url: string | null
+  tiene_backup: boolean
+  origen_boton: string
+  created_at: string
+}
+
+function base64AFile(base64: string, nombre: string, mimeType: string): File {
+  const bin = atob(base64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new File([bytes], nombre, { type: mimeType || 'application/octet-stream' })
 }
 
 async function fileABase64(file: File | Blob): Promise<string> {
@@ -217,6 +235,18 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
   const [preparando] = useState(false)
   const [verRechazados, setVerRechazados] = useState(false)
   const [recogiendoCorreo, setRecogiendoCorreo] = useState(false)
+  const [rechLista, setRechLista] = useState<RechazadoRow[]>([])
+  const [rechAbierto, setRechAbierto] = useState(false)
+  const [rechOcupado, setRechOcupado] = useState<string | null>(null)
+
+  const cargarRechazados = async () => {
+    try {
+      const r = await fetch('/api/equipo/rechazados')
+      const j = await r.json()
+      if (j.ok && Array.isArray(j.rechazados)) setRechLista(j.rechazados)
+    } catch { /* silencioso: el bloque simplemente no se muestra */ }
+  }
+  useEffect(() => { cargarRechazados() }, [])
 
   const recogerCorreo = async () => {
     if (recogiendoCorreo) return
@@ -371,6 +401,38 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
       }
     } catch (e: any) {
       toast.error(e?.message || 'Error al enviar los documentos de equipo', { id: tid })
+    } finally {
+      cargarRechazados()
+    }
+  }
+
+  // ── Reenviar un rechazado a mano al botón correcto (rescate) ──────────────
+  // Descarga la copia de respaldo, la manda al flujo normal del destino elegido
+  // (el mismo que si se subiera a mano) y marca el rechazo como reenviado.
+  const reenviarRechazado = async (row: RechazadoRow, destino: Destino) => {
+    if (rechOcupado) return
+    setRechOcupado(row.id)
+    const tid = toast.loading(`Reenviando a ${destino}…`)
+    try {
+      const r = await fetch(`/api/equipo/rechazados/descargar/${row.id}`, { method: 'POST' })
+      const j = await r.json()
+      if (!j.ok || !j.base64) { toast.error(j.error || 'No se pudo recuperar el archivo', { id: tid }); return }
+      const file = base64AFile(j.base64, j.nombre || row.nombre_archivo, j.mimeType || 'application/octet-stream')
+      if (destino === 'equipo') await enviarAEquipo([file])
+      else if (destino === 'ventas') await enviarAVentas([file])
+      else if (destino === 'facturas') procesar([file], 'ocr-procesar-factura', null)
+      else if (destino === 'banco') procesar([file], 'ocr-procesar-extracto', RUBEN_ID)
+      await fetch(`/api/equipo/rechazados/reenviado/${row.id}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destino }),
+      })
+      toast.success(`Reenviado a ${destino}`, { id: tid })
+      setRechLista(l => l.filter(x => x.id !== row.id))
+      onProcesado?.()
+    } catch (e: any) {
+      toast.error(e?.message || 'Error al reenviar', { id: tid })
+    } finally {
+      setRechOcupado(null)
     }
   }
 
@@ -455,6 +517,62 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
       <FrasePotente significado="logro">Si un documento entra por el botón equivocado, el sistema lo detecta por contenido, lo redirige solo y te avisa.</FrasePotente>
 
       <AvisosBandeja onResuelto={() => onProcesado?.()} />
+
+      {/* ── Rechazados: bloque plegado. Solo aparece si hay algo. Rojo únicamente
+           en el contador; la lista en gris. Estilo Cantera Alegre. ── */}
+      {rechLista.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div
+            onClick={() => setRechAbierto(v => !v)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+              userSelect: 'none', border: BORDER_CARD, boxShadow: SHADOW, background: BLANCO,
+              padding: '8px 14px',
+            }}
+          >
+            <span style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: INK }}>Rechazados</span>
+            <span style={{ fontFamily: OSW, fontSize: 13, fontWeight: 700, color: BLANCO, background: ROJO, padding: '1px 8px' }}>{rechLista.length}</span>
+            <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>{rechAbierto ? '▾' : '▸'}</span>
+          </div>
+
+          {rechAbierto && (
+            <div style={{ marginTop: 10, border: BORDER_CARD, background: CREMA }}>
+              {rechLista.map((row, i) => (
+                <div key={row.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                  borderTop: i === 0 ? 'none' : `1px solid ${CLARO}`, flexWrap: 'wrap',
+                }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ fontFamily: OSW, fontSize: 12.5, color: INK, letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 320 }}>{row.nombre_archivo}</div>
+                    <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 2 }}>
+                      {new Date(row.created_at).toLocaleDateString('es-ES')} · {row.origen_boton}
+                    </div>
+                    <div style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS, marginTop: 2 }}>{row.motivo}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {row.drive_url && (
+                      <a href={row.drive_url} target="_blank" rel="noreferrer"
+                        style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: INK, textDecoration: 'none', border: BORDER_CARD, background: BLANCO, padding: '5px 10px', boxShadow: SHADOW }}>Ver</a>
+                    )}
+                    <span style={{ fontFamily: LEX, fontSize: 11, color: GRIS }}>Reenviar a</span>
+                    {(['banco', 'ventas', 'facturas', 'equipo'] as Destino[]).map(d => (
+                      <button key={d} disabled={rechOcupado === row.id || !row.tiene_backup}
+                        onClick={() => reenviarRechazado(row, d)}
+                        title={!row.tiene_backup ? 'Sin copia de respaldo para reenviar' : ''}
+                        style={{
+                          fontFamily: OSW, fontSize: 10.5, letterSpacing: '1px', textTransform: 'uppercase',
+                          color: INK, border: BORDER_CARD, background: BLANCO, padding: '5px 9px',
+                          boxShadow: SHADOW, cursor: rechOcupado === row.id || !row.tiene_backup ? 'not-allowed' : 'pointer',
+                          opacity: rechOcupado === row.id || !row.tiene_backup ? 0.4 : 1,
+                        }}>{d}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {modal.visible && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>

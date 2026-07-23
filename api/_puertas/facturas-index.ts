@@ -348,7 +348,7 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
         // ingesta. La dedup contra un documento ya subido por el botón la da la
         // propia lógica de subidaDocEquipo.ts (mismo empleado+mes/año actualiza).
         clasificados++
-        const { body: outEquipo } = await procesarDocumentoEquipo(adj.buffer, adj.nombre)
+        const { body: outEquipo } = await procesarDocumentoEquipo(adj.buffer, adj.nombre, 'correo')
         await supabaseAdmin.from('avisos_papeleo').insert({
           tipo: 'doc_equipo_recibido',
           titulo: `Documento de equipo recibido · ${adj.nombre}`,
