@@ -38,7 +38,7 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 
 ### Portada / Panel
 - [x] Panel Global · Resumen (REFERENCIA validada · cumple los 6 criterios)
-- [ ] Panel Global · Operaciones / Finanzas / Cashflow / Evolución / Marcas (tabs del panel)
+- [x] Panel Global · Operaciones/Finanzas/Cashflow/Evolución/Marcas (tabs del panel)
 - [x] Home (Hoy) — portada
 - [x] Panel Dirección
 
@@ -149,9 +149,9 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [ ] Sidebar (cabeceras de sección por área)
 
 ### Informes (UI)
-- [ ] Informes · Panel (gate verde; lógica de envío/robots NO tocada)
-- [ ] Informes · Historial (gate verde)
-- [ ] Informes · Configuración (gate verde)
+- [x] Informes · Panel (UI; lógica de envío intacta)
+- [x] Informes · Historial (UI)
+- [x] Informes · Configuración + Destinatarios (UI)
 - [ ] Login (gate verde salvo colores de marca Google del botón OAuth — excepción marca)
 - [x] Cashflow (héroe azul, plancha, frase, papel)
 - [ ] Placeholder · gate verde
