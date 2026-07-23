@@ -137,10 +137,10 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [ ] Ajustes · Bancos
 - [ ] Ajustes · Cuentas bancarias
 - [ ] Ajustes · Bancos y cuentas
-- [ ] Ajustes · Compras config (Costes/Proveedores/Categorías/Unidades)
-- [ ] Ajustes · Cocina config (Categorías/Unidades/Proveedores/Formato)
+- [x] Ajustes · Compras config (ComprasPage, Costes, Proveedores, Categorías, Unidades)
+- [x] Ajustes · Cocina config (CocinaPage, Formato números)
 - [ ] Ajustes · Usuarios
-- [ ] Ajustes · Calendario operativo
+- [x] Ajustes · Calendario operativo (+ MesGrid, modales)
 - [ ] Ajustes · Aprendizajes ERP
 - [ ] Ajustes · Aprendizaje calcNeto
 - [ ] Ajustes · Mapeo de marcas
