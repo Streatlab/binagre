@@ -51,7 +51,7 @@ export function KpiCardGrande({
     border: `0.5px solid ${T.brd}`,
     borderRadius: 16,
     padding: '24px 28px',
-    ...(highlight ? { background: `linear-gradient(180deg, ${T.card} 0%, #1D9E7508 100%)` } : {}),
+    ...(highlight ? { background: `linear-gradient(180deg, ${T.card} 0%, ${VERDE}08 100%)` } : {}),
   }
 
   const labelStyle: CSSProperties = {

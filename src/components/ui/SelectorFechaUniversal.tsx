@@ -1,4 +1,4 @@
-import { BLANCO, INK } from '@/styles/neobrutal'
+import { BLANCO, INK, CLARO, GRIS } from '@/styles/neobrutal'
 import React, { useState, useEffect, useRef } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { fmtFechaCorta } from '@/styles/tokens'
@@ -411,7 +411,7 @@ export default function SelectorFechaUniversal({
               <button
                 onClick={applyPersonalizado}
                 disabled={!persoValido}
-                style={{ flex: 1, padding: '10px 12px', borderRadius: 0, border: `2px solid ${INK}`, background: persoValido ? ROSA : '#d8d2c6', color: persoValido ? BLANCO : '#8a7f68', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', cursor: persoValido ? 'pointer' : 'not-allowed' }}
+                style={{ flex: 1, padding: '10px 12px', borderRadius: 0, border: `2px solid ${INK}`, background: persoValido ? ROSA : CLARO, color: persoValido ? BLANCO : GRIS, fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', cursor: persoValido ? 'pointer' : 'not-allowed' }}
               >
                 Aplicar
               </button>

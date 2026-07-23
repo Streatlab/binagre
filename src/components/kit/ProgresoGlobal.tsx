@@ -156,7 +156,7 @@ export default function ProgresoGlobal() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           <Contador n={agg.total || agg.proc} etq="Lanzados" color={INK} />
-          <Contador n={agg.enProceso} etq="En proceso" color="#8a7a00" />
+          <Contador n={agg.enProceso} etq="En proceso" color={NAR} />
           <Contador n={agg.ok} etq="Correctos" color={VERDE} />
           <Contador n={agg.dup} etq="Duplicados" color={GRIS} />
           <Contador n={agg.err} etq="Rechazados" color={agg.err > 0 ? ROJO : GRIS} />

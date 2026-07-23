@@ -1,7 +1,7 @@
 import { INK, LIMA } from '@/styles/neobrutal'
 /**
  * T-F4-10 — MargenBanner
- * Banner amarillo #e8f442 encima de tabla recetas cuando hay recetas fuera de margen.
+ * Banner amarillo (AMA) encima de tabla recetas cuando hay recetas fuera de margen.
  * Cierre con X. No persiste. Decisión autónoma F4-H6.
  */
 import { useState } from 'react'
@@ -57,7 +57,7 @@ export function MargenBanner({ alertas, onDismiss }: Props) {
         onClick={handleDismiss}
         style={{
           background: 'transparent', border: 'none', cursor: 'pointer',
-          fontSize: 18, color: '#333333', lineHeight: 1, padding: '0 4px',
+          fontSize: 18, color: INK, lineHeight: 1, padding: '0 4px',
           fontFamily: FONT.body, flexShrink: 0,
         }}
         aria-label="Cerrar"
