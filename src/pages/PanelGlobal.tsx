@@ -13,10 +13,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import TabsPastilla from '@/components/ui/TabsPastilla'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 import TabResumen from '@/components/panel/resumen/TabResumen'
 import TabOperaciones from '@/components/panel/TabOperaciones'
 import TabFinanzas from '@/components/panel/TabFinanzas'
@@ -26,9 +26,7 @@ import TabEvolucion from '@/components/panel/TabEvolucion'
 import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 import type { RowFacturacion } from '@/components/panel/resumen/types'
 import { toLocalDateStr } from '@/lib/dateRange'
-import { useTesoreria13Semanas, type Estado as EstadoTesoreria } from '@/lib/finanzas/useTesoreria13Semanas'
-import { OSW, LEX, GRIS, VERDE, AMA, ROJO, ROSA, AZUL } from '@/styles/neobrutal'
-import { fmtEur } from '@/lib/format'
+import { ROSA } from '@/styles/neobrutal'
 
 interface MarcaItem { id: string; nombre: string }
 
@@ -59,26 +57,23 @@ const CANALES_DISPONIBLES = [
   { id: 'dir',   label: 'Directa' },
 ]
 
-// CANTERA ALEGRE: los desplegables son hermanos de las pestañas de navegación
-// (misma altura, mismo borde, misma tipografía, misma sombra de pulsable).
+// CANTERA ALEGRE v4: los filtros son secundarios — planos, sin sombra, unificados,
+// con etiqueta pequeña delante. La única pieza con cuerpo es la plancha de pestañas.
 const dropdownBtn: React.CSSProperties = {
-  padding: '9px 16px',
+  padding: '8px 14px',
   borderRadius: 0,
   border: `2px solid ${INK}`,
   background: 'var(--sl-card)',
   fontSize: 13,
-  fontFamily: "'Oswald', sans-serif",
+  fontFamily: "'Lexend', sans-serif",
   fontWeight: 600,
-  letterSpacing: '0.5px',
-  textTransform: 'uppercase',
   color: INK,
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
-  gap: 6,
+  gap: 8,
   whiteSpace: 'nowrap',
   position: 'relative',
-  boxShadow: SHADOW,
 }
 
 const menuStyle: React.CSSProperties = {
@@ -101,9 +96,11 @@ const menuStyle: React.CSSProperties = {
 
 
 function MultiSelect({
-  label, options, selected, onToggle, onAll,
+  label, etiqueta, caretColor = ROSA, options, selected, onToggle, onAll,
 }: {
   label: string
+  etiqueta: string
+  caretColor?: string
   options: Array<{ id: string; label: string }>
   selected: string[]
   onToggle: (id: string) => void
@@ -126,8 +123,9 @@ function MultiSelect({
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button style={dropdownBtn} onClick={() => setOpen(o => !o)}>
+        <span style={{ fontFamily: "'Oswald', sans-serif", fontSize: 10.5, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--sl-text-secondary)' }}>{etiqueta}</span>
         <span>{displayLabel}</span>
-        <ChevronDown size={14} strokeWidth={3} style={{ marginLeft: 2 }} />
+        <ChevronDown size={14} strokeWidth={3} style={{ marginLeft: 2, color: caretColor }} />
       </button>
       {open && (
         <div style={menuStyle}>
@@ -179,39 +177,6 @@ function buildSubtitulo(label: string, desde: Date, hasta: Date): string {
   return `${label} · ${fmtDate(desde)} — ${fmtDate(hasta)}`
 }
 
-const ESTADO_TES_LABEL: Record<EstadoTesoreria, string> = { verde: 'Holgado', ambar: 'Ajustado', rojo: 'En números rojos' }
-const ESTADO_TES_COLOR: Record<EstadoTesoreria, string> = { verde: VERDE, ambar: AMA, rojo: ROJO }
-
-/** Atajo a Tesorería · 13 semanas. Misma fuente que la pantalla completa (useTesoreria13Semanas), sin duplicar el cálculo. */
-function CajaTesoreriaShortcut() {
-  const { loading, error, saldoMinimo, semanaCritica } = useTesoreria13Semanas()
-  const estado: EstadoTesoreria = semanaCritica?.estado ?? 'verde'
-
-  return (
-    <Link to="/finanzas/tesoreria?tab=13semanas" style={{ textDecoration: 'none', display: 'block', marginBottom: 16 }}>
-      <div style={{ background: 'var(--sl-card)', border: `2px solid ${INK}`, borderLeft: `7px solid ${AZUL}`, boxShadow: SHADOW, padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', cursor: 'pointer' }}>
-        <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK, whiteSpace: 'nowrap' }}>
-          🏦 Caja a 13 semanas →
-        </div>
-        {loading ? (
-          <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Calculando…</div>
-        ) : error ? (
-          <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Sin previsión disponible</div>
-        ) : (
-          <>
-            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 20, color: ESTADO_TES_COLOR[estado] }}>
-              {fmtEur(saldoMinimo, { decimals: 0, signed: true })}
-            </div>
-            <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
-              Saldo mínimo previsto{semanaCritica ? ` · semana ${semanaCritica.semana}` : ''} · {ESTADO_TES_LABEL[estado]}
-            </div>
-          </>
-        )}
-      </div>
-    </Link>
-  )
-}
-
 export default function PanelGlobal() {
   const [activeTab, setActiveTab] = useState<TabId>('resumen')
   const [periodoLabel, setPeriodoLabel] = useState('Mes en curso')
@@ -220,6 +185,7 @@ export default function PanelGlobal() {
   const [marcasFiltro, setMarcasFiltro] = useState<string[]>([])
   const [canalesFiltro, setCanalesFiltro] = useState<string[]>([])
   const [marcasDisp, setMarcasDisp] = useState<MarcaItem[]>([])
+  const [accesos, setAccesos] = useState<Array<{ marca_id: string; plataforma: string }>>([])
   const [rowsPeriodo, setRowsPeriodo] = useState<RowFacturacion[]>([])
   const [rowsAll, setRowsAll] = useState<RowFacturacion[]>([])
   const [tickVivo, setTickVivo] = useState(0)
@@ -227,6 +193,10 @@ export default function PanelGlobal() {
   useEffect(() => {
     supabase.from('marcas').select('id,nombre').eq('activa', true).then(({ data }) => {
       if (data) setMarcasDisp(data as MarcaItem[])
+    })
+    // Configuración real marca↔canal: al elegir canal, Marcas solo enseña las dadas de alta ahí
+    supabase.from('marca_plataforma_acceso').select('marca_id,plataforma').eq('activo', true).then(({ data }) => {
+      if (data) setAccesos(data as Array<{ marca_id: string; plataforma: string }>)
     })
   }, [])
 
@@ -265,17 +235,27 @@ export default function PanelGlobal() {
   }, [])
 
   const subtitulo = buildSubtitulo(periodoLabel, fechaDesde, fechaHasta)
-  const marcasOpts = marcasDisp.map(m => ({ id: m.id, label: m.nombre }))
+
+  // Canal → plataforma de la configuración real (web/directa no filtran marcas)
+  const CANAL_PLAT: Record<string, string> = { uber: 'UE', glovo: 'GL', je: 'JE' }
+  const platsElegidas = canalesFiltro.map(c => CANAL_PLAT[c]).filter(Boolean)
+  const marcasEnCanal = platsElegidas.length > 0
+    ? new Set(accesos.filter(a => platsElegidas.includes(a.plataforma)).map(a => a.marca_id))
+    : null
+  const marcasOpts = marcasDisp
+    .filter(m => !marcasEnCanal || marcasEnCanal.has(m.id))
+    .map(m => ({ id: m.id, label: m.nombre }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 
   const filtros = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       <SelectorFechaUniversal nombreModulo="panel_global" defaultOpcion="mes_en_curso" onChange={handleFecha} />
-      <MultiSelect label="Todas las marcas" options={marcasOpts} selected={marcasFiltro}
+      <MultiSelect label="Todos" etiqueta="Canal" caretColor="#FF6A1A" options={CANALES_DISPONIBLES} selected={canalesFiltro}
+        onToggle={id => { setCanalesFiltro(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); setMarcasFiltro([]) }}
+        onAll={() => { setCanalesFiltro([]); setMarcasFiltro([]) }} />
+      <MultiSelect label="Todas" etiqueta="Marcas" caretColor={ROSA} options={marcasOpts} selected={marcasFiltro}
         onToggle={id => setMarcasFiltro(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}
         onAll={() => setMarcasFiltro([])} />
-      <MultiSelect label="Canales" options={CANALES_DISPONIBLES} selected={canalesFiltro}
-        onToggle={id => setCanalesFiltro(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}
-        onAll={() => setCanalesFiltro([])} />
     </div>
   )
 
@@ -294,25 +274,16 @@ export default function PanelGlobal() {
 
   return (
     <div style={{ background: PAGE_BG, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
-      {/* CANTERA ALEGRE · cabecera: título+fecha a la izquierda ocupando el mismo alto
-          que los desplegables de la derecha (una sola fila, alineados por arriba y por abajo). */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 24, fontWeight: 700, color: INK, letterSpacing: 3, textTransform: 'uppercase', lineHeight: 1 }}>
-            PANEL GLOBAL
-          </div>
-          <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12.5, fontWeight: 600, color: 'var(--sl-text-secondary)' }}>
-            {subtitulo}
-          </div>
-        </div>
+      {/* CANTERA ALEGRE v4 · ruta (Global ▸ pestaña) + filtros planos a la derecha,
+          plancha de pestañas debajo y contenido directo (el héroe abre la pantalla). */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Global', TABS.find(t => t.id === activeTab)?.label ?? '']} subtitulo={subtitulo} />
         {filtros}
       </div>
 
       <TabsPastilla tabs={TABS} activeId={activeTab} onChange={id => setActiveTab(id as TabId)} />
 
       <div style={{ height: 16 }} />
-      <CajaTesoreriaShortcut />
-
       {contenido}
     </div>
   )
