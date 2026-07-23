@@ -45,10 +45,10 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 ### Finanzas
 - [ ] Papeleo · Bandeja entrada
 - [ ] Papeleo · Facturas (OCR)
-- [ ] Papeleo · Conciliación
-- [ ] Papeleo · Gestor documental
-- [ ] Papeleo · Facturación
-- [ ] Papeleo · Gestoría
+- [x] Papeleo · Conciliación
+- [x] Papeleo · Gestor documental (GestionFacturas)
+- [x] Papeleo · Facturación
+- [x] Papeleo · Gestoría
 - [x] Ventas · Ventas
 - [⚠️] Ventas · Objetivos — 4/6; pestañas y edición inline conservan theming T.* compartido (no tocar tokens.ts)
 - [x] Ventas · Ticket medio (héroe ventas, plancha canal, frase, papel)
