@@ -1,12 +1,13 @@
 import { BLANCO, BORDE_SUAVE, CLARO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { LIBRO_ESTADO_OK_BG, LIBRO_ESTADO_BAJA_BG, BADGE_PENDIENTE_BG } from '@/styles/palettes'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, cardStyle } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
 import ModalSolicitud from '@/components/equipo/ModalSolicitud'
 import { syncRango } from '@/utils/calendarioOperativoSync'
 import { useAuth } from '@/context/AuthContext'
+import { HeroCantera, Papel, FrasePotente, PantallaCantera, SHADOW_DURA } from '@/components/kit/cantera'
 
 interface Empleado { id: string; nombre: string }
 interface Solicitud {
@@ -134,9 +135,28 @@ export default function TabPermisos() {
     { key: 'rechazado', label: 'Rechazadas' },
   ]
 
+  const pendientesCount = useMemo(() => solicitudes.filter(s => s.estado === 'pendiente').length, [solicitudes])
+
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={pendientesCount > 0
+          ? `Tienes ${pendientesCount} permiso${pendientesCount !== 1 ? 's' : ''} pendiente${pendientesCount !== 1 ? 's' : ''} de revisar`
+          : 'No hay permisos pendientes de revisar'}
+        etiquetaDato="Solicitudes pendientes"
+        cifra={String(pendientesCount)}
+        resumen={<>{solicitudes.length} solicitud{solicitudes.length !== 1 ? 'es' : ''} registrada{solicitudes.length !== 1 ? 's' : ''} en total.</>}
+        atencion={[pendientesCount > 0 ? `${pendientesCount} pendientes` : null, `${solicitudes.length} totales`]}
+      />
+
+      {pendientesCount > 0 ? (
+        <FrasePotente significado="oportunidad">Hay {pendientesCount} solicitud{pendientesCount !== 1 ? 'es' : ''} esperando aprobación: revísalas antes de que se acumulen.</FrasePotente>
+      ) : (
+        <FrasePotente significado="logro">Todas las solicitudes de permisos están al día.</FrasePotente>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         {/* Filtros */}
         <div style={{ display: 'flex', gap: 8 }}>
           {filtros.map(f => (
@@ -144,8 +164,8 @@ export default function TabPermisos() {
               key={f.key}
               onClick={() => setFiltro(f.key)}
               style={{
-                padding: '6px 14px', borderRadius: 6, border: `1px solid ${T.brd}`,
-                background: filtro === f.key ? GRANATE : T.card,
+                padding: '6px 14px', border: `2px solid ${INK}`, borderRadius: 0,
+                background: filtro === f.key ? GRANATE : BLANCO,
                 color: filtro === f.key ? BLANCO : T.sec,
                 fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase',
                 cursor: 'pointer',
@@ -157,16 +177,16 @@ export default function TabPermisos() {
         </div>
         <button
           onClick={() => setModalOpen(true)}
-          style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
+          style={{ padding: '8px 16px', border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
         >
           + Solicitar permiso
         </button>
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
+        <Papel ceja={GRANATE} style={{ textAlign: 'center', color: T.mut }}>Cargando…</Papel>
       ) : (
-        <div style={{ ...cardStyle(T), padding: 0, overflow: 'hidden' }}>
+        <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${T.brd}` }}>
@@ -214,7 +234,7 @@ export default function TabPermisos() {
               })}
             </tbody>
           </table>
-        </div>
+        </Papel>
       )}
 
       {/* Modal rechazo con nota */}
@@ -249,6 +269,6 @@ export default function TabPermisos() {
           onSaved={() => { fetchAll(); setModalOpen(false) }}
         />
       )}
-    </div>
+    </PantallaCantera>
   )
 }

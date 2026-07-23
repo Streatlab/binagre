@@ -1,10 +1,11 @@
 import { AZUL_CL, GRANATE, LIMA, ROJO, VERDE } from '@/styles/neobrutal'
 import { EMP_CALENDARIO_EXTRA, PERMISO_RETRIBUIDO, FESTIVO_CALENDARIO_TXT, SIN_DATO_GRIS, CALENDARIO_FESTIVO_BG } from '@/styles/palettes'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { FESTIVOS_MADRID, esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
+import { HeroCantera, Papel, FrasePotente, PantallaCantera } from '@/components/kit/cantera'
 
 interface Empleado { id: string; nombre: string }
 interface EventoLaboral {
@@ -93,8 +94,28 @@ export default function TabCalendarioLaboral() {
 
   const weekDays = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
+  const ausenciasDelMes = useMemo(() => eventos.filter(e => e.tipo !== 'festivo').length, [eventos])
+
   return (
-    <div>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={ausenciasDelMes > 0
+          ? `${monthName}: ${ausenciasDelMes} ausencia${ausenciasDelMes !== 1 ? 's' : ''} registrada${ausenciasDelMes !== 1 ? 's' : ''}`
+          : `${monthName}: sin ausencias registradas`}
+        etiquetaDato="Ausencias del mes"
+        cifra={String(ausenciasDelMes)}
+        resumen={<>{empleados.length} persona{empleados.length !== 1 ? 's' : ''} en el calendario laboral.</>}
+        atencion={[`${ausenciasDelMes} ausencias`, `${empleados.length} personas`]}
+      />
+
+      {ausenciasDelMes > 0 ? (
+        <FrasePotente significado="oportunidad">Hay {ausenciasDelMes} ausencia{ausenciasDelMes !== 1 ? 's' : ''} este mes: revisa la cobertura de turnos antes de que falte gente.</FrasePotente>
+      ) : (
+        <FrasePotente significado="logro">Equipo al completo este mes: ninguna ausencia registrada.</FrasePotente>
+      )}
+
+      <Papel ceja={GRANATE}>
       {/* Header navegación */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
         <button onClick={() => { if (month === 0) { setYear(y => y - 1); setMonth(11) } else setMonth(m => m - 1) }}
@@ -224,6 +245,7 @@ export default function TabCalendarioLaboral() {
           </div>
         </>
       )}
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

@@ -2,6 +2,7 @@ import { BLANCO, GRANATE, INK, ROSA_S } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import RutaPantalla from '@/components/ui/RutaPantalla'
+import { Papel, FrasePotente } from '@/components/kit/cantera'
 
 // ──────────────────────────────────────────────────────────────────────────
 // BANDEJA DE PENDIENTES (cola única de Documentación)
@@ -32,10 +33,6 @@ const ORDEN_MOTIVOS = [
   'Sin conciliar',
   'Otro',
 ]
-
-const NEO_INK = 'var(--neo-ink)'
-const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
-const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
 
 function fmtEur(n: number | null): string {
   if (n === null || n === undefined) return '—'
@@ -89,6 +86,20 @@ export default function BandejaPendientes() {
     <div style={wrap}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
         <RutaPantalla niveles={['Pendientes']} subtitulo={cargando ? 'Cargando…' : `${filas.length} documento${filas.length === 1 ? '' : 's'} aún sin cerrar al 100%`} />
+        {/* Chips por motivo — filtros a la derecha */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setFiltro(null)}
+            style={chip(filtro === null)}
+          >
+            Todos · {filas.length}
+          </button>
+          {motivosOrdenados.map(mt => (
+            <button key={mt} onClick={() => setFiltro(mt)} style={chip(filtro === mt)}>
+              {mt} · {porMotivo.get(mt)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && (
@@ -97,23 +108,16 @@ export default function BandejaPendientes() {
         </div>
       )}
 
-      {/* Chips por motivo */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-        <button
-          onClick={() => setFiltro(null)}
-          style={chip(filtro === null)}
-        >
-          Todos · {filas.length}
-        </button>
-        {motivosOrdenados.map(mt => (
-          <button key={mt} onClick={() => setFiltro(mt)} style={chip(filtro === mt)}>
-            {mt} · {porMotivo.get(mt)}
-          </button>
-        ))}
-      </div>
+      {!cargando && (
+        filas.length === 0 ? (
+          <FrasePotente significado="logro">Nada pendiente: todos los documentos están al 100%.</FrasePotente>
+        ) : (
+          <FrasePotente significado="coste">Hay {filas.length} documento{filas.length !== 1 ? 's' : ''} sin cerrar al 100%: complétalos antes de conciliar el mes.</FrasePotente>
+        )
+      )}
 
       {/* Tabla */}
-      <div style={{ background: 'var(--sl-card)', overflow: 'hidden', ...NEO_CARD }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
             <tr style={{ background: INK, color: BLANCO, textAlign: 'left' }}>
@@ -141,7 +145,7 @@ export default function BandejaPendientes() {
             ))}
           </tbody>
         </table>
-      </div>
+      </Papel>
     </div>
   )
 }

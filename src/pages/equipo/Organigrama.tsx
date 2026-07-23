@@ -1,9 +1,10 @@
-import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, NAR, VERDE, SHADOW_MINI } from '@/styles/neobrutal'
 import { ORG_DORADO, ORG_VIOLETA, LIBRO_ESTADO_OK_BG } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, X, Trash2, LayoutGrid, List, Users, CheckCircle2, CircleDashed, Pencil, Star } from 'lucide-react'
+import { X, Trash2, LayoutGrid, List, Pencil, Star } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, cardStyle, pageTitleStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
+import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SHADOW_DURA } from '@/components/kit/cantera'
 
 const SIN_ASIGNAR = 'Por asignar'
 
@@ -107,40 +108,69 @@ export default function Organigrama() {
   }, [puestos])
 
   return (
-    <div style={{ padding: '24px 28px', fontFamily: FONT.body }}>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={`Tu organigrama tiene ${kpis.total} puestos, ${kpis.cubiertos} de ${kpis.internos} cubiertos`}
+        etiquetaDato="Cobertura de puestos"
+        cifra={`${kpis.pct}%`}
+        resumen={kpis.porCubrir > 0
+          ? <>Quedan <b>{kpis.porCubrir}</b> puesto{kpis.porCubrir !== 1 ? 's' : ''} por cubrir · {kpis.fte} FTE de dedicación objetivo.</>
+          : <>Todos los puestos internos están cubiertos · {kpis.fte} FTE de dedicación objetivo.</>}
+        atencion={[
+          kpis.porCubrir > 0 ? `${kpis.porCubrir} por cubrir` : null,
+          `${kpis.fte} FTE objetivo`,
+        ]}
+      />
+
+      {kpis.porCubrir > 0 ? (
+        <FrasePotente significado="oportunidad">Hay {kpis.porCubrir} puesto{kpis.porCubrir !== 1 ? 's' : ''} sin cubrir: prioriza contratación antes de que frene la operativa.</FrasePotente>
+      ) : (
+        <FrasePotente significado="logro">Organigrama al completo: todos los puestos internos tienen persona asignada.</FrasePotente>
+      )}
+
+      <Plancha>
+        <PlanchaCelda first bg={BLANCO}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Puestos</div>
+          <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{kpis.total}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={VERDE} color={BLANCO}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Cubiertos</div>
+          <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{kpis.cubiertos} / {kpis.internos}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={kpis.porCubrir ? ORG_DORADO : BLANCO}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Por cubrir</div>
+          <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{kpis.porCubrir}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={BLANCO}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Dedicación objetivo</div>
+          <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{kpis.fte} FTE</div>
+        </PlanchaCelda>
+      </Plancha>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={pageTitleStyle(T)}>Organigrama</h1>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setVista('organigrama')} style={vista === 'organigrama' ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
+            <LayoutGrid size={13} style={{ marginRight: 6, verticalAlign: '-2px' }} />Organigrama
+          </button>
+          <button onClick={() => setVista('tabla')} style={vista === 'tabla' ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
+            <List size={13} style={{ marginRight: 6, verticalAlign: '-2px' }} />Tabla
+          </button>
+        </div>
         <button
           onClick={() => setDetalle({ open: true, data: { id: '', ...EMPTY } as Puesto, edit: true })}
-          style={{ padding: '12px 16px', minHeight: 44, borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ padding: '10px 16px', minHeight: 44, border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          <Plus size={14} /> Nuevo puesto
-        </button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, margin: '18px 0 26px' }}>
-        <KpiCard T={T} label="Puestos" value={String(kpis.total)} icon={<Users size={15} />} />
-        <KpiCard T={T} label="Cubiertos" value={`${kpis.cubiertos} / ${kpis.internos}`} icon={<CheckCircle2 size={15} />} accent={VERDE} />
-        <KpiCard T={T} label="Por cubrir" value={String(kpis.porCubrir)} icon={<CircleDashed size={15} />} accent={kpis.porCubrir ? ORG_DORADO : T.mut} />
-        <KpiCard T={T} label="Cobertura" value={`${kpis.pct}%`} />
-        <KpiCard T={T} label="Dedicación objetivo" value={`${kpis.fte} FTE`} />
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 22 }}>
-        <button onClick={() => setVista('organigrama')} style={vista === 'organigrama' ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
-          <LayoutGrid size={13} style={{ marginRight: 6, verticalAlign: '-2px' }} />Organigrama
-        </button>
-        <button onClick={() => setVista('tabla')} style={vista === 'tabla' ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>
-          <List size={13} style={{ marginRight: 6, verticalAlign: '-2px' }} />Tabla
+          + Nuevo puesto
         </button>
       </div>
 
       {loading ? (
-        <div style={{ ...cardStyle(T), padding: 32, textAlign: 'center', color: T.mut }}>Cargando organigrama…</div>
+        <Papel ceja={GRANATE} style={{ textAlign: 'center', color: T.mut }}>Cargando organigrama…</Papel>
       ) : vista === 'organigrama' ? (
-        <div style={{ ...cardStyle(T), padding: '34px 18px', overflowX: 'auto' }}>
+        <Papel ceja={GRANATE} pad="34px 18px" style={{ overflowX: 'auto' }}>
           <Arbol puestos={puestos} T={T} getFoto={fotoDe} onPick={p => setDetalle({ open: true, data: p, edit: false })} />
-        </div>
+        </Papel>
       ) : (
         <Tabla puestos={puestos} T={T} isDark={isDark} onRow={p => setDetalle({ open: true, data: p, edit: false })} />
       )}
@@ -155,7 +185,7 @@ export default function Organigrama() {
           onSaved={() => { fetchAll(); setDetalle({ open: false, data: null, edit: false }) }}
         />
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 
@@ -227,12 +257,10 @@ function OcNode({ p, T, onClick, foto, dashed }: { p: Puesto; T: any; onClick: (
   return (
     <div onClick={onClick}
       style={{
-        ...cardStyle(T), width: 240, padding: '14px 16px', cursor: 'pointer',
+        background: BLANCO, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW_MINI,
+        width: 240, padding: '14px 16px', cursor: 'pointer',
         borderStyle: dashed ? 'dashed' : 'solid',
-        transition: 'transform 120ms, box-shadow 120ms',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.16)' }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+      }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         <OrgAvatar nombre={asignado ? p.persona : p.puesto} foto={foto} color={color} />
         <div style={{ minWidth: 0, flex: 1 }}>
@@ -247,20 +275,11 @@ function OcNode({ p, T, onClick, foto, dashed }: { p: Puesto; T: any; onClick: (
   )
 }
 
-function KpiCard({ T, label, value, icon, accent }: { T: any; label: string; value: string; icon?: React.ReactNode; accent?: string }) {
-  return (
-    <div style={{ ...cardStyle(T), padding: '16px 18px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 8 }}>{icon}{label}</div>
-      <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 700, color: accent ?? T.pri, lineHeight: 1 }}>{value}</div>
-    </div>
-  )
-}
-
 function Tabla({ puestos, T, isDark, onRow }: { puestos: Puesto[]; T: any; isDark: boolean; onRow: (p: Puesto) => void }) {
-  const th: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', color: T.mut, fontWeight: 400, background: T.group, textAlign: 'left' }
+  const th: React.CSSProperties = { padding: '10px 14px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', color: BLANCO, fontWeight: 600, background: INK, textAlign: 'left' }
   const td: React.CSSProperties = { padding: '12px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
   return (
-    <div style={{ ...cardStyle(T), padding: 0, overflow: 'hidden' }}>
+    <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead><tr style={{ borderBottom: `1px solid ${T.brd}` }}>
@@ -284,7 +303,7 @@ function Tabla({ puestos, T, isDark, onRow }: { puestos: Puesto[]; T: any; isDar
           </tbody>
         </table>
       </div>
-    </div>
+    </Papel>
   )
 }
 
