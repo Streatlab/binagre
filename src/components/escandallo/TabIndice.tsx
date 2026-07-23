@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { EPS, Receta } from './types'
 import { fmtES, fmtEurES, fmtDateES, n } from './types'
 import { INK, CREMA, OSW, GRANATE, AZUL, GRIS } from '@/styles/neobrutal'
-import { th, thR, thC, td, tdNum, tdCod, zebra, BAND } from './estilosTabla'
+import { th, thR, thC, td, tdNum, tdCod, zebra, BAND, SUBT } from './estilosTabla'
 import CabeceraEscandallo from './CabeceraEscandallo'
 
 interface Props {
@@ -137,7 +137,7 @@ export default function TabIndice({ epsList, recetasList, busqueda = '', onBusca
                     >
                       <td style={{ ...tdCod, color: codeColor, borderLeft: `${BAND}px solid ${codeColor}` }}>{d.codigo ?? ''}</td>
                       <td style={{ ...td, fontWeight: 700 }}>{d.nombre}</td>
-                      <td style={{ ...tdNum, color: '#5a4f3a' }}>{fmtEurES(d.coste_tanda, 2)}</td>
+                      <td style={{ ...tdNum, color: SUBT }}>{fmtEurES(d.coste_tanda, 2)}</td>
                       <td style={tdNum}>{fmtEurES(d.coste_rac, isEps ? 4 : 2)}</td>
                       <td style={{ ...td, textAlign: 'center', fontFamily: OSW, fontWeight: 700, color: usos > 0 ? INK : GRIS }}>{usos}</td>
                       <td style={tdNum}>{d.raciones ? fmtES(d.raciones, 0) : ''}</td>

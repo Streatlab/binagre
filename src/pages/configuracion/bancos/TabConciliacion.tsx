@@ -1,11 +1,16 @@
-import { BLANCO, GRANATE, GRIS, INK, LIMA } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, INK, LIMA, OSW, LEX } from '@/styles/neobrutal'
+import {
+  CONFIG_BORDE, CONFIG_MUT, CONFIG_MUT_ALT, CONFIG_ROJO_WASH,
+  CONCILIACION_ACTIVE_BG_DARK, CONCILIACION_ACTIVE_BG_LIGHT, CONCILIACION_ACTIVE_BORDE_DARK,
+  CONCILIACION_ACTIVE_BORDE_LIGHT, CONCILIACION_ACTIVE_TXT_LIGHT, ROJO_WASH_BG_DARK, ROJO_TXT_DARK,
+} from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useIsDark } from '@/hooks/useIsDark'
-import { BigCard } from '@/components/configuracion/BigCard'
 import { AbvBadge } from '@/components/configuracion/AbvBadge'
 import { Table, THead, TBody, TH, TR, TD } from '@/components/configuracion/ConfigTable'
 import { ConfigModal, ConfigField, useInputStyle, ModalActions } from '@/components/configuracion/ConfigModal'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 
 // REESCRITO 12-jul-2026 — esta pantalla estaba rota tras la unificacion de categorias:
 //   1. Leia una columna `codigo` que NO EXISTE en categorias_pyg. El codigo ES el `id`
@@ -54,21 +59,21 @@ export default function TabConciliacion() {
 
   const subPillStyle = (active: boolean): React.CSSProperties => ({
     padding: '7px 14px',
-    borderRadius: 6,
-    background: active ? (isDark ? '#2a2600' : '#FFF3B8') : (isDark ? INK : BLANCO),
-    border: `1px solid ${active ? (isDark ? '#4a4000' : '#E8D066') : (isDark ? INK : '#E9E1D0')}`,
-    color: active ? (isDark ? LIMA : '#5a4d0a') : (isDark ? GRIS : '#555555'),
+    borderRadius: 0,
+    background: active ? (isDark ? CONCILIACION_ACTIVE_BG_DARK : CONCILIACION_ACTIVE_BG_LIGHT) : (isDark ? INK : BLANCO),
+    border: `2px solid ${active ? INK : (isDark ? INK : CONFIG_BORDE)}`,
+    color: active ? (isDark ? LIMA : CONCILIACION_ACTIVE_TXT_LIGHT) : (isDark ? GRIS : GRIS),
     fontSize: 12,
-    fontWeight: active ? 600 : 500,
-    fontFamily: 'Oswald, sans-serif',
+    fontWeight: active ? 700 : 500,
+    fontFamily: OSW,
     letterSpacing: '0.06em',
     textTransform: 'uppercase',
     cursor: 'pointer',
   })
 
   return (
-    <>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+    <PantallaCantera embedded>
+      <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" style={subPillStyle(pill === 'categorias')} onClick={() => setPill('categorias')}>
           Categorías
         </button>
@@ -78,7 +83,7 @@ export default function TabConciliacion() {
       </div>
 
       {pill === 'categorias' ? <PanelCategorias /> : <PanelReglas />}
-    </>
+    </PantallaCantera>
   )
 }
 
@@ -119,21 +124,22 @@ function PanelCategorias() {
     await refetch()
   }
 
-  const mut = isDark ? '#777' : '#9E9588'
+  const mut = isDark ? GRIS : CONFIG_MUT
   const actionColor = GRANATE
 
-  if (loading) return <div style={{ padding: 24, color: mut }}>Cargando categorías…</div>
+  if (loading) return <Papel ceja={GRANATE}><div style={{ padding: 20, color: mut, fontFamily: LEX }}>Cargando categorías…</div></Papel>
   if (error) {
     return (
-      <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: isDark ? '#ff8080' : GRANATE, borderRadius: 12 }}>
-        {error}
-      </div>
+      <Papel ceja={GRANATE}>
+        <div style={{ color: isDark ? ROJO_TXT_DARK : GRANATE, fontFamily: LEX }}>{error}</div>
+      </Papel>
     )
   }
 
   const ingresos = cats.filter(c => BLOQUE_DE(c.id) === 'ingreso')
   const gastos = cats.filter(c => BLOQUE_DE(c.id) === 'gasto')
   const otros = cats.filter(c => BLOQUE_DE(c.id) === 'interno' || BLOQUE_DE(c.id) === 'financiacion')
+  const conciliables = cats.filter(c => c.conciliable).length
 
   const Tabla = ({ lista }: { lista: Cat[] }) => (
     <Table>
@@ -165,20 +171,37 @@ function PanelCategorias() {
     </Table>
   )
 
+  const Bloque = ({ titulo, count, children }: { titulo: string; count: string; children: React.ReactNode }) => (
+    <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
+      <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: mut, fontWeight: 700, padding: '18px 22px 10px' }}>
+        {titulo} <span style={{ color: INK, textTransform: 'none', letterSpacing: 'normal' }}>· {count}</span>
+      </div>
+      <div style={{ padding: '0 22px 18px', overflowX: 'auto' }}>{children}</div>
+    </Papel>
+  )
+
   return (
     <>
+      <HeroCantera
+        area="equipo"
+        titular="Así están tus categorías de conciliación"
+        etiquetaDato="Categorías que concilian con el banco"
+        cifra={conciliables}
+        resumen={<>{ingresos.length} de ingresos · {gastos.length} de gastos · {otros.length} internas o de financiación</>}
+      />
+
       <div style={{ display: 'grid', gap: 14 }}>
-        <BigCard title="Ingresos" count={`${ingresos.length} categorías`}>
+        <Bloque titulo="Ingresos" count={`${ingresos.length} categorías`}>
           <Tabla lista={ingresos} />
-        </BigCard>
+        </Bloque>
 
-        <BigCard title="Gastos" count={`${gastos.length} categorías`}>
+        <Bloque titulo="Gastos" count={`${gastos.length} categorías`}>
           <Tabla lista={gastos} />
-        </BigCard>
+        </Bloque>
 
-        <BigCard title="Movimientos internos y financiación" count={`${otros.length} categorías`}>
+        <Bloque titulo="Movimientos internos y financiación" count={`${otros.length} categorías`}>
           <Tabla lista={otros} />
-        </BigCard>
+        </Bloque>
 
         <button onClick={() => setModal({ editing: null })} style={addBtn(isDark)}>
           + Nueva categoría
@@ -217,16 +240,17 @@ function addBtn(isDark: boolean): React.CSSProperties {
   return {
     marginTop: 12,
     padding: '8px 14px',
-    borderRadius: 8,
+    borderRadius: 0,
     fontSize: 12,
     fontWeight: 600,
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
-    background: isDark ? '#2a2600' : '#FFF3B8',
-    color: isDark ? LIMA : '#5a4d0a',
-    border: `1px solid ${isDark ? '#4a4000' : '#E8D066'}`,
+    background: isDark ? CONCILIACION_ACTIVE_BG_DARK : CONCILIACION_ACTIVE_BG_LIGHT,
+    color: isDark ? LIMA : CONCILIACION_ACTIVE_TXT_LIGHT,
+    border: `2px solid ${INK}`,
+    boxShadow: `3px 3px 0 ${INK}`,
     cursor: 'pointer',
-    fontFamily: 'Oswald, sans-serif',
+    fontFamily: OSW,
     width: 'fit-content',
   }
 }
@@ -298,7 +322,7 @@ function CategoriaModal({
       {check('Gasto fijo', 'Se repite cada mes: Running lo estima si falta', estimable, setEstimable)}
 
       {error && (
-        <div style={{ marginTop: 12, padding: 8, background: '#FCE0E2', color: GRANATE, fontSize: 12, borderRadius: 6 }}>
+        <div style={{ marginTop: 12, padding: 8, background: CONFIG_ROJO_WASH, color: GRANATE, fontSize: 12, borderRadius: 0 }}>
           {error}
         </div>
       )}
@@ -361,15 +385,15 @@ function PanelReglas() {
     await refetch()
   }
 
-  const mut = isDark ? '#777' : '#9E9588'
-  const subtle = isDark ? '#aaa' : '#6E6656'
+  const mut = isDark ? GRIS : CONFIG_MUT
+  const subtle = isDark ? GRIS : CONFIG_MUT_ALT
 
-  if (loading) return <div style={{ padding: 24, color: mut }}>Cargando reglas…</div>
+  if (loading) return <Papel ceja={GRANATE}><div style={{ padding: 20, color: mut, fontFamily: LEX }}>Cargando reglas…</div></Papel>
   if (error) {
     return (
-      <div style={{ padding: 16, background: isDark ? '#3a1a1a' : '#FCE0E2', color: isDark ? '#ff8080' : GRANATE, borderRadius: 12 }}>
-        {error}
-      </div>
+      <Papel ceja={GRANATE}>
+        <div style={{ color: isDark ? ROJO_TXT_DARK : GRANATE, fontFamily: LEX }}>{error}</div>
+      </Papel>
     )
   }
 
@@ -379,10 +403,24 @@ function PanelReglas() {
     return c ? `${c.id} · ${c.nombre}` : codigo
   }
 
+  const activas = reglas.filter(r => r.activa).length
+
   return (
     <>
-      <BigCard title="Reglas de asignación automática" count={`${reglas.length} reglas`}>
-        <p style={{ fontSize: 12.5, color: subtle, marginBottom: 16, fontFamily: 'Lexend, sans-serif' }}>
+      <HeroCantera
+        area="equipo"
+        titular="Así asigna categoría el sistema en automático"
+        etiquetaDato="Reglas activas de asignación"
+        cifra={activas}
+        resumen={<>{reglas.length} reglas en total · la de prioridad más baja se evalúa primero</>}
+      />
+
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
+        <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: mut, fontWeight: 700, padding: '18px 22px 0' }}>
+          Reglas de asignación automática <span style={{ color: INK, textTransform: 'none', letterSpacing: 'normal' }}>· {reglas.length} reglas</span>
+        </div>
+        <div style={{ padding: '10px 22px 18px' }}>
+        <p style={{ fontSize: 12.5, color: subtle, marginBottom: 16, fontFamily: LEX }}>
           Cuando llega un movimiento del banco, el sistema busca la primera regla activa cuyo patrón encaje con el concepto y le asigna esa categoría.
           <strong> Prioridad más baja = se evalúa antes.</strong> El patrón admite alternativas con la barra vertical: <code>emilio bbva|sueldo emilio</code>.
         </p>
@@ -424,7 +462,8 @@ function PanelReglas() {
         <button onClick={() => { setEditing(null); setModalOpen(true) }} style={addBtn(isDark)}>
           + Nueva regla
         </button>
-      </BigCard>
+        </div>
+      </Papel>
       {modalOpen && (
         <ReglaModal
           editing={editing}
@@ -511,7 +550,7 @@ function ReglaModal({
         </label>
       </ConfigField>
       {error && (
-        <div style={{ marginTop: 12, padding: 8, background: '#FCE0E2', color: GRANATE, fontSize: 12, borderRadius: 6 }}>
+        <div style={{ marginTop: 12, padding: 8, background: CONFIG_ROJO_WASH, color: GRANATE, fontSize: 12, borderRadius: 0 }}>
           {error}
         </div>
       )}

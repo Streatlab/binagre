@@ -62,7 +62,7 @@ export default function ModalSolicitud({ empleados, empleadoPreseleccionado, onC
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '8px 10px',
     background: INK, border: `1px solid ${T.brd}`,
-    borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13,
+    borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13,
     boxSizing: 'border-box',
   }
   const labelStyle: React.CSSProperties = {
@@ -72,7 +72,7 @@ export default function ModalSolicitud({ empleados, empleadoPreseleccionado, onC
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 16 }}>
-      <div style={{ backgroundColor: INK, borderRadius: 12, border: `1px solid ${T.brd}`, width: '100%', maxWidth: 460, boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}>
+      <div style={{ backgroundColor: INK, borderRadius: 0, border: `1px solid ${T.brd}`, width: '100%', maxWidth: 460, boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}>
         <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: FONT.heading, fontSize: 16, letterSpacing: '2px', textTransform: 'uppercase', color: GRANATE, fontWeight: 600 }}>Solicitar permiso</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.mut }}><X size={18} /></button>
@@ -106,12 +106,12 @@ export default function ModalSolicitud({ empleados, empleadoPreseleccionado, onC
             <label style={labelStyle}>Nota (opcional)</label>
             <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 72 }} value={nota} onChange={e => setNota(e.target.value)} placeholder="Descripción adicional…" />
           </div>
-          {error && <div style={{ padding: '8px 12px', background: '#B01D2320', color: GRANATE, borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
+          {error && <div style={{ padding: '8px 12px', background: `${GRANATE}20`, color: GRANATE, borderRadius: 0, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
         </div>
 
         <div style={{ padding: '16px 24px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 6, border: `1px solid ${T.brd}`, background: INK, color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 6, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 0, border: `1px solid ${T.brd}`, background: INK, color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 0, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
             {saving ? 'Enviando…' : 'Solicitar permiso'}
           </button>
         </div>

@@ -1,9 +1,11 @@
-import { BLANCO, GRANATE, LIMA, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, LIMA, VERDE, ROSA } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import { HeroCantera, PantallaCantera, Papel, FrasePotente } from '@/components/kit/cantera'
 
 interface Marca {
   id: string
@@ -78,21 +80,39 @@ export default function Marcas() {
   }
 
   const isMobile = useIsMobile()
+  const activas = marcas.filter(m => m.activa)
+  const inactivas = marcas.filter(m => !m.activa)
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: isMobile ? '16px' : '28px', background: 'var(--neo-bg)', minHeight: '100vh', color: 'var(--sl-text-primary)' }}>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 'clamp(20px, 5vw, 26px)', letterSpacing: '3px', color: GRANATE, fontWeight: 800, textTransform: 'uppercase', margin: '0 0 4px' }}>MARCAS</h1>
-          <span style={{ fontSize: 13, color: 'var(--sl-text-muted)' }}>Gestion de marcas del negocio</span>
-        </div>
+    <PantallaCantera>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Marcas']} subtitulo="Gestion de marcas del negocio" />
         <button onClick={openCreate}
           style={{ padding: '10px 18px', minHeight: 44, background: LIMA, color: 'var(--sl-text-primary)', ...NEO_CARD, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 800, cursor: 'pointer' }}>
           + Nueva marca
         </button>
       </div>
 
-      {error && <div style={{ backgroundColor: '#B01D2318', ...NEO_CARD, padding: '14px 18px', color: GRANATE, fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {!loading && (
+        <HeroCantera
+          area="marcas"
+          titular={marcas.length === 0 ? 'Aun no hay marcas registradas.' : `Gestionas ${activas.length} marca${activas.length === 1 ? '' : 's'} activa${activas.length === 1 ? '' : 's'} de ${marcas.length} en total.`}
+          atencion={[
+            `${activas.length} activas`,
+            inactivas.length > 0 ? `${inactivas.length} inactivas` : null,
+          ].filter(Boolean) as string[]}
+        />
+      )}
+
+      {!loading && marcas.length > 0 && (
+        <FrasePotente significado={inactivas.length > 0 ? 'coste' : 'logro'}>
+          {inactivas.length > 0
+            ? `Tienes ${inactivas.length} marca${inactivas.length === 1 ? '' : 's'} inactiva${inactivas.length === 1 ? '' : 's'}: revisa si conviene reactivarlas o darlas de baja del todo.`
+            : 'Todas tus marcas están activas: cartera al día.'}
+        </FrasePotente>
+      )}
+
+      {error && <div style={{ backgroundColor: `${GRANATE}18`, ...NEO_CARD, padding: '14px 18px', color: GRANATE, fontSize: 13 }}>{error}</div>}
 
       {showForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'var(--sl-overlay)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -127,7 +147,7 @@ export default function Marcas() {
       )}
 
       {loading ? <div style={{ color: 'var(--sl-text-muted)', fontSize: 13 }}>Cargando...</div> : (
-        <div style={{ overflowX: 'auto', ...NEO_CARD }}>
+        <Papel ceja={ROSA} pad="0" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--sl-thead)' }}>
@@ -144,7 +164,7 @@ export default function Marcas() {
                   <td style={{ padding: '12px 14px', color: 'var(--sl-text-primary)', fontWeight: 500 }}>{m.nombre}</td>
                   <td style={{ padding: '12px 14px', color: 'var(--sl-text-muted)', fontSize: 12 }}>{m.descripcion ?? '—'}</td>
                   <td style={{ padding: '12px 14px' }}>
-                    <span style={{ background: m.activa ? '#1D9E7520' : '#B01D2320', color: m.activa ? VERDE : GRANATE, border: `2px solid ${m.activa ? VERDE : GRANATE}`, padding: '3px 8px', borderRadius: 0, fontSize: 10, fontFamily: FONT.heading, fontWeight: 800, letterSpacing: '1px' }}>
+                    <span style={{ background: m.activa ? `${VERDE}20` : `${GRANATE}20`, color: m.activa ? VERDE : GRANATE, border: `2px solid ${m.activa ? VERDE : GRANATE}`, padding: '3px 8px', borderRadius: 0, fontSize: 10, fontFamily: FONT.heading, fontWeight: 800, letterSpacing: '1px' }}>
                       {m.activa ? 'ACTIVA' : 'INACTIVA'}
                     </span>
                   </td>
@@ -162,8 +182,8 @@ export default function Marcas() {
               ))}
             </tbody>
           </table>
-        </div>
+        </Papel>
       )}
-    </div>
+    </PantallaCantera>
   )
 }

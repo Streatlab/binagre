@@ -1,4 +1,3 @@
-import { GRANATE } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo } from 'react'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -6,7 +5,8 @@ import {
 } from 'recharts'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
-import { COLORS, FONT, CARDS } from '@/components/panel/resumen/tokens'
+import { OSW, LEX, INK, CREMA, GRIS, VERDE, GRANATE, NAR, CORP } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 interface Row {
   plataforma: string
@@ -18,22 +18,6 @@ interface Row {
 }
 
 const MES = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-
-const card = CARDS.std
-const cardBig = CARDS.big
-const lbl: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500 }
-const lblSm: React.CSSProperties = { ...lbl, fontSize: 11, letterSpacing: 1.5 }
-const td: React.CSSProperties = { padding: '9px 10px', fontFamily: FONT.heading, fontSize: 14, textAlign: 'right', color: COLORS.pri }
-
-function KpiCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
-  return (
-    <div style={{ ...card, flex: 1, minWidth: 160 }}>
-      <div style={lblSm}>{label}</div>
-      <div style={{ fontFamily: FONT.heading, fontSize: 30, fontWeight: 600, color: color || COLORS.pri, lineHeight: 1.1, marginTop: 6 }}>{value}</div>
-      {sub && <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 4 }}>{sub}</div>}
-    </div>
-  )
-}
 
 export default function RevenueTicketMedio() {
   const [rows, setRows] = useState<Row[]>([])
@@ -73,72 +57,117 @@ export default function RevenueTicketMedio() {
   const ult = serie[serie.length - 1]
   const penult = serie[serie.length - 2]
   const deltaTicket = ult && penult && penult.ticket > 0 ? ((ult.ticket - penult.ticket) / penult.ticket) * 100 : null
+  const subeTicket = deltaTicket != null && deltaTicket >= 0
+
+  const titular = serie.length === 0
+    ? 'Aún no hay ventas cargadas.'
+    : deltaTicket == null
+      ? 'Tu revenue y ticket medio del periodo, sin comparativa previa.'
+      : subeTicket ? 'Subes el ticket medio: cada pedido deja un poco más.'
+      : 'El ticket medio afloja respecto al mes anterior.'
+
+  const atencion = [
+    ult ? `Último mes: ${ult.label} · ${fmtEur(ult.bruto)}` : null,
+    `${tot.pedidos} pedidos en el periodo`,
+    deltaTicket != null ? `Tendencia ${subeTicket ? '+' : '−'}${Math.abs(deltaTicket).toFixed(1)}% vs mes anterior` : null,
+  ].filter(Boolean) as string[]
 
   return (
-    <div style={{ background: 'var(--sl-bg)', padding: '24px 28px', minHeight: '100vh' }}>
-      <h1 style={{ fontFamily: FONT.heading, fontSize: 28, fontWeight: 600, color: COLORS.pri, letterSpacing: '0.04em', margin: 0 }}>REVENUE Y TICKET MEDIO</h1>
-      <p style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 4, marginBottom: 20 }}>
-        Evolución de ventas y de lo que gasta cada cliente por pedido.
-      </p>
-
+    <PantallaCantera>
       {loading ? (
-        <div style={{ ...card, textAlign: 'center', color: COLORS.mut, fontFamily: FONT.body }}>Cargando ventas…</div>
+        <div style={{ padding: 32, color: GRIS, fontFamily: LEX }}>Cargando ventas…</div>
       ) : serie.length === 0 ? (
-        <div style={{ ...card, textAlign: 'center', color: COLORS.mut, fontFamily: FONT.body }}>
-          Aún no hay ventas cargadas.
-        </div>
+        <Papel ceja={NAR}><div style={{ color: GRIS, fontFamily: LEX }}>Aún no hay ventas cargadas.</div></Papel>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
-            <KpiCard label="Ventas totales" value={fmtEur(tot.bruto)} sub={`${tot.pedidos} pedidos`} />
-            <KpiCard label="Ticket medio" value={fmtEur(tot.ticket)}
-              sub={deltaTicket != null ? `${deltaTicket >= 0 ? '▲' : '▼'} ${Math.abs(deltaTicket).toFixed(1)}% vs mes anterior` : undefined}
-              color={deltaTicket != null && deltaTicket >= 0 ? COLORS.ok : COLORS.err} />
-            <KpiCard label="Último mes" value={ult ? fmtEur(ult.bruto) : '—'} sub={ult?.label} />
+          {/* 1 · Héroe del área Ventas (verde) */}
+          <HeroCantera
+            area="ventas"
+            periodo={ult?.label}
+            titular={titular}
+            etiquetaDato="Ticket medio global"
+            cifra={fmtEur(tot.ticket)}
+            variacionPct={deltaTicket}
+            resumen={<>Ventas totales del periodo: <b>{fmtEur(tot.bruto)}</b> · {tot.pedidos} pedidos.</>}
+            atencion={atencion}
+          />
+
+          {/* 2 · Plancha KPIs */}
+          <div>
+            <SeccionLabel bg={VERDE}>Resumen del periodo</SeccionLabel>
+            <Plancha>
+              <PlanchaCelda first>
+                <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Ventas totales</div>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(tot.bruto)}</div>
+                <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{tot.pedidos} pedidos</div>
+              </PlanchaCelda>
+              <PlanchaCelda bg={deltaTicket != null && !subeTicket ? GRANATE : VERDE} color={CREMA}>
+                <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Ticket medio</div>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(tot.ticket)}</div>
+              </PlanchaCelda>
+              <PlanchaCelda>
+                <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Último mes</div>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{ult ? fmtEur(ult.bruto) : '—'}</div>
+                <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{ult?.label ?? '—'}</div>
+              </PlanchaCelda>
+            </Plancha>
           </div>
 
-          <div style={{ ...cardBig, marginBottom: 18 }}>
-            <div style={lbl}>Ventas y ticket medio por mes</div>
-            <div style={{ height: 300, marginTop: 12 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={serie} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.brd} vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} />
-                  <YAxis yAxisId="l" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.mut }} />
-                  <YAxis yAxisId="r" orientation="right" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.mut }} unit="€" />
-                  <Tooltip formatter={((v: number, n: string) => [fmtEur(v), n === 'ticket' ? 'Ticket medio' : 'Ventas']) as never} />
-                  <Bar yAxisId="l" dataKey="bruto" fill={COLORS.uber} radius={[6, 6, 0, 0]} />
-                  <Line yAxisId="r" type="monotone" dataKey="ticket" stroke={GRANATE} strokeWidth={2.5} dot={{ r: 3 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
+          {/* 3 · Frase potente (color por significado, distinto del héroe verde) */}
+          {deltaTicket != null && (
+            subeTicket
+              ? <FrasePotente significado="oportunidad">Cada euro de ticket medio es margen sin coste de adquisición: la palanca más barata para crecer.</FrasePotente>
+              : <FrasePotente significado="coste">El ticket medio cae: revisa upselling y combos antes de que arrastre la facturación.</FrasePotente>
+          )}
+
+          {/* Gráfico — papel (sin sombra) */}
+          <div>
+            <SeccionLabel bg={NAR}>Ventas y ticket medio por mes</SeccionLabel>
+            <Papel ceja={NAR}>
+              <div style={{ height: 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={serie} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={CREMA} vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontFamily: LEX, fontSize: 11, fill: INK }} />
+                    <YAxis yAxisId="l" tick={{ fontFamily: LEX, fontSize: 11, fill: GRIS }} />
+                    <YAxis yAxisId="r" orientation="right" tick={{ fontFamily: LEX, fontSize: 11, fill: GRIS }} unit="€" />
+                    <Tooltip formatter={((v: number, n: string) => [fmtEur(v), n === 'ticket' ? 'Ticket medio' : 'Ventas']) as never} />
+                    <Bar yAxisId="l" dataKey="bruto" fill={CORP.uber} radius={0} />
+                    <Line yAxisId="r" type="monotone" dataKey="ticket" stroke={GRANATE} strokeWidth={2.5} dot={{ r: 3 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </Papel>
           </div>
 
-          <div style={cardBig}>
-            <div style={lbl}>Detalle mensual</div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
-              <thead>
-                <tr>
-                  {['Mes', 'Ventas', 'Neto real', 'Pedidos', 'Ticket medio'].map((h, i) => (
-                    <th key={h} style={{ ...lblSm, textAlign: i === 0 ? 'left' : 'right', padding: '8px 10px', borderBottom: `1px solid ${COLORS.brd}` }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[...serie].reverse().map(m => (
-                  <tr key={m.key}>
-                    <td style={{ padding: '9px 10px', fontFamily: FONT.body, fontSize: 14, color: COLORS.pri }}>{m.label}</td>
-                    <td style={td}>{fmtEur(m.bruto)}</td>
-                    <td style={{ ...td, color: COLORS.ok }}>{fmtEur(m.neto)}</td>
-                    <td style={td}>{m.pedidos}</td>
-                    <td style={{ ...td, fontWeight: 600 }}>{fmtEur(m.ticket)}</td>
+          {/* Tabla detalle — papel (sin sombra) */}
+          <div>
+            <SeccionLabel bg={GRANATE}>Detalle mensual</SeccionLabel>
+            <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
+                <thead>
+                  <tr style={{ background: INK }}>
+                    {['Mes', 'Ventas', 'Neto real', 'Pedidos', 'Ticket medio'].map((h, i) => (
+                      <th key={h} style={{ padding: '10px 12px', textAlign: i === 0 ? 'left' : 'right', fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {[...serie].reverse().map(m => (
+                    <tr key={m.key} style={{ borderBottom: `2px solid ${INK}` }}>
+                      <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, textTransform: 'uppercase' }}>{m.label}</td>
+                      <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, textAlign: 'right' }}>{fmtEur(m.bruto)}</td>
+                      <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, textAlign: 'right', color: VERDE }}>{fmtEur(m.neto)}</td>
+                      <td style={{ padding: '10px 12px', fontFamily: LEX, textAlign: 'right', color: GRIS }}>{m.pedidos}</td>
+                      <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 700, textAlign: 'right' }}>{fmtEur(m.ticket)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Papel>
           </div>
         </>
       )}
-    </div>
+    </PantallaCantera>
   )
 }

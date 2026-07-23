@@ -1,12 +1,12 @@
-import { AZUL, AZUL_CL, BLANCO, GRANATE, INK, NAR, NAR_S, VERDE } from '@/styles/neobrutal'
+import { AMA_S, AZUL, AZUL_CL, BLANCO, GRANATE, GRIS, INK, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import { Plus, X, Trash2, Save, FolderOpen, ChevronLeft, ChevronRight, Printer, Eraser, GripVertical } from 'lucide-react'
+import { HeroCantera, Papel, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
 
 const OSWALD = "'Oswald', sans-serif"
 const LEXEND = "'Lexend', sans-serif"
-const PAGE_BG = NAR_S
 const SHADOW = `4px 4px 0 ${INK}`
 const SHADOW_SM = `3px 3px 0 ${INK}`
 const RED = GRANATE
@@ -174,15 +174,16 @@ export default function MenuFamilia() {
     background: BLANCO, border: `2px solid ${INK}`, borderRadius: 0,
     padding: '5px 8px', color: INK, fontFamily: LEXEND, fontSize: 12, width: '100%',
   }
-  const card: React.CSSProperties = { background: BLANCO, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW, padding: 14 }
   const h3: React.CSSProperties = { fontFamily: OSWALD, fontWeight: 600, fontSize: 13, marginBottom: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK }
   const chip: React.CSSProperties = {
     display: 'flex', alignItems: 'flex-start', gap: 5, background: BLANCO, border: `2px solid ${INK}`,
     borderRadius: 0, padding: '4px 6px', cursor: 'grab',
   }
 
+  const sinEscandallo = platos.filter(p => costeDePlato(p) == null).length
+
   return (
-    <div style={{ background: PAGE_BG, minHeight: '100vh', padding: '24px 28px', fontFamily: LEXEND, color: INK }}>
+    <PantallaCantera embedded style={{ fontFamily: LEXEND, color: INK }}>
       <style>{`
         @media print {
           aside { display: none !important; }
@@ -191,16 +192,21 @@ export default function MenuFamilia() {
           .mf-grid, .mf-cell, .mf-head { box-shadow: none !important; }
           .mf-cell { break-inside: avoid; }
           @page { size: A4 landscape; margin: 12mm; }
-          body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          body { background: ${BLANCO} !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
 
-      <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 700, color: INK, letterSpacing: 3, textTransform: 'uppercase' }}>
-        Menú Familia
-      </div>
-      <div style={{ fontFamily: LEXEND, fontSize: 13, color: '#6b5d45', marginTop: 2, marginBottom: 16 }}>
-        Comidas del personal · planificación semanal
-      </div>
+      {/* HÉROE (naranja · área Cocina) */}
+      <HeroCantera
+        area="cocina"
+        titular={`Menú familia listo para la semana del ${fmtCorto(semana)}.`}
+        resumen="Comidas del personal · planificación semanal. Arrastra platos del catálogo a cada día."
+        atencion={[
+          platos.length > 0 ? `${platos.length} platos en catálogo` : null,
+          sinEscandallo > 0 ? `${sinEscandallo} sin escandallo` : null,
+          plantillas.length > 0 ? `${plantillas.length} plantillas guardadas` : null,
+        ].filter(Boolean) as string[]}
+      />
 
       {/* barra superior */}
       <div className="mf-no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -208,7 +214,7 @@ export default function MenuFamilia() {
         <button onClick={() => setSemana(lunesDe(new Date()))} style={{ ...navBtn, width: 'auto', padding: '0 12px', fontFamily: OSWALD, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase' }}>Hoy</button>
         <button onClick={() => setSemana(s => addDias(s, 7))} style={navBtn}><ChevronRight size={16} /></button>
         <div style={{ flex: 1 }} />
-        <button style={btn('#0FB86B')} onClick={guardarPlantilla}><Save size={15} />Plantilla</button>
+        <button style={btn(VERDE)} onClick={guardarPlantilla}><Save size={15} />Plantilla</button>
         <button style={btn(RED)} onClick={limpiarSemana}><Eraser size={15} />Vaciar</button>
         <button style={btn(INK)} onClick={() => window.print()}><Printer size={15} />Imprimir</button>
       </div>
@@ -241,9 +247,9 @@ export default function MenuFamilia() {
                   onDragOver={e => { e.preventDefault(); setOverDia(dia) }}
                   onDragLeave={() => setOverDia(o => (o === dia ? null : o))}
                   onDrop={() => onDropDia(dia)}
-                  style={{ background: over ? '#fff7e0' : BLANCO, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW, padding: 7, minHeight: 160, display: 'flex', flexDirection: 'column', gap: 5, outline: over ? `3px dashed ${DIA_COLOR[i]}` : 'none', outlineOffset: -6 }}
+                  style={{ background: over ? AMA_S : BLANCO, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW, padding: 7, minHeight: 160, display: 'flex', flexDirection: 'column', gap: 5, outline: over ? `3px dashed ${DIA_COLOR[i]}` : 'none', outlineOffset: -6 }}
                 >
-                  {items.length === 0 && <span className="mf-no-print" style={{ fontSize: 11, color: '#b0a690', fontStyle: 'italic' }}>arrastra un plato aquí</span>}
+                  {items.length === 0 && <span className="mf-no-print" style={{ fontSize: 11, color: GRIS, fontStyle: 'italic' }}>arrastra un plato aquí</span>}
                   {items.map(a => {
                     const coste = a.plato_id ? costeDePlato(platoPorId.get(a.plato_id)) : null
                     return (
@@ -253,12 +259,12 @@ export default function MenuFamilia() {
                         onDragStart={() => { dragRef.current = { tipo: 'mov', id: a.id, nombre: a.plato_nombre } }}
                         style={chip}
                       >
-                        <GripVertical className="mf-no-print" size={13} style={{ color: '#b0a690', flexShrink: 0, marginTop: 1 }} />
+                        <GripVertical className="mf-no-print" size={13} style={{ color: GRIS, flexShrink: 0, marginTop: 1 }} />
                         <span style={{ flex: 1, fontSize: 13, lineHeight: 1.25, fontFamily: LEXEND }}>
                           {a.plato_nombre}
-                          {coste != null && <span style={{ display: 'block', fontSize: 10, color: '#0FB86B', fontFamily: OSWALD, fontWeight: 600 }}>{fmtEur(coste)}/rac.</span>}
+                          {coste != null && <span style={{ display: 'block', fontSize: 10, color: VERDE, fontFamily: OSWALD, fontWeight: 600 }}>{fmtEur(coste)}/rac.</span>}
                         </span>
-                        <X className="mf-no-print" size={13} style={{ cursor: 'pointer', color: '#999', flexShrink: 0, marginTop: 1 }} onClick={() => quitarAsign(a.id)} />
+                        <X className="mf-no-print" size={13} style={{ cursor: 'pointer', color: GRIS, flexShrink: 0, marginTop: 1 }} onClick={() => quitarAsign(a.id)} />
                       </div>
                     )
                   })}
@@ -280,9 +286,15 @@ export default function MenuFamilia() {
         </div>
       </div>
 
+      {sinEscandallo > 0 ? (
+        <FrasePotente significado="coste">{sinEscandallo} platos del catálogo van sin escandallo: no sabes lo que cuesta darle de comer al equipo ese día.</FrasePotente>
+      ) : platos.length > 0 ? (
+        <FrasePotente significado="logro">Todo el catálogo tiene escandallo: sabes exactamente lo que cuesta cada comida del personal.</FrasePotente>
+      ) : null}
+
       {/* catálogo + plantillas */}
-      <div className="mf-no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 22, maxWidth: 740 }}>
-        <div style={card}>
+      <div className="mf-no-print" style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+        <Papel ceja={NAR} style={{ flex: '1 1 320px', minWidth: 280, boxShadow: 'none' }}>
           <h3 style={h3}>Catálogo de platos · arrastra a un día</h3>
           <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
             <input style={inp} placeholder="Nuevo plato…" value={nuevoPlato}
@@ -300,39 +312,39 @@ export default function MenuFamilia() {
                   onDragStart={() => { dragRef.current = { tipo: 'cat', nombre: p.nombre, platoId: p.id } }}
                   style={chip}
                 >
-                  <GripVertical size={14} style={{ color: '#b0a690', flexShrink: 0 }} />
+                  <GripVertical size={14} style={{ color: GRIS, flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 13 }}>{p.nombre}</span>
                   {coste != null ? (
-                    <span style={{ fontSize: 11, color: '#0FB86B', fontFamily: OSWALD, fontWeight: 600 }}>{fmtEur(coste)}/rac.</span>
+                    <span style={{ fontSize: 11, color: VERDE, fontFamily: OSWALD, fontWeight: 600 }}>{fmtEur(coste)}/rac.</span>
                   ) : (
                     <span style={{ fontSize: 10, color: NAR, fontFamily: OSWALD, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sin escandallo</span>
                   )}
-                  <Trash2 size={14} style={{ cursor: 'pointer', color: '#999' }} onClick={() => borrarPlato(p.id)} />
+                  <Trash2 size={14} style={{ cursor: 'pointer', color: GRIS }} onClick={() => borrarPlato(p.id)} />
                 </div>
               )
             })}
-            {!platos.length && !loading && <span style={{ fontSize: 12, color: '#b0a690' }}>Sin platos todavía.</span>}
+            {!platos.length && !loading && <span style={{ fontSize: 12, color: GRIS }}>Sin platos todavía.</span>}
           </div>
-        </div>
+        </Papel>
 
-        <div style={card}>
+        <Papel ceja={NAR} style={{ flex: '1 1 240px', minWidth: 220, boxShadow: 'none' }}>
           <h3 style={h3}>Plantillas</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {plantillas.map(t => (
               <div key={t.id} style={{ ...chip, cursor: 'default' }}>
                 <span style={{ flex: 1, fontSize: 13 }}>{t.nombre}</span>
-                <FolderOpen size={15} style={{ cursor: 'pointer', color: '#0FB86B' }} onClick={() => aplicarPlantilla(t)} />
-                <Trash2 size={14} style={{ cursor: 'pointer', color: '#999' }} onClick={() => borrarPlantilla(t.id)} />
+                <FolderOpen size={15} style={{ cursor: 'pointer', color: VERDE }} onClick={() => aplicarPlantilla(t)} />
+                <Trash2 size={14} style={{ cursor: 'pointer', color: GRIS }} onClick={() => borrarPlantilla(t.id)} />
               </div>
             ))}
-            {!plantillas.length && <span style={{ fontSize: 12, color: '#b0a690' }}>Sin plantillas. Monta una semana y pulsa "Plantilla".</span>}
+            {!plantillas.length && <span style={{ fontSize: 12, color: GRIS }}>Sin plantillas. Monta una semana y pulsa "Plantilla".</span>}
           </div>
-        </div>
+        </Papel>
       </div>
 
       <datalist id="catalogo-platos">
         {platos.map(p => <option key={p.id} value={p.nombre} />)}
       </datalist>
-    </div>
+    </PantallaCantera>
   )
 }

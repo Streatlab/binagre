@@ -1,9 +1,11 @@
-import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, INK, GRIS, SHADOW_MINI } from '@/styles/neobrutal'
 import { useCallback, useEffect, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, pageTitleStyle, cardStyle } from '@/styles/tokens'
+import { FONT } from '@/styles/tokens'
 import { useTitular, type Titular } from '@/contexts/TitularContext'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import { PantallaCantera, Papel } from '@/components/kit/cantera'
 
 async function fileToBase64(file: File): Promise<string> {
   const buffer = await file.arrayBuffer()
@@ -26,7 +28,6 @@ interface EditableTitular {
 }
 
 export default function CuentasBancarias() {
-  const { T, isDark } = useTheme()
   const { titulares, recargar } = useTitular()
   const [editando, setEditando] = useState<Record<string, EditableTitular>>({})
   const [mensaje, setMensaje] = useState<Record<string, string>>({})
@@ -97,192 +98,179 @@ export default function CuentasBancarias() {
   }, [])
 
   return (
-    <div style={{ padding: 24, background: T.bg, minHeight: '100vh', color: T.pri }}>
-      <h1 style={pageTitleStyle(T)}>CUENTAS BANCARIAS</h1>
+    <PantallaCantera>
+      <RutaPantalla niveles={['Ajustes', 'Cuentas bancarias']} />
+      {/* Config pura sin métrica propia (nº de titulares no es un KPI de negocio): se omite el héroe. */}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {titulares.map((t) => {
-          const ed = editando[t.id]
-          if (!ed) return null
-          const msg = mensaje[t.id]
-          const isSubiendo = subiendo[t.id]
-          const soloEmilio = t.carpeta_drive === 'EMILIO'
-          return (
+      {titulares.map((t) => {
+        const ed = editando[t.id]
+        if (!ed) return null
+        const msg = mensaje[t.id]
+        const isSubiendo = subiendo[t.id]
+        const soloEmilio = t.carpeta_drive === 'EMILIO'
+        return (
+          <Papel key={t.id} ceja={t.color || GRANATE}>
             <div
-              key={t.id}
               style={{
-                ...cardStyle(T),
-                padding: 20,
-                borderLeft: `4px solid ${t.color || GRANATE}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                marginBottom: 16,
               }}
             >
               <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  marginBottom: 16,
+                  width: 14,
+                  height: 14,
+                  borderRadius: 0,
+                  background: t.color || GRANATE,
                 }}
-              >
-                <div
-                  style={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: 3,
-                    background: t.color || GRANATE,
-                  }}
-                />
-                <div
-                  style={{
-                    fontFamily: FONT.heading,
-                    fontSize: 16,
-                    letterSpacing: 2,
-                    textTransform: 'uppercase',
-                    color: T.pri,
-                    fontWeight: 600,
-                  }}
-                >
-                  {t.nombre}
-                </div>
-                <div style={{ color: T.mut, fontSize: 12 }}>{t.nif}</div>
-              </div>
-
+              />
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: 12,
-                  marginBottom: 14,
+                  fontFamily: FONT.heading,
+                  fontSize: 16,
+                  letterSpacing: 2,
+                  textTransform: 'uppercase',
+                  color: INK,
+                  fontWeight: 600,
                 }}
               >
-                <Campo
-                  T={T}
-                  label="Nombre"
-                  value={ed.nombre}
-                  onChange={(v) =>
-                    setEditando((s) => ({ ...s, [t.id]: { ...ed, nombre: v } }))
-                  }
-                />
-                <Campo
-                  T={T}
-                  label="NIF / CIF"
-                  value={ed.nif}
-                  onChange={(v) =>
-                    setEditando((s) => ({ ...s, [t.id]: { ...ed, nif: v } }))
-                  }
-                />
-                <Campo
-                  T={T}
-                  label="IBAN"
-                  value={ed.cuenta_iban}
-                  onChange={(v) =>
-                    setEditando((s) => ({ ...s, [t.id]: { ...ed, cuenta_iban: v } }))
-                  }
-                />
-                <Campo
-                  T={T}
-                  label="Banco"
-                  value={ed.cuenta_banco_nombre}
-                  onChange={(v) =>
-                    setEditando((s) => ({
-                      ...s,
-                      [t.id]: { ...ed, cuenta_banco_nombre: v },
-                    }))
-                  }
-                />
+                {t.nombre}
               </div>
+              <div style={{ color: GRIS, fontSize: 12 }}>{t.nif}</div>
+            </div>
 
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <button
-                  onClick={() => guardar(ed)}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 12,
+                marginBottom: 14,
+              }}
+            >
+              <Campo
+                label="Nombre"
+                value={ed.nombre}
+                onChange={(v) =>
+                  setEditando((s) => ({ ...s, [t.id]: { ...ed, nombre: v } }))
+                }
+              />
+              <Campo
+                label="NIF / CIF"
+                value={ed.nif}
+                onChange={(v) =>
+                  setEditando((s) => ({ ...s, [t.id]: { ...ed, nif: v } }))
+                }
+              />
+              <Campo
+                label="IBAN"
+                value={ed.cuenta_iban}
+                onChange={(v) =>
+                  setEditando((s) => ({ ...s, [t.id]: { ...ed, cuenta_iban: v } }))
+                }
+              />
+              <Campo
+                label="Banco"
+                value={ed.cuenta_banco_nombre}
+                onChange={(v) =>
+                  setEditando((s) => ({
+                    ...s,
+                    [t.id]: { ...ed, cuenta_banco_nombre: v },
+                  }))
+                }
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button
+                onClick={() => guardar(ed)}
+                style={{
+                  padding: '8px 18px',
+                  background: GRANATE,
+                  color: BLANCO,
+                  border: `2px solid ${INK}`,
+                  boxShadow: SHADOW_MINI,
+                  borderRadius: 0,
+                  fontFamily: FONT.heading,
+                  fontSize: 12,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Guardar
+              </button>
+              {msg && (
+                <span style={{ color: GRIS, fontSize: 12 }}>{msg}</span>
+              )}
+            </div>
+
+            {soloEmilio && (
+              <div style={{ marginTop: 20 }}>
+                <div
                   style={{
-                    padding: '8px 18px',
-                    background: GRANATE,
-                    color: BLANCO,
-                    border: 'none',
-                    borderRadius: 6,
                     fontFamily: FONT.heading,
-                    fontSize: 12,
-                    letterSpacing: 1,
+                    fontSize: 11,
+                    letterSpacing: 2,
                     textTransform: 'uppercase',
-                    cursor: 'pointer',
+                    color: GRIS,
+                    marginBottom: 8,
                     fontWeight: 600,
                   }}
                 >
-                  Guardar
-                </button>
-                {msg && (
-                  <span style={{ color: T.sec, fontSize: 12 }}>{msg}</span>
-                )}
-              </div>
-
-              {soloEmilio && (
-                <div style={{ marginTop: 20 }}>
-                  <div
-                    style={{
-                      fontFamily: FONT.heading,
-                      fontSize: 11,
-                      letterSpacing: 2,
-                      textTransform: 'uppercase',
-                      color: T.mut,
-                      marginBottom: 8,
-                      fontWeight: 600,
-                    }}
-                  >
-                    IMPORTAR EXTRACTO BBVA (.xlsx / .xls)
-                  </div>
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '14px 18px',
-                      background: isDark ? INK : '#fafafa',
-                      border: `2px dashed ${T.brd}`,
-                      borderRadius: 10,
-                      cursor: isSubiendo ? 'wait' : 'pointer',
-                      opacity: isSubiendo ? 0.6 : 1,
-                    }}
-                  >
-                    <Upload size={18} color={GRANATE} />
-                    <span style={{ color: T.pri, fontSize: 13 }}>
-                      {isSubiendo ? 'Procesando...' : 'Arrastra o haz clic para subir'}
-                    </span>
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls"
-                      disabled={isSubiendo}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) subirBBVA(t, f)
-                        e.target.value = ''
-                      }}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
+                  IMPORTAR EXTRACTO BBVA (.xlsx / .xls)
                 </div>
-              )}
-            </div>
-          )
-        })}
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '14px 18px',
+                    background: BLANCO,
+                    border: `2px dashed ${INK}`,
+                    borderRadius: 0,
+                    cursor: isSubiendo ? 'wait' : 'pointer',
+                    opacity: isSubiendo ? 0.6 : 1,
+                  }}
+                >
+                  <Upload size={18} color={GRANATE} />
+                  <span style={{ color: INK, fontSize: 13 }}>
+                    {isSubiendo ? 'Procesando...' : 'Arrastra o haz clic para subir'}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    disabled={isSubiendo}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) subirBBVA(t, f)
+                      e.target.value = ''
+                    }}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              </div>
+            )}
+          </Papel>
+        )
+      })}
 
-        {titulares.length === 0 && (
-          <div style={{ ...cardStyle(T), padding: 40, textAlign: 'center', color: T.sec }}>
-            No hay titulares configurados.
-          </div>
-        )}
-      </div>
-    </div>
+      {titulares.length === 0 && (
+        <Papel ceja={GRIS} style={{ textAlign: 'center', color: GRIS }}>
+          No hay titulares configurados.
+        </Papel>
+      )}
+    </PantallaCantera>
   )
 }
 
 function Campo({
-  T,
   label,
   value,
   onChange,
 }: {
-  T: ReturnType<typeof useTheme>['T']
   label: string
   value: string
   onChange: (v: string) => void
@@ -296,7 +284,7 @@ function Campo({
           fontSize: 10,
           letterSpacing: 1.5,
           textTransform: 'uppercase',
-          color: T.mut,
+          color: GRIS,
           marginBottom: 4,
           fontWeight: 600,
         }}
@@ -309,10 +297,10 @@ function Campo({
         style={{
           width: '100%',
           padding: '8px 12px',
-          background: INK,
-          color: T.pri,
-          border: `1px solid ${T.brd}`,
-          borderRadius: 6,
+          background: BLANCO,
+          color: INK,
+          border: `2px solid ${INK}`,
+          borderRadius: 0,
           fontFamily: FONT.body,
           fontSize: 13,
           boxSizing: 'border-box',

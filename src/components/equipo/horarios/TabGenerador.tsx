@@ -80,7 +80,7 @@ export default function TabGenerador() {
   }
 
   const btnBase = (active = false): React.CSSProperties => ({
-    padding: '6px 14px', borderRadius: 8,
+    padding: '6px 14px', borderRadius: 0,
     border: `1px solid ${active ? GRANATE : T.brd}`,
     background: active ? GRANATE : T.card,
     color: active ? BLANCO : T.pri,
@@ -88,8 +88,8 @@ export default function TabGenerador() {
     textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600,
   })
   const actionBtn: React.CSSProperties = {
-    height: 30, padding: '0 12px', borderRadius: 8,
-    border: `1px solid #B01D23`, background: GRANATE, color: BLANCO,
+    height: 30, padding: '0 12px', borderRadius: 0,
+    border: `1px solid ${GRANATE}`, background: GRANATE, color: BLANCO,
     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
     fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px',
     textTransform: 'uppercase', fontWeight: 600,
@@ -100,7 +100,7 @@ export default function TabGenerador() {
   if (paso === 'config') {
     return (
       <div>
-        <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 12, padding: 24, maxWidth: 600 }}>
+        <div style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 0, padding: 24, maxWidth: 600 }}>
           <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 18, fontWeight: 600, color: GRANATE, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>
             Generar nuevas semanas
           </div>
@@ -179,9 +179,9 @@ export default function TabGenerador() {
 
         return (
           <div key={idx} style={{
-            marginBottom: 24, padding: 14, borderRadius: 12,
+            marginBottom: 24, padding: 14, borderRadius: 0,
             border: `2px solid ${aprobada ? VERDE : T.brd}`,
-            background: aprobada ? '#1D9E7510' : 'transparent',
+            background: aprobada ? `${VERDE}10` : 'transparent',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
               <div>

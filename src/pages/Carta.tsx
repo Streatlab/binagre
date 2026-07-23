@@ -2,15 +2,17 @@ import { BLANCO, GRANATE, LIMA, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 /**
  * T-F4-05 — Carta · CRUD carta_platos con food cost por canal.
  * Implementa T-F4-05 + T-F4-06 (margen por canal).
+ * CANTERA ALEGRE v1.0 (área Cocina · naranja). Solo capa visual.
  */
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, pageTitleStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
+import { vincularPlato, desvincularPlato } from '@/lib/cocina/vincularCliente'
+import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 import { marginPorTodosCanales, type MargenPorCanal } from '@/lib/marcas/foodCostPorCanal'
 import { fmtEur } from '@/utils/format'
-import { useIsMobile } from '@/hooks/useIsMobile'
 import { similitudPlato } from '@/utils/normPlato'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
 
 /** Umbral mínimo para sugerir un enlace automático (Tanda 8) — por debajo, mejor no
  *  sugerir nada que sugerir mal; el usuario sigue teniendo el selector manual del form. */
@@ -26,6 +28,7 @@ interface Plato {
   receta_id: string | null
   activo: boolean
   created_at: string
+  plato_maestro_id: number | null
 }
 
 interface Receta {
@@ -54,7 +57,6 @@ const NEO_CARD: CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 
 
 export default function Carta() {
   const { T, isDark } = useTheme()
-  const isMobile = useIsMobile()
   const [tab, setTab] = useState<Tab>('platos')
   const [platos, setPlatos] = useState<Plato[]>([])
   const [recetas, setRecetas] = useState<Receta[]>([])
@@ -103,10 +105,25 @@ export default function Carta() {
     padding: '9px 12px', borderBottom: `0.5px solid ${T.brd}`, verticalAlign: 'middle',
   }
 
+  const titular = sinReceta > 0
+    ? `${sinReceta} platos de la carta van sin receta: no sabes lo que te cuestan.`
+    : 'Toda la carta tiene receta enlazada: sabes lo que te cuesta cada plato.'
+
   return (
-    <div style={{ background: 'var(--neo-bg)', ...NEO_CARD, padding: isMobile ? '16px 12px' : '24px 28px', width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={pageTitleStyle(T)}>Carta</h1>
+    <PantallaCantera embedded>
+      {/* HÉROE (naranja · área Cocina) */}
+      <HeroCantera
+        area="cocina"
+        titular={titular}
+        etiquetaDato="Margen bruto medio"
+        cifra={fmtEur(margenMedio)}
+        resumen={<>{platosActivos.length} platos activos en carta</>}
+        atencion={[
+          sinReceta > 0 ? `${sinReceta} sin receta` : null,
+        ].filter(Boolean) as string[]}
+      />
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button
           onClick={() => { setEditId(null); setShowForm(true) }}
           style={{
@@ -119,12 +136,27 @@ export default function Carta() {
         </button>
       </div>
 
-      {/* KPI cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 20 }}>
-        <KpiMini label="Platos activos" value={String(platosActivos.length)} T={T} />
-        <KpiMini label="Margen bruto medio" value={fmtEur(margenMedio)} T={T} />
-        <KpiMini label="Sin receta" value={String(sinReceta)} T={T} accent={sinReceta > 0 ? COLOR_AMARILLO : undefined} />
-      </div>
+      {/* KPI · Plancha de celdas sólidas pegadas */}
+      <Plancha>
+        <PlanchaCelda bg={NAR} color={BLANCO} first>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Platos activos</div>
+          <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 24, marginTop: 6 }}>{platosActivos.length}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={VERDE} color={BLANCO}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Margen bruto medio</div>
+          <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 24, marginTop: 6 }}>{fmtEur(margenMedio)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={sinReceta > 0 ? COLOR_AMARILLO : NAR} color={BLANCO}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Sin receta</div>
+          <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 24, marginTop: 6 }}>{sinReceta}</div>
+        </PlanchaCelda>
+      </Plancha>
+
+      {sinReceta > 0 ? (
+        <FrasePotente significado="coste">Cada plato sin receta enlazada vende a ciegas: no hay food cost ni margen real detrás.</FrasePotente>
+      ) : (
+        <FrasePotente significado="logro">Toda la carta tiene coste conocido: el margen que ves es el margen real.</FrasePotente>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -158,7 +190,15 @@ export default function Carta() {
             setRefreshKey(k => k + 1)
           }}
           onVincular={async (id, recetaId) => {
-            await supabase.from('carta_platos').update({ receta_id: recetaId }).eq('id', id)
+            // LEY-PLATO-01: vínculo único sobre el plato maestro; se refleja también en
+            // análisis/Coste. Fallback a carta si el plato aún no tiene identidad.
+            const plato = platos.find(p => p.id === id)
+            if (plato?.plato_maestro_id != null) {
+              if (recetaId) await vincularPlato(plato.plato_maestro_id, recetaId)
+              else await desvincularPlato(plato.plato_maestro_id)
+            } else {
+              await supabase.from('carta_platos').update({ receta_id: recetaId }).eq('id', id)
+            }
             setRefreshKey(k => k + 1)
           }}
         />
@@ -177,7 +217,7 @@ export default function Carta() {
           onSave={() => { setShowForm(false); setRefreshKey(k => k + 1) }}
         />
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 
@@ -203,7 +243,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
   onVincular: (id: string, recetaId: string) => void
 }) {
   return (
-    <div style={{ ...NEO_CARD, overflowX: 'auto' }}>
+    <Papel ceja={NAR} pad="0" style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
         <thead>
           <tr>
@@ -237,7 +277,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
                       onClick={() => onVincular(p.id, sugerencia.receta.id)}
                       title={`Similitud ${Math.round(sugerencia.score * 100)}%`}
                       style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 4,
+                        display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 0,
                         fontSize: 11, fontFamily: FONT.body, fontStyle: 'normal', cursor: 'pointer',
                         background: `${COLOR_AMARILLO}22`, color: COLOR_AMARILLO, border: `1px solid ${COLOR_AMARILLO}55`,
                       }}
@@ -246,7 +286,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
                     </button>
                   ) : (
                     <span style={{
-                      display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 10,
+                      display: 'inline-block', padding: '2px 8px', borderRadius: 0, fontSize: 10,
                       fontFamily: FONT.heading, letterSpacing: '0.5px', textTransform: 'uppercase',
                       background: `${COLOR_AMARILLO}33`, color: COLOR_AMARILLO,
                     }}>
@@ -256,7 +296,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>
                   {foodCost != null ? (
-                    <span style={{ color: fcOver ? '#ff6b70' : T.pri }}>
+                    <span style={{ color: fcOver ? ROJO : T.pri }}>
                       {fmtEur(foodCost)} {fcPct != null ? `(${fcPct.toFixed(1)}%)` : ''}
                       {fcOver && ' ⚠'}
                     </span>
@@ -273,9 +313,9 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
                 </td>
                 <td style={tdStyle}>
                   <span style={{
-                    display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11,
+                    display: 'inline-block', padding: '2px 8px', borderRadius: 0, fontSize: 11,
                     fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase',
-                    background: p.activo ? '#1D9E7533' : 'var(--sl-hover)',
+                    background: p.activo ? VERDE + '33' : 'var(--sl-hover)',
                     color: p.activo ? VERDE : T.mut,
                   }}>
                     {p.activo ? 'Activo' : 'Pausado'}
@@ -284,13 +324,13 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
                 <td style={{ ...tdStyle, display: 'flex', gap: 6 }}>
                   <button
                     onClick={() => onEdit(p.id)}
-                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '8px 12px', minHeight: 36, borderRadius: 4, cursor: 'pointer', fontFamily: FONT.body }}
+                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '8px 12px', minHeight: 36, borderRadius: 0, cursor: 'pointer', fontFamily: FONT.body }}
                   >
                     Editar
                   </button>
                   <button
                     onClick={() => onToggle(p.id, p.activo)}
-                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '8px 12px', minHeight: 36, borderRadius: 4, cursor: 'pointer', fontFamily: FONT.body }}
+                    style={{ background: T.card, border: `1px solid ${T.brd}`, color: T.sec, fontSize: 11, padding: '8px 12px', minHeight: 36, borderRadius: 0, cursor: 'pointer', fontFamily: FONT.body }}
                   >
                     {p.activo ? 'Pausar' : 'Activar'}
                   </button>
@@ -307,7 +347,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
           )}
         </tbody>
       </table>
-    </div>
+    </Papel>
   )
 }
 
@@ -351,7 +391,7 @@ function TabPorCanal({ platos, recetaMap, T, thStyle, tdStyle }: {
   }
 
   return (
-    <div style={{ ...NEO_CARD, overflowX: 'auto' }}>
+    <Papel ceja={NAR} pad="0" style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
         <thead>
           <tr>
@@ -391,7 +431,7 @@ function TabPorCanal({ platos, recetaMap, T, thStyle, tdStyle }: {
           )}
         </tbody>
       </table>
-    </div>
+    </Papel>
   )
 }
 
@@ -444,7 +484,7 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
   }
   const labelStyle: CSSProperties = { fontFamily: FONT.body, fontSize: 12, color: T.sec, marginBottom: 4, display: 'block' }
   const inputStyle: CSSProperties = {
-    background: 'var(--sl-input-edit)', border: `1px solid ${T.brd}`, borderRadius: 6,
+    background: 'var(--sl-input-edit)', border: `1px solid ${T.brd}`, borderRadius: 0,
     color: T.pri, fontFamily: FONT.body, fontSize: 13,
     padding: '10px 10px', minHeight: 42, width: '100%', boxSizing: 'border-box',
   }
@@ -476,7 +516,7 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
             {recetas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
           </select>
         </div>
-        {err && <div style={{ fontFamily: FONT.body, fontSize: 12, color: '#ff6b70' }}>{err}</div>}
+        {err && <div style={{ fontFamily: FONT.body, fontSize: 12, color: ROJO }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button onClick={onClose} style={{ background: 'var(--sl-btn-cancel-bg)', border: `3px solid ${NEO_INK}`, color: 'var(--sl-btn-cancel-text)', fontFamily: FONT.body, fontSize: 13, padding: '11px 16px', minHeight: 44, borderRadius: 0, cursor: 'pointer' }}>
             Cancelar
@@ -490,12 +530,3 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
   )
 }
 
-/* ─── KPI Mini ─── */
-function KpiMini({ label, value, T, accent }: { label: string; value: string; T: ReturnType<typeof useTheme>['T']; accent?: string }) {
-  return (
-    <div style={{ background: T.card, ...NEO_CARD, padding: '14px 16px' }}>
-      <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: FONT.heading, fontSize: 'clamp(17px,5vw,22px)', fontWeight: 600, color: accent ?? T.pri }}>{value}</div>
-    </div>
-  )
-}

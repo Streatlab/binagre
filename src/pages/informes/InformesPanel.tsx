@@ -1,6 +1,8 @@
-import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
 /**
  * Módulo Informes — Panel principal
+ * CANTERA ALEGRE v1.0 (área Equipo · tinta). Solo capa visual; NADA de lógica de
+ * envío/robots/WhatsApp/crons se toca — cargar(), enviarManual(), abrirModalWhatsApp(),
+ * toggleSeleccion(), toggleTodos(), confirmarEnvioWhatsApp() y toggleActivo() intactas.
  *
  * Estado de los informes automáticos: resumen mañana, pulso tarde,
  * cierre diario, cobros lunes, cierre semanal, cierre mensual.
@@ -9,7 +11,8 @@ import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT } from '@/styles/tokens'
+import { INK, GRIS, OSW, LEX, VERDE, ROJO, GRANATE, AMA, BLANCO } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
 
 type TipoInforme = 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual' | 'resumen_manana' | 'pulso'
 
@@ -72,7 +75,6 @@ interface DestinatarioWA { id: string; nombre: string; whatsapp: string }
 interface ModalWA { tipo: TipoInforme; cargando: boolean; lista: DestinatarioWA[]; seleccion: Set<string> }
 
 export default function InformesPanel() {
-  const { T } = useTheme()
   const navigate = useNavigate()
   const [configs, setConfigs] = useState<InformeConfig[]>([])
   const [envios, setEnvios] = useState<EnvioReciente[]>([])
@@ -184,291 +186,202 @@ export default function InformesPanel() {
     cargar()
   }
 
+  // ── Datos de estado para el héroe (agregados de lo ya cargado, nada inventado) ──
+  const activos = configs.filter(c => c.activo).length
+  const ultimaEjecucion = configs.reduce<string | null>((max, c) => {
+    if (!c.ultima_ejecucion) return max
+    if (!max || c.ultima_ejecucion > max) return c.ultima_ejecucion
+    return max
+  }, null)
+  const titular = configs.length === 0
+    ? 'Sin informes automáticos configurados todavía.'
+    : <>{activos} de {configs.length} informes automáticos activos, enviando por WhatsApp y email.</>
+
   return (
-    <div style={{ padding: 24, maxWidth: 1280, margin: '0 auto', fontFamily: FONT.body }}>
-      <header style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: FONT.heading, fontSize: 28, color: T.pri, margin: 0, letterSpacing: '0.5px' }}>
-          📑 Informes automáticos
-        </h1>
-        <p style={{ color: T.sec, marginTop: 6, fontSize: 14 }}>
-          Envío programado a destinatarios configurados por WhatsApp y email.
-        </p>
-      </header>
+    <PantallaCantera>
+      {/* 1 · Héroe del área Equipo (tinta) */}
+      <HeroCantera
+        area="equipo"
+        titular={titular}
+        etiquetaDato="Últimos envíos registrados"
+        cifra={envios.length.toLocaleString('es-ES')}
+        resumen={ultimaEjecucion ? <>Última ejecución: <b>{new Date(ultimaEjecucion).toLocaleString('es-ES')}</b></> : undefined}
+      />
 
-      {/* Cards de informes */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16, marginBottom: 32 }}>
-        {loading && <div style={{ color: T.mut }}>Cargando...</div>}
-        {configs.map(c => (
-          <div
-            key={c.id}
-            style={{
-              background: T.card,
-              border: `1px solid ${T.brd}`,
-              borderRadius: 12,
-              padding: 18,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 22, marginBottom: 4 }}>{ICONOS[c.tipo] || '📄'}</div>
-                <h3 style={{ fontFamily: FONT.heading, fontSize: 16, color: T.pri, margin: 0, marginBottom: 4 }}>
-                  {c.nombre}
-                </h3>
-                <div style={{ fontSize: 12, color: T.mut }}>{HORARIOS_LEGIBLES[c.tipo] || c.cron_schedule}</div>
-              </div>
-              <button
-                onClick={() => toggleActivo(c.id, c.activo)}
-                style={{
-                  background: c.activo ? VERDE : T.brd,
-                  color: BLANCO,
-                  border: 'none',
-                  borderRadius: 999,
-                  padding: '4px 10px',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  letterSpacing: '0.05em',
-                  flexShrink: 0,
-                }}
-              >
-                {c.activo ? 'ACTIVO' : 'PAUSADO'}
-              </button>
-            </div>
-
-            <p style={{ color: T.sec, fontSize: 13, margin: 0, lineHeight: 1.45 }}>
-              {c.descripcion}
-            </p>
-
-            <div style={{ display: 'flex', gap: 8, fontSize: 11, color: T.mut }}>
-              {c.enviar_whatsapp && <span>💬 WhatsApp</span>}
-              {c.enviar_email && <span>📧 Email</span>}
-            </div>
-
-            <div style={{ borderTop: `1px solid ${T.brd}`, paddingTop: 10, fontSize: 11, color: T.mut }}>
-              {c.ultima_ejecucion
-                ? <>Último envío: {new Date(c.ultima_ejecucion).toLocaleString('es-ES')}</>
-                : <>Sin ejecutar aún</>}
-            </div>
-
-            {/* Enviar ahora — el usuario elige canal por informe */}
-            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ fontSize: 11, color: T.mut }}>Enviar ahora por:</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => abrirModalWhatsApp(c.tipo)}
-                  disabled={!!enviando}
-                  style={{
-                    flex: 1,
-                    background: enviando === `${c.tipo}:wa` ? T.mut : VERDE,
-                    color: BLANCO,
-                    border: 'none',
-                    borderRadius: 8,
-                    padding: '10px 8px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: enviando ? 'wait' : 'pointer',
-                    fontFamily: FONT.heading,
-                    letterSpacing: '0.03em',
-                  }}
-                >
-                  {enviando === `${c.tipo}:wa` ? 'Enviando…' : '💬 WhatsApp'}
-                </button>
-                <button
-                  onClick={() => enviarManual(c.tipo, { email: true })}
-                  disabled={!!enviando}
-                  style={{
-                    flex: 1,
-                    background: enviando === `${c.tipo}:em` ? T.mut : GRANATE,
-                    color: BLANCO,
-                    border: 'none',
-                    borderRadius: 8,
-                    padding: '10px 8px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: enviando ? 'wait' : 'pointer',
-                    fontFamily: FONT.heading,
-                    letterSpacing: '0.03em',
-                  }}
-                >
-                  {enviando === `${c.tipo}:em` ? 'Enviando…' : '📧 Email'}
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* Filtros planos: atajos de navegación */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button onClick={() => navigate('/informes/destinatarios')} style={filtroBtn}>👥 Gestionar destinatarios</button>
+        <button onClick={() => navigate('/informes/historial')} style={filtroBtn}>🕒 Ver historial completo</button>
+        <button onClick={() => navigate('/informes/configuracion')} style={filtroBtn}>⚙️ Configuración</button>
       </div>
 
-      {/* Atajos */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-        <button
-          onClick={() => navigate('/informes/destinatarios')}
-          style={{
-            background: T.card, border: `1px solid ${T.brd}`, borderRadius: 8,
-            padding: '10px 16px', cursor: 'pointer', color: T.pri, fontSize: 14,
-          }}
-        >
-          👥 Gestionar destinatarios
-        </button>
-        <button
-          onClick={() => navigate('/informes/historial')}
-          style={{
-            background: T.card, border: `1px solid ${T.brd}`, borderRadius: 8,
-            padding: '10px 16px', cursor: 'pointer', color: T.pri, fontSize: 14,
-          }}
-        >
-          🕒 Ver historial completo
-        </button>
-        <button
-          onClick={() => navigate('/informes/configuracion')}
-          style={{
-            background: T.card, border: `1px solid ${T.brd}`, borderRadius: 8,
-            padding: '10px 16px', cursor: 'pointer', color: T.pri, fontSize: 14,
-          }}
-        >
-          ⚙️ Configuración
-        </button>
+      {/* 2 · Cards de informes */}
+      <div>
+        <SeccionLabel bg={AMA} color={INK}>Informes automáticos</SeccionLabel>
+        {loading && <div style={{ color: GRIS, fontFamily: LEX, padding: '12px 0' }}>Cargando…</div>}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+          {configs.map(c => (
+            <Papel key={c.id} ceja={c.activo ? VERDE : GRIS} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 22, marginBottom: 4 }}>{ICONOS[c.tipo] || '📄'}</div>
+                  <h3 style={{ fontFamily: OSW, fontSize: 16, fontWeight: 700, color: INK, margin: 0, marginBottom: 4, textTransform: 'uppercase' }}>{c.nombre}</h3>
+                  <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{HORARIOS_LEGIBLES[c.tipo] || c.cron_schedule}</div>
+                </div>
+                <button
+                  onClick={() => toggleActivo(c.id, c.activo)}
+                  style={{
+                    background: c.activo ? VERDE : GRIS, color: BLANCO, border: `2px solid ${INK}`,
+                    padding: '4px 10px', fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
+                    textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0,
+                  }}
+                >
+                  {c.activo ? 'Activo' : 'Pausado'}
+                </button>
+              </div>
+
+              <p style={{ color: INK, fontFamily: LEX, fontSize: 13, margin: 0, lineHeight: 1.45 }}>{c.descripcion}</p>
+
+              <div style={{ display: 'flex', gap: 8, fontFamily: LEX, fontSize: 11, color: GRIS }}>
+                {c.enviar_whatsapp && <span>💬 WhatsApp</span>}
+                {c.enviar_email && <span>📧 Email</span>}
+              </div>
+
+              <div style={{ borderTop: `2px solid ${INK}`, paddingTop: 10, fontFamily: LEX, fontSize: 11, color: GRIS }}>
+                {c.ultima_ejecucion ? <>Último envío: {new Date(c.ultima_ejecucion).toLocaleString('es-ES')}</> : <>Sin ejecutar aún</>}
+              </div>
+
+              {/* Enviar ahora — el usuario elige canal por informe */}
+              <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: GRIS }}>Enviar ahora por</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => abrirModalWhatsApp(c.tipo)}
+                    disabled={!!enviando}
+                    style={{
+                      flex: 1, background: enviando === `${c.tipo}:wa` ? GRIS : VERDE, color: BLANCO,
+                      border: `2px solid ${INK}`, boxShadow: SHADOW_DURA, padding: '10px 8px', fontFamily: OSW,
+                      fontSize: 13, fontWeight: 700, letterSpacing: '0.03em', cursor: enviando ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {enviando === `${c.tipo}:wa` ? 'Enviando…' : '💬 WhatsApp'}
+                  </button>
+                  <button
+                    onClick={() => enviarManual(c.tipo, { email: true })}
+                    disabled={!!enviando}
+                    style={{
+                      flex: 1, background: enviando === `${c.tipo}:em` ? GRIS : GRANATE, color: BLANCO,
+                      border: `2px solid ${INK}`, boxShadow: SHADOW_DURA, padding: '10px 8px', fontFamily: OSW,
+                      fontSize: 13, fontWeight: 700, letterSpacing: '0.03em', cursor: enviando ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {enviando === `${c.tipo}:em` ? 'Enviando…' : '📧 Email'}
+                  </button>
+                </div>
+              </div>
+            </Papel>
+          ))}
+        </div>
       </div>
 
-      {/* Últimos envíos */}
-      <section>
-        <h2 style={{ fontFamily: FONT.heading, fontSize: 18, color: T.pri, marginBottom: 12, letterSpacing: '0.05em' }}>
-          🕒 Últimos envíos
-        </h2>
+      {/* 3 · Últimos envíos */}
+      <div>
+        <SeccionLabel bg={GRANATE}>Últimos envíos</SeccionLabel>
         {envios.length === 0 ? (
-          <div style={{ background: T.card, padding: 24, borderRadius: 12, border: `1px solid ${T.brd}`, color: T.mut, textAlign: 'center' }}>
-            Aún no hay envíos registrados.
-          </div>
+          <Papel ceja={GRANATE}><div style={{ color: GRIS, fontFamily: LEX, textAlign: 'center', padding: '20px 0' }}>Aún no hay envíos registrados.</div></Papel>
         ) : (
-          <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.brd}`, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead style={{ background: T.group }}>
-                <tr>
-                  <th style={{ padding: 10, textAlign: 'left', color: T.sec, fontWeight: 600 }}>Cuándo</th>
-                  <th style={{ padding: 10, textAlign: 'left', color: T.sec, fontWeight: 600 }}>Informe</th>
-                  <th style={{ padding: 10, textAlign: 'left', color: T.sec, fontWeight: 600 }}>Destinatario</th>
-                  <th style={{ padding: 10, textAlign: 'left', color: T.sec, fontWeight: 600 }}>Canal</th>
-                  <th style={{ padding: 10, textAlign: 'left', color: T.sec, fontWeight: 600 }}>Estado</th>
+          <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
+              <thead>
+                <tr style={{ background: INK }}>
+                  {['Cuándo', 'Informe', 'Destinatario', 'Canal', 'Estado'].map(h => (
+                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#fff8e7', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {envios.map(e => (
-                  <tr key={e.id} style={{ borderTop: `1px solid ${T.brd}` }}>
-                    <td style={{ padding: 10, color: T.sec }}>
-                      {new Date(e.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    <td style={{ padding: 10, color: T.pri }}>
-                      {ICONOS[e.tipo] || '📄'} {e.tipo.replace(/_/g, ' ')}
-                    </td>
-                    <td style={{ padding: 10, color: T.pri }}>{e.destinatario_nombre || '—'}</td>
-                    <td style={{ padding: 10, color: T.sec }}>
-                      {e.canal === 'whatsapp' ? '💬' : '📧'} {e.destino}
-                    </td>
-                    <td style={{ padding: 10 }}>
+                  <tr key={e.id} style={{ borderBottom: `2px solid ${INK}` }}>
+                    <td style={{ padding: '10px 12px' }}>{new Date(e.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                    <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600 }}>{ICONOS[e.tipo] || '📄'} {e.tipo.replace(/_/g, ' ')}</td>
+                    <td style={{ padding: '10px 12px' }}>{e.destinatario_nombre || '—'}</td>
+                    <td style={{ padding: '10px 12px' }}>{e.canal === 'whatsapp' ? '💬' : '📧'} {e.destino}</td>
+                    <td style={{ padding: '10px 12px' }}>
                       <span style={{
-                        padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-                        background: e.estado === 'enviado' ? '#06C16720' : e.estado === 'fallido' ? '#B01D2320' : T.brd,
-                        color: e.estado === 'enviado' ? VERDE : e.estado === 'fallido' ? GRANATE : T.mut,
+                        padding: '3px 9px', fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+                        border: `2px solid ${INK}`,
+                        background: e.estado === 'enviado' ? VERDE : e.estado === 'fallido' ? ROJO : GRIS,
+                        color: BLANCO,
                       }}>
-                        {e.estado.toUpperCase()}
+                        {e.estado}
                       </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </Papel>
         )}
-      </section>
+      </div>
 
-      {/* Modal: elegir destinatarios de WhatsApp */}
+      {/* Modal: elegir destinatarios de WhatsApp — estilo Papel + sombra dura sobre backdrop */}
       {modalWA && (
         <div
           onClick={() => setModalWA(null)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16,
-          }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}
         >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: T.card, border: `1px solid ${T.brd}`, borderRadius: 14,
-              width: '100%', maxWidth: 420, maxHeight: '80vh', display: 'flex', flexDirection: 'column',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
-            }}
-          >
-            <div style={{ padding: '18px 20px', borderBottom: `1px solid ${T.brd}` }}>
-              <h3 style={{ fontFamily: FONT.heading, fontSize: 17, color: T.pri, margin: 0 }}>
-                💬 Enviar por WhatsApp
-              </h3>
-              <p style={{ color: T.sec, fontSize: 13, margin: '6px 0 0' }}>
-                Elige a quién enviar este informe.
-              </p>
-            </div>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <Papel ceja={VERDE} pad="0" style={{ boxShadow: SHADOW_DURA, display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}>
+              <div style={{ padding: '18px 20px', borderBottom: `2px solid ${INK}` }}>
+                <h3 style={{ fontFamily: OSW, fontSize: 17, fontWeight: 700, color: INK, margin: 0, textTransform: 'uppercase' }}>💬 Enviar por WhatsApp</h3>
+                <p style={{ color: GRIS, fontFamily: LEX, fontSize: 13, margin: '6px 0 0' }}>Elige a quién enviar este informe.</p>
+              </div>
 
-            <div style={{ padding: '8px 20px', overflowY: 'auto', flex: 1 }}>
-              {modalWA.cargando ? (
-                <div style={{ color: T.mut, padding: '16px 0' }}>Cargando destinatarios…</div>
-              ) : modalWA.lista.length === 0 ? (
-                <div style={{ color: T.mut, padding: '16px 0' }}>
-                  No hay destinatarios con WhatsApp activo para este informe.
-                </div>
-              ) : (
-                <>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', cursor: 'pointer', borderBottom: `1px solid ${T.brd}` }}>
-                    <input
-                      type="checkbox"
-                      checked={modalWA.seleccion.size === modalWA.lista.length && modalWA.lista.length > 0}
-                      onChange={toggleTodos}
-                      style={{ width: 18, height: 18, cursor: 'pointer' }}
-                    />
-                    <span style={{ fontWeight: 600, color: T.pri, fontSize: 14 }}>Todos</span>
-                  </label>
-                  {modalWA.lista.map(d => (
-                    <label key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={modalWA.seleccion.has(d.id)}
-                        onChange={() => toggleSeleccion(d.id)}
-                        style={{ width: 18, height: 18, cursor: 'pointer' }}
-                      />
-                      <span style={{ flex: 1, minWidth: 0, color: T.pri, fontSize: 14 }}>{d.nombre}</span>
-                      <span style={{ color: T.mut, fontSize: 12 }}>{d.whatsapp}</span>
+              <div style={{ padding: '8px 20px', overflowY: 'auto', flex: 1 }}>
+                {modalWA.cargando ? (
+                  <div style={{ color: GRIS, fontFamily: LEX, padding: '16px 0' }}>Cargando destinatarios…</div>
+                ) : modalWA.lista.length === 0 ? (
+                  <div style={{ color: GRIS, fontFamily: LEX, padding: '16px 0' }}>No hay destinatarios con WhatsApp activo para este informe.</div>
+                ) : (
+                  <>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', cursor: 'pointer', borderBottom: `2px solid ${INK}` }}>
+                      <input type="checkbox" checked={modalWA.seleccion.size === modalWA.lista.length && modalWA.lista.length > 0} onChange={toggleTodos} style={{ width: 18, height: 18, cursor: 'pointer' }} />
+                      <span style={{ fontFamily: OSW, fontWeight: 700, color: INK, fontSize: 14, textTransform: 'uppercase' }}>Todos</span>
                     </label>
-                  ))}
-                </>
-              )}
-            </div>
+                    {modalWA.lista.map(d => (
+                      <label key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={modalWA.seleccion.has(d.id)} onChange={() => toggleSeleccion(d.id)} style={{ width: 18, height: 18, cursor: 'pointer' }} />
+                        <span style={{ flex: 1, minWidth: 0, color: INK, fontFamily: LEX, fontSize: 14 }}>{d.nombre}</span>
+                        <span style={{ color: GRIS, fontFamily: LEX, fontSize: 12 }}>{d.whatsapp}</span>
+                      </label>
+                    ))}
+                  </>
+                )}
+              </div>
 
-            <div style={{ padding: '14px 20px', borderTop: `1px solid ${T.brd}`, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setModalWA(null)}
-                style={{
-                  background: T.card, border: `1px solid ${T.brd}`, borderRadius: 8,
-                  padding: '10px 16px', cursor: 'pointer', color: T.sec, fontSize: 14,
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmarEnvioWhatsApp}
-                disabled={modalWA.cargando || modalWA.seleccion.size === 0}
-                style={{
-                  background: modalWA.seleccion.size === 0 ? T.mut : VERDE,
-                  color: BLANCO, border: 'none', borderRadius: 8,
-                  padding: '10px 18px', cursor: modalWA.seleccion.size === 0 ? 'not-allowed' : 'pointer',
-                  fontSize: 14, fontWeight: 600, fontFamily: FONT.heading,
-                }}
-              >
-                Enviar ({modalWA.seleccion.size})
-              </button>
-            </div>
+              <div style={{ padding: '14px 20px', borderTop: `2px solid ${INK}`, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button onClick={() => setModalWA(null)} style={{ background: BLANCO, border: `2px solid ${INK}`, padding: '10px 16px', cursor: 'pointer', color: INK, fontFamily: OSW, fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>Cancelar</button>
+                <button
+                  onClick={confirmarEnvioWhatsApp}
+                  disabled={modalWA.cargando || modalWA.seleccion.size === 0}
+                  style={{
+                    background: modalWA.seleccion.size === 0 ? GRIS : VERDE, color: BLANCO, border: `2px solid ${INK}`,
+                    boxShadow: SHADOW_DURA, padding: '10px 18px', cursor: modalWA.seleccion.size === 0 ? 'not-allowed' : 'pointer',
+                    fontFamily: OSW, fontSize: 13, fontWeight: 700, textTransform: 'uppercase',
+                  }}
+                >
+                  Enviar ({modalWA.seleccion.size})
+                </button>
+              </div>
+            </Papel>
           </div>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
+}
+
+const filtroBtn: React.CSSProperties = {
+  padding: '8px 14px', border: `2px solid ${INK}`, background: BLANCO, borderRadius: 0,
+  fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK, cursor: 'pointer',
 }

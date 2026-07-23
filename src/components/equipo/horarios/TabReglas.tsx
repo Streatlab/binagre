@@ -94,7 +94,7 @@ export default function TabReglas() {
 
       <div style={{ display: 'grid', gap: 14 }}>
         {SECCIONES.map(s => (
-          <div key={s.num} style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 10, padding: '14px 18px' }}>
+          <div key={s.num} style={{ background: T.card, border: `0.5px solid ${T.brd}`, borderRadius: 0, padding: '14px 18px' }}>
             <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, color: GRANATE, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 8 }}>
               {s.num}. {s.titulo}
             </div>

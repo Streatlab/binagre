@@ -1,8 +1,9 @@
-import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, ROJO, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, ROJO, VERDE, NAR } from '@/styles/neobrutal'
 /**
  * CocinaInventario — Gestión de inventario de cocina
  * 3 tabs: Conteo físico · Producción semanal · Entradas de materia prima
  * KPIs: valor stock, ingredientes bajo mínimo, consumo período
+ * CANTERA ALEGRE v1.0 (área Cocina · naranja). Solo capa visual.
  */
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -10,6 +11,9 @@ import { FONT } from '@/styles/tokens'
 import { fmtNum, fmtEur, fmtDate } from '@/utils/format'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import TabHojaInventario from './TabHojaInventario'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import TabsPastilla from '@/components/ui/TabsPastilla'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, PantallaCantera } from '@/components/kit/cantera'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -76,19 +80,7 @@ const S: Record<string, React.CSSProperties> = {
   th:    { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase' as const, color: 'var(--sl-text-muted)', padding: '8px 12px', textAlign: 'left' as const, backgroundColor: 'var(--sl-thead)', borderBottom: '2px solid var(--neo-ink)', whiteSpace: 'nowrap' as const },
   td:    { padding: '8px 12px', fontSize: 13, color: 'var(--sl-text-primary)', borderBottom: '0.5px solid var(--sl-border)', fontFamily: FONT.body, verticalAlign: 'middle' as const },
   inp:   { padding: '6px 10px', borderRadius: 0, border: '2px solid var(--sl-border)', backgroundColor: 'var(--sl-input-edit)', color: 'var(--sl-text-primary)', fontSize: 13, fontFamily: FONT.body, outline: 'none' },
-  calc:  { backgroundColor: '#B01D2318', border: '1px solid #B01D23', color: GRANATE, padding: '4px 10px', borderRadius: 0, fontSize: 13, fontFamily: FONT.body, display: 'inline-block', textAlign: 'right' as const, minWidth: 70 },
-}
-
-function tabBtn(active: boolean): React.CSSProperties {
-  return {
-    padding: '9px 18px', borderRadius: 0, minHeight: 44,
-    border: `3px solid ${NEO_INK}`,
-    backgroundColor: active ? GRANATE : 'var(--sl-card)',
-    color: active ? BLANCO : 'var(--sl-text-primary)',
-    boxShadow: active ? NEO_SHADOW : 'none',
-    fontFamily: FONT.heading, fontSize: 12, fontWeight: 700,
-    letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer',
-  }
+  calc:  { backgroundColor: GRANATE + '18', border: `1px solid ${GRANATE}`, color: GRANATE, padding: '4px 10px', borderRadius: 0, fontSize: 13, fontFamily: FONT.body, display: 'inline-block', textAlign: 'right' as const, minWidth: 70 },
 }
 
 function activeBtn(active: boolean): React.CSSProperties {
@@ -106,6 +98,13 @@ function activeBtn(active: boolean): React.CSSProperties {
 // ── Componente principal ───────────────────────────────────────────────────────
 
 type Tab = 'conteo' | 'hoja' | 'produccion' | 'entradas'
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'conteo',     label: 'Conteo físico' },
+  { id: 'hoja',       label: 'Hoja de Inventario' },
+  { id: 'produccion', label: 'Producción' },
+  { id: 'entradas',   label: 'Entradas MP' },
+]
 
 export default function CocinaInventario() {
   const isMobile = useIsMobile()
@@ -149,36 +148,35 @@ export default function CocinaInventario() {
   }, [ingredientes, conteos])
 
   return (
-    <div style={{ ...S.page, padding: isMobile ? '14px 12px' : '24px 28px' }}>
-      <div style={S.title}>Inventario Cocina</div>
-      <div style={S.sub}>Control de stock · producción semanal · entradas de materia prima</div>
-
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12, marginBottom: 20 }}>
-        <KpiCard label="Valor stock aprox." value={fmtEur(kpis.valorStock)} color={LIMA} />
-        <KpiCard label="Bajo mínimo" value={String(kpis.bajominimo)} color={kpis.bajominimo > 0 ? GRANATE : VERDE} suffix=" ing." />
-        <KpiCard label="Consumo período" value={fmtNum(kpis.consumoTotal)} color="var(--sl-text-secondary)" suffix=" uds" />
-        <KpiCard label="Ingredientes activos" value={String(ingredientes.length)} color={AZUL_CL} />
+    <PantallaCantera style={{ padding: isMobile ? '14px 12px' : '24px 28px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Cocina', 'Inventario', TABS.find(t => t.id === tab)?.label ?? '']} subtitulo="Control de stock · producción semanal · entradas de materia prima" />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: FONT.heading, fontSize: 11, color: 'var(--sl-text-muted)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Período:</span>
+          <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={{ ...S.inp, width: 140 }} />
+          <span style={{ color: 'var(--sl-text-muted)' }}>—</span>
+          <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={{ ...S.inp, width: 140 }} />
+          <button onClick={() => { setDesde(primeroDeMes); setHasta(hoy) }} style={{ ...S.inp, cursor: 'pointer', color: 'var(--sl-text-secondary)', fontSize: 12 }}>
+            Este mes
+          </button>
+        </div>
       </div>
 
-      {/* Período */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: FONT.heading, fontSize: 11, color: 'var(--sl-text-muted)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Período:</span>
-        <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={{ ...S.inp, width: 140 }} />
-        <span style={{ color: 'var(--sl-text-muted)' }}>—</span>
-        <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={{ ...S.inp, width: 140 }} />
-        <button onClick={() => { setDesde(primeroDeMes); setHasta(hoy) }} style={{ ...S.inp, cursor: 'pointer', color: 'var(--sl-text-secondary)', fontSize: 12 }}>
-          Este mes
-        </button>
-      </div>
+      {/* HÉROE (naranja · área Cocina) */}
+      <HeroCantera
+        area="cocina"
+        titular={kpis.bajominimo > 0 ? `${kpis.bajominimo} ingredientes están bajo su stock mínimo.` : 'El stock de cocina está por encima de los mínimos.'}
+        etiquetaDato="Valor de stock aproximado"
+        cifra={fmtEur(kpis.valorStock)}
+        resumen={<>{ingredientes.length} ingredientes activos · {fmtNum(kpis.consumoTotal)} uds consumidas en el período</>}
+        atencion={[
+          `${kpis.bajominimo} bajo mínimo`,
+          `${fmtNum(kpis.consumoTotal)} uds de consumo`,
+          `${ingredientes.length} ingredientes activos`,
+        ]}
+      />
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <button onClick={() => setTab('conteo')} style={tabBtn(tab === 'conteo')}>Conteo físico</button>
-        <button onClick={() => setTab('hoja')} style={tabBtn(tab === 'hoja')}>Hoja de Inventario</button>
-        <button onClick={() => setTab('produccion')} style={tabBtn(tab === 'produccion')}>Producción</button>
-        <button onClick={() => setTab('entradas')} style={tabBtn(tab === 'entradas')}>Entradas MP</button>
-      </div>
+      <TabsPastilla tabs={TABS} activeId={tab} onChange={id => setTab(id as Tab)} />
 
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: 'var(--sl-text-muted)' }}>Cargando datos…</div>
@@ -190,22 +188,10 @@ export default function CocinaInventario() {
           {tab === 'entradas'   && <TabEntradas desde={desde} hasta={hasta} ingredientes={ingredientes} onRefresh={cargarBase} />}
         </>
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 
-// ── KPI Card ───────────────────────────────────────────────────────────────────
-
-function KpiCard({ label, value, color, suffix = '' }: { label: string; value: string; color: string; suffix?: string }) {
-  return (
-    <div style={S.card}>
-      <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase' as const, color: 'var(--sl-text-muted)', marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: FONT.heading, fontSize: 'clamp(20px, 6vw, 26px)', fontWeight: 700, color }}>
-        {value}<span style={{ fontSize: 13, color: 'var(--sl-text-muted)' }}>{suffix}</span>
-      </div>
-    </div>
-  )
-}
 
 // ── TAB CONTEO ─────────────────────────────────────────────────────────────────
 
@@ -303,7 +289,7 @@ function TabConteo({ ingredientes, conteos, onRefresh }: { ingredientes: Ingredi
           onChange={e => setBusqueda(e.target.value)}
           style={{ ...S.inp, marginBottom: 10, width: 240 }}
         />
-        <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
+        <Papel ceja={NAR} pad="0" style={{ overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
             <thead>
@@ -322,7 +308,7 @@ function TabConteo({ ingredientes, conteos, onRefresh }: { ingredientes: Ingredi
                 const bajo = ing.stock_minimo > 0 && diff < 0
                 const ultimo = ultimoPorIng[ing.id]
                 return (
-                  <tr key={ing.id} style={{ backgroundColor: bajo ? '#B01D2314' : 'transparent' }}>
+                  <tr key={ing.id} style={{ backgroundColor: bajo ? GRANATE + '14' : 'transparent' }}>
                     <td style={S.td}>
                       <span style={{ fontWeight: 600 }}>{ing.nombre}</span>
                       {bajo && <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 5px', borderRadius: 0, backgroundColor: GRANATE, color: BLANCO, fontFamily: FONT.heading, letterSpacing: '0.5px', textTransform: 'uppercase' as const }}>bajo mín.</span>}
@@ -342,7 +328,7 @@ function TabConteo({ ingredientes, conteos, onRefresh }: { ingredientes: Ingredi
             </tbody>
           </table>
           </div>
-        </div>
+        </Papel>
       </div>
 
       {/* Tabla conteo seleccionado */}
@@ -351,7 +337,7 @@ function TabConteo({ ingredientes, conteos, onRefresh }: { ingredientes: Ingredi
           <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase' as const, color: 'var(--sl-text-muted)', marginBottom: 10 }}>
             Conteo {fmtDate(fechaActiva)} — {conteosFecha.length} ingredientes
           </div>
-          <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
+          <Papel ceja={NAR} pad="0" style={{ overflow: 'hidden' }}>
             <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
               <thead>
@@ -394,7 +380,7 @@ function TabConteo({ ingredientes, conteos, onRefresh }: { ingredientes: Ingredi
               </tbody>
             </table>
             </div>
-          </div>
+          </Papel>
         </div>
       )}
 
@@ -519,9 +505,9 @@ function TabProduccion({ desde, hasta }: { desde: string; hasta: string }) {
       </div>
 
       {partidas.length === 0 ? (
-        <div style={{ ...S.card, color: 'var(--sl-text-muted)', textAlign: 'center', padding: 40 }}>
+        <Papel ceja={NAR} style={{ color: 'var(--sl-text-muted)', textAlign: 'center', padding: 40 }}>
           Sin partidas de producción activas. Gestiona las partidas desde el módulo Producción.
-        </div>
+        </Papel>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
@@ -691,11 +677,11 @@ function TabEntradas({ desde, hasta, ingredientes, onRefresh }: { desde: string;
       {loading ? (
         <div style={{ padding: 32, textAlign: 'center', color: 'var(--sl-text-muted)' }}>Cargando entradas…</div>
       ) : entradas.length === 0 ? (
-        <div style={{ ...S.card, color: 'var(--sl-text-muted)', textAlign: 'center', padding: 40 }}>
+        <Papel ceja={NAR} style={{ color: 'var(--sl-text-muted)', textAlign: 'center', padding: 40 }}>
           Sin entradas de materia prima registradas en este período.
-        </div>
+        </Papel>
       ) : (
-        <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
+        <Papel ceja={NAR} pad="0" style={{ overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
             <thead>
@@ -721,7 +707,7 @@ function TabEntradas({ desde, hasta, ingredientes, onRefresh }: { desde: string;
             </tbody>
           </table>
           </div>
-        </div>
+        </Papel>
       )}
 
       {/* Modal */}

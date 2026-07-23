@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { useTheme, FONT, tabActiveStyle, tabInactiveStyle, tabsContainerStyle, pageTitleStyle } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
+import TabsPastilla from '@/components/ui/TabsPastilla'
+import { HeroCantera, PantallaCantera } from '@/components/kit/cantera'
 import TabConteos from '@/components/inventario/TabConteos'
 import TabMovimientos from '@/components/inventario/TabMovimientos'
 import TabMermas from '@/components/inventario/TabMermas'
@@ -77,25 +79,30 @@ export function getPeriodoFechas(periodo: PeriodoInventario): { desde: string; h
 const CON_PERIODO: TabKey[] = ['conteos', 'movimientos', 'mermas']
 
 export default function Inventario() {
-  const { T, isDark } = useTheme()
+  const { T } = useTheme()
   const [tab, setTab] = useState<TabKey>('stockreal')
   const [periodo, setPeriodo] = useState<PeriodoInventario>('mes')
 
   const { desde, hasta } = getPeriodoFechas(periodo)
 
   return (
-    <div style={{ padding: '24px 28px', minHeight: '100vh', background: T.bg, fontFamily: FONT.body }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h1 style={pageTitleStyle(T)}>Compras & Inventario</h1>
+    <PantallaCantera embedded>
+      {/* HÉROE (azul · área Compras) */}
+      <HeroCantera
+        area="cashflow"
+        titular="Stock, compras y precios de proveedor, todo en el mismo sitio."
+        resumen={<>Estás en <b>{TABS.find(t => t.key === tab)?.label ?? ''}</b></>}
+      />
 
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
         {CON_PERIODO.includes(tab) && (
           <select
             value={periodo}
             onChange={e => setPeriodo(e.target.value as PeriodoInventario)}
             style={{
               padding: '7px 12px',
-              borderRadius: 8,
+              borderRadius: 0,
               border: `0.5px solid ${T.brd}`,
               background: T.inp,
               color: T.pri,
@@ -111,18 +118,9 @@ export default function Inventario() {
         )}
       </div>
 
-      {/* Tabs */}
-      <div style={{ ...tabsContainerStyle(), flexWrap: 'wrap' }}>
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            style={tab === t.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <TabsPastilla tabs={TABS.map(t => ({ id: t.key, label: t.label }))} activeId={tab} onChange={id => setTab(id as TabKey)} />
+
+      <div style={{ height: 16 }} />
 
       {/* Tab content */}
       {tab === 'stockreal'   && <TabStockReal />}
@@ -136,6 +134,6 @@ export default function Inventario() {
       {tab === 'movimientos' && <TabMovimientos  desde={desde} hasta={hasta} />}
       {tab === 'mermas'      && <TabMermas       desde={desde} hasta={hasta} />}
       {tab === 'foodcost'    && <TabAnalisisFoodCost />}
-    </div>
+    </PantallaCantera>
   )
 }

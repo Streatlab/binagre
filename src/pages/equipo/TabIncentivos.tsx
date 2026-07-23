@@ -1,8 +1,9 @@
-import { GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, LIMA, GRIS, BLANCO } from '@/styles/neobrutal'
+import { HeroCantera, Papel, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import { INCENTIVOS_PRINT as IP } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { Printer, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 
 type Config = {
   tramo1: number; tramo2: number; tramo3: number
@@ -41,7 +42,6 @@ function calc(cfg: Config, e: EmpRow, m: Medicion, fact: number) {
 }
 
 export default function TabIncentivos() {
-  const { T } = useTheme()
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth() + 1)
   const [anio, setAnio] = useState(now.getFullYear())
@@ -100,26 +100,26 @@ export default function TabIncentivos() {
     const r = calc(cfg, e, meds[e.empleado_id], fact)
     const w = window.open('', '_blank', 'width=760,height=900')
     if (!w) return
-    const row = (k: string, v: string) => `<tr><td style="padding:8px 4px;border-bottom:1px solid #eee">${k}</td><td style="padding:8px 4px;border-bottom:1px solid #eee;text-align:right;font-weight:600">${v}</td></tr>`
+    const row = (k: string, v: string) => `<tr><td style="padding:8px 4px;border-bottom:1px solid ${IP.borde}">${k}</td><td style="padding:8px 4px;border-bottom:1px solid ${IP.borde};text-align:right;font-weight:600">${v}</td></tr>`
     w.document.write(`<html><head><title>Incentivos ${e.nombre}</title></head>
-      <body style="font-family:Arial,sans-serif;max-width:640px;margin:32px auto;color:#111">
+      <body style="font-family:Arial,sans-serif;max-width:640px;margin:32px auto;color:${IP.texto}">
       <h1 style="font-size:22px;margin:0">Incentivos · ${e.nombre}</h1>
-      <div style="color:#666;margin-bottom:20px">${MESES[mes-1]} ${anio}</div>
-      <div style="background:#f6f6f6;padding:16px;border-radius:8px;margin-bottom:20px">
-        <div style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1px">Facturación cocina este mes</div>
+      <div style="color:${IP.mut};margin-bottom:20px">${MESES[mes-1]} ${anio}</div>
+      <div style="background:${IP.fondoSuave};padding:16px;border-radius:8px;margin-bottom:20px">
+        <div style="font-size:12px;color:${IP.mut};text-transform:uppercase;letter-spacing:1px">Facturación cocina este mes</div>
         <div style="font-size:28px;font-weight:700">${fact.toLocaleString('es-ES')} €</div>
-        <div style="font-size:13px;color:#666">Candado: ${cfg.tramo1.toLocaleString('es-ES')} abre · ${cfg.tramo2.toLocaleString('es-ES')} sube · ${cfg.tramo3.toLocaleString('es-ES')} completo — <b>Nivel ${r.nivel}</b></div>
+        <div style="font-size:13px;color:${IP.mut}">Candado: ${cfg.tramo1.toLocaleString('es-ES')} abre · ${cfg.tramo2.toLocaleString('es-ES')} sube · ${cfg.tramo3.toLocaleString('es-ES')} completo — <b>Nivel ${r.nivel}</b></div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:14px">
         ${row('Por facturación', EUR(r.impFact))}
         ${row('Global compartido (reembolsos, limpieza, mermas, incidencias)', EUR(r.impGlobal))}
         ${row('Personal (puntualidad, errores)', EUR(r.impPers))}
       </table>
-      <div style="display:flex;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:2px solid #111">
+      <div style="display:flex;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:2px solid ${IP.texto}">
         <div style="font-size:16px;font-weight:700">A COBRAR ESTE MES</div>
-        <div style="font-size:22px;font-weight:700;color:#B01D23">${EUR(r.total)}</div>
+        <div style="font-size:22px;font-weight:700;color:${IP.granate}">${EUR(r.total)}</div>
       </div>
-      <div style="color:#999;font-size:11px;margin-top:6px">Tope máximo ${EUR(cfg.tope_total)}. Si la cocina no llega a ${cfg.tramo1.toLocaleString('es-ES')} €, no se cobra ningún incentivo.</div>
+      <div style="color:${IP.pieMut};font-size:11px;margin-top:6px">Tope máximo ${EUR(cfg.tope_total)}. Si la cocina no llega a ${cfg.tramo1.toLocaleString('es-ES')} €, no se cobra ningún incentivo.</div>
       <script>window.print()</script></body></html>`)
     w.document.close()
   }
@@ -129,122 +129,131 @@ export default function TabIncentivos() {
     return fact >= cfg.tramo3 ? 3 : fact >= cfg.tramo2 ? 2 : fact >= cfg.tramo1 ? 1 : 0
   }, [cfg, fact])
 
-  if (loading || !cfg) return <div style={{ padding: 32, color: T.mut, fontFamily: FONT.body }}>Cargando incentivos…</div>
+  if (loading || !cfg) return <div style={{ padding: 32, color: GRIS, fontFamily: LEX }}>Cargando incentivos…</div>
 
   const pct = Math.min(100, (fact / cfg.tramo3) * 100)
   const marca = (v: number) => `${Math.min(100, (v / cfg.tramo3) * 100)}%`
   const candadoAbierto = nivelActual >= 1
 
-  const th: React.CSSProperties = { padding: '10px 12px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: T.mut, fontWeight: 400, textAlign: 'left', background: T.group }
-  const td: React.CSSProperties = { padding: '10px 12px', fontFamily: FONT.body, fontSize: 13, color: T.pri, borderBottom: `1px solid ${T.brd}` }
+  const th: React.CSSProperties = { padding: '10px 12px', fontFamily: OSW, fontSize: 11, textTransform: 'uppercase', letterSpacing: '1.5px', color: CREMA, fontWeight: 600, textAlign: 'left' }
+  const td: React.CSSProperties = { padding: '10px 12px', fontFamily: LEX, fontSize: 13, color: INK, borderBottom: `2px solid ${INK}` }
   const chk: React.CSSProperties = { width: 18, height: 18, cursor: 'pointer' }
-  const numInput: React.CSSProperties = { width: 52, padding: '6px 8px', borderRadius: 6, border: `1px solid ${T.brd}`, background: T.card, color: T.pri, fontFamily: FONT.body, fontSize: 13 }
+  const numInput: React.CSSProperties = { width: 52, padding: '6px 8px', border: `2px solid ${INK}`, borderRadius: 0, background: BLANCO, color: INK, fontFamily: OSW, fontSize: 13 }
+
+  const tituloHero = candadoAbierto
+    ? `Incentivos abiertos: nivel ${nivelActual} este mes.`
+    : 'El bote de incentivos sigue cerrado este mes.'
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
+    <PantallaCantera embedded>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <select value={mes} onChange={e => setMes(Number(e.target.value))} style={numInput as React.CSSProperties}>
           {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
         </select>
         <input type="number" value={anio} onChange={e => setAnio(Number(e.target.value))} style={{ ...numInput, width: 80 }} />
         <div style={{ flex: 1 }} />
         <button onClick={guardar} disabled={saving}
-          style={{ padding: '12px 16px', minHeight: 44, borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          style={{ padding: '9px 16px', border: `3px solid ${INK}`, boxShadow: SHADOW, background: GRANATE, color: BLANCO, fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <Save size={14} /> {saving ? 'Guardando…' : 'Guardar mes'}
         </button>
       </div>
 
+      {/* Héroe del área Equipo */}
+      <HeroCantera
+        area="equipo"
+        periodo={`${MESES[mes - 1]} ${anio}`}
+        titular={tituloHero}
+        etiquetaDato="Facturación cocina del mes"
+        cifra={`${fact.toLocaleString('es-ES')} €`}
+        resumen={!candadoAbierto
+          ? <>Falta <b>{(cfg.tramo1 - fact).toLocaleString('es-ES')} €</b> para abrir el bote. Sin esto, nadie cobra incentivo.</>
+          : undefined}
+        atencion={[
+          `Tramo 1: ${(cfg.tramo1 / 1000).toFixed(0)}k`,
+          `Tramo 2: ${(cfg.tramo2 / 1000).toFixed(0)}k`,
+          `Tramo 3: ${(cfg.tramo3 / 1000).toFixed(0)}k`,
+        ]}
+      />
+
       {/* Termómetro candado */}
-      <div style={{ ...cardStyle(T), marginBottom: 20 }}>
+      <Papel ceja={candadoAbierto ? VERDE : GRANATE}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 }}>
-          <div>
-            <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut }}>Facturación cocina · {MESES[mes - 1]} {anio}</div>
-            <div style={{ fontFamily: FONT.heading, fontSize: 34, fontWeight: 700, color: T.pri, lineHeight: 1.1 }}>{fact.toLocaleString('es-ES')} €</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut }}>Candado</div>
-            <div style={{ fontFamily: FONT.heading, fontSize: 20, fontWeight: 700, color: candadoAbierto ? VERDE : GRANATE }}>
-              {candadoAbierto ? `NIVEL ${nivelActual}` : 'CERRADO'}
-            </div>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Candado de facturación</div>
+          <div style={{ fontFamily: OSW, fontSize: 18, fontWeight: 700, color: candadoAbierto ? VERDE : GRANATE }}>
+            {candadoAbierto ? `NIVEL ${nivelActual}` : 'CERRADO'}
           </div>
         </div>
-        <div style={{ position: 'relative', height: 14, borderRadius: 8, background: T.group, overflow: 'hidden' }}>
+        <div style={{ position: 'relative', height: 14, border: `2px solid ${INK}`, background: CLARO, overflow: 'hidden' }}>
           <div style={{ width: `${pct}%`, height: '100%', background: candadoAbierto ? VERDE : GRANATE, transition: 'width .4s' }} />
         </div>
-        <div style={{ position: 'relative', height: 22, marginTop: 4, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
+        <div style={{ position: 'relative', height: 22, marginTop: 4, fontFamily: LEX, fontSize: 11, color: GRIS }}>
           {[cfg.tramo1, cfg.tramo2, cfg.tramo3].map((v, i) => (
             <div key={i} style={{ position: 'absolute', left: marca(v), transform: 'translateX(-50%)', textAlign: 'center' }}>
-              <span style={{ color: fact >= v ? VERDE : T.mut, fontWeight: 600 }}>{(v / 1000).toFixed(0)}k</span>
+              <span style={{ color: fact >= v ? VERDE : GRIS, fontWeight: 600 }}>{(v / 1000).toFixed(0)}k</span>
             </div>
           ))}
         </div>
-        {!candadoAbierto && (
-          <div style={{ marginTop: 8, fontFamily: FONT.body, fontSize: 12, color: GRANATE }}>
-            Falta{' '}{(cfg.tramo1 - fact).toLocaleString('es-ES')} € para abrir el bote. Sin esto, nadie cobra incentivo.
-          </div>
-        )}
-      </div>
+      </Papel>
 
       {/* Tabla empleados */}
-      <div style={{ ...cardStyle(T), padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={th}>Empleado</th>
-                <th style={th}>Tardes</th>
-                <th style={th}>Errores</th>
-                <th style={{ ...th, textAlign: 'center' }}>Reemb.</th>
-                <th style={{ ...th, textAlign: 'center' }}>Limpieza</th>
-                <th style={{ ...th, textAlign: 'center' }}>Mermas</th>
-                <th style={{ ...th, textAlign: 'center' }}>Incid.</th>
-                <th style={{ ...th, textAlign: 'right' }}>Total</th>
-                <th style={th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {emps.map(e => {
-                const m = meds[e.empleado_id]
-                const r = calc(cfg, e, m, fact)
-                return (
-                  <tr key={e.empleado_id}>
-                    <td style={td}>
-                      <div style={{ fontWeight: 600 }}>{e.nombre}</div>
-                      <div style={{ fontSize: 11, color: T.mut }}>
-                        Fact {EUR(r.impFact)} · Global {EUR(r.impGlobal)} · Pers {EUR(r.impPers)}
-                      </div>
-                    </td>
-                    <td style={td}>
-                      <input type="number" min={0} value={m.tardes} onChange={ev => upd(e.empleado_id, { tardes: Number(ev.target.value) })} style={numInput} />
-                      <span style={{ fontSize: 10, color: m.tardes <= r.perm ? VERDE : GRANATE, marginLeft: 4 }}>/{r.perm}</span>
-                    </td>
-                    <td style={td}>
-                      <input type="number" min={0} value={m.errores_personales} onChange={ev => upd(e.empleado_id, { errores_personales: Number(ev.target.value) })} style={numInput} />
-                    </td>
-                    <td style={{ ...td, textAlign: 'center' }}><input type="checkbox" checked={m.reembolsos_ok} onChange={ev => upd(e.empleado_id, { reembolsos_ok: ev.target.checked })} style={chk} /></td>
-                    <td style={{ ...td, textAlign: 'center' }}><input type="checkbox" checked={m.checklist_ok} onChange={ev => upd(e.empleado_id, { checklist_ok: ev.target.checked })} style={chk} /></td>
-                    <td style={{ ...td, textAlign: 'center' }}><input type="checkbox" checked={m.mermas_ok} onChange={ev => upd(e.empleado_id, { mermas_ok: ev.target.checked })} style={chk} /></td>
-                    <td style={{ ...td, textAlign: 'center' }}><input type="checkbox" checked={m.incidencias_ok} onChange={ev => upd(e.empleado_id, { incidencias_ok: ev.target.checked })} style={chk} /></td>
-                    <td style={{ ...td, textAlign: 'right' }}>
-                      <span style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, color: candadoAbierto ? T.pri : T.mut }}>{EUR(r.total)}</span>
-                    </td>
-                    <td style={{ ...td, textAlign: 'right' }}>
-                      <button onClick={() => imprimir(e)} title="Imprimir hoja"
-                        style={{ width: 32, height: 32, borderRadius: 6, border: `1px solid ${T.brd}`, background: T.card, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Printer size={15} color={T.sec} />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <SeccionLabel bg={GRANATE}>Incentivos por empleado</SeccionLabel>
+      <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: INK }}>
+              <th style={th}>Empleado</th>
+              <th style={th}>Tardes</th>
+              <th style={th}>Errores</th>
+              <th style={{ ...th, textAlign: 'center' }}>Reemb.</th>
+              <th style={{ ...th, textAlign: 'center' }}>Limpieza</th>
+              <th style={{ ...th, textAlign: 'center' }}>Mermas</th>
+              <th style={{ ...th, textAlign: 'center' }}>Incid.</th>
+              <th style={{ ...th, textAlign: 'right' }}>Total</th>
+              <th style={th}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {emps.map(e => {
+              const m = meds[e.empleado_id]
+              const r = calc(cfg, e, m, fact)
+              return (
+                <tr key={e.empleado_id}>
+                  <td style={td}>
+                    <div style={{ fontFamily: OSW, fontWeight: 600 }}>{e.nombre}</div>
+                    <div style={{ fontSize: 11, color: GRIS }}>
+                      Fact {EUR(r.impFact)} · Global {EUR(r.impGlobal)} · Pers {EUR(r.impPers)}
+                    </div>
+                  </td>
+                  <td style={td}>
+                    <input type="number" min={0} value={m.tardes} onChange={ev => upd(e.empleado_id, { tardes: Number(ev.target.value) })} style={numInput} />
+                    <span style={{ fontSize: 10, color: m.tardes <= r.perm ? VERDE : GRANATE, marginLeft: 4 }}>/{r.perm}</span>
+                  </td>
+                  <td style={td}>
+                    <input type="number" min={0} value={m.errores_personales} onChange={ev => upd(e.empleado_id, { errores_personales: Number(ev.target.value) })} style={numInput} />
+                  </td>
+                  <td style={{ ...td, textAlign: 'center' }}><input type="checkbox" checked={m.reembolsos_ok} onChange={ev => upd(e.empleado_id, { reembolsos_ok: ev.target.checked })} style={chk} /></td>
+                  <td style={{ ...td, textAlign: 'center' }}><input type="checkbox" checked={m.checklist_ok} onChange={ev => upd(e.empleado_id, { checklist_ok: ev.target.checked })} style={chk} /></td>
+                  <td style={{ ...td, textAlign: 'center' }}><input type="checkbox" checked={m.mermas_ok} onChange={ev => upd(e.empleado_id, { mermas_ok: ev.target.checked })} style={chk} /></td>
+                  <td style={{ ...td, textAlign: 'center' }}><input type="checkbox" checked={m.incidencias_ok} onChange={ev => upd(e.empleado_id, { incidencias_ok: ev.target.checked })} style={chk} /></td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    <span style={{ fontFamily: OSW, fontSize: 18, fontWeight: 700, color: candadoAbierto ? INK : GRIS }}>{EUR(r.total)}</span>
+                  </td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    <button onClick={() => imprimir(e)} title="Imprimir hoja"
+                      style={{ width: 30, height: 30, border: `2px solid ${INK}`, background: BLANCO, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Printer size={15} color={GRIS} />
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </Papel>
 
-      <div style={{ marginTop: 12, fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
+      <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS }}>
         Tope {EUR(cfg.tope_total)} por persona. Bolsas: facturación {EUR(cfg.fact_n3)} máx · global {EUR(cfg.glob_reembolsos + cfg.glob_checklist + cfg.glob_mermas + cfg.glob_incidencias)} · personal {EUR(cfg.pers_puntualidad + cfg.pers_errores)}.
       </div>
-    </div>
+    </PantallaCantera>
   )
 }

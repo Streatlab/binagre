@@ -1,4 +1,5 @@
-import { BLANCO, GRANATE, GRIS } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS } from '@/styles/neobrutal'
+import { PANEL_SIDEBAR_BG, OCR_BEIGE } from '@/styles/palettes'
 // VentasPlatosFranjas — módulo de aprendizaje de ventas: qué platos se venden y
 // en qué franjas horarias, por marca y plataforma. Lee las vistas de agregación
 // v_ventas_plato y v_ventas_franja (que resumen pedidos_plataforma).
@@ -24,8 +25,8 @@ const PLATAFORMAS: { id: string; label: string }[] = [
 ]
 
 const ROJO = GRANATE
-const NAVY = '#1e2233'
-const BEIGE = '#edecea'
+const NAVY = PANEL_SIDEBAR_BG
+const BEIGE = OCR_BEIGE
 
 export default function VentasPlatosFranjas({ fechaDesde, fechaHasta }: Props) {
   const [sub, setSub] = useState<'platos' | 'franjas'>('platos')
@@ -95,11 +96,11 @@ export default function VentasPlatosFranjas({ fechaDesde, fechaHasta }: Props) {
   const maxPedidos = Math.max(1, ...porHora.map(x => x.pedidos))
   const hayDatos = platos.length > 0 || franjas.length > 0
 
-  const selStyle: React.CSSProperties = { padding: '8px 12px', borderRadius: 10, border: '0.5px solid #d0c8bc', background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: NAVY, cursor: 'pointer' }
+  const selStyle: React.CSSProperties = { padding: '8px 12px', borderRadius: 0, border: `0.5px solid ${BORDE_SUAVE}`, background: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, color: NAVY, cursor: 'pointer' }
   const tabStyle = (active: boolean): React.CSSProperties => ({ padding: '8px 16px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600, background: active ? ROJO : BEIGE, color: active ? BLANCO : NAVY })
 
   return (
-    <div style={{ marginTop: 16, background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, padding: '16px 18px' }}>
+    <div style={{ marginTop: 16, background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 0, padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: ROJO, marginRight: 'auto' }}>Qué se vende y cuándo</div>
         <button onClick={() => setSub('platos')} style={tabStyle(sub === 'platos')}>Platos</button>
@@ -119,7 +120,7 @@ export default function VentasPlatosFranjas({ fechaDesde, fechaHasta }: Props) {
       {cargando ? (
         <div style={{ padding: '28px 0', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS }}>Cargando…</div>
       ) : !hayDatos ? (
-        <div style={{ padding: '28px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS, background: BEIGE, borderRadius: 10 }}>
+        <div style={{ padding: '28px 16px', textAlign: 'center', fontFamily: 'Lexend, sans-serif', fontSize: 13, color: GRIS, background: BEIGE, borderRadius: 0 }}>
           Aún no hay datos de platos. En cuanto entren documentos de plataforma por Bandeja de entrada, este módulo aprenderá qué se vende y en qué franjas.
         </div>
       ) : sub === 'platos' ? (
@@ -132,8 +133,8 @@ export default function VentasPlatosFranjas({ fechaDesde, fechaHasta }: Props) {
                   <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.plato}</span>
                   <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, color: NAVY, fontWeight: 600, whiteSpace: 'nowrap' }}>{p.unidades} <span style={{ color: GRIS, fontWeight: 400, fontSize: 11 }}>· {fmtEur(p.importe)}</span></span>
                 </div>
-                <div style={{ height: 7, background: BEIGE, borderRadius: 99 }}>
-                  <div style={{ height: 7, width: `${Math.max(3, (p.unidades / maxUnidades) * 100)}%`, background: ROJO, borderRadius: 99 }} />
+                <div style={{ height: 7, background: BEIGE, borderRadius: 0 }}>
+                  <div style={{ height: 7, width: `${Math.max(3, (p.unidades / maxUnidades) * 100)}%`, background: ROJO, borderRadius: 0 }} />
                 </div>
               </div>
             </div>

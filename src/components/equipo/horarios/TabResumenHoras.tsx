@@ -110,13 +110,13 @@ export default function TabResumenHoras() {
                     </td>
                     <td style={{ ...td, fontFamily: FONT.heading, fontSize: 15, fontWeight: 600 }}>{fmtHoras(f.horas)} h</td>
                     <td style={td}>
-                      <div style={{ height: 8, borderRadius: 4, background: T.brd, overflow: 'hidden' }}>
-                        <div style={{ height: 8, width: `${Math.min(f.pct, 100)}%`, background: color, borderRadius: 4, transition: 'width .4s ease' }} />
+                      <div style={{ height: 8, borderRadius: 0, background: T.brd, overflow: 'hidden' }}>
+                        <div style={{ height: 8, width: `${Math.min(f.pct, 100)}%`, background: color, borderRadius: 0, transition: 'width .4s ease' }} />
                       </div>
                       <span style={{ fontSize: 11, color: T.mut, fontFamily: FONT.body }}>{Math.round(f.pct)}%</span>
                     </td>
                     <td style={{ ...td, textAlign: 'right' }}>
-                      <span style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: 4, fontSize: 10, letterSpacing: '1px', fontWeight: 600, textTransform: 'uppercase', fontFamily: FONT.heading, background: color + '25', color }}>
+                      <span style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: 0, fontSize: 10, letterSpacing: '1px', fontWeight: 600, textTransform: 'uppercase', fontFamily: FONT.heading, background: color + '25', color }}>
                         {f.estadoOrden === 2 ? 'Horas extra' : f.estadoOrden === 1 ? 'Al límite' : 'OK'}
                       </span>
                     </td>

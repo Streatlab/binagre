@@ -8,14 +8,17 @@
  *   · sugerido → se parece mucho a un plato de Uber. Hay que confirmarlo.
  *   · manual   → lo has decidido tú.
  *
- * Estilo: Ley Visual SL v2.
+ * Estilo: Neobrutal (@/styles/neobrutal).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  C, Card, CardHead, Hero, HeroPill, Kpi, KpiGrid, Pill, Nota, Vacio, Atencion,
-  eur0, num0, pct1,
-} from '@/components/panel/sl/uiSL'
+  OSW, LEX, INK, CREMA, GRIS, GRANATE, VERDE, AMA, AZUL, BLANCO,
+  VERDE_S, AMA_S, ROSA_S, AZUL_S,
+  SHADOW_MINI, d, pill,
+} from '@/styles/neobrutal'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import { PantallaCantera, HeroCantera, Papel, Plancha, PlanchaCelda } from '@/components/kit/cantera'
 
 interface Fila {
   id: number
@@ -34,6 +37,24 @@ const FILTROS: Array<{ id: Filtro; label: string }> = [
   { id: 'sugerido', label: 'Sugeridos por confirmar' },
   { id: 'listo', label: 'Ya asignados' },
 ]
+
+const nf0 = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping: true })
+const eur0 = (n: number) => `${nf0(n)} €`
+const pct1 = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+
+function Vacio({ children }: { children: React.ReactNode }) {
+  return <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13, fontWeight: 600 }}>{children}</div>
+}
+
+function Nota({ tono = 'verde', children }: { tono?: 'verde' | 'rojo' | 'ambar' | 'blu'; children: React.ReactNode }) {
+  const map = { verde: VERDE_S, rojo: ROSA_S, ambar: AMA_S, blu: AZUL_S } as const
+  const borde = { verde: VERDE, rojo: GRANATE, ambar: AMA, blu: AZUL } as const
+  return (
+    <div style={{ marginTop: 14, padding: '11px 14px', background: map[tono], border: `2px solid ${borde[tono]}`, fontFamily: LEX, fontSize: 12.5, fontWeight: 600, color: INK, lineHeight: 1.5 }}>
+      {children}
+    </div>
+  )
+}
 
 export default function MapeoMarcas() {
   const [filas, setFilas] = useState<Fila[]>([])
@@ -120,139 +141,157 @@ export default function MapeoMarcas() {
   }), [filas, filtro])
 
   if (cargando) {
-    return <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}><Card><Vacio>Cargando el diccionario de platos…</Vacio></Card></div>
+    return (
+      <PantallaCantera>
+        <Papel ceja={GRIS}><Vacio>Cargando el diccionario de platos…</Vacio></Papel>
+      </PantallaCantera>
+    )
   }
 
-  return (
-    <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.4px' }}>Mapeo de marcas</div>
-        <div style={{ fontSize: 12, color: C.grisCl, fontWeight: 700, marginTop: 2 }}>
-          A1 · Glovo y Just Eat entran sin marca. Aquí se les pone.
-        </div>
-      </div>
+  const titular = pctVisible >= 99 ? 'Ya ves toda tu facturación por marca' : 'Todavía hay facturación que no sabes de qué marca es'
+  const atencion = [
+    `${nf0(stats.listo)} platos resueltos`,
+    `${nf0(stats.pendiente + stats.sugerido)} por revisar`,
+  ]
 
-      <Hero
-        eyebrow="VENTA CON MARCA CONOCIDA"
-        titular={pctVisible >= 99 ? 'Ya ves toda tu facturación por marca' : 'Todavía hay facturación que no sabes de qué marca es'}
-        valor={pct1(pctVisible)}
-        sub={`${eur0(visible.conMarca)} identificados · ${eur0(visible.ciego)} todavía ciegos`}
-        objetivo={{ pct: pctVisible, label: 'VISIBLE' }}
-        right={
-          <>
-            <HeroPill solid>{num0(stats.listo)} platos resueltos</HeroPill>
-            <HeroPill>{num0(stats.pendiente + stats.sugerido)} por revisar</HeroPill>
-          </>
-        }
+  return (
+    <PantallaCantera>
+      <RutaPantalla niveles={['Ajustes', 'Mapeo de Marcas']} subtitulo="A1 · Glovo y Just Eat entran sin marca. Aquí se les pone." />
+
+      {/* Héroe: venta con marca conocida (área Papeleo · granate) */}
+      <HeroCantera
+        area="papeleo"
+        titular={titular}
+        etiquetaDato="Venta con marca conocida"
+        cifra={pct1(pctVisible)}
+        resumen={<>{eur0(visible.conMarca)} identificados · {eur0(visible.ciego)} todavía ciegos</>}
+        atencion={atencion}
       />
 
       {stats.sugerido > 0 && (
-        <Atencion
-          tono="ambar"
-          cifra={eur0(stats.eSug)}
-          accion={guardando === 'todas' ? 'Aplicando…' : `Confirmar las ${stats.sugerido}`}
-          onAccion={confirmarSugerencias}
-        >
-          <b>{stats.sugerido} platos con marca sugerida automáticamente.</b> Se parecen mucho a un plato de Uber que sí tiene marca.
-          Repásalos y confírmalos: no toco la venta con una suposición sin que tú lo digas.
-        </Atencion>
+        <Papel ceja={AMA} style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <span style={{ ...d('19px', AMA), whiteSpace: 'nowrap' }}>{eur0(stats.eSug)}</span>
+          <span style={{ flex: 1, fontFamily: LEX, fontSize: 13, fontWeight: 600, color: INK, minWidth: 220 }}>
+            <b>{stats.sugerido} platos con marca sugerida automáticamente.</b> Se parecen mucho a un plato de Uber que sí tiene marca.
+            Repásalos y confírmalos: no toco la venta con una suposición sin que tú lo digas.
+          </span>
+          <button
+            onClick={confirmarSugerencias}
+            disabled={guardando === 'todas'}
+            style={{ background: AMA, color: INK, border: `2px solid ${INK}`, boxShadow: SHADOW_MINI, padding: '8px 14px', fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >{guardando === 'todas' ? 'Aplicando…' : `Confirmar las ${stats.sugerido}`}</button>
+        </Papel>
       )}
 
       {aviso && <Nota tono="verde">{aviso}</Nota>}
 
-      <KpiGrid>
-        <Kpi icono="✓" tono="verde" label="Resueltos" valor={num0(stats.listo)}
-          pie={<Pill tone="verde" dot>{eur0(stats.eListo)} recuperados</Pill>} />
-        <Kpi icono="?" tono="ambar" label="Sugeridos sin confirmar" valor={num0(stats.sugerido)}
-          pie={<Pill tone="ambar" dot>{eur0(stats.eSug)} en juego</Pill>} />
-        <Kpi icono="✕" tono="rojo" label="Sin asignar" valor={num0(stats.pendiente)}
-          pie={<Pill tone="rojo" dot>{eur0(stats.ePend)} ciegos</Pill>} />
-        <Kpi icono="◈" tono={pctResuelto >= 90 ? 'verde' : 'blu'} label="Avance del mapeo" valor={pct1(pctResuelto)}
-          pie={<Pill tone="blu" dot>sobre {eur0(totalCiego)} de venta ciega</Pill>} />
-      </KpiGrid>
+      <Plancha>
+        <PlanchaCelda bg={VERDE_S} color={INK} first>
+          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Resueltos</div>
+          <div style={{ ...d('26px', VERDE), margin: '6px 0' }}>{nf0(stats.listo)}</div>
+          <span style={pill(VERDE_S, VERDE)}>{eur0(stats.eListo)} recuperados</span>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AMA_S} color={INK}>
+          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Sugeridos sin confirmar</div>
+          <div style={{ ...d('26px', AMA), margin: '6px 0' }}>{nf0(stats.sugerido)}</div>
+          <span style={pill(AMA_S, AMA)}>{eur0(stats.eSug)} en juego</span>
+        </PlanchaCelda>
+        <PlanchaCelda bg={ROSA_S} color={INK}>
+          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Sin asignar</div>
+          <div style={{ ...d('26px', GRANATE), margin: '6px 0' }}>{nf0(stats.pendiente)}</div>
+          <span style={pill(ROSA_S, GRANATE)}>{eur0(stats.ePend)} ciegos</span>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AZUL_S} color={INK}>
+          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Avance del mapeo</div>
+          <div style={{ ...d('26px', AZUL), margin: '6px 0' }}>{pct1(pctResuelto)}</div>
+          <span style={pill(AZUL_S, AZUL)}>sobre {eur0(totalCiego)} de venta ciega</span>
+        </PlanchaCelda>
+      </Plancha>
 
-      <Card>
-        <CardHead
-          title="Platos de Glovo y Just Eat"
-          sub="Ordenados por euros: arriba lo que más pesa. Empieza por ahí."
-          right={
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {FILTROS.map(f => {
-                const on = f.id === filtro
-                return (
-                  <button key={f.id} onClick={() => setFiltro(f.id)}
-                    style={{
-                      padding: '6px 12px', borderRadius: 999, cursor: 'pointer',
-                      border: `1px solid ${on ? C.rojo : C.line}`,
-                      background: on ? C.rojoSoft : C.card,
-                      color: on ? C.rojoSem : C.gris,
-                      fontFamily: "'Nunito', sans-serif", fontSize: 11.5, fontWeight: 900,
-                    }}>{f.label}</button>
-                )
-              })}
-            </div>
-          }
-        />
-
-        {lista.length === 0 ? (
-          <Vacio>Nada en esta lista. Buena señal.</Vacio>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Plato</th>
-                  <th className="r">Facturación ciega</th>
-                  <th>Origen</th>
-                  <th>Marca</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lista.slice(0, 120).map(f => (
-                  <tr key={f.id}>
-                    <td style={{ maxWidth: 340 }}>
-                      {f.plato_muestra ?? f.plato_norm}
-                    </td>
-                    <td className="r slnum">{eur0(Number(f.euros) || 0)}</td>
-                    <td>
-                      {f.origen === 'exacto'   && <Pill tone="verde" dot>Igual que en Uber</Pill>}
-                      {f.origen === 'manual'   && <Pill tone="blu" dot>Lo dijiste tú</Pill>}
-                      {f.origen === 'sugerido' && <Pill tone="ambar" dot>Se parece · {Math.round((f.confianza ?? 0) * 100)}%</Pill>}
-                      {f.origen === 'pendiente' && <Pill tone="rojo" dot>Sin asignar</Pill>}
-                    </td>
-                    <td>
-                      <select
-                        value={f.marca ?? ''}
-                        disabled={guardando === f.plato_norm}
-                        onChange={e => asignar(f, e.target.value)}
-                        style={{
-                          padding: '7px 10px', borderRadius: 999, minWidth: 210,
-                          border: `1px solid ${f.marca ? C.line : C.rojoSem}`,
-                          background: C.card, color: f.marca ? C.ink : C.rojoSem,
-                          fontFamily: "'Nunito', sans-serif", fontSize: 12, fontWeight: 800,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="">— Elegir marca —</option>
-                        {marcas.map(m => <option key={m} value={m}>{m}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {lista.length > 120 && (
-              <Nota tono="blu">
-                Se muestran los 120 que más pesan de {num0(lista.length)}. Según los vayas cerrando aparecen los siguientes.
-              </Nota>
-            )}
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
+        <div style={{ background: GRANATE, color: BLANCO, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>Platos de Glovo y Just Eat</div>
+            <div style={{ fontFamily: LEX, fontSize: 11, opacity: 0.85, marginTop: 2 }}>Ordenados por euros: arriba lo que más pesa. Empieza por ahí.</div>
           </div>
-        )}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {FILTROS.map(f => {
+              const on = f.id === filtro
+              return (
+                <button key={f.id} onClick={() => setFiltro(f.id)}
+                  style={{
+                    padding: '6px 12px', cursor: 'pointer',
+                    background: on ? BLANCO : 'transparent',
+                    color: on ? GRANATE : BLANCO,
+                    border: `2px solid ${BLANCO}`,
+                    fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',
+                  }}>{f.label}</button>
+              )
+            })}
+          </div>
+        </div>
 
-        <Nota tono="verde">
-          Cada plato que asignas se aplica al momento a toda la venta histórica de ese plato. No hay que reimportar nada.
-        </Nota>
-      </Card>
-    </div>
+        <div style={{ padding: '14px 16px' }}>
+          {lista.length === 0 ? (
+            <Vacio>Nada en esta lista. Buena señal.</Vacio>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: INK }}>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'left' }}>Plato</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'right' }}>Facturación ciega</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'left' }}>Origen</th>
+                    <th style={{ padding: '9px 12px', fontFamily: OSW, fontSize: 10.5, letterSpacing: '1.2px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, textAlign: 'left' }}>Marca</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lista.slice(0, 120).map(f => (
+                    <tr key={f.id}>
+                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, maxWidth: 340 }}>
+                        {f.plato_muestra ?? f.plato_norm}
+                      </td>
+                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}`, textAlign: 'right' }}>{eur0(Number(f.euros) || 0)}</td>
+                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}` }}>
+                        {f.origen === 'exacto'    && <span style={pill(VERDE_S, VERDE)}>Igual que en Uber</span>}
+                        {f.origen === 'manual'    && <span style={pill(AZUL_S, AZUL)}>Lo dijiste tú</span>}
+                        {f.origen === 'sugerido'  && <span style={pill(AMA_S, AMA)}>Se parece · {Math.round((f.confianza ?? 0) * 100)}%</span>}
+                        {f.origen === 'pendiente' && <span style={pill(ROSA_S, GRANATE)}>Sin asignar</span>}
+                      </td>
+                      <td style={{ padding: '9px 12px', fontFamily: LEX, fontSize: 13, borderBottom: `2px solid ${INK}` }}>
+                        <select
+                          value={f.marca ?? ''}
+                          disabled={guardando === f.plato_norm}
+                          onChange={e => asignar(f, e.target.value)}
+                          style={{
+                            padding: '6px 10px', minWidth: 210,
+                            border: `2px solid ${f.marca ? INK : GRANATE}`,
+                            background: BLANCO, color: f.marca ? INK : GRANATE,
+                            fontFamily: LEX, fontSize: 13, fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <option value="">— Elegir marca —</option>
+                          {marcas.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {lista.length > 120 && (
+                <Nota tono="blu">
+                  Se muestran los 120 que más pesan de {nf0(lista.length)}. Según los vayas cerrando aparecen los siguientes.
+                </Nota>
+              )}
+            </div>
+          )}
+
+          <Nota tono="verde">
+            Cada plato que asignas se aplica al momento a toda la venta histórica de ese plato. No hay que reimportar nada.
+          </Nota>
+        </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

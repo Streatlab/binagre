@@ -1,9 +1,11 @@
 import { AZUL_CL, GRANATE, LIMA, ROJO, VERDE } from '@/styles/neobrutal'
-import { useEffect, useState } from 'react'
+import { EMP_CALENDARIO_EXTRA, PERMISO_RETRIBUIDO, FESTIVO_CALENDARIO_TXT, SIN_DATO_GRIS, CALENDARIO_FESTIVO_BG } from '@/styles/palettes'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { FESTIVOS_MADRID, esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
+import { HeroCantera, Papel, FrasePotente, PantallaCantera } from '@/components/kit/cantera'
 
 interface Empleado { id: string; nombre: string }
 interface EventoLaboral {
@@ -15,8 +17,8 @@ interface EventoLaboral {
 }
 
 // Colores por empleado (top 5 + fallback)
-// Colores empleados en calendario — paleta distinta de tokens David/Marino (#16355C, #F26B1F prohibidos)
-const EMP_COLORS = [GRANATE, '#1E88CC', VERDE, '#9b59b6', '#e67e22', '#27ae60']
+// Colores empleados en calendario — paleta distinta de los tokens Marino+Fuego de David (prohibidos aquí)
+const EMP_COLORS = [GRANATE, EMP_CALENDARIO_EXTRA[0], VERDE, EMP_CALENDARIO_EXTRA[1], EMP_CALENDARIO_EXTRA[2], EMP_CALENDARIO_EXTRA[3]]
 
 const TIPO_LABELS: Record<string, string> = {
   festivo: 'Festivo',
@@ -31,7 +33,7 @@ const TIPO_COLORES: Record<string, string> = {
   vacaciones: '', // color por empleado
   baja_medica: ROJO,
   asuntos_propios: AZUL_CL,
-  permiso_retribuido: '#9b59b6',
+  permiso_retribuido: PERMISO_RETRIBUIDO,
 }
 
 function isoDate(y: number, m: number, d: number): string {
@@ -87,24 +89,44 @@ export default function TabCalendarioLaboral() {
 
   const empColor = (empId: string) => {
     const idx = empleados.findIndex(e => e.id === empId)
-    return EMP_COLORS[idx % EMP_COLORS.length] ?? '#888'
+    return EMP_COLORS[idx % EMP_COLORS.length] ?? SIN_DATO_GRIS
   }
 
   const weekDays = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
+  const ausenciasDelMes = useMemo(() => eventos.filter(e => e.tipo !== 'festivo').length, [eventos])
+
   return (
-    <div>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={ausenciasDelMes > 0
+          ? `${monthName}: ${ausenciasDelMes} ausencia${ausenciasDelMes !== 1 ? 's' : ''} registrada${ausenciasDelMes !== 1 ? 's' : ''}`
+          : `${monthName}: sin ausencias registradas`}
+        etiquetaDato="Ausencias del mes"
+        cifra={String(ausenciasDelMes)}
+        resumen={<>{empleados.length} persona{empleados.length !== 1 ? 's' : ''} en el calendario laboral.</>}
+        atencion={[`${ausenciasDelMes} ausencias`, `${empleados.length} personas`]}
+      />
+
+      {ausenciasDelMes > 0 ? (
+        <FrasePotente significado="oportunidad">Hay {ausenciasDelMes} ausencia{ausenciasDelMes !== 1 ? 's' : ''} este mes: revisa la cobertura de turnos antes de que falte gente.</FrasePotente>
+      ) : (
+        <FrasePotente significado="logro">Equipo al completo este mes: ninguna ausencia registrada.</FrasePotente>
+      )}
+
+      <Papel ceja={GRANATE}>
       {/* Header navegación */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
         <button onClick={() => { if (month === 0) { setYear(y => y - 1); setMonth(11) } else setMonth(m => m - 1) }}
-          style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', color: T.pri, display: 'flex', alignItems: 'center' }}>
+          style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, padding: '6px 10px', cursor: 'pointer', color: T.pri, display: 'flex', alignItems: 'center' }}>
           <ChevronLeft size={16} />
         </button>
         <span style={{ fontFamily: FONT.heading, fontSize: 16, letterSpacing: '2px', textTransform: 'uppercase', color: T.pri, minWidth: 200, textAlign: 'center' }}>
           {monthName}
         </span>
         <button onClick={() => { if (month === 11) { setYear(y => y + 1); setMonth(0) } else setMonth(m => m + 1) }}
-          style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', color: T.pri, display: 'flex', alignItems: 'center' }}>
+          style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, padding: '6px 10px', cursor: 'pointer', color: T.pri, display: 'flex', alignItems: 'center' }}>
           <ChevronRight size={16} />
         </button>
       </div>
@@ -118,11 +140,11 @@ export default function TabCalendarioLaboral() {
           </div>
         ))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontFamily: FONT.body, color: T.sec }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: LIMA }} />
+          <div style={{ width: 10, height: 10, borderRadius: 0, background: LIMA }} />
           Festivo
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontFamily: FONT.body, color: T.sec }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: ROJO }} />
+          <div style={{ width: 10, height: 10, borderRadius: 0, background: ROJO }} />
           Baja médica
         </div>
       </div>
@@ -149,21 +171,21 @@ export default function TabCalendarioLaboral() {
               onClick={e => { e.stopPropagation(); setDropdown(d => d?.fecha === fecha ? null : { fecha, x: e.clientX, y: e.clientY }) }}
               title={festNombre ?? undefined}
               style={{
-                minHeight: 64, borderRadius: 6, border: `1px solid ${isToday ? GRANATE : T.brd}`,
-                background: esFest ? '#e8f44215' : T.card,
+                minHeight: 64, borderRadius: 0, border: `1px solid ${isToday ? GRANATE : T.brd}`,
+                background: esFest ? CALENDARIO_FESTIVO_BG : T.card,
                 cursor: 'pointer', padding: 4, position: 'relative',
-                boxShadow: isToday ? `0 0 0 2px #B01D23` : 'none',
+                boxShadow: isToday ? `0 0 0 2px ${GRANATE}` : 'none',
               }}
             >
               <div style={{
                 fontFamily: FONT.heading, fontSize: 12, fontWeight: isToday ? 700 : 400,
-                color: esFest ? '#9a9a1e' : isToday ? GRANATE : T.sec,
+                color: esFest ? FESTIVO_CALENDARIO_TXT : isToday ? GRANATE : T.sec,
                 marginBottom: 3,
               }}>
                 {day}
               </div>
               {festNombre && (
-                <div style={{ fontSize: 8, color: '#9a9a1e', fontFamily: FONT.body, lineHeight: 1.2, marginBottom: 2, fontWeight: 600 }}>
+                <div style={{ fontSize: 8, color: FESTIVO_CALENDARIO_TXT, fontFamily: FONT.body, lineHeight: 1.2, marginBottom: 2, fontWeight: 600 }}>
                   {festNombre}
                 </div>
               )}
@@ -177,7 +199,7 @@ export default function TabCalendarioLaboral() {
                       background: ev.tipo === 'festivo' ? LIMA
                         : ev.tipo === 'baja_medica' ? ROJO
                         : ev.tipo === 'asuntos_propios' ? AZUL_CL
-                        : ev.tipo === 'permiso_retribuido' ? '#9b59b6'
+                        : ev.tipo === 'permiso_retribuido' ? PERMISO_RETRIBUIDO
                         : empColor(ev.empleado_id ?? ''),
                     }}
                   />
@@ -194,7 +216,7 @@ export default function TabCalendarioLaboral() {
           <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setDropdown(null)} />
           <div style={{
             position: 'fixed', left: Math.min(dropdown.x, window.innerWidth - 220), top: dropdown.y + 8,
-            background: T.card, border: `1px solid ${T.brd}`, borderRadius: 8, zIndex: 100,
+            background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, zIndex: 100,
             minWidth: 200, padding: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
           }}>
             <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, padding: '4px 8px 8px' }}>
@@ -202,7 +224,7 @@ export default function TabCalendarioLaboral() {
             </div>
             <button
               onClick={() => addEvento(dropdown.fecha, 'festivo')}
-              style={{ display: 'block', width: '100%', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, fontSize: 13, color: '#9a9a1e' }}
+              style={{ display: 'block', width: '100%', padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: FONT.body, fontSize: 13, color: FESTIVO_CALENDARIO_TXT }}
             >
               Marcar festivo
             </button>
@@ -223,6 +245,7 @@ export default function TabCalendarioLaboral() {
           </div>
         </>
       )}
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

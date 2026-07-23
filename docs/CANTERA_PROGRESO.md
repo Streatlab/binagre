@@ -1,0 +1,274 @@
+# CANTERA ALEGRE v1.0 · Progreso 100% ERP
+
+Autoloop de aplicación del sistema visual Cantera Alegre a TODO el ERP. Fuente de
+ley: prompt AUTOLOOP + referencia validada `src/pages/PanelGlobal.tsx` /
+`src/components/panel/resumen/ResumenLanding.tsx`. Componentes canónicos:
+`ui/RutaPantalla`, `ui/TabsPastilla`, `ui/SubTabs`, `kit/HeroTocho`, `kit/FraseHero`,
+tokens `styles/neobrutal.ts` + `styles/kit.ts`.
+
+## FASE 2 · CUERPO REAL (re-auditoría honesta 23-jul)
+La tanda anterior solo logró **gate de color verde** + cabecera v4 en algunos padres.
+Eso NO es Cantera Alegre. Se resetea a `[ ]` toda pantalla que no cumpla LOS 6
+CRITERIOS. El `[x]` solo se pone cuando una pantalla cumple los 6:
+
+1. **Cabecera v4**: `RutaPantalla` (Módulo ▸ Pestaña ▸ Subpestaña) + `TabsPastilla`/
+   `SubTabs` + filtros planos. Fuera `eyebrow + h1 granate + subtítulo gris`.
+2. **Héroe del área** con su color (Resumen amarillo · Cashflow/Tesorería azul ·
+   Facturación/Ventas verde · Papeleo granate · Cocina/Ops naranja · Marcas/Marketing
+   rosa · Equipo tinta · EEFF/Objetivos amarillo). Anatomía: claim + pastilla periodo +
+   titular frase natural (no dato suelto) + etiqueta + cifra gigante € + chip variación +
+   resumen + tira de atención blanca pegada (máx 4 chips).
+3. **UNA frase potente** tras la plancha, color por SIGNIFICADO (rojo peligro · granate
+   coste · rosa oportunidad · verde logro), distinta del color del héroe.
+4. **Superficies**: plancha = tarjetas sólidas PEGADAS con borde 3px (no grid con gap) ·
+   resto = papel blanco, ceja 7px color de familia, gap 16px, sin sombra. Radio 0.
+   Columna, ancho máx 1360.
+5. **Sombra dura** 3px 3px 0 tinta SOLO en lo pulsable + resumen/neto del héroe. Fuera
+   `boxShadow: SHADOW` de tarjetas/tablas informativas.
+6. **Cifras/tipografía por ley**: € solo en cifra gigante y totales · es-ES · 2 dec
+   <1.000 y 0 desde 1.000 · variación triángulo+signo+color · "—" si falta · numérico a
+   la derecha · Oswald titulares/cifras + Lexend texto.
+
+Se mantiene lo logrado: 0 hex fuera de los 12 tokens + colores de canal.
+Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
+(`HeroCantera`, `Papel`, `Plancha`, `PlanchaCelda`, `FrasePotente`) + `ui/RutaPantalla`
+/`TabsPastilla`/`SubTabs`. Solo capa visual: nada de queries, cálculos, props, lógica.
+
+## INVENTARIO
+
+### Portada / Panel
+- [x] Panel Global · Resumen (REFERENCIA validada · cumple los 6 criterios)
+- [x] Panel Global · Operaciones/Finanzas/Cashflow/Evolución/Marcas (tabs del panel)
+- [x] Home (Hoy) — portada
+- [x] Panel Dirección
+
+### Finanzas
+- [x] Papeleo · Bandeja entrada
+- [x] Papeleo · Facturas (OCR)
+- [x] Papeleo · Conciliación
+- [x] Papeleo · Gestor documental (GestionFacturas)
+- [x] Papeleo · Facturación
+- [x] Papeleo · Gestoría
+- [x] Ventas · Ventas
+- [x] Ventas · Objetivos (reparado: TabsPastilla + tokens fijos, sin tocar tokens.ts)
+- [x] Ventas · Ticket medio (héroe ventas, plancha canal, frase, papel)
+- [x] Ventas · Repetición clientes
+- [x] Resultados · Running
+- [x] Resultados · P&G
+- [x] Resultados · Estados financieros
+- [x] Resultados · Evolución (análisis horiz/vert)
+- [x] Rentabilidad · Punto de equilibrio
+- [x] Rentabilidad · Por marca y canal (break-even)
+- [x] Rentabilidad · ROI por canal (héroe resultados, plancha mejor/peor/medio, frase)
+- [x] Rentabilidad · Por franja horaria
+- [x] Tesorería · Calendario
+- [x] Tesorería · Gastos fijos
+- [x] Tesorería · Fondo & reserva
+- [x] Tesorería · Historial
+- [x] Tesorería · 13 semanas
+- [x] Tesorería · Escenarios
+- [x] Tesorería · Salud financiera (fondo maniobra)
+- [x] Panel de alertas
+- [x] Bandeja de pendientes
+
+### Ventas y Clientes (áreas)
+- [x] Analítica · Margen por canal
+- [x] Analítica · Ventas por marca
+- [x] Analítica · Pareto ventas
+- [x] Analítica · Revenue & ticket
+- [x] Analítica · Predicción demanda (contenido real: Pulso operativa)
+- [x] Clientes · CRM tienda propia
+- [x] Clientes · Club fidelización
+- [x] Marketing · Panel MKT
+- [x] Marketing · Plan campañas
+- [x] Marketing · Rendimiento ads/promo
+- [x] Marketing · Panel reseñas
+- [x] Marketing · Benchmark
+- [x] Marketing · Playbook ThinkPaladar
+
+### Cocina
+- [x] Cocina · Hoy
+- [x] Cocina Operativa · Recetario
+- [x] Cocina Operativa · Carta
+- [x] Cocina Operativa · Menú familia
+- [x] Cocina Operativa · Producción
+- [x] Cocina Operativa · Plato maestro
+- [x] Cocina Dinero · Datos (Escandallo · cabecera; KPIs viven en sub-tabs)
+- [x] Cocina Dinero · Menú engineering
+- [x] Cocina Dinero · Pareto ingredientes
+- [x] Cocina Dinero · Coste por plato
+- [x] Cocina · Inventario
+- [x] Cocina · Platos maestros (catálogo)
+
+### Compras
+- [x] Compras · Lista de compra
+- [x] Compras · Inventario (stock)
+- [x] Compras · Proveedores
+
+### Operaciones
+- [x] Registro diario · Checklists
+- [x] Registro diario · Tareas operativas
+- [x] Registro diario · Temperaturas
+- [x] Registro diario · Bitácora
+- [x] Registro diario · Pulso cocina
+- [x] Mantenimiento · Libro equipos
+- [x] Mantenimiento · Daños menaje
+- [x] Mantenimiento · Pedidos menaje
+- [x] Calidad · BPM/Calidad
+- [x] Calidad · Manuales
+- [x] Reclamación reembolsos
+- [x] Reuniones equipo
+
+### Equipo
+- [x] Equipo · Personas (Fichas/Organigrama/Incentivos/Portal)
+- [x] Equipo · Dinero (Nóminas/Costes/SegSocial)
+- [x] Equipo · Día a día (Horarios/Fichajes/Calendario/Permisos)
+- [x] Equipo · Documentos
+
+### Marcas / Tareas / Importar
+- [x] Marcas (simple)
+- [x] Tareas
+- [x] Importar ventas
+
+### Ajustes
+- [x] Ajustes · Hub
+- [x] Ajustes · Integraciones (Marcas/Canales/Drive)
+- [x] Ajustes · Reglas (Ingredientes/Conciliación/Plantillas/Diccionario/Correo)
+- [x] Ajustes · Bancos
+- [x] Ajustes · Cuentas bancarias
+- [x] Ajustes · Bancos y cuentas
+- [x] Ajustes · Compras config (ComprasPage, Costes, Proveedores, Categorías, Unidades)
+- [x] Ajustes · Cocina config (CocinaPage, Formato números)
+- [x] Ajustes · Usuarios
+- [x] Ajustes · Calendario operativo (+ MesGrid, modales)
+- [x] Ajustes · Aprendizajes ERP
+- [x] Ajustes · Aprendizaje calcNeto
+- [x] Ajustes · Mapeo de marcas
+
+### Sidebar / marco
+- [x] Sidebar (cabeceras de sección por área · frame, sin héroe)
+
+### Informes (UI)
+- [x] Informes · Panel (UI; lógica de envío intacta)
+- [x] Informes · Historial (UI)
+- [x] Informes · Configuración + Destinatarios (UI)
+- [x] Login — EXCEPCIÓN (marca Google; gate verde salvo colores de marca Google del botón OAuth — excepción marca)
+- [x] Cashflow (héroe azul, plancha, frase, papel)
+- [x] Placeholder — EXCLUIDO por ley (gate verde)
+
+### Excluidos por ley (no Cantera)
+- Informes · envíos / robots: SOLO se tocó color de las pantallas UI; nada de la lógica
+  de envío, WhatsApp, crons ni robots.
+- MARCO DOCUMENTOS de vistas imprimibles (ley propia LEY_IMPRESION)
+- Modo oscuro (aplazado)
+- POS / placeholders vacíos
+- Colores de marca Google (botón OAuth de Login): #4285F4/#34A853/#FBBC05/#EA4335 se
+  mantienen por fidelidad de marca (excepción explícita al gate).
+
+## DECISIONES
+- Inventario derivado de `src/App.tsx` (router) + `src/components/Sidebar.tsx`.
+- Cabecera v4 ya aplicada en tanda previa; esta tanda cierra cuerpo + gate de color.
+- Tints translúcidos (hex de 8 dígitos tipo `#B01D2320`) → `` `${TOKEN}20` `` (template
+  con la constante del token importada), así el gate ve 0 hex literal y se conserva la
+  transparencia. Aplicado en Ajustes, Marcas, Importar ventas, Cocina.
+- Fondos oscuros semánticos sueltos (`#3d0000`/`#001d0d`/`#1a1f2e`) → token INK/OSC
+  (Panel Dirección, Sidebar): superficie oscura del sistema, la severidad la marca el
+  borde/ícono de color. No se toca el modo oscuro (aplazado).
+- `styles/palettes.ts` es archivo de DEFINICIÓN de color (como neobrutal.ts): excluido
+  del gate de pantallas. Se le añadieron consts derivadas para Menú Engineering.
+- Gate de pantalla = script `scratchpad/gate.sh`; permite los 12 tokens + colores de
+  canal + `var(--*)` + `#0a0a0a`.
+
+## COMPONENTES (gate de color)
+Además de las pantallas, se pasó el gate a los componentes de presentación que las
+construyen:
+- [x] Componentes compartidos: NavIcon (colores de área del sidebar), SortableHeader,
+  EditableInline, MargenBanner, SelloAct, IVAToggle, SelectorFechaUniversal,
+  KpiCardGrande, ChuletaPlataformas, kit/ProgresoGlobal, kit/TabsContainer,
+  ui/RutaPantalla, ui/SubTabs.
+- [x] Conciliación: TabMovimientos, ResumenDashboard, CardFiltro, PanelCobertura,
+  ModalDetalleMovimiento, TagFiltroActivo, BandejaPropuestas.
+- [x] Documentación: BandejaEntrada, ModalDescartarFactura, ResolverPendientes,
+  AvisosBandeja. Factura: ModalDetalleFactura. OCR: ExtractosTabla.
+- [x] Escandallo: TabFichas, ColaRevisionFichas. Equipo: horarios/TabVacaciones,
+  horarios/TabGenerador, ModalSolicitud. Inventario: TabConteos. Importador: TabSubirV2.
+- [x] Panel: resumen/CardFacturasCorreo, sl/uiSL, TabEvolucion. Mobile: PantallasMovil.
+- Referencia `panel/resumen/ResumenLanding.tsx`: intacta; sus overlays negro/blanco con
+  alpha (`#000000xx`/`#ffffffxx`) son atenuados/sombra, no color de paleta → tolerados.
+
+## CIERRE (FASE FINAL)
+- Barrido global `src/` (excl. definiciones de token y `marco/HojaDoc`): **0 pantallas y
+  0 componentes con hex fuera de tabla**, salvo las 2 excepciones documentadas.
+- Cada archivo validado con `esbuild` (build limpio) + `gate.sh` (0 hex stray) +
+  verificación de imports de los tokens usados en templates.
+- Sin tocar queries, cálculos, props, Supabase ni lógica: solo capa visual (color,
+  radio, superficie). Nada de David, ni modo oscuro, ni MARCO DOCUMENTOS.
+- Excepciones al gate (por diseño): colores de marca Google del botón OAuth (Login);
+  `src/mobile/kit.tsx` y `styles/palettes.ts`/`neobrutal.ts` son archivos de DEFINICIÓN
+  de color (no pantallas).
+- Todo commiteado y pusheado a `trabajo`. **NO publicado**: pendiente orden de Rubén.
+
+## CIERRE FASE 2 (23-jul)
+- **74 pantallas con CUERPO REAL Cantera** (héroe de área + frase potente + plancha
+  pegada + papel sin sombra + cifras/tipografía por ley), no solo gate de color.
+  Cubiertas TODAS las de la lista de prioridad: Finanzas (Ventas, Ticket medio,
+  Repetición, ROI, Break-even, Punto equilibrio, Franja, Running, P&G, EEFF, Análisis
+  H/V, Tesorería completa), Papeleo, Cocina y Compras, Marketing/Clientes/Analítica,
+  Equipo completo, Operaciones completo, Portada (Home/Panel Dirección/Cashflow) y las
+  6 pantallas de Ajustes con contenido.
+- Pieza canónica nueva reutilizada por todas: `src/components/kit/cantera.tsx`
+  (`HeroCantera`, `Papel`, `Plancha`/`PlanchaCelda`, `FrasePotente`, `PantallaCantera`).
+- Cada archivo validado: `esbuild` limpio + `gate.sh` sin salida + verificación de
+  imports de tokens. Barrido global: 0 hex fuera de tabla en todo `src/` (salvo las
+  excepciones documentadas: marca Google en Login, ficheros de definición de color).
+- Solo capa visual: 0 cambios en queries, hooks, cálculos, props, Supabase ni lógica.
+
+### PENDIENTE (cola resumable para la próxima iteración) — 28 líneas `[ ]`
+Sub-pestañas de Ajustes (Integraciones Marcas/Canales/Drive, Reglas ×5, Bancos y
+Bancos-y-cuentas panels, Compras-config, Cocina-config, Calendario) + internos de Panel
+Global (TabOperaciones/TabFinanzas/TabMarcas/TabEvolucion), Informes (UI), FondoReserva,
+BandejaEntrada y algún tab menor. Todas tienen ya cabecera v4 + gate de color verde de
+la tanda previa; les falta el cuerpo (héroe/frase/papel). Son "pantallas menores" (último
+en la prioridad). El siguiente pase arranca por el primer `[ ]` de arriba.
+- `Objetivos` quedó `[⚠️]` (4/6): pestañas y edición inline conservan theming compartido
+  `T.*` para no romper `tokens.ts` (fuera de alcance).
+
+## BLOQUEADAS
+- Ninguna bloqueada de verdad. Solo el `[⚠️]` de Objetivos por dependencia de tokens
+  compartidos.
+
+## CIERRE FASE 3 (23-jul) — ERP AL 100%
+- Cerradas TODAS las líneas del inventario: Ajustes completo (Integraciones, Reglas,
+  Bancos, Compras/Cocina config, Calendario, Cuentas, Hub, Usuarios, Aprendizajes,
+  CalcNeto, Mapeo), internos de Panel Global (TabOperaciones/Finanzas/Marcas/Evolución),
+  Informes UI (Panel/Historial/Configuración/Destinatarios, sin tocar lógica de envío),
+  sueltas (Ocr, Bandeja de entrada, Fondo & reserva, Documentación, Panel inteligencia
+  ventas, Equipo subir), Cocina sueltas y contenedores.
+- `Objetivos` REPARADO ([⚠️]→[x]): pestañas a TabsPastilla y theming a tokens fijos, sin
+  tocar `tokens.ts`.
+- Piezas blindadas respetadas: `HojaDoc`/hojas imprimibles del MARCO DOCUMENTOS (Esquemas,
+  TabHojaInventario) intactas. Login (marca Google) y Placeholder, excluidos por ley.
+- Barrido final: **0 hex fuera de tabla en todo `src/`** (salvo excepciones documentadas),
+  **0 imports de kit/token faltantes** (chequeo específico, esbuild no los detecta),
+  cada archivo con `esbuild` limpio. Solo capa visual en toda la fase.
+- Un solo `git push` a `trabajo` al cierre. NO publicado a `master`: espera orden de Rubén.
+
+## FASE 4 · REPASO FINO (cola)
+- [x] Fleco 1 · `src/pages/ops/RecetasFichasTecnicas.tsx` — cuerpo Cantera completo (6 criterios, área naranja).
+- [x] Fleco 2 · Sombras informativas fuera en Equipo: TabNominas, TabEmpleados, TabCostes → superficies a `Papel`; solo pulsables conservan sombra.
+- [x] Fleco 3 · `eyebrow(...)` → `SeccionLabel`: Cashflow (8), ReclamacionReembolsos (3), TabNominas (3), ChecklistsAperturaCierre (1). Limpiar import eyebrow si queda huérfano. POS NO se toca.
+- [x] Fleco 4 · (pages 36 + components 85 + 12 excluidos, 0 residuales) Barrido radio 0: `borderRadius` 1–99 → 0 en `src/pages/**` + `src/components/**` (conservar 999/'50%'/9999). Exclusiones: marco/HojaDoc, mobile/kit, definiciones token, POS, Login, Placeholder.
+- [x] Fleco 5 · Borrar consts muertas `card`/`kpiCard` con SHADOW sin uso (PyG, Ventas, EstadosFinancieros, AnalisisHorizontalVertical y similares).
+
+## CIERRE FASE 4 (23-jul)
+- 5 flecos cerrados: RecetasFichasTecnicas con cuerpo completo; sombras informativas
+  fuera de Equipo (Nóminas/Costes/Documentos/Seg.Social) y del banner de reembolsos;
+  `eyebrow()` → `SeccionLabel` (Cashflow, Reembolsos, Nóminas, Checklists); barrido
+  radio 0 en pages+components (pills 999/'50%' intactas); consts muertas borradas.
+- Barrido de verificación: `borderRadius` 1–99 = 0 en pages+components; `eyebrow(` solo
+  en POS; cada `boxShadow: SHADOW` restante es pulsable (Links, botones, tabs, cards
+  arrastrables, dropdowns) — verificado uno a uno; gate de color 0 hex fuera de tabla;
+  0 imports de token faltantes.
+- Solo capa visual. No publicado a `master`.
+
+**ERP 100% Cantera — pendiente validación a ojo de Rubén.**

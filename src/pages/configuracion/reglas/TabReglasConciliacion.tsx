@@ -1,8 +1,9 @@
-import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, VERDE, LEX } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { Plus, Trash2, Check, X, Pencil } from 'lucide-react'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 
 interface Regla {
   id: string
@@ -79,28 +80,38 @@ export default function TabReglasConciliacion() {
     (r.set_proveedor ?? '').toLowerCase().includes(busca.toLowerCase()) ||
     (r.categoria_codigo ?? '').toLowerCase().includes(busca.toLowerCase()))
 
-  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
-  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
-  const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
+  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
+  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 0, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
+  const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 0, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
 
-  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando reglas…</div>
+  if (loading) return (
+    <PantallaCantera embedded>
+      <Papel ceja={GRIS}><div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13, fontWeight: 600 }}>Cargando reglas…</div></Papel>
+    </PantallaCantera>
+  )
+
+  const activas = reglas.filter(r => r.activa).length
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-        Cuando un movimiento del banco contiene el texto del patrón, el sistema le asigna automáticamente el proveedor y la categoría indicados. Se usan en OCR y Conciliación. Al guardar una regla, las facturas pendientes que ahora cuadran se reconcilian solas.
-      </div>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={reglas.length === 0 ? 'Todavía no hay reglas de conciliación' : 'Así reconoce el banco quién es cada proveedor'}
+        etiquetaDato={reglas.length > 0 ? 'Reglas activas' : undefined}
+        cifra={reglas.length > 0 ? `${activas} / ${reglas.length}` : undefined}
+        resumen="Cuando un movimiento del banco contiene el texto del patrón, el sistema le asigna automáticamente el proveedor y la categoría indicados. Se usan en OCR y Conciliación. Al guardar una regla, las facturas pendientes que ahora cuadran se reconcilian solas."
+      />
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <Papel ceja={GRANATE} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <input value={nPatron} onChange={e => setNPatron(e.target.value)} placeholder="Si el concepto contiene… (ej: MERCADONA)" style={{ ...inp, flex: 1.3, minWidth: 180 }} />
         <input value={nProv} onChange={e => setNProv(e.target.value)} placeholder="Proveedor (opcional)" style={{ ...inp, flex: 1, minWidth: 140 }} />
         <input value={nCat} onChange={e => setNCat(e.target.value)} placeholder="Categoría (opcional)" style={{ ...inp, flex: 1, minWidth: 140 }} />
         <button onClick={crear} style={btnP}><Plus size={16} /> Añadir</button>
-      </div>
+      </Papel>
 
       <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar regla…" style={{ ...inp, maxWidth: 280 }} />
 
-      <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, overflow: 'hidden' }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body, fontSize: 14 }}>
           <thead>
             <tr style={{ background: T.group }}>
@@ -132,7 +143,7 @@ export default function TabReglasConciliacion() {
                     <td style={{ padding: '10px 14px', color: T.sec }}>{r.categoria_codigo ?? '—'}</td>
                     <td style={{ textAlign: 'center' }}>
                       <button onClick={() => toggleActiva(r.id, r.activa)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-                        <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? VERDE : '#999' }} />
+                        <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? VERDE : GRIS }} />
                       </button>
                     </td>
                     <td style={{ padding: '10px 14px' }}><div style={{ display: 'flex', gap: 4 }}>
@@ -146,7 +157,7 @@ export default function TabReglasConciliacion() {
             {visibles.length === 0 && <tr><td colSpan={5} style={{ padding: 20, textAlign: 'center', color: T.mut }}>Sin reglas.</td></tr>}
           </tbody>
         </table>
-      </div>
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

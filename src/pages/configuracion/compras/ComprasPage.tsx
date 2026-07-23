@@ -1,12 +1,9 @@
-import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useLocation, useNavigate, Outlet } from 'react-router-dom'
-import { useTheme, FONT } from '@/styles/tokens'
 import { ModTitle } from '@/components/configuracion/ModTitle'
+import { TabPills } from '@/components/configuracion/TabPills'
 import { ConfigShell } from '@/components/configuracion/ConfigShell'
 
-interface Pill { id: string; label: string }
-
-const PILLS: Pill[] = [
+const TABS = [
   { id: 'costes',      label: 'Costes' },
   { id: 'proveedores', label: 'Proveedores' },
   { id: 'categorias',  label: 'Categorías' },
@@ -14,7 +11,6 @@ const PILLS: Pill[] = [
 ]
 
 export default function ComprasPage() {
-  const { T } = useTheme()
   const loc = useLocation()
   const nav = useNavigate()
 
@@ -25,35 +21,14 @@ export default function ComprasPage() {
     seg === 'unidades'    ? 'unidades'    :
     'costes'
 
+  const handleChange = (id: string) => {
+    nav(`/configuracion/compras/${id}`)
+  }
+
   return (
     <ConfigShell>
       <ModTitle>Compras</ModTitle>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-        {PILLS.map(p => {
-          const isActive = p.id === active
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => nav(`/configuracion/compras/${p.id}`)}
-              style={{
-                padding: '8px 20px',
-                borderRadius: 8,
-                fontFamily: FONT.heading,
-                fontSize: 13,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                fontWeight: isActive ? 600 : 500,
-                background: isActive ? GRANATE : T.card,
-                color: isActive ? BLANCO : T.sec,
-                border: `0.5px solid ${isActive ? GRANATE : T.brd}`,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >{p.label}</button>
-          )
-        })}
-      </div>
+      <TabPills tabs={TABS} active={active} onChange={handleChange} />
       <Outlet />
     </ConfigShell>
   )

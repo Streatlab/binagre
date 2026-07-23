@@ -1,4 +1,5 @@
-import { BLANCO, BORDE_SUAVE, GRIS, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, CLARO, GRIS, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
+import { OCR_FOOTER_BG } from '@/styles/palettes'
 /**
  * TabSubirV2 — FASE C
  * Dropzone multi-archivo con subtabs Facturas / Extractos bancarios,
@@ -56,8 +57,8 @@ function PillTag({ ok, total }: { ok: number; total: number }) {
       alignItems: 'center',
       gap: 6,
       background: BLANCO,
-      border: '0.5px solid #d0c8bc',
-      borderRadius: 99,
+      border: `0.5px solid ${BORDE_SUAVE}`,
+      borderRadius: 0,
       padding: '3px 10px',
       fontFamily: 'Lexend',
       fontSize: 12,
@@ -85,7 +86,7 @@ function BarraProgreso({ ok, err, total }: { ok: number; err: number; total: num
       display: 'flex',
       width: 120,
       height: 6,
-      borderRadius: 3,
+      borderRadius: 0,
       overflow: 'hidden',
       background: BORDE_SUAVE,
     }}>
@@ -102,7 +103,7 @@ function BadgeEstado({ estado }: { estado: EstadoFila }) {
         <div style={{
           width: 60,
           height: 5,
-          borderRadius: 3,
+          borderRadius: 0,
           background: BORDE_SUAVE,
           overflow: 'hidden',
         }}>
@@ -117,13 +118,13 @@ function BadgeEstado({ estado }: { estado: EstadoFila }) {
   if (estado.tag === 'asociada') {
     return (
       <span style={{
-        background: '#1D9E7515',
+        background: `${VERDE}15`,
         color: VERDE,
         fontFamily: 'Lexend',
         fontSize: 10,
         fontWeight: 500,
         padding: '2px 8px',
-        borderRadius: 9,
+        borderRadius: 0,
       }}>
         PROCESADA
       </span>
@@ -138,7 +139,7 @@ function BadgeEstado({ estado }: { estado: EstadoFila }) {
         fontSize: 10,
         fontWeight: 500,
         padding: '2px 8px',
-        borderRadius: 9,
+        borderRadius: 0,
       }}>
         ! REVISIÓN MANUAL
       </span>
@@ -153,7 +154,7 @@ function BadgeEstado({ estado }: { estado: EstadoFila }) {
       fontSize: 10,
       fontWeight: 500,
       padding: '2px 8px',
-      borderRadius: 9,
+      borderRadius: 0,
     }}>
       DUPLICADA
     </span>
@@ -382,10 +383,10 @@ export default function TabSubirV2() {
         style={{
           border: '2px dashed',
           borderColor: dragOver ? ROJO : BORDE_SUAVE,
-          borderRadius: 14,
+          borderRadius: 0,
           padding: '28px 20px',
           textAlign: 'center',
-          background: dragOver ? BLANCO : '#fafaf7',
+          background: dragOver ? BLANCO : OCR_FOOTER_BG,
           transition: 'all 200ms',
           cursor: 'pointer',
           marginBottom: 14,
@@ -472,7 +473,7 @@ export default function TabSubirV2() {
             </thead>
             <tbody>
               {filas.map((fila) => (
-                <tr key={fila.id} style={{ borderBottom: '0.5px solid #ebe8e2' }}>
+                <tr key={fila.id} style={{ borderBottom: `0.5px solid ${CLARO}` }}>
                   <td style={{ padding: '10px 14px', fontFamily: 'Lexend', fontSize: 12, color: OSC, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {fila.nombre}
                   </td>
@@ -498,7 +499,7 @@ export default function TabSubirV2() {
                 <tr>
                   <td colSpan={6} style={{
                     padding: '8px 14px',
-                    background: '#fafaf7',
+                    background: OCR_FOOTER_BG,
                     fontFamily: 'Lexend',
                     fontSize: 12,
                     color: GRIS,
@@ -516,8 +517,8 @@ export default function TabSubirV2() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            borderTop: '0.5px solid #d0c8bc',
-            background: '#fafaf7',
+            borderTop: `0.5px solid ${BORDE_SUAVE}`,
+            background: OCR_FOOTER_BG,
           }}>
             <span style={{ fontFamily: 'Lexend', fontSize: 12, color: GRIS }}>
               Última tanda · resumen disponible 8s
@@ -526,9 +527,9 @@ export default function TabSubirV2() {
               onClick={() => { canceladoRef.current = true; setProcesando(false) }}
               style={{
                 padding: '5px 12px',
-                border: '0.5px solid #d0c8bc',
+                border: `0.5px solid ${BORDE_SUAVE}`,
                 background: BLANCO,
-                borderRadius: 6,
+                borderRadius: 0,
                 fontFamily: 'Lexend',
                 fontSize: 12,
                 color: OSC,

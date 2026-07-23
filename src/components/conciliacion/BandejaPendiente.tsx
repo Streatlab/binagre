@@ -273,7 +273,7 @@ function FilaPendiente({
 function estiloBtn(color: string) {
   return {
     padding: '6px 14px',
-    borderRadius: 7,
+    borderRadius: 0,
     border: `1.5px solid ${color}`,
     background: 'transparent',
     color,

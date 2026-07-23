@@ -8,7 +8,10 @@ import { useReclamaciones, computeMetricas, computeMetricasPorCanal, verificarPe
 import type {
   Reclamacion, Canal, EstadoReclamacion, TipoReclamacion, PedidoVerificado, } from "../../lib/reclamaciones/useReclamaciones";
 import {
-  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, BLANCO } from '@/styles/neobrutal';
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, SeccionLabel } from '@/components/kit/cantera';
+import RutaPantalla from '@/components/ui/RutaPantalla';
+import TabsPastilla from '@/components/ui/TabsPastilla';
 
 type TabKey = "todas" | "pendiente" | "reclamada" | "cobrada" | "cobrada_doble" | "rechazada" | "incobrable";
 
@@ -63,7 +66,16 @@ export default function ReclamacionReembolsos() {
   const mGL  = useMemo(() => computeMetricasPorCanal(data, "glovo"), [data]);
   const mJE  = useMemo(() => computeMetricasPorCanal(data, "just_eat"), [data]);
 
-  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW };
+  const TABS: { id: TabKey; label: string; badge?: number }[] = [
+    { id: "todas", label: "Todas", badge: data.length },
+    { id: "pendiente", label: "Pendientes", badge: m.pendientes },
+    { id: "reclamada", label: "Reclamadas", badge: m.reclamadas },
+    { id: "cobrada", label: "Cobradas", badge: m.cobradas - m.dobles },
+    { id: "cobrada_doble", label: "Dobles", badge: m.dobles },
+    { id: "rechazada", label: "Rechazadas", badge: m.rechazadas },
+    { id: "incobrable", label: "Incobrables", badge: m.incobrables },
+  ];
+
   const btnPrim: React.CSSProperties = {
     fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: "1px", textTransform: "uppercase",
     border: `3px solid ${INK}`, boxShadow: SHADOW, padding: "9px 16px", cursor: "pointer",
@@ -73,65 +85,61 @@ export default function ReclamacionReembolsos() {
   if (loading) return <div style={{ padding: 40, color: GRIS, fontFamily: OSW, textTransform: "uppercase", letterSpacing: "1px" }}>Cargando reembolsos…</div>;
   if (error)   return <div style={{ padding: 40, color: ROJO, fontFamily: LEX }}>Error: {error}</div>;
 
-  return (
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: "100vh", color: INK }}>
+  const titularHero = m.pendientes === 0 && m.reclamadas === 0
+    ? (m.cobrado > 0 ? 'Sin reembolsos pendientes: todo cobrado.' : 'Aún no hay reembolsos registrados.')
+    : m.enRiesgo === 0 ? 'Sin importe pendiente de cobrar ahora mismo.'
+    : `Hay ${fmtEur(m.enRiesgo)} pendientes de cobrar a plataformas.`
 
-      <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <span style={eyebrow(NAR, BLANCO)}>OPERACIONES</span>
-          <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
-            REEMBOLSOS
-          </h1>
-          <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Reclamaciones a plataformas · seguimiento hasta el cobro</span>
-        </div>
+  const atencionHero = [
+    m.pendientes > 0 ? `${m.pendientes} sin reclamar` : null,
+    m.reclamadas > 0 ? `${m.reclamadas} reclamadas` : null,
+    `${m.tasaResolucion}% de éxito`,
+  ].filter(Boolean) as string[]
+
+  return (
+    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: "100vh", color: INK, display: "flex", flexDirection: "column", gap: 16 }}>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
+        <RutaPantalla niveles={['Reembolsos', TABS.find(t => t.id === tab)?.label ?? '']} subtitulo="Reclamaciones a plataformas · seguimiento hasta el cobro" />
         <button onClick={() => setShowNew(true)} style={btnPrim}>+ Nuevo reembolso</button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 18 }}>
-        <div style={{ ...card, padding: "16px 20px", background: AMA }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: INK, marginBottom: 6 }}>Pendiente de cobrar</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: INK }}>{fmtEur(m.enRiesgo)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: INK, marginTop: 6 }}>
-            {m.pendientes} sin reclamar · {m.reclamadas} reclamadas a plataforma
-          </div>
-        </div>
-        <div style={{ ...card, padding: "16px 20px", background: VERDE }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: BLANCO, marginBottom: 6 }}>Recuperado 2026</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: BLANCO }}>{fmtEur(m.cobrado)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
-            {m.cobradas} cobradas · {m.tasaResolucion}% de éxito · perdido {fmtEur(m.perdido)}
-          </div>
-        </div>
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        titular={titularHero}
+        etiquetaDato="Pendiente de cobrar"
+        cifra={fmtEur(m.enRiesgo)}
+        resumen={<>Recuperado 2026: <b>{fmtEur(m.cobrado)}</b> · {m.cobradas} cobradas · perdido {fmtEur(m.perdido)}</>}
+        atencion={atencionHero}
+      />
+
+      {/* 3 · Frase potente (una sola, según haya o no importe en riesgo) */}
+      {m.enRiesgo > 0
+        ? <FrasePotente significado="coste">Cada reembolso sin reclamar es dinero que la plataforma no te va a devolver sola.</FrasePotente>
+        : (m.cobrado > 0 || m.pendientes > 0 || m.reclamadas > 0) && <FrasePotente significado="logro">Sin importe pendiente: los reembolsos están al día.</FrasePotente>}
+
+      {/* 2 · Plancha comparativa por canal */}
+      <div>
+        <Plancha>
+          <PlanchaCelda bg={VERDE} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>Uber Eats</div>
+            <CanalCeldaBody data={mUE} />
+          </PlanchaCelda>
+          <PlanchaCelda bg={AMA} color={INK}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>Glovo</div>
+            <CanalCeldaBody data={mGL} />
+          </PlanchaCelda>
+          <PlanchaCelda bg={NAR}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", fontWeight: 600 }}>Just Eat</div>
+            <CanalCeldaBody data={mJE} />
+          </PlanchaCelda>
+        </Plancha>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
-        <CanalCard label="Uber Eats" color={VERDE} data={mUE} card={card} />
-        <CanalCard label="Glovo"     color={AMA}   data={mGL} card={card} />
-        <CanalCard label="Just Eat"  color={NAR}   data={mJE} card={card} />
-      </div>
+      <TabsPastilla tabs={TABS} activeId={tab} onChange={id => setTab(id as TabKey)} />
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {([
-          ["todas", "Todas", data.length],
-          ["pendiente", "Pendientes", m.pendientes],
-          ["reclamada", "Reclamadas", m.reclamadas],
-          ["cobrada", "Cobradas", m.cobradas - m.dobles],
-          ["cobrada_doble", "Dobles", m.dobles],
-          ["rechazada", "Rechazadas", m.rechazadas],
-          ["incobrable", "Incobrables", m.incobrables],
-        ] as [TabKey, string, number][]).map(([k, label, count]) => (
-          <button key={k} onClick={() => setTab(k)} style={{
-            padding: "8px 16px", border: `3px solid ${INK}`,
-            background: tab === k ? GRANATE : BLANCO, color: tab === k ? BLANCO : INK,
-            boxShadow: tab === k ? SHADOW : "none",
-            fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", cursor: "pointer",
-          }}>
-            {label} <span style={{ opacity: 0.7, marginLeft: 3 }}>{count}</span>
-          </button>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <select style={selectNeo} value={filterMes} onChange={e => setFilterMes(e.target.value)}>
           <option value="all">Todos los meses</option>
           {meses.map(mes => (
@@ -147,7 +155,7 @@ export default function ReclamacionReembolsos() {
         </select>
       </div>
 
-      <div style={{ ...card, overflowX: "auto" }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: LEX }}>
           <thead>
             <tr style={{ background: INK }}>
@@ -194,7 +202,7 @@ export default function ReclamacionReembolsos() {
             })}
           </tbody>
         </table>
-      </div>
+      </Papel>
 
       {showNew && <ModalReembolso onClose={() => setShowNew(false)} onSave={async (payload, file) => {
         let foto_url: string | null = null;
@@ -216,27 +224,21 @@ export default function ReclamacionReembolsos() {
   );
 }
 
-function CanalCard({ label, color, data, card }: {
-  label: string; color: string;
+function CanalCeldaBody({ data }: {
   data: { count: number; enRiesgo: number; cobrado: number; tasa: number | null };
-  card: React.CSSProperties;
 }) {
+  if (data.count === 0) {
+    return <div style={{ fontSize: 12, fontFamily: LEX, marginTop: 6 }}>Sin reembolsos</div>
+  }
   return (
-    <div style={{ ...card, padding: "12px 16px" }}>
-      <div style={{ display: "inline-block", background: color, color: BLANCO, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", padding: "2px 8px", marginBottom: 10 }}>{label}</div>
-      {data.count === 0 ? (
-        <div style={{ color: GRIS, fontSize: 12, fontFamily: LEX, padding: "6px 0" }}>Sin reembolsos</div>
-      ) : (
-        <>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1, color: INK }}>{fmtEur(data.enRiesgo)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginBottom: 6 }}>pendiente</div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: GRIS, borderTop: `2px solid ${INK}`, paddingTop: 6, fontFamily: OSW, textTransform: "uppercase" }}>
-            <span>{data.count} reemb.</span>
-            <span>{data.tasa !== null ? `${data.tasa}% éxito` : "—"}</span>
-          </div>
-        </>
-      )}
-    </div>
+    <>
+      <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1, marginTop: 6 }}>{fmtEur(data.enRiesgo)}</div>
+      <div style={{ fontFamily: LEX, fontSize: 11, marginTop: 2 }}>pendiente</div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginTop: 6, fontFamily: OSW, textTransform: "uppercase" }}>
+        <span>{data.count} reemb.</span>
+        <span>{data.tasa !== null ? `${data.tasa}% éxito` : "—"}</span>
+      </div>
+    </>
   );
 }
 
@@ -322,7 +324,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
         </div>
         <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
 
-          <span style={eyebrow(NAR, BLANCO)}>PEDIDO</span>
+          <SeccionLabel bg={NAR} color={BLANCO}>PEDIDO</SeccionLabel>
           <div style={grid2}>
             <Field label="Plataforma">
               <select style={inputNeo} value={canal} onChange={e => setCanal(e.target.value as Canal)}>
@@ -339,7 +341,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
           </div>
 
           {verif && (
-            <div style={{ border: `3px solid ${INK}`, boxShadow: SHADOW, padding: "10px 14px", background: verif.encontrado ? VERDE : ROJO, color: BLANCO, fontFamily: LEX, fontSize: 13 }}>
+            <div style={{ border: `3px solid ${INK}`, padding: "10px 14px", background: verif.encontrado ? VERDE : ROJO, color: BLANCO, fontFamily: LEX, fontSize: 13 }}>
               {verif.encontrado ? (
                 <span><strong>Pedido encontrado</strong>{verif.marca ? ` · ${verif.marca}` : ""}{verif.fecha ? ` · ${fmtFechaCorta(verif.fecha)}` : ""}{verif.importe_pedido != null ? ` · pedido de ${fmtEur(verif.importe_pedido)}` : ""}. Vino en la factura de origen.</span>
               ) : (
@@ -370,7 +372,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
             <textarea style={{ ...inputNeo, resize: "vertical", minHeight: 55 }} value={descripcion || ""} onChange={e => setDescripcion(e.target.value)} placeholder="Producto que falta, mal estado, etc." />
           </Field>
 
-          <span style={eyebrow(NAR, BLANCO)}>EVIDENCIA</span>
+          <SeccionLabel bg={NAR} color={BLANCO}>EVIDENCIA</SeccionLabel>
           {existing?.foto_url && !file && (
             <div style={{ fontSize: 12, color: GRIS, fontFamily: LEX }}>Foto actual: <a href={existing.foto_url} target="_blank" rel="noreferrer" style={{ color: GRANATE }}>ver</a></div>
           )}
@@ -379,7 +381,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
             {file && <div style={{ fontSize: 11, color: VERDE, marginTop: 4, fontFamily: LEX }}>Seleccionado: {file.name}</div>}
           </div>
 
-          <span style={eyebrow(NAR, BLANCO)}>ESTADO</span>
+          <SeccionLabel bg={NAR} color={BLANCO}>ESTADO</SeccionLabel>
           <div style={grid2}>
             <Field label="Estado">
               <select style={inputNeo} value={estado} onChange={e => setEstado(e.target.value as EstadoReclamacion)}>

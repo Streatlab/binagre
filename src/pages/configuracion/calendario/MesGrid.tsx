@@ -1,6 +1,5 @@
-import { BLANCO, INK, LIMA, NAR, ROJO_S } from '@/styles/neobrutal'
+import { BLANCO, GRIS, INK, LIMA, NAR, GRANATE, AMA, AMA_S, AZUL, AZUL_S, ROSA_S, OSW, LEX } from '@/styles/neobrutal'
 import { useState } from 'react'
-import { FONT } from '@/styles/tokens'
 import { useCalendario, type TipoDia } from '@/contexts/CalendarioContext'
 import ModalTipoDia from './ModalTipoDia'
 
@@ -15,30 +14,30 @@ function toKey(d: Date): string {
 
 function cellStyle(tipo: TipoDia): React.CSSProperties {
   switch (tipo) {
-    case 'cerrado':     return { backgroundColor: '#2d1515', border: '1px solid #aa3030' }
-    case 'festivo':     return { backgroundColor: '#1e2233', border: '1px solid #3a4060' }
-    case 'vacaciones':  return { backgroundColor: '#484f66', border: '1px solid #6070aa' }
-    case 'solo_comida': return { backgroundColor: INK, border: '1px solid #e8f442' }
-    case 'solo_cena':   return { backgroundColor: INK, border: '1px solid #f5a623' }
-    default:            return { backgroundColor: INK, border: '1px solid #2a2a2a' }
+    case 'cerrado':     return { backgroundColor: ROSA_S, border: `2px solid ${GRANATE}` }
+    case 'festivo':     return { backgroundColor: AMA_S, border: `2px solid ${AMA}` }
+    case 'vacaciones':  return { backgroundColor: AZUL_S, border: `2px solid ${AZUL}` }
+    case 'solo_comida': return { backgroundColor: INK, border: `2px solid ${LIMA}` }
+    case 'solo_cena':   return { backgroundColor: INK, border: `2px solid ${NAR}` }
+    default:            return { backgroundColor: INK, border: `2px solid ${INK}` }
   }
 }
 
 function CellBadge({ tipo }: { tipo: TipoDia }) {
   if (tipo === 'solo_comida') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, backgroundColor: LIMA, color: INK, padding: '1px 4px', borderRadius: 3, letterSpacing: 0.5 }}>ALM</span>
+    <span style={{ fontSize: 9, fontFamily: OSW, fontWeight: 700, backgroundColor: LIMA, color: INK, padding: '1px 4px', letterSpacing: 0.5 }}>ALM</span>
   )
   if (tipo === 'solo_cena') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, backgroundColor: NAR, color: BLANCO, padding: '1px 4px', borderRadius: 3, letterSpacing: 0.5 }}>CENA</span>
+    <span style={{ fontSize: 9, fontFamily: OSW, fontWeight: 700, backgroundColor: NAR, color: BLANCO, padding: '1px 4px', letterSpacing: 0.5 }}>CENA</span>
   )
   if (tipo === 'cerrado') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, color: ROJO_S }}>CERRADO</span>
+    <span style={{ fontSize: 9, fontFamily: OSW, fontWeight: 700, color: GRANATE }}>CERRADO</span>
   )
   if (tipo === 'festivo') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, color: '#9ba8c0' }}>FEST</span>
+    <span style={{ fontSize: 9, fontFamily: OSW, fontWeight: 700, color: INK }}>FEST</span>
   )
   if (tipo === 'vacaciones') return (
-    <span style={{ fontSize: 9, fontFamily: FONT.heading, color: BLANCO }}>VAC</span>
+    <span style={{ fontSize: 9, fontFamily: OSW, fontWeight: 700, color: INK }}>VAC</span>
   )
   return null
 }
@@ -72,7 +71,7 @@ export default function MesGrid({ year, month }: Props) {
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
         {DIAS_SEMANA.map(d => (
-          <div key={d} style={{ textAlign: 'center', fontFamily: FONT.heading, fontSize: 11, color: '#777', padding: '4px 0', letterSpacing: 1 }}>
+          <div key={d} style={{ textAlign: 'center', fontFamily: OSW, fontWeight: 700, fontSize: 11, color: GRIS, padding: '4px 0', letterSpacing: 1 }}>
             {d}
           </div>
         ))}
@@ -90,7 +89,7 @@ export default function MesGrid({ year, month }: Props) {
               onClick={() => setModalFecha(dateStr)}
               style={{
                 ...cellStyle(tipo),
-                borderRadius: 6,
+                borderRadius: 0,
                 padding: '6px 4px',
                 cursor: 'pointer',
                 minHeight: 52,
@@ -98,14 +97,14 @@ export default function MesGrid({ year, month }: Props) {
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: 3,
-                outline: isToday ? '2px solid #e8f442' : undefined,
+                outline: isToday ? `2px solid ${LIMA}` : undefined,
                 outlineOffset: isToday ? 1 : undefined,
               }}
             >
               <span style={{
-                fontFamily: FONT.body,
+                fontFamily: LEX,
                 fontSize: 13,
-                color: tipo === 'cerrado' ? ROJO_S : tipo === 'festivo' ? '#9ba8c0' : tipo === 'vacaciones' ? '#d0d8ff' : BLANCO,
+                color: tipo === 'cerrado' ? GRANATE : tipo === 'festivo' ? INK : tipo === 'vacaciones' ? INK : BLANCO,
                 fontWeight: isToday ? 700 : 400,
               }}>
                 {day}

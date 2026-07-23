@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, LIMA } from '@/styles/neobrutal'
+import { BLANCO, LIMA, INK, AZUL, NAR, VERDE } from '@/styles/neobrutal'
 import { useMemo, useState, useEffect } from 'react'
 import { useTheme, fmtFechaCorta } from '@/styles/tokens'
 import { ResumenDashboard } from '@/components/conciliacion/ResumenDashboard'
@@ -12,6 +12,8 @@ import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { normalizarConcepto, matchPatron, inicializarStopwords } from '@/lib/normalizarConcepto'
 import { fechaLocalStr } from '@/utils/fechaLocal'
 import { PanelCobertura } from '@/components/conciliacion/PanelCobertura'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import { HeroCantera, Plancha, PlanchaCelda, FrasePotente, PantallaCantera } from '@/components/kit/cantera'
 
 type PeriodoKey = 'mes' | 'mes_anterior' | 'trimestre' | '30d' | 'personalizado' | string
 
@@ -176,18 +178,21 @@ export default function Conciliacion({ periodoExterno }: { periodoExterno?: { de
   const ultimoDiaMes = new Date(anioActual, hoyDate.getMonth() + 1, 0).getDate()
   const diasRestantes = Math.max(0, ultimoDiaMes - hoyDate.getDate())
 
+  // Métricas del héroe (solo modo integrado): derivadas del mismo listado del periodo que usa TabMovimientos.
+  const totalMov = movimientosFiltrados.length
+  const pendientesMov = movimientosFiltrados.filter(m => !m.categoria_id).length
+  const asociadasMov = movimientosFiltrados.filter(m => !!m.factura_id).length
+  const sinTitularMov = movimientosFiltrados.filter(m => !m.titular_id).length
+  const pctAsociadas = totalMov > 0 ? (asociadasMov / totalMov) * 100 : null
+  const heroTitular = totalMov === 0
+    ? 'No hay movimientos en este periodo.'
+    : `${asociadasMov} de ${totalMov} movimientos ya casados con factura.`
+
   return (
-    <div style={{ background: integrado ? 'transparent' : 'var(--neo-bg)', minHeight: integrado ? undefined : '100vh', padding: integrado ? 0 : '24px 28px' }}>
+    <PantallaCantera embedded={integrado} style={{ padding: integrado ? 0 : '24px 28px' }}>
       {!integrado && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h2 style={{ color: GRANATE, fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>
-              CONCILIACIÓN
-            </h2>
-            <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-muted)', display: 'block', marginTop: 4 }}>
-              {fmtFechaCorta(fechaLocalStr(periodoDesde))} — {fmtFechaCorta(fechaLocalStr(periodoHasta))}
-            </span>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <RutaPantalla niveles={['Papeleo', 'Conciliación']} subtitulo={`${fmtFechaCorta(fechaLocalStr(periodoDesde))} — ${fmtFechaCorta(fechaLocalStr(periodoHasta))}`} />
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <SelectorFechaUniversal
               nombreModulo="conciliacion"
@@ -204,6 +209,48 @@ export default function Conciliacion({ periodoExterno }: { periodoExterno?: { de
 
       {/* Card gigante de cobertura y pestaña Resumen: solo en modo standalone */}
       {!integrado && <PanelCobertura />}
+
+      {integrado && (
+        <>
+          <HeroCantera
+            area="papeleo"
+            titular={heroTitular}
+            etiquetaDato="Movimientos del periodo"
+            cifra={String(totalMov)}
+            resumen={pctAsociadas != null ? <>Conciliados: <b>{pctAsociadas.toFixed(0)}%</b></> : undefined}
+            atencion={[
+              pendientesMov > 0 ? `${pendientesMov} sin categoría` : null,
+              sinTitularMov > 0 ? `${sinTitularMov} sin titular` : null,
+              `${asociadasMov} con factura`,
+            ].filter(Boolean) as string[]}
+          />
+          <Plancha>
+            <PlanchaCelda bg={BLANCO} first>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600, color: 'var(--sl-text-muted)' }}>Movimientos</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 22, marginTop: 6 }}>{totalMov}</div>
+            </PlanchaCelda>
+            <PlanchaCelda bg={VERDE}>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Con factura</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 22, marginTop: 6 }}>{asociadasMov}</div>
+            </PlanchaCelda>
+            <PlanchaCelda bg={NAR}>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Sin categoría</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 22, marginTop: 6 }}>{pendientesMov}</div>
+            </PlanchaCelda>
+            <PlanchaCelda bg={AZUL}>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Sin titular</div>
+              <div style={{ fontFamily: 'Oswald, sans-serif', fontWeight: 700, fontSize: 22, marginTop: 6 }}>{sinTitularMov}</div>
+            </PlanchaCelda>
+          </Plancha>
+          {totalMov > 0 && pctAsociadas != null && (
+            pctAsociadas >= 80
+              ? <FrasePotente significado="logro">Casi todo casado: la mayoría de movimientos ya tiene su factura.</FrasePotente>
+              : pctAsociadas >= 50
+                ? <FrasePotente significado="oportunidad">Vas por buen camino, todavía queda parte por casar.</FrasePotente>
+                : <FrasePotente significado="peligro">Menos de la mitad casada: revisa los movimientos sin factura antes del cierre.</FrasePotente>
+          )}
+        </>
+      )}
 
       {!integrado && (
         <TabsPastilla
@@ -241,12 +288,12 @@ export default function Conciliacion({ periodoExterno }: { periodoExterno?: { de
       />
 
       {ultimaPropagacion && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1e2233', color: BLANCO, borderRadius: 10, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14, zIndex: 200, fontFamily: 'Lexend, sans-serif', fontSize: 13, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: INK, color: BLANCO, borderRadius: 0, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14, zIndex: 200, fontFamily: 'Lexend, sans-serif', fontSize: 13, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
           <span>{ultimaPropagacion.length} movimiento{ultimaPropagacion.length > 1 ? 's' : ''} categorizados</span>
-          <button onClick={handleDeshacerPropagacion} style={{ background: LIMA, color: '#1e2233', border: 'none', borderRadius: 6, padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600 }}>Deshacer</button>
+          <button onClick={handleDeshacerPropagacion} style={{ background: LIMA, color: INK, border: 'none', borderRadius: 0, padding: '5px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: 600 }}>Deshacer</button>
           <button onClick={() => setUltimaPropagacion(null)} style={{ background: 'transparent', color: 'var(--sl-text-muted)', border: 'none', fontSize: 16, cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
 }

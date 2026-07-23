@@ -2,7 +2,7 @@ import { COLORS, FONT } from '@/components/panel/resumen/tokens'
 
 // ChuletaPlataformas — card "Qué subir por plataforma".
 // Misma factura visual que CardSaludOcr / CardFacturasCorreo (Panel Global):
-// fondo blanco, borde 0.5px #d0c8bc, radio 14, header Oswald 11/2px, cuerpo
+// fondo blanco, borde 0.5px suave, radio 14, header Oswald 11/2px, cuerpo
 // Lexend en gris mut. Limpio, sin cajas de colores. height:100% para igualar
 // la altura de las dos cards vecinas en la fila de 3 columnas.
 
@@ -18,7 +18,7 @@ export default function ChuletaPlataformas() {
       style={{
         background: COLORS.card,
         border: `0.5px solid ${COLORS.brd}`,
-        borderRadius: 14,
+        borderRadius: 0,
         padding: '16px 16px',
         height: '100%',
         boxSizing: 'border-box',

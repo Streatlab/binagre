@@ -1,4 +1,4 @@
-import { AZUL_CL, GRANATE, INK, NAR, OSC, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, GRANATE, GRIS, INK, NAR, OSC, VERDE } from '@/styles/neobrutal'
 interface NavIconProps {
   section: string
   collapsed: boolean
@@ -11,23 +11,23 @@ const SECTION_COLORS: Record<string, string> = {
   panel:         GRANATE,
   finanzas:      VERDE,
   cocina:        NAR,
-  operaciones:   '#9ba8c0',
+  operaciones:   NAR,
   stock:         NAR,
   pos:           AZUL_CL,
   marcas:        GRANATE,
   marketing:     GRANATE,
-  equipo:        '#9ba8c0',
+  equipo:        INK,
   clientes:      VERDE,
-  informes:      '#378ADD',
-  configuracion: '#5a6880',
+  informes:      AZUL_CL,
+  configuracion: GRIS,
 }
 
 export function NavIcon({ section, collapsed, isDark, active = false, size = 24 }: NavIconProps) {
   // Color expandido: cada sección su propio color
   // Color colapsado: activo = acento tema; inactivo = gris contrastado
-  const sectionColor = SECTION_COLORS[section] ?? '#9ba8c0'
+  const sectionColor = SECTION_COLORS[section] ?? GRIS
   const strokeColor = collapsed
-    ? (active ? (isDark ? GRANATE : GRANATE) : (isDark ? '#c8d0e8' : OSC))
+    ? (active ? GRANATE : (isDark ? GRIS : OSC))
     : (active ? INK : sectionColor)
   const strokeW = collapsed ? 1.5 : 2
 

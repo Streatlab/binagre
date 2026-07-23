@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import type { Ingrediente } from './types'
 import { fmtES } from './types'
 import { INK, CREMA, OSW, LEX, AMA, GRANATE, ROJO, VERDE, GRIS } from '@/styles/neobrutal'
+import { ME_CABALLO } from '@/styles/palettes'
 import { th, thR, td, tdNum, zebra } from './estilosTabla'
 
 interface Props { onOpenIngrediente: (ing: Ingrediente) => void }
@@ -437,7 +438,7 @@ export default function TabAuto({ onOpenIngrediente }: Props) {
             <thead><tr><th style={th}>PLATO</th><th style={th}>MARCA</th><th style={thR}>UDS</th><th style={thR}>MARGEN</th><th style={th}>CUADRANTE</th></tr></thead>
             <tbody>
               {menuEng.slice(0, 20).map((p, i) => {
-                const col = p.cuadrante === 'ESTRELLA' ? VERDE : p.cuadrante === 'PERRO' ? ROJO : p.cuadrante === 'CABALLO' ? '#f5a623' : GRIS
+                const col = p.cuadrante === 'ESTRELLA' ? VERDE : p.cuadrante === 'PERRO' ? ROJO : p.cuadrante === 'CABALLO' ? ME_CABALLO : GRIS
                 return (
                   <tr key={`${p.plato}-${p.marca}-${i}`} style={{ background: zebra(i) }}>
                     <td style={{ ...td, fontWeight: 700 }}>{p.plato}</td>

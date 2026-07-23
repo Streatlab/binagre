@@ -1,7 +1,18 @@
 /**
- * SINQRO VIVO v3 · snapshot de pedidos Just Eat del día en curso, cada ~5 min
+ * SINQRO VIVO v4 · snapshot de pedidos Just Eat del día en curso, cada ~5 min
  * durante servicio (11:00–00:30 Madrid). Solo corre en horario de restaurante:
  * fuera de servicio la vista sale "No se han encontrado pedidos" y no se guarda.
+ *
+ * v4 (22-jul): desglose por marca. La vista "en vivo" no trae marca en la
+ * tarjeta, pero cada tarjeta enlaza (ng-repeat="order in orders...") al
+ * detalle del pedido (#/sp/6416/online/orders/{id}), que sí la muestra. Por
+ * cada pedido nuevo (no visto antes hoy, ver caché en ventas_vivo.crudo) se
+ * visita su detalle y se busca el nombre de marca conocido (tabla `marcas`)
+ * en el texto. LEY-ANTIFALSOS: si CUALQUIER pedido del lote no resuelve
+ * marca, el lote ENTERO cae al agregado de siempre (marca='Streat Lab') — el
+ * fallback es más importante que el desglose, nunca se inventa una marca ni
+ * se pierde importe. Lógica de agrupación/caché/fallback: ./_lib/justEatMarca.ts
+ * (pura, testeada en tests/sinqro-vivo-justeat-marca.test.ts).
  *
  * v3 (19-jul): además de pedidos + € (que anclan el Panel), extrae:
  *   - por_horas: nº de pedidos y bruto agrupados por hora del pedido.
@@ -13,14 +24,19 @@
  *
  * HISTORIA (guardas que se mantienen):
  *   - INCIDENTE 16-jul: nunca se escribe una lectura en 0 (se descarta y loguea).
- *   - Solo se escribe la fila plataforma='just_eat'; jamás una fila TOTAL propia
- *     (el Panel ancla el vivo a la fila TOTAL de Rushour).
+ *   - Solo se escriben filas plataforma='just_eat' (una o varias, una por
+ *     marca); jamás una fila TOTAL propia (el Panel ancla el vivo a la fila
+ *     TOTAL de Rushour).
  *   - Lector probado (datepicker real + marcado robusto de tipos + espera a que
  *     termine la búsqueda), autocontenido aquí.
  */
 import { chromium, Page } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import { hoyMadrid, log, latido } from './_lib/bandeja.js';
+import {
+  idDeHref, marcaEnTexto, cacheDesdeHistorico, agruparPorMarca, mismoConjuntoJE,
+  type PedidoJE, type LineaJEMarca,
+} from './_lib/justEatMarca.js';
 
 const P = 'sinqro_vivo';
 const TABLA_VIVO = 'ventas_vivo';
@@ -133,11 +149,21 @@ type LecturaJE = {
   porHoras: { hora: string; pedidos: number; bruto: number }[];
   topProductos: { nombre: string; unidades: number }[];
   dom: string;
+  pedidosJE: PedidoJE[];
 };
+
+/** Ids de pedido de cada tarjeta del listado, en el mismo orden que aparecen
+ * en el DOM (y por tanto alineados con el split por "Pedido #" del texto):
+ * cada tarjeta es <a href="#/sp/6416/online/orders/{id}" ng-repeat="order in
+ * orders...">. Si el selector no encuentra nada devuelve [] (defensivo). */
+async function idsDePedidosDelListado(page: Page): Promise<(string | null)[]> {
+  const hrefs = await page.$$eval('a[ng-repeat^="order in orders"]', (as) => as.map((a) => a.getAttribute('href'))).catch(() => [] as (string | null)[]);
+  return hrefs.map(idDeHref);
+}
 
 /** Just Eat del día: pedidos, bruto, desglose por horas y top productos. */
 async function leerJustEatDia(page: Page, fecha: string): Promise<LecturaJE> {
-  const vacio: LecturaJE = { pedidos: 0, bruto: 0, tarjetas: 0, porHoras: [], topProductos: [], dom: '' };
+  const vacio: LecturaJE = { pedidos: 0, bruto: 0, tarjetas: 0, porHoras: [], topProductos: [], dom: '', pedidosJE: [] };
   await page.goto(SINQRO.loginUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
   if (await page.locator('#login-email').first().count().catch(() => 0)) {
@@ -164,29 +190,113 @@ async function leerJustEatDia(page: Page, fecha: string): Promise<LecturaJE> {
   const dom = (await page.content().catch(() => '')) || '';
   const texto = ((await page.locator('body').innerText().catch(() => '')) || '').replace(/\u00a0/g, ' ');
   const tarjetas = texto.split(/Pedido\s*#/).slice(1);
+  // ids de pedido alineados con `tarjetas` (mismo orden de aparición en el DOM).
+  // Si el nº de anchors no cuadra con el nº de tarjetas de texto, mejor no
+  // alinear nada (defensivo) que alinear mal: id=null para todas → fallback.
+  const hrefsIds = await idsDePedidosDelListado(page);
+  const idsAlineados = hrefsIds.length === tarjetas.length ? hrefsIds : tarjetas.map(() => null);
 
   const horas = new Map<string, { pedidos: number; bruto: number }>();
   const prods = new Map<string, number>();
+  const pedidosJE: PedidoJE[] = [];
   let pedidos = 0, bruto = 0;
-  for (const t of tarjetas) {
-    if (!/just\s?eat/i.test(t)) continue;
+  tarjetas.forEach((t, i) => {
+    if (!/just\s?eat/i.test(t)) return;
     const mE = t.match(/(\d[\d.,]*)\s*€/);
-    if (!mE) continue;
+    if (!mE) return;
     const imp = r2(numES(mE[1]));
     pedidos += 1;
     bruto += imp;
+    pedidosJE.push({ id: idsAlineados[i] ?? null, importe: imp });
     // por horas (aditivo)
     const h = horaDeTarjeta(t);
     if (h) { const cur = horas.get(h) || { pedidos: 0, bruto: 0 }; cur.pedidos += 1; cur.bruto = r2(cur.bruto + imp); horas.set(h, cur); }
     // top productos (aditivo, defensivo)
     for (const p of productosDeTarjeta(t)) prods.set(p.nombre, (prods.get(p.nombre) || 0) + p.unidades);
-  }
+  });
 
   const porHoras = [...horas.entries()].map(([hora, v]) => ({ hora, pedidos: v.pedidos, bruto: v.bruto })).sort((a, b) => a.hora.localeCompare(b.hora));
   const topProductos = [...prods.entries()].map(([nombre, unidades]) => ({ nombre, unidades })).sort((a, b) => b.unidades - a.unidades).slice(0, 15);
 
-  await log(P, 'lectura', `${fecha} tipos=${marcados} tarjetas=${tarjetas.length} JE=${pedidos} ped / ${r2(bruto)}€ · horas=${porHoras.length} prod=${topProductos.length}`);
-  return { pedidos, bruto: r2(bruto), tarjetas: tarjetas.length, porHoras, topProductos, dom };
+  await log(P, 'lectura', `${fecha} tipos=${marcados} tarjetas=${tarjetas.length} JE=${pedidos} ped / ${r2(bruto)}€ · horas=${porHoras.length} prod=${topProductos.length} · ids=${idsAlineados.filter(Boolean).length}/${tarjetas.length}`);
+  return { pedidos, bruto: r2(bruto), tarjetas: tarjetas.length, porHoras, topProductos, dom, pedidosJE };
+}
+
+/** Detalle de un pedido: busca en su texto visible el nombre de alguna marca
+ * conocida. null si no encaja ninguna (defensivo — nunca inventa marca). */
+async function marcaDePedido(page: Page, id: string, candidatas: string[]): Promise<string | null> {
+  const url = `${SINQRO.ventasUrl}/${id}`;
+  await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForTimeout(1500);
+  const texto = (await page.locator('body').innerText().catch(() => '')) || '';
+  return marcaEnTexto(texto, candidatas);
+}
+
+/** Nombres de marca conocidos para reconocer en el detalle de pedido, con su
+ * traducción al nombre canónico.
+ *
+ * FIX 23-jul (regresión "Streat Lab como marca"): 'Streat Lab' es la EMPRESA
+ * y aparece en la cabecera del detalle de Sinqro de TODOS los pedidos, así
+ * que nunca puede ser candidata. 'Black Label by Streat Lab' SÍ es marca real
+ * y sigue ganando por longitud cuando aparece en el texto.
+ *
+ * Rubén (24-jul): Just Eat SIEMPRE muestra la marca dentro de cada pedido.
+ * Si un pedido no casa, es que el nombre difiere del canónico → se reconocen
+ * también los alias (marca_alias) y los nombres anteriores, y el resultado se
+ * traduce SIEMPRE al nombre canónico de `marcas` antes de guardar. */
+async function marcasConocidas(): Promise<{ nombres: string[]; canonico: Map<string, string> }> {
+  const [{ data: ms }, { data: als }] = await Promise.all([
+    sb.from('marcas').select('id, nombre, nombre_anterior'),
+    sb.from('marca_alias').select('nombre_alias, marca_id'),
+  ]);
+  const canonico = new Map<string, string>();
+  const porId = new Map<string, string>();
+  for (const m of (ms || []) as { id: string; nombre: string | null; nombre_anterior: string | null }[]) {
+    if (m.nombre) { canonico.set(m.nombre, m.nombre); porId.set(m.id, m.nombre); }
+    if (m.nombre_anterior && m.nombre) canonico.set(m.nombre_anterior, m.nombre);
+  }
+  for (const a of (als || []) as { nombre_alias: string | null; marca_id: string | null }[]) {
+    const canon = a.marca_id ? porId.get(a.marca_id) : undefined;
+    if (a.nombre_alias && canon && canon !== 'Streat Lab') canonico.set(a.nombre_alias, canon);
+  }
+  canonico.delete('Streat Lab');
+  return { nombres: [...canonico.keys()], canonico };
+}
+
+/** Caché id→marca de lo ya resuelto hoy (evita revisitar el detalle de
+ * pedidos ya conocidos en cada tick de 5 min). */
+async function cacheMarcasHoy(fecha: string): Promise<Map<string, string>> {
+  const { data } = await sb.from(TABLA_VIVO).select('marca, crudo').eq('fecha', fecha).eq('plataforma', 'just_eat');
+  return cacheDesdeHistorico((data || []) as { marca: string; crudo: unknown }[]);
+}
+
+// Tope defensivo: nº máximo de pedidos NUEVOS (no cacheados) que se visitan
+// en un solo tick, para no colgar un tick visitando decenas de detalles tras
+// una caída larga del robot. Si hay más pendientes que el tope, se visita
+// igualmente hasta el tope (así el backlog SIEMPRE se reduce tick a tick) y
+// el resto se queda para el siguiente — este tick cae a fallback porque
+// agruparPorMarca no encuentra marca para los que aún no se visitaron.
+const MAX_DETALLES_POR_TICK = 40;
+
+/** Resuelve el desglose por marca de los pedidos JE del día, usando caché +
+ * detalle de pedido para lo nuevo. Todo o nada (ver agruparPorMarca). */
+async function resolverDesgloseJE(page: Page, fecha: string, pedidosJE: PedidoJE[]) {
+  const { nombres: candidatas, canonico } = await marcasConocidas();
+  const cache = await cacheMarcasHoy(fecha);
+
+  const pendientesTodos = [...new Set(pedidosJE.map((p) => p.id).filter((id): id is string => !!id && !cache.has(id)))];
+  const pendientes = pendientesTodos.slice(0, MAX_DETALLES_POR_TICK);
+  for (const id of pendientes) {
+    const marca = await marcaDePedido(page, id, candidatas);
+    if (marca) cache.set(id, canonico.get(marca) ?? marca);
+    // si no resuelve, se queda fuera de la caché: agruparPorMarca hará fallback para este pedido.
+  }
+  if (pendientes.length) await log(P, 'marca_je', `${fecha}: ${pendientes.length} detalle(s) de pedido visitado(s), caché=${cache.size}`);
+  if (pendientesTodos.length > pendientes.length) {
+    await log(P, 'marca_je_tope', `${fecha}: tope de ${MAX_DETALLES_POR_TICK}/tick alcanzado, ${pendientesTodos.length - pendientes.length} pedido(s) quedan para el siguiente tick`);
+  }
+
+  return agruparPorMarca(pedidosJE, (id) => cache.get(id) ?? null);
 }
 
 /** Vuelca el DOM como máximo 1 vez/hora, solo cuando hay pedidos (para afinar). */
@@ -203,7 +313,7 @@ async function main() {
   const ctx = await browser.newContext({ timezoneId: 'Europe/Madrid' });
   const page = await ctx.newPage();
   try {
-    const { pedidos, bruto, tarjetas, porHoras, topProductos, dom } = await leerJustEatDia(page, fecha);
+    const { pedidos, bruto, tarjetas, porHoras, topProductos, dom, pedidosJE } = await leerJustEatDia(page, fecha);
 
     // GUARDA 1: una lectura en 0 no se escribe jamás.
     if (pedidos === 0 && bruto === 0) {
@@ -215,26 +325,67 @@ async function main() {
     // Hay pedidos: vuelca el DOM (máx 1/hora) para poder afinar el parser.
     await volcarDomSiToca(fecha, dom);
 
-    const { data: ultimo } = await sb
-      .from(TABLA_VIVO)
-      .select('pedidos, facturacion')
-      .eq('fecha', fecha).eq('plataforma', 'just_eat').eq('marca', 'Streat Lab')
-      .order('momento', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Desglose por marca (todo o nada) — ver ./_lib/justEatMarca.ts.
+    const desglose = await resolverDesgloseJE(page, fecha, pedidosJE);
 
-    const cambiado = !ultimo || Number(ultimo.pedidos) !== pedidos || Number(ultimo.facturacion) !== bruto;
+    type FilaVivo = {
+      fecha: string; plataforma: 'just_eat'; marca: string; pedidos: number; facturacion: number;
+      por_horas: { hora: string; pedidos: number; bruto: number }[] | null;
+      crudo: Record<string, unknown>;
+    };
+
+    const filasNuevas: FilaVivo[] = desglose.resuelto
+      ? desglose.lineas.map((l: LineaJEMarca, i: number) => ({
+          fecha, plataforma: 'just_eat', marca: l.marca,
+          pedidos: l.pedidos, facturacion: l.bruto,
+          // por_horas/topProducts son del día completo de JE (no por marca): se
+          // adjuntan solo a la 1ª fila para no triplicar el conteo aguas abajo
+          // (fn_informe_cierre suma por_horas de TODAS las filas del momento).
+          por_horas: i === 0 && porHoras.length ? porHoras : null,
+          crudo: {
+            origen: 'sinqro_vivo_v4', resuelto: true, pedidos_ids: l.ids,
+            topProducts: i === 0 && topProductos.length ? topProductos : null,
+          },
+        }))
+      : [{
+          // GUARDA 2 (fallback obligatorio): fila agregada exactamente como
+          // antes de v4 — nunca se pierde importe ni se inventa marca.
+          fecha, plataforma: 'just_eat', marca: 'Streat Lab',
+          pedidos, facturacion: bruto,
+          por_horas: porHoras.length ? porHoras : null,
+          crudo: {
+            origen: 'sinqro_vivo_v4', resuelto: false, motivo: desglose.motivo,
+            topProducts: topProductos.length ? topProductos : null,
+          },
+        }];
+
+    // ¿Cambió algo respecto a la última tanda guardada? (todas las filas de
+    // just_eat con el momento más reciente de hoy, sea 1 fila o desglosadas).
+    const { data: ultimoMomento } = await sb.from(TABLA_VIVO).select('momento')
+      .eq('fecha', fecha).eq('plataforma', 'just_eat')
+      .order('momento', { ascending: false }).limit(1).maybeSingle();
+
+    let filasAnteriores: { marca: string; pedidos: number; facturacion: number }[] = [];
+    if (ultimoMomento?.momento) {
+      const { data } = await sb.from(TABLA_VIVO).select('marca, pedidos, facturacion')
+        .eq('fecha', fecha).eq('plataforma', 'just_eat').eq('momento', ultimoMomento.momento);
+      filasAnteriores = (data || []) as typeof filasAnteriores;
+    }
+    const comparablesNuevas = filasNuevas.map((f) => ({ marca: f.marca, pedidos: f.pedidos, facturacion: f.facturacion }));
+    const cambiado = !mismoConjuntoJE(filasAnteriores, comparablesNuevas);
+
     if (cambiado) {
-      // GUARDA 2: solo la fila plataforma='just_eat'; jamás una fila TOTAL.
-      await sb.from(TABLA_VIVO).insert([{
-        fecha, plataforma: 'just_eat', marca: 'Streat Lab',
-        pedidos, facturacion: bruto,
-        por_horas: porHoras.length ? porHoras : null,
-        crudo: { origen: 'sinqro_vivo_v3', topProducts: topProductos.length ? topProductos : null },
-      }]);
+      // GUARDA 2: solo filas plataforma='just_eat'; jamás una fila TOTAL. Se
+      // insertan todas en una sola llamada para que compartan `momento`
+      // (default now() del propio INSERT) — así fn_informe_cierre las agrupa
+      // como el mismo tick.
+      await sb.from(TABLA_VIVO).insert(filasNuevas);
     }
 
-    await log(P, 'ok', `${fecha} · pedidos=${pedidos} facturacion=${bruto} · horas=${porHoras.length} prod=${topProductos.length} · ${cambiado ? 'guardado' : 'sin cambios'} · tabla=${TABLA_VIVO}`);
+    const resumenMarcas = desglose.resuelto
+      ? desglose.lineas.map((l: LineaJEMarca) => `${l.marca}=${l.pedidos}/${l.bruto}€`).join(', ')
+      : `agregado sin desglosar (${desglose.motivo})`;
+    await log(P, 'ok', `${fecha} · pedidos=${pedidos} facturacion=${bruto} · ${resumenMarcas} · horas=${porHoras.length} prod=${topProductos.length} · ${cambiado ? 'guardado' : 'sin cambios'} · tabla=${TABLA_VIVO}`);
     await latido(P, fecha, `pedidos=${pedidos} facturacion=${bruto} · tabla=${TABLA_VIVO}`);
   } catch (e: any) {
     await log(P, 'error', String(e?.message || e));

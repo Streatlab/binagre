@@ -48,15 +48,17 @@ function palabrasSignificativas(s: string): Set<string> {
   return new Set(normalizarNombrePersona(s).split(' ').filter(p => p.length >= 3))
 }
 
-/** Carga TODOS los empleados con su nombre oficial, NIF y alias — incluidos los que
- *  ya no trabajan aquí: sus nóminas y sus documentos históricos siguen llegando y
- *  deben archivarse igual (antes se filtraba por estado='activo' y las nóminas de
+/** Carga los empleados de PLANTILLA con su nombre oficial, NIF y alias — incluidos
+ *  los que ya no trabajan aquí: sus nóminas y documentos históricos siguen llegando
+ *  y deben archivarse igual (antes se filtraba por estado='activo' y las nóminas de
  *  un ex-empleado acababan siempre en la cola de revisión). */
 export async function cargarCandidatosEmpleados(supabase: SupabaseClient): Promise<CandidatoEmpleado[]> {
   const [{ data: empleados }, { data: alias }] = await Promise.all([
-    // Los EXTRA (tipo_relacion='extra') no tienen nómina: se excluyen del matching
-    // para que ni casen por error ni cuenten como "falta su nómina".
-    supabase.from('empleados').select('id, nombre, nombre_oficial, nif, aliases, tipo_relacion').neq('tipo_relacion', 'extra'),
+    // Solo PLANTILLA cobra nómina. Los EXTRA (se pagan por Bizum/transferencia) y
+    // los SOCIOS (administradores, sin nómina) se excluyen del matching: además de
+    // no contar como "falta su nómina", evita que el nombre del titular que sale en
+    // la cabecera de todos los documentos de la gestoría cree nóminas fantasma.
+    supabase.from('empleados').select('id, nombre, nombre_oficial, nif, aliases, tipo_relacion').eq('tipo_relacion', 'plantilla'),
     supabase.from('empleado_alias').select('empleado_id, alias'),
   ])
   const aliasPorEmpleado = new Map<string, string[]>()
@@ -74,6 +76,19 @@ export async function cargarCandidatosEmpleados(supabase: SupabaseClient): Promi
     // (la ficha guarda ahí p.ej. el nombre legal de Ray: "Juan Ramón Méndez Melo";
     // antes solo se leía la tabla y esos alias se ignoraban).
     aliases: [...new Set([...(aliasPorEmpleado.get(e.id) ?? []), ...((e.aliases ?? []) as string[])])],
+  }))
+}
+
+/** Carga los marcados `es_empleador=true` (el titular/autónomo, p.ej. Rubén). Se usa
+ *  para DESCARTAR EN SILENCIO una fila que el parser haya leído como si fuera un
+ *  trabajador (p.ej. su nombre sin el prefijo "CENTRO:"): nunca debe generar ni
+ *  una nómina ni un aviso de revisión, a diferencia de un nombre desconocido de
+ *  verdad, que sí va a revisión. Dato explícito, no nombre a fuego. */
+export async function cargarEmpleadores(supabase: SupabaseClient): Promise<CandidatoEmpleado[]> {
+  const { data: empleados } = await supabase
+    .from('empleados').select('id, nombre, nombre_oficial, nif, aliases').eq('es_empleador', true)
+  return ((empleados ?? []) as { id: string; nombre: string; nombre_oficial: string | null; nif: string | null; aliases: string[] | null }[]).map(e => ({
+    id: e.id, nombre: e.nombre, nombre_oficial: e.nombre_oficial, nif: e.nif, aliases: (e.aliases ?? []) as string[],
   }))
 }
 
@@ -176,8 +191,8 @@ export function resolverEmpleadoEnTexto(
  * Variante plural: devuelve TODOS los empleados que aparecen en el texto. La usa el
  * flujo multi-nómina para descartar el "ruido del empleador": en el PDF único de la
  * gestoría, el nombre de la empresa/autónomo aparece en TODAS las páginas — si ese
- * nombre coincide con un empleado (p.ej. Rubén), casaba en todos los segmentos y
- * bloqueaba la identificación del trabajador real.
+ * nombre coincide con un empleado, casaba en todos los segmentos y bloqueaba la
+ * identificación del trabajador real.
  */
 export function resolverEmpleadosEnTexto(
   texto: string,

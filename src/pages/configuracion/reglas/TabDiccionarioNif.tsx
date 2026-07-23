@@ -1,7 +1,9 @@
-import { VERDE } from '@/styles/neobrutal'
+import { VERDE, GRIS, GRANATE, LEX } from '@/styles/neobrutal'
+import { DICCIONARIO_PLANTILLA_AZUL } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 
 interface Entrada {
   nif: string
@@ -38,29 +40,41 @@ export default function TabDiccionarioNif() {
     (f.proveedor_canonico ?? '').toLowerCase().includes(busca.toLowerCase()) ||
     (f.categoria_codigo ?? '').toLowerCase().includes(busca.toLowerCase()))
 
-  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
+  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
 
   function badgeOrigen(o: string | null) {
     const map: Record<string, { txt: string; bg: string; fg: string }> = {
-      banco:   { txt: 'Banco',   bg: '#06C16722', fg: VERDE },
-      regla:   { txt: 'Plantilla', bg: '#3b82f622', fg: '#3b82f6' },
-      factura: { txt: 'Factura', bg: '#9999991f', fg: T.sec },
+      banco:   { txt: 'Banco',   bg: `${VERDE}22`, fg: VERDE },
+      regla:   { txt: 'Plantilla', bg: DICCIONARIO_PLANTILLA_AZUL + '22', fg: DICCIONARIO_PLANTILLA_AZUL },
+      factura: { txt: 'Factura', bg: `${GRIS}1f`, fg: T.sec },
     }
     const m = map[o ?? ''] ?? { txt: '—', bg: 'transparent', fg: T.mut }
-    return <span style={{ background: m.bg, color: m.fg, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>{m.txt}</span>
+    return <span style={{ background: m.bg, color: m.fg, borderRadius: 0, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>{m.txt}</span>
   }
 
-  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando diccionario…</div>
+  if (loading) return (
+    <PantallaCantera embedded>
+      <Papel ceja={GRIS}><div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13, fontWeight: 600 }}>Cargando diccionario…</div></Papel>
+    </PantallaCantera>
+  )
+
+  const conCategoria = filas.filter(f => !!f.categoria_codigo).length
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-        Diccionario NIF ↔ proveedor. Se rellena solo: cada factura aporta el NIF y su proveedor, cada movimiento del banco aporta la categoría real, y las plantillas por NIF entran también aquí. De esta tabla salen la contraparte y la categoría que se copian automáticamente a cada factura nueva con ese NIF. La categoría del banco manda sobre cualquier otra.
-      </div>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={filas.length === 0 ? 'El diccionario NIF todavía está vacío' : 'Así relaciona el sistema cada NIF con su proveedor y categoría'}
+        etiquetaDato={filas.length > 0 ? 'Entradas en el diccionario' : undefined}
+        cifra={filas.length > 0 ? String(filas.length) : undefined}
+        resumen={filas.length > 0
+          ? <>{conCategoria} con categoría asignada · se rellena solo con facturas, banco y plantillas.</>
+          : 'Se irá llenando solo según entren facturas y movimientos del banco.'}
+      />
 
       <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por NIF, proveedor o categoría…" style={{ ...inp, maxWidth: 320 }} />
 
-      <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, overflow: 'hidden' }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body, fontSize: 14 }}>
           <thead>
             <tr style={{ background: T.group }}>
@@ -84,7 +98,7 @@ export default function TabDiccionarioNif() {
             {visibles.length === 0 && <tr><td colSpan={5} style={{ padding: 20, textAlign: 'center', color: T.mut }}>Diccionario vacío todavía. Se irá llenando solo según entren facturas y movimientos.</td></tr>}
           </tbody>
         </table>
-      </div>
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

@@ -16,7 +16,8 @@ import { extraerNominaAnthropicTexto } from './extraerNomina.js'
 import { extraerSegSocialAnthropicTexto } from './extraerSegSocialResumen.js'
 import { extraerResumenNominasTexto, type FilaResumenNomina } from './extraerResumenNominas.js'
 import { extraerRntTexto, type FilaRnt } from './extraerRnt.js'
-import { cargarCandidatosEmpleados, resolverEmpleado } from './matchEmpleado.js'
+import { extraerAutonomoCuotaTexto } from './extraerAutonomoCuota.js'
+import { cargarCandidatosEmpleados, cargarEmpleadores, resolverEmpleado } from './matchEmpleado.js'
 
 export interface ResultadoProceso {
   status: number
@@ -46,20 +47,25 @@ interface ResultadoArchivado {
   driveError: string | null
   niveles: string[]
   nombreArchivo: string
+  /** Ruta en el bucket propio 'facturas' — el visor la usa para servir el PDF con
+   *  signed URL, sin depender de permisos de Google Drive (nunca un iframe de Drive). */
+  storagePath: string | null
 }
 
 /** Archiva en la ruta EXACTA de EQUIPO. Nunca lanza: si Drive falla, driveUrl queda
- *  null y drivePendiente=true — el llamador guarda el dato de todas formas. */
+ *  null y drivePendiente=true — el llamador guarda el dato de todas formas. El
+ *  respaldo en Storage propio (storagePath) se hace SIEMPRE antes de tocar Drive,
+ *  así que sigue disponible aunque Drive falle o no esté configurado. */
 async function archivarEquipo(buffer: Buffer, nombreArchivo: string, niveles: string[], ext: string): Promise<ResultadoArchivado> {
   try {
     const drive = await subirArchivoACarpetaExacta(buffer, nombreArchivo, niveles, ext)
     if (drive.driveOk) {
-      return { driveUrl: drive.webViewLink || null, drivePendiente: false, driveError: null, niveles, nombreArchivo }
+      return { driveUrl: drive.webViewLink || null, drivePendiente: false, driveError: null, niveles, nombreArchivo, storagePath: drive.storagePath }
     }
-    return { driveUrl: null, drivePendiente: true, driveError: 'Drive no disponible en el momento de la subida (documento a salvo en Storage)', niveles, nombreArchivo }
+    return { driveUrl: null, drivePendiente: true, driveError: 'Drive no disponible en el momento de la subida (documento a salvo en Storage)', niveles, nombreArchivo, storagePath: drive.storagePath }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    return { driveUrl: null, drivePendiente: true, driveError: msg, niveles, nombreArchivo }
+    return { driveUrl: null, drivePendiente: true, driveError: msg, niveles, nombreArchivo, storagePath: null }
   }
 }
 
@@ -120,6 +126,7 @@ export async function procesarNominaIndividual(
     drive_error: archivado.driveError,
     drive_niveles: archivado.niveles,
     drive_nombre_archivo: archivado.nombreArchivo,
+    pdf_storage_path: archivado.storagePath,
   }
   const { data: previa } = await supabaseAdmin
     .from('nominas').select('id')
@@ -144,6 +151,12 @@ export async function procesarNominaIndividual(
   }
 }
 
+// Prefijo común para poder buscar en Vercel (Runtime Logs) toda la traza de un
+// procesado de resumen de un tirón: `[resumen]`.
+function trazaResumen(paso: string, datos?: Record<string, unknown>) {
+  console.log(`[resumen] ${paso}`, datos ? JSON.stringify(datos) : '')
+}
+
 /** Núcleo de api/nominas/resumen/subir.ts: tabla multi-trabajador de la gestoría. */
 export async function procesarResumenNominas(
   buffer: Buffer,
@@ -151,20 +164,30 @@ export async function procesarResumenNominas(
   mesBody: number | null,
   anioBody: number | null,
 ): Promise<ResultadoProceso> {
+  trazaResumen('inicio', { nombreOriginal, bytes: buffer.length })
   let texto = ''
-  try { texto = await extraerTextoPDF(buffer) } catch { texto = '' }
+  try { texto = await extraerTextoPDF(buffer) } catch (e) { texto = ''; trazaResumen('extraerTextoPDF FALLÓ', { error: e instanceof Error ? e.message : String(e) }) }
+  trazaResumen('texto extraído', { longitud: texto.length })
+
   const resultado = await extraerResumenNominasTexto(texto)
+  trazaResumen('extractor Anthropic', { estado: resultado.estado, motivo: resultado.motivo, filas: resultado.filas.length, mes: resultado.mes, anio: resultado.anio, total_empresa: resultado.total_empresa })
 
   if (resultado.estado === 'error') {
+    trazaResumen('FIN: error de extracción, nada guardado', { motivo: resultado.motivo })
     return { status: 500, body: { error: resultado.motivo } }
   }
-  if (resultado.filas.length === 0) {
-    return { status: 422, body: { error: resultado.motivo, estado: resultado.estado } }
+  // Validación de suma(NETO)=TOTAL EMPRESA fallida, o sin tabla reconocible: no se
+  // guarda NADA (mejor sin datos que con datos falsos). Un único aviso para todo
+  // el documento, no uno por fila.
+  if (resultado.filas.length === 0 || resultado.estado === 'revisar') {
+    trazaResumen('FIN: validación no superada, nada guardado', { motivo: resultado.motivo })
+    return { status: 422, body: { error: resultado.motivo, estado: resultado.estado, filas_leidas: resultado.filas } }
   }
 
   const mesFinal = mesBody ?? resultado.mes
   const anioFinal = anioBody ?? resultado.anio
   if (!mesFinal || !anioFinal) {
+    trazaResumen('FIN: sin mes/año, nada guardado', { mesBody, anioBody, mesExtraido: resultado.mes, anioExtraido: resultado.anio })
     return {
       status: 400,
       body: {
@@ -174,6 +197,7 @@ export async function procesarResumenNominas(
       },
     }
   }
+  trazaResumen('mes/año resuelto', { mesFinal, anioFinal })
 
   const ext = (nombreOriginal.split('.').pop() || 'pdf').toLowerCase()
   const mesPad = String(mesFinal).padStart(2, '0')
@@ -181,21 +205,37 @@ export async function procesarResumenNominas(
   // EQUIPO/RESUMEN_NOMINAS/<AÑO>/resumen_<AÑO>-<MES>.pdf
   const niveles = ['EQUIPO', 'RESUMEN_NOMINAS', String(anioFinal)]
   const archivado = await archivarEquipo(buffer, nombreArchivo, niveles, ext)
+  trazaResumen('archivado Drive/Storage', { driveUrl: archivado.driveUrl, drivePendiente: archivado.drivePendiente, driveError: archivado.driveError })
 
-  const candidatos = await cargarCandidatosEmpleados(supabaseAdmin)
+  const [candidatos, empleadores] = await Promise.all([
+    cargarCandidatosEmpleados(supabaseAdmin),
+    cargarEmpleadores(supabaseAdmin),
+  ])
+  trazaResumen('candidatos cargados', { candidatos: candidatos.length, empleadores: empleadores.length })
 
   const insertadas: unknown[] = []
-  const yaExistia: unknown[] = []
+  const actualizadas: unknown[] = []
   const revisarIdentidad: unknown[] = []
+  let descartadasEmpleador = 0
 
   for (const fila of resultado.filas as FilaResumenNomina[]) {
+    // El empleador/titular (Rubén) nunca genera nómina NI aviso: se descarta en
+    // silencio si el modelo lo devolvió como fila pese a la instrucción del prompt.
+    if (resolverEmpleado(fila.trabajador, null, empleadores)) {
+      trazaResumen('fila descartada (empleador)', { trabajador: fila.trabajador })
+      descartadasEmpleador++
+      continue
+    }
+
     const resolucion = resolverEmpleado(fila.trabajador, null, candidatos)
+    const ssTrabajador = fila.ss_total != null && fila.ss_empresa != null ? Math.round((fila.ss_total - fila.ss_empresa) * 100) / 100 : null
     const filaOut = {
       trabajador: fila.trabajador,
       bruto: fila.bruto,
+      ss_empresa: fila.ss_empresa,
       neto: fila.neto,
-      irpf: fila.irpf,
       ss_total: fila.ss_total,
+      irpf: fila.irpf,
       coste_empresa: fila.coste_empresa,
     }
 
@@ -204,7 +244,13 @@ export async function procesarResumenNominas(
     // en payload. Rubén la asigna en un clic (aprende alias) y se crea la nómina
     // desde el payload — no hace falta re-subir el resumen. Sin duplicar: si ya
     // hay una pendiente igual (mismo trabajador/mes/año), no se crea otra.
-    const aRevisionConPayload = async (motivo: string) => {
+    // Devuelve true si la fila quedó realmente registrada en la cola de revisión
+    // (o ya estaba pendiente); false si el insert falló — antes este fallo se
+    // tragaba en silencio: la función devolvía 200 sin haber guardado nada y sin
+    // dejar rastro. Ahora SIEMPRE se comprueba el error y se registra en el log
+    // (Vercel Runtime Logs, prefijo [resumen]) aunque la respuesta HTTP siga en
+    // 200 (contrato ya usado por el frontend).
+    const aRevisionConPayload = async (motivo: string): Promise<boolean> => {
       const { data: yaPendiente } = await supabaseAdmin
         .from('equipo_docs_revision')
         .select('id')
@@ -214,8 +260,8 @@ export async function procesarResumenNominas(
         .eq('anio', anioFinal)
         .limit(1)
         .maybeSingle()
-      if (yaPendiente) return
-      await supabaseAdmin.from('equipo_docs_revision').insert({
+      if (yaPendiente) { trazaResumen('revisión ya existía, no duplica', { trabajador: fila.trabajador }); return true }
+      const { error: errRevision } = await supabaseAdmin.from('equipo_docs_revision').insert({
         nombre_archivo: `${nombreOriginal} · fila "${fila.trabajador}"`,
         tipo_detectado: 'nomina',
         confianza: 0,
@@ -228,44 +274,33 @@ export async function procesarResumenNominas(
         estado: 'pendiente',
         payload: {
           origen: 'resumen_nominas',
-          bruto: fila.bruto, neto: fila.neto, irpf: fila.irpf,
-          ss_total: fila.ss_total, coste_empresa: fila.coste_empresa,
+          bruto: fila.bruto, ss_empresa: fila.ss_empresa, neto: fila.neto,
+          ss_total: fila.ss_total, irpf: fila.irpf, coste_empresa: fila.coste_empresa,
           drive_url: archivado.driveUrl,
           drive_pendiente: archivado.drivePendiente,
         },
       })
+      if (errRevision) {
+        console.error('[resumen] INSERT equipo_docs_revision FALLÓ — documento perdido en silencio', JSON.stringify({ trabajador: fila.trabajador, mesFinal, anioFinal, error: errRevision.message, code: errRevision.code }))
+        return false
+      }
+      trazaResumen('fila a revisión', { trabajador: fila.trabajador, motivo })
+      return true
     }
 
     if (!resolucion) {
-      await aRevisionConPayload(`Trabajador del resumen no reconocido: "${fila.trabajador}". Asigna el empleado para crear su nómina de ${mesFinal}/${anioFinal}.`)
-      revisarIdentidad.push(filaOut)
+      const guardado = await aRevisionConPayload(`Trabajador del resumen no reconocido: "${fila.trabajador}". Asigna el empleado para crear su nómina de ${mesFinal}/${anioFinal}.`)
+      revisarIdentidad.push(guardado ? filaOut : { ...filaOut, trabajador: `${fila.trabajador} (¡fila perdida! el aviso de revisión tampoco se pudo guardar — ver logs)` })
       continue
     }
 
-    const { data: existente } = await supabaseAdmin
-      .from('nominas')
-      .select('id')
-      .eq('empleado_id', resolucion.empleado_id)
-      .eq('mes', mesFinal)
-      .eq('anio', anioFinal)
-      .maybeSingle()
-
-    if (existente) {
-      yaExistia.push(filaOut)
-      continue
-    }
-
-    const camposCompletos = [fila.bruto, fila.neto, fila.irpf, fila.ss_total, fila.coste_empresa].every(v => v != null)
-
-    const { error: errInsert } = await supabaseAdmin.from('nominas').insert({
-      empleado_id: resolucion.empleado_id,
-      mes: mesFinal,
-      anio: anioFinal,
+    const camposCompletos = [fila.bruto, fila.neto, fila.ss_total, fila.coste_empresa].every(v => v != null)
+    const datosNomina = {
       importe_bruto: fila.bruto,
       importe_neto: fila.neto,
       irpf_retenido: fila.irpf,
-      ss_trabajador: null,
-      ss_empresa: fila.ss_total,
+      ss_trabajador: ssTrabajador,
+      ss_empresa: fila.ss_empresa,
       coste_empresa: fila.coste_empresa,
       estado: camposCompletos ? 'ok' : 'revisar',
       pdf_url: archivado.driveUrl,
@@ -274,15 +309,34 @@ export async function procesarResumenNominas(
       drive_error: archivado.driveError,
       drive_niveles: archivado.niveles,
       drive_nombre_archivo: archivado.nombreArchivo,
-    })
+      pdf_storage_path: archivado.storagePath,
+    }
 
-    if (errInsert) {
-      await aRevisionConPayload(`La nómina de "${fila.trabajador}" (${mesFinal}/${anioFinal}) no se pudo guardar: ${errInsert.message}. Asigna el empleado para reintentarlo desde aquí.`)
-      revisarIdentidad.push({ ...filaOut, trabajador: `${fila.trabajador} (error al guardar: ${errInsert.message})` })
+    // Reproceso limpio: mismo empleado/mes/año ACTUALIZA (no se queda bloqueado
+    // ni duplica si se vuelve a subir el mismo resumen corregido).
+    const { data: existente } = await supabaseAdmin
+      .from('nominas')
+      .select('id')
+      .eq('empleado_id', resolucion.empleado_id)
+      .eq('mes', mesFinal)
+      .eq('anio', anioFinal)
+      .maybeSingle()
+
+    const { error: errUpsert } = existente
+      ? await supabaseAdmin.from('nominas').update(datosNomina).eq('id', existente.id as string)
+      : await supabaseAdmin.from('nominas').insert({ empleado_id: resolucion.empleado_id, mes: mesFinal, anio: anioFinal, ...datosNomina })
+
+    if (errUpsert) {
+      console.error('[resumen] guardado en nominas FALLÓ', JSON.stringify({ trabajador: fila.trabajador, empleado_id: resolucion.empleado_id, mesFinal, anioFinal, existente: !!existente, error: errUpsert.message, code: errUpsert.code }))
+      const guardado = await aRevisionConPayload(`La nómina de "${fila.trabajador}" (${mesFinal}/${anioFinal}) no se pudo guardar: ${errUpsert.message}. Asigna el empleado para reintentarlo desde aquí.`)
+      revisarIdentidad.push({ ...filaOut, trabajador: guardado ? `${fila.trabajador} (error al guardar: ${errUpsert.message})` : `${fila.trabajador} (¡fila perdida! error al guardar Y el aviso de revisión tampoco se pudo guardar — ver logs)` })
       continue
     }
-    insertadas.push(filaOut)
+    trazaResumen(existente ? 'nómina actualizada' : 'nómina creada', { trabajador: fila.trabajador, empleado_id: resolucion.empleado_id, mesFinal, anioFinal })
+    if (existente) actualizadas.push(filaOut)
+    else insertadas.push(filaOut)
   }
+  trazaResumen('FIN', { insertadas: insertadas.length, actualizadas: actualizadas.length, revisarIdentidad: revisarIdentidad.length, descartadasEmpleador })
 
   return {
     status: 200,
@@ -293,7 +347,8 @@ export async function procesarResumenNominas(
       drive_url: archivado.driveUrl,
       drive_pendiente: archivado.drivePendiente,
       insertadas,
-      ya_existia: yaExistia,
+      actualizadas,
+      descartadas_empleador: descartadasEmpleador,
       revisar_identidad: revisarIdentidad,
     },
   }
@@ -329,7 +384,10 @@ export async function procesarSegSocialResumen(
   const niveles = ['EQUIPO', 'SEGURIDAD_SOCIAL', String(anioFinal)]
   const archivado = await archivarEquipo(buffer, nombreArchivo, niveles, ext)
 
-  const estadoResumen: 'ok' | 'revisar' = resultado.estado === 'ok' ? 'ok' : 'revisar'
+  // El RLC es un documento oficial ya liquidado: cuando se lee completo, su
+  // estado es 'confirmado' (no una estimación) — es la cifra que debe prevalecer
+  // sobre la Seguridad Social calculada desde las nóminas (ver trg_ss_resumen_a_gastos_fijos).
+  const estadoResumen: 'confirmado' | 'revisar' = resultado.estado === 'ok' ? 'confirmado' : 'revisar'
 
   const { data: fila, error: errUpsert } = await supabaseAdmin
     .from('seguridad_social_resumen')
@@ -345,6 +403,7 @@ export async function procesarSegSocialResumen(
       drive_error: archivado.driveError,
       drive_niveles: archivado.niveles,
       drive_nombre_archivo: archivado.nombreArchivo,
+      pdf_storage_path: archivado.storagePath,
     }, { onConflict: 'mes,anio' })
     .select()
     .maybeSingle()
@@ -451,6 +510,7 @@ export async function procesarRnt(
       drive_error: archivado.driveError,
       drive_niveles: archivado.niveles,
       drive_nombre_archivo: archivado.nombreArchivo,
+      pdf_storage_path: archivado.storagePath,
     })
 
     if (errInsert) {
@@ -471,6 +531,74 @@ export async function procesarRnt(
       insertadas,
       ya_existia: yaExistia,
       revisar_identidad: revisarIdentidad,
+    },
+  }
+}
+
+/** Núcleo de la cuota mensual de autónomos (RETA/TGSS) de un titular ya resuelto
+ *  (Rubén o Emilio, id + nombre conocidos por NIF). LEY-PRUDENCIA-01: se guarda
+ *  siempre como 'comprometido' — el cruce con banco (por titular_id + importe
+ *  exacto + ventana TGSS) la pasa a 'pagado' desde Costes, no aquí. */
+export async function procesarAutonomoCuota(
+  buffer: Buffer,
+  nombreOriginal: string,
+  titularId: string,
+  nombreTitular: string,
+  mesBody: number | null,
+  anioBody: number | null,
+): Promise<ResultadoProceso> {
+  let texto = ''
+  try { texto = await extraerTextoPDF(buffer) } catch { texto = '' }
+  const resultado = await extraerAutonomoCuotaTexto(texto)
+
+  const mesFinal = mesBody ?? resultado.mes
+  const anioFinal = anioBody ?? resultado.anio
+  if (!mesFinal || !anioFinal) {
+    return {
+      status: 400,
+      body: {
+        error: 'No se pudo determinar mes/año de la cuota de autónomos; indícalos manualmente.',
+        motivo_extraccion: resultado.motivo,
+      },
+    }
+  }
+
+  const ext = (nombreOriginal.split('.').pop() || 'pdf').toLowerCase()
+  const mesPad = String(mesFinal).padStart(2, '0')
+  const nombreArchivo = `cuota_${anioFinal}-${mesPad}.${ext}`
+  // EQUIPO/AUTONOMOS/<TITULAR>/<AÑO>/cuota_<AÑO>-<MES>.pdf
+  const niveles = ['EQUIPO', 'AUTONOMOS', slug(nombreTitular), String(anioFinal)]
+  const archivado = await archivarEquipo(buffer, nombreArchivo, niveles, ext)
+
+  const { data: fila, error: errUpsert } = await supabaseAdmin
+    .from('autonomos_cuotas')
+    .upsert({
+      titular_id: titularId,
+      mes: mesFinal,
+      anio: anioFinal,
+      importe: resultado.importe,
+      fecha_cargo: resultado.fecha_cargo,
+      estado: 'comprometido',
+      pdf_url: archivado.driveUrl,
+      pdf_drive_id: archivado.driveUrl,
+      drive_pendiente: archivado.drivePendiente,
+      drive_error: archivado.driveError,
+      drive_niveles: archivado.niveles,
+      drive_nombre_archivo: archivado.nombreArchivo,
+      pdf_storage_path: archivado.storagePath,
+    }, { onConflict: 'titular_id,mes,anio' })
+    .select()
+    .maybeSingle()
+
+  if (errUpsert) return { status: 500, body: { error: errUpsert.message } }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      motivo: resultado.motivo,
+      drive_pendiente: archivado.drivePendiente,
+      cuota: fila,
     },
   }
 }

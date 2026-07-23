@@ -1,4 +1,5 @@
 import { ROJO } from '@/styles/neobrutal'
+import { CANAL_UBER_DARK, APRENDIZAJES_SEC } from '@/styles/palettes'
 import React from 'react'
 
 export type EstadoDoc = 'conciliada' | 'no_requiere' | 'pendiente'
@@ -32,7 +33,7 @@ export default function DocBadge(props: { estado: EstadoDoc; url: string | null;
       {
         onClick: handle,
         title,
-        style: { ...STYLE_BASE, fontSize: 22, color: '#0F6E56', cursor: 'pointer' },
+        style: { ...STYLE_BASE, fontSize: 22, color: CANAL_UBER_DARK, cursor: 'pointer' },
       },
       '\uD83D\uDCCE'
     )
@@ -47,7 +48,7 @@ export default function DocBadge(props: { estado: EstadoDoc; url: string | null;
           fontFamily: 'Lexend, sans-serif',
           fontSize: 18,
           fontWeight: 600,
-          color: '#9ba8c0',
+          color: APRENDIZAJES_SEC,
           cursor: 'default',
         },
       },

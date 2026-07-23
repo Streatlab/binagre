@@ -15,6 +15,7 @@ export type DocPlataforma =
   | 'glovo_orderdetails_csv'
   | 'uber_articulo_csv'
   | 'uber_resumen_csv'
+  | 'uber_resumen_mensual'
   | 'uber_historial_pedidos'
   | 'uber_factura'
   | 'sincro_sold_products'
@@ -56,6 +57,12 @@ export function detectarDocumentoPlataforma(
   }
 
   // ── UBER EATS ────────────────────────────────────────────────────────────
+  // Resumen de pagos MENSUAL (PDF): el consolidado del mes con la sección
+  // "Resumen mensual unificado". Es dinero (ventas del mes), NO pedidos, y va a
+  // Ventas. Se reconoce por contenido, nunca por el nombre del archivo.
+  if (/uber/i.test(t) && /resumen mensual(\s+unificado)?/i.test(t)) {
+    return { tipo: 'uber_resumen_mensual', plataforma: 'uber', destino: 'ventas_resumen', esPedidos: false }
+  }
   const esUber = /uber eats|membres[ií]a de uber|administrador de uber/i.test(t)
   if (esUber && /nombre del art[ií]culo/i.test(t)) {
     return { tipo: 'uber_articulo_csv', plataforma: 'uber', destino: 'ventas_pedidos', esPedidos: true }

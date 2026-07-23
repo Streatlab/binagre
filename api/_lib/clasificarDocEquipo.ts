@@ -10,9 +10,11 @@
 // Solo cuando no hay ningún marcador se pide una pista a Claude, y esa pista NUNCA
 // archiva sola: `cierto` queda en false y el documento va a la cola de revisión.
 export interface ClasificacionDocEquipo {
-  tipo: 'nomina' | 'resumen_nominas' | 'rlc' | 'rnt' | 'desconocido'
+  tipo: 'nomina' | 'resumen_nominas' | 'rlc' | 'rnt' | 'cuota_autonomos' | 'desconocido'
   empleado_nombre: string | null
   nif_trabajador: string | null
+  /** Solo relevante para tipo='cuota_autonomos': NIF del titular (Rubén/Emilio) que paga la cuota. */
+  nif_titular: string | null
   cierto: boolean
   motivo: string
 }
@@ -21,6 +23,10 @@ function normalizar(texto: string): string {
   return texto
     .toUpperCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    // Los marcadores literales ("LIQUIDO A PERCIBIR"...) a veces quedan partidos
+    // en dos lineas por la extraccion de texto del PDF; un salto de linea cuenta
+    // como espacio para que el marcador siga casando en una sola linea logica.
+    .replace(/[\r\n]+/g, ' ')
     .replace(/[ \t]+/g, ' ')
 }
 
@@ -37,17 +43,39 @@ function nifsPersona(textoNorm: string): string[] {
   return [...vistos]
 }
 
+// Cabecera de tabla ("TRABAJADOR/A CATEGORIA N MATRIC ANTIGUEDAD D.N.I...."), nunca
+// un nombre real: si el patron de abajo la captura por contener la palabra
+// "trabajador", se descarta y se sigue buscando en las lineas siguientes.
+const RE_CABECERA_TABLA = /CATEGORIA|MATRIC|ANTIGUEDAD|ANTIG.EDAD|D\.?N\.?I\.?|N\.?A\.?F\.?|N.?\s*AFIL/i
+// La linea de la empresa/empleador nunca es el trabajador: "EMPRESA DOMICILIO
+// N INS. S.S." (nomina individual) o "CENTRO:"/"Empresa:" (resumen mensual).
+const RE_LINEA_EMPRESA = /^\s*(centro\s*:|empresa\s*:|empresa\s+domicilio)/i
+
+function pareceNombrePersona(s: string): boolean {
+  const t = s.trim()
+  if (t.length < 4) return false
+  if (RE_CABECERA_TABLA.test(t)) return false
+  if (RE_LINEA_EMPRESA.test(t)) return false
+  return true
+}
+
 function extraerNombreTrabajador(textoOriginal: string): string | null {
   const lineas = textoOriginal.split(/\n+/)
   const patrones = [
     /(?:apellidos\s+y\s+nombre|nombre\s+del\s+trabajador|trabajador|empleado)\s*[:\-]?\s*(.+)/i,
   ]
-  for (const linea of lineas) {
+  for (let i = 0; i < lineas.length; i++) {
+    if (RE_LINEA_EMPRESA.test(lineas[i])) continue
     for (const re of patrones) {
-      const m = linea.match(re)
-      if (m && m[1] && m[1].trim().length >= 4) {
-        return m[1].trim().replace(/\s{2,}/g, ' ').slice(0, 80)
-      }
+      const m = lineas[i].match(re)
+      if (!m || !m[1]) continue
+      const candidato = m[1].trim().replace(/\s{2,}/g, ' ').slice(0, 80)
+      if (candidato.length < 4) continue
+      if (pareceNombrePersona(candidato)) return candidato
+      // La linea matcheada era la cabecera de la tabla ("TRABAJADOR/A CATEGORIA...");
+      // el dato real suele venir en la siguiente linea, sin la palabra clave.
+      const siguiente = (lineas[i + 1] || '').trim()
+      if (siguiente && pareceNombrePersona(siguiente)) return siguiente.replace(/\s{2,}/g, ' ').slice(0, 80)
     }
   }
   return null
@@ -62,6 +90,13 @@ function detectarPorMarcadores(textoNorm: string): Marcador | null {
   }
   if (/RELACION NOMINAL DE TRABAJADORES/.test(textoNorm) || /\bRNT\b/.test(textoNorm) || /\bTC\s?2\b/.test(textoNorm)) {
     return { tipo: 'rnt', motivo: 'Relación Nominal de Trabajadores (RNT)' }
+  }
+  // Cuota de autónomos (RETA) de un titular concreto (Rubén o Emilio), no de la
+  // empresa: recibo TGSS individual, distinto del RLC (que es de la plantilla).
+  if (/REGIMEN ESPECIAL (DE )?TRABAJADORES AUTONOMOS/.test(textoNorm) || /\bRETA\b/.test(textoNorm)) {
+    if (/CUOTA/.test(textoNorm)) {
+      return { tipo: 'cuota_autonomos', motivo: 'Recibo de cuota de autónomos (RETA/TGSS)' }
+    }
   }
 
   const nifs = nifsPersona(textoNorm)
@@ -94,7 +129,7 @@ function detectarPorMarcadores(textoNorm: string): Marcador | null {
 
 export async function clasificarDocEquipoTexto(textoOcr: string): Promise<ClasificacionDocEquipo> {
   if (!textoOcr || textoOcr.trim().length < 20) {
-    return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, cierto: false, motivo: 'Sin texto legible en el documento' }
+    return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, nif_titular: null, cierto: false, motivo: 'Sin texto legible en el documento' }
   }
 
   const textoNorm = normalizar(textoOcr)
@@ -102,16 +137,20 @@ export async function clasificarDocEquipoTexto(textoOcr: string): Promise<Clasif
 
   if (marcador) {
     if (marcador.tipo === 'desconocido') {
-      return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, cierto: false, motivo: marcador.motivo }
+      return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, nif_titular: null, cierto: false, motivo: marcador.motivo }
     }
     const esNomina = marcador.tipo === 'nomina'
-    const nifs = esNomina ? nifsPersona(textoNorm) : []
+    const esCuotaAutonomos = marcador.tipo === 'cuota_autonomos'
+    const nifs = (esNomina || esCuotaAutonomos) ? nifsPersona(textoNorm) : []
     return {
       tipo: marcador.tipo,
       empleado_nombre: esNomina ? extraerNombreTrabajador(textoOcr) : null,
       nif_trabajador: esNomina && nifs.length === 1 ? nifs[0] : null,
-      cierto: true,
-      motivo: marcador.motivo,
+      nif_titular: esCuotaAutonomos && nifs.length === 1 ? nifs[0] : null,
+      cierto: esCuotaAutonomos ? nifs.length === 1 : true,
+      motivo: esCuotaAutonomos && nifs.length !== 1
+        ? `${marcador.motivo}, pero no se identificó un único NIF de titular en el documento`
+        : marcador.motivo,
     }
   }
 
@@ -127,13 +166,13 @@ const TIMEOUT_MS = 60000
 
 const PROMPT_PISTA = `Eres un clasificador de documentos de personal de una empresa española (nóminas y Seguridad Social). El texto que recibes NO trajo ningún marcador oficial reconocible, así que tu respuesta es solo una PISTA para que una persona lo revise — no se usará para archivar el documento automáticamente. Devuelve SOLO un objeto JSON válido, sin texto alrededor:
 {
-  "tipo": "nomina" | "resumen_nominas" | "rlc" | "rnt" | "desconocido",
+  "tipo": "nomina" | "resumen_nominas" | "rlc" | "rnt" | "cuota_autonomos" | "desconocido",
   "empleado_nombre": string|null,
   "motivo": string
 }
 "empleado_nombre" solo si tipo="nomina" (nombre del trabajador tal cual aparece, nunca el de la empresa). "motivo": por qué crees que es ese tipo, en pocas palabras. NUNCA inventes datos que no aparezcan en el texto. Responde SOLO el JSON.`
 
-const TIPOS_VALIDOS = new Set(['nomina', 'resumen_nominas', 'rlc', 'rnt', 'desconocido'])
+const TIPOS_VALIDOS = new Set(['nomina', 'resumen_nominas', 'rlc', 'rnt', 'cuota_autonomos', 'desconocido'])
 
 function parsearPista(raw: string): { tipo: ClasificacionDocEquipo['tipo']; empleado_nombre: string | null; motivo: string } {
   let j: Record<string, unknown> = {}
@@ -150,7 +189,7 @@ function parsearPista(raw: string): { tipo: ClasificacionDocEquipo['tipo']; empl
 async function clasificarConIAComoPista(textoOcr: string): Promise<ClasificacionDocEquipo> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, cierto: false, motivo: 'Sin marcador oficial reconocible y falta ANTHROPIC_API_KEY para la pista de respaldo' }
+    return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, nif_titular: null, cierto: false, motivo: 'Sin marcador oficial reconocible y falta ANTHROPIC_API_KEY para la pista de respaldo' }
   }
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
@@ -167,14 +206,14 @@ async function clasificarConIAComoPista(textoOcr: string): Promise<Clasificacion
     })
     if (!resp.ok) {
       const detalle = (await resp.text()).slice(0, 200)
-      return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, cierto: false, motivo: `Sin marcador oficial; pista de IA falló (HTTP ${resp.status}: ${detalle})` }
+      return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, nif_titular: null, cierto: false, motivo: `Sin marcador oficial; pista de IA falló (HTTP ${resp.status}: ${detalle})` }
     }
     const data = await resp.json() as { content?: Array<{ text?: string }> }
     const raw = (data.content || []).map(c => c.text || '').join('').trim()
     const pista = parsearPista(raw)
-    return { tipo: pista.tipo, empleado_nombre: pista.empleado_nombre, nif_trabajador: null, cierto: false, motivo: `Sin marcador oficial; pista de IA: ${pista.motivo}` }
+    return { tipo: pista.tipo, empleado_nombre: pista.empleado_nombre, nif_trabajador: null, nif_titular: null, cierto: false, motivo: `Sin marcador oficial; pista de IA: ${pista.motivo}` }
   } catch (err) {
-    return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, cierto: false, motivo: `Sin marcador oficial; pista de IA falló (${err instanceof Error ? err.message : String(err)})` }
+    return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, nif_titular: null, cierto: false, motivo: `Sin marcador oficial; pista de IA falló (${err instanceof Error ? err.message : String(err)})` }
   } finally {
     clearTimeout(t)
   }

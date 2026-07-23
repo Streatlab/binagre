@@ -1,6 +1,8 @@
 import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
+import { COBERTURA_VERDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { useTheme, FONT } from '@/styles/tokens'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 
 export default function TabDrive() {
   const { T } = useTheme()
@@ -28,20 +30,31 @@ export default function TabDrive() {
   const btnPrimario: React.CSSProperties = {
     display: 'inline-block',
     fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px',
-    textTransform: 'uppercase', padding: '11px 26px', borderRadius: 6,
+    textTransform: 'uppercase', padding: '11px 26px', borderRadius: 0,
     background: GRANATE, border: 'none', color: BLANCO,
     cursor: 'pointer', fontWeight: 600, textDecoration: 'none',
   }
 
+  const titular = loading
+    ? 'Comprobando la conexión con Google Drive…'
+    : estado?.conectado
+    ? 'Google Drive está conectado'
+    : 'Google Drive no está conectado todavía'
+
   return (
-    <div style={{
-      background: T.card,
-      border: `0.5px solid ${T.brd}`,
-      borderRadius: 14,
-      padding: 28,
-      maxWidth: 520,
-      marginTop: 4,
-    }}>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={titular}
+        etiquetaDato={loading ? undefined : 'Estado de la conexión'}
+        cifra={loading ? undefined : (estado?.conectado ? 'Conectado' : 'Sin conectar')}
+        resumen={
+          estado?.conectado
+            ? (estado.email ? <>Cuenta enlazada: <b>{estado.email}</b></> : 'Cuenta enlazada correctamente.')
+            : 'Conecta tu cuenta de Google para subir facturas automáticamente a Drive y mantener los PDFs organizados por titular y trimestre.'
+        }
+      />
+      <Papel ceja={estado?.conectado ? VERDE : GRANATE} style={{ maxWidth: 520 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
         <span style={{ fontSize: 36 }}>📂</span>
         <div>
@@ -60,8 +73,8 @@ export default function TabDrive() {
         <>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            background: 'rgba(29,158,117,0.1)', border: '0.5px solid #1D9E75',
-            borderRadius: 8, padding: '12px 14px', marginBottom: 16,
+            background: 'rgba(29,158,117,0.1)', border: `0.5px solid ${COBERTURA_VERDE}`,
+            borderRadius: 0, padding: '12px 14px', marginBottom: 16,
           }}>
             <span style={{ color: VERDE, fontSize: 18 }}>✓</span>
             <div>
@@ -76,7 +89,7 @@ export default function TabDrive() {
               onClick={desconectar}
               style={{
                 fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px',
-                textTransform: 'uppercase', padding: '9px 20px', borderRadius: 6,
+                textTransform: 'uppercase', padding: '9px 20px', borderRadius: 0,
                 background: 'transparent', border: `0.5px solid ${T.brd}`,
                 color: T.mut, cursor: 'pointer',
               }}
@@ -89,8 +102,8 @@ export default function TabDrive() {
         <>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            background: 'rgba(176,29,35,0.08)', border: '0.5px solid #B01D23',
-            borderRadius: 8, padding: '12px 14px', marginBottom: 16,
+            background: 'rgba(176,29,35,0.08)', border: `0.5px solid ${GRANATE}`,
+            borderRadius: 0, padding: '12px 14px', marginBottom: 16,
           }}>
             <span style={{ color: GRANATE, fontSize: 18 }}>✗</span>
             <div style={{ fontSize: 13, color: GRANATE, fontWeight: 600 }}>No conectado</div>
@@ -101,6 +114,7 @@ export default function TabDrive() {
           <a href="/api/oauth/google?action=start" style={btnPrimario}>🔗 Conectar Google Drive</a>
         </>
       )}
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

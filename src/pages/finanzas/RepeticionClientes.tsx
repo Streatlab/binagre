@@ -1,15 +1,13 @@
 /**
  * RepeticionClientes — % repetición de clientes, frecuencia media y clientes
- * perdidos. Estética Neobrutal Food-Pop (@/styles/neobrutal).
+ * perdidos. CANTERA ALEGRE v1.0 (área Ventas · verde). Solo capa visual; datos vía useRepeticionClientes.
  * Fuente real: crm_clientes (hoy vacía — ver aviso en pantalla).
  */
 import React from "react";
 import { useRepeticionClientes } from "@/lib/finanzas/useRepeticionClientes";
-import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
+import { OSW, LEX, INK, CREMA, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, BLANCO } from '@/styles/neobrutal';
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera';
 import { fmtPct, fmtNum } from "@/lib/format";
-
-const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW };
 
 export function RepeticionClientes({ embedded = false }: { embedded?: boolean } = {}) {
   const { loading, error, metricas, porMarca } = useRepeticionClientes();
@@ -27,89 +25,101 @@ export function RepeticionClientes({ embedded = false }: { embedded?: boolean } 
 
   const sinDatos = metricas.totalClientes === 0;
 
+  // Titular = frase natural (no dato suelto); la cifra grande va aparte.
+  const titular = sinDatos
+    ? 'Todavía no hay clientes suficientes para medir repetición.'
+    : metricas.pctRepeticion != null && metricas.pctRepeticion >= 30
+      ? 'Buena parte de tus clientes vuelve a pedir.'
+      : 'Pocos clientes repiten: la fidelización tiene margen de mejora.';
+
+  const atencion = [
+    metricas.frecuenciaMedia != null ? `Frecuencia media ${fmtNum(metricas.frecuenciaMedia, 1)} ped./cliente` : null,
+    metricas.clientesPerdidos != null ? `${fmtNum(metricas.clientesPerdidos, 0)} clientes perdidos (90 días)` : null,
+    `${fmtNum(metricas.totalClientes, 0)} clientes activos`,
+  ].filter(Boolean) as string[];
+
   return (
-    <div style={{ fontFamily: LEX, padding: embedded ? 0 : 28, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : "100vh", color: INK }}>
+    <PantallaCantera embedded={embedded}>
+      {/* 1 · Héroe del área Ventas (verde) */}
+      <HeroCantera
+        area="ventas"
+        titular={titular}
+        etiquetaDato="% de clientes que repiten"
+        cifra={metricas.pctRepeticion !== null ? fmtPct(metricas.pctRepeticion, 1) : '—'}
+        resumen={metricas.frecuenciaMedia !== null ? <>Cada cliente que repite pide de media <b>{fmtNum(metricas.frecuenciaMedia, 1)}</b> veces.</> : undefined}
+        atencion={atencion}
+      />
 
-      {!embedded && (
-        <div style={{ marginBottom: 20 }}>
-          <span style={eyebrow(NAR, BLANCO)}>FINANZAS</span>
-          <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
-            REPETICIÓN DE CLIENTES
-          </h1>
-          <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>% de clientes que repiten, frecuencia media de pedidos y clientes perdidos</span>
-        </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 20 }}>
-        <HeroKpi
-          label="% repetición"
-          value={metricas.pctRepeticion !== null ? fmtPct(metricas.pctRepeticion, 1) : "—"}
-          sub={`${fmtNum(metricas.totalClientes, 0)} clientes activos`}
-          bg={AMA}
-          fg={INK}
-        />
-        <HeroKpi
-          label="Frecuencia media"
-          value={metricas.frecuenciaMedia !== null ? `${fmtNum(metricas.frecuenciaMedia, 1)} ped./cliente` : "—"}
-          sub="pedidos por cliente con al menos 1 compra"
-          bg={VERDE}
-          fg={BLANCO}
-        />
-        <HeroKpi
-          label="Clientes perdidos (90 días)"
-          value={metricas.clientesPerdidos !== null ? fmtNum(metricas.clientesPerdidos, 0) : "—"}
-          sub="sin comprar en los últimos 90 días"
-          bg={GRANATE}
-          fg={BLANCO}
-        />
+      {/* 2 · Plancha comparativa de KPIs (celdas sólidas pegadas) */}
+      <div>
+        <SeccionLabel bg={VERDE}>Panorama de clientes</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={AMA} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>% repetición</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{metricas.pctRepeticion !== null ? fmtPct(metricas.pctRepeticion, 1) : '—'}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{fmtNum(metricas.totalClientes, 0)} clientes activos</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={VERDE}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Frecuencia media</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{metricas.frecuenciaMedia !== null ? `${fmtNum(metricas.frecuenciaMedia, 1)} ped./cliente` : '—'}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>pedidos por cliente con al menos 1 compra</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={GRANATE}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Clientes perdidos (90 días)</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{metricas.clientesPerdidos !== null ? fmtNum(metricas.clientesPerdidos, 0) : '—'}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>sin comprar en los últimos 90 días</div>
+          </PlanchaCelda>
+        </Plancha>
       </div>
 
-      {sinDatos ? (
-        <div style={{ ...card, padding: "22px 24px", background: BLANCO }}>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 16, textTransform: "uppercase", color: INK, marginBottom: 8 }}>
-            Sin datos en crm_clientes todavía
-          </div>
-          <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>
-            Este panel se activa solo en cuanto la tabla tenga clientes.
-          </div>
-        </div>
-      ) : (
-        <div style={{ ...card, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: LEX }}>
-            <thead>
-              <tr style={{ background: INK }}>
-                {["Marca", "Nº clientes", "% repetición", "Frecuencia media", "Perdidos"].map(h => (
-                  <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontFamily: OSW, fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", color: CREMA, fontWeight: 600, whiteSpace: "nowrap" }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {porMarca.map(m => (
-                <tr key={m.marca} style={{ borderBottom: `2px solid ${INK}` }}>
-                  <td style={{ padding: "10px 12px", fontFamily: OSW, fontWeight: 600 }}>{m.marca}</td>
-                  <td style={{ padding: "10px 12px" }}>{fmtNum(m.numClientes, 0)}</td>
-                  <td style={{ padding: "10px 12px" }}>{m.pctRepeticion !== null ? fmtPct(m.pctRepeticion, 1) : "—"}</td>
-                  <td style={{ padding: "10px 12px" }}>{m.frecuenciaMedia !== null ? fmtNum(m.frecuenciaMedia, 1) : "—"}</td>
-                  <td style={{ padding: "10px 12px" }}>{fmtNum(m.perdidos, 0)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* 3 · Frase potente (color por significado, distinto del héroe verde) */}
+      {!sinDatos && metricas.clientesPerdidos !== null && metricas.clientesPerdidos > 0 && (
+        <FrasePotente significado="peligro">Cada cliente perdido es un ticket medio menos cada mes: reactivarlo cuesta menos que captar uno nuevo.</FrasePotente>
       )}
-    </div>
-  );
-}
 
-function HeroKpi({ label, value, sub, bg, fg }: { label: string; value: string; sub: string; bg: string; fg: string }) {
-  return (
-    <div style={{ ...card, padding: "16px 20px", background: bg }}>
-      <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: fg, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 30, lineHeight: 1, color: fg }}>{value}</div>
-      <div style={{ fontFamily: LEX, fontSize: 12, color: fg, marginTop: 6, opacity: 0.9 }}>{sub}</div>
-    </div>
+      {/* Por marca — papel (sin sombra) */}
+      <div>
+        <SeccionLabel bg={NAR}>Por marca</SeccionLabel>
+        {sinDatos ? (
+          <Papel ceja={NAR}>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 16, textTransform: "uppercase", color: INK, marginBottom: 8 }}>
+              Sin datos en crm_clientes todavía
+            </div>
+            <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>
+              Este panel se activa solo en cuanto la tabla tenga clientes.
+            </div>
+          </Papel>
+        ) : (
+          <Papel ceja={NAR} pad="0" style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: LEX }}>
+              <thead>
+                <tr style={{ background: INK }}>
+                  {["Marca", "Nº clientes", "% repetición", "Frecuencia media", "Perdidos"].map(h => (
+                    <th key={h} style={{ padding: "10px 12px", textAlign: h === "Marca" ? "left" : "right", fontFamily: OSW, fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", color: CREMA, fontWeight: 600, whiteSpace: "nowrap" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {porMarca.length === 0 && (
+                  <tr><td colSpan={5} style={{ padding: 30, textAlign: "center", color: GRIS, fontFamily: LEX }}>No hay datos de marca.</td></tr>
+                )}
+                {porMarca.map(m => (
+                  <tr key={m.marca} style={{ borderBottom: `2px solid ${INK}` }}>
+                    <td style={{ padding: "10px 12px", fontFamily: OSW, fontWeight: 600 }}>{m.marca}</td>
+                    <td style={{ padding: "10px 12px", textAlign: 'right', color: GRIS }}>{fmtNum(m.numClientes, 0)}</td>
+                    <td style={{ padding: "10px 12px", textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: VERDE }}>{m.pctRepeticion !== null ? fmtPct(m.pctRepeticion, 1) : "—"}</td>
+                    <td style={{ padding: "10px 12px", textAlign: 'right' }}>{m.frecuenciaMedia !== null ? fmtNum(m.frecuenciaMedia, 1) : "—"}</td>
+                    <td style={{ padding: "10px 12px", textAlign: 'right', color: GRANATE, fontWeight: 600 }}>{fmtNum(m.perdidos, 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Papel>
+        )}
+      </div>
+    </PantallaCantera>
   );
 }
 

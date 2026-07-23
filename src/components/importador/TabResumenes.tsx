@@ -1,4 +1,5 @@
-import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, NAR, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, VERDE } from '@/styles/neobrutal'
+import { PLATAFORMA_GLOVO_TXT, PLATAFORMA_RUSHOUR } from '@/styles/palettes'
 /**
  * T-M7-07 — Tab Resúmenes plataforma
  * Tabla ventas_plataforma_marca_mensual con filtros.
@@ -35,9 +36,9 @@ const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov'
 
 const PLATAFORMA_COLOR: Record<string, string> = {
   uber:     VERDE,
-  glovo:    '#aabc00',
+  glovo:    PLATAFORMA_GLOVO_TXT,
   just_eat: NAR,
-  rushour:  '#7F77DD',
+  rushour:  PLATAFORMA_RUSHOUR,
 }
 
 /* ─── modal detalle ─────────────────────────────────────────────────────────── */
@@ -51,7 +52,7 @@ function ModalDetalle({ row, onClose }: { row: ResumenRow; onClose: () => void }
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: INK, borderRadius: 14, padding: 28, minWidth: 400, maxWidth: 560, width: '90%' }}
+        style={{ backgroundColor: INK, borderRadius: 0, padding: 28, minWidth: 400, maxWidth: 560, width: '90%' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRANATE, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
@@ -72,7 +73,7 @@ function ModalDetalle({ row, onClose }: { row: ResumenRow; onClose: () => void }
               ['ADS', fmtEur(row.ads ?? 0)],
               ['Neto cobrado', fmtEur(row.neto_cobrado ?? 0)],
             ].map(([label, value]) => (
-              <tr key={label} style={{ borderBottom: '0.5px solid #2a2a2a' }}>
+              <tr key={label} style={{ borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
                 <td style={{ padding: '8px 10px', color: GRIS, width: 160 }}>{label}</td>
                 <td style={{ padding: '8px 10px', color: BLANCO, textAlign: 'right' }}>{value}</td>
               </tr>
@@ -94,19 +95,19 @@ function ModalDetalle({ row, onClose }: { row: ResumenRow; onClose: () => void }
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button
             onClick={() => { navigate('/finanzas/resultados?tab=running'); onClose() }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: GRANATE, border: 'none', borderRadius: 6, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: GRANATE, border: 'none', borderRadius: 0, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}
           >
             <TrendingUp size={14} /> Ir a Running
           </button>
           <button
             onClick={() => { navigate(`/configuracion/marcas?plataforma=${row.plataforma}&mes=${row.mes}&anio=${row.anio}`); onClose() }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, color: GRIS, fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', padding: '8px 14px', cursor: 'pointer' }}
           >
             <Tag size={14} /> Ver en Panel Marcas
           </button>
           <button
             onClick={onClose}
-            style={{ background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
+            style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer' }}
           >
             Cerrar
           </button>
@@ -169,7 +170,7 @@ export default function TabResumenes({ refresh }: Props) {
   const selectStyle: CSSProperties = {
     background: INK,
     border: `1px solid ${T.brd}`,
-    borderRadius: 6,
+    borderRadius: 0,
     color: T.pri,
     fontFamily: FONT.body,
     fontSize: 13,

@@ -1,4 +1,5 @@
 import { BLANCO, GRIS, INK } from '@/styles/neobrutal'
+import { CONFIG_MUT, CONFIG_BORDE_ALT, CONFIG_BORDE_ALT2 } from '@/styles/palettes'
 import type { ReactNode, CSSProperties } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -35,8 +36,8 @@ export function TH({
   style?: CSSProperties
 }) {
   const isDark = useIsDark()
-  const mut = isDark ? GRIS : '#9E9588'
-  const border = isDark ? INK : '#DDD4BF'
+  const mut = isDark ? GRIS : CONFIG_MUT
+  const border = isDark ? INK : CONFIG_BORDE_ALT
   return (
     <th
       style={{
@@ -90,9 +91,9 @@ export function TD({
   colSpan?: number
 }) {
   const isDark = useIsDark()
-  const border = isDark ? INK : '#F0E8D5'
+  const border = isDark ? INK : CONFIG_BORDE_ALT2
   const pri = isDark ? BLANCO : INK
-  const mut = isDark ? GRIS : '#9E9588'
+  const mut = isDark ? GRIS : CONFIG_MUT
   return (
     <td
       colSpan={colSpan}
@@ -113,7 +114,7 @@ export function TD({
 
 export function TotalTR({ children }: { children: ReactNode }) {
   const isDark = useIsDark()
-  const border = isDark ? INK : '#DDD4BF'
+  const border = isDark ? INK : CONFIG_BORDE_ALT
   return (
     <tr style={{ borderTop: `2px solid ${border}`, fontWeight: 700 }}>
       {children}

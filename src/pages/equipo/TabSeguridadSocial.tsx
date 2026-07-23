@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtDate } from '@/lib/format'
 import {
   OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, AMA, VERDE, ROJO, AZUL, GRIS, d, BLANCO } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 interface SSResumen {
   id: string
@@ -38,7 +39,7 @@ const TOLERANCIA_CUADRE = 0.5 // € — diferencias de céntimos por redondeo n
 
 const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
+const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD }
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -147,40 +148,53 @@ export default function TabSeguridadSocial() {
     return huecos
   }, [rowsAnio, selectedAnio])
 
-  return (
-    <div style={{ fontFamily: LEX, color: INK }}>
+  const tituloHero = !ultimo
+    ? 'Aún no hay resúmenes de Seguridad Social subidos.'
+    : mesesSinResumen > 0
+    ? `Faltan ${mesesSinResumen} mes${mesesSinResumen !== 1 ? 'es' : ''} de resumen SS en ${selectedAnio}.`
+    : `Seguridad Social al día: último resumen ${MESES_LARGO[ultimo.mes - 1]} ${ultimo.anio}.`
 
-      {/* Hero KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
-        <div style={{ ...card, padding: '16px 20px' }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Último resumen subido</div>
+  return (
+    <PantallaCantera embedded>
+
+      {/* Hero */}
+      <HeroCantera
+        area="equipo"
+        titular={tituloHero}
+        etiquetaDato="Último RLC Seguridad Social"
+        cifra={ultimo ? fmtEur(ultimo.importe, { decimals: 2 }) : '—'}
+        resumen={prevision ? <>Próximo pago estimado: <b>{fmtEur(prevision.importeEstimado, { decimals: 2 })}</b> · {MESES_LARGO[prevision.mes - 1]} {prevision.anio} ({fmtDate(prevision.fecha)}).</> : undefined}
+        atencion={[
+          mesesSinResumen > 0 ? `${mesesSinResumen} meses sin resumen` : null,
+          prevision ? `Previsto ${fmtEur(prevision.importeEstimado, { decimals: 0 })}` : null,
+        ]}
+      />
+      <Plancha>
+        <PlanchaCelda bg={BLANCO} first>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600, color: GRIS }}>Último resumen subido</div>
           {ultimo ? (
             <>
-              <div style={{ ...d('26px'), lineHeight: 1 }}>{MESES_LARGO[ultimo.mes - 1]} {ultimo.anio}</div>
-              <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 4 }}>{fmtEur(ultimo.importe, { decimals: 2 })}</div>
+              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 20, lineHeight: 1.05, marginTop: 6 }}>{MESES_LARGO[ultimo.mes - 1]} {ultimo.anio}</div>
+              <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 4 }}>{fmtEur(ultimo.importe, { decimals: 2 })}</div>
             </>
-          ) : (
-            <div style={{ fontFamily: OSW, fontSize: 22, color: GRIS }}>—</div>
-          )}
-        </div>
-        <div style={{ ...card, padding: '16px 20px' }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Próximo pago estimado</div>
+          ) : <div style={{ fontFamily: OSW, fontSize: 20, color: GRIS, marginTop: 6 }}>—</div>}
+        </PlanchaCelda>
+        <PlanchaCelda bg={BLANCO}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600, color: GRIS }}>Próximo pago estimado</div>
           {prevision ? (
             <>
-              <div style={{ ...d('26px'), lineHeight: 1 }}>{fmtEur(prevision.importeEstimado, { decimals: 2 })}</div>
-              <div style={{ fontFamily: LEX, fontSize: 13, color: GRIS, marginTop: 4 }}>{MESES_LARGO[prevision.mes - 1]} {prevision.anio} · {fmtDate(prevision.fecha)}</div>
+              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 20, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(prevision.importeEstimado, { decimals: 2 })}</div>
+              <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 4 }}>{MESES_LARGO[prevision.mes - 1]} {prevision.anio} · {fmtDate(prevision.fecha)}</div>
             </>
-          ) : (
-            <div style={{ fontFamily: OSW, fontSize: 22, color: GRIS }}>—</div>
-          )}
-        </div>
-        <div style={{ ...card, padding: '16px 20px', background: mesesSinResumen > 0 ? AMA : BLANCO }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 6 }}>Meses sin resumen ({selectedAnio})</div>
-          <div style={{ ...d('34px', INK), lineHeight: 1 }}>{mesesSinResumen}</div>
-        </div>
-      </div>
+          ) : <div style={{ fontFamily: OSW, fontSize: 20, color: GRIS, marginTop: 6 }}>—</div>}
+        </PlanchaCelda>
+        <PlanchaCelda bg={mesesSinResumen > 0 ? AMA : BLANCO}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Meses sin resumen ({selectedAnio})</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{mesesSinResumen}</div>
+        </PlanchaCelda>
+      </Plancha>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <select value={selectedAnio} onChange={e => setSelectedAnio(parseInt(e.target.value))} style={selectNeo}>
           {anios.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
@@ -194,6 +208,7 @@ export default function TabSeguridadSocial() {
         </label>
       </div>
 
+      <SeccionLabel bg={INK} color={CREMA}>Histórico de resúmenes</SeccionLabel>
       {loading ? (
         <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
       ) : (
@@ -290,7 +305,7 @@ export default function TabSeguridadSocial() {
       <p style={{ marginTop: 10, fontSize: 11, color: GRIS, fontFamily: LEX }}>
         La previsión de próximo pago usa el promedio de los últimos 3 importes conocidos y el patrón histórico del día de cargo. Sin histórico suficiente no se inventa dato.
       </p>
-    </div>
+    </PantallaCantera>
   )
 }
 

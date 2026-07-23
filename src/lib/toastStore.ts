@@ -28,6 +28,11 @@ interface ShowOpts {
 const STORAGE_KEY = 'binagre_toasts_v1'
 const MAX_LIFETIME_MS = 5 * 60 * 1000  // tope duro si alguien pide una duración mayor
 const DEFAULT_AUTOCIERRE_MS = 6 * 1000 // success/aviso/error/info: 6s por defecto (kit v5-B)
+// Tope duro para los avisos de "cargando". Antes no expiraban NUNCA: si el
+// proceso que lo abrió se colgaba (una petición sin respuesta, por ejemplo),
+// el aviso se quedaba clavado en pantalla para siempre, incluso al día
+// siguiente, porque además se guarda en el navegador. Ahora se cae solo.
+const MAX_LOADING_MS = 10 * 60 * 1000
 
 let items: ToastItem[] = []
 const listeners = new Set<() => void>()
@@ -48,8 +53,9 @@ function loadFromStorage() {
     if (!raw) return
     const stored: ToastItem[] = JSON.parse(raw)
     const now = Date.now()
-    // Filtra los expirados al cargar
-    items = stored.filter(it => !it.expiresAt || it.expiresAt > now)
+    // Al recargar la página, CUALQUIER aviso de "cargando" es basura: el código
+    // que iba a cerrarlo murió con la página anterior. Se descartan siempre.
+    items = stored.filter(it => it.status !== 'loading' && (!it.expiresAt || it.expiresAt > now))
     // Reanima los timers de los que aún tienen tiempo
     for (const it of items) {
       if (it.expiresAt && it.expiresAt > now) {
@@ -88,10 +94,13 @@ function show(status: ToastStatus, message: string, opts: ShowOpts = {}): string
   const now = Date.now()
 
   // Calcular expiresAt:
-  // - loading: nunca expira (lo cierra el éxito/error que lo reemplaza, o un progreso persistente)
-  // - success/aviso/error/info: autocierre a los 6s por defecto (o el duration que pase, si lo pasan)
+  // - loading: lo normal es que lo cierre el éxito/error que lo reemplaza, pero
+  //   lleva tope duro de 10 min por si el proceso que lo abrió se cuelga.
+  // - success/aviso/error/info: autocierre a los 6s por defecto.
   let expiresAt: number | undefined
-  if (status !== 'loading') {
+  if (status === 'loading') {
+    expiresAt = now + MAX_LOADING_MS
+  } else {
     const ms = opts.duration ?? DEFAULT_AUTOCIERRE_MS
     if (Number.isFinite(ms)) expiresAt = now + Math.min(ms, MAX_LIFETIME_MS)
   }

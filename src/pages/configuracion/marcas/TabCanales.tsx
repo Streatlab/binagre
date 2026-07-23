@@ -1,8 +1,10 @@
-import { BLANCO, INK, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRIS, INK, ROJO, VERDE, GRANATE, LEX } from '@/styles/neobrutal'
+import { TABCANALES_BG_LIGHT } from '@/styles/palettes'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { invalidarCacheConfigCanales } from '@/lib/panel/calcNetoPlataforma'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 
 /* TabCanales · pantalla canónica única para configurar plataformas
    Fórmulas verificadas con facturas reales:
@@ -149,13 +151,10 @@ export default function TabCanales() {
   }
 
   // ─── Estilos: Running, números grandes legibles ───
-  const card: CSSProperties = {
-    background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, overflow: 'hidden',
-  }
   const th: CSSProperties = {
     fontFamily: FONT.heading, fontSize: 11, fontWeight: 500, letterSpacing: '1.4px',
     textTransform: 'uppercase', color: T.mut, padding: '14px 12px',
-    background: isDark ? INK : '#faf8f3',
+    background: isDark ? INK : TABCANALES_BG_LIGHT,
     borderBottom: `1px solid ${T.brd}`, whiteSpace: 'nowrap', textAlign: 'left',
   }
   const thR: CSSProperties = { ...th, textAlign: 'right' }
@@ -175,16 +174,29 @@ export default function TabCanales() {
   const inp: CSSProperties = {
     fontFamily: FONT.heading, fontSize: 16, fontWeight: 600,
     background: BLANCO, color: INK,
-    border: `1px solid ${T.brd}`, borderRadius: 6,
+    border: `1px solid ${T.brd}`, borderRadius: 0,
     padding: '5px 10px', width: 90, textAlign: 'right', outline: 'none',
   }
   const sel: CSSProperties = { ...inp, width: 170, textAlign: 'left', cursor: 'pointer' }
 
-  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando canales…</div>
+  if (loading) return (
+    <PantallaCantera embedded>
+      <Papel ceja={GRIS}><div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13, fontWeight: 600 }}>Cargando canales…</div></Papel>
+    </PantallaCantera>
+  )
+
+  const activos = rows.filter(r => r.activo).length
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={card}>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={rows.length === 0 ? 'Todavía no hay canales configurados' : 'Así cobra cada plataforma antes de que te llegue el neto'}
+        etiquetaDato={rows.length > 0 ? 'Canales activos' : undefined}
+        cifra={rows.length > 0 ? `${activos} / ${rows.length}` : undefined}
+        resumen="Comisiones, fees y periodicidad verificados al céntimo contra facturas reales de cada plataforma. Cambia cualquier valor haciendo click sobre él."
+      />
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1480 }}>
             <thead>
@@ -221,7 +233,7 @@ export default function TabCanales() {
                 const fmtEur = (n: number | null) => n == null || Number(n) === 0 ? '—' : `${Number(n).toFixed(2)}€`
 
                 return (
-                  <tr key={c.id} style={{ background: justSaved ? (isDark ? '#1D9E7520' : '#1D9E7515') : 'transparent', transition: 'background 600ms' }}>
+                  <tr key={c.id} style={{ background: justSaved ? (isDark ? `${VERDE}20` : `${VERDE}15`) : 'transparent', transition: 'background 600ms' }}>
                     <td style={{ ...td, fontFamily: FONT.heading, fontSize: 16, fontWeight: 600 }}>{c.canal}</td>
 
                     <td style={tdR}>
@@ -348,7 +360,7 @@ export default function TabCanales() {
                       <button onClick={() => toggleActivo(c.id, c.activo)}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
                         title={c.activo ? 'Activo (click para desactivar)' : 'Inactivo (click para activar)'}>
-                        <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', backgroundColor: c.activo ? VERDE : '#555' }} />
+                        <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', backgroundColor: c.activo ? VERDE : GRIS }} />
                       </button>
                     </td>
 
@@ -367,11 +379,11 @@ export default function TabCanales() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Papel>
 
       <div style={{ fontFamily: FONT.body, fontSize: 11, color: T.mut }}>
-        {saving ? 'Guardando…' : err ? <span style={{ color: '#dc2626' }}>{err}</span> : 'Click en cualquier valor para editarlo. Enter para guardar, Esc para cancelar.'}
+        {saving ? 'Guardando…' : err ? <span style={{ color: ROJO }}>{err}</span> : 'Click en cualquier valor para editarlo. Enter para guardar, Esc para cancelar.'}
       </div>
-    </div>
+    </PantallaCantera>
   )
 }

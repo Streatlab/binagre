@@ -1,4 +1,4 @@
-import { AZUL, GRIS, INK, NAR, VERDE } from '@/styles/neobrutal'
+import { AZUL, BORDE_SUAVE, CLARO, GRIS, INK, NAR, VERDE } from '@/styles/neobrutal'
 // Tabla extractos bancarios - lee de tabla dedicada extractos_bancarios
 // v3: ordenación canónica multi-criterio
 import { useState, useEffect, useMemo } from 'react'
@@ -79,7 +79,7 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
   return (
     <>
       {ms.showClearButton && (
-        <div style={{ padding: '10px 16px', borderBottom: '0.5px solid #d0c8bc' }}>
+        <div style={{ padding: '10px 16px', borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
           <ClearSortButton show={true} onClear={ms.clearSorts} />
         </div>
       )}
@@ -96,7 +96,7 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
         <tbody>
           {filas.map((e, idx) => {
             const isLast = idx === filas.length - 1
-            const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2', verticalAlign: 'middle' }
+            const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : `0.5px solid ${CLARO}`, verticalAlign: 'middle' }
             const titNombre = titulares.find(t => t.id === e.titular_id)?.nombre?.toLowerCase() ?? ''
             const isRuben = titNombre.includes('rubén') || titNombre.includes('ruben')
             const isEmilio = titNombre.includes('emilio')
@@ -113,9 +113,9 @@ export default function ExtractosTabla({ refreshTick, titulares }: Props) {
                 </td>
                 <td style={tdBase}>
                   {isRuben
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: NAR, color: NAR, whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: NAR, flexShrink: 0 }} />Rubén</span>
+                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 0, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: NAR, color: NAR, whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: NAR, flexShrink: 0 }} />Rubén</span>
                     : isEmilio
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: '#1E5BCC15', color: AZUL, whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: AZUL, flexShrink: 0 }} />Emilio</span>
+                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 0, fontFamily: 'Lexend, sans-serif', fontSize: 12, fontWeight: 500, background: `${AZUL}15`, color: AZUL, whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: AZUL, flexShrink: 0 }} />Emilio</span>
                     : <span style={{ color: GRIS, fontSize: 12 }}>—</span>
                   }
                 </td>

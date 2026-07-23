@@ -22,7 +22,7 @@ export default function BannerPendientes({ mensaje, onIrImportador }: Props) {
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 10,
-      borderRadius: 8,
+      borderRadius: 0,
       marginBottom: 12,
     }}>
       <span>{mensaje ?? 'Hay datos pendientes de subir'}</span>
@@ -37,7 +37,7 @@ export default function BannerPendientes({ mensaje, onIrImportador }: Props) {
               background: INK,
               color: LIMA,
               border: 'none',
-              borderRadius: 5,
+              borderRadius: 0,
               cursor: 'pointer',
               fontWeight: 500,
               letterSpacing: '0.5px',

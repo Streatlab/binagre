@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FONT, useTheme, pageTitleStyle } from '@/styles/tokens'
+import { FONT } from '@/styles/tokens'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabEstaSemana from '@/components/equipo/horarios/TabEstaSemana'
 import TabHistorico from '@/components/equipo/horarios/TabHistorico'
@@ -8,6 +8,7 @@ import TabReglas from '@/components/equipo/horarios/TabReglas'
 import TabGenerador from '@/components/equipo/horarios/TabGenerador'
 import TabPlantillas from '@/components/equipo/horarios/TabPlantillas'
 import TabResumenHoras from '@/components/equipo/horarios/TabResumenHoras'
+import { PantallaCantera } from '@/components/kit/cantera'
 
 type TabId = 'semana' | 'historico' | 'vacaciones' | 'reglas' | 'generador' | 'plantillas' | 'resumen'
 
@@ -22,15 +23,11 @@ const TABS: Array<{ id: TabId; label: string }> = [
 ]
 
 export default function Horarios() {
-  const { T } = useTheme()
   const [activeTab, setActiveTab] = useState<TabId>('semana')
 
   return (
-    <div style={{ padding: '24px 28px', fontFamily: FONT.body, color: T.pri }}>
-      <h1 style={pageTitleStyle(T)}>Horarios</h1>
-      <div style={{ marginBottom: 16 }}>
-        <TabsPastilla tabs={TABS} activeId={activeTab} onChange={id => setActiveTab(id as TabId)} />
-      </div>
+    <PantallaCantera embedded style={{ fontFamily: FONT.body }}>
+      <TabsPastilla tabs={TABS} activeId={activeTab} onChange={id => setActiveTab(id as TabId)} />
 
       {activeTab === 'semana'     && <TabEstaSemana />}
       {activeTab === 'historico'  && <TabHistorico />}
@@ -39,6 +36,6 @@ export default function Horarios() {
       {activeTab === 'generador'  && <TabGenerador />}
       {activeTab === 'plantillas' && <TabPlantillas />}
       {activeTab === 'resumen'    && <TabResumenHoras />}
-    </div>
+    </PantallaCantera>
   )
 }

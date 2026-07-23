@@ -1,11 +1,11 @@
-import { GRANATE } from '@/styles/neobrutal'
 import { useState, useEffect, useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts'
 import { supabase } from '@/lib/supabase'
-import { COLORS, FONT, CARDS } from '@/components/panel/resumen/tokens'
+import { OSW, LEX, INK, CREMA, GRIS, VERDE, GRANATE, NAR, BLANCO, CORP } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
 
 interface Momento {
   marca: string
@@ -27,30 +27,13 @@ interface Salud {
   min_entrega_medio: number | null
 }
 
-const card = CARDS.std
-const cardBig = CARDS.big
-const lbl: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500 }
-const lblSm: React.CSSProperties = { ...lbl, fontSize: 11, letterSpacing: 1.5 }
-const td: React.CSSProperties = { padding: '9px 10px', fontFamily: FONT.heading, fontSize: 14, textAlign: 'right', color: COLORS.pri }
-
 function pill(active: boolean): React.CSSProperties {
   return {
-    padding: '5px 12px', borderRadius: 7,
-    border: active ? 'none' : `0.5px solid ${COLORS.brd}`,
-    background: active ? COLORS.pri : COLORS.card,
-    color: active ? 'var(--sl-bg)' : COLORS.sec,
-    fontFamily: FONT.body, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+    padding: '6px 14px', border: `2px solid ${INK}`, borderRadius: 0,
+    background: active ? INK : BLANCO, color: active ? CREMA : INK,
+    boxShadow: active ? SHADOW_DURA : 'none',
+    fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', cursor: 'pointer',
   }
-}
-
-function KpiCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
-  return (
-    <div style={{ ...card, flex: 1, minWidth: 150 }}>
-      <div style={lblSm}>{label}</div>
-      <div style={{ fontFamily: FONT.heading, fontSize: 28, fontWeight: 600, color: color || COLORS.pri, lineHeight: 1.1, marginTop: 6 }}>{value}</div>
-      {sub && <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 4 }}>{sub}</div>}
-    </div>
-  )
 }
 
 export default function PulsoOperativa() {
@@ -104,82 +87,132 @@ export default function PulsoOperativa() {
   }, [salud, marcaSel])
 
   const hayDatos = momentos.length > 0 || salud.length > 0
+  const incidAlta = tot.pctIncid > 5
+
+  const titular = tot.pedidos === 0
+    ? 'Todavía no hay pedidos con detalle operativo.'
+    : incidAlta
+      ? 'Las incidencias están por encima de lo razonable: revisa el servicio.'
+      : 'El servicio funciona con buena salud operativa.'
+
+  const atencion = [
+    `${tot.pctPrime}% clientes Prime`,
+    `${tot.pctIncid}% incidencias`,
+    tot.entregaMedio != null ? `Entrega media ${tot.entregaMedio.toFixed(0)} min` : null,
+  ].filter(Boolean) as string[]
 
   return (
-    <div style={{ background: 'var(--sl-bg)', padding: '24px 28px', minHeight: '100vh' }}>
-      <h1 style={{ fontFamily: FONT.heading, fontSize: 28, fontWeight: 600, color: COLORS.pri, letterSpacing: '0.04em', margin: 0 }}>PULSO DE OPERATIVA</h1>
-      <p style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 4, marginBottom: 20 }}>
-        Quien compra, a que hora, cuanto tarda el servicio y donde hay incidencias.
-      </p>
+    <PantallaCantera>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <button onClick={() => setMarcaSel('todas')} style={pill(marcaSel === 'todas')}>Todas</button>
+        {marcas.map(m => (
+          <button key={m} onClick={() => setMarcaSel(m)} style={pill(marcaSel === m)}>{m}</button>
+        ))}
+      </div>
 
       {loading ? (
-        <div style={{ ...card, textAlign: 'center', color: COLORS.mut, fontFamily: FONT.body }}>Cargando...</div>
+        <div style={{ padding: 32, color: GRIS, fontFamily: LEX }}>Cargando…</div>
       ) : !hayDatos ? (
-        <div style={{ ...card, textAlign: 'center', color: COLORS.mut, fontFamily: FONT.body, padding: 32 }}>
-          Todavia no hay pedidos con detalle operativo.<br />
-          Sube un historial de pedidos de Uber por la Bandeja de entrada y esta pantalla se llena sola.
-        </div>
+        <Papel ceja={NAR}>
+          <div style={{ color: GRIS, fontFamily: LEX }}>
+            Todavía no hay pedidos con detalle operativo.<br />
+            Sube un historial de pedidos de Uber por la Bandeja de entrada y esta pantalla se llena sola.
+          </div>
+        </Papel>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-            <button onClick={() => setMarcaSel('todas')} style={pill(marcaSel === 'todas')}>Todas</button>
-            {marcas.map(m => (
-              <button key={m} onClick={() => setMarcaSel(m)} style={pill(marcaSel === m)}>{m}</button>
-            ))}
+          {/* 1 · Héroe del área Ventas (verde) */}
+          <HeroCantera
+            area="ventas"
+            periodo={marcaSel === 'todas' ? 'Todas las marcas' : marcaSel}
+            titular={titular}
+            etiquetaDato="Pedidos del periodo"
+            cifra={tot.pedidos.toLocaleString('es-ES')}
+            resumen={<>{tot.pctPrime}% de clientes Prime · entrega media {tot.entregaMedio != null ? `${tot.entregaMedio.toFixed(0)} min` : '—'}.</>}
+            atencion={atencion}
+          />
+
+          {/* 2 · Plancha KPIs */}
+          <div>
+            <SeccionLabel bg={VERDE}>Salud del servicio</SeccionLabel>
+            <Plancha>
+              <PlanchaCelda first>
+                <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Pedidos</div>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{tot.pedidos}</div>
+              </PlanchaCelda>
+              <PlanchaCelda bg={VERDE} color={BLANCO}>
+                <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Clientes Prime</div>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{tot.pctPrime}%</div>
+                <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{tot.prime} pedidos</div>
+              </PlanchaCelda>
+              <PlanchaCelda bg={incidAlta ? GRANATE : BLANCO} color={incidAlta ? BLANCO : INK}>
+                <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Incidencias</div>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{tot.pctIncid}%</div>
+                <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{tot.incid} pedidos</div>
+              </PlanchaCelda>
+              <PlanchaCelda>
+                <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Tiempo entrega</div>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }}>{tot.entregaMedio != null ? `${tot.entregaMedio.toFixed(0)} min` : '—'}</div>
+              </PlanchaCelda>
+            </Plancha>
           </div>
 
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
-            <KpiCard label="Pedidos" value={String(tot.pedidos)} />
-            <KpiCard label="Clientes Prime" value={`${tot.pctPrime}%`} sub={`${tot.prime} pedidos`} color={COLORS.ok} />
-            <KpiCard label="Incidencias" value={`${tot.pctIncid}%`} sub={`${tot.incid} pedidos`} color={tot.pctIncid > 5 ? COLORS.err : COLORS.ok} />
-            <KpiCard label="Tiempo entrega" value={tot.entregaMedio != null ? `${tot.entregaMedio.toFixed(0)} min` : '-'} />
+          {/* 3 · Frase potente (color por significado, distinto del héroe verde) */}
+          {incidAlta
+            ? <FrasePotente significado="coste">Las incidencias superan el 5%: revisa la operativa antes de que dañe la reputación en plataforma.</FrasePotente>
+            : <FrasePotente significado="oportunidad">Buena salud de servicio: aprovecha para empujar más pedidos sin perder calidad.</FrasePotente>}
+
+          {/* Gráfico — papel (sin sombra) */}
+          <div>
+            <SeccionLabel bg={NAR}>Pedidos por hora del día</SeccionLabel>
+            <Papel ceja={NAR}>
+              <div style={{ height: 260 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={momFiltrados} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={CREMA} vertical={false} />
+                    <XAxis dataKey="franja" tick={{ fontFamily: LEX, fontSize: 11, fill: INK }} />
+                    <YAxis tick={{ fontFamily: LEX, fontSize: 11, fill: GRIS }} />
+                    <Tooltip formatter={((v: unknown, n: unknown) => [v as number, n === 'pedidos' ? 'Pedidos' : (n as string)]) as never} />
+                    <Bar dataKey="pedidos" radius={0}>
+                      {momFiltrados.map((d, i) => (
+                        <Cell key={i} fill={d.hora >= 13 && d.hora <= 15 ? CORP.uber : d.hora >= 20 && d.hora <= 23 ? GRANATE : GRIS} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Papel>
           </div>
 
-          <div style={{ ...cardBig, marginBottom: 18 }}>
-            <div style={lbl}>Pedidos por hora del dia</div>
-            <div style={{ height: 260, marginTop: 12 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={momFiltrados} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.brd} vertical={false} />
-                  <XAxis dataKey="franja" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} />
-                  <YAxis tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.mut }} />
-                  <Tooltip formatter={((v: unknown, n: unknown) => [v as number, n === 'pedidos' ? 'Pedidos' : (n as string)]) as never} />
-                  <Bar dataKey="pedidos" radius={[6, 6, 0, 0]}>
-                    {momFiltrados.map((d, i) => (
-                      <Cell key={i} fill={d.hora >= 13 && d.hora <= 15 ? COLORS.uber : d.hora >= 20 && d.hora <= 23 ? GRANATE : COLORS.mut} />
+          {/* Tabla detalle — papel (sin sombra) */}
+          <div>
+            <SeccionLabel bg={GRANATE}>Salud del servicio por marca</SeccionLabel>
+            <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
+                <thead>
+                  <tr style={{ background: INK }}>
+                    {['Marca', 'Pedidos', '% Prime', '% Incidencias', 'Prep.', 'Entrega'].map((h, i) => (
+                      <th key={h} style={{ padding: '10px 12px', textAlign: i === 0 ? 'left' : 'right', fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          <div style={cardBig}>
-            <div style={lbl}>Salud del servicio por marca</div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
-              <thead>
-                <tr>
-                  {['Marca', 'Pedidos', '% Prime', '% Incidencias', 'Prep.', 'Entrega'].map((h, i) => (
-                    <th key={h} style={{ ...lblSm, textAlign: i === 0 ? 'left' : 'right', padding: '8px 10px', borderBottom: `1px solid ${COLORS.brd}` }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[...salud].sort((a, b) => b.pedidos - a.pedidos).map(s => (
-                  <tr key={s.marca}>
-                    <td style={{ padding: '9px 10px', fontFamily: FONT.body, fontSize: 14, color: COLORS.pri }}>{s.marca}</td>
-                    <td style={td}>{s.pedidos}</td>
-                    <td style={{ ...td, color: COLORS.ok }}>{s.pct_prime ?? 0}%</td>
-                    <td style={{ ...td, color: (s.pct_incidencias ?? 0) > 5 ? COLORS.err : COLORS.pri }}>{s.pct_incidencias ?? 0}%</td>
-                    <td style={td}>{s.min_prep_medio != null ? `${s.min_prep_medio} min` : '-'}</td>
-                    <td style={td}>{s.min_entrega_medio != null ? `${s.min_entrega_medio} min` : '-'}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {[...salud].sort((a, b) => b.pedidos - a.pedidos).map(s => (
+                    <tr key={s.marca} style={{ borderBottom: `2px solid ${INK}` }}>
+                      <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600 }}>{s.marca}</td>
+                      <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, textAlign: 'right' }}>{s.pedidos}</td>
+                      <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, textAlign: 'right', color: VERDE }}>{s.pct_prime ?? 0}%</td>
+                      <td style={{ padding: '10px 12px', fontFamily: OSW, fontWeight: 600, textAlign: 'right', color: (s.pct_incidencias ?? 0) > 5 ? GRANATE : INK }}>{s.pct_incidencias ?? 0}%</td>
+                      <td style={{ padding: '10px 12px', fontFamily: LEX, textAlign: 'right', color: GRIS }}>{s.min_prep_medio != null ? `${s.min_prep_medio} min` : '—'}</td>
+                      <td style={{ padding: '10px 12px', fontFamily: LEX, textAlign: 'right', color: GRIS }}>{s.min_entrega_medio != null ? `${s.min_entrega_medio} min` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Papel>
           </div>
         </>
       )}
-    </div>
+    </PantallaCantera>
   )
 }

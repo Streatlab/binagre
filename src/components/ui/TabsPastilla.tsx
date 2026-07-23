@@ -1,13 +1,14 @@
-import { BLANCO, INK, NAR_S } from '@/styles/neobrutal'
+import { BLANCO, INK } from '@/styles/neobrutal'
 /**
- * TabsPastilla — pestañas del Panel Global (Resumen, Operaciones, Finanzas…).
- * v10: modelo T3 — pastilla dura, activa en ROSA con sombra negra, inactivas en
- * crema con borde negro. Oswald mayúsculas.
+ * TabsPastilla — navegación primaria · CANTERA ALEGRE v4.
+ * UNA plancha segmentada: celdas blancas unidas por bordes internos, la activa
+ * en ROSA. Sombra suave (no negra). Cuanto más importante, más sólido: este es
+ * el único elemento con cuerpo de la cabecera; los filtros son planos y las
+ * subpestañas (SubTabs) van solo subrayadas.
  * En móvil (.movil-scope) se convierte en una tira deslizable: ver movil-scope.css.
  */
 
 const ROSA = '#FF2E63'
-const CREMA = NAR_S
 const OSW = "'Oswald', sans-serif"
 
 interface TabItem {
@@ -24,8 +25,8 @@ interface TabsPastillaProps {
 
 export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaProps) {
   return (
-    <div className="tabs-pastilla" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      {tabs.map(tab => {
+    <div className="tabs-pastilla" style={{ display: 'inline-flex', flexWrap: 'wrap', border: `2px solid ${INK}`, background: 'var(--sl-card, #FFFFFF)', boxShadow: '4px 4px 0 rgba(36,29,18,0.15)', maxWidth: '100%' }}>
+      {tabs.map((tab, idx) => {
         const active = tab.id === activeId
         return (
           <button
@@ -36,15 +37,15 @@ export default function TabsPastilla({ tabs, activeId, onChange }: TabsPastillaP
               fontFamily: OSW,
               fontWeight: 600,
               fontSize: 14,
-              letterSpacing: '0.5px',
+              letterSpacing: '0.6px',
               textTransform: 'uppercase',
-              padding: '9px 18px',
+              padding: '12px 22px',
               cursor: 'pointer',
-              border: `3px solid ${INK}`,
+              border: 'none',
+              borderLeft: idx > 0 ? `2px solid ${INK}` : 'none',
               borderRadius: 0,
-              background: active ? ROSA : CREMA,
+              background: active ? ROSA : 'transparent',
               color: active ? BLANCO : INK,
-              boxShadow: active ? `4px 4px 0 ${INK}` : 'none',
               display: 'inline-flex',
               alignItems: 'center',
               flex: '0 0 auto',

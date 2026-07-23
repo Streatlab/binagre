@@ -8,20 +8,20 @@ import { useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 import { comisionEfectivaCanal } from '@/lib/escandallo/comisionEfectiva'
 import type { Ingrediente, EPS, Receta, RecetaLinea, CanalKey } from './types'
 import { UNIDADES, n, precioNeto } from './types'
-import { INK, AMA, GRANATE, AZUL, ROJO, NAR, VERDE, GRIS, OSW, LEX, BLANCO, NAR_S } from '@/styles/neobrutal'
+import { INK, AMA, GRANATE, AZUL, ROJO, NAR, VERDE, GRIS, OSW, LEX, BLANCO, NAR_S, CORP } from '@/styles/neobrutal'
 import ModalIngrediente from './ModalIngrediente'
 import MicDictado from './MicDictado'
 import ModalEPS from './ModalEPS'
 import BuscadorItem from './BuscadorItem'
 // Waterfall vivo del Escandallo, extraído a módulo testeable (Bloque D) — misma fórmula.
-import { computeWaterfall, norm } from '@/utils/waterfallReceta'
+import { computeWaterfall, norm, resolveMargenDeseado, pvpRecomendado } from '@/utils/waterfallReceta'
 
 interface ConflictoItem { nombre: string; cantidad: number; unidad: string }
 
-interface Props { receta: Receta | null; initialNombre?: string; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: () => void; onDelete?: () => void }
+interface Props { receta: Receta | null; initialNombre?: string; ingredientes: Ingrediente[]; epsList: EPS[]; onClose: () => void; onSaved: (recetaId?: string) => void; onDelete?: () => void }
 
-const thCls = 'px-3 py-2 text-left text-[10px] uppercase tracking-wider text-[#140f08] font-semibold border-b-[2px] border-[#140f08] bg-[#FCEFD6]'
-const tdCls = 'px-3 py-2 text-sm border-b border-[#140f08]/20'
+const thCls = 'px-3 py-2 text-left text-[10px] uppercase tracking-wider text-ink font-semibold border-b-[2px] border-ink bg-crema'
+const tdCls = 'px-3 py-2 text-sm border-b border-ink/20'
 
 const labelStyle = (_isDark?: boolean): CSSProperties => ({
   fontFamily: OSW, fontSize: 10, fontWeight: 700,
@@ -38,10 +38,10 @@ const inputStyle: CSSProperties = {
 
 const CHANNELS = [
   { id: 'uber',    label: 'Uber Eats', canalName: 'Uber Eats',     pvpKey: 'pvp_uber'    as CanalKey, color: VERDE, fg: BLANCO },
-  { id: 'glovo',   label: 'Glovo',     canalName: 'Glovo',         pvpKey: 'pvp_glovo'   as CanalKey, color: '#FFC244', fg: INK },
-  { id: 'je',      label: 'Just Eat',  canalName: 'Just Eat',      pvpKey: 'pvp_je'      as CanalKey, color: '#FF8000', fg: INK },
+  { id: 'glovo',   label: 'Glovo',     canalName: 'Glovo',         pvpKey: 'pvp_glovo'   as CanalKey, color: CORP.glovo, fg: INK },
+  { id: 'je',      label: 'Just Eat',  canalName: 'Just Eat',      pvpKey: 'pvp_je'      as CanalKey, color: CORP.je, fg: INK },
   { id: 'web',     label: 'Web',       canalName: 'Web Propia',    pvpKey: 'pvp_web'     as CanalKey, color: GRANATE, fg: BLANCO },
-  { id: 'directa', label: 'Directa',   canalName: 'Venta Directa', pvpKey: 'pvp_directa' as CanalKey, color: '#1e2233', fg: BLANCO },
+  { id: 'directa', label: 'Directa',   canalName: 'Venta Directa', pvpKey: 'pvp_directa' as CanalKey, color: CORP.dir, fg: BLANCO },
 ]
 
 const ALL_PVP_KEYS: CanalKey[] = ['pvp_uber', 'pvp_glovo', 'pvp_je', 'pvp_web', 'pvp_directa']
@@ -65,12 +65,18 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
   const todayISO = new Date().toISOString().split('T')[0]
 
   const [nombre, setNombre] = useState(receta?.nombre ?? initialNombre ?? '')
+  const [elaboracion, setElaboracion] = useState((receta as unknown as { elaboracion?: string })?.elaboracion ?? '')
   const [categoria, setCategoria] = useState(receta?.categoria ?? '')
   const [raciones, setRaciones] = useState(receta?.raciones ?? 1)
   const [tamanoRac, setTamanoRac] = useState(receta?.tamano_rac ?? 0)
   const [unidad, setUnidad] = useState(receta?.unidad ?? 'Ración')
   const [fecha, setFecha] = useState(receta?.fecha ?? todayISO)
   const [fechaOriginal] = useState(receta?.fecha ?? todayISO)
+  // LEY-MARGEN-01 · override de margen deseado por receta. '' = sin override (usa el global).
+  const [margenOverride, setMargenOverride] = useState<string>(
+    receta?.margen_deseado_pct != null ? String(receta.margen_deseado_pct) : ''
+  )
+  const margenOverrideNum = margenOverride.trim() === '' ? null : (parseFloat(margenOverride.replace(',', '.')) || 0)
   const [isDirty, setIsDirty] = useState(false)
   const [categorias, setCategorias] = useState<string[]>([])
 
@@ -197,9 +203,10 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
         if ((next[ch.pvpKey] || 0) > 0) continue
         const cfgCanal = cfg.canales.find(c => c.canal === ch.canalName)
         const comision = norm(cfgCanal?.comision_pct ?? 0)
-        const margenDeseado = norm(cfgCanal?.margen_deseado_pct ?? cfg.margen_deseado_pct ?? 0)
-        const rec = computeWaterfall(costeMP, 0, comision, estructura, margenDeseado).pvpRecR
-        if (rec > 0) { next[ch.pvpKey] = Math.round(rec * 100) / 100; changed = true }
+        // LEY-MARGEN-01: cascada (override receta → global), sin margen por canal.
+        const margenDeseado = resolveMargenDeseado(margenOverrideNum, cfg.margen_deseado_pct)
+        const rec = pvpRecomendado(costeMP, comision, estructura, margenDeseado)
+        if (rec.viable && rec.pvp > 0) { next[ch.pvpKey] = Math.round(rec.pvp * 100) / 100; changed = true }
       }
       return changed ? next : prev
     })
@@ -283,7 +290,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     try {
       let rid = receta?.id
       const pvpRecord: Record<CanalKey, number> = { pvp_uber: pvpCanal.pvp_uber, pvp_glovo: pvpCanal.pvp_glovo, pvp_je: pvpCanal.pvp_je, pvp_web: pvpCanal.pvp_web, pvp_directa: pvpCanal.pvp_directa }
-      const record = { nombre, categoria: categoria || null, raciones, tamano_rac: tamanoRac || null, unidad: unidad || null, fecha: isDirty ? todayISO : (fechaOriginal || null), coste_tanda: costeTanda, coste_rac: costeMP, ...pvpRecord }
+      const record = { nombre, elaboracion: elaboracion.trim() || null, categoria: categoria || null, raciones, tamano_rac: tamanoRac || null, unidad: unidad || null, fecha: isDirty ? todayISO : (fechaOriginal || null), coste_tanda: costeTanda, coste_rac: costeMP, margen_deseado_pct: margenOverrideNum, ...pvpRecord }
       if (rid) { const { error } = await supabase.from('recetas').update(record).eq('id', rid); if (error) throw error }
       else { const { data, error } = await supabase.from('recetas').insert(record).select('id').single(); if (error) throw error; rid = data.id }
       await supabase.from('recetas_lineas').delete().eq('receta_id', rid)
@@ -291,7 +298,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
         const rows = lineasCalc.map((l, i) => ({ receta_id: rid, linea: i + 1, tipo: l.tipo, ingrediente_nombre: l.ingrediente_nombre, ingrediente_id: l.ingrediente_id, eps_id: l.eps_id, cantidad: l.cantidad, unidad: l.unidad, eur_ud_neta: l.eur_ud_neta }))
         const { error } = await supabase.from('recetas_lineas').insert(rows); if (error) throw error
       }
-      onSaved()
+      onSaved(rid)
     } catch (e: any) { alert('Error: ' + (e.message || 'Error desconocido')) }
     finally { setSaving(false) }
   }
@@ -305,9 +312,12 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
     // netoResolver), no la tarifa base. Cae a comisionBase si no hay dato resoluble.
     const comision = comisionEfectivaCanal(ch.id, pvp, comisionBase)
     const estructura = norm(cfg.estructura_pct ?? 20)
-    const margenDeseado = norm(cfgCanal?.margen_deseado_pct ?? cfg.margen_deseado_pct ?? 0)
+    // LEY-MARGEN-01: margen deseado por cascada (override receta → global), NO por canal.
+    const margenDeseado = resolveMargenDeseado(margenOverrideNum, cfg.margen_deseado_pct)
     const w = computeWaterfall(costeMP, pvp, comision, estructura, margenDeseado)
-    return { ch, comision, margenDeseado, w }
+    // PVP recomendado LIMPIO (LEY-MARGEN-02) con aviso "sin viable" (LEY-MARGEN-01).
+    const rec = pvpRecomendado(costeMP, comision, estructura, margenDeseado)
+    return { ch, comision, margenDeseado, w, rec }
   })
 
   const getSemaforoColor = (margenEur: number, margenPct: number, margenDeseado: number): string => { if (margenEur < 0) return ROJO; if ((margenPct / 100) < margenDeseado) return NAR; return VERDE }
@@ -320,13 +330,13 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 overflow-y-auto" onClick={onClose}>
-      <div className="relative bg-[#FCEFD6] border-[4px] border-[#140f08] rounded-none w-full max-w-7xl my-8 shadow-[6px_6px_0_#140f08]" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b-[4px] border-[#140f08] bg-[#FFC400]">
+      <div className="relative bg-crema border-[4px] border-ink rounded-none w-full max-w-7xl my-8 shadow-[6px_6px_0_var(--color-ink)]" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b-[4px] border-ink bg-ama">
           <div>
-            <h3 className="text-[#140f08]" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
-            {receta?.codigo && <p className="text-xs text-[#9a8f78] mt-0.5 font-mono">{receta.codigo}</p>}
+            <h3 className="text-ink" style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{receta ? 'Editar Receta' : 'Nueva Receta'}</h3>
+            {receta?.codigo && <p className="text-xs text-gris mt-0.5 font-mono">{receta.codigo}</p>}
           </div>
-          <button onClick={onClose} style={{ background: BLANCO, border: '2px solid #140f08', width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
+          <button onClick={onClose} style={{ background: BLANCO, border: `2px solid ${INK}`, width: 36, height: 36, fontSize: 20, lineHeight: 1, cursor: 'pointer', color: INK, flexShrink: 0 }}>×</button>
         </div>
         <div className="p-5 space-y-5">
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
@@ -339,7 +349,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-[#140f08] uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Líneas</p>
+              <p className="text-sm text-ink uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Líneas</p>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button onClick={addLinea} className="text-xs hover:brightness-105 transition px-3 py-1 rounded-none" style={{ backgroundColor: AMA, color: INK, fontFamily: OSW, fontWeight: 700, letterSpacing: '0.5px', border: `2px solid ${INK}`, boxShadow: `2px 2px 0 ${INK}` }}>+ Añadir línea</button>
                 <button onClick={() => setShowDictar(true)} style={{ background: BLANCO, color: INK, border: `2px solid ${INK}`, borderRadius: 0, padding: '5px 12px', fontFamily: OSW, fontWeight: 700, fontSize: 10, letterSpacing: '1px', cursor: 'pointer' }}>⚡ DICTAR</button>
@@ -357,85 +367,100 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
               </div>
             )}
             {loadingLineas ? (
-              <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-[#140f08] border-t-transparent rounded-full animate-spin" /></div>
+              <div className="flex justify-center py-8"><div className="h-5 w-5 border-2 border-ink border-t-transparent rounded-full animate-spin" /></div>
             ) : (
-              <div className="border-[3px] border-[#140f08] rounded-none overflow-hidden">
+              <div className="border-[3px] border-ink rounded-none overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full" style={{ minWidth: '900px' }}>
                     <thead><tr><th className={thCls + ' w-10'}>#</th><th className={thCls + ' w-20'}>Tipo</th><th className={thCls}>Nombre</th><th className={thCls + ' w-24 text-right'}>Cantidad</th><th className={thCls + ' w-20'}>Unidad</th><th className={thCls + ' w-28 text-right'}>€/ud neta</th><th className={thCls + ' w-24 text-right'}>€ total</th><th className={thCls + ' w-16 text-right'}>% total</th></tr></thead>
                     <tbody>
-                      {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-[#9a8f78] text-sm">Sin líneas</td></tr>}
+                      {!lineasCalc.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-gris text-sm">Sin líneas</td></tr>}
                       {lineasCalc.map((l, idx) => {
                         const nameColor = l.tipo === 'EPS' ? GRANATE : INK
                         return (
                           <tr key={idx}>
-                            <td className={tdCls + ' text-[#9a8f78]'}>{idx + 1}</td>
+                            <td className={tdCls + ' text-gris'}>{idx + 1}</td>
                             <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm" style={{ color: nameColor, fontWeight: 600 }} value={l.tipo} onChange={e => changeTipo(idx, e.target.value as 'ING' | 'EPS' | 'ENV')}><option value="ING">ING</option><option value="EPS">EPS</option><option value="ENV">ENV</option></select></td>
-                            <td className={tdCls}><BuscadorItem value={l.ingrediente_nombre} opciones={l.tipo === 'ING' ? ingredientes.map(i => ({ id: i.id, nombre: i.nombre, barato: masBaratos.has(i.id) })) : l.tipo === 'ENV' ? envases.map(i => ({ id: i.id, nombre: i.nombre, tag: 'ENV' })) : epsList.map(e => ({ id: e.id, nombre: e.nombre, tag: 'EPS' }))} onSelect={v => selectItem(idx, v)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : l.tipo === 'ENV' ? 'Envase...' : 'EPS...'} inputClassName="w-full bg-transparent border-none outline-none text-sm placeholder:text-[#9a8f78]" inputStyle={{ color: nameColor }} /></td>
-                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-[#140f08] text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
-                            <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-[#140f08]" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
-                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.0001" className="w-full bg-transparent border-none outline-none text-sm text-[#140f08] text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
-                            <td className={tdCls + ' text-right font-medium text-[#140f08]'}>{fmtEur(l.eur_total)}</td>
-                            <td className={tdCls + ' text-right text-[#9a8f78]'}>{fmtPct(l.pct_total)}</td>
+                            <td className={tdCls}><BuscadorItem value={l.ingrediente_nombre} opciones={l.tipo === 'ING' ? ingredientes.map(i => ({ id: i.id, nombre: i.nombre, barato: masBaratos.has(i.id) })) : l.tipo === 'ENV' ? envases.map(i => ({ id: i.id, nombre: i.nombre, tag: 'ENV' })) : epsList.map(e => ({ id: e.id, nombre: e.nombre, tag: 'EPS' }))} onSelect={v => selectItem(idx, v)} placeholder={l.tipo === 'ING' ? 'Ingrediente...' : l.tipo === 'ENV' ? 'Envase...' : 'EPS...'} inputClassName="w-full bg-transparent border-none outline-none text-sm placeholder:text-gris" inputStyle={{ color: nameColor }} /></td>
+                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="any" className="w-full bg-transparent border-none outline-none text-sm text-ink text-right" value={l.cantidad || ''} onChange={e => updateLinea(idx, { cantidad: parseFloat(e.target.value) || 0 })} /></td>
+                            <td className={tdCls}><select className="w-full bg-transparent border-none outline-none text-sm text-ink" value={l.unidad} onChange={e => updateLinea(idx, { unidad: e.target.value })}>{cfg.unidades.map(u => <option key={u} value={u}>{u}</option>)}</select></td>
+                            <td className={tdCls + ' text-right'}><input type="number" min={0} step="0.0001" className="w-full bg-transparent border-none outline-none text-sm text-ink text-right" value={l.eur_ud_neta || ''} onChange={e => updateLinea(idx, { eur_ud_neta: parseFloat(e.target.value) || 0 })} /></td>
+                            <td className={tdCls + ' text-right font-medium text-ink'}>{fmtEur(l.eur_total)}</td>
+                            <td className={tdCls + ' text-right text-gris'}>{fmtPct(l.pct_total)}</td>
                           </tr>
                         )
                       })}
                     </tbody>
                   </table>
                 </div>
-                <div className="flex items-center justify-between px-3 py-3 border-t-[3px] border-[#140f08] bg-[#FCEFD6]">
+                <div className="flex items-center justify-between px-3 py-3 border-t-[3px] border-ink bg-crema">
                   <div className="flex items-center gap-6">
-                    <div><span className="text-[10px] text-[#9a8f78] uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-[#140f08]">{fmtEur(costeTanda)}</span></div>
-                    <div><span className="text-[10px] text-[#9a8f78] uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-[#140f08]">{fmtNum(costeMP)}</span></div>
+                    <div><span className="text-[10px] text-gris uppercase tracking-wide block">Coste tanda</span><span className="text-sm font-bold text-ink">{fmtEur(costeTanda)}</span></div>
+                    <div><span className="text-[10px] text-gris uppercase tracking-wide block">Coste MP / ración</span><span className="text-base font-bold text-ink">{fmtNum(costeMP)}</span></div>
                   </div>
-                  <span className="text-xs text-[#9a8f78]">{raciones} raciones</span>
+                  <span className="text-xs text-gris">{raciones} raciones</span>
                 </div>
               </div>
             )}
           </div>
           <div>
-            <p className="text-sm text-[#140f08] uppercase tracking-wider mb-3" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Waterfall pricing por canal</p>
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-ink uppercase tracking-wider" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Elaboración</p>
+              <MicDictado onTexto={t => { setIsDirty(true); setElaboracion(prev => (prev ? prev + ' ' : '') + t) }} />
+            </div>
+            <textarea
+              value={elaboracion}
+              onChange={e => { setIsDirty(true); setElaboracion(e.target.value) }}
+              placeholder="Escribe o dicta los pasos de elaboración..."
+              style={{ background: BLANCO, border: `2px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 13, borderRadius: 0, padding: 10, width: '100%', boxSizing: 'border-box', height: 100, resize: 'vertical', outline: 'none' }}
+            />
+          </div>
+          <div>
+            
+            <p className="text-sm text-ink uppercase tracking-wider mb-3" style={{ fontFamily: OSW, letterSpacing: '1px' }}>Waterfall pricing por canal</p>
+            <div className="flex flex-wrap gap-2 mb-3">
               {CHANNELS.map(ch => {
                 const isActive = canalesActivos.includes(ch.id)
                 return (<button key={ch.id} onClick={() => setCanalesActivos(p => isActive ? p.filter(x => x !== ch.id) : [...p, ch.id])} style={{ backgroundColor: ch.color, color: ch.fg, fontFamily: 'Oswald, sans-serif', fontWeight: 700, letterSpacing: '1px', border: `2px solid ${INK}`, borderRadius: 0, boxShadow: isActive ? `2px 2px 0 ${INK}` : 'none', opacity: isActive ? 1 : 0.4 }} className="text-xs px-3 py-1.5 transition uppercase">{ch.label}</button>)
               })}
             </div>
+            {/* LEY-MARGEN-01 · override del margen deseado por receta (gana al global) */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span style={{ fontFamily: OSW, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: INK }}>Margen deseado</span>
+              <input type="number" min={0} step="0.5" value={margenOverride} onChange={e => { setIsDirty(true); setMargenOverride(e.target.value) }} placeholder={`global ${fmtNum(cfg.margen_deseado_pct ?? 20)}%`} style={{ width: 120, padding: '4px 8px', border: `2px solid ${INK}`, borderRadius: 0, background: BLANCO, fontFamily: LEX, fontSize: 13, color: INK, outline: 'none' }} />
+              <span style={{ fontFamily: LEX, fontSize: 11, color: GRIS }}>{margenOverride.trim() === '' ? `usa el global (${fmtNum(cfg.margen_deseado_pct ?? 20)}%)` : 'override de esta receta'}</span>
+              {margenOverride.trim() !== '' && (<button onClick={() => { setIsDirty(true); setMargenOverride('') }} style={{ fontFamily: OSW, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', border: `2px solid ${INK}`, background: BLANCO, color: INK, padding: '3px 8px', borderRadius: 0, cursor: 'pointer' }}>Usar global</button>)}
+            </div>
             {canalesActivos.length === 0 ? (
-              <div className="text-center py-8 text-[#9a8f78]">Selecciona al menos un canal</div>
+              <div className="text-center py-8 text-gris">Selecciona al menos un canal</div>
             ) : (
-              <div className="border-[3px] border-[#140f08] rounded-none overflow-hidden">
+              <div className="border-[3px] border-ink rounded-none overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ backgroundColor: NAR_S }}>
                         <th style={{ ...metricaCellStyle, padding: '10px 12px' }}>MÉTRICA</th>
-                        {channelData.map((d, idx) => (<th key={d.ch.id} colSpan={2} style={{ padding: '10px 10px', textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: d.ch.color, textTransform: 'uppercase', ...channelBorderStyle(idx, true) }}>{d.ch.label}</th>))}
-                      </tr>
-                      <tr style={{ backgroundColor: NAR_S }}>
-                        <th />
-                        {channelData.map((d, idx) => (<><th key={`${d.ch.id}-hr`} style={{ padding: '4px 10px', textAlign: 'right', fontSize: '9px', fontFamily: 'Oswald, sans-serif', color: GRIS, letterSpacing: '0.5px', textTransform: 'uppercase', ...channelBorderStyle(idx, true) }}>real</th><th key={`${d.ch.id}-hc`} style={{ padding: '4px 10px', textAlign: 'right', fontSize: '9px', fontFamily: 'Oswald, sans-serif', color: GRIS, letterSpacing: '0.5px', textTransform: 'uppercase' }}>cash</th></>))}
+                        {channelData.map((d, idx) => (<th key={d.ch.id} style={{ padding: '10px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: d.ch.color, textTransform: 'uppercase', ...channelBorderStyle(idx, true) }}>{d.ch.label}</th>))}
                       </tr>
                     </thead>
                     <tbody>
-                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>Coste MP</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-mp-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(costeMP)}</td><td key={`${d.ch.id}-mp-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: GRIS }}>{fmtEur(costeMP)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>Coste plataforma</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-pl-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costePlatR)}</td><td key={`${d.ch.id}-pl-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: GRIS }}>{fmtEur(d.w.costePlatC)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>Coste estructura</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-es-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeEstrR)}</td><td key={`${d.ch.id}-es-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: GRIS }}>{fmtEur(d.w.costeEstrC)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: NAR_S, borderTop: `2px solid ${INK}`, borderBottom: `2px solid ${INK}` }}><td style={{ ...metricaCellStyle, fontWeight: 700, color: INK }}>Coste total</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-tot-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeTotalR)}</td><td key={`${d.ch.id}-tot-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: GRIS }}>{fmtEur(d.w.costeTotalC)}</td></>))}</tr>
+                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>Coste MP</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-mp`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(costeMP)}</td>))}</tr>
+                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>Coste plataforma</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-pl`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costePlatC)}</td>))}</tr>
+                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>Coste estructura</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-es`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '12px', color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeEstrC)}</td>))}</tr>
+                      <tr style={{ backgroundColor: NAR_S, borderTop: `2px solid ${INK}`, borderBottom: `2px solid ${INK}` }}><td style={{ ...metricaCellStyle, fontWeight: 700, color: INK }}>Coste total</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-tot`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.costeTotalC)}</td>))}</tr>
                     </tbody>
                     <tbody>
-                      <tr style={{ backgroundColor: BLANCO, borderTop: `2px solid ${INK}` }}><td style={metricaCellStyle}>Margen deseado</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-md-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS, ...channelBorderStyle(idx, true) }}>{fmtPct(d.margenDeseado)}</td><td key={`${d.ch.id}-md-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS }}>{fmtPct(d.margenDeseado)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: BLANCO }}><td style={metricaCellStyle}>PVP recomendado</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-pr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.pvpRecR)}</td><td key={`${d.ch.id}-pr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 500, color: GRIS }}>{fmtEur(d.w.pvpRecC)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: BLANCO }}><td style={metricaCellStyle}>PVP real</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-pvp`} colSpan={2} style={{ padding: '6px 8px', ...channelBorderStyle(idx, true) }}><input ref={idx === 0 ? pvpRef : undefined} type="number" min={0} step="0.01" value={(pvpCanal[d.ch.pvpKey] || 0) > 0 ? pvpCanal[d.ch.pvpKey] : ''} onChange={e => { setIsDirty(true); const v = parseFloat(e.target.value) || 0; setPvpCanal(prev => ({ ...prev, [d.ch.pvpKey]: v })) }} placeholder="—" style={{ width: '100%', padding: '4px 8px', fontFamily: 'Oswald, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', color: AZUL, background: 'transparent', border: 'none', outline: 'none' }} /></td>))}</tr>
+                      <tr style={{ backgroundColor: BLANCO, borderTop: `2px solid ${INK}` }}><td style={metricaCellStyle}>Margen deseado</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-md`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS, ...channelBorderStyle(idx, true) }}>{fmtPct(d.margenDeseado)}</td>))}</tr>
+                      <tr style={{ backgroundColor: BLANCO }}><td style={metricaCellStyle}>PVP recomendado</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-pr`} title={d.rec.viable ? undefined : 'Sin precio viable con estos parámetros'} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: d.rec.viable ? '12px' : '10px', fontWeight: 500, color: d.rec.viable ? INK : ROJO, ...channelBorderStyle(idx, true) }}>{d.rec.viable ? fmtEur(d.rec.pvp) : 'Sin precio viable'}</td>))}</tr>
+                      <tr style={{ backgroundColor: BLANCO }}><td style={metricaCellStyle}>PVP real</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-pvp`} style={{ padding: '6px 8px', ...channelBorderStyle(idx, true) }}><input ref={idx === 0 ? pvpRef : undefined} type="number" min={0} step="0.01" value={(pvpCanal[d.ch.pvpKey] || 0) > 0 ? pvpCanal[d.ch.pvpKey] : ''} onChange={e => { setIsDirty(true); const v = parseFloat(e.target.value) || 0; setPvpCanal(prev => ({ ...prev, [d.ch.pvpKey]: v })) }} placeholder="—" style={{ width: '100%', padding: '4px 8px', fontFamily: 'Oswald, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', color: AZUL, background: 'transparent', border: 'none', outline: 'none' }} /></td>))}</tr>
                     </tbody>
                     <tbody>
-                      <tr style={{ borderTop: `2px solid ${INK}` }}><td style={metricaCellStyle}>Factor K</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-k`} colSpan={2} style={{ padding: '8px 10px', textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 700, color: getSemaforoColor(d.w.margenR, d.w.margenPctR, d.margenDeseado), ...channelBorderStyle(idx, true) }}>{fmtNum(d.w.factorK)}</td>))}</tr>
-                      <tr><td style={metricaCellStyle}>Margen €</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-mg-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.margenR)}</td><td key={`${d.ch.id}-mg-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: GRIS }}>{fmtEur(d.w.margenC)}</td></>))}</tr>
-                      <tr><td style={metricaCellStyle}>% Margen</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-pct-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenR, d.w.margenPctR, d.margenDeseado), ...channelBorderStyle(idx, true) }}>{fmtPct(d.w.margenPctR / 100)}</td><td key={`${d.ch.id}-pct-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenC, d.w.margenPctC, d.margenDeseado) }}>{fmtPct(d.w.margenPctC / 100)}</td></>))}</tr>
+                      <tr style={{ borderTop: `2px solid ${INK}` }}><td style={metricaCellStyle}>Factor K</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-k`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 700, color: getSemaforoColor(d.w.margenC, d.w.margenPctC, d.margenDeseado), ...channelBorderStyle(idx, true) }}>{fmtNum(d.w.factorK)}</td>))}</tr>
+                      <tr><td style={metricaCellStyle}>Margen €</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-mg`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 600, color: INK, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.margenC)}</td>))}</tr>
+                      <tr><td style={metricaCellStyle}>% Margen</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-pct`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Oswald, sans-serif', fontSize: '13px', fontWeight: 700, color: getSemaforoColor(d.w.margenC, d.w.margenPctC, d.margenDeseado), ...channelBorderStyle(idx, true) }}>{fmtPct(d.w.margenPctC / 100)}</td>))}</tr>
                     </tbody>
                     <tbody>
-                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>IVA repercutido</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-ivr-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS, ...channelBorderStyle(idx, true) }}>{fmtEur(d.w.ivaRepercutido)}</td><td key={`${d.ch.id}-ivr-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS }}>{fmtEur(d.w.ivaRepercutido)}</td></>))}</tr>
-                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>IVA soportado</td>{channelData.map((d, idx) => (<><td key={`${d.ch.id}-ivs-r`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS, ...channelBorderStyle(idx, true) }}>{d.comision === 0 ? '—' : fmtEur(d.w.ivaSoportado)}</td><td key={`${d.ch.id}-ivs-c`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS }}>{d.comision === 0 ? '—' : fmtEur(d.w.ivaSoportado)}</td></>))}</tr>
+                      <tr style={{ backgroundColor: NAR_S }}><td style={metricaCellStyle}>IVA soportado (comisión)</td>{channelData.map((d, idx) => (<td key={`${d.ch.id}-ivs`} style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'Lexend, sans-serif', fontSize: '11px', color: GRIS, ...channelBorderStyle(idx, true) }}>{d.comision === 0 ? '—' : fmtEur(d.w.ivaSoportado)}</td>))}</tr>
                     </tbody>
                   </table>
                 </div>
@@ -443,7 +468,7 @@ export default function ModalReceta({ receta, initialNombre, ingredientes, epsLi
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t-[4px] border-[#140f08]">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t-[4px] border-ink">
           <div className="flex items-center gap-2">
             {receta && !confirmEliminar && (<button onClick={() => setConfirmEliminar(true)} style={{ background: 'transparent', border: `2px solid ${GRANATE}`, color: GRANATE, padding: '10px 16px', borderRadius: '0', fontFamily: OSW, fontWeight: 700, fontSize: '.78rem', letterSpacing: '1px', cursor: 'pointer', minHeight: '44px' }}>ELIMINAR</button>)}
             {receta && confirmEliminar && (

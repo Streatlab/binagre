@@ -1,4 +1,4 @@
-import { BLANCO, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { AMA, BLANCO, GRANATE, INK, LIMA, ROJO_S, VERDE } from '@/styles/neobrutal'
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -223,7 +223,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
         onClick={(e) => e.stopPropagation()}
         style={{
           backgroundColor: T.base,
-          borderRadius: 14,
+          borderRadius: 0,
           maxWidth: 900,
           width: '100%',
           maxHeight: '90vh',
@@ -374,7 +374,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
                   backgroundColor: INK,
                   color: T.text,
                   border: `1px solid ${T.border}`,
-                  borderRadius: 6,
+                  borderRadius: 0,
                   fontFamily: T.fontUi,
                   fontSize: 13,
                   boxSizing: 'border-box',
@@ -424,7 +424,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
                 style={{
                   backgroundColor: T.card,
                   border: `1px solid ${T.border}`,
-                  borderRadius: 8,
+                  borderRadius: 0,
                   padding: 10,
                   marginBottom: 6,
                   fontSize: 12,
@@ -463,7 +463,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
                     color: T.secondary,
                     background: T.card,
                     border: `1px solid ${T.border}`,
-                    borderRadius: 6,
+                    borderRadius: 0,
                     padding: 10,
                     lineHeight: 1.4,
                   }}
@@ -481,7 +481,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
             style={{
               padding: '10px 22px',
               borderTop: `1px solid ${T.border}`,
-              background: '#A32D2D15',
+              background: `${GRANATE}15`,
               display: 'flex',
               alignItems: 'center',
               gap: 12,
@@ -489,14 +489,14 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
             }}
           >
             <div style={{ flex: 1, minWidth: 240 }}>
-              <div style={{ fontFamily: T.fontUi, fontSize: 12, color: '#ff8a8a', fontWeight: 600 }}>
+              <div style={{ fontFamily: T.fontUi, fontSize: 12, color: ROJO_S, fontWeight: 600 }}>
                 {driveError ? 'Error subiendo a Drive' : 'PDF original no disponible — re-sube manual'}
               </div>
               <div style={{ fontFamily: T.fontUi, fontSize: 11, color: T.muted, marginTop: 2 }}>
                 {datos.error_mensaje || 'El archivo no llegó a Drive. Re-sube para guardarlo en /carpetas/TITULAR/AÑO/…'}
               </div>
               {driveMsg && (
-                <div style={{ fontFamily: T.fontUi, fontSize: 11, color: driveMsg.startsWith('Error') ? '#ff8a8a' : VERDE, marginTop: 4 }}>
+                <div style={{ fontFamily: T.fontUi, fontSize: 11, color: driveMsg.startsWith('Error') ? ROJO_S : VERDE, marginTop: 4 }}>
                   {driveMsg}
                 </div>
               )}
@@ -513,10 +513,10 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
               disabled={subiendoDrive}
               style={{
                 padding: '8px 14px',
-                backgroundColor: '#A32D2D',
+                backgroundColor: GRANATE,
                 color: BLANCO,
                 border: 'none',
-                borderRadius: 8,
+                borderRadius: 0,
                 fontFamily: T.fontTitle,
                 fontSize: 12,
                 letterSpacing: 1,
@@ -551,7 +551,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
                 backgroundColor: 'transparent',
                 color: T.text,
                 border: `1px solid ${T.border}`,
-                borderRadius: 8,
+                borderRadius: 0,
                 fontFamily: T.fontTitle,
                 fontSize: 12,
                 letterSpacing: 1,
@@ -571,9 +571,9 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
             style={{
               padding: '9px 14px',
               backgroundColor: 'transparent',
-              color: '#A32D2D',
-              border: `1px solid #A32D2D`,
-              borderRadius: 8,
+              color: GRANATE,
+              border: `1px solid ${GRANATE}`,
+              borderRadius: 0,
               fontFamily: T.fontTitle,
               fontSize: 12,
               letterSpacing: 1,
@@ -590,7 +590,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
               backgroundColor: 'transparent',
               color: T.text,
               border: `1px solid ${T.border}`,
-              borderRadius: 8,
+              borderRadius: 0,
               fontFamily: T.fontTitle,
               fontSize: 12,
               letterSpacing: 1,
@@ -608,7 +608,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
                 backgroundColor: VERDE,
                 color: BLANCO,
                 border: 'none',
-                borderRadius: 8,
+                borderRadius: 0,
                 fontFamily: T.fontTitle,
                 fontSize: 12,
                 fontWeight: 600,
@@ -625,10 +625,10 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
               onClick={onOpenAsociarManual}
               style={{
                 padding: '9px 14px',
-                backgroundColor: '#BA7517',
+                backgroundColor: AMA,
                 color: BLANCO,
                 border: 'none',
-                borderRadius: 8,
+                borderRadius: 0,
                 fontFamily: T.fontTitle,
                 fontSize: 12,
                 fontWeight: 600,
@@ -646,9 +646,9 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
               style={{
                 padding: '9px 14px',
                 backgroundColor: 'transparent',
-                color: '#BA7517',
-                border: `1px solid #BA7517`,
-                borderRadius: 8,
+                color: AMA,
+                border: `1px solid ${AMA}`,
+                borderRadius: 0,
                 fontFamily: T.fontTitle,
                 fontSize: 12,
                 letterSpacing: 1,
@@ -666,7 +666,7 @@ export default function ModalDetalleFactura({ T, factura, onClose, onUpdate, onO
               backgroundColor: T.accentRed,
               color: BLANCO,
               border: 'none',
-              borderRadius: 8,
+              borderRadius: 0,
               fontFamily: T.fontTitle,
               fontSize: 12,
               fontWeight: 600,
@@ -746,7 +746,7 @@ function CampoEditable({
           backgroundColor: INK,
           color: T.text,
           border: `1px solid ${T.border}`,
-          borderRadius: 6,
+          borderRadius: 0,
           fontFamily: T.fontUi,
           fontSize: 13,
           boxSizing: 'border-box',

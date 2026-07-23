@@ -1,106 +1,35 @@
-import { BLANCO, GRANATE, INK, NAR_S } from '@/styles/neobrutal'
+import React from 'react'
+import { BLANCO, GRANATE, INK, NAR_S, VERDE, AMA as AMA_TOK, NAR, AZUL, ROSA, GRIS, OSC } from '@/styles/neobrutal'
 import { NavLink } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import {
   LayoutDashboard,
-  TrendingUp,
-  ChefHat,
-  ShoppingCart,
-  Settings,
   ChevronRight,
   BellRing,
-  ClipboardList,
   Compass,
+  Users,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme, FONT } from '@/styles/tokens'
 import { supabase } from '@/lib/supabase'
 import SidebarBadge from '@/components/ui/SidebarBadge'
 import { useEsMovil } from '@/hooks/useEsMovil'
+// Fuente ÚNICA de navegación (compartida con la app móvil). No duplicar aquí.
+import { SECTIONS, SECTION_ICONS } from '@/nav/navModel'
+import type { NavItem } from '@/nav/navModel'
 
 // ── Variante B del mock (bloques de color sólido). FONDO del sidebar (header,
 // cuerpo y footer) en crema. Texto de módulos y submódulos grande (~85% ancho)
 // sin aumentar la altura de las celdas.
 const CREMA  = NAR_S
-const AMA    = '#FFC400'
+const AMA    = AMA_TOK
 const LOGO_SRC = '/loco-icon.svg.svg'
 
-interface NavItem   { path: string; label: string; emoji: string; perfiles: string[]; pendiente?: boolean }
-interface NavSection { key: string; label: string; perfiles: string[]; items: NavItem[] }
-interface SectionIconConfig { icon: LucideIcon; headBg: string; headColor: string }
+// SECTIONS y SECTION_ICONS viven ahora en `@/nav/navModel` (fuente única
+// compartida con la app móvil). Aquí solo se consumen.
 
-const SECTIONS: NavSection[] = [
-  {
-    key: 'finanzas', label: 'Finanzas', perfiles: ['admin'],
-    items: [
-      { path: '/finanzas/papeleo',       label: 'Papeleo',      emoji: '📥', perfiles: ['admin'] },
-      { path: '/finanzas/ventas-panel',  label: 'Ventas',       emoji: '💰', perfiles: ['admin'] },
-      { path: '/finanzas/tesoreria',     label: 'Tesorería',    emoji: '💳', perfiles: ['admin'] },
-      { path: '/finanzas/resultados',    label: 'Resultados',   emoji: '📊', perfiles: ['admin'] },
-      { path: '/finanzas/rentabilidad',  label: 'Rentabilidad', emoji: '🎯', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'cocina', label: 'Cocina', perfiles: ['admin', 'cocina'],
-    items: [
-      { path: '/escandallo',              label: 'Escandallo',       emoji: '⚖️', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/recetario',        label: 'Recetario',        emoji: '📋', perfiles: ['admin', 'cocina'] },
-      { path: '/cocina/produccion',       label: 'Producción',       emoji: '📋', perfiles: ['admin', 'cocina'] },
-      { path: '/carta',                   label: 'Carta',            emoji: '🍽️', perfiles: ['admin'] },
-      { path: '/cocina/menu-engineering', label: 'Menú Engineering', emoji: '⚙️', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'operaciones', label: 'Operaciones', perfiles: ['admin'],
-    items: [
-      { path: '/ops/registro-diario', label: 'Registro diario',  emoji: '✅', perfiles: ['admin'] },
-      { path: '/ops/mantenimiento',   label: 'Mantenimiento',    emoji: '🔧', perfiles: ['admin'] },
-      { path: '/ops/calidad',         label: 'Calidad',          emoji: '📚', perfiles: ['admin'] },
-      { path: '/ops/reembolsos',      label: 'Reclamaciones',    emoji: '💸', perfiles: ['admin'] },
-      { path: '/ops/reuniones',       label: 'Reuniones Equipo', emoji: '🤝', perfiles: ['admin'] },
-      { path: '/marcas',              label: 'Marcas',           emoji: '🏷️', perfiles: ['admin'] },
-      { path: '/equipo',              label: 'Equipo',           emoji: '👥', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'compras', label: 'Compras', perfiles: ['admin'],
-    items: [
-      { path: '/compras',                          label: 'Lista de Compra',    emoji: '🛒', perfiles: ['admin'] },
-      { path: '/compras/inventario',               label: 'Inventario',         emoji: '📦', perfiles: ['admin'] },
-      { path: '/compras/proveedores',              label: 'Proveedores',        emoji: '🏢', perfiles: ['admin'] },
-      { path: '/configuracion/compras/categorias', label: 'Catálogos·Compras',  emoji: '📚', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'ventas', label: 'Ventas y Clientes', perfiles: ['admin'],
-    items: [
-      { path: '/ventas',           label: 'Ventas',    emoji: '💰', perfiles: ['admin'] },
-      { path: '/ventas/analitica', label: 'Analítica', emoji: '📊', perfiles: ['admin'] },
-      { path: '/ventas/clientes',  label: 'Clientes',  emoji: '🛍️', perfiles: ['admin'] },
-      { path: '/ventas/marketing', label: 'Marketing', emoji: '📣', perfiles: ['admin'] },
-    ],
-  },
-  {
-    key: 'ajustes', label: 'Ajustes', perfiles: ['admin'],
-    items: [
-      { path: '/configuracion', label: 'Configuración', emoji: '⚙️', perfiles: ['admin'] },
-      { path: '/informes',      label: 'Informes',      emoji: '📊', perfiles: ['admin'] },
-    ],
-  },
-]
-
-// Variante B: cada sec-head con su color de fondo sólido (literal del mock)
-const SECTION_ICONS: Record<string, SectionIconConfig> = {
-  finanzas:      { icon: TrendingUp,    headBg: '#0FB86B', headColor: BLANCO  },
-  cocina:        { icon: ChefHat,       headBg: '#FFC400', headColor: INK },
-  operaciones:   { icon: ClipboardList, headBg: '#FF6A1A', headColor: BLANCO  },
-  compras:       { icon: ShoppingCart,  headBg: '#2D5BFF', headColor: BLANCO  },
-  ventas:        { icon: TrendingUp,    headBg: '#7C3AED', headColor: BLANCO  },
-  ajustes:       { icon: Settings,      headBg: '#484f66', headColor: BLANCO  },
-}
 
 const OPEN_SECTIONS_LS_KEY = 'streatlab.sidebar.openSections'
 
@@ -121,7 +50,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const perfil      = usuario?.perfil ?? ''
   const esMovilDisp = useEsMovil()
 
-  const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections())
+  const [openSections, setOpenSections] = useState<string[]>(() => loadOpenSections().map(k => (k === 'cocina_num' || k === 'cocina_ops') ? 'cocina' : k))
   const [tareasBadge, setTareasBadge] = useState(0)
 
   useEffect(() => {
@@ -170,7 +99,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const sidebarWidth = collapsed ? 56 : 248
 
   const asideStyle: CSSProperties = {
-    background: isDark ? '#1a1f2e' : CREMA,
+    background: isDark ? OSC : CREMA,
     border: `4px solid ${INK}`,
     width: sidebarWidth,
     minWidth: sidebarWidth,
@@ -322,7 +251,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             const isOpen = openSections.includes(section.key)
             const cfg    = SECTION_ICONS[section.key]
             const Icon   = cfg?.icon
-            const headBg = cfg?.headBg ?? '#444'
+            const headBg = cfg?.headBg ?? INK
             const headCo = cfg?.headColor ?? BLANCO
 
             return (
@@ -353,14 +282,20 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 {!collapsed && isOpen && (
                   <div style={{ background: BLANCO, borderBottom: `3px solid ${INK}` }}>
                     {visibleItems.map((item, idx) => (
-                      <NavLink key={`${item.path}-${idx}`} to={item.path} end onClick={onClose}
+                      <React.Fragment key={`${item.path}-${idx}`}>
+                      {item.grupo && (idx === 0 || visibleItems[idx - 1].grupo !== item.grupo) && (
+                        <div style={{ padding: '6px 16px 3px 18px', background: BLANCO, borderTop: idx > 0 ? `1.5px solid ${INK}` : 'none', fontFamily: FONT.heading, fontWeight: 800, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: GRANATE }}>
+                          {item.grupo}
+                        </div>
+                      )}
+                      <NavLink to={item.path} end onClick={onClose}
                         style={({ isActive }) => ({
                           fontFamily: FONT.heading, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.01em', fontSize: 16,
                           padding: '8px 16px 8px 18px', display: 'flex', alignItems: 'center', gap: 9,
                           cursor: 'pointer', textDecoration: 'none',
                           borderTop: idx > 0 ? '1.5px solid rgba(0,0,0,.14)' : 'none',
                           background: isActive ? INK : BLANCO,
-                          color: isActive ? (section.key === 'cocina' ? AMA : BLANCO) : INK,
+                          color: isActive ? (section.key.startsWith('cocina') ? AMA : BLANCO) : INK,
                         })}
                       >
                         {({ isActive }) => (
@@ -382,6 +317,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                           </>
                         )}
                       </NavLink>
+                      </React.Fragment>
                     ))}
                   </div>
                 )}

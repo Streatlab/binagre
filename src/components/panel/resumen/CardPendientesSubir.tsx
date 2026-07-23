@@ -29,7 +29,7 @@ export default function CardPendientesSubir({ items, onIrImportador }: Props) {
           color: BLANCO,
           fontSize: 11,
           padding: '1px 7px',
-          borderRadius: 9,
+          borderRadius: 0,
           fontWeight: 500,
           fontFamily: LEXEND,
         }}>
@@ -62,7 +62,7 @@ export default function CardPendientesSubir({ items, onIrImportador }: Props) {
           background: COLOR.rojoAccent,
           color: BLANCO,
           border: 'none',
-          borderRadius: 6,
+          borderRadius: 0,
           fontFamily: LEXEND,
           fontSize: 12,
           fontWeight: 500,

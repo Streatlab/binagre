@@ -1,4 +1,4 @@
-import { BLANCO } from '@/styles/neobrutal'
+import { BLANCO, INK, VERDE } from '@/styles/neobrutal'
 import React, { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -53,18 +53,18 @@ export default function SelloAct({
         alignItems: 'center',
         gap: 6,
         padding: '4px 10px',
-        border: '2px solid #1e2233',
+        border: `2px solid ${INK}`,
         background: BLANCO,
-        color: '#1e2233',
+        color: INK,
         fontFamily: 'Lexend, sans-serif',
         fontSize: 12,
         fontWeight: 700,
         letterSpacing: 0.3,
-        boxShadow: '3px 3px 0 #1e2233',
+        boxShadow: `3px 3px 0 ${INK}`,
         whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ width: 8, height: 8, borderRadius: 99, background: '#22c55e', display: 'inline-block' }} />
+      <span style={{ width: 8, height: 8, borderRadius: 0, background: VERDE, display: 'inline-block' }} />
       {texto}
     </span>
   )

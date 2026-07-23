@@ -1,4 +1,5 @@
-import { BLANCO, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, CLARO, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { PANEL_MODAL_BG } from '@/styles/palettes'
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '@/styles/tokens'
@@ -47,7 +48,7 @@ const ESTADO_COLORS: Record<string, string> = {
 const RESPONSABLE_COLORS: Record<string, string> = {
   'Rubén': GRANATE,
   'Emilio': LIMA,
-  'Ambos': '#484f66',
+  'Ambos': PANEL_MODAL_BG,
 }
 
 export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => void }) {
@@ -141,9 +142,9 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
             onClick={() => setFiltroResponsable(r)}
             style={{
               background: filtroResponsable === r ? GRANATE : INK,
-              color: filtroResponsable === r ? BLANCO : '#ccc',
-              border: `1px solid #2a2a2a`,
-              borderRadius: 6,
+              color: filtroResponsable === r ? BLANCO : GRIS,
+              border: `1px solid ${BORDE_SUAVE}`,
+              borderRadius: 0,
               padding: '6px 14px',
               fontSize: 12,
               fontFamily: 'Oswald, sans-serif',
@@ -156,7 +157,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
       </div>
 
       {tareasFiltradas.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: '#777', fontFamily: 'Lexend, sans-serif', fontSize: 14 }}>
+        <div style={{ textAlign: 'center', padding: 40, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 14 }}>
           Sin tareas pendientes ni atrasadas.
         </div>
       ) : (
@@ -176,7 +177,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                     color: GRIS,
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    borderBottom: `1px solid #2a2a2a`,
+                    borderBottom: `1px solid ${BORDE_SUAVE}`,
                     whiteSpace: 'nowrap',
                   }}
                 >{h}</th>
@@ -186,13 +187,13 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
           <tbody>
             {tareasFiltradas.map((t, idx) => {
               const retraso = diasRetraso(t.fecha_esperada)
-              const bandaColor = ESTADO_COLORS[t.estado] ?? '#888'
+              const bandaColor = ESTADO_COLORS[t.estado] ?? GRIS
               return (
                 <tr
                   key={t.id}
                   style={{
                     background: idx % 2 === 0 ? INK : INK,
-                    borderBottom: `1px solid #2a2a2a`,
+                    borderBottom: `1px solid ${BORDE_SUAVE}`,
                     borderLeft: `4px solid ${bandaColor}`,
                   }}
                 >
@@ -200,9 +201,9 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{
                       padding: '3px 10px',
-                      borderRadius: 4,
-                      background: (RESPONSABLE_COLORS[t.responsable ?? ''] ?? '#888') + '22',
-                      color: RESPONSABLE_COLORS[t.responsable ?? ''] ?? '#888',
+                      borderRadius: 0,
+                      background: (RESPONSABLE_COLORS[t.responsable ?? ''] ?? GRIS) + '22',
+                      color: RESPONSABLE_COLORS[t.responsable ?? ''] ?? GRIS,
                       fontFamily: 'Oswald, sans-serif',
                       fontSize: 11,
                       fontWeight: 600,
@@ -212,9 +213,9 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{
                       padding: '3px 10px',
-                      borderRadius: 4,
-                      background: (ESTADO_COLORS[t.estado] ?? '#888') + '22',
-                      color: ESTADO_COLORS[t.estado] ?? '#888',
+                      borderRadius: 0,
+                      background: (ESTADO_COLORS[t.estado] ?? GRIS) + '22',
+                      color: ESTADO_COLORS[t.estado] ?? GRIS,
                       fontFamily: 'Oswald, sans-serif',
                       fontSize: 11,
                       fontWeight: 600,
@@ -222,7 +223,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                       letterSpacing: '0.05em',
                     }}>{t.estado}</span>
                   </td>
-                  <td style={{ padding: '10px 12px', color: retraso > 0 ? GRANATE : '#777', fontWeight: retraso > 0 ? 600 : 400 }}>
+                  <td style={{ padding: '10px 12px', color: retraso > 0 ? GRANATE : GRIS, fontWeight: retraso > 0 ? 600 : 400 }}>
                     {retraso > 0 ? `+${retraso}d` : '—'}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
@@ -233,7 +234,7 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                           background: GRANATE,
                           color: BLANCO,
                           border: 'none',
-                          borderRadius: 6,
+                          borderRadius: 0,
                           padding: '5px 10px',
                           fontSize: 11,
                           fontFamily: 'Oswald, sans-serif',
@@ -249,8 +250,8 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                         style={{
                           background: INK,
                           color: GRIS,
-                          border: `1px solid #383838`,
-                          borderRadius: 6,
+                          border: `1px solid ${BORDE_SUAVE}`,
+                          borderRadius: 0,
                           padding: '5px 10px',
                           fontSize: 11,
                           fontFamily: 'Oswald, sans-serif',
@@ -265,9 +266,9 @@ export default function TabListaPendientes({ onRefresh }: { onRefresh?: () => vo
                         onClick={() => eliminar(t.id)}
                         style={{
                           background: 'none',
-                          color: '#777',
-                          border: `1px solid #383838`,
-                          borderRadius: 6,
+                          color: GRIS,
+                          border: `1px solid ${BORDE_SUAVE}`,
+                          borderRadius: 0,
                           padding: '5px 10px',
                           fontSize: 11,
                           fontFamily: 'Oswald, sans-serif',

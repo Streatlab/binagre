@@ -1,4 +1,4 @@
-import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
 /**
  * T-M7-05 — Tab Histórico
  * Tabla imports_log con filtros: tipo, fecha (SelectorFechaUniversal), estado.
@@ -69,7 +69,7 @@ function ModalDetalle({ log, onClose }: { log: ImportLog; onClose: () => void })
       onClick={onClose}
     >
       <div
-        style={{ backgroundColor: INK, borderRadius: 14, padding: 28, minWidth: 380, maxWidth: 560, width: '90%' }}
+        style={{ backgroundColor: INK, borderRadius: 0, padding: 28, minWidth: 380, maxWidth: 560, width: '90%' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRANATE, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 18 }}>
@@ -84,13 +84,13 @@ function ModalDetalle({ log, onClose }: { log: ImportLog; onClose: () => void })
               ['Destino', log.destino_modulo ?? '—'],
               ['Fecha subida', fmtDate(log.fecha_subida)],
             ].map(([label, value]) => (
-              <tr key={label} style={{ borderBottom: '0.5px solid #2a2a2a' }}>
+              <tr key={label} style={{ borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
                 <td style={{ padding: '8px 10px', color: GRIS, width: 140, verticalAlign: 'top' }}>{label}</td>
                 <td style={{ padding: '8px 10px', color: BLANCO }}>{value}</td>
               </tr>
             ))}
             {log.detalle && (
-              <tr style={{ borderBottom: '0.5px solid #2a2a2a' }}>
+              <tr style={{ borderBottom: `0.5px solid ${BORDE_SUAVE}` }}>
                 <td style={{ padding: '8px 10px', color: GRIS, verticalAlign: 'top' }}>Detalle</td>
                 <td style={{ padding: '8px 10px', color: GRIS, fontSize: 11 }}>
                   <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
@@ -113,7 +113,7 @@ function ModalDetalle({ log, onClose }: { log: ImportLog; onClose: () => void })
         )}
         <button
           onClick={onClose}
-          style={{ marginTop: 20, background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer', display: 'block' }}
+          style={{ marginTop: 20, background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '7px 18px', cursor: 'pointer', display: 'block' }}
         >
           Cerrar
         </button>
@@ -178,7 +178,7 @@ export default function TabHistorico({ refresh }: Props) {
   const selectStyle: CSSProperties = {
     background: INK,
     border: `1px solid ${T.brd}`,
-    borderRadius: 6,
+    borderRadius: 0,
     color: T.pri,
     fontFamily: FONT.body,
     fontSize: 13,

@@ -32,9 +32,9 @@ const TIPO_LABELS: Record<string, string> = {
 const ESTADO_ORDEN: Record<string, number> = { pendiente: 0, aprobado: 1, rechazado: 2 }
 
 function estadoBadge(estado: Solicitud['estado']) {
-  if (estado === 'aprobado') return { color: VERDE, bg: '#1D9E7520', icon: <CheckCircle size={12} />, label: 'Aprobado' }
-  if (estado === 'rechazado') return { color: GRANATE, bg: '#B01D2320', icon: <XCircle size={12} />, label: 'Rechazado' }
-  return { color: NAR, bg: '#f5a62320', icon: <Clock size={12} />, label: 'Pendiente' }
+  if (estado === 'aprobado') return { color: VERDE, bg: `${VERDE}20`, icon: <CheckCircle size={12} />, label: 'Aprobado' }
+  if (estado === 'rechazado') return { color: GRANATE, bg: `${GRANATE}20`, icon: <XCircle size={12} />, label: 'Rechazado' }
+  return { color: NAR, bg: `${NAR}20`, icon: <Clock size={12} />, label: 'Pendiente' }
 }
 
 export default function TabVacaciones() {
@@ -87,7 +87,7 @@ export default function TabVacaciones() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         {filtros.map(f => (
           <button key={f.key} onClick={() => setFiltro(f.key)}
-            style={{ padding: '6px 14px', borderRadius: 6, border: `0.5px solid ${T.brd}`, background: filtro === f.key ? ROJO : T.card, color: filtro === f.key ? BLANCO : T.sec, fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+            style={{ padding: '6px 14px', borderRadius: 0, border: `0.5px solid ${T.brd}`, background: filtro === f.key ? ROJO : T.card, color: filtro === f.key ? BLANCO : T.sec, fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
             {f.label}
           </button>
         ))}
@@ -123,7 +123,7 @@ export default function TabVacaciones() {
                     </td>
                     <td style={td}>{TIPO_LABELS[sol.tipo] ?? sol.tipo}</td>
                     <td style={td}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 4, background: badge.bg, color: badge.color, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 0, background: badge.bg, color: badge.color, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>
                         {badge.icon}{badge.label}
                       </span>
                     </td>

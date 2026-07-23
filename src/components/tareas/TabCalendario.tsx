@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { useTheme } from '@/styles/tokens'
 import { supabase } from '@/lib/supabase'
@@ -126,7 +126,7 @@ export default function TabCalendario() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
         {celdas.map((dia, idx) => {
           if (dia === null) {
-            return <div key={`empty-${idx}`} style={{ minHeight: 64, borderRadius: 6 }} />
+            return <div key={`empty-${idx}`} style={{ minHeight: 64, borderRadius: 0 }} />
           }
           const fechaStr = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
           const esHoy = fechaStr === hoy
@@ -139,7 +139,7 @@ export default function TabCalendario() {
               onClick={() => hasTareas && setModalDia(fechaStr)}
               style={{
                 minHeight: 64,
-                borderRadius: 6,
+                borderRadius: 0,
                 border: `1px solid ${esHoy ? LIMA : T.brd}`,
                 background: esHoy ? 'rgba(232,244,66,0.06)' : T.card,
                 padding: '6px 8px',
@@ -165,7 +165,7 @@ export default function TabCalendario() {
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
-                      background: estadoColor[t.estado] ?? '#888',
+                      background: estadoColor[t.estado] ?? GRIS,
                       flexShrink: 0,
                     }}
                   />
@@ -183,17 +183,17 @@ export default function TabCalendario() {
           onClick={() => setModalDia(null)}
         >
           <div
-            style={{ backgroundColor: INK, border: `1px solid #383838`, borderRadius: 12, padding: 24, minWidth: 320, maxWidth: 480 }}
+            style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, padding: 24, minWidth: 320, maxWidth: 480 }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRANATE, fontWeight: 600 }}>
                 Tareas del {modalDia}
               </span>
-              <button onClick={() => setModalDia(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#777', fontSize: 18 }}>×</button>
+              <button onClick={() => setModalDia(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GRIS, fontSize: 18 }}>×</button>
             </div>
             {tareasModalDia.length === 0 ? (
-              <p style={{ color: '#777', fontSize: 13 }}>No hay tareas este día.</p>
+              <p style={{ color: GRIS, fontSize: 13 }}>No hay tareas este día.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {tareasModalDia.map(t => (
@@ -204,18 +204,18 @@ export default function TabCalendario() {
                       alignItems: 'center',
                       gap: 10,
                       padding: '8px 12px',
-                      borderRadius: 6,
+                      borderRadius: 0,
                       background: INK,
-                      border: `1px solid #2a2a2a`,
+                      border: `1px solid ${BORDE_SUAVE}`,
                     }}
                   >
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: estadoColor[t.estado] ?? '#888', flexShrink: 0 }} />
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: estadoColor[t.estado] ?? GRIS, flexShrink: 0 }} />
                     <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: BLANCO }}>{t.nombre}</span>
                     <span style={{
                       marginLeft: 'auto',
                       fontSize: 11,
                       padding: '2px 8px',
-                      borderRadius: 4,
+                      borderRadius: 0,
                       background: estadoColor[t.estado] + '22',
                       color: estadoColor[t.estado],
                       fontFamily: 'Oswald, sans-serif',

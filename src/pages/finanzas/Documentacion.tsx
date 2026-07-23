@@ -1,11 +1,13 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
 import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import TabsPastilla from '@/components/ui/TabsPastilla'
 import { supabase } from '@/lib/supabase'
 import { fechaLocalStr } from '@/utils/fechaLocal'
-import {
-  OSW, LEX, INK, CREMA, CLARO, VERDE, NAR, ROJO, AMA, GRANATE, GRIS, SHADOW, BORDER, BORDER_CARD, d, eyebrow, BLANCO } from '@/styles/neobrutal'
+import { LEX, GRIS } from '@/styles/neobrutal'
 import BandejaEntrada from '@/components/documentacion/BandejaEntrada'
 import ResolverPendientes from '@/components/documentacion/ResolverPendientes'
+import { HeroCantera, FrasePotente, PantallaCantera } from '@/components/kit/cantera'
 
 // Monta los módulos EXISTENTES sin tocar su lógica (solo se reubican como pestañas).
 // La antigua pestaña "Ventas" (importador CSV) se eliminó: toda subida entra por
@@ -13,6 +15,12 @@ import ResolverPendientes from '@/components/documentacion/ResolverPendientes'
 // 20-jul: fuera las 3 cards blancas (Pendiente/En proceso/Conciliado) — repetían
 // lo que ya dicen el hero y el panel de Avisos con números distintos. Una sola
 // fuente de verdad: hero (conciliado) + Avisos (pendientes).
+// 23-jul: fuera la pestaña "Equipo". Duplicaba el botón EQUIPO de la Bandeja de
+// entrada pero por una vía peor: subía directa a /api/equipo/subir sin guardar
+// antes ni apuntar el archivo, así que un fallo de red dejaba el documento
+// perdido y sin repesca. El botón de la Bandeja usa enviarAEquipoSeguro
+// (guarda → apunta en equipo_manifiesto → lee, y lo que falla lo rescata el
+// barrido). Una sola puerta de entrada, la que no pierde nada.
 const OcrConToast = lazy(() => import('@/pages/OcrConToast'))
 const Conciliacion = lazy(() => import('@/pages/Conciliacion'))
 const GestionFacturas = lazy(() => import('@/pages/finanzas/GestionFacturas'))
@@ -48,46 +56,54 @@ interface KpiRow {
 
 const nf0 = (n: number) => Math.round(n).toLocaleString('es-ES', { useGrouping: true })
 
-// ── Frase-cabecera (hero neobrutal: titular gigante + 2 frases semáforo) ──
+// ── Hero papeleo (área granate): titular natural + % conciliado + tira de atención ──
 function FraseCabecera({ kpi, avisos }: { kpi: KpiRow | null; avisos: number }) {
   if (!kpi) return null
   const pct = Number(kpi.pct_cobertura ?? 0)
-  const pctColor = pct >= 80 ? VERDE : pct >= 50 ? NAR : ROJO
 
-  const grande = pct >= 80
+  const titular = pct >= 80
     ? 'Casi todo cuadrado, el papeleo te va al día.'
     : pct >= 50
       ? 'Vas por buen camino, todavía queda parte por casar.'
       : 'Aún queda bastante por conciliar este periodo.'
 
-  let pequena: string
-  let pequenaColor: string
+  let resumen: string
   if (avisos > 0) {
-    pequena = `${nf0(avisos)} aviso${avisos > 1 ? 's' : ''} esperando tu decisión — abajo, de un clic.`
-    pequenaColor = NAR
+    resumen = `${nf0(avisos)} aviso${avisos > 1 ? 's' : ''} esperando tu decisión — abajo, de un clic.`
   } else if (kpi.facturas_sin_categoria > 0) {
-    pequena = `${nf0(kpi.facturas_sin_categoria)} movimiento${kpi.facturas_sin_categoria > 1 ? 's' : ''} de banco sin categoría (transferencias sin destinatario).`
-    pequenaColor = NAR
+    resumen = `${nf0(kpi.facturas_sin_categoria)} movimiento${kpi.facturas_sin_categoria > 1 ? 's' : ''} de banco sin categoría (transferencias sin destinatario).`
   } else if (kpi.facturas_aviso_aritmetica > 0) {
-    pequena = `${kpi.facturas_aviso_aritmetica} con aviso de IVA por revisar.`
-    pequenaColor = ROJO
+    resumen = `${kpi.facturas_aviso_aritmetica} con aviso de IVA por revisar.`
   } else {
-    pequena = 'Sin nada pendiente: ni avisos, ni duplicados, ni sin categoría.'
-    pequenaColor = VERDE
+    resumen = 'Sin nada pendiente: ni avisos, ni duplicados, ni sin categoría.'
   }
 
+  const atencion = [
+    avisos > 0 ? `${nf0(avisos)} aviso${avisos > 1 ? 's' : ''}` : null,
+    kpi.facturas_sin_categoria > 0 ? `${nf0(kpi.facturas_sin_categoria)} sin categoría` : null,
+    kpi.facturas_aviso_aritmetica > 0 ? `${nf0(kpi.facturas_aviso_aritmetica)} aviso IVA` : null,
+    kpi.facturas_posible_duplicado > 0 ? `${nf0(kpi.facturas_posible_duplicado)} posibles duplicados` : null,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={{ background: AMA, border: BORDER, boxShadow: SHADOW, padding: '20px 24px', marginBottom: 16 }}>
-      <div style={d('clamp(30px,4.4vw,46px)')}>
-        CONCILIADO <span style={{ color: pctColor }}>{pct.toFixed(0)}%</span>
-        <span style={{ color: INK, fontSize: '0.4em', marginLeft: 12, letterSpacing: '0.5px' }}>· {nf0(kpi.movimientos_con_factura)}/{nf0(kpi.movimientos_total)} movimientos con factura</span>
-      </div>
-      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
-        <div style={{ fontFamily: OSW, fontSize: 'clamp(16px,2.1vw,20px)', fontWeight: 700, color: pctColor, letterSpacing: '0.3px', textTransform: 'uppercase' }}>{grande}</div>
-        <div style={{ fontFamily: OSW, fontSize: 'clamp(13px,1.5vw,15px)', fontWeight: 600, color: pequenaColor, letterSpacing: '0.3px', textTransform: 'uppercase' }}>{pequena}</div>
-      </div>
-    </div>
+    <HeroCantera
+      area="papeleo"
+      titular={titular}
+      etiquetaDato="Movimientos conciliados con factura"
+      cifra={`${pct.toFixed(0)}%`}
+      resumen={<>{resumen} · {nf0(kpi.movimientos_con_factura)}/{nf0(kpi.movimientos_total)} movimientos con factura</>}
+      atencion={atencion}
+    />
   )
+}
+
+// ── Frase potente: significado distinto del héroe (papeleo · granate) ──
+function FraseEstado({ kpi, avisos }: { kpi: KpiRow | null; avisos: number }) {
+  if (!kpi) return null
+  const limpio = avisos === 0 && kpi.facturas_sin_categoria === 0 && kpi.facturas_aviso_aritmetica === 0 && kpi.facturas_posible_duplicado === 0
+  if (limpio) return <FrasePotente significado="logro">Nada pendiente: sin avisos, sin duplicados, sin facturas sin categoría.</FrasePotente>
+  if (kpi.facturas_aviso_aritmetica > 0) return <FrasePotente significado="peligro">Hay facturas con aviso de IVA: revísalas antes de que se acumulen.</FrasePotente>
+  return <FrasePotente significado="oportunidad">Resuelve los avisos abiertos: cada uno de un clic, y el papeleo queda al día.</FrasePotente>
 }
 
 // ── Tabs neobrutal (bloques con borde y sombra dura, activo en granate) ──
@@ -99,30 +115,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'facturacion', label: 'Facturación' },
   { id: 'gestoria', label: 'Gestoría' },
 ]
-
-function TabsNeo({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
-  return (
-    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-      {TABS.map(t => {
-        const activo = t.id === tab
-        return (
-          <button key={t.id} onClick={() => onChange(t.id)} style={{
-            background: activo ? GRANATE : BLANCO,
-            color: activo ? BLANCO : INK,
-            border: BORDER_CARD,
-            boxShadow: activo ? `2px 2px 0 ${INK}` : SHADOW,
-            transform: activo ? 'translate(2px, 2px)' : 'none',
-            padding: '9px 18px',
-            fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: '1.5px',
-            textTransform: 'uppercase', cursor: 'pointer', transition: 'transform 0.08s, box-shadow 0.08s',
-          }}>
-            {t.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 export default function Documentacion() {
   const [tab, setTab] = useState<Tab>(loadTab())
@@ -164,12 +156,9 @@ export default function Documentacion() {
   const hastaStr = fechaLocalStr(hasta)
 
   return (
-    <div style={{ background: CREMA, padding: '24px 28px', minHeight: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <span style={eyebrow(CLARO)}>Finanzas · Documentos</span>
-          <h2 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '8px 0 0 0' }}>PAPELEO</h2>
-        </div>
+    <PantallaCantera>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Papeleo', TABS.find(t => t.id === tab)?.label ?? '']} />
         <SelectorFechaUniversal
           nombreModulo="documentacion"
           defaultOpcion="este_mes"
@@ -178,9 +167,10 @@ export default function Documentacion() {
       </div>
 
       <FraseCabecera kpi={kpi} avisos={avisos} />
+      <FraseEstado kpi={kpi} avisos={avisos} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
-        <TabsNeo tab={tab} onChange={cambiar} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <TabsPastilla tabs={TABS} activeId={tab} onChange={id => cambiar(id as Tab)} />
         <ResolverPendientes onDone={() => setReloadTick(x => x + 1)} />
       </div>
 
@@ -192,6 +182,6 @@ export default function Documentacion() {
         {tab === 'facturacion' && <Facturacion embedded />}
         {tab === 'gestoria' && <Gestoria embedded />}
       </Suspense>
-    </div>
+    </PantallaCantera>
   )
 }

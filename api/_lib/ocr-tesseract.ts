@@ -25,6 +25,14 @@
 //   1) vercel.json incluye node_modules/pdfjs-dist/legacy/build/** en la función.
 //   2) si aun así no resuelve, limpiamos workerSrc en vez de dejar el heredado.
 //
+// FIX 22/07/26 (definitivo del mismatch): la causa raíz era que en el MISMO
+// proceso conviven DOS pdfjs: el 4.10.38 de pdfjs-dist (usado aquí para
+// rasterizar) y el 4.6.82 que unpdf lleva EMPAQUETADO DENTRO (usado por
+// extraerTextoPDF, que siempre corre antes). Alinear workers era parchear el
+// síntoma. Ahora el rasterizado usa el MISMO pdfjs de unpdf
+// (getResolvedPDFJS): una sola versión en todo el proceso, build serverless
+// sin worker externo — el mismatch es imposible por construcción.
+//
 // DIAGNÓSTICO 12/07/26 (task 2): auditoría = "Tesseract 0 lecturas históricas".
 // Las libs están instaladas (tesseract.js 5, pdfjs-dist, @napi-rs/canvas) y el flag
 // OCR_TESSERACT_ACTIVO está ENCENDIDO por defecto, así que no es config ni falta de
@@ -61,42 +69,13 @@ export async function ocrImagen(buffer: Buffer): Promise<string> {
   }
 }
 
-// FIX 04/07/26: alinear API y worker de pdfjs al MISMO paquete instalado.
-// Sin esto, un workerSrc "heredado" de otro módulo (versión distinta) rompe
-// TODO el rasterizado con mismatch de versiones.
-async function alinearWorkerPdfjs(pdfjs: any): Promise<void> {
-  try {
-    const { createRequire } = await import('node:module')
-    const { pathToFileURL } = await import('node:url')
-    const req = createRequire(import.meta.url)
-    const workerPath = req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
-    if (pdfjs?.GlobalWorkerOptions) {
-      pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href
-      // Anular cualquier puerto de worker heredado de otra versión.
-      try { pdfjs.GlobalWorkerOptions.workerPort = null } catch { /* noop */ }
-    }
-  } catch (e) {
-    // FIX 08/07/26: si el .mjs del worker no viaja en el bundle serverless,
-    // NO dejar el workerSrc heredado de otra version (causaba el mismatch
-    // 4.10.38 vs 4.6.82 y tumbaba TODO el OCR de PDF escaneado). Limpiarlo
-    // fuerza a pdfjs a usar su fake worker en Node: mas lento, pero funciona.
-    try {
-      if (pdfjs?.GlobalWorkerOptions) {
-        pdfjs.GlobalWorkerOptions.workerSrc = ''
-        pdfjs.GlobalWorkerOptions.workerPort = null
-      }
-    } catch { /* noop */ }
-    console.error('[alinearWorkerPdfjs] workerSrc no resuelto, fake worker:', e instanceof Error ? e.message : String(e))
-  }
-}
-
 // Rasteriza un PDF escaneado a PNG (primeras páginas) y le pasa Tesseract.
 export async function ocrPdfEscaneado(buffer: Buffer): Promise<string> {
   try {
-    // import dinámico con cast a any: la subruta legacy de pdfjs no expone
-    // typings y romperia `tsc -b`. En runtime resuelve perfectamente.
-    const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
-    await alinearWorkerPdfjs(pdfjs)
+    // MISMO pdfjs que la lectura directa de texto (el empaquetado en unpdf):
+    // una sola versión de pdfjs en el proceso => sin mismatch API/worker.
+    const { getResolvedPDFJS } = await import('unpdf')
+    const pdfjs: any = await getResolvedPDFJS()
     const canvasMod: any = await import('@napi-rs/canvas')
     const createCanvas = canvasMod.createCanvas
 

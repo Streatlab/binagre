@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, GRIS, INK } from '@/styles/neobrutal'
+import { CONFIG_BORDE, CONFIG_MUT, CONFIG_MUT_ALT } from '@/styles/palettes'
 import type { ReactNode } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -13,7 +14,7 @@ export function ConfigModal({
 }) {
   const isDark = useIsDark()
   const bg = isDark ? INK : BLANCO
-  const border = isDark ? INK : '#E9E1D0'
+  const border = isDark ? INK : CONFIG_BORDE
   const titleColor = isDark ? BLANCO : INK
 
   return (
@@ -35,7 +36,7 @@ export function ConfigModal({
         style={{
           background: bg,
           border: `1px solid ${border}`,
-          borderRadius: 12,
+          borderRadius: 0,
           padding: 24,
           width: 480,
           maxWidth: '90vw',
@@ -64,7 +65,7 @@ export function ConfigModal({
 
 export function ConfigField({ label, children }: { label: string; children: ReactNode }) {
   const isDark = useIsDark()
-  const labelColor = isDark ? GRIS : '#9E9588'
+  const labelColor = isDark ? GRIS : CONFIG_MUT
   return (
     <div style={{ marginBottom: 12 }}>
       <label
@@ -91,8 +92,8 @@ export function useInputStyle() {
   return {
     width: '100%',
     padding: '8px 12px',
-    border: `1px solid ${isDark ? INK : '#E9E1D0'}`,
-    borderRadius: 8,
+    border: `1px solid ${isDark ? INK : CONFIG_BORDE}`,
+    borderRadius: 0,
     fontSize: 13,
     background: isDark ? INK : BLANCO,
     color: isDark ? BLANCO : INK,
@@ -120,13 +121,13 @@ export function ModalActions({
         onClick={onCancel}
         style={{
           padding: '9px 16px',
-          borderRadius: 8,
+          borderRadius: 0,
           fontSize: 12,
           fontWeight: 600,
           letterSpacing: '0.04em',
           textTransform: 'uppercase',
           background: 'transparent',
-          color: isDark ? GRIS : '#6E6656',
+          color: isDark ? GRIS : CONFIG_MUT_ALT,
           border: 'none',
           cursor: 'pointer',
           fontFamily: 'Oswald, sans-serif',
@@ -140,7 +141,7 @@ export function ModalActions({
         disabled={saving || disabled}
         style={{
           padding: '9px 16px',
-          borderRadius: 8,
+          borderRadius: 0,
           fontSize: 12,
           fontWeight: 600,
           letterSpacing: '0.04em',

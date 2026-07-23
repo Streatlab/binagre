@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, INK } from '@/styles/neobrutal'
+import { PDF_TEXT_GRAY, PDF_LINE_GRAY } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -12,6 +13,7 @@ import { fmtEur } from '@/utils/format'
 import {
   COLORS, OSWALD, LEXEND, lbl, lblXs, kpiBig, CARDS, BAR, SUBTABS,
 } from '@/components/panel/resumen/tokens'
+import { Papel, Plancha, PlanchaCelda } from '@/components/kit/cantera'
 import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 import { loadConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 
@@ -66,7 +68,7 @@ const INF_CATEGORIAS: Fila[] = [
   { etiqueta: 'Postres', u: 6 }, { etiqueta: 'Bebidas', u: 5 }, { etiqueta: 'Extras', u: 3 },
 ]
 
-const tooltipStyle = { background: COLORS.sidebar, border: 'none', borderRadius: 8, color: BLANCO, fontFamily: LEXEND, fontSize: 12 }
+const tooltipStyle = { background: COLORS.sidebar, border: 'none', borderRadius: 0, color: BLANCO, fontFamily: LEXEND, fontSize: 12 }
 const tituloCard = { ...lbl, marginBottom: 12 }
 
 function descargarCSV(nombre: string, dim: string, data: Fila[]) {
@@ -83,12 +85,12 @@ function descargarPDF(nombre: string, titulo: string, periodo: string, dim: stri
   const doc = new jsPDF()
   doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(GRANATE)
   doc.text(titulo, 14, 18)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor('#555')
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(PDF_TEXT_GRAY)
   doc.text(`Periodo: ${periodo}`, 14, 25)
   let y = 36
   doc.setFontSize(10); doc.setTextColor(INK); doc.setFont('helvetica', 'bold')
   doc.text(dim, 14, y); doc.text('Unidades', 150, y); doc.text('%', 180, y)
-  doc.setDrawColor('#ccc'); doc.line(14, y + 2, 196, y + 2)
+  doc.setDrawColor(PDF_LINE_GRAY); doc.line(14, y + 2, 196, y + 2)
   doc.setFont('helvetica', 'normal')
   data.forEach((r, i) => {
     y += 7
@@ -113,7 +115,7 @@ function Barras({ data, color, sufijo }: { data: Fila[]; color: string; sufijo: 
         <div key={d.etiqueta} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ width: 170, fontFamily: LEXEND, fontSize: 12, color: COLORS.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={d.etiqueta}>{d.etiqueta}</span>
           <div style={{ ...BAR.track, flex: 1, height: 10 }}>
-            <div style={{ width: `${(d.u / max) * 100}%`, background: color, borderRadius: 4 }} />
+            <div style={{ width: `${(d.u / max) * 100}%`, background: color, borderRadius: 0 }} />
           </div>
           <span style={{ width: 84, textAlign: 'right', fontFamily: OSWALD, fontSize: 13, fontWeight: 600, color: COLORS.pri }}>
             {nf0(d.u)}{sufijo} <span style={{ color: COLORS.mut, fontSize: 11, fontFamily: LEXEND }}>{Math.round((d.u / total) * 100)}%</span>
@@ -218,40 +220,40 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
   ]
 
   const btn = (activo: boolean): React.CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8,
+    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 0,
     border: `0.5px solid ${COLORS.brd}`, background: BLANCO, color: COLORS.sec,
     fontFamily: LEXEND, fontSize: 12, fontWeight: 500, cursor: activo ? 'pointer' : 'default', opacity: activo ? 1 : 0.5,
   })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 8, background: `${COLORS.glovo}33`, border: `0.5px solid ${COLORS.glovoDark}55`, borderRadius: 10, padding: '5px 12px' }}>
+      <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 8, background: `${COLORS.glovo}33`, border: `0.5px solid ${COLORS.glovoDark}55`, borderRadius: 0, padding: '5px 12px' }}>
         <span style={{ width: 8, height: 8, borderRadius: 999, background: COLORS.redSL }} />
         <span style={{ ...lblXs, color: COLORS.glovoDark }}>UNIDADES REALES DEL PERIODO · IMPORTES ESTIMADOS HASTA ENCHUFAR EXPORT</span>
       </div>
 
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        {kpis.map(c => (
-          <div key={c.label} style={{ ...CARDS.big, padding: '20px 22px' }}>
+      {/* KPIs comparables — Plancha (celdas sólidas pegadas) */}
+      <Plancha>
+        {kpis.map((c, i) => (
+          <PlanchaCelda key={c.label} bg={BLANCO} first={i === 0}>
             <div style={{ ...lbl, fontSize: 11 }}>{c.label}</div>
             <div style={{ ...kpiBig, color: c.color, marginTop: 6 }}>{c.value}</div>
-          </div>
+          </PlanchaCelda>
         ))}
-      </div>
+      </Plancha>
 
-      {/* Coste de depender */}
-      <div style={{ ...CARDS.std, background: `${COLORS.redSL}0d`, border: `0.5px solid ${COLORS.redSL}33` }}>
+      {/* Coste de depender — Papel ceja (sin sombra) */}
+      <Papel ceja={COLORS.redSL}>
         <div style={{ ...lbl, color: COLORS.redSL }}>COSTE DE DEPENDER DE PLATAFORMAS</div>
         <div style={{ fontFamily: OSWALD, fontSize: 34, fontWeight: 600, color: COLORS.redSL, lineHeight: 1.05, marginTop: 4 }}>
           {fmtEur(d.comisionAnual)} <span style={{ fontSize: 14, color: COLORS.mut }}>/año proyectado</span>
         </div>
         <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLORS.sec, marginTop: 6 }}>Cada pedido movido a tienda online (0% comisión) recupera ~30% de margen.</div>
-      </div>
+      </Papel>
 
-      {/* Reparto + Mapa horario */}
+      {/* Reparto + Mapa horario — Papel ceja (sin sombra) */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div style={{ ...CARDS.std }}>
+        <Papel ceja={COLORS.ok}>
           <div style={tituloCard}>REPARTO POR PLATAFORMA (EST.)</div>
           <ResponsiveContainer width="100%" height={210}>
             <PieChart>
@@ -269,8 +271,8 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
               </div>
             ))}
           </div>
-        </div>
-        <div style={{ ...CARDS.std }}>
+        </Papel>
+        <Papel ceja={COLORS.redSL}>
           <div style={tituloCard}>VENTAS POR FRANJA HORARIA (REAL)</div>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={d.porHora}>
@@ -283,11 +285,11 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </Papel>
       </div>
 
-      {/* Evolución */}
-      <div style={{ ...CARDS.std }}>
+      {/* Evolución — Papel ceja (sin sombra) */}
+      <Papel ceja={COLORS.ok}>
         <div style={tituloCard}>EVOLUCIÓN EN EL PERIODO (EST.)</div>
         <ResponsiveContainer width="100%" height={280}>
           <AreaChart data={d.evolucion}>
@@ -305,10 +307,10 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
             <Line type="monotone" dataKey="neto" stroke={COLORS.ok} strokeWidth={2} dot={false} name="Neto" />
           </AreaChart>
         </ResponsiveContainer>
-      </div>
+      </Papel>
 
-      {/* Margen por plataforma */}
-      <div style={{ ...CARDS.std }}>
+      {/* Margen por plataforma — Papel ceja (sin sombra) */}
+      <Papel ceja={COLORS.redSL}>
         <div style={tituloCard}>MARGEN TRAS COMISIÓN POR PLATAFORMA (EST.)</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {d.plataformas.map((p) => (
@@ -316,7 +318,7 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
               <span style={{ width: 110, fontFamily: OSWALD, fontSize: 12, fontWeight: 600, color: COLORS.sec, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 999, background: PLAT_COLOR[p.plataforma] || COLORS.mut }} />{p.plataforma}
               </span>
-              <div style={{ flex: 1, height: 24, borderRadius: 8, overflow: 'hidden', display: 'flex', background: COLORS.group }}>
+              <div style={{ flex: 1, height: 24, borderRadius: 0, overflow: 'hidden', display: 'flex', background: COLORS.group }}>
                 <div style={{ width: `${p.bruto ? (p.neto / p.bruto) * 100 : 0}%`, background: COLORS.ok }} />
                 <div style={{ width: `${p.bruto ? (p.comision / p.bruto) * 100 : 0}%`, background: COLORS.redSL }} />
               </div>
@@ -326,10 +328,10 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
             </div>
           ))}
         </div>
-      </div>
+      </Papel>
 
-      {/* INFORMES por dimensión — con descarga */}
-      <div style={{ ...CARDS.std }}>
+      {/* INFORMES por dimensión — con descarga — Papel ceja (sin sombra) */}
+      <Papel ceja={COLORS.ok}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
           <div style={{ ...lbl }}>INFORMES DE VENTAS</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -342,7 +344,7 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ ...lblXs }}>VENTAS POR {inf.toUpperCase()}</span>
-            <span style={{ fontFamily: OSWALD, fontSize: 9, fontWeight: 600, letterSpacing: '0.5px', padding: '1px 6px', borderRadius: 3, background: cur.nota === 'REAL' ? `${COLORS.ok}22` : `${COLORS.glovo}44`, color: cur.nota === 'REAL' ? COLORS.ok : COLORS.glovoDark }}>{cur.nota}</span>
+            <span style={{ fontFamily: OSWALD, fontSize: 9, fontWeight: 600, letterSpacing: '0.5px', padding: '1px 6px', borderRadius: 0, background: cur.nota === 'REAL' ? `${COLORS.ok}22` : `${COLORS.glovo}44`, color: cur.nota === 'REAL' ? COLORS.ok : COLORS.glovoDark }}>{cur.nota}</span>
             <span style={{ fontFamily: LEXEND, fontSize: 11, color: COLORS.mut }}>· {periodoStr}</span>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -363,7 +365,7 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
             Estimado de ejemplo. Saldrá real en cuanto la Carta tenga cada plato asignado a su familia/categoría.
           </div>
         )}
-      </div>
+      </Papel>
     </div>
   )
 }

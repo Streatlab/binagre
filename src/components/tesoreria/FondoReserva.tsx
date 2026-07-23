@@ -11,10 +11,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  OSW, LEX, INK, CREMA, CLARO, OSC, D1, SHADOW, BORDER_CARD,
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD,
   VERDE, ROJO, AMA, NAR, AZUL, GRANATE, GRIS, CORP, CLARA, eyebrow, d, E2, EUR, P0,
+  BLANCO, VERDE_S, AMA_S, ROSA_S, NAR_S,
 } from '@/styles/neobrutal'
 import { fmtEur } from '@/lib/format'
+import { HeroCantera, FrasePotente, PantallaCantera } from '@/components/kit/cantera'
 
 interface Config { id: number; pct: number; activo: boolean; fecha_inicio: string; objetivo_fijos_mes: number; cuenta_destino: string | null; match_traspaso: string | null; tolerancia_dias: number }
 interface Orden {
@@ -179,6 +181,11 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   // Saldo real desde el servidor (v_reserva_panel), no la suma de los últimos 100 movimientos.
   const saldo = saldoTeorico
   const fugas = useMemo(() => movs.filter(m => m.tipo === 'RETIRADA' && !m.autorizado), [movs])
+  // Nombre del mes en curso, para dejar explícito qué mes cubre la barra (p.ej. "julio 2026").
+  const mesCoberturaTexto = useMemo(() => {
+    const t = new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+    return t.charAt(0).toUpperCase() + t.slice(1)
+  }, [])
   // Cobertura contra el objetivo REAL de fijos del mes (no la media historica).
   const objetivo = objetivoReal > 0 ? objetivoReal : fijosMedia
   const cobertura = objetivo > 0 ? (saldo / objetivo) * 100 : 0
@@ -366,10 +373,6 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
     cargar()
   }
 
-  const wrap: CSSProperties = embedded
-    ? { padding: 0 }
-    : { background: CREMA, minHeight: '100vh', padding: '28px 32px' }
-
   if (loading) {
     return <div style={{ ...(embedded ? {} : { background: CREMA, minHeight: '100vh' }), padding: embedded ? 8 : 40, ...d('20px'), color: GRIS }}>Cargando fondo…</div>
   }
@@ -391,8 +394,20 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const simCubre = simPend.filter(r => r.acum <= simDisponible + 0.001).length
   const simUltimo = simPend.filter(r => r.acum <= simDisponible + 0.001).slice(-1)[0]?.concepto ?? ''
 
+  // Hero tesorería (área azul): titular natural + cifra pendiente + tira de atención.
+  const heroTitular = totalPendiente <= 0
+    ? 'Todo al día: nada pendiente de ingresar en el fondo.'
+    : nivel === 'bloqueo'
+      ? `Llevas ${diasMasAntigua} días sin barrer: hay que ingresar ya.`
+      : 'Tienes cobros de plataforma esperando entrar en el fondo.'
+  const heroAtencion = [
+    agenda && agenda.hoy > 0 ? `${E2(agenda.hoy)} € de hoy` : null,
+    agenda && agenda.semana > 0 && agenda.semana !== totalPendiente ? `${E2(agenda.semana)} € de esta semana` : null,
+    totalPendiente > 0 ? `${pendientes.length} cobro${pendientes.length === 1 ? '' : 's'} al ${cfg?.pct ?? 5}%` : null,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={wrap}>
+    <PantallaCantera embedded={embedded}>
 
       {/* CABECERA (solo en modo pagina completa) */}
       {!embedded && (
@@ -402,12 +417,12 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             <h1 style={{ ...d('42px'), margin: '10px 0 0' }}>Reservas</h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: AZUL, color: '#fff' }}>{revisando ? 'Revisando…' : 'Revisar banco'}</button>
-            <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: '#fff', color: INK }}>{refreshing ? 'Actualizando…' : '↻ Actualizar'}</button>
+            <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: AZUL, color: BLANCO }}>{revisando ? 'Revisando…' : 'Revisar banco'}</button>
+            <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: BLANCO, color: INK }}>{refreshing ? 'Actualizando…' : '↻ Actualizar'}</button>
             <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Barrido</span>
             <button onClick={toggleActivo} style={{
               ...btn, padding: '8px 14px',
-              background: cfg?.activo ? VERDE : '#fff', color: cfg?.activo ? '#fff' : GRIS,
+              background: cfg?.activo ? VERDE : BLANCO, color: cfg?.activo ? BLANCO : GRIS,
             }}>{cfg?.activo ? 'Activo' : 'Apagado'}</button>
           </div>
         </div>
@@ -415,32 +430,32 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
 
       {embedded && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-          <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: AZUL, color: '#fff' }}>{revisando ? 'Revisando…' : 'Revisar banco'}</button>
-          <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: '#fff', color: INK }}>{refreshing ? 'Actualizando…' : '↻ Actualizar'}</button>
+          <button onClick={revisarBanco} disabled={revisando} style={{ ...btnMini, background: AZUL, color: BLANCO }}>{revisando ? 'Revisando…' : 'Revisar banco'}</button>
+          <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: BLANCO, color: INK }}>{refreshing ? 'Actualizando…' : '↻ Actualizar'}</button>
           <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Barrido {cfg?.fecha_inicio ? `· desde ${cfg.fecha_inicio}` : ''}</span>
           <button onClick={toggleActivo} style={{
             ...btn, padding: '8px 14px',
-            background: cfg?.activo ? VERDE : '#fff', color: cfg?.activo ? '#fff' : GRIS,
+            background: cfg?.activo ? VERDE : BLANCO, color: cfg?.activo ? BLANCO : GRIS,
           }}>{cfg?.activo ? 'Activo' : 'Apagado'}</button>
         </div>
       )}
 
       {msg && (
-        <div onClick={() => setMsg(null)} style={{ background: fugaArmada ? ROJO : VERDE, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase', cursor: 'pointer' }}>
+        <div onClick={() => setMsg(null)} style={{ background: fugaArmada ? ROJO : VERDE, color: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase', cursor: 'pointer' }}>
           {msg}
         </div>
       )}
 
       {error && (
-        <div style={{ background: ROJO, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ background: ROJO, color: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: 0.5, textTransform: 'uppercase' }}>Error al cargar: {error}</span>
-          <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: '#fff', color: ROJO }}>Reintentar</button>
+          <button onClick={refrescar} disabled={refreshing} style={{ ...btnMini, background: BLANCO, color: ROJO }}>Reintentar</button>
         </div>
       )}
 
       {/* Alerta: dotaciones que el banco no confirma pasado el margen de días. */}
       {noVerif.length > 0 && (
-        <div style={{ background: ROJO, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 18px', marginBottom: 16 }}>
+        <div style={{ background: ROJO, color: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 18px', marginBottom: 16 }}>
           <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 18, letterSpacing: 1, textTransform: 'uppercase' }}>
             El banco no confirma {noVerif.length} traspaso{noVerif.length === 1 ? '' : 's'}
           </div>
@@ -451,44 +466,33 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       )}
 
       {/* ══ HERO · QUE TIENES QUE INGRESAR ══ */}
-      <div style={{
-        background: nivel === 'bloqueo' ? OSC : AMA, color: nivel === 'bloqueo' ? D1 : INK,
-        border: BORDER_CARD, boxShadow: SHADOW, padding: '24px 26px', marginBottom: 18,
-      }}>
-        {totalPendiente > 0 ? (
-          <>
-            <span style={eyebrow(nivel === 'bloqueo' ? ROJO : INK, nivel === 'bloqueo' ? '#fff' : AMA)}>
-              {nivel === 'bloqueo' ? `Llevas ${diasMasAntigua} días sin barrer` : 'Ingresa en el fondo'}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 28, flexWrap: 'wrap', marginTop: 14 }}>
-              <div>
-                <div style={{ ...d('64px', nivel === 'bloqueo' ? D1 : INK) }}>{E2(totalPendiente)} €</div>
-                <div style={{ fontFamily: LEX, fontSize: 13, marginTop: 6, opacity: 0.85 }}>
-                  {agenda && agenda.hoy > 0 && <><strong>{E2(agenda.hoy)} € de hoy</strong> · </>}
-                  {agenda && agenda.semana > 0 && agenda.semana !== totalPendiente && <>{E2(agenda.semana)} € de esta semana · </>}
-                  {pendientes.length} cobro{pendientes.length === 1 ? '' : 's'} de plataforma al {cfg?.pct ?? 5}%
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginLeft: 'auto' }}>
-                {ordenesHoy.length > 0 && (
-                  <button disabled={ocupado} onClick={() => cumplirLote(ordenesHoy, 'Barrido de hoy')}
-                    style={{ ...btn, background: '#fff', color: INK }}>
-                    Ingresado lo de hoy · {E2(agenda?.hoy ?? 0)} €
-                  </button>
-                )}
-                {ordenesSemana.length > 0 && ordenesSemana.length !== pendientes.length && (
-                  <button disabled={ocupado} onClick={() => cumplirLote(ordenesSemana, 'Barrido de la semana')}
-                    style={{ ...btn, background: '#fff', color: INK }}>
-                    Lo de la semana · {E2(agenda?.semana ?? 0)} €
-                  </button>
-                )}
-                <button disabled={ocupado} onClick={() => cumplirLote(pendientes, 'Barrido total')}
-                  style={{ ...btn, background: VERDE, color: '#fff' }}>
-                  Todo ingresado · {E2(totalPendiente)} €
+      <HeroCantera
+        area="tesoreria"
+        titular={heroTitular}
+        etiquetaDato={totalPendiente > 0 ? 'Pendiente de ingresar en el fondo' : undefined}
+        cifra={totalPendiente > 0 ? `${E2(totalPendiente)} €` : undefined}
+        atencion={heroAtencion}
+        resumen={totalPendiente > 0 ? (
+          <div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {ordenesHoy.length > 0 && (
+                <button disabled={ocupado} onClick={() => cumplirLote(ordenesHoy, 'Barrido de hoy')}
+                  style={{ ...btn, background: BLANCO, color: INK }}>
+                  Ingresado lo de hoy · {E2(agenda?.hoy ?? 0)} €
                 </button>
-              </div>
+              )}
+              {ordenesSemana.length > 0 && ordenesSemana.length !== pendientes.length && (
+                <button disabled={ocupado} onClick={() => cumplirLote(ordenesSemana, 'Barrido de la semana')}
+                  style={{ ...btn, background: BLANCO, color: INK }}>
+                  Lo de la semana · {E2(agenda?.semana ?? 0)} €
+                </button>
+              )}
+              <button disabled={ocupado} onClick={() => cumplirLote(pendientes, 'Barrido total')}
+                style={{ ...btn, background: VERDE, color: BLANCO }}>
+                Todo ingresado · {E2(totalPendiente)} €
+              </button>
             </div>
-            <div style={{ display: 'flex', height: 14, border: `2px solid ${INK}`, marginTop: 18, overflow: 'hidden', background: '#fff' }}>
+            <div style={{ display: 'flex', height: 14, border: `2px solid ${INK}`, marginTop: 14, overflow: 'hidden', background: BLANCO }}>
               {(['uber', 'glovo', 'je'] as const).map(k => {
                 const v = mixCanal[k] ?? 0
                 if (v <= 0 || totalPendiente <= 0) return null
@@ -508,23 +512,24 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
                 )
               })}
             </div>
-          </>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <div style={{ ...d('40px') }}>Todo al día ✓</div>
-            <div style={{ fontFamily: LEX, fontSize: 13.5 }}>
-              No hay nada pendiente de ingresar. En cuanto entre un cobro de plataforma, aquí verás cuánto apartar.
-            </div>
           </div>
-        )}
-      </div>
+        ) : 'En cuanto entre un cobro de plataforma, aquí verás cuánto apartar.'}
+      />
+
+      {totalPendiente > 0 && (
+        nivel === 'bloqueo'
+          ? <FrasePotente significado="peligro">Llevas {diasMasAntigua} días sin barrer: el fondo se está quedando atrás.</FrasePotente>
+          : cobertura >= 100
+            ? <FrasePotente significado="logro">El fondo ya cubre los fijos reales del mes: ingresa esto y sigues sobrado.</FrasePotente>
+            : <FrasePotente significado="oportunidad">Barre estos cobros hoy: cuanto antes entren, antes cubres los fijos del mes.</FrasePotente>
+      )}
 
       {/* ══ TRES CARDS ══ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 18 }}>
 
         {/* SALDO + COBERTURA */}
         <div style={card}>
-          <span style={eyebrow(VERDE, '#fff')}>Fondo acumulado</span>
+          <span style={eyebrow(VERDE, BLANCO)}>Fondo acumulado</span>
           <div style={{ ...d('48px'), marginTop: 12 }}>{E2(saldo)} €</div>
           <div style={{ display: 'flex', gap: 16, marginTop: 8, fontFamily: LEX, fontSize: 12, color: GRIS }}>
             <span>Entró <strong style={{ fontFamily: OSW, color: VERDE }}>{E2(dotado)}</strong></span>
@@ -544,7 +549,10 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             </span>
             <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, color: colorCob }}>{P0(cobertura)}</span>
           </div>
-          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 6 }}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', color: colorCob, marginTop: 6 }}>
+            Fijos de {mesCoberturaTexto}
+          </div>
+          <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 4 }}>
             Objetivo real = suma de gastos fijos activos del mes. Media 3 meses: <strong>{EUR(fijosMedia)}</strong>.
           </div>
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: `2px solid ${INK}`, fontFamily: LEX, fontSize: 12, color: GRIS }}>
@@ -554,7 +562,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
 
         {/* MES EN CURSO */}
         <div style={card}>
-          <span style={eyebrow(AZUL, '#fff')}>Este mes</span>
+          <span style={eyebrow(AZUL, BLANCO)}>Este mes</span>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
             <div>
               <div style={{ ...d('34px', VERDE) }}>{E2(agenda?.barrido_mes ?? 0)} €</div>
@@ -583,7 +591,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             <span style={{ display: 'inline-flex', gap: 5, flexWrap: 'wrap', verticalAlign: 'middle' }}>
               {[5, 6, 7, 8, 9, 10].map(v => (
                 <button key={v} onClick={() => setPctEdit(v)} style={{
-                  ...pill, background: pctEdit === v ? INK : '#fff', color: pctEdit === v ? AMA : INK,
+                  ...pill, background: pctEdit === v ? INK : BLANCO, color: pctEdit === v ? AMA : INK,
                 }}>{v}</button>
               ))}
             </span>
@@ -597,28 +605,28 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
 
         {/* RETIRADA */}
         <div style={card}>
-          <span style={eyebrow(GRANATE, '#fff')}>Pagar con el fondo</span>
+          <span style={eyebrow(GRANATE, BLANCO)}>Pagar con el fondo</span>
           <p style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 12, marginBottom: 12, lineHeight: 1.5 }}>
             Solo para <strong style={{ color: INK }}>nóminas, SS, alquiler, suministros, préstamos e impuestos</strong>. Otro destino queda marcado como fuga.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <input type="number" min={0} step={0.01} value={retImporte || ''} placeholder="Importe €"
               onChange={e => setRetImporte(parseFloat(e.target.value) || 0)}
-              style={{ padding: '10px 12px', border: BORDER_CARD, background: '#fff', fontFamily: OSW, fontWeight: 600, fontSize: 16, textAlign: 'right', outline: 'none', color: INK }} />
+              style={{ padding: '10px 12px', border: BORDER_CARD, background: BLANCO, fontFamily: OSW, fontWeight: 600, fontSize: 16, textAlign: 'right', outline: 'none', color: INK }} />
             <select value={retDestino} onChange={e => setRetDestino(e.target.value)}
-              style={{ padding: '10px 12px', border: BORDER_CARD, background: '#fff', fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: 1, outline: 'none', color: INK }}>
+              style={{ padding: '10px 12px', border: BORDER_CARD, background: BLANCO, fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: 1, outline: 'none', color: INK }}>
               {DESTINOS.map(dd => <option key={dd} value={dd}>{dd}</option>)}
             </select>
           </div>
           <button onClick={registrarRetirada} disabled={saldo <= 0}
-            style={{ ...btn, background: saldo <= 0 ? CLARO : fugaArmada ? ROJO : GRANATE, color: saldo > 0 ? '#fff' : GRIS, width: '100%', marginTop: 10, cursor: saldo > 0 ? 'pointer' : 'not-allowed' }}>
+            style={{ ...btn, background: saldo <= 0 ? CLARO : fugaArmada ? ROJO : GRANATE, color: saldo > 0 ? BLANCO : GRIS, width: '100%', marginTop: 10, cursor: saldo > 0 ? 'pointer' : 'not-allowed' }}>
             {fugaArmada ? '¿Confirmar fuga?' : 'Registrar retirada'}
           </button>
           {saldo <= 0 && (
             <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 8 }}>El fondo está a cero: primero ingresa.</div>
           )}
           {fugas.length > 0 && (
-            <div style={{ marginTop: 12, background: ROJO, color: '#fff', border: `2px solid ${INK}`, padding: '10px 12px', fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            <div style={{ marginTop: 12, background: ROJO, color: BLANCO, border: `2px solid ${INK}`, padding: '10px 12px', fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: 0.5, textTransform: 'uppercase' }}>
               {fugas.length} fuga{fugas.length === 1 ? '' : 's'} · {E2(fugas.reduce((a, f) => a + Number(f.importe), 0))} €
             </div>
           )}
@@ -628,9 +636,9 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       {/* ══ ALERTA DÍA D + RITMO DE AHORRO ══ */}
       {alcance.nPend > 0 && (
         alcance.diaD ? (
-          <div style={{ background: ROJO, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '16px 20px', marginBottom: 18 }}>
-            <span style={eyebrow('#fff', ROJO)}>Día D</span>
-            <div style={{ ...d('26px', '#fff'), margin: '10px 0 6px' }}>
+          <div style={{ background: ROJO, color: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '16px 20px', marginBottom: 18 }}>
+            <span style={eyebrow(BLANCO, ROJO)}>Día D</span>
+            <div style={{ ...d('26px', BLANCO), margin: '10px 0 6px' }}>
               El {alcance.diaD.dia.slice(8, 10)}/{alcance.diaD.dia.slice(5, 7)} dejas de llegar
             </div>
             <div style={{ fontFamily: LEX, fontSize: 13, lineHeight: 1.5 }}>
@@ -639,7 +647,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             </div>
           </div>
         ) : (
-          <div style={{ background: VERDE, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 20px', marginBottom: 18, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+          <div style={{ background: VERDE, color: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '14px 20px', marginBottom: 18, fontFamily: OSW, fontWeight: 600, fontSize: 14, letterSpacing: 0.5, textTransform: 'uppercase' }}>
             ✓ Tu fondo cubre todos los vencimientos pendientes del mes
           </div>
         )
@@ -659,7 +667,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, margin: '10px 0 12px' }}>
               Reparto de los <strong style={{ color: INK }}>{E2(foto.total)} €</strong> de fijos del mes.
             </div>
-            <div style={{ display: 'flex', height: 28, border: `2px solid ${INK}`, overflow: 'hidden', background: '#fff' }}>
+            <div style={{ display: 'flex', height: 28, border: `2px solid ${INK}`, overflow: 'hidden', background: BLANCO }}>
               {segs.map(s => (
                 <div key={s.k} style={{ width: `${(s.v / foto.total) * 100}%`, background: s.c }} title={`${s.label}: ${E2(s.v)} €`} />
               ))}
@@ -680,8 +688,8 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       {alcance.total > 0 && (
         <div style={{ ...card, marginBottom: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span style={eyebrow(AZUL, '#fff')}>Hasta dónde llega el fondo</span>
-            <button onClick={copiarResumen} title="Copiar resumen para WhatsApp" style={{ ...btnMini, background: '#fff', color: INK }}>
+            <span style={eyebrow(AZUL, BLANCO)}>Hasta dónde llega el fondo</span>
+            <button onClick={copiarResumen} title="Copiar resumen para WhatsApp" style={{ ...btnMini, background: BLANCO, color: INK }}>
               📋 Copiar resumen
             </button>
           </div>
@@ -710,7 +718,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
           )}
 
           {estim.n > 0 && (
-            <div style={{ marginTop: 8, padding: '8px 12px', background: '#FFF4CC', border: `2px solid ${AMA}`, fontFamily: LEX, fontSize: 12, color: INK }}>
+            <div style={{ marginTop: 8, padding: '8px 12px', background: AMA_S, border: `2px solid ${AMA}`, fontFamily: LEX, fontSize: 12, color: INK }}>
               🟡 {estim.n} importe{estim.n === 1 ? '' : 's'} aún estimado{estim.n === 1 ? '' : 's'} (<strong>{E2(estim.importe)} €</strong>) — confírmalos al llegar la factura para que el objetivo sea exacto.
             </div>
           )}
@@ -720,7 +728,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12, letterSpacing: 0.5, textTransform: 'uppercase', color: INK }}>Simular · si ingreso</span>
             <input type="number" min={0} step={50} value={simExtra || ''} placeholder="0"
               onChange={e => setSimExtra(parseFloat(e.target.value) || 0)}
-              style={{ width: 110, padding: '7px 10px', border: `2px solid ${AZUL}`, background: '#fff', fontFamily: OSW, fontWeight: 700, fontSize: 14, textAlign: 'right', outline: 'none', color: INK }} />
+              style={{ width: 110, padding: '7px 10px', border: `2px solid ${AZUL}`, background: BLANCO, fontFamily: OSW, fontWeight: 700, fontSize: 14, textAlign: 'right', outline: 'none', color: INK }} />
             <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12, color: INK }}>€</span>
             {simExtra > 0 && (
               <span style={{ fontFamily: LEX, fontSize: 12.5, color: GRIS }}>
@@ -733,12 +741,12 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
           <div style={{ marginTop: 12, border: `2px solid ${INK}` }}>
             {alcance.rows.map((r, i) => {
               const est = r.estado === 'pag'
-                ? { bg: GRIS, txt: '#fff', label: '✓ Pagado', wash: 'transparent' }
+                ? { bg: GRIS, txt: BLANCO, label: '✓ Pagado', wash: 'transparent' }
                 : r.estado === 'cub'
-                ? { bg: VERDE, txt: '#fff', label: 'Cubierto', wash: '#E2F7EC' }
+                ? { bg: VERDE, txt: BLANCO, label: 'Cubierto', wash: VERDE_S }
                 : r.estado === 'bar'
-                ? { bg: NAR, txt: '#fff', label: 'Con barrido', wash: '#FFF1E6' }
-                : { bg: ROJO, txt: '#fff', label: 'Descubierto', wash: '#FFE8E9' }
+                ? { bg: NAR, txt: BLANCO, label: 'Con barrido', wash: NAR_S }
+                : { bg: ROJO, txt: BLANCO, label: 'Descubierto', wash: ROSA_S }
               const muted = r.estado === 'pag'
               const destino = destinoDeCategoria(r.categoria)
               const pagable = destino !== 'OTRO' && !muted
@@ -751,7 +759,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
                   <span style={{ fontFamily: LEX, fontSize: 12, color: muted ? GRIS : INK }}>{r.dia.slice(8, 10)}/{r.dia.slice(5, 7)}</span>
                   <span style={{ fontFamily: LEX, fontSize: 12.5, color: muted ? GRIS : INK, textDecoration: muted ? 'line-through' : 'none' }}>
                     {r.concepto}
-                    {r.estimado && <span style={{ fontFamily: OSW, fontSize: 9.5, color: '#aabc00', marginLeft: 6, letterSpacing: 0.5 }}>🟡 EST</span>}
+                    {r.estimado && <span style={{ fontFamily: OSW, fontSize: 9.5, color: NAR, marginLeft: 6, letterSpacing: 0.5 }}>🟡 EST</span>}
                   </span>
                   <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, color: muted ? GRIS : INK, textAlign: 'right' }}>{E2(r.importe)} €</span>
                   <span style={{
@@ -766,7 +774,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
                         setRetImporte(r.importe); setRetDestino(destino)
                         setMsg(`Cargado para pagar: ${r.concepto} · ${E2(r.importe)} € → ${destino}. Revisa y pulsa "Registrar retirada".`)
                       }}
-                      style={{ ...btnMini, justifySelf: 'end', background: '#fff', color: GRANATE, borderColor: GRANATE, fontSize: 10.5, padding: '5px 8px' }}
+                      style={{ ...btnMini, justifySelf: 'end', background: BLANCO, color: GRANATE, borderColor: GRANATE, fontSize: 10.5, padding: '5px 8px' }}
                     >Pagar</button>
                   ) : <span />}
                 </div>
@@ -803,18 +811,18 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
                   return (
                     <div key={o.id} style={{
                       display: 'grid', gridTemplateColumns: 'auto 1fr 120px auto', alignItems: 'center', gap: 12,
-                      padding: '9px 14px', background: '#fff',
+                      padding: '9px 14px', background: BLANCO,
                       borderLeft: `2px solid ${INK}`, borderRight: `2px solid ${INK}`,
                       borderBottom: i === lista.length - 1 ? `2px solid ${INK}` : '1px solid var(--neo-track)',
                     }}>
                       <span style={{
                         fontFamily: OSW, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.5, textTransform: 'uppercase',
-                        background: CORP[k], color: CLARA[k] ? INK : '#fff',
+                        background: CORP[k], color: CLARA[k] ? INK : BLANCO,
                         border: `2px solid ${INK}`, padding: '3px 8px',
                       }}>{o.plataforma}</span>
                       <span style={{ fontFamily: LEX, fontSize: 12.5, color: GRIS }}>cobrado {E2(o.importe_cobro)} €</span>
                       <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 18, color: VERDE, textAlign: 'right' }}>{E2(o.importe_reservar)} €</span>
-                      <button onClick={() => omitir(o)} style={{ ...btnMini, background: '#fff', color: GRIS }}>Omitir</button>
+                      <button onClick={() => omitir(o)} style={{ ...btnMini, background: BLANCO, color: GRIS }}>Omitir</button>
                     </div>
                   )
                 })}
@@ -844,7 +852,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
                 fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: 1, textAlign: 'center',
                 padding: '4px 6px', border: `2px solid ${INK}`, textTransform: 'uppercase',
                 background: m.tipo === 'DOTACION' ? VERDE : m.autorizado ? CLARO : ROJO,
-                color: m.tipo === 'DOTACION' ? '#fff' : m.autorizado ? INK : '#fff',
+                color: m.tipo === 'DOTACION' ? BLANCO : m.autorizado ? INK : BLANCO,
               }}>
                 {m.tipo === 'DOTACION' ? 'Entra' : m.autorizado ? 'Sale' : 'Fuga'}
               </span>
@@ -863,7 +871,7 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
               {m.tipo === 'DOTACION' ? (
                 <button disabled={ocupado} onClick={() => pedirDeshacer(m.id)} style={{
                   ...btnMini, justifySelf: 'end',
-                  background: esConfirm ? ROJO : '#fff', color: esConfirm ? '#fff' : GRIS,
+                  background: esConfirm ? ROJO : BLANCO, color: esConfirm ? BLANCO : GRIS,
                   borderColor: esConfirm ? ROJO : INK,
                 }}>
                   {esConfirm ? '¿Seguro?' : 'Deshacer'}
@@ -877,8 +885,8 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       {/* ══ CUENTA DE RESERVA (configuración de la conciliación bancaria) ══ */}
       <div style={{ ...card, marginTop: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={eyebrow(AZUL, '#fff')}>Cuenta de reserva</span>
-          <button onClick={() => setConfigOpen(v => !v)} style={{ ...btnMini, background: '#fff', color: INK }}>
+          <span style={eyebrow(AZUL, BLANCO)}>Cuenta de reserva</span>
+          <button onClick={() => setConfigOpen(v => !v)} style={{ ...btnMini, background: BLANCO, color: INK }}>
             {configOpen ? 'Cerrar' : 'Configurar'}
           </button>
         </div>
@@ -899,28 +907,29 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
             <label style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
               Nombre de la cuenta
               <input value={cuentaEdit} onChange={e => setCuentaEdit(e.target.value)} placeholder="p.ej. BBVA Reserva"
-                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '9px 10px', border: `2px solid ${AZUL}`, background: '#fff', fontFamily: OSW, fontWeight: 600, fontSize: 13, outline: 'none', color: INK }} />
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '9px 10px', border: `2px solid ${AZUL}`, background: BLANCO, fontFamily: OSW, fontWeight: 600, fontSize: 13, outline: 'none', color: INK }} />
             </label>
             <label style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
               Texto que aparece en el banco
               <input value={matchEdit} onChange={e => setMatchEdit(e.target.value)} placeholder="p.ej. TRASPASO RESERVA"
-                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '9px 10px', border: `2px solid ${AZUL}`, background: '#fff', fontFamily: OSW, fontWeight: 600, fontSize: 13, outline: 'none', color: INK }} />
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '9px 10px', border: `2px solid ${AZUL}`, background: BLANCO, fontFamily: OSW, fontWeight: 600, fontSize: 13, outline: 'none', color: INK }} />
             </label>
             <label style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
               Margen de días
               <input type="number" min={0} step={1} value={tolEdit} onChange={e => setTolEdit(parseInt(e.target.value) || 0)}
-                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '9px 10px', border: `2px solid ${AZUL}`, background: '#fff', fontFamily: OSW, fontWeight: 600, fontSize: 13, textAlign: 'right', outline: 'none', color: INK }} />
+                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '9px 10px', border: `2px solid ${AZUL}`, background: BLANCO, fontFamily: OSW, fontWeight: 600, fontSize: 13, textAlign: 'right', outline: 'none', color: INK }} />
             </label>
-            <button onClick={guardarCuenta} style={{ ...btn, background: GRANATE, color: '#fff' }}>Guardar cuenta</button>
+            <button onClick={guardarCuenta} style={{ ...btn, background: GRANATE, color: BLANCO }}>Guardar cuenta</button>
           </div>
         )}
       </div>
-    </div>
+    </PantallaCantera>
   )
 }
 
+// Papel ceja (sin sombra): bloque informativo, no pulsable.
 const card: CSSProperties = {
-  background: 'var(--neo-card, #fff)', border: BORDER_CARD, boxShadow: SHADOW, padding: '18px 20px',
+  background: `var(--neo-card, ${BLANCO})`, border: BORDER_CARD, borderTop: `7px solid ${AZUL}`, borderRadius: 0, padding: '18px 20px',
 }
 const btn: CSSProperties = {
   border: BORDER_CARD, boxShadow: '3px 3px 0 var(--neo-shadow-color)', padding: '11px 18px',

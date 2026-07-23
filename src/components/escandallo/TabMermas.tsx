@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import type { Merma } from './types'
 import { fmt, fmtPctFracES, n } from './types'
 import { INK, CREMA, OSW, VERDE, ROJO, GRANATE, GRIS } from '@/styles/neobrutal'
-import { th, thR, td, tdNum, tdCod, tdSub, zebra, bandEnUso, BAND } from './estilosTabla'
+import { th, thR, td, tdNum, tdCod, tdSub, zebra, bandEnUso, BAND, SUBT } from './estilosTabla'
 import CabeceraEscandallo from './CabeceraEscandallo'
 
 interface Props {
@@ -106,11 +106,11 @@ export default function TabMermas({ mermas, busqueda = '', onBuscar, onSelect, o
                       <td style={tdNum}>{fmt(m.uds)}</td>
                       <td style={tdSub}>{m.ud_std ?? '—'}</td>
                       <td style={tdNum}>{fmt(m.precio_total)}</td>
-                      <td style={{ ...td, color: '#5a4f3a' }}>{m.sp1_nombre ?? '—'}</td>
+                      <td style={{ ...td, color: SUBT }}>{m.sp1_nombre ?? '—'}</td>
                       <td style={tdNum}>{fmt(m.sp1_peso_g, 0)}</td>
                       <td style={tdNum}>{fmtPctFracES(m.sp1_pct, 1)}</td>
                       <td style={tdNum}>{fmt(m.sp1_euros)}</td>
-                      <td style={{ ...td, color: '#5a4f3a' }}>{m.sp2_nombre ?? '—'}</td>
+                      <td style={{ ...td, color: SUBT }}>{m.sp2_nombre ?? '—'}</td>
                       <td style={tdNum}>{fmt(m.sp2_peso_g, 0)}</td>
                       <td style={tdNum}>{fmtPctFracES(m.sp2_pct, 1)}</td>
                     </tr>

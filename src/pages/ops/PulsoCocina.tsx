@@ -1,11 +1,11 @@
-import { AZUL_CL, BLANCO, GRIS, INK, NAR, ROJO_S, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, CREMA, GRANATE, GRIS, INK, NAR, ROJO_S, VERDE, SHADOW } from '@/styles/neobrutal'
+import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
-import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
+import { COLORS } from '@/components/panel/resumen/tokens'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
-
-const BG_OPS = INK
 interface FacturacionRow {
   fecha: string
   [key: string]: unknown
@@ -96,77 +96,107 @@ export default function PulsoCocina() {
   const totalOrdAvg   = channels.reduce((s, c) => s + c.avgOrders, 0)
 
   const DeltaBadge = ({ val, avg }: { val: number; avg: number }) => {
-    if (avg === 0) return <span style={{ color: '#555555' }}>—</span>
+    if (avg === 0) return <span style={{ color: GRIS }}>—</span>
     const d = ((val - avg) / avg) * 100
     return <span style={{ color: d >= 0 ? COLORS.ok : COLORS.redSL, fontFamily: FONT.heading, fontSize: 12, fontWeight: 600 }}>{d >= 0 ? '▲' : '▼'} {Math.abs(d).toFixed(1)}%</span>
   }
 
+  const deltaRev = totalRevAvg > 0 ? ((totalRevToday - totalRevAvg) / totalRevAvg) * 100 : null
+
+  const titularHero = channels.length === 0 || (totalRevToday === 0 && totalRevAvg === 0)
+    ? 'Aún no hay facturación registrada hoy.'
+    : deltaRev === null ? 'Facturación de hoy, sin media previa para comparar.'
+    : deltaRev >= 0 ? 'Hoy factura más que la media de este día de la semana.'
+    : 'Hoy factura por debajo de la media de este día de la semana.'
+
+  const atencionHero = [
+    `${Math.round(totalOrdToday)} pedidos hoy`,
+    totalOrdAvg > 0 ? `Media pedidos ${Math.round(totalOrdAvg)}` : null,
+    `Actualizado ${lastRefresh.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: BLANCO }}>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>PULSO COCINA</h1>
-          <span style={{ fontSize: 13, color: COLOR.textMut }}>
-            {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
-            {' · '}Actualizado {lastRefresh.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        </div>
-        <button onClick={loadData} style={{ padding: '8px 16px', background: INK, border: '1px solid #383838', borderRadius: 6, color: GRIS, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Actualizar</button>
+    <PantallaCantera>
+
+      {/* Filtros propios planos */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button onClick={loadData} style={{ padding: '9px 16px', background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, color: INK, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Actualizar</button>
       </div>
 
-      {error && <div style={{ backgroundColor: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        periodo={new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^\w/, c => c.toUpperCase())}
+        titular={titularHero}
+        etiquetaDato="Facturación hoy"
+        cifra={fmtE(totalRevToday)}
+        variacionPct={deltaRev}
+        atencion={atencionHero}
+      />
 
-      {loading ? <div style={{ color: COLOR.textMut, fontSize: 13, padding: '20px 0' }}>Cargando…</div> : (
+      {error && <Papel ceja={ROJO_S} style={{ background: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, color: ROJO_S }}>{error}</Papel>}
+
+      {loading ? <div style={{ color: GRIS, fontSize: 13, padding: '20px 0' }}>Cargando…</div> : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 28 }}>
-            {[
-              { label: 'Facturación Hoy', val: fmtE(totalRevToday), avg: fmtE(totalRevAvg), delta: totalRevAvg > 0 ? ((totalRevToday - totalRevAvg) / totalRevAvg) * 100 : null },
-              { label: 'Pedidos Hoy', val: Math.round(totalOrdToday).toString(), avg: `Media: ${Math.round(totalOrdAvg)}`, delta: totalOrdAvg > 0 ? ((totalOrdToday - totalOrdAvg) / totalOrdAvg) * 100 : null },
-            ].map(kpi => (
-              <div key={kpi.label} style={{ background: INK, border: '1px solid #2a2a2a', borderRadius: 10, padding: '20px 22px' }}>
-                <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 8 }}>{kpi.label}</div>
-                <div style={{ fontFamily: FONT.heading, fontSize: 32, fontWeight: 600, lineHeight: 1 }}>{kpi.val}</div>
-                <div style={{ fontSize: 12, color: '#555555', marginTop: 6 }}>{kpi.avg}</div>
-                {kpi.delta !== null && (
-                  <div style={{ fontFamily: FONT.heading, fontSize: 13, marginTop: 6, color: kpi.delta >= 0 ? COLORS.ok : COLORS.redSL, fontWeight: 600 }}>
-                    {kpi.delta >= 0 ? '▲' : '▼'} {Math.abs(kpi.delta).toFixed(1)}% vs media
-                  </div>
-                )}
-              </div>
-            ))}
+          {/* 3 · Frase potente (una sola, según el pulso del día) */}
+          {deltaRev !== null && (
+            deltaRev >= 0
+              ? <FrasePotente significado="logro">El día va por encima de la media: mantén el ritmo de cocina.</FrasePotente>
+              : <FrasePotente significado="peligro">El día va por debajo de la media: revisa pedidos parados o canales caídos.</FrasePotente>
+          )}
+
+          {/* 2 · Plancha comparativa de KPIs del día */}
+          <div>
+            <SeccionLabel bg={NAR}>Hoy vs. media del mismo día</SeccionLabel>
+            <Plancha>
+              <PlanchaCelda bg={VERDE} first>
+                <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}>Facturación hoy</div>
+                <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 700, marginTop: 6 }}>{fmtE(totalRevToday)}</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Media: {fmtE(totalRevAvg)}</div>
+              </PlanchaCelda>
+              <PlanchaCelda bg={NAR}>
+                <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}>Pedidos hoy</div>
+                <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 700, marginTop: 6 }}>{Math.round(totalOrdToday)}</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Media: {Math.round(totalOrdAvg)}</div>
+              </PlanchaCelda>
+            </Plancha>
           </div>
 
-          <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #2a2a2a' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: INK }}>
-                  {['Canal', 'Facturación Hoy', 'Media (mismo día)', 'Var.', 'Pedidos Hoy', 'Media Pedidos', 'Var.'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, fontWeight: 600, borderBottom: '1px solid #2a2a2a', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {channels.map((ch, i) => (
-                  <tr key={ch.key} style={{ background: i % 2 === 0 ? BG_OPS : INK, borderBottom: '1px solid #1e1e1e' }}>
-                    <td style={{ padding: '12px 14px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: ch.color, flexShrink: 0 }} />
-                        <span style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>{ch.label}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 14px' }}>{fmtE(ch.todayRevenue)}</td>
-                    <td style={{ padding: '12px 14px', color: COLOR.textMut }}>{fmtE(ch.avgRevenue)}</td>
-                    <td style={{ padding: '12px 14px' }}><DeltaBadge val={ch.todayRevenue} avg={ch.avgRevenue} /></td>
-                    <td style={{ padding: '12px 14px' }}>{Math.round(ch.todayOrders)}</td>
-                    <td style={{ padding: '12px 14px', color: COLOR.textMut }}>{Math.round(ch.avgOrders)}</td>
-                    <td style={{ padding: '12px 14px' }}><DeltaBadge val={ch.todayOrders} avg={ch.avgOrders} /></td>
+          {/* Detalle por canal — papel (sin sombra) */}
+          <div>
+            <SeccionLabel bg={GRANATE}>Detalle por canal</SeccionLabel>
+            <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: INK }}>
+                    {['Canal', 'Facturación Hoy', 'Media (mismo día)', 'Var.', 'Pedidos Hoy', 'Media Pedidos', 'Var.'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {channels.map(ch => (
+                    <tr key={ch.key} style={{ borderBottom: `2px solid ${INK}` }}>
+                      <td style={{ padding: '12px 14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: ch.color, flexShrink: 0 }} />
+                          <span style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>{ch.label}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>{fmtE(ch.todayRevenue)}</td>
+                      <td style={{ padding: '12px 14px', color: GRIS }}>{fmtE(ch.avgRevenue)}</td>
+                      <td style={{ padding: '12px 14px' }}><DeltaBadge val={ch.todayRevenue} avg={ch.avgRevenue} /></td>
+                      <td style={{ padding: '12px 14px' }}>{Math.round(ch.todayOrders)}</td>
+                      <td style={{ padding: '12px 14px', color: GRIS }}>{Math.round(ch.avgOrders)}</td>
+                      <td style={{ padding: '12px 14px' }}><DeltaBadge val={ch.todayOrders} avg={ch.avgOrders} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Papel>
           </div>
         </>
       )}
-    </div>
+    </PantallaCantera>
   )
 }

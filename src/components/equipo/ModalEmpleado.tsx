@@ -1,8 +1,13 @@
-import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, VERDE, GRIS, AMA, OSW } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
-import { X, Trash2, Upload, FileText as FileIcon, ExternalLink } from 'lucide-react'
+import { X, Trash2, Upload, FileText as FileIcon, ExternalLink, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
+import { useNominasCompletas } from '@/lib/equipo/useNominasCompletas'
+import type { NominaCompleta } from '@/lib/equipo/useNominasCompletas'
+import FichaEmpleadoAcumulados from '@/components/equipo/FichaEmpleadoAcumulados'
+import { MESES_LARGO, clasifColor, clasifLabel, ModalVerNomina } from '@/components/equipo/NominaSoloLectura'
+import { fmtEur } from '@/lib/format'
 
 interface DatosPersonales {
   fecha_nacimiento?: string
@@ -29,6 +34,7 @@ export interface Empleado {
   email?: string
   foto_url?: string | null
   dias_vacaciones_anuales?: number | null
+  tipo_relacion?: 'plantilla' | 'extra' | 'socio'
 }
 
 interface Vacacion { id: string; fecha_inicio: string; fecha_fin: string; dias: number; estado: string; nota: string | null }
@@ -36,26 +42,26 @@ interface Permiso { id: string; tipo: string; fecha_inicio: string; fecha_fin: s
 interface Anticipo { id: string; fecha: string; importe: number; mes_descuento: string | null; estado: string; nota: string | null }
 interface Documento { id: string; tipo: string; nombre: string; url: string | null; fecha: string | null }
 
-interface Props { empleado: Empleado | null; onClose: () => void; onSaved: () => void }
+interface Props { empleado: Empleado | null; onClose: () => void; onSaved: () => void; tabInicial?: TabKey }
 
 const ESTADOS = ['activo', 'baja', 'vacaciones', 'despedido'] as const
 const eur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n || 0)
 
 function estadoColor(e: string): string {
   if (['aprobada', 'disfrutada', 'pagado', 'activo'].includes(e)) return VERDE
-  if (['solicitada', 'solicitado'].includes(e)) return '#e8b341'
-  if (['rechazada', 'descontado'].includes(e)) return '#888'
+  if (['solicitada', 'solicitado'].includes(e)) return AMA
+  if (['rechazada', 'descontado'].includes(e)) return GRIS
   return AZUL_CL
 }
 
-type TabKey = 'personales' | 'laborales' | 'foto' | 'documentos' | 'vacaciones' | 'permisos' | 'anticipos'
+type TabKey = 'personales' | 'laborales' | 'foto' | 'nominas' | 'documentos' | 'vacaciones' | 'permisos' | 'anticipos'
 
-export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
+export default function ModalEmpleado({ empleado, onClose, onSaved, tabInicial }: Props) {
   const { T, isDark } = useTheme()
   const isNew = !empleado?.id
   const empId = empleado?.id
 
-  const [tab, setTab] = useState<TabKey>('personales')
+  const [tab, setTab] = useState<TabKey>(tabInicial ?? 'personales')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -154,13 +160,14 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
     finally { setSaving(false) }
   }
 
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
-  const calcStyle: React.CSSProperties = { background: '#1D9E7520', border: '1px solid #1D9E75', color: VERDE, padding: '8px 10px', borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, boxSizing: 'border-box' }
+  const calcStyle: React.CSSProperties = { background: `${VERDE}20`, border: `1px solid ${VERDE}`, color: VERDE, padding: '8px 10px', borderRadius: 0, fontFamily: FONT.body, fontSize: 13 }
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'personales', label: 'Personales' },
     { key: 'laborales', label: 'Laborales' },
     { key: 'foto', label: 'Foto' },
+    { key: 'nominas', label: 'Nóminas' },
     { key: 'documentos', label: 'Documentos' },
     { key: 'vacaciones', label: 'Vacaciones' },
     { key: 'permisos', label: 'Permisos' },
@@ -172,7 +179,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 1000, padding: 16, overflowY: 'auto' }}>
-      <div onMouseDown={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.brd}`, width: '100%', maxWidth: 620, margin: '24px 0', boxShadow: '0 24px 48px rgba(0,0,0,0.35)' }}>
+      <div onMouseDown={e => e.stopPropagation()} style={{ background: T.card, borderRadius: 0, border: `1px solid ${T.brd}`, width: '100%', maxWidth: 620, margin: '24px 0', boxShadow: '0 24px 48px rgba(0,0,0,0.35)' }}>
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center', minWidth: 0 }}>
@@ -187,7 +194,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
                   <Chip color={estadoColor(estado)}>{estado}</Chip>
                   {antiguedad && <Chip color={AZUL_CL}>{antiguedad}</Chip>}
                   <Chip color={vacRestantes < 0 ? GRANATE : VERDE}>{vacRestantes} días vac.</Chip>
-                  {anticiposPend > 0 && <Chip color="#e8b341">{eur(anticiposPend)} anticipo</Chip>}
+                  {anticiposPend > 0 && <Chip color={AMA}>{eur(anticiposPend)} anticipo</Chip>}
                 </div>
               )}
             </div>
@@ -233,12 +240,16 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
               <div style={{ width: 120, height: 120, borderRadius: '50%', background: GRANATE, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', color: BLANCO, fontFamily: FONT.heading, fontSize: 36, fontWeight: 600 }}>
                 {fotoUrl ? <img src={fotoUrl} alt={nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (initials || '—')}
               </div>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 8, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 0, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>
                 <Upload size={14} />{uploading ? 'Subiendo…' : 'Subir foto'}
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(f) }} />
               </label>
               {needsSave && <div style={{ textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 12 }}>Guarda primero el empleado para fijar la foto.</div>}
             </div>
+          )}
+
+          {tab === 'nominas' && (
+            needsSave ? <SaveFirst T={T} /> : <TabFichaFinanciera empId={empId!} />
           )}
 
           {tab === 'documentos' && (
@@ -283,7 +294,7 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
           {tab === 'anticipos' && (
             needsSave ? <SaveFirst T={T} /> : (
               <div>
-                <div style={{ marginBottom: 14 }}><MiniKpi T={T} label="Pendiente de descontar" value={eur(anticiposPend)} accent={anticiposPend > 0 ? '#e8b341' : T.pri} /></div>
+                <div style={{ marginBottom: 14 }}><MiniKpi T={T} label="Pendiente de descontar" value={eur(anticiposPend)} accent={anticiposPend > 0 ? AMA : T.pri} /></div>
                 <AltaAnticipo empId={empId!} onSaved={fetchHijos} inputStyle={inputStyle} T={T} />
                 <ListaHijos T={T} vacios="Sin anticipos registrados" filas={anticipos.map(a => ({
                   id: a.id, izq: `${a.fecha}${a.mes_descuento ? ` · desc. ${a.mes_descuento}` : ''}`, centro: eur(Number(a.importe)), estado: a.estado, nota: a.nota,
@@ -293,12 +304,12 @@ export default function ModalEmpleado({ empleado, onClose, onSaved }: Props) {
             )
           )}
 
-          {error && <div style={{ marginTop: 12, padding: '8px 12px', background: '#B01D2320', color: GRANATE, borderRadius: 6, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
+          {error && <div style={{ marginTop: 12, padding: '8px 12px', background: `${GRANATE}20`, color: GRANATE, borderRadius: 0, fontFamily: FONT.body, fontSize: 13 }}>{error}</div>}
         </div>
 
         <div style={{ padding: '16px 24px', borderTop: `1px solid ${T.brd}`, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 6, border: `1px solid ${T.brd}`, background: T.inp, color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 6, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? 'Guardando…' : isNew ? 'Crear empleado' : 'Guardar cambios'}</button>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 0, border: `1px solid ${T.brd}`, background: T.inp, color: T.pri, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 0, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? 'Guardando…' : isNew ? 'Crear empleado' : 'Guardar cambios'}</button>
         </div>
       </div>
     </div>
@@ -311,12 +322,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function Chip({ children, color }: { children: React.ReactNode; color: string }) {
-  return <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 5, fontSize: 11, fontWeight: 600, fontFamily: FONT.body, background: color + '22', color }}>{children}</span>
+  return <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 0, fontSize: 11, fontWeight: 600, fontFamily: FONT.body, background: color + '22', color }}>{children}</span>
 }
 
 function MiniKpi({ T, label, value, accent }: { T: any; label: string; value: string; accent?: string }) {
   return (
-    <div style={{ flex: 1, minWidth: 110, background: T.group, border: `1px solid ${T.brd}`, borderRadius: 8, padding: '10px 12px' }}>
+    <div style={{ flex: 1, minWidth: 110, background: T.group, border: `1px solid ${T.brd}`, borderRadius: 0, padding: '10px 12px' }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1.5px', textTransform: 'uppercase', color: T.mut, marginBottom: 4 }}>{label}</div>
       <div style={{ fontFamily: FONT.heading, fontSize: 18, fontWeight: 700, color: accent ?? T.pri }}>{value}</div>
     </div>
@@ -327,12 +338,63 @@ function SaveFirst({ T }: { T: any }) {
   return <div style={{ padding: '24px 0', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>Guarda primero el empleado para gestionar este apartado.</div>
 }
 
+/** Nóminas del año + acumulados reales del empleado (kit Neobrutal Alegre claro,
+ *  igual que Nóminas/Costes: aquí manda ese estilo aunque el resto del modal use
+ *  el tema T genérico). Reutiliza useNominasCompletas/useFichaEmpleado, no
+ *  duplica su lógica. */
+function TabFichaFinanciera({ empId }: { empId: string }) {
+  const anioActual = new Date().getFullYear()
+  const [anio, setAnio] = useState(anioActual)
+  const { loading, nominas, reload } = useNominasCompletas(anio)
+  const [verNomina, setVerNomina] = useState<NominaCompleta | null>(null)
+
+  const nominasEmp = nominas.filter(n => n.empleado_id === empId).sort((a, b) => a.mes - b.mes)
+
+  return (
+    <div>
+      <select
+        value={anio} onChange={e => setAnio(parseInt(e.target.value))}
+        style={{ background: BLANCO, border: `3px solid ${INK}`, color: INK, padding: '6px 10px', fontFamily: OSW, fontSize: 12, fontWeight: 600, marginBottom: 14, cursor: 'pointer', outline: 'none' }}
+      >
+        {[anioActual - 1, anioActual, anioActual + 1].map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
+
+      <FichaEmpleadoAcumulados empleadoId={empId} anio={anio} />
+
+      {loading ? (
+        <div style={{ padding: 20, textAlign: 'center', color: GRIS, fontFamily: FONT.body, fontSize: 13 }}>Cargando…</div>
+      ) : nominasEmp.length === 0 ? (
+        <div style={{ padding: 20, textAlign: 'center', color: GRIS, fontFamily: FONT.body, fontSize: 13 }}>Sin nóminas cargadas en {anio}.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {nominasEmp.map(n => (
+            <div
+              key={n.id} onClick={() => setVerNomina(n)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexWrap: 'wrap',
+                border: `2px solid ${INK}`, borderLeft: `6px solid ${clasifColor(n.clasificacion)}`, padding: '8px 12px', background: BLANCO,
+              }}
+            >
+              <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12, minWidth: 80 }}>{MESES_LARGO[n.mes - 1]}</span>
+              <span style={{ fontFamily: FONT.body, fontSize: 12, color: GRIS }}>Neto {fmtEur(n.importe_neto, { decimals: 2 })}</span>
+              <span style={{ marginLeft: 'auto', fontFamily: OSW, fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: clasifColor(n.clasificacion) }}>{clasifLabel(n.clasificacion)}</span>
+              <ChevronRight size={14} color={GRIS} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {verNomina && <ModalVerNomina n={verNomina} onClose={() => setVerNomina(null)} onConfirmado={reload} />}
+    </div>
+  )
+}
+
 function ListaHijos({ T, filas, vacios }: { T: any; vacios: string; filas: { id: string; izq: string; centro: string; estado: string; nota: string | null; onDel: () => void }[] }) {
   if (!filas.length) return <div style={{ padding: '18px 0', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>{vacios}</div>
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
       {filas.map(f => (
-        <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: T.group, border: `1px solid ${T.brd}`, borderRadius: 8 }}>
+        <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: T.group, border: `1px solid ${T.brd}`, borderRadius: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri }}>{f.izq} · <span style={{ color: T.sec }}>{f.centro}</span></div>
             {f.nota && <div style={{ fontSize: 11, color: T.mut, marginTop: 2 }}>{f.nota}</div>}
@@ -347,17 +409,17 @@ function ListaHijos({ T, filas, vacios }: { T: any; vacios: string; filas: { id:
 
 function ListaDocumentos({ T, docs, onDel }: { T: any; docs: Documento[]; onDel: (id: string) => void }) {
   if (!docs.length) return <div style={{ padding: '18px 0', textAlign: 'center', color: T.mut, fontFamily: FONT.body, fontSize: 13 }}>Sin documentos. Sube el contrato, nóminas, bajas…</div>
-  const tipoColor: Record<string, string> = { Contrato: AZUL_CL, 'Nómina': VERDE, Baja: '#e8b341', Otro: '#888' }
+  const tipoColor: Record<string, string> = { Contrato: AZUL_CL, 'Nómina': VERDE, Baja: AMA, Otro: GRIS }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
       {docs.map(d => (
-        <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: T.group, border: `1px solid ${T.brd}`, borderRadius: 8 }}>
+        <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: T.group, border: `1px solid ${T.brd}`, borderRadius: 0 }}>
           <FileIcon size={16} style={{ color: T.mut, flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.pri, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.nombre}</div>
             <div style={{ fontSize: 11, color: T.mut, marginTop: 2 }}>{d.fecha ?? ''}</div>
           </div>
-          <Chip color={tipoColor[d.tipo] ?? '#888'}>{d.tipo}</Chip>
+          <Chip color={tipoColor[d.tipo] ?? GRIS}>{d.tipo}</Chip>
           {d.url && <a href={d.url} target="_blank" rel="noreferrer" style={{ color: AZUL_CL, display: 'flex', padding: 4 }}><ExternalLink size={14} /></a>}
           <button onClick={() => onDel(d.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GRANATE, padding: 4 }}><Trash2 size={14} /></button>
         </div>
@@ -390,7 +452,7 @@ function AltaDocumento({ empId, onSaved, inputStyle, T, setError }: { empId: str
       <div><label style={lblMini(T)}>Fecha</label><input type="date" style={inputStyle} value={fecha} onChange={e => setFecha(e.target.value)} /></div>
       <div style={{ gridColumn: '1 / -1' }}><label style={lblMini(T)}>Nombre (opcional)</label><input style={inputStyle} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Nómina mayo 2026" /></div>
       <div style={{ gridColumn: '1 / -1' }}>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 8, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 0, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}>
           <Upload size={14} />{subiendo ? 'Subiendo…' : 'Subir documento'}
           <input type="file" accept="application/pdf,image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) subir(f) }} />
         </label>
@@ -452,5 +514,5 @@ function AltaAnticipo({ empId, onSaved, inputStyle, T }: { empId: string; onSave
   )
 }
 
-const btnAdd: React.CSSProperties = { padding: '8px 16px', borderRadius: 6, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }
+const btnAdd: React.CSSProperties = { padding: '8px 16px', borderRadius: 0, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }
 const lblMini = (T: any): React.CSSProperties => ({ fontFamily: FONT.heading, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', color: T.mut, marginBottom: 3, display: 'block' })

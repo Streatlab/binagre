@@ -44,7 +44,7 @@ export default function PanelCierre() {
             <div style={{
               width: `${Math.min(pct, 100)}%`,
               background: color,
-              borderRadius: 4,
+              borderRadius: 0,
               transition: 'width 600ms ease',
             }} />
           </div>
@@ -77,7 +77,7 @@ function MetricChip({ label, value, color }: { label: string; value: number; col
   return (
     <div style={{
       background: COLORS.group,
-      borderRadius: 10,
+      borderRadius: 0,
       padding: '10px 14px',
       display: 'flex',
       flexDirection: 'column',

@@ -8,8 +8,9 @@
 import React, { useMemo, useState } from "react";
 import { useAnalisisHV, BLOQUES_ORDEN, type FilaCategoria, } from "../../lib/finanzas/useAnalisisHV";
 import {
-  OSW, LEX, INK, CREMA, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
+  OSW, LEX, INK, CREMA, SHADOW, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
 import { fmtEur, fmtPct } from "@/lib/format";
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera';
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -26,8 +27,6 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
   const hv = useAnalisisHV(año);
 
   const añosDisponibles = useMemo(() => [añoActual, añoActual - 1, añoActual - 2], [añoActual]);
-
-  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW };
 
   if (hv.loading) {
     return (
@@ -46,19 +45,13 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
   const mejora = deltaTendencia != null && deltaTendencia < 0;
   const empeora = deltaTendencia != null && deltaTendencia > 0;
 
-  return (
-    <div style={{ fontFamily: LEX, padding: embedded ? 0 : 28, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : "100vh", color: INK }}>
+  const tendenciaTexto = deltaTendencia == null ? null : mejora ? 'mejora' : empeora ? 'empeora' : 'estable'
 
-      <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-        {!embedded && (
-          <div>
-            <span style={eyebrow(NAR, BLANCO)}>FINANZAS</span>
-            <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
-              ANÁLISIS HORIZONTAL / VERTICAL
-            </h1>
-            <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Peso de cada gasto sobre ventas y su evolución mes a mes</span>
-          </div>
-        )}
+  return (
+    <PantallaCantera embedded={embedded} style={{ fontFamily: LEX, color: INK }}>
+
+      {/* Filtros propios arriba-derecha */}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <select
           value={año}
           onChange={e => setAño(Number(e.target.value))}
@@ -68,50 +61,77 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
         </select>
       </div>
 
-      {/* Hero KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 20 }}>
-        <div style={{ ...card, padding: "16px 20px", background: hv.categoriaAlerta ? ROJO : BLANCO }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: hv.categoriaAlerta ? BLANCO : GRIS, marginBottom: 6 }}>
-            Gasto que más creció este mes
-          </div>
-          {hv.categoriaAlerta ? (
-            <>
-              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, color: BLANCO }}>
-                ⚠ {hv.categoriaAlerta.label}
-              </div>
-              <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
-                {fmtDeltaPP(hv.categoriaAlerta.deltaPP)} sobre ventas frente al mes anterior · se come el margen
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, color: INK }}>Sin variación destacada</div>
-              <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 6 }}>Ningún gasto ha subido su peso sobre ventas este mes</div>
-            </>
-          )}
-        </div>
+      {/* 1 · Héroe del área Resultados (amarillo) */}
+      <HeroCantera
+        area="eeff"
+        periodo={mesR != null ? `${MESES[mesR - 1]} ${año}` : String(año)}
+        titular={hv.categoriaAlerta ? <>El gasto de <b>{hv.categoriaAlerta.label}</b> es el que más sube sobre ventas este mes.</> : 'Los gastos se mantienen estables sobre ventas este mes.'}
+        etiquetaDato="% gasto total sobre ventas"
+        cifra={pctGastoMesR != null ? fmtPct(pctGastoMesR, 1) : "—"}
+        resumen={deltaTendencia == null ? 'Sin mes anterior para comparar.' : <>{fmtDeltaPP(deltaTendencia)} de gasto sobre ventas vs. mes anterior · tendencia <b>{tendenciaTexto}</b>.</>}
+        atencion={[
+          hv.categoriaAlerta ? `Gasto que más crece: ${hv.categoriaAlerta.label}` : 'Sin variación destacada',
+          mesR != null ? `Último mes con ventas: ${MESES[mesR - 1]} ${año}` : 'Sin ventas registradas',
+          tendenciaTexto ? `Tendencia ${tendenciaTexto}` : null,
+        ].filter(Boolean) as string[]}
+      />
 
-        <div style={{ ...card, padding: "16px 20px" }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: GRIS, marginBottom: 6 }}>% gasto total sobre ventas</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color: INK }}>{pctGastoMesR != null ? fmtPct(pctGastoMesR, 1) : "—"}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 6 }}>
-            {mesR != null ? `${MESES[mesR - 1]} ${año} · último mes con ventas registradas` : "Sin ventas registradas en este año"}
-          </div>
-        </div>
+      {/* 2 · Plancha comparativa (celdas sólidas pegadas) */}
+      <div>
+        <SeccionLabel bg={AMA} color={INK}>Gasto que más crece · % sobre ventas · tendencia</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={hv.categoriaAlerta ? ROJO : BLANCO} color={hv.categoriaAlerta ? BLANCO : INK} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", marginBottom: 6 }}>
+              Gasto que más creció este mes
+            </div>
+            {hv.categoriaAlerta ? (
+              <>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1.1 }}>
+                  ⚠ {hv.categoriaAlerta.label}
+                </div>
+                <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 6 }}>
+                  {fmtDeltaPP(hv.categoriaAlerta.deltaPP)} sobre ventas frente al mes anterior · se come el margen
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1.1 }}>Sin variación destacada</div>
+                <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 6 }}>Ningún gasto ha subido su peso sobre ventas este mes</div>
+              </>
+            )}
+          </PlanchaCelda>
 
-        <div style={{ ...card, padding: "16px 20px", background: mejora ? VERDE : empeora ? ROJO : BLANCO }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: mejora || empeora ? BLANCO : GRIS, marginBottom: 6 }}>Tendencia</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1, color: mejora || empeora ? BLANCO : INK }}>
-            {deltaTendencia == null ? "—" : mejora ? "Mejora" : empeora ? "Empeora" : "Estable"}
-          </div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: mejora || empeora ? BLANCO : GRIS, marginTop: 6 }}>
-            {deltaTendencia == null ? "Sin mes anterior para comparar" : `${fmtDeltaPP(deltaTendencia)} de gasto sobre ventas vs. mes anterior`}
-          </div>
-        </div>
+          <PlanchaCelda bg={BLANCO}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", color: GRIS, marginBottom: 6 }}>% gasto total sobre ventas</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 28, lineHeight: 1 }}>{pctGastoMesR != null ? fmtPct(pctGastoMesR, 1) : "—"}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 6 }}>
+              {mesR != null ? `${MESES[mesR - 1]} ${año} · último mes con ventas registradas` : "Sin ventas registradas en este año"}
+            </div>
+          </PlanchaCelda>
+
+          <PlanchaCelda bg={mejora ? VERDE : empeora ? ROJO : BLANCO} color={mejora || empeora ? BLANCO : INK}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: "2px", textTransform: "uppercase", marginBottom: 6 }}>Tendencia</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, lineHeight: 1.1 }}>
+              {deltaTendencia == null ? "—" : mejora ? "Mejora" : empeora ? "Empeora" : "Estable"}
+            </div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 6 }}>
+              {deltaTendencia == null ? "Sin mes anterior para comparar" : `${fmtDeltaPP(deltaTendencia)} de gasto sobre ventas vs. mes anterior`}
+            </div>
+          </PlanchaCelda>
+        </Plancha>
       </div>
 
+      {/* 3 · Frase potente (color por significado, distinto del héroe amarillo) */}
+      {hv.categoriaAlerta
+        ? <FrasePotente significado="peligro">{hv.categoriaAlerta.label} es el gasto que más sube sobre ventas: revisa antes de que se coma el margen.</FrasePotente>
+        : mejora
+        ? <FrasePotente significado="logro">Los gastos bajan su peso sobre ventas: el margen respira este mes.</FrasePotente>
+        : empeora
+        ? <FrasePotente significado="coste">El gasto total sube su peso sobre ventas: vigila antes de que erosione el margen.</FrasePotente>
+        : <FrasePotente significado="oportunidad">Los gastos se mantienen estables sobre ventas: buen momento para negociar mejoras.</FrasePotente>}
+
       {/* Toggle de vista */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8 }}>
         {([
           ["vertical", "Vertical · % sobre ventas"],
           ["horizontal", "Horizontal · variación mes a mes"],
@@ -127,7 +147,8 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
         ))}
       </div>
 
-      <div style={{ ...card, overflowX: "auto" }}>
+      {/* Tabla — papel (sin sombra) */}
+      <Papel ceja={GRANATE} pad="0" style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: LEX, minWidth: 920 }}>
           <thead>
             <tr style={{ background: INK }}>
@@ -198,13 +219,13 @@ export function AnalisisHorizontalVertical({ embedded = false }: { embedded?: bo
             })}
           </tbody>
         </table>
-      </div>
+      </Papel>
 
-      <div style={{ marginTop: 14, fontFamily: LEX, fontSize: 12, color: GRIS }}>
+      <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>
         Vertical: % de cada bloque de gasto sobre las ventas de ese mes · Horizontal: variación % del importe de cada bloque respecto al mes anterior.
         Enero no tiene mes anterior dentro del año → se muestra “—”.
       </div>
-    </div>
+    </PantallaCantera>
   );
 }
 

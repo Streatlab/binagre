@@ -1,0 +1,89 @@
+name: Robot Pantallas Uber (lunes 02:00 Madrid)
+
+# Captura lo que Uber NO deja exportar y solo se ve en pantalla: comparativa de
+# mercado, segmentos de cliente, ventas por hora, códigos postales y el detalle
+# de operaciones. No descarga ficheros: guarda en la tabla uber_pantallas.
+#
+# HORA. Lunes 02:00 Madrid. Uber refresca la comparativa de mercado el domingo
+# de madrugada, así que a esa hora la semana cerrada ya está firme. Además no
+# hay ningún otro robot corriendo y no se pisa la sesión de Uber con la pasada
+# de plataformas de las 04:00.
+#
+# BLOQUEO CERO: el schedule corre en master pero el código vive en trabajo →
+# checkout con ref: trabajo hasta la fusión definitiva.
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"   # 02:00 Madrid (verano)
+    - cron: "0 1 * * 1"   # 02:00 Madrid (invierno)
+  workflow_dispatch:
+    inputs:
+      simulacro:
+        description: "1 = solo mira, no guarda nada"
+        type: choice
+        options: ["0", "1"]
+        default: "0"
+      tienda:
+        description: "Solo una tienda (uuid o parte del nombre). Vacío = todas"
+        type: string
+        default: ""
+      minutos:
+        description: "Tope de minutos de la corrida"
+        type: string
+        default: "50"
+
+jobs:
+  pantallas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Candado horario (solo lunes 02:00 Madrid)
+        id: candado
+        run: |
+          H=$(TZ=Europe/Madrid date +%H)
+          DOW=$(TZ=Europe/Madrid date +%u)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || { [ "$H" = "02" ] && [ "$DOW" = "1" ]; }; then
+            echo "seguir=1" >> $GITHUB_OUTPUT
+          else
+            echo "seguir=0" >> $GITHUB_OUTPUT
+            echo "En Madrid son las $H:00 del día $DOW (1=lunes), no toca."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.candado.outputs.seguir == '1'
+        with:
+          ref: trabajo
+      - uses: actions/setup-node@v4
+        if: steps.candado.outputs.seguir == '1'
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Instalar dependencias
+        if: steps.candado.outputs.seguir == '1'
+        run: npm install --no-audit --no-fund
+      - name: Cache navegador Playwright
+        id: cache-playwright
+        if: steps.candado.outputs.seguir == '1'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Instalar navegador Playwright
+        if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Dependencias de sistema (con cache)
+        if: steps.candado.outputs.seguir == '1' && steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Pantalla virtual (xvfb) para headful
+        if: steps.candado.outputs.seguir == '1'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Mirar las pantallas y guardar lo que se ve
+        if: steps.candado.outputs.seguir == '1'
+        env:
+          ROBOT_DRY: ${{ github.event.inputs.simulacro }}
+          UBER_PANTALLAS_TIENDA: ${{ github.event.inputs.tienda }}
+          UBER_PANTALLAS_MAX_MIN: ${{ github.event.inputs.minutos || '50' }}
+          SUPABASE_URL: https://eryauogxcpbgdryeimdq.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: xvfb-run -a npx tsx scripts/robot-ingesta/uber-pantallas.ts

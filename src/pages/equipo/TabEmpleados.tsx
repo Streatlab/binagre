@@ -1,192 +1,285 @@
-import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
-import { useEffect, useState } from 'react'
-import { UserPlus, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
+/**
+ * TabEmpleados (pestaña "Personas") — rejilla de tarjetas, una por empleado
+ * activo de plantilla o extra (los socios no tienen ficha de empleado: nunca
+ * tienen nómina, LEY-PRUDENCIA-01 regla 2). Cada tarjeta muestra la realidad
+ * real de su tipo: plantilla con nómina real, Emilio con cálculo automático
+ * (v_nomina_emilio, nunca "Falta nómina" — a él no le llega PDF, es correcto
+ * que no exista fila en `nominas`), Fernando (extra) con lo pagado por Bizum
+ * del mes. Clic en la tarjeta abre su ficha (nóminas del año + acumulados);
+ * el icono de editar (abajo a la derecha, no en la cabecera) abre sus datos.
+ */
+import { useEffect, useMemo, useState } from 'react'
+import { UserPlus, Archive, ArchiveRestore, Trash2, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, cardStyle } from '@/styles/tokens'
+import { useNominasCompletas } from '@/lib/equipo/useNominasCompletas'
+import { buscarBizumMes } from '@/lib/equipo/bizumExtra'
+import { fmtEur, fmtDate } from '@/lib/format'
 import ModalEmpleado, { type Empleado } from '@/components/equipo/ModalEmpleado'
+import { MESES_LARGO } from '@/components/equipo/NominaSoloLectura'
 import { archivarEmpleado, reactivarEmpleado, eliminarEmpleadoDuro } from '@/components/equipo/horarios/personal'
+import { OSW, LEX, INK, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, AZUL, GRIS, BLANCO, eyebrow } from '@/styles/neobrutal'
+import { HeroCantera, Papel, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
-type EstadoEmpleado = 'activo' | 'baja' | 'vacaciones' | 'despedido' | 'inactivo'
+const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
 
-function estadoColor(estado: EstadoEmpleado): string {
-  if (estado === 'activo') return VERDE
-  if (estado === 'baja') return '#888'
-  if (estado === 'vacaciones') return AZUL_CL
-  return GRANATE
+interface NominaEmilioMes {
+  adeudado: number
 }
 
-function esArchivado(estado: string): boolean {
-  return ['inactivo', 'baja', 'despedido'].includes(estado)
-}
-
-function calcAntiguedad(fechaAlta?: string | null): string {
-  if (!fechaAlta) return '—'
-  const diff = Date.now() - new Date(fechaAlta + 'T12:00:00').getTime()
-  const years = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25))
-  const months = Math.floor((diff % (1000 * 60 * 60 * 24 * 365.25)) / (1000 * 60 * 60 * 24 * 30.44))
-  if (years > 0) return `${years}a ${months}m`
-  return `${months} mes${months !== 1 ? 'es' : ''}`
-}
-
-function Avatar({ nombre, color, foto }: { nombre: string; color?: string; foto?: string | null }) {
+function Avatar({ nombre, foto, apagado }: { nombre: string; foto?: string | null; apagado?: boolean }) {
   const initials = nombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
   return (
     <div style={{
-      width: 36, height: 36, borderRadius: '50%',
-      background: color ?? GRANATE, overflow: 'hidden',
+      width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+      background: apagado ? GRIS : GRANATE, overflow: 'hidden',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color: BLANCO,
-      flexShrink: 0,
+      fontFamily: OSW, fontSize: 14, fontWeight: 700, color: BLANCO,
     }}>
       {foto ? <img src={foto} alt={nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
     </div>
   )
 }
 
-export default function TabEmpleados() {
-  const { T, isDark } = useTheme()
-  const [empleados, setEmpleados] = useState<Empleado[]>([])
-  const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState<{ open: boolean; empleado: Empleado | null }>({ open: false, empleado: null })
+function Badge({ label, bg, color }: { label: string; bg: string; color: string }) {
+  return (
+    <span style={{
+      display: 'inline-block', fontFamily: OSW, fontSize: 10, fontWeight: 600, letterSpacing: '0.5px',
+      textTransform: 'uppercase', border: `2px solid ${INK}`, padding: '2px 8px', background: bg, color,
+    }}>{label}</span>
+  )
+}
 
-  async function fetch() {
+export default function TabEmpleados() {
+  const hoy = new Date()
+  const mesActual = hoy.getMonth() + 1
+  const anioActual = hoy.getFullYear()
+
+  const [empleados, setEmpleados] = useState<Empleado[]>([])
+  const [loadingBase, setLoadingBase] = useState(true)
+  const [verArchivados, setVerArchivados] = useState(false)
+  const [modal, setModal] = useState<{ open: boolean; empleado: Empleado | null; tabInicial?: 'personales' | 'nominas' }>({ open: false, empleado: null })
+  const [bizumPorExtra, setBizumPorExtra] = useState<Record<string, { importe: number; fecha: string } | null>>({})
+  const [emilioMes, setEmilioMes] = useState<NominaEmilioMes | null>(null)
+
+  const { loading: loadingNominas, nominas } = useNominasCompletas(anioActual)
+
+  async function fetchEmpleados() {
+    setLoadingBase(true)
     const { data, error } = await supabase
       .from('empleados')
-      .select('id, nombre, nif, iban, salario, fecha_alta, estado, datos_personales, drive_folder_id, cargo, email, foto_url, dias_vacaciones_anuales')
+      .select('id, nombre, nif, iban, salario, fecha_alta, estado, datos_personales, drive_folder_id, cargo, email, foto_url, dias_vacaciones_anuales, tipo_relacion')
       .order('nombre')
     if (!error) setEmpleados((data ?? []) as Empleado[])
-    setLoading(false)
+    setLoadingBase(false)
   }
+  useEffect(() => { fetchEmpleados() }, [])
 
-  useEffect(() => { fetch() }, [])
+  // Cálculo automático de Emilio del mes en curso: no le llega PDF, nunca tiene
+  // fila en `nominas` — su coste real sale de v_nomina_emilio, no de esa tabla.
+  useEffect(() => {
+    let cancelado = false
+    supabase.from('v_nomina_emilio').select('adeudado').eq('mes', mesActual).eq('anio', anioActual).maybeSingle()
+      .then(({ data }) => { if (!cancelado) setEmilioMes((data as NominaEmilioMes | null) ?? null) })
+    return () => { cancelado = true }
+  }, [mesActual, anioActual])
 
-  async function onArchivar(emp: Empleado) {
-    if (esArchivado(emp.estado as string)) {
+  const personas = useMemo(() => {
+    // Socios (Rubén) nunca aparecen como empleados: no tienen nómina ni ficha aquí.
+    const base = empleados.filter(e => e.tipo_relacion !== 'socio')
+    return verArchivados ? base : base.filter(e => e.estado === 'activo')
+  }, [empleados, verArchivados])
+
+  // Extras (Fernando): pago por Bizum del mes en curso, buscado por nombre real en conciliación.
+  useEffect(() => {
+    let cancelado = false
+    const extras = personas.filter(e => e.tipo_relacion === 'extra')
+    Promise.all(extras.map(async e => [e.id!, await buscarBizumMes(supabase, e.nombre, mesActual, anioActual)] as const))
+      .then(pares => { if (!cancelado) setBizumPorExtra(Object.fromEntries(pares)) })
+    return () => { cancelado = true }
+  }, [personas, mesActual, anioActual])
+
+  async function onArchivar(emp: Empleado, e: React.MouseEvent) {
+    e.stopPropagation()
+    const archivado = emp.estado !== 'activo'
+    if (archivado) {
       await reactivarEmpleado(emp.id!)
     } else {
       if (!window.confirm(`¿Pasar a ${emp.nombre} a antiguos empleados? Deja de aparecer en horarios pero conserva su histórico.`)) return
       await archivarEmpleado(emp.id!)
     }
-    fetch()
+    fetchEmpleados()
   }
 
-  async function onBorrar(emp: Empleado) {
+  async function onBorrar(emp: Empleado, e: React.MouseEvent) {
+    e.stopPropagation()
     if (!window.confirm(`BORRAR DEFINITIVAMENTE a ${emp.nombre}. Se elimina su ficha y sus horarios. Esta acción NO se puede deshacer. ¿Continuar?`)) return
     await eliminarEmpleadoDuro(emp.id!)
-    fetch()
+    fetchEmpleados()
   }
 
-  const th: React.CSSProperties = {
-    padding: '10px 14px', fontFamily: FONT.heading, fontSize: 10,
-    textTransform: 'uppercase', letterSpacing: '2px', color: T.mut,
-    fontWeight: 400, background: T.group, textAlign: 'left',
-  }
-  const thSticky: React.CSSProperties = { ...th, position: 'sticky', left: 0, zIndex: 5 }
-  const td: React.CSSProperties = { padding: '12px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
-  const tdSticky: React.CSSProperties = { ...td, position: 'sticky', left: 0, zIndex: 5, background: 'var(--sl-app)' }
+  const loading = loadingBase || loadingNominas
+  const mesLabel = `${MESES_LARGO[mesActual - 1].toLowerCase()} ${anioActual}`
 
-  const accionBtn: React.CSSProperties = {
-    width: 30, height: 30, borderRadius: 6, border: `1px solid ${T.brd}`,
-    background: T.card, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-  }
+  // Agregado solo para el héroe visual (no altera el cálculo por tarjeta, que sigue igual abajo).
+  const activosHero = useMemo(() => empleados.filter(e => e.tipo_relacion !== 'socio' && e.estado === 'activo'), [empleados])
+  const { totalCosteMesHero, pendientesHero } = useMemo(() => {
+    let total = 0, pendientes = 0
+    for (const emp of activosHero) {
+      const esExtra = emp.tipo_relacion === 'extra'
+      const esEmilio = /emilio/i.test(emp.nombre)
+      if (esEmilio) { const a = emilioMes ? emilioMes.adeudado : null; if (a != null) total += a }
+      else if (esExtra) { const b = bizumPorExtra[emp.id!]; if (b?.importe != null) total += b.importe }
+      else {
+        const nomMes = nominas.filter(n => n.empleado_id === emp.id).find(n => n.mes === mesActual)
+        if (nomMes) {
+          total += nomMes.clasificacion === 'sin_pago' ? (nomMes.importe_neto ?? 0) : (nomMes.totalPagado ?? 0)
+          if (nomMes.estado === 'revisar') pendientes += 1
+        }
+      }
+    }
+    return { totalCosteMesHero: total, pendientesHero: pendientes }
+  }, [activosHero, nominas, mesActual, emilioMes, bizumPorExtra])
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <span style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut }}>
-          {empleados.length} empleado{empleados.length !== 1 ? 's' : ''}
-        </span>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={`Tu equipo son ${activosHero.length} persona${activosHero.length !== 1 ? 's' : ''}`}
+        etiquetaDato={`Coste del equipo · ${mesLabel}`}
+        cifra={fmtEur(totalCosteMesHero, { decimals: 0 })}
+        resumen={pendientesHero > 0
+          ? <>{pendientesHero} nómina{pendientesHero !== 1 ? 's' : ''} pendiente{pendientesHero !== 1 ? 's' : ''} de revisar este mes.</>
+          : 'Todo el equipo está al día este mes.'}
+        atencion={[
+          pendientesHero > 0 ? `${pendientesHero} nóminas pendientes` : null,
+          `${activosHero.length} activos`,
+        ]}
+      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: OSW, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase', color: GRIS, cursor: 'pointer' }}>
+          <input type="checkbox" checked={verArchivados} onChange={e => setVerArchivados(e.target.checked)} />
+          Ver antiguos empleados también
+        </label>
         <button
           onClick={() => setModal({ open: true, empleado: null })}
-          style={{ padding: '12px 16px', minHeight: 44, borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            border: `3px solid ${INK}`, boxShadow: SHADOW, background: AMA, color: INK,
+            fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase',
+            padding: '8px 14px', cursor: 'pointer',
+          }}
         >
-          <UserPlus size={14} />
-          Nuevo empleado
+          <UserPlus size={13} /> Nuevo empleado
         </button>
       </div>
 
-      <div style={{ ...cardStyle(T), padding: 0, overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando empleados…</div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${T.brd}` }}>
-                <th style={thSticky}>Empleado</th>
-                <th style={th}>NIF</th>
-                <th style={{ ...th, display: isDark ? undefined : 'none' } as React.CSSProperties}>Cargo</th>
-                <th style={th}>Antigüedad</th>
-                <th style={th}>Estado</th>
-                <th style={{ ...th, textAlign: 'right' }}>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {empleados.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '40px 24px', textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>
-                    Sin empleados registrados. Añade el primero.
-                  </td>
-                </tr>
-              ) : empleados.map(emp => {
-                const archivado = esArchivado(emp.estado as string)
-                return (
-                <tr
-                  key={emp.id}
-                  onClick={() => setModal({ open: true, empleado: emp })}
-                  style={{ borderBottom: `1px solid ${T.brd}`, cursor: 'pointer', opacity: archivado ? 0.6 : 1 }}
-                  onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <td style={tdSticky}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Avatar nombre={emp.nombre} foto={emp.foto_url} color={archivado ? '#444' : undefined} />
-                      <div>
-                        <div style={{ fontWeight: 600, color: T.pri }}>{emp.nombre}</div>
-                        <div style={{ fontSize: 11, color: T.mut }}>{emp.datos_personales?.email || emp.email || '—'}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td style={{ ...td, color: T.sec, fontSize: 12 }}>{emp.nif || '—'}</td>
-                  <td style={{ ...td, color: T.sec, display: isDark ? undefined : 'none' } as React.CSSProperties}>{emp.cargo || '—'}</td>
-                  <td style={{ ...td, color: T.sec, fontSize: 12 }}>{calcAntiguedad(emp.fecha_alta)}</td>
-                  <td style={td}>
-                    <span style={{
-                      display: 'inline-flex', padding: '4px 10px', borderRadius: 4,
-                      fontSize: 10, letterSpacing: '1px', fontWeight: 600,
-                      textTransform: 'uppercase', fontFamily: FONT.heading,
-                      background: estadoColor(emp.estado as EstadoEmpleado) + '25',
-                      color: estadoColor(emp.estado as EstadoEmpleado),
-                    }}>
-                      {emp.estado}
-                    </span>
-                  </td>
-                  <td style={{ ...td, textAlign: 'right' }} onClick={e => e.stopPropagation()}>
-                    <div style={{ display: 'inline-flex', gap: 6 }}>
-                      <button onClick={() => onArchivar(emp)} style={accionBtn}
-                        title={archivado ? 'Reactivar' : 'Pasar a antiguos'}>
-                        {archivado ? <ArchiveRestore size={15} color={VERDE} /> : <Archive size={15} color={T.sec} />}
-                      </button>
-                      <button onClick={() => onBorrar(emp)} style={accionBtn} title="Borrar definitivamente">
-                        <Trash2 size={15} color={GRANATE} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )})}
-            </tbody>
-          </table>
-          </div>
-        )}
-      </div>
+      <SeccionLabel bg={GRANATE}>Plantilla</SeccionLabel>
+      {loading ? (
+        <div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Cargando…</div>
+      ) : personas.length === 0 ? (
+        <Papel ceja={GRANATE} style={{ padding: 40, textAlign: 'center', color: GRIS, fontFamily: LEX }}>Sin empleados. Añade el primero.</Papel>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14, alignItems: 'stretch' }}>
+          {personas.map(emp => {
+            const esExtra = emp.tipo_relacion === 'extra'
+            const esEmilio = /emilio/i.test(emp.nombre)
+            const archivado = emp.estado !== 'activo'
+            const nominasEmp = nominas.filter(n => n.empleado_id === emp.id)
+            const nomMes = !esExtra && !esEmilio ? nominasEmp.find(n => n.mes === mesActual) : undefined
+            const pendientes = nominasEmp.filter(n => n.estado === 'revisar').length
+            const bizum = esExtra ? bizumPorExtra[emp.id!] : undefined
+
+            // Fila 2 — UNA sola etiqueta de estado general.
+            let estadoGeneral: string
+            if (esExtra || esEmilio) estadoGeneral = 'Al día'
+            else if (!nomMes) estadoGeneral = 'Falta nómina'
+            else if (pendientes > 0) estadoGeneral = `${pendientes} pendiente${pendientes !== 1 ? 's' : ''}`
+            else estadoGeneral = 'Al día'
+            const estadoGeneralBg = estadoGeneral === 'Al día' ? CLARO : estadoGeneral === 'Falta nómina' ? GRIS : AMA
+
+            // Fila 3 — coste del mes (real por tipo).
+            let costeMes: number | null = null
+            if (esEmilio) costeMes = emilioMes?.adeudado ?? null
+            else if (esExtra) costeMes = bizum?.importe ?? null
+            else if (nomMes) costeMes = nomMes.clasificacion === 'sin_pago' ? nomMes.importe_neto : nomMes.totalPagado
+
+            // Fila 4 — estado real de la nómina del mes, con el significado correcto por tipo.
+            let fila4: { label: string; bg: string; color: string; detalle?: string } | null = null
+            if (esEmilio) {
+              fila4 = { label: 'Cálculo auto', bg: GRANATE, color: BLANCO, detalle: emilioMes ? fmtEur(emilioMes.adeudado, { decimals: 2 }) : '—' }
+            } else if (esExtra) {
+              fila4 = bizum
+                ? { label: 'Extra · pago por Bizum', bg: AZUL, color: BLANCO, detalle: `${fmtEur(bizum.importe, { decimals: 2 })} · ${fmtDate(bizum.fecha)}` }
+                : { label: 'Extra · pago por Bizum', bg: CLARO, color: GRIS, detalle: 'Sin pagos este mes' }
+            } else if (nomMes) {
+              fila4 = nomMes.clasificacion === 'sin_pago'
+                ? { label: 'Comprometida', bg: AMA, color: INK, detalle: fmtEur(nomMes.importe_neto, { decimals: 2 }) }
+                : { label: 'Pagada ✓', bg: VERDE, color: BLANCO, detalle: `${fmtEur(nomMes.totalPagado, { decimals: 2 })} · ${fmtDate(nomMes.pagos.find(p => p.confirmado)?.fecha ?? '')}` }
+            }
+
+            return (
+              <div
+                key={emp.id}
+                onClick={() => setModal({ open: true, empleado: emp, tabInicial: 'nominas' })}
+                style={{ ...card, padding: 14, cursor: 'pointer', opacity: archivado ? 0.55 : 1, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 220 }}
+              >
+                {/* Fila 1 */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <Avatar nombre={emp.nombre} foto={emp.foto_url} apagado={archivado} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{
+                      fontFamily: OSW, fontWeight: 700, fontSize: 14, color: INK, lineHeight: 1.25,
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word',
+                    }}>{emp.nombre}</div>
+                    <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, marginTop: 2 }}>{emp.cargo || (esExtra ? 'Extra' : 'Plantilla')}</div>
+                  </div>
+                </div>
+
+                {/* Fila 2 — una sola etiqueta de estado */}
+                <div><Badge label={estadoGeneral} bg={estadoGeneralBg} color={INK} /></div>
+
+                {/* Fila 3 — coste del mes */}
+                <div>
+                  <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, color: INK, lineHeight: 1 }}>
+                    {costeMes != null ? fmtEur(costeMes, { decimals: 2 }) : '—'}
+                  </div>
+                  <div style={{ fontFamily: LEX, fontSize: 10.5, color: GRIS, marginTop: 2 }}>coste del mes ({mesLabel})</div>
+                </div>
+
+                {/* Fila 4 — estado real de la nómina del mes */}
+                {fila4 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <Badge label={fila4.label} bg={fila4.bg} color={fila4.color} />
+                    {fila4.detalle && <span style={{ fontFamily: LEX, fontSize: 11, color: GRIS }}>{fila4.detalle}</span>}
+                  </div>
+                )}
+
+                <div style={{ flex: 1 }} />
+
+                {/* Acciones — abajo a la derecha, nunca en la cabecera */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }} onClick={e => e.stopPropagation()}>
+                  <button onClick={() => setModal({ open: true, empleado: emp, tabInicial: 'personales' })} title="Editar datos" style={accionBtn}><Pencil size={13} color={GRIS} /></button>
+                  <button onClick={e => onArchivar(emp, e)} title={archivado ? 'Reactivar' : 'Pasar a antiguos'} style={accionBtn}>
+                    {archivado ? <ArchiveRestore size={13} color={VERDE} /> : <Archive size={13} color={GRIS} />}
+                  </button>
+                  <button onClick={e => onBorrar(emp, e)} title="Borrar definitivamente" style={accionBtn}><Trash2 size={13} color={GRANATE} /></button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {modal.open && (
         <ModalEmpleado
           empleado={modal.empleado}
+          tabInicial={modal.tabInicial}
           onClose={() => setModal({ open: false, empleado: null })}
-          onSaved={() => { fetch(); setModal({ open: false, empleado: null }) }}
+          onSaved={() => { fetchEmpleados(); setModal({ open: false, empleado: null }) }}
         />
       )}
-    </div>
+    </PantallaCantera>
   )
 }
+
+const accionBtn: React.CSSProperties = { width: 26, height: 26, border: `2px solid ${INK}`, background: BLANCO, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }

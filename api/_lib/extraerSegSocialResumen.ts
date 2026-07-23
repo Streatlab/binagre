@@ -24,18 +24,19 @@ export interface ResultadoSegSocial {
   anio: number | null
 }
 
-const PROMPT = `Eres un extractor de datos del Recibo de Liquidación de Cotizaciones (RLC) o resumen mensual de cotización a la Seguridad Social de una empresa española. Recibes el texto OCR de UN documento. Devuelve SOLO un objeto JSON válido, sin texto alrededor, con EXACTAMENTE estas claves:
+const PROMPT = `Eres un extractor de datos del Recibo de Liquidación de Cotizaciones (RLC) de la Seguridad Social de una empresa española. Recibes el texto OCR de UN documento. Devuelve SOLO un objeto JSON válido, sin texto alrededor, con EXACTAMENTE estas claves:
 {
   "importe": number|null,
   "fecha_cargo": string|null,
   "mes": number|null,
   "anio": number|null
 }
-Reglas:
-- "importe": el importe TOTAL a ingresar/pagar del documento (busca "Total a ingresar", "Importe a pagar", "Total liquidación").
-- "fecha_cargo": la fecha en que se pasa el cargo en cuenta / fecha de vencimiento del pago, en formato YYYY-MM-DD (busca "Fecha de cargo", "Fecha límite de ingreso", "Vencimiento").
-- "mes" y "anio": el periodo de liquidación al que corresponde el documento (ej. "Periodo de liquidación: 06/2026" → mes=6, anio=2026). mes es un entero 1-12.
-- Si un campo no aparece con claridad, o el documento no es un resumen de cotización reconocible, devuélvelo null. NUNCA inventes un dato.
+Reglas — etiquetas literales reales de este documento, verificadas contra PDF reales:
+- "importe": la etiqueta literal es "LIQUIDO DE TOTALES" — el importe EXACTO a pagar de este RLC. Úsala tal cual si aparece; si no, busca alternativas como "Total a ingresar"/"Importe a pagar".
+- "fecha_cargo": la fecha en que se pasa el cargo en cuenta / fecha de vencimiento del pago, en formato YYYY-MM-DD (busca "Fecha de cargo", "Fecha límite de ingreso", "Vencimiento", "Modalidad Pago: Cargo en Cuenta" suele ir junto a la fecha).
+- "mes" y "anio": el "Período de Liquidación" del documento, que suele venir como un RANGO del mismo mes, ej. "Período de Liquidación: 05/2026 - 05/2026" → mes=5, anio=2026 (toma cualquiera de los dos extremos, normalmente coinciden). mes es un entero 1-12.
+- Pistas adicionales que pueden aparecer y ayudan a confirmar que es el documento correcto (no hace falta extraerlas): "Número de trabajadores confirmados", "Número de liquidación".
+- Si un campo no aparece con claridad, o el documento no es un RLC reconocible, devuélvelo null. NUNCA inventes un dato.
 Responde SOLO el JSON.`
 
 function numero(v: unknown): number | null {

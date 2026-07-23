@@ -1,16 +1,27 @@
-import { BLANCO } from '@/styles/neobrutal'
+import { BLANCO, GRIS } from '@/styles/neobrutal'
 /**
- * Home "HOY" — portada del ERP · kit oficial Neobrutal Alegre (18-jul-2026).
- * Fuentes reales: v_facturacion_diario_unificada (robots + en vivo, misma fuente que Panel Global) + tareas_pendientes.
+ * Home "HOY" — portada del ERP · CANTERA ALEGRE v1.0 (22-jul-2026).
+ * Área Resumen/HOY → héroe AMARILLO (texto tinta, mark naranja).
+ * Estructura del sistema: cabecera → héroe + tira de atención → plancha de KPIs
+ * sólidos PEGADOS → bloques de papel con ceja de color y aire 16px → accesos
+ * (pulsables = con sombra). Derogados los lavados/pasteles como fondo de tarjeta.
+ * Fuentes reales: v_facturacion_diario_unificada + tareas_pendientes.
  * LEY-ANTIFALSOS-01: si falta un dato, se enseña el hueco, nunca se inventa.
+ *
+ * 23-jul-2026: la franja "HOY EN VIVO" (CardHoyEnVivo) se TRASLADA aquí desde
+ * Panel Global · Resumen y abre la pantalla, arriba del héroe. Para no duplicar
+ * el dato del directo: la celda "HOY EN VIVO" pasa a MEDIA/DÍA (7d) y el héroe
+ * habla de AYER (el hoy ya lo cuenta la franja en vivo).
  */
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { INK, CREMA, GRANATE, AMA, VERDE, NARANJA, AZUL, VERDE_S, AMA_S, AZUL_S, ROSA_S, OSW, LEX, BORDER, SHADOW, cardWash, cardHead, eyebrow, bigNum, chip } from '@/styles/kit'
-import HeroTocho, { Resaltado } from '@/components/kit/HeroTocho'
-import FraseHero, { Sub } from '@/components/kit/FraseHero'
+import { INK, CREMA, GRANATE, AMA, VERDE, NARANJA, AZUL, ROJO, OSW, LEX, BORDER, SHADOW, eyebrow, bigNum, chip } from '@/styles/kit'
+import type { CSSProperties, ReactNode } from 'react'
+import { HeroCantera, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 import { AlertasBanner } from '@/pages/finanzas/PanelAlertas'
+import CardHoyEnVivo, { enHorarioServicio } from '@/components/panel/resumen/CardHoyEnVivo'
 
 type Dia = {
   fecha: string
@@ -32,6 +43,33 @@ const eur = (n: number | null | undefined, dec = 0) =>
   n == null ? '—' : n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: dec })
 const hoyISO = () => new Date().toISOString().slice(0, 10)
 const diasAtras = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10) }
+
+/* ── piezas locales CANTERA ALEGRE ── */
+/** Celda de plancha: sólido pegado, sin sombra. */
+function Celda({ bg, color, label, children, ultima }: { bg: string; color: string; label: ReactNode; children: ReactNode; ultima?: boolean }) {
+  return (
+    <div style={{ background: bg, color, padding: '16px 18px', borderRight: ultima ? 'none' : BORDER, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ ...eyebrow, opacity: 0.75 }}>{label}</div>
+      <div style={{ ...bigNum, fontSize: 34, color }}>{children}</div>
+    </div>
+  )
+}
+/** Bloque de papel con ceja superior de color (7px). Sin sombra. */
+function Bloque({ ceja, head, right, children, pad = '12px 15px' }: { ceja: string; head: ReactNode; right?: ReactNode; children: ReactNode; pad?: string }) {
+  return (
+    <div style={{ background: BLANCO, border: BORDER, borderTop: `7px solid ${ceja}`, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 15px', borderBottom: `2px solid ${INK}` }}>
+        <span style={eyebrow}>{head}</span>
+        {right}
+      </div>
+      <div style={{ padding: pad, flex: 1 }}>{children}</div>
+    </div>
+  )
+}
+const chipAtencion: CSSProperties = {
+  background: BLANCO, color: INK, border: `2px solid ${INK}`, boxShadow: '2px 2px 0 rgba(0,0,0,.45)',
+  padding: '3px 10px', fontFamily: OSW, fontWeight: 600, fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase',
+}
 
 export default function Home() {
   const [dias, setDias] = useState<Dia[]>([])
@@ -84,7 +122,6 @@ export default function Home() {
     }
     return acc
   }, [dias])
-  const hoy = porFecha[hoyISO()]
   const ayer = porFecha[diasAtras(1)]
   const suma = (desde: number, hasta: number) => {
     let acc = 0, hay = false
@@ -97,6 +134,7 @@ export default function Home() {
   const semana = suma(1, 7)
   const semanaAnt = suma(8, 14)
   const delta = semana != null && semanaAnt != null && semanaAnt > 0 ? ((semana - semanaAnt) / semanaAnt) * 100 : null
+  const mediaDia7 = semana != null ? semana / 7 : null
 
   const canales: { clave: keyof Dia; nombre: string; color: string }[] = [
     { clave: 'uber_bruto', nombre: 'UBER EATS', color: VERDE },
@@ -118,129 +156,120 @@ export default function Home() {
   const accesos = [
     { to: '/finanzas/papeleo?tab=bandeja', label: 'Subir factura', emoji: '📥' },
     { to: '/finanzas/ventas-panel?tab=ventas', label: 'Ventas', emoji: '💰' },
-    { to: '/cocina/produccion', label: 'Producción', emoji: '📋' },
+    { to: '/cocina/operativa', label: 'Producción', emoji: '📋' },
     { to: '/panel', label: 'Panel Global', emoji: '🧭' },
   ]
 
+  // El "hoy" vive en la franja EN VIVO de arriba: el héroe habla de AYER y de la semana.
+  const tituloHero = cargando
+    ? '…'
+    : totalAyer != null
+      ? <>Ayer cerraste en <span style={{ background: NARANJA, color: INK, padding: '0 8px' }}>{eur(totalAyer)}</span>.</>
+      : 'Ayer no hay ventas registradas.'
+
+  const atencionHero = [
+    mejorCanal ? `Ayer tiró ${mejorCanal.nombre} · ${eur(mejorCanal.v)}` : null,
+    nTareas != null && nTareas > 0 ? `${nTareas} tareas pendientes` : (nTareas === 0 ? 'Sin tareas pendientes' : null),
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={{ fontFamily: LEX, maxWidth: 1100, margin: '0 auto', color: INK }}>
-      {/* Cabecera */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
-        <div>
-          <span style={{ ...eyebrow, background: VERDE, color: BLANCO, display: 'inline-block', padding: '2px 10px', border: `2px solid ${INK}`, boxShadow: `2px 2px 0 ${INK}` }}>PORTADA</span>
-          <h1 style={{ fontFamily: OSW, fontSize: 'clamp(26px, 4vw, 34px)', fontWeight: 700, letterSpacing: '0.04em', margin: '4px 0 0', textTransform: 'uppercase' }}>Hoy</h1>
-        </div>
-        <span style={{ ...eyebrow, color: '#6b5d45' }}>
-          {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </span>
+    <PantallaCantera embedded>
+      {/* Cabecera · CANTERA ALEGRE v4 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
+        <RutaPantalla niveles={['Hoy']} subtitulo={new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} />
       </div>
 
       {error && (
-        <div style={{ background: ROSA_S, border: BORDER, boxShadow: SHADOW, padding: 12, marginBottom: 12, fontSize: 13 }}>
+        <div style={{ background: BLANCO, border: BORDER, borderTop: `7px solid ${ROJO}`, padding: 12, fontSize: 13 }}>
           No se han podido cargar los datos: {error}
         </div>
       )}
 
       <AlertasBanner />
 
-      {/* HERO TOCHO */}
-      <HeroTocho
-        periodo="HOY EN VIVO"
-        titular={cargando ? '…' : <>Llevas <Resaltado>{eur(hoy?.total_bruto ?? null)}</Resaltado> vendidos hoy.</>}
-        etiquetaDato="AYER · FACTURACIÓN BRUTA"
-        dato={cargando ? '…' : eur(totalAyer)}
-        delta={delta == null ? undefined : `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}% semana`}
-        deltaPositivo={(delta ?? 0) >= 0}
+      {/* FRANJA HOY EN VIVO — trasladada desde Panel Global · Resumen (23-jul).
+          Autocontenida: lee del robot (v_vivo_*) y se refresca sola. */}
+      {enHorarioServicio() && <CardHoyEnVivo pantalla="hoy" />}
+
+      {/* HÉROE (amarillo · área Resumen/HOY) + tira de atención pegada.
+          Habla de AYER y la semana: el hoy ya lo cuenta la franja en vivo. */}
+      <HeroCantera
+        area="resumen"
+        titular={tituloHero}
+        etiquetaDato="Últimos 7 días · facturación bruta"
+        cifra={cargando ? '…' : eur(semana)}
+        variacionPct={delta}
+        atencion={atencionHero}
       />
 
-      {/* FRASE HERO */}
-      <div style={{ marginTop: 12 }}>
-        <FraseHero>
-          {cargando ? 'Leyendo el día…' : (
-            <>
-              {delta != null && delta >= 0 && <><b>Buena racha:</b> esta semana llevas <Sub wash={VERDE_S} borde={VERDE}>{eur(semana)} (+{delta.toFixed(1)}%)</Sub> frente a la anterior. </>}
-              {delta != null && delta < 0 && <><b>Semana floja:</b> llevas <Sub wash={ROSA_S} borde={GRANATE}>{eur(semana)} ({delta.toFixed(1)}%)</Sub> frente a la anterior. </>}
-              {delta == null && semana != null && <>Esta semana llevas <b>{eur(semana)}</b>. </>}
-              {mejorCanal && <>Ayer tiró del carro <Sub wash={AMA_S} borde={AMA}>{mejorCanal.nombre} ({eur(mejorCanal.v)})</Sub>. </>}
-              {nTareas != null && nTareas > 0 && <>Tienes <Sub wash={ROSA_S} borde={GRANATE}>{nTareas} tareas pendientes</Sub>.</>}
-              {nTareas === 0 && <>Sin tareas pendientes. 👌</>}
-            </>
-          )}
-        </FraseHero>
+      {/* PLANCHA DE KPIs: sólidos pegados, sin sombra */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: BORDER }}>
+        <Celda bg={AMA} color={INK} label="📈 MEDIA/DÍA (7D)">{cargando ? '…' : eur(mediaDia7)}</Celda>
+        <Celda bg={VERDE} color={BLANCO} label="📆 AYER">{cargando ? '…' : eur(totalAyer)}</Celda>
+        <Celda bg={AZUL} color={BLANCO} label="🗓️ ÚLTIMOS 7 DÍAS">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span>{cargando ? '…' : eur(semana)}</span>
+            {delta != null && <span style={{ ...chip(delta >= 0 ? VERDE : ROJO), fontSize: 12 }}>{delta >= 0 ? '▲ +' : '▼ −'}{Math.abs(delta).toFixed(1)}%</span>}
+          </span>
+        </Celda>
+        <Celda bg={INK} color={CREMA} label="🔔 PENDIENTES" ultima>{nTareas ?? '—'}</Celda>
       </div>
 
-      {/* KPIs de colores */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, margin: '12px 0' }}>
-        <div style={cardWash(AMA_S)}>
-          <div style={eyebrow}>💰 HOY EN VIVO</div>
-          <div style={bigNum}>{cargando ? '…' : eur(hoy?.total_bruto ?? null)}</div>
-        </div>
-        <div style={cardWash(VERDE_S)}>
-          <div style={eyebrow}>📆 AYER</div>
-          <div style={bigNum}>{cargando ? '…' : eur(totalAyer)}</div>
-        </div>
-        <div style={cardWash(AZUL_S)}>
-          <div style={eyebrow}>🗓️ ÚLTIMOS 7 DÍAS</div>
-          <div style={bigNum}>{cargando ? '…' : eur(semana)}</div>
-          {delta != null && <span style={chip(delta >= 0 ? VERDE : GRANATE)}>{delta >= 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%</span>}
-        </div>
-        <div style={cardWash(ROSA_S)}>
-          <div style={eyebrow}>🔔 PENDIENTES</div>
-          <div style={bigNum}>{nTareas ?? '—'}</div>
-        </div>
-      </div>
+      {/* FRASE POTENTE (1 por pantalla, color por significado, distinto del héroe amarillo) */}
+      {!cargando && (
+        delta != null && delta < 0
+          ? <FrasePotente significado="peligro">La semana afloja frente a la anterior: revisa qué canal está tirando menos antes de que se note en el mes.</FrasePotente>
+          : nTareas != null && nTareas > 0
+            ? <FrasePotente significado="oportunidad">Tienes {nTareas} tareas pendientes: despejarlas ahora es la forma más barata de no arrastrarlas al cierre.</FrasePotente>
+            : <FrasePotente significado="logro">Buena racha y bandeja al día: momento perfecto para revisar el panel global y anticipar la semana que viene.</FrasePotente>
+      )}
 
-      {/* Bloques */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 12 }}>
-        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
-          <div style={cardHead(AZUL)}>📊 AYER POR CANAL</div>
-          <div style={{ display: 'grid', gap: 8, fontSize: 13, fontWeight: 600, padding: '12px 14px' }}>
+      {/* BLOQUES DE PAPEL con ceja y aire */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+        <Bloque ceja={AZUL} head="📊 AYER POR CANAL">
+          <div style={{ display: 'grid', gap: 12, fontSize: 13, fontWeight: 600 }}>
             {canales.map(c => {
               const v = ayer?.[c.clave] as number | null
               const pct = totalAyer && v != null && totalAyer > 0 ? (Number(v) / Number(totalAyer)) * 100 : null
               return (
                 <div key={c.nombre}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{c.nombre}</span>
+                    <span style={{ fontFamily: OSW, fontSize: 11.5, letterSpacing: '0.1em' }}>{c.nombre}</span>
                     <span style={{ fontFamily: OSW }}>{cargando ? '…' : `${eur(v)}${pct != null ? ` · ${pct.toFixed(0)}%` : ''}`}</span>
                   </div>
-                  <div style={{ height: 13, border: `2px solid ${INK}`, marginTop: 2, background: BLANCO }}>
+                  <div style={{ height: 14, border: `2px solid ${INK}`, marginTop: 4, background: CREMA }}>
                     <div style={{ width: `${Math.min(pct ?? 0, 100)}%`, height: '100%', background: c.color, borderRight: pct ? `2px solid ${INK}` : 'none' }} />
                   </div>
                 </div>
               )
             })}
           </div>
-        </div>
+        </Bloque>
 
-        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
-          <div style={{ ...cardHead(NARANJA), display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>🔔 PENDIENTES</span>
-            <Link to="/tareas" style={{ color: BLANCO, textDecoration: 'underline', fontSize: 11 }}>VER TODAS →</Link>
-          </div>
-          <div style={{ padding: '10px 14px' }}>
-            {cargando ? '…' : tareas.length === 0 ? (
-              <div style={{ fontSize: 13, color: '#6b5d45' }}>Nada pendiente. 👌</div>
-            ) : tareas.map((t, i) => (
-              <div key={t.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderTop: i > 0 ? '2px solid rgba(0,0,0,.12)' : 'none', fontSize: 13.5 }}>
-                <span style={{ width: 9, height: 9, background: t.estado === 'atrasada' ? GRANATE : AMA, border: `2px solid ${INK}`, flexShrink: 0 }} />
-                <span style={{ flex: 1, fontWeight: 600 }}>{t.tareas_periodicas?.nombre ?? 'Tarea'}</span>
-                <span style={{ fontFamily: OSW, color: '#6b5d45', fontSize: 11 }}>{t.fecha_esperada?.slice(5)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Bloque ceja={NARANJA} head="🔔 PENDIENTES" right={
+          <Link to="/tareas" style={{ ...eyebrow, color: INK, textDecoration: 'underline' }}>VER TODAS →</Link>
+        } pad="10px 15px">
+          {cargando ? '…' : tareas.length === 0 ? (
+            <div style={{ fontSize: 13, color: GRIS }}>Nada pendiente. 👌</div>
+          ) : tareas.map((t, i) => (
+            <div key={t.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderTop: i > 0 ? '1px solid rgba(0,0,0,.14)' : 'none', fontSize: 13.5 }}>
+              <span style={{ width: 9, height: 9, background: t.estado === 'atrasada' ? ROJO : AMA, border: `2px solid ${INK}`, flexShrink: 0 }} />
+              <span style={{ flex: 1, fontWeight: 600 }}>{t.tareas_periodicas?.nombre ?? 'Tarea'}</span>
+              <span style={{ fontFamily: OSW, color: GRIS, fontSize: 11 }}>{t.fecha_esperada?.slice(5)}</span>
+            </div>
+          ))}
+        </Bloque>
       </div>
 
-      {/* Accesos rápidos */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+      {/* ACCESOS RÁPIDOS: pulsables → con sombra */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16 }}>
         {accesos.map(a => (
-          <Link key={a.to} to={a.to} style={{ background: CREMA, border: BORDER, boxShadow: SHADOW, padding: '11px 13px', textDecoration: 'none', color: INK, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Link key={a.to} to={a.to} style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, padding: '11px 13px', textDecoration: 'none', color: INK, display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 20 }}>{a.emoji}</span>
             <span style={{ fontFamily: OSW, fontSize: 15, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{a.label}</span>
           </Link>
         ))}
       </div>
-    </div>
+    </PantallaCantera>
   )
 }

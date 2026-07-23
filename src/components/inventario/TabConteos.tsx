@@ -1,4 +1,5 @@
 import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, ROJO_S } from '@/styles/neobrutal'
+import { DARK_WASH_VERDE_BG, DARK_WASH_AZUL_BG, VERDE_POSITIVO, ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -46,11 +47,11 @@ export default function TabConteos({ desde, hasta }: Props) {
   const [editMap, setEditMap] = useState<Record<string, string>>({})
 
   const calcStyle: React.CSSProperties = {
-    backgroundColor: '#2d1515',
-    border: '1px solid #aa3030',
+    backgroundColor: ERROR_BANNER_BG,
+    border: `1px solid ${ERROR_BANNER_BORDE}`,
     color: ROJO_S,
     padding: '4px 8px',
-    borderRadius: 4,
+    borderRadius: 0,
     fontSize: 13,
     fontFamily: FONT.body,
     minWidth: 80,
@@ -176,7 +177,7 @@ export default function TabConteos({ desde, hasta }: Props) {
             onClick={confirmarConteo}
             style={{
               padding: '8px 18px',
-              borderRadius: 8,
+              borderRadius: 0,
               border: `0.5px solid ${T.brd}`,
               background: 'transparent',
               color: T.sec,
@@ -194,7 +195,7 @@ export default function TabConteos({ desde, hasta }: Props) {
             onClick={() => setModalOpen(true)}
             style={{
               padding: '8px 18px',
-              borderRadius: 8,
+              borderRadius: 0,
               border: 'none',
               background: LIMA,
               color: INK,
@@ -251,9 +252,9 @@ export default function TabConteos({ desde, hasta }: Props) {
                     <span style={{
                       fontSize: 11,
                       padding: '2px 7px',
-                      borderRadius: 4,
-                      background: c.periodicidad === 'mensual' ? '#1a2a1a' : '#1a1a2a',
-                      color: c.periodicidad === 'mensual' ? '#4caf50' : AZUL_CL,
+                      borderRadius: 0,
+                      background: c.periodicidad === 'mensual' ? DARK_WASH_VERDE_BG : DARK_WASH_AZUL_BG,
+                      color: c.periodicidad === 'mensual' ? VERDE_POSITIVO : AZUL_CL,
                       fontFamily: FONT.heading,
                       letterSpacing: '0.5px',
                       textTransform: 'uppercase',
@@ -277,7 +278,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                       style={{
                         width: 90,
                         padding: '4px 8px',
-                        borderRadius: 4,
+                        borderRadius: 0,
                         border: `1px solid ${T.brd}`,
                         background: INK,
                         color: T.pri,
@@ -314,7 +315,7 @@ export default function TabConteos({ desde, hasta }: Props) {
             style={{
               backgroundColor: INK,
               border: `1px solid ${T.brd}`,
-              borderRadius: 12,
+              borderRadius: 0,
               padding: '28px 32px',
               width: 380,
               fontFamily: FONT.body,
@@ -332,7 +333,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                 value={periodicidad}
                 onChange={e => setPeriodicidad(e.target.value as 'semanal' | 'mensual')}
                 style={{
-                  width: '100%', padding: '8px 12px', borderRadius: 8,
+                  width: '100%', padding: '8px 12px', borderRadius: 0,
                   border: `1px solid ${T.brd}`, background: INK,
                   color: T.pri, fontSize: 14, fontFamily: FONT.body,
                 }}
@@ -351,7 +352,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                 value={fechaNuevo}
                 onChange={e => setFechaNuevo(e.target.value)}
                 style={{
-                  width: '100%', padding: '8px 12px', borderRadius: 8,
+                  width: '100%', padding: '8px 12px', borderRadius: 0,
                   border: `1px solid ${T.brd}`, background: INK,
                   color: T.pri, fontSize: 14, fontFamily: FONT.body,
                 }}
@@ -367,7 +368,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                 onClick={() => setModalOpen(false)}
                 disabled={saving}
                 style={{
-                  padding: '9px 18px', borderRadius: 8,
+                  padding: '9px 18px', borderRadius: 0,
                   border: `1px solid ${T.brd}`, background: INK,
                   color: T.sec, fontSize: 13, fontFamily: FONT.heading,
                   fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase',
@@ -380,7 +381,7 @@ export default function TabConteos({ desde, hasta }: Props) {
                 onClick={crearConteo}
                 disabled={saving}
                 style={{
-                  padding: '9px 18px', borderRadius: 8,
+                  padding: '9px 18px', borderRadius: 0,
                   border: 'none', background: GRANATE,
                   color: BLANCO, fontSize: 13, fontFamily: FONT.heading,
                   fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',

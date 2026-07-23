@@ -1,8 +1,11 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import React from 'react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, pageTitleStyle, groupStyle } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
+import { GRANATE, BLANCO, VERDE, NAR, AZUL } from '@/styles/neobrutal'
+import { PRINT_BN_BG, PRINT_BN_TXT, COBERTURA_VERDE, COBERTURA_NARANJA, COBERTURA_NARANJA_CLARO } from '@/styles/palettes'
 import type { TokenSet } from '@/styles/tokens'
+import { HeroCantera, Papel, PantallaCantera, FrasePotente, SeccionLabel } from '@/components/kit/cantera'
 import { Printer, Download, ShoppingCart, Search, Trash2, RotateCcw, Share2, ListChecks, Scale, Gauge, ChevronDown, ChevronRight, FileSpreadsheet, Copy, Check, Sparkles } from 'lucide-react'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
@@ -224,15 +227,39 @@ export default function ListaCompra() {
     M.descargar(doc, `lista-compra-semana-${semanaN}`)
   }
 
-  if (loading) return <div style={{ ...groupStyle(T), width: '100%' }}><h1 style={pageTitleStyle(T)}>Lista de Compra</h1><div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div></div>
+  if (loading) return (
+    <PantallaCantera embedded>
+      <div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando lista de compra…</div>
+    </PantallaCantera>
+  )
+
+  const gapsCount = cobertura.escandallo + cobertura.sin
+  const titular = gapsCount > 0
+    ? 'Hay referencias sin precio de robot: revísalas antes de mandar el pedido.'
+    : 'Todas las referencias tienen precio: la lista está lista para pedir.'
 
   return (
-    <div style={{ ...groupStyle(T), width: '100%' }}>
+    <PantallaCantera embedded>
       <style>{CSS}</style>
 
-      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-        <ShoppingCart size={24} color="#B01D23" />
-        <h1 style={{ ...pageTitleStyle(T), margin: 0 }}>Lista de Compra</h1>
+      {/* HÉROE (azul · área Compras) */}
+      <HeroCantera
+        area="cashflow"
+        periodo={metaTexto}
+        titular={titular}
+        etiquetaDato="Referencias en la lista"
+        cifra={String(totalRefs)}
+        resumen={cobertura.total > 0 ? <>{fmtPct(cobertura.pctRobot)} con precio de robot{cobertura.escandallo > 0 ? <> · {cobertura.escandallo} de escandallo</> : null}{cobertura.sin > 0 ? <> · {cobertura.sin} sin precio</> : null}</> : undefined}
+        atencion={[
+          bajoMinimoIds.size > 0 ? `${bajoMinimoIds.size} bajo mínimo` : null,
+          comparativa.items.length > 0 ? `Ahorro hasta ${fmtPct(comparativa.items[0].ahorroPct)} comparando súper` : null,
+          papeleraItems.length > 0 ? `${papeleraItems.length} en la papelera` : null,
+        ].filter(Boolean) as string[]}
+      />
+
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 2 }}>
+        <ShoppingCart size={18} color={GRANATE} />
+        <span style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.mut }}>{vista === 'lista' ? 'Vista lista' : 'Papelera'}</span>
       </div>
 
       {/* Botones */}
@@ -244,8 +271,8 @@ export default function ListaCompra() {
             {vista === 'lista' ? <Trash2 size={14} /> : <ListChecks size={14} />}
             {vista === 'lista' ? `Papelera (${papeleraItems.length})` : 'Volver a la lista'}
           </button>
-          <button onClick={() => setBn(v => !v)} style={{ ...btnGhost, background: bn ? '#e7e7e7' : 'transparent', color: bn ? '#111' : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
-          <button onClick={handleCopiar} style={btnGhost} title="Copiar resumen (WhatsApp)">{copiado ? <Check size={14} color={VERDE} /> : <Copy size={14} />} {copiado ? 'Copiado' : 'Copiar'}</button>
+          <button onClick={() => setBn(v => !v)} style={{ ...btnGhost, background: bn ? PRINT_BN_BG : 'transparent', color: bn ? PRINT_BN_TXT : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
+          <button onClick={handleCopiar} style={btnGhost} title="Copiar resumen (WhatsApp)">{copiado ? <Check size={14} color={COBERTURA_VERDE} /> : <Copy size={14} />} {copiado ? 'Copiado' : 'Copiar'}</button>
           <button onClick={handleCSV} style={btnGhost} title="Exportar a CSV (Excel)"><FileSpreadsheet size={14} /> CSV</button>
           <button onClick={handlePrint} style={btnGhost}><Printer size={14} /> Imprimir</button>
           <button onClick={handleShare} style={btnGhost}><Share2 size={14} /> Compartir</button>
@@ -289,7 +316,7 @@ export default function ListaCompra() {
             <button
               onClick={() => setCmpOpen(true)}
               title="Ver comparador Mercadona vs Alcampo"
-              style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: '#1D9E7514', color: VERDE, border: 'none', borderRadius: 999, padding: '6px 12px', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '0.03em', cursor: 'pointer' }}
+              style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: COBERTURA_VERDE + '14', color: COBERTURA_VERDE, border: 'none', borderRadius: 999, padding: '6px 12px', fontFamily: FONT.heading, fontSize: 12, letterSpacing: '0.03em', cursor: 'pointer' }}
             >
               <Sparkles size={13} /> Ahorra hasta {fmtPct(comparativa.items[0].ahorroPct)} comparando súper
             </button>
@@ -299,28 +326,29 @@ export default function ListaCompra() {
 
       {/* Cobertura de precios del robot (solo pantalla) */}
       {vista === 'lista' && cobertura.total > 0 && (
-        <div className="no-print" style={{ border: `1px solid ${T.brd}`, borderRadius: 12, background: T.card, marginBottom: 12, overflow: 'hidden' }}>
+        <div className="no-print">
+        <Papel ceja={AZUL} pad="0" style={{ overflow: 'hidden' }}>
           <button
             onClick={() => setCobOpen(o => !o)}
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
           >
-            <Gauge size={18} color="#B01D23" />
+            <Gauge size={18} color={GRANATE} />
             <span style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.pri }}>
               Cobertura del robot
             </span>
             <span style={{ fontFamily: FONT.body, fontSize: 12.5, color: T.mut, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span><b style={{ color: cobertura.pctRobot >= 80 ? VERDE : cobertura.pctRobot >= 50 ? '#c47600' : '#B01D23' }}>{fmtPct(cobertura.pctRobot)}</b> con precio de robot</span>
-              {cobertura.escandallo > 0 && <span>· <b style={{ color: '#c47600' }}>{cobertura.escandallo}</b> de escandallo</span>}
-              {cobertura.sin > 0 && <span>· <b style={{ color: '#B01D23' }}>{cobertura.sin}</b> sin precio</span>}
+              <span><b style={{ color: cobertura.pctRobot >= 80 ? COBERTURA_VERDE : cobertura.pctRobot >= 50 ? COBERTURA_NARANJA : GRANATE }}>{fmtPct(cobertura.pctRobot)}</b> con precio de robot</span>
+              {cobertura.escandallo > 0 && <span>· <b style={{ color: COBERTURA_NARANJA }}>{cobertura.escandallo}</b> de escandallo</span>}
+              {cobertura.sin > 0 && <span>· <b style={{ color: GRANATE }}>{cobertura.sin}</b> sin precio</span>}
             </span>
             <span style={{ marginLeft: 'auto', color: T.mut }}>{cobOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
           </button>
 
           {/* barra de cobertura */}
           <div style={{ height: 6, background: T.group, display: 'flex' }}>
-            <div style={{ width: `${cobertura.total ? (cobertura.robot / cobertura.total) * 100 : 0}%`, background: VERDE }} />
-            <div style={{ width: `${cobertura.total ? (cobertura.escandallo / cobertura.total) * 100 : 0}%`, background: '#e0a53a' }} />
-            <div style={{ width: `${cobertura.total ? (cobertura.sin / cobertura.total) * 100 : 0}%`, background: '#B01D23' }} />
+            <div style={{ width: `${cobertura.total ? (cobertura.robot / cobertura.total) * 100 : 0}%`, background: COBERTURA_VERDE }} />
+            <div style={{ width: `${cobertura.total ? (cobertura.escandallo / cobertura.total) * 100 : 0}%`, background: COBERTURA_NARANJA_CLARO }} />
+            <div style={{ width: `${cobertura.total ? (cobertura.sin / cobertura.total) * 100 : 0}%`, background: GRANATE }} />
           </div>
 
           {cobOpen && cobertura.gaps.length > 0 && (
@@ -335,7 +363,7 @@ export default function ListaCompra() {
                       <td style={{ ...tdCmp(T), color: T.pri }}>{g.nombre} <span style={{ color: T.mut, fontSize: 11 }}>/{g.unidad}</span></td>
                       <td style={{ ...tdCmp(T), color: T.mut }}>{PROVEEDOR_LABEL[g.prov]}</td>
                       <td style={{ ...tdCmp(T), textAlign: 'right' }}>
-                        <span style={{ background: g.origen === 'sin' ? '#B01D2318' : '#c4760018', color: g.origen === 'sin' ? '#B01D23' : '#c47600', borderRadius: 6, padding: '2px 8px', fontFamily: FONT.heading, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        <span style={{ background: g.origen === 'sin' ? (GRANATE + '18') : (COBERTURA_NARANJA + '18'), color: g.origen === 'sin' ? GRANATE : COBERTURA_NARANJA, borderRadius: 0, padding: '2px 8px', fontFamily: FONT.heading, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                           {g.origen === 'sin' ? 'sin precio' : 'escandallo'}
                         </span>
                       </td>
@@ -345,26 +373,28 @@ export default function ListaCompra() {
               </table>
             </div>
           )}
+        </Papel>
         </div>
       )}
 
       {/* Comparador Mercadona vs Alcampo — ahorro potencial (solo pantalla) */}
       {vista === 'lista' && comparativa.nComparables > 0 && (
-        <div className="no-print" style={{ border: `1px solid ${T.brd}`, borderRadius: 12, background: T.card, marginBottom: 16, overflow: 'hidden' }}>
+        <div className="no-print">
+        <Papel ceja={AZUL} pad="0" style={{ overflow: 'hidden' }}>
           <button
             onClick={() => setCmpOpen(o => !o)}
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
           >
-            <Scale size={18} color="#B01D23" />
+            <Scale size={18} color={GRANATE} />
             <span style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.pri }}>
               Comparador Mercadona vs Alcampo
             </span>
             <span style={{ fontFamily: FONT.body, fontSize: 12.5, color: T.mut, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
               <span><b style={{ color: T.pri }}>{comparativa.nComparables}</b> comparables</span>
-              <span>Mercadona gana en <b style={{ color: VERDE }}>{comparativa.nMercadona}</b></span>
-              <span>Alcampo en <b style={{ color: VERDE }}>{comparativa.nAlcampo}</b></span>
+              <span>Mercadona gana en <b style={{ color: COBERTURA_VERDE }}>{comparativa.nMercadona}</b></span>
+              <span>Alcampo en <b style={{ color: COBERTURA_VERDE }}>{comparativa.nAlcampo}</b></span>
               {comparativa.nEmpate > 0 && <span>· {comparativa.nEmpate} empate</span>}
-              <span>· dif. media <b style={{ color: '#B01D23' }}>{fmtPct(comparativa.ahorroMedioPct)}</b></span>
+              <span>· dif. media <b style={{ color: GRANATE }}>{fmtPct(comparativa.ahorroMedioPct)}</b></span>
             </span>
             <span style={{ marginLeft: 'auto', color: T.mut }}>{cmpOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
           </button>
@@ -387,13 +417,13 @@ export default function ListaCompra() {
                     return (
                       <tr key={it.ingId} style={{ borderBottom: `0.5px solid ${T.brd}` }}>
                         <td style={{ ...tdCmp(T), color: T.pri }}>{it.nombre} <span style={{ color: T.mut, fontSize: 11 }}>/{it.unidad}</span></td>
-                        <td style={{ ...tdCmp(T), textAlign: 'right', fontWeight: merGana ? 700 : 400, color: merGana ? VERDE : T.mut }}>{eur(it.mercadona)}</td>
-                        <td style={{ ...tdCmp(T), textAlign: 'right', fontWeight: alcGana ? 700 : 400, color: alcGana ? VERDE : T.mut }}>{eur(it.alcampo)}</td>
+                        <td style={{ ...tdCmp(T), textAlign: 'right', fontWeight: merGana ? 700 : 400, color: merGana ? COBERTURA_VERDE : T.mut }}>{eur(it.mercadona)}</td>
+                        <td style={{ ...tdCmp(T), textAlign: 'right', fontWeight: alcGana ? 700 : 400, color: alcGana ? COBERTURA_VERDE : T.mut }}>{eur(it.alcampo)}</td>
                         <td style={{ ...tdCmp(T), textAlign: 'right' }}>
                           {it.cheaper === 'empate' ? (
                             <span style={{ color: T.mut, fontSize: 12 }}>igual</span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#1D9E7518', color: VERDE, borderRadius: 6, padding: '2px 8px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '0.04em' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: COBERTURA_VERDE + '18', color: COBERTURA_VERDE, borderRadius: 0, padding: '2px 8px', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '0.04em' }}>
                               {merGana ? 'Mercadona' : 'Alcampo'} · −{fmtPct(it.ahorroPct)}
                             </span>
                           )}
@@ -405,6 +435,7 @@ export default function ListaCompra() {
               </table>
             </div>
           )}
+        </Papel>
         </div>
       )}
 
@@ -461,7 +492,9 @@ export default function ListaCompra() {
 
       {/* Vista: PAPELERA */}
       {vista === 'papelera' && (
-        <div className="no-print" style={{ border: `1px solid ${T.brd}`, borderRadius: 10, background: T.card, overflow: 'hidden' }}>
+        <div className="no-print">
+          <SeccionLabel bg={AZUL}>Papelera</SeccionLabel>
+          <Papel ceja={AZUL} pad="0" style={{ overflow: 'hidden' }}>
           {papeleraItems.length === 0 ? (
             <div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>La papelera está vacía</div>
           ) : (
@@ -486,22 +519,29 @@ export default function ListaCompra() {
               </tbody>
             </table>
           )}
+          </Papel>
         </div>
       )}
-    </div>
+
+      {gapsCount === 0 && cobertura.total > 0 && vista === 'lista' && (
+        <FrasePotente significado="logro">Todas las referencias de la lista tienen precio conocido: puedes mandarla a comprar sin sorpresas.</FrasePotente>
+      )}
+      {gapsCount > 0 && vista === 'lista' && (
+        <FrasePotente significado="coste">{gapsCount} referencias van sin precio de robot: revísalas en "Cobertura del robot" antes de pedir.</FrasePotente>
+      )}
+    </PantallaCantera>
   )
 }
 
 /* ═══ STYLES ═══ */
 
-const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: '#B01D23', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }
-const btnGhost: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '8px 14px', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer', letterSpacing: '0.04em' }
-const inputSt = (T: TokenSet): React.CSSProperties => ({ background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', outline: 'none' })
-const chip = (T: TokenSet, active: boolean): React.CSSProperties => ({ background: active ? '#B01D23' : 'transparent', color: active ? '#fff' : 'var(--sl-text-secondary)', border: `0.5px solid ${active ? '#B01D23' : 'var(--sl-border)'}`, borderRadius: 999, padding: '6px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '0.04em', cursor: 'pointer', whiteSpace: 'nowrap' })
+const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 0, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, fontWeight: 500, cursor: 'pointer' }
+const btnGhost: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 0, padding: '8px 14px', fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 500, cursor: 'pointer', letterSpacing: '0.04em' }
+const inputSt = (T: TokenSet): React.CSSProperties => ({ background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '7px 12px', outline: 'none' })
+const chip = (T: TokenSet, active: boolean): React.CSSProperties => ({ background: active ? GRANATE : 'transparent', color: active ? BLANCO : 'var(--sl-text-secondary)', border: `0.5px solid ${active ? GRANATE : 'var(--sl-border)'}`, borderRadius: 999, padding: '6px 12px', fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '0.04em', cursor: 'pointer', whiteSpace: 'nowrap' })
 const thPap = (T: TokenSet): React.CSSProperties => ({ padding: '10px 14px', fontFamily: FONT.heading, fontSize: 10, textTransform: 'uppercase', letterSpacing: '2px', color: T.mut, fontWeight: 400, textAlign: 'left' })
 const tdPap = (T: TokenSet): React.CSSProperties => ({ padding: '10px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri })
 
-const VERDE = '#1D9E75'
 const thCmp = (T: TokenSet): React.CSSProperties => ({ padding: '8px 14px', fontFamily: FONT.heading, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '1.5px', color: T.mut, fontWeight: 400, textAlign: 'left', whiteSpace: 'nowrap' })
 const tdCmp = (T: TokenSet): React.CSSProperties => ({ padding: '7px 14px', fontFamily: FONT.body, fontSize: 12.5, whiteSpace: 'nowrap' })
 

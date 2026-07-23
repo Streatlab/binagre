@@ -9,6 +9,7 @@ import { useEstadosFinancieros, deltaPct, csvFromRows, descargarCsv, type PygAnu
 import {
   OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal'
 import { fmtEur, fmtPct, fmtDate } from '@/lib/format'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 type TabKey = 'pyg' | 'balance' | 'cashflow'
 
@@ -33,7 +34,6 @@ export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } 
 
   const años = useMemo(() => [currentYear, currentYear - 1, currentYear - 2, currentYear - 3], [currentYear])
 
-  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
   const btnPrim: React.CSSProperties = {
     fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase',
     border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '8px 14px', cursor: 'pointer',
@@ -97,51 +97,65 @@ export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } 
     descargarCsv(`cashflow_${año}.csv`, csvFromRows(headers, rows))
   }
 
+  const cajaNota = balance.cajaOrigen === 'extracto' ? `extracto real a ${fmtDate(balance.fecha)}`
+    : balance.cajaOrigen === 'manual' ? `manual a ${fmtDate(balance.fecha)}`
+    : 'sin saldo de banco disponible'
+
   return (
-    <div style={{ fontFamily: LEX, padding: embedded ? 0 : 28, background: embedded ? 'transparent' : CREMA, minHeight: embedded ? 'auto' : '100vh', color: INK }}>
+    <PantallaCantera embedded={embedded} style={{ fontFamily: LEX, color: INK }}>
 
-      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        {!embedded && (
-          <div>
-            <span style={eyebrow(NAR, BLANCO)}>FINANZAS</span>
-            <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
-              ESTADOS FINANCIEROS
-            </h1>
-            <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>P&amp;G · Balance · Cash Flow — vista mensual y comparativa anual</span>
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select style={selectNeo} value={año} onChange={e => setAño(Number(e.target.value))}>
-            {años.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
-          <button onClick={() => setComparar(c => !c)} style={{ ...selectNeo, background: comparar ? AMA : BLANCO }}>
-            {comparar ? '✓ ' : ''}Comparar con {año - 1}
-          </button>
-        </div>
+      {/* Filtros propios arriba-derecha */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <select style={selectNeo} value={año} onChange={e => setAño(Number(e.target.value))}>
+          {años.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <button onClick={() => setComparar(c => !c)} style={{ ...selectNeo, background: comparar ? AMA : BLANCO }}>
+          {comparar ? '✓ ' : ''}Comparar con {año - 1}
+        </button>
       </div>
 
-      {/* Hero KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 20 }}>
-        <div style={{ ...card, padding: '16px 20px', background: pyg.resultadoEjercicio >= 0 ? VERDE : ROJO }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Resultado del ejercicio {año}</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 32, lineHeight: 1, color: BLANCO }}>{fmt0(pyg.resultadoEjercicio)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>Ingresos {fmt0(pyg.totalIngresos)} · Gastos {fmt0(pyg.totalGastos)}</div>
-        </div>
-        <div style={{ ...card, padding: '16px 20px', background: AZUL }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: BLANCO, marginBottom: 6 }}>Caja actual</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 32, lineHeight: 1, color: BLANCO }}>{fmt0(balance.caja)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>
-            {balance.cajaOrigen === 'extracto' ? `extracto real a ${fmtDate(balance.fecha)}`
-              : balance.cajaOrigen === 'manual' ? `manual a ${fmtDate(balance.fecha)}`
-              : 'sin saldo de banco disponible'}
-          </div>
-        </div>
-        <div style={{ ...card, padding: '16px 20px', background: INK }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: AMA, marginBottom: 6 }}>Flujo neto acumulado {año}</div>
-          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 32, lineHeight: 1, color: AMA }}>{fmt0(cashFlow.flujoNetoAcumulado)}</div>
-          <div style={{ fontFamily: LEX, fontSize: 12, color: BLANCO, marginTop: 6 }}>real, ya ejecutado (sin inversión)</div>
-        </div>
+      {/* 1 · Héroe del área Resultados (amarillo) */}
+      <HeroCantera
+        area="eeff"
+        periodo={String(año)}
+        titular={pyg.resultadoEjercicio >= 0 ? 'El ejercicio cierra en positivo: los ingresos cubren los gastos.' : 'El ejercicio va en negativo: los gastos superan a los ingresos.'}
+        etiquetaDato="Resultado del ejercicio"
+        cifra={fmt0(pyg.resultadoEjercicio)}
+        resumen={<>Ingresos <b>{fmt0(pyg.totalIngresos)}</b> · Gastos <b>{fmt0(pyg.totalGastos)}</b> · Caja actual <b>{fmt0(balance.caja)}</b> ({cajaNota})</>}
+        atencion={[
+          `Caja actual ${fmt0(balance.caja)}`,
+          `Flujo neto acumulado ${fmt0(cashFlow.flujoNetoAcumulado)}`,
+          `Ingresos ${fmt0(pyg.totalIngresos)}`,
+          `Gastos ${fmt0(pyg.totalGastos)}`,
+        ]}
+      />
+
+      {/* 2 · Plancha comparativa (celdas sólidas pegadas) */}
+      <div>
+        <SeccionLabel bg={AMA} color={INK}>Resultado · caja · flujo {año}</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={pyg.resultadoEjercicio >= 0 ? VERDE : ROJO} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 6 }}>Resultado del ejercicio {año}</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 28, lineHeight: 1 }}>{fmt0(pyg.resultadoEjercicio)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 6 }}>Ingresos {fmt0(pyg.totalIngresos)} · Gastos {fmt0(pyg.totalGastos)}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={AZUL}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 6 }}>Caja actual</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 28, lineHeight: 1 }}>{fmt0(balance.caja)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 6 }}>{cajaNota}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={INK} color={AMA}>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 6, color: AMA }}>Flujo neto acumulado {año}</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 28, lineHeight: 1, color: AMA }}>{fmt0(cashFlow.flujoNetoAcumulado)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 6, color: BLANCO }}>real, ya ejecutado (sin inversión)</div>
+          </PlanchaCelda>
+        </Plancha>
       </div>
+
+      {/* 3 · Frase potente (color por significado, distinto del héroe amarillo) */}
+      {pyg.resultadoEjercicio >= 0
+        ? <FrasePotente significado="logro">El ejercicio cierra en positivo: cada euro de resultado es margen ya asegurado.</FrasePotente>
+        : <FrasePotente significado="peligro">El ejercicio va en negativo: revisa gastos antes de que se coma la caja.</FrasePotente>}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -162,21 +176,21 @@ export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } 
       </div>
 
       {tab === 'pyg' && (
-        <PygTabla pyg={pyg} pygAnterior={pygAnterior} comparar={comparar} card={card} btnPrim={btnPrim} onExport={handleExportPyg} />
+        <PygTabla pyg={pyg} pygAnterior={pygAnterior} comparar={comparar} btnPrim={btnPrim} onExport={handleExportPyg} />
       )}
       {tab === 'balance' && (
-        <BalanceTabla balance={balance} card={card} btnPrim={btnPrim} onExport={handleExportBalance} />
+        <BalanceTabla balance={balance} btnPrim={btnPrim} onExport={handleExportBalance} />
       )}
       {tab === 'cashflow' && (
-        <CashFlowTabla cashFlow={cashFlow} cashFlowAnterior={cashFlowAnterior} comparar={comparar} card={card} btnPrim={btnPrim} onExport={handleExportCashFlow} />
+        <CashFlowTabla cashFlow={cashFlow} cashFlowAnterior={cashFlowAnterior} comparar={comparar} btnPrim={btnPrim} onExport={handleExportCashFlow} />
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 
-function PygTabla({ pyg, pygAnterior, comparar, card, btnPrim, onExport }: {
+function PygTabla({ pyg, pygAnterior, comparar, btnPrim, onExport }: {
   pyg: PygAnual; pygAnterior: PygAnual | null; comparar: boolean;
-  card: React.CSSProperties; btnPrim: React.CSSProperties; onExport: () => void;
+  btnPrim: React.CSSProperties; onExport: () => void;
 }) {
   type Fila = { label: string; color?: string; bold?: boolean; get: (m: PygAnual['meses'][number]) => number; total: number; totalAnterior: number }
 
@@ -198,7 +212,7 @@ function PygTabla({ pyg, pygAnterior, comparar, card, btnPrim, onExport }: {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
         <button onClick={onExport} style={btnPrim}>Exportar CSV</button>
       </div>
-      <div style={{ ...card, overflowX: 'auto' }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
           <thead>
             <tr style={{ background: INK }}>
@@ -243,13 +257,13 @@ function PygTabla({ pyg, pygAnterior, comparar, card, btnPrim, onExport }: {
             </tr>
           </tbody>
         </table>
-      </div>
+      </Papel>
     </div>
   )
 }
 
-function BalanceTabla({ balance, card, btnPrim, onExport }: {
-  balance: BalanceEstado; card: React.CSSProperties; btnPrim: React.CSSProperties; onExport: () => void;
+function BalanceTabla({ balance, btnPrim, onExport }: {
+  balance: BalanceEstado; btnPrim: React.CSSProperties; onExport: () => void;
 }) {
   const filas: { label: string; value: number; color?: string; bold?: boolean; nota?: string }[] = [
     { label: 'Caja', value: balance.caja, color: AZUL },
@@ -267,7 +281,7 @@ function BalanceTabla({ balance, card, btnPrim, onExport }: {
         </span>
         <button onClick={onExport} style={btnPrim}>Exportar CSV</button>
       </div>
-      <div style={{ ...card, maxWidth: 640 }}>
+      <Papel ceja={AZUL} pad="0" style={{ maxWidth: 640 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, fontFamily: LEX }}>
           <tbody>
             {filas.map(f => (
@@ -281,14 +295,14 @@ function BalanceTabla({ balance, card, btnPrim, onExport }: {
             ))}
           </tbody>
         </table>
-      </div>
+      </Papel>
     </div>
   )
 }
 
-function CashFlowTabla({ cashFlow, cashFlowAnterior, comparar, card, btnPrim, onExport }: {
+function CashFlowTabla({ cashFlow, cashFlowAnterior, comparar, btnPrim, onExport }: {
   cashFlow: CashFlowAnual; cashFlowAnterior: CashFlowAnual | null; comparar: boolean;
-  card: React.CSSProperties; btnPrim: React.CSSProperties; onExport: () => void;
+  btnPrim: React.CSSProperties; onExport: () => void;
 }) {
   type Fila = { label: string; color?: string; get: (m: CashFlowAnual['meses'][number]) => number; total: number; totalAnterior: number; nota?: string }
 
@@ -306,7 +320,7 @@ function CashFlowTabla({ cashFlow, cashFlowAnterior, comparar, card, btnPrim, on
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
         <button onClick={onExport} style={btnPrim}>Exportar CSV</button>
       </div>
-      <div style={{ ...card, overflowX: 'auto' }}>
+      <Papel ceja={NAR} pad="0" style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
           <thead>
             <tr style={{ background: INK }}>
@@ -354,7 +368,7 @@ function CashFlowTabla({ cashFlow, cashFlowAnterior, comparar, card, btnPrim, on
             </tr>
           </tbody>
         </table>
-      </div>
+      </Papel>
     </div>
   )
 }

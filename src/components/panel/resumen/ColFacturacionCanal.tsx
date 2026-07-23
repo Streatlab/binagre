@@ -174,7 +174,7 @@ function CardCanal({ label, bg, border, borderWidth = '0.5px', boxShadow, colorL
       background: bg,
       border: `${borderWidth} solid ${border}`,
       boxShadow: boxShadow ?? undefined,
-      borderRadius: 14,
+      borderRadius: 0,
       padding: '12px 14px',
       display: 'flex',
       alignItems: 'center',
@@ -210,7 +210,7 @@ function CardCanalMini({ label, bg, border, colorLabel, datos }: Omit<CardCanalP
     <div style={{
       background: bg,
       border: `0.5px solid ${border}`,
-      borderRadius: 14,
+      borderRadius: 0,
       padding: '10px 12px',
     }}>
       <div style={{ ...lblXs, color: colorLabel }}>{label}</div>

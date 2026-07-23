@@ -1,4 +1,5 @@
 import { BLANCO, GRIS, INK } from '@/styles/neobrutal'
+import { CONFIG_BORDE, CONFIG_MUT } from '@/styles/palettes'
 import type { ReactNode } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -13,8 +14,8 @@ export function BigCard({
 }) {
   const isDark = useIsDark()
   const bg = isDark ? INK : BLANCO
-  const border = isDark ? INK : '#E9E1D0'
-  const titleColor = isDark ? GRIS : '#9E9588'
+  const border = isDark ? INK : CONFIG_BORDE
+  const titleColor = isDark ? GRIS : CONFIG_MUT
   const countColor = isDark ? GRIS : INK
 
   return (
@@ -22,7 +23,7 @@ export function BigCard({
       style={{
         background: bg,
         border: `1px solid ${border}`,
-        borderRadius: 12,
+        borderRadius: 0,
         padding: '24px 26px',
         marginBottom: 14,
       }}

@@ -1,4 +1,5 @@
-import { BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, CLARO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { PANEL_MODAL_BG } from '@/styles/palettes'
 import { useEffect, useState, useCallback } from 'react'
 import { useTheme } from '@/styles/tokens'
 import { supabase } from '@/lib/supabase'
@@ -99,8 +100,8 @@ export default function TabConfigTareas() {
 
   const inputStyle: React.CSSProperties = {
     background: INK,
-    border: `1px solid #2a2a2a`,
-    borderRadius: 6,
+    border: `1px solid ${BORDE_SUAVE}`,
+    borderRadius: 0,
     color: BLANCO,
     padding: '7px 10px',
     fontSize: 13,
@@ -122,7 +123,7 @@ export default function TabConfigTareas() {
   const RESPONSABLE_COLORS: Record<string, string> = {
     'Rubén': GRANATE,
     'Emilio': LIMA,
-    'Ambos': '#484f66',
+    'Ambos': PANEL_MODAL_BG,
   }
 
   if (loading) return (
@@ -144,7 +145,7 @@ export default function TabConfigTareas() {
             background: LIMA,
             color: INK,
             border: 'none',
-            borderRadius: 6,
+            borderRadius: 0,
             padding: '7px 16px',
             fontSize: 12,
             fontFamily: 'Oswald, sans-serif',
@@ -173,7 +174,7 @@ export default function TabConfigTareas() {
                     color: GRIS,
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    borderBottom: `1px solid #2a2a2a`,
+                    borderBottom: `1px solid ${BORDE_SUAVE}`,
                     whiteSpace: 'nowrap',
                   }}
                 >{h}</th>
@@ -184,15 +185,15 @@ export default function TabConfigTareas() {
             {tareas.map((t, idx) => (
               <tr
                 key={t.id}
-                style={{ background: idx % 2 === 0 ? INK : INK, borderBottom: `1px solid #2a2a2a`, opacity: t.activa ? 1 : 0.5 }}
+                style={{ background: idx % 2 === 0 ? INK : INK, borderBottom: `1px solid ${BORDE_SUAVE}`, opacity: t.activa ? 1 : 0.5 }}
               >
                 <td style={{ padding: '10px 12px', color: BLANCO }}>{t.nombre}</td>
                 <td style={{ padding: '10px 12px' }}>
                   <span style={{
                     padding: '3px 10px',
-                    borderRadius: 4,
-                    background: (RESPONSABLE_COLORS[t.responsable ?? ''] ?? '#888') + '22',
-                    color: RESPONSABLE_COLORS[t.responsable ?? ''] ?? '#888',
+                    borderRadius: 0,
+                    background: (RESPONSABLE_COLORS[t.responsable ?? ''] ?? GRIS) + '22',
+                    color: RESPONSABLE_COLORS[t.responsable ?? ''] ?? GRIS,
                     fontFamily: 'Oswald, sans-serif',
                     fontSize: 11,
                     fontWeight: 600,
@@ -204,9 +205,9 @@ export default function TabConfigTareas() {
                 <td style={{ padding: '10px 12px' }}>
                   <span style={{
                     padding: '3px 10px',
-                    borderRadius: 4,
-                    background: t.activa ? '#1D9E7522' : '#77777722',
-                    color: t.activa ? VERDE : '#777',
+                    borderRadius: 0,
+                    background: t.activa ? (VERDE + '22') : (GRIS + '22'),
+                    color: t.activa ? VERDE : GRIS,
                     fontFamily: 'Oswald, sans-serif',
                     fontSize: 11,
                     fontWeight: 600,
@@ -217,11 +218,11 @@ export default function TabConfigTareas() {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button
                       onClick={() => abrirEditar(t)}
-                      style={{ background: '#222', border: `1px solid #383838`, borderRadius: 5, color: '#ccc', padding: '4px 10px', fontSize: 11, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
+                      style={{ background: CLARO, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, color: GRIS, padding: '4px 10px', fontSize: 11, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
                     >Editar</button>
                     <button
                       onClick={() => toggleActiva(t)}
-                      style={{ background: t.activa ? '#77777722' : '#1D9E7522', border: `1px solid #383838`, borderRadius: 5, color: t.activa ? '#777' : VERDE, padding: '4px 10px', fontSize: 11, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
+                      style={{ background: t.activa ? (GRIS + '22') : (VERDE + '22'), border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, color: t.activa ? GRIS : VERDE, padding: '4px 10px', fontSize: 11, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
                     >{t.activa ? 'Desactivar' : 'Activar'}</button>
                   </div>
                 </td>
@@ -238,14 +239,14 @@ export default function TabConfigTareas() {
           onClick={() => setModalOpen(false)}
         >
           <div
-            style={{ backgroundColor: INK, border: `1px solid #383838`, borderRadius: 12, padding: 28, minWidth: 360, maxWidth: 520, width: '100%' }}
+            style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, padding: 28, minWidth: 360, maxWidth: 520, width: '100%' }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 16, color: GRANATE, fontWeight: 600 }}>
                 {editando ? 'Editar tarea' : 'Nueva tarea periódica'}
               </span>
-              <button onClick={() => setModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#777', fontSize: 18 }}>×</button>
+              <button onClick={() => setModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GRIS, fontSize: 18 }}>×</button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -333,12 +334,12 @@ export default function TabConfigTareas() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
               <button
                 onClick={() => setModalOpen(false)}
-                style={{ background: '#222', border: `1px solid #383838`, borderRadius: 6, color: '#ccc', padding: '8px 20px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
+                style={{ background: CLARO, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 0, color: GRIS, padding: '8px 20px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase' }}
               >Cancelar</button>
               <button
                 onClick={guardar}
                 disabled={saving || !form.nombre.trim()}
-                style={{ background: GRANATE, color: BLANCO, border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
+                style={{ background: GRANATE, color: BLANCO, border: 'none', borderRadius: 0, padding: '8px 20px', fontSize: 12, fontFamily: 'Oswald, sans-serif', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', textTransform: 'uppercase', opacity: saving ? 0.7 : 1 }}
               >{saving ? 'Guardando...' : 'Guardar'}</button>
             </div>
           </div>

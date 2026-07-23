@@ -1,4 +1,5 @@
 import { INK } from '@/styles/neobrutal'
+import { DARK_WASH_VERDE_BG, VERDE_POSITIVO } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -50,7 +51,7 @@ export default function TabPreciosProveedor() {
     <div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
         <input type="text" placeholder="Buscar ingrediente..." value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          style={{ padding: '7px 12px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 220 }} />
+          style={{ padding: '7px 12px', borderRadius: 0, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 220 }} />
         <span style={{ color: T.mut, fontSize: 12, marginLeft: 'auto' }}>Precios reales sacados de tus facturas · últimos 12 meses</span>
       </div>
 
@@ -86,7 +87,7 @@ export default function TabPreciosProveedor() {
                   <td style={{ ...td, color: T.mut }}>{fmtDate(r.ultima_fecha)}</td>
                   <td style={td}>
                     {idx === 0 && arr.length > 1 && (
-                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#1a2a1a', color: '#4caf50', fontFamily: FONT.heading, textTransform: 'uppercase' }}>Más barato</span>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 0, background: DARK_WASH_VERDE_BG, color: VERDE_POSITIVO, fontFamily: FONT.heading, textTransform: 'uppercase' }}>Más barato</span>
                     )}
                   </td>
                 </tr>

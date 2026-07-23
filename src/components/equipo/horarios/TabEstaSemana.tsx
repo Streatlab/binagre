@@ -79,10 +79,10 @@ export default function TabEstaSemana() {
   }, [lunes, empleados])
 
   function navBtn(): React.CSSProperties {
-    return { width: 32, height: 32, borderRadius: 8, border: `0.5px solid ${T.brd}`, background: T.card, color: T.sec, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+    return { width: 32, height: 32, borderRadius: 0, border: `0.5px solid ${T.brd}`, background: T.card, color: T.sec, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
   }
   function actionBtn(): React.CSSProperties {
-    return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid #B01D23`, background: GRANATE, color: BLANCO, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
+    return { height: 32, padding: '0 14px', borderRadius: 0, border: `1px solid ${GRANATE}`, background: GRANATE, color: BLANCO, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }
   }
 
   const fuenteLabel: Record<Fuente, string> = {
@@ -103,7 +103,7 @@ export default function TabEstaSemana() {
             Rota S{numeroSemanaISO(lunes)} · {fmtRangoSemana(lunes)}
           </div>
           {!loading && (
-            <span style={{ fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', color: fuenteColor[fuente], background: fuenteColor[fuente] + '20', padding: '3px 8px', borderRadius: 4 }}>
+            <span style={{ fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase', color: fuenteColor[fuente], background: fuenteColor[fuente] + '20', padding: '3px 8px', borderRadius: 0 }}>
               {fuenteLabel[fuente]}
             </span>
           )}

@@ -1,14 +1,14 @@
-import { BLANCO } from '@/styles/neobrutal'
+import { BLANCO, INK, GRIS, GRANATE, VERDE, NAR, ROJO, OSW, LEX } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { COLORS, FONT, CARDS, lbl, lblSm, kpiMid, TABS_PILL } from '@/components/panel/resumen/tokens'
+import { COLORS, FONT, TABS_PILL } from '@/components/panel/resumen/tokens'
 import { fmtNumES } from '@/utils/format'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 /* ═════════════ PANEL DE RESEÑAS STREAT LAB ═════════════
-   Estilo canónico Panel Global / Evolución: cards blancas limpias,
-   gráficos de barras/líneas CSS, paleta de tokens.
    Resumen en columnas verticales por plataforma con edición inline.
    Evolución con histórico + previsión por mínimos cuadrados.
+   CANTERA ALEGRE v1.0 (área Marketing · rosa). Solo capa visual; datos/lógica intactos.
 */
 
 type Registro = { id: number; fecha: string; marca: string; plataforma: string; rating: number; num_resenas: number; num_nuevas: number; comentario: string | null }
@@ -20,11 +20,11 @@ const PLAT_COLOR: Record<string, string> = { UE: COLORS.uber, GL: COLORS.glovo, 
 const PLAT_TXT: Record<string, string> = { GL: COLORS.glovoText }
 const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
-const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: `0.5px solid ${COLORS.brd}`, background: COLORS.card, color: COLORS.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none', width: '100%' }
-const btnPri: React.CSSProperties = { padding: '8px 16px', borderRadius: 8, border: 'none', background: COLORS.accent, color: BLANCO, fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
-const btnMini: React.CSSProperties = { padding: '3px 9px', borderRadius: 6, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
-const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500, padding: '8px 10px', textAlign: 'left', borderBottom: `1px solid ${COLORS.brd}` }
-const td: React.CSSProperties = { fontFamily: FONT.body, fontSize: 13, color: COLORS.sec, padding: '8px 10px', borderBottom: `1px solid ${COLORS.group}` }
+const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 0, border: `0.5px solid ${COLORS.brd}`, background: COLORS.card, color: COLORS.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none', width: '100%' }
+const btnPri: React.CSSProperties = { padding: '8px 16px', borderRadius: 0, border: 'none', background: COLORS.accent, color: BLANCO, fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
+const btnMini: React.CSSProperties = { padding: '3px 9px', borderRadius: 0, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
+const th: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, fontWeight: 500, padding: '8px 10px', textAlign: 'left', borderBottom: `1px solid ${COLORS.brd}` }
+const td: React.CSSProperties = { fontFamily: LEX, fontSize: 13, color: COLORS.sec, padding: '8px 10px', borderBottom: `1px solid ${COLORS.group}` }
 
 function ratingColor(r: number) { if (r >= 4.5) return COLORS.ok; if (r >= 4.0) return COLORS.warn; return COLORS.err }
 function estrellas(r: number) {
@@ -45,6 +45,12 @@ function preverSiguiente(ys: number[]): number | null {
   const b = (sy - m * sx) / n
   const pred = m * n + b
   return Math.max(0, Math.min(5, pred))
+}
+
+function ultimoPorClave(registros: Registro[]) {
+  const m: Record<string, Registro> = {}
+  for (const r of registros) { const k = `${r.marca}|${r.plataforma}`; if (!m[k] || r.fecha > m[k].fecha) m[k] = r }
+  return m
 }
 
 const TABS = [{ id: 'resumen', label: 'Resumen' }, { id: 'evolucion', label: 'Evolución' }, { id: 'registro', label: 'Registrar' }] as const
@@ -70,50 +76,59 @@ export default function PanelResenas() {
   useEffect(() => { cargar() }, [])
   function flash(t: string) { setMsg(t); setTimeout(() => setMsg(''), 3000) }
 
+  // Derivado de presentación para el héroe (misma fuente que TabResumen).
+  const ultimos = useMemo(() => ultimoPorClave(registros), [registros])
+  const valoresHero = Object.values(ultimos)
+  const mediaGlobalHero = valoresHero.length ? valoresHero.reduce((s, r) => s + Number(r.rating), 0) / valoresHero.length : null
+  const totalResenasHero = valoresHero.reduce((s, r) => s + (r.num_resenas || 0), 0)
+  const porPlatHero = PLATAFORMAS.map(p => {
+    const v = valoresHero.filter(r => r.plataforma === p)
+    const media = v.length ? v.reduce((s, r) => s + Number(r.rating), 0) / v.length : null
+    return { p, media }
+  })
+
+  const titular = valoresHero.length === 0
+    ? 'Sin valoraciones todavía: registra la primera nota.'
+    : mediaGlobalHero != null && mediaGlobalHero >= 4.5 ? 'Las plataformas valoran muy bien la marca.'
+    : mediaGlobalHero != null && mediaGlobalHero >= 4.0 ? 'Buena nota media, con margen de mejora.'
+    : 'La nota media pide atención.'
+
+  const atencionHero = porPlatHero
+    .filter(x => x.media != null)
+    .map(x => `${PLAT_LABEL[x.p]}: ${(x.media as number).toFixed(2)}`)
+
   return (
-    <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: COLORS.redSL, letterSpacing: 3, textTransform: 'uppercase' }}>PANEL DE RESEÑAS</div>
-        <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 2 }}>Valoración de cada marca por plataforma · edición rápida · evolución y previsión</div>
-      </div>
+    <PantallaCantera>
+      {/* 1 · Héroe del área Marketing (rosa) */}
+      <HeroCantera
+        area="marketing"
+        titular={titular}
+        etiquetaDato="Media global"
+        cifra={mediaGlobalHero != null ? mediaGlobalHero.toFixed(2) : '—'}
+        resumen={mediaGlobalHero != null ? <>{estrellas(mediaGlobalHero)} · {fmtNumES(totalResenasHero)} reseñas</> : undefined}
+        atencion={atencionHero}
+      />
 
       <div style={TABS_PILL.container}>
         {TABS.map(t2 => <button key={t2.id} onClick={() => setTab(t2.id)} style={tab === t2.id ? TABS_PILL.active : TABS_PILL.inactive}>{t2.label}</button>)}
       </div>
 
-      {msg && <div style={{ ...CARDS.std, borderLeft: `3px solid ${COLORS.ok}`, margin: '12px 0', fontSize: 13, color: COLORS.pri }}>{msg}</div>}
+      {msg && <Papel ceja={VERDE} pad="10px 16px" style={{ fontSize: 13, color: INK }}>{msg}</Papel>}
 
       {cargando ? (
-        <div style={{ color: COLORS.mut, fontSize: 14, padding: 24 }}>Cargando reseñas...</div>
+        <div style={{ color: GRIS, fontSize: 14, padding: 24, fontFamily: OSW, textTransform: 'uppercase', letterSpacing: '1px' }}>Cargando reseñas…</div>
       ) : (
-        <div style={{ marginTop: 14 }}>
+        <>
           {tab === 'resumen' && <TabResumen registros={registros} onSaved={() => { cargar(); flash('Nota actualizada') }} />}
           {tab === 'evolucion' && <TabEvolucion registros={registros} />}
           {tab === 'registro' && <TabRegistro accesos={accesos} registros={registros} onSaved={() => { cargar(); flash('Valoraciones registradas') }} />}
-        </div>
+        </>
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 
-function ultimoPorClave(registros: Registro[]) {
-  const m: Record<string, Registro> = {}
-  for (const r of registros) { const k = `${r.marca}|${r.plataforma}`; if (!m[k] || r.fecha > m[k].fecha) m[k] = r }
-  return m
-}
-
-/* ── KPI card canónica (estilo TabEvolucion) ── */
-function KpiCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
-  return (
-    <div style={{ ...CARDS.std, flex: 1, minWidth: 160 }}>
-      <div style={lbl}>{label}</div>
-      <div style={{ ...kpiMid, marginTop: 6, color: color ?? COLORS.pri }}>{value}</div>
-      {sub && <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 2 }}>{sub}</div>}
-    </div>
-  )
-}
-
-/* ═════════════ RESUMEN — cards canónicas + columnas verticales con edición ═════════════ */
+/* ═════════════ RESUMEN — plancha de KPIs + columnas verticales con edición ═════════════ */
 function TabResumen({ registros, onSaved }: { registros: Registro[]; onSaved: () => void }) {
   const ultimos = useMemo(() => ultimoPorClave(registros), [registros])
   const valores = Object.values(ultimos)
@@ -137,29 +152,49 @@ function TabResumen({ registros, onSaved }: { registros: Registro[]; onSaved: ()
     setEditK(null); setEd({ rating: '', num_resenas: '' }); onSaved()
   }
 
-  if (valores.length === 0) return <div style={{ ...CARDS.std, color: COLORS.mut }}>Sin valoraciones todavía. Ve a "Registrar" e introduce la nota de cada marca.</div>
+  if (valores.length === 0) return <Papel ceja={GRIS}><div style={{ color: GRIS, fontFamily: LEX }}>Sin valoraciones todavía. Ve a "Registrar" e introduce la nota de cada marca.</div></Papel>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Cards canónicas */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        <KpiCard label="Media global" value={mediaGlobal.toFixed(2)} sub={`${estrellas(mediaGlobal)} · ${fmtNumES(totalResenas)} reseñas`} color={ratingColor(mediaGlobal)} />
-        {porPlat.map(p => (
-          <KpiCard key={p.plataforma} label={PLAT_LABEL[p.plataforma]} value={p.media ? p.media.toFixed(2) : '—'} sub={`${fmtNumES(p.res)} reseñas · ${p.marcas.length} marcas`} color={p.media ? ratingColor(p.media) : COLORS.mut} />
-        ))}
+      {/* Plancha de KPIs */}
+      <div>
+        <SeccionLabel bg={GRANATE}>Nota por plataforma</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={ratingColor(mediaGlobal)} first>
+            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Media global</div>
+            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, marginTop: 6 }}>{mediaGlobal.toFixed(2)}</div>
+            <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{estrellas(mediaGlobal)} · {fmtNumES(totalResenas)} reseñas</div>
+          </PlanchaCelda>
+          {porPlat.map(p => (
+            <PlanchaCelda key={p.plataforma} bg={p.media ? ratingColor(p.media) : GRIS}>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>{PLAT_LABEL[p.plataforma]}</div>
+              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, marginTop: 6 }}>{p.media ? p.media.toFixed(2) : '—'}</div>
+              <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{fmtNumES(p.res)} reseñas · {p.marcas.length} marcas</div>
+            </PlanchaCelda>
+          ))}
+        </Plancha>
       </div>
 
-      {/* Columnas verticales por plataforma con edición inline */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14, alignItems: 'start' }}>
+      {/* Frase potente (color por significado, distinto del héroe rosa) */}
+      {mediaGlobal >= 4.5 ? (
+        <FrasePotente significado="logro">La nota media supera el 4,5: sigue respondiendo reseñas para mantenerla.</FrasePotente>
+      ) : mediaGlobal >= 4.0 ? (
+        <FrasePotente significado="coste">Nota media correcta, con margen: revisa los comentarios peor valorados.</FrasePotente>
+      ) : (
+        <FrasePotente significado="peligro">La nota media está por debajo de 4: prioriza responder y corregir incidencias.</FrasePotente>
+      )}
+
+      {/* Columnas verticales por plataforma con edición inline — papel (sin sombra) */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'flex-start' }}>
         {porPlat.map(p => (
-          <div key={p.plataforma} style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
+          <Papel key={p.plataforma} ceja={PLAT_COLOR[p.plataforma]} pad="0" style={{ flex: '1 1 300px', overflow: 'hidden' }}>
             <div style={{ background: PLAT_COLOR[p.plataforma], padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p.plataforma] || BLANCO }}>{PLAT_LABEL[p.plataforma]}</span>
-              <span style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: PLAT_TXT[p.plataforma] || BLANCO }}>{p.media ? p.media.toFixed(2) : '—'}</span>
+              <span style={{ fontFamily: OSW, fontSize: 16, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p.plataforma] || BLANCO }}>{PLAT_LABEL[p.plataforma]}</span>
+              <span style={{ fontFamily: OSW, fontSize: 22, fontWeight: 600, color: PLAT_TXT[p.plataforma] || BLANCO }}>{p.media ? p.media.toFixed(2) : '—'}</span>
             </div>
             <div style={{ padding: '6px 0' }}>
               {p.marcas.length === 0 ? (
-                <div style={{ padding: '14px 16px', color: COLORS.mut, fontSize: 13 }}>Sin marcas registradas.</div>
+                <div style={{ padding: '14px 16px', color: GRIS, fontSize: 13, fontFamily: LEX }}>Sin marcas registradas.</div>
               ) : p.marcas.map((m, i) => {
                 const k = `${m.marca}|${p.plataforma}`
                 const editando = editK === k
@@ -167,7 +202,7 @@ function TabResumen({ registros, onSaved }: { registros: Registro[]; onSaved: ()
                   <div key={m.marca} style={{ padding: '10px 16px', borderBottom: i < p.marcas.length - 1 ? `1px solid ${COLORS.group}` : 'none' }}>
                     {editando ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.pri }}>{m.marca}</div>
+                        <div style={{ fontFamily: LEX, fontSize: 13, color: INK }}>{m.marca}</div>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <input type="number" step="0.1" min="0" max="5" placeholder="Nota" value={ed.rating} onChange={e => setEd({ ...ed, rating: e.target.value })} style={{ ...inp, width: 70 }} />
                           <input type="number" placeholder="Nº reseñas" value={ed.num_resenas} onChange={e => setEd({ ...ed, num_resenas: e.target.value })} style={{ ...inp, flex: 1 }} />
@@ -178,15 +213,15 @@ function TabResumen({ registros, onSaved }: { registros: Registro[]; onSaved: ()
                     ) : (
                       <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.pri, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{m.marca}</span>
-                          <span style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, color: ratingColor(Number(m.rating)) }}>{Number(m.rating).toFixed(1)}</span>
+                          <span style={{ fontFamily: LEX, fontSize: 13, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{m.marca}</span>
+                          <span style={{ fontFamily: OSW, fontSize: 16, fontWeight: 600, color: ratingColor(Number(m.rating)) }}>{Number(m.rating).toFixed(1)}</span>
                           <button onClick={() => { setEditK(k); setEd({ rating: String(m.rating), num_resenas: String(m.num_resenas) }) }} style={{ ...btnMini, padding: '2px 7px' }} title="Editar nota">✎</button>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                          <div style={{ flex: 1, height: 6, background: COLORS.group, borderRadius: 3 }}>
-                            <div style={{ height: 6, width: `${(Number(m.rating) / 5) * 100}%`, background: ratingColor(Number(m.rating)), borderRadius: 3 }} />
+                          <div style={{ flex: 1, height: 6, background: COLORS.group, borderRadius: 0 }}>
+                            <div style={{ height: 6, width: `${(Number(m.rating) / 5) * 100}%`, background: ratingColor(Number(m.rating)), borderRadius: 0 }} />
                           </div>
-                          <span style={{ fontFamily: FONT.body, fontSize: 11, color: COLORS.mut, whiteSpace: 'nowrap' }}>{fmtNumES(m.num_resenas)} res.</span>
+                          <span style={{ fontFamily: LEX, fontSize: 11, color: GRIS, whiteSpace: 'nowrap' }}>{fmtNumES(m.num_resenas)} res.</span>
                         </div>
                       </>
                     )}
@@ -194,7 +229,7 @@ function TabResumen({ registros, onSaved }: { registros: Registro[]; onSaved: ()
                 )
               })}
             </div>
-          </div>
+          </Papel>
         ))}
       </div>
     </div>
@@ -219,56 +254,71 @@ function TabEvolucion({ registros }: { registros: Registro[] }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={CARDS.std}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={lblSm}>Marca</div>
+      {/* Filtro propio: marca */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={lblSm}>Marca</span>
           <select value={marca} onChange={e => setMarcaSel(e.target.value)} style={{ ...inp, width: 280 }}>
             {marcas.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
-        </div>
+        </label>
       </div>
 
       {fechas.length < 2 ? (
-        <div style={{ ...CARDS.std, color: COLORS.mut }}>Necesitas al menos 2 registros en fechas distintas para ver evolución y previsión. Registra notas cada pocos días.</div>
+        <Papel ceja={GRIS}><div style={{ color: GRIS, fontFamily: LEX }}>Necesitas al menos 2 registros en fechas distintas para ver evolución y previsión. Registra notas cada pocos días.</div></Papel>
       ) : (
         <>
-          {/* Cards: nota actual, tendencia, previsión */}
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            <KpiCard label="Nota media actual" value={mediaPorFecha[mediaPorFecha.length - 1].media.toFixed(2)} sub={fmtFecha(fechas[fechas.length - 1])} color={ratingColor(mediaPorFecha[mediaPorFecha.length - 1].media)} />
+          {/* Plancha: nota actual, tendencia, previsión */}
+          <Plancha>
+            <PlanchaCelda bg={ratingColor(mediaPorFecha[mediaPorFecha.length - 1].media)} first>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Nota media actual</div>
+              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, marginTop: 6 }}>{mediaPorFecha[mediaPorFecha.length - 1].media.toFixed(2)}</div>
+              <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{fmtFecha(fechas[fechas.length - 1])}</div>
+            </PlanchaCelda>
             {(() => {
               const ult = mediaPorFecha[mediaPorFecha.length - 1].media
               const pen = mediaPorFecha[mediaPorFecha.length - 2].media
-              const d = ult - pen
-              return <KpiCard label="Movimiento" value={`${d >= 0 ? '+' : ''}${d.toFixed(2)}`} sub="vs registro anterior" color={d >= 0 ? COLORS.ok : COLORS.err} />
+              const dlt = ult - pen
+              return (
+                <PlanchaCelda bg={dlt >= 0 ? VERDE : ROJO}>
+                  <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Movimiento</div>
+                  <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, marginTop: 6 }}>{dlt >= 0 ? '+' : ''}{dlt.toFixed(2)}</div>
+                  <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>vs registro anterior</div>
+                </PlanchaCelda>
+              )
             })()}
-            {prevision !== null && <KpiCard label="Previsión próxima" value={prevision.toFixed(2)} sub="tendencia mínimos cuadrados" color={ratingColor(prevision)} />}
-          </div>
+            {prevision !== null && (
+              <PlanchaCelda bg={ratingColor(prevision)}>
+                <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Previsión próxima</div>
+                <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, marginTop: 6 }}>{prevision.toFixed(2)}</div>
+                <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>tendencia mínimos cuadrados</div>
+              </PlanchaCelda>
+            )}
+          </Plancha>
 
-          {/* Gráfico de líneas por plataforma + previsión */}
-          <div style={CARDS.big}>
+          {/* Gráfico de líneas por plataforma + previsión — papel */}
+          <Papel ceja={GRANATE}>
             <div style={{ ...lbl, marginBottom: 16 }}>Evolución de nota — {marca}</div>
             <LineChartResenas serie={serie} fechas={fechas} prevision={prevision} mediaPorFecha={mediaPorFecha} />
-          </div>
+          </Papel>
 
-          {/* Tabla */}
-          <div style={CARDS.std}>
-            <div style={{ ...lbl, marginBottom: 12 }}>Registros — {marca}</div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead><tr><th style={th}>Fecha</th><th style={th}>Plataforma</th><th style={{ ...th, textAlign: 'right' }}>Nota</th><th style={{ ...th, textAlign: 'right' }}>Reseñas</th></tr></thead>
-                <tbody>
-                  {serie.slice().reverse().map(r => (
-                    <tr key={r.id}>
-                      <td style={td}>{fmtFecha(r.fecha)}</td>
-                      <td style={td}>{PLAT_LABEL[r.plataforma]}</td>
-                      <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, fontWeight: 600, color: ratingColor(Number(r.rating)) }}>{Number(r.rating).toFixed(1)}</td>
-                      <td style={{ ...td, textAlign: 'right' }}>{fmtNumES(r.num_resenas)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {/* Tabla — papel */}
+          <Papel ceja={NAR} pad="0" style={{ overflowX: 'auto' }}>
+            <div style={{ ...lbl, margin: '16px 16px 12px' }}>Registros — {marca}</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr><th style={th}>Fecha</th><th style={th}>Plataforma</th><th style={{ ...th, textAlign: 'right' }}>Nota</th><th style={{ ...th, textAlign: 'right' }}>Reseñas</th></tr></thead>
+              <tbody>
+                {serie.slice().reverse().map(r => (
+                  <tr key={r.id}>
+                    <td style={td}>{fmtFecha(r.fecha)}</td>
+                    <td style={td}>{PLAT_LABEL[r.plataforma]}</td>
+                    <td style={{ ...td, textAlign: 'right', fontFamily: OSW, fontWeight: 600, color: ratingColor(Number(r.rating)) }}>{Number(r.rating).toFixed(1)}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{fmtNumES(r.num_resenas)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Papel>
         </>
       )}
     </div>
@@ -359,32 +409,30 @@ function TabRegistro({ accesos, registros, onSaved }: { accesos: Acceso[]; regis
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={CARDS.std}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={lblSm}>Fecha del registro</div>
-          <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ ...inp, width: 180 }} />
-          <button onClick={guardarTodo} style={btnPri}>Guardar todas</button>
-          <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>Rellena solo lo que cambie. Se muestra la última nota registrada.</span>
-        </div>
-      </div>
+      <Papel ceja={GRANATE} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={lblSm}>Fecha del registro</span>
+        <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ ...inp, width: 180 }} />
+        <button onClick={guardarTodo} style={btnPri}>Guardar todas</button>
+        <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Rellena solo lo que cambie. Se muestra la última nota registrada.</span>
+      </Papel>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14, alignItems: 'start' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'flex-start' }}>
         {PLATAFORMAS.map(p => (
-          <div key={p} style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
+          <Papel key={p} ceja={PLAT_COLOR[p]} pad="0" style={{ flex: '1 1 300px', overflow: 'hidden' }}>
             <div style={{ background: PLAT_COLOR[p], padding: '12px 16px' }}>
-              <span style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p] || BLANCO }}>{PLAT_LABEL[p]}</span>
+              <span style={{ fontFamily: OSW, fontSize: 15, fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', color: PLAT_TXT[p] || BLANCO }}>{PLAT_LABEL[p]}</span>
             </div>
             <div style={{ padding: '6px 0' }}>
               {marcasPorPlat[p].length === 0 ? (
-                <div style={{ padding: '14px 16px', color: COLORS.mut, fontSize: 13 }}>Sin marcas activas.</div>
+                <div style={{ padding: '14px 16px', color: GRIS, fontSize: 13, fontFamily: LEX }}>Sin marcas activas.</div>
               ) : marcasPorPlat[p].map((marca, i) => {
                 const k = `${marca}|${p}`
                 const v = valores[k] || { rating: '', num_resenas: '' }
                 const prev = ultimos[k]
                 return (
                   <div key={k} style={{ padding: '8px 16px', borderBottom: i < marcasPorPlat[p].length - 1 ? `1px solid ${COLORS.group}` : 'none' }}>
-                    <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.pri, marginBottom: 4 }}>
-                      {marca}{prev ? <span style={{ color: COLORS.mut, fontSize: 11 }}> · ahora {Number(prev.rating).toFixed(1)}</span> : ''}
+                    <div style={{ fontFamily: LEX, fontSize: 13, color: INK, marginBottom: 4 }}>
+                      {marca}{prev ? <span style={{ color: GRIS, fontSize: 11 }}> · ahora {Number(prev.rating).toFixed(1)}</span> : ''}
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <input type="number" step="0.1" min="0" max="5" placeholder="Nota" value={v.rating} onChange={e => setVal(marca, p, 'rating', e.target.value)} style={{ ...inp, width: 80 }} />
@@ -394,9 +442,12 @@ function TabRegistro({ accesos, registros, onSaved }: { accesos: Acceso[]; regis
                 )
               })}
             </div>
-          </div>
+          </Papel>
         ))}
       </div>
     </div>
   )
 }
+
+const lbl: React.CSSProperties = { fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, fontWeight: 600 }
+const lblSm: React.CSSProperties = { fontFamily: OSW, fontSize: 10.5, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }

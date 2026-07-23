@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNum } from '@/utils/format'
 import { useTheme } from '@/contexts/ThemeContext'
 import type { Receta } from '@/components/escandallo/types'
+import { Papel, HeroCantera, FrasePotente, SHADOW_DURA } from '@/components/kit/cantera'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 
 interface RecetaFicha extends Receta {
   elaboracion?: string | null
@@ -121,6 +123,23 @@ export default function RecetasFichasTecnicas() {
     return acc
   }, {})
 
+  // Héroe / frase potente — solo capa visual, derivado de datos ya cargados.
+  const totalRecetas = recetas.length
+  const sinElaboracion = recetas.filter(r => !r.elaboracion).length
+  const sinFoto = recetas.filter(r => !r.foto_url).length
+
+  const titularHero = selected
+    ? `Ficha técnica de ${selected.nombre}.`
+    : totalRecetas === 0
+      ? 'Aún no hay fichas técnicas registradas.'
+      : `${fmtNum(totalRecetas, 0)} ficha${totalRecetas !== 1 ? 's' : ''} técnica${totalRecetas !== 1 ? 's' : ''} lista${totalRecetas !== 1 ? 's' : ''} para consulta en cocina.`
+
+  const atencionHero = [
+    sinElaboracion > 0 ? `${fmtNum(sinElaboracion, 0)} sin elaboración` : null,
+    sinFoto > 0 ? `${fmtNum(sinFoto, 0)} sin foto` : null,
+    categorias.length > 0 ? `${fmtNum(categorias.length, 0)} categorías` : null,
+  ].filter(Boolean) as string[]
+
   const openEdit = () => {
     if (!selected) return
     setEditCategoria(selected.categoria ?? '')
@@ -160,7 +179,7 @@ export default function RecetasFichasTecnicas() {
     fontSize: 13,
     backgroundColor: 'var(--sl-input-edit)',
     border: '1px solid var(--sl-border-strong)',
-    borderRadius: 6,
+    borderRadius: 0,
     padding: '7px 10px',
     color: T.pri,
     outline: 'none',
@@ -169,14 +188,34 @@ export default function RecetasFichasTecnicas() {
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      background: 'var(--sl-card)',
-      border: `0.5px solid ${T.brd}`,
-      borderRadius: 16,
-      overflow: 'hidden',
-      height: 'calc(100vh - 80px)',
-    }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <RutaPantalla niveles={['Operaciones', 'Fichas técnicas']} subtitulo="Ingredientes, elaboración, herramientas y alérgenos por receta" />
+
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        titular={titularHero}
+        etiquetaDato={selected ? 'Coste por ración' : 'Fichas técnicas'}
+        cifra={selected ? fmtEur(selected.coste_rac) : fmtNum(totalRecetas, 0)}
+        resumen={selected ? <>{selected.raciones} ración{selected.raciones !== 1 ? 'es' : ''} · {selected.categoria ?? 'Sin categoría'}</> : undefined}
+        atencion={atencionHero}
+      />
+
+      {/* 3 · Frase potente (una sola, según haya o no fichas sin elaboración) */}
+      {totalRecetas > 0 && (
+        sinElaboracion > 0
+          ? <FrasePotente significado="peligro">{fmtNum(sinElaboracion, 0)} receta{sinElaboracion !== 1 ? 's' : ''} sin elaboración documentada: la cocina depende de que alguien se lo sepa de memoria.</FrasePotente>
+          : <FrasePotente significado="logro">Todas las fichas técnicas tienen su elaboración documentada.</FrasePotente>
+      )}
+
+      <div style={{
+        display: 'flex',
+        background: 'var(--sl-card)',
+        border: `0.5px solid ${T.brd}`,
+        borderRadius: 0,
+        overflow: 'hidden',
+        height: 'calc(100vh - 260px)',
+      }}>
 
       {/* ── Columna izquierda ── */}
       <div style={{ width: 260, flexShrink: 0, borderRight: `0.5px solid ${T.brd}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -261,26 +300,26 @@ export default function RecetasFichasTecnicas() {
               </div>
               <button
                 onClick={openEdit}
-                style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', backgroundColor: T.red, color: BLANCO, border: 'none', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', flexShrink: 0 }}
+                style={{ fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', backgroundColor: T.red, color: BLANCO, border: `1px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, padding: '7px 16px', cursor: 'pointer', flexShrink: 0 }}
               >
                 Editar
               </button>
             </div>
 
             {/* CATEGORÍA */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Categoría</span>
               {selected.categoria ? (
-                <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', backgroundColor: T.brd, color: T.sec, padding: '3px 10px', borderRadius: 99, display: 'inline-block' }}>
+                <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', backgroundColor: T.brd, color: T.sec, border: `0.5px solid ${T.brd}`, padding: '3px 10px', borderRadius: 0, display: 'inline-block' }}>
                   {selected.categoria}
                 </span>
               ) : (
                 <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: T.mut }}>—</span>
               )}
-            </div>
+            </Papel>
 
             {/* INGREDIENTES */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Ingredientes</span>
               {lineas.length === 0 ? (
                 <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: T.mut, fontStyle: 'italic', margin: 0 }}>Sin ingredientes</p>
@@ -312,10 +351,10 @@ export default function RecetasFichasTecnicas() {
                   </tbody>
                 </table>
               )}
-            </div>
+            </Papel>
 
             {/* ELABORACIÓN */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Elaboración</span>
               {selected.elaboracion ? (
                 <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: T.pri, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>
@@ -326,10 +365,10 @@ export default function RecetasFichasTecnicas() {
                   ⚠ Sin elaboración — pulsa Editar para añadirla
                 </p>
               )}
-            </div>
+            </Papel>
 
             {/* HERRAMIENTAS */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Herramientas</span>
               {selected.herramientas ? (
                 <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: T.pri, margin: 0 }}>
@@ -340,15 +379,15 @@ export default function RecetasFichasTecnicas() {
                   Sin herramientas definidas
                 </p>
               )}
-            </div>
+            </Papel>
 
             {/* ALÉRGENOS */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Alérgenos</span>
               {selected.alergenos && selected.alergenos.length > 0 ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {selected.alergenos.map(a => (
-                    <span key={a} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', backgroundColor: T.brd, color: T.sec, padding: '3px 10px', borderRadius: 99, border: `0.5px solid ${T.brd}` }}>
+                    <span key={a} style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', backgroundColor: T.brd, color: T.sec, padding: '3px 10px', borderRadius: 0, border: `0.5px solid ${T.brd}` }}>
                       {a}
                     </span>
                   ))}
@@ -358,25 +397,25 @@ export default function RecetasFichasTecnicas() {
                   Sin alérgenos definidos
                 </p>
               )}
-            </div>
+            </Papel>
 
             {/* FOTO */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Foto</span>
               {selected.foto_url ? (
                 <img
                   src={selected.foto_url}
                   alt={selected.nombre}
-                  style={{ width: '100%', borderRadius: 8, maxHeight: 240, objectFit: 'cover', display: 'block' }}
+                  style={{ width: '100%', borderRadius: 0, maxHeight: 240, objectFit: 'cover', display: 'block' }}
                 />
               ) : (
-                <div style={{ border: `1px dashed ${T.brd}`, borderRadius: 8, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ border: `1px dashed ${T.brd}`, borderRadius: 0, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: T.mut }}>
                     Sin foto — pulsa Editar para añadir
                   </span>
                 </div>
               )}
-            </div>
+            </Papel>
           </>
         )}
       </div>
@@ -388,7 +427,7 @@ export default function RecetasFichasTecnicas() {
           onClick={() => setEditOpen(false)}
         >
           <div
-            style={{ backgroundColor: isDark ? INK : BLANCO, border: `1px solid ${T.brd}`, borderRadius: 10, padding: 24, width: '100%', maxWidth: 500, display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '90vh', overflowY: 'auto' }}
+            style={{ backgroundColor: isDark ? INK : BLANCO, border: `2px solid ${T.brd}`, borderTop: `5px solid ${T.red}`, borderRadius: 0, padding: 24, width: '100%', maxWidth: 500, display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '90vh', overflowY: 'auto' }}
             onClick={e => e.stopPropagation()}
           >
             <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: T.pri, margin: 0, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
@@ -446,14 +485,14 @@ export default function RecetasFichasTecnicas() {
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button
                 onClick={() => setEditOpen(false)}
-                style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', border: '1px solid var(--sl-btn-cancel-border)', borderRadius: 5, padding: '9px 20px', cursor: 'pointer' }}
+                style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', backgroundColor: 'var(--sl-btn-cancel-bg)', color: 'var(--sl-btn-cancel-text)', border: `1px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, padding: '9px 20px', cursor: 'pointer' }}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', backgroundColor: T.red, color: BLANCO, border: 'none', borderRadius: 5, padding: '9px 20px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+                style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', backgroundColor: T.red, color: BLANCO, border: `1px solid ${INK}`, boxShadow: saving ? 'none' : SHADOW_DURA, borderRadius: 0, padding: '9px 20px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
               >
                 {saving ? 'Guardando…' : 'Guardar'}
               </button>
@@ -461,6 +500,7 @@ export default function RecetasFichasTecnicas() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

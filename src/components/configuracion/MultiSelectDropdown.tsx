@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE } from '@/styles/neobrutal'
+import { CONFIG_ROJO_WASH, CONFIG_ROJO_WASH_DARK } from '@/styles/palettes'
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useTheme, FONT } from '@/styles/tokens'
@@ -35,7 +36,7 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
       ? options.find(o => o.value === selected[0])?.label ?? label
       : `${label} (${selected.length})`
 
-  const activeBg = isDark ? 'rgba(176,29,35,0.22)' : '#FCE0E2'
+  const activeBg = isDark ? CONFIG_ROJO_WASH_DARK : CONFIG_ROJO_WASH
   const hoverBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'
 
   return (
@@ -46,7 +47,7 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
         style={{
           padding: '8px 14px',
           border: `1px solid ${selected.length > 0 ? GRANATE : T.brd}`,
-          borderRadius: 8,
+          borderRadius: 0,
           background: selected.length > 0 ? activeBg : T.card,
           color: selected.length > 0 ? GRANATE : T.pri,
           fontFamily: FONT.heading,
@@ -76,7 +77,7 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
             overflowY: 'auto',
             background: T.card,
             border: `1px solid ${T.brd}`,
-            borderRadius: 10,
+            borderRadius: 0,
             boxShadow: isDark ? '0 12px 24px rgba(0,0,0,0.5)' : '0 12px 24px rgba(0,0,0,0.12)',
             zIndex: 20,
             padding: 4,
@@ -99,7 +100,7 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
                   width: '100%',
                   padding: '8px 12px',
                   fontSize: 13,
-                  borderRadius: 6,
+                  borderRadius: 0,
                   background: 'transparent',
                   border: 'none',
                   color: T.pri,
@@ -118,7 +119,7 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
                     justifyContent: 'center',
                     width: 16,
                     height: 16,
-                    borderRadius: 3,
+                    borderRadius: 0,
                     border: `1px solid ${on ? GRANATE : T.brd}`,
                     background: on ? GRANATE : 'transparent',
                     color: BLANCO,
@@ -144,7 +145,7 @@ export function MultiSelectDropdown({ label, options, selected, onChange }: Prop
                   color: GRANATE,
                   background: 'transparent',
                   border: 'none',
-                  borderRadius: 6,
+                  borderRadius: 0,
                   fontFamily: FONT.heading,
                   letterSpacing: '0.5px',
                   textTransform: 'uppercase',

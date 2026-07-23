@@ -1,4 +1,5 @@
-import { AZUL, BLANCO, NAR, ROJO, VERDE } from '@/styles/neobrutal'
+import { AZUL, BLANCO, GRANATE, NAR, ROJO, VERDE } from '@/styles/neobrutal'
+import { PARETO_WARN_BORDER, PARETO_WARN_MUT } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -12,6 +13,8 @@ import TabsPastilla from '@/components/ui/TabsPastilla'
 import { COLORS, FONT, CARDS, fmtDec } from '@/components/panel/resumen/tokens'
 import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 import { normPlato, similitudPlato } from '@/utils/normPlato'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 /** Umbral mínimo para sugerir un enlace automático (Tanda 8) — igual criterio que Carta.tsx:
  *  por debajo, mejor no sugerir nada que sugerir mal; sigue disponible el selector manual. */
@@ -128,9 +131,12 @@ function pctTramos(precios: number[], nTramos: number): { rango: [number, number
 // (mayusculas/acentos/espacios distintos). normPlato() replica norm_plato() de Postgres
 // (la misma que usa v_margen_plato/mapeo_plato_receta) -- ver src/utils/normPlato.ts.
 
-/* ── Estilos base (tokens Panel Global) ─────────────── */
-const cardBig = CARDS.big
-const card = CARDS.std
+/* ── Estilos base (tokens Panel Global) ───────────────
+ * CANTERA ALEGRE: sombra dura SOLO en pulsable/resumen del héroe — estos
+ * bloques son informativos (gráficos, listas), así que se les quita el
+ * boxShadow heredado de CARDS.big/std (que ya vienen a radio 0). ── */
+const cardBig = { ...CARDS.big, boxShadow: 'none' }
+const card = { ...CARDS.std, boxShadow: 'none' }
 const lbl: React.CSSProperties = {
   fontFamily: FONT.heading, fontSize: 12, letterSpacing: 2,
   textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500,
@@ -140,7 +146,7 @@ const lblSm: React.CSSProperties = { ...lbl, fontSize: 11, letterSpacing: 1.5 }
 function Pill({ active, color, children, onClick }: { active: boolean; color: string; children: React.ReactNode; onClick: () => void }) {
   return (
     <button onClick={onClick} style={{
-      padding: '5px 12px', borderRadius: 7,
+      padding: '5px 12px', borderRadius: 0,
       border: active ? 'none' : `0.5px solid ${COLORS.brd}`,
       background: active ? color : COLORS.card,
       color: active ? BLANCO : COLORS.sec,
@@ -307,74 +313,116 @@ export default function MenuEngineering() {
     return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([mes, uds]) => ({ mes: MES[mes] ?? String(mes), uds }))
   }, [ventas, canalesSel])
 
+  /* ── Agregados para el héroe (solo lectura de `dishes`, sin recalcular negocio) ── */
+  const margenMedio = useMemo(() => dishes.length ? mean(dishes.map(dd => dd.margen)) : 0, [dishes])
+  const foodCostMedio = useMemo(() => dishes.length ? mean(dishes.map(dd => dd.foodCostPct)) : 0, [dishes])
+
   /* ════════════════════════════════════════════════════ */
   if (loading) return <div style={{ padding: 32, color: COLORS.sec, fontFamily: FONT.body }}>Cargando datos…</div>
 
-  return (
-    <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
+  const canalesLabel = canalesSel.map(c => CANALES.find(x => x.id === c)?.label).join(', ')
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: COLORS.redSL, letterSpacing: 3, textTransform: 'uppercase' }}>
-            MENU ENGINEERING
-          </div>
-          <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 2 }}>
-            {dishes.length} platos · {canalesSel.map(c => CANALES.find(x => x.id === c)?.label).join(', ')}
-            {mesSel !== 'todos' ? ` · mes ${mesSel}` : ' · acumulado'}
-          </div>
+  const filtros = (
+    <Papel ceja={NAR} style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div>
+        <div style={{ ...lblSm, marginBottom: 8 }}>Canales</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {CANALES.map(c => (
+            <Pill key={c.id} active={canalesSel.includes(c.id)} color={COLORS.accent}
+              onClick={() => setCanalesSel(p => p.includes(c.id) ? (p.length > 1 ? p.filter(x => x !== c.id) : p) : [...p, c.id])}>
+              {c.label}
+            </Pill>
+          ))}
         </div>
       </div>
+      <div>
+        <div style={{ ...lblSm, marginBottom: 8 }}>Periodo</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <Pill active={mesSel === 'todos'} color={COLORS.sec} onClick={() => setMesSel('todos')}>Acumulado</Pill>
+          {mesesDisp.map(m => (
+            <Pill key={m} active={mesSel === m} color={COLORS.sec} onClick={() => setMesSel(m)}>Mes {m}</Pill>
+          ))}
+        </div>
+      </div>
+    </Papel>
+  )
+
+  const atencion = [
+    `${dishes.length} platos analizados`,
+    hayEstimados ? 'Popularidad estimada (placeholder)' : null,
+    sinEnlazar.n > 0 ? `${sinEnlazar.n} platos sin enlazar` : null,
+    canalesLabel ? `Canales: ${canalesLabel}` : null,
+  ].filter(Boolean) as string[]
+
+  return (
+    <PantallaCantera>
+      {/* Cabecera */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
+        <RutaPantalla niveles={['Cocina', 'Menú Engineering']} />
+      </div>
+
+      {/* HÉROE (naranja · área Cocina) */}
+      <HeroCantera
+        area="cocina"
+        periodo={mesSel !== 'todos' ? `Mes ${mesSel}` : 'Acumulado'}
+        titular={dishes.length === 0 ? 'Aún no hay platos con precio y coste para analizar.' : <>El margen medio de tu carta es de <b>{fmtEur(margenMedio)}</b> por plato.</>}
+        etiquetaDato="Margen medio por plato"
+        cifra={fmtEur(margenMedio)}
+        resumen={dishes.length > 0 ? <>Food cost medio <b>{fmtDec(foodCostMedio * 100)}%</b> sobre {dishes.length} platos con venta y receta.</> : undefined}
+        atencion={atencion}
+      />
+
+      {/* PLANCHA DE KPIs comparables */}
+      <div>
+        <SeccionLabel bg={NAR}>KPIs de carta</SeccionLabel>
+        <Plancha>
+          <PlanchaCelda bg={NAR} color={BLANCO} first>
+            <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Platos analizados</div>
+            <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{dishes.length}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={VERDE} color={BLANCO}>
+            <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Margen medio</div>
+            <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(margenMedio)}</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={foodCostMedio <= 0.35 ? VERDE : ROJO} color={BLANCO}>
+            <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Food cost medio</div>
+            <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{fmtDec(foodCostMedio * 100)}%</div>
+          </PlanchaCelda>
+          <PlanchaCelda bg={AZUL} color={BLANCO}>
+            <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Sin enlazar</div>
+            <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{sinEnlazar.n}</div>
+          </PlanchaCelda>
+        </Plancha>
+      </div>
+
+      {/* FRASE POTENTE (color por significado, distinto del héroe naranja) */}
+      {sinEnlazar.n > 0
+        ? <FrasePotente significado="peligro">{fmtEur(sinEnlazar.euros)} de ventas todavía sin receta enlazada quedan fuera del análisis: enlázalas para que el margen real sea fiable.</FrasePotente>
+        : hayEstimados
+          ? <FrasePotente significado="coste">La popularidad aún es estimada: en cuanto entren ventas reales, los 6 métodos se recalculan solos.</FrasePotente>
+          : <FrasePotente significado="oportunidad">Usa los 6 métodos para decidir qué platos empujar, cuáles repensar y cuáles retirar de la carta.</FrasePotente>}
 
       {/* Filtros */}
-      <div style={{ ...card, display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 14 }}>
-        <div>
-          <div style={{ ...lblSm, marginBottom: 8 }}>Canales</div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {CANALES.map(c => (
-              <Pill key={c.id} active={canalesSel.includes(c.id)} color={COLORS.accent}
-                onClick={() => setCanalesSel(p => p.includes(c.id) ? (p.length > 1 ? p.filter(x => x !== c.id) : p) : [...p, c.id])}>
-                {c.label}
-              </Pill>
-            ))}
-          </div>
-        </div>
-        <div>
-          <div style={{ ...lblSm, marginBottom: 8 }}>Periodo</div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <Pill active={mesSel === 'todos'} color={COLORS.sec} onClick={() => setMesSel('todos')}>Acumulado</Pill>
-            {mesesDisp.map(m => (
-              <Pill key={m} active={mesSel === m} color={COLORS.sec} onClick={() => setMesSel(m)}>Mes {m}</Pill>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Aviso estimado */}
-      {hayEstimados && (
-        <div style={{ background: '#fff8e6', border: `0.5px solid ${COLORS.warn}`, borderRadius: 10, padding: '8px 14px', fontFamily: FONT.body, fontSize: 12, color: '#8a6d1f', marginBottom: 14 }}>
-          ⚠ Popularidad <strong>estimada</strong> (placeholder). Se sustituirá automáticamente al cargar ventas reales (Excel / resumen / POS). El margen y los precios sí son reales.
-        </div>
-      )}
+      {filtros}
 
       {/* Enlace asistido: platos de ventas sin receta enlazada (CA-5) */}
       {sinEnlazar.n > 0 && (
-        <div style={{ background: '#fff8e6', border: `0.5px solid ${COLORS.warn}`, borderRadius: 10, padding: '10px 14px', fontFamily: FONT.body, fontSize: 12, color: '#8a6d1f', marginBottom: 14 }}>
-          <div style={{ marginBottom: 8 }}>
+        <Papel ceja={GRANATE}>
+          <div style={{ marginBottom: 8, fontFamily: FONT.body, fontSize: 12, color: COLORS.pri }}>
             ⚠ {fmtEur(sinEnlazar.euros)} de ventas todavía sin receta enlazada ({sinEnlazar.n} platos) — no participan en el análisis. Vincúlalos aquí en un clic:
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {sinEnlazarLista.slice(0, 8).map(({ row, nombre, sugerencia }) => (
-              <div key={row.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: '#fff', border: '0.5px solid #f0dca0', borderRadius: 8, padding: '6px 10px' }}>
+              <div key={row.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: BLANCO, border: `0.5px solid ${PARETO_WARN_BORDER}`, borderRadius: 0, padding: '6px 10px' }}>
                 <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={nombre}>
-                  {nombre} <span style={{ color: '#a08a4a' }}>· {fmtEur(Number(row.euros ?? 0))}</span>
+                  {nombre} <span style={{ color: PARETO_WARN_MUT }}>· {fmtEur(Number(row.euros ?? 0))}</span>
                 </div>
                 {sugerencia ? (
                   <button
                     onClick={() => vincular(row.id, sugerencia.receta.id)}
                     disabled={vinculando === row.id}
                     title={`Similitud ${Math.round(sugerencia.score * 100)}%`}
-                    style={{ flexShrink: 0, background: COLORS.accent, color: BLANCO, border: 'none', borderRadius: 6, padding: '4px 10px', fontFamily: FONT.body, fontSize: 11, cursor: vinculando === row.id ? 'default' : 'pointer', opacity: vinculando === row.id ? 0.6 : 1 }}
+                    style={{ flexShrink: 0, background: COLORS.accent, color: BLANCO, border: 'none', borderRadius: 0, padding: '4px 10px', fontFamily: FONT.body, fontSize: 11, cursor: vinculando === row.id ? 'default' : 'pointer', opacity: vinculando === row.id ? 0.6 : 1 }}
                   >
                     ¿{sugerencia.receta.nombre}? · Vincular
                   </button>
@@ -383,7 +431,7 @@ export default function MenuEngineering() {
                     value=""
                     disabled={vinculando === row.id}
                     onChange={e => { if (e.target.value) vincular(row.id, e.target.value) }}
-                    style={{ flexShrink: 0, maxWidth: 180, fontFamily: FONT.body, fontSize: 11, border: '0.5px solid #f0dca0', borderRadius: 6, padding: '4px 6px' }}
+                    style={{ flexShrink: 0, maxWidth: 180, fontFamily: FONT.body, fontSize: 11, border: `0.5px solid ${PARETO_WARN_BORDER}`, borderRadius: 0, padding: '4px 6px' }}
                   >
                     <option value="">Vincular a…</option>
                     {recetas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
@@ -397,38 +445,39 @@ export default function MenuEngineering() {
               Ver los {sinEnlazarLista.length - 8} restantes en Coste por plato →
             </div>
           )}
-        </div>
+        </Papel>
       )}
 
       {/* Evolución mensual */}
       {evolucion.length > 1 && (
-        <div style={{ ...card, marginBottom: 14 }}>
-          <div style={{ ...lblSm, marginBottom: 10 }}>Evolución unidades · {canalesSel.map(c => CANALES.find(x => x.id === c)?.label).join(', ')}</div>
+        <Papel ceja={AZUL}>
+          <div style={{ ...lblSm, marginBottom: 10 }}>Evolución unidades · {canalesLabel}</div>
           <ResponsiveContainer width="100%" height={150}>
             <LineChart data={evolucion} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={COLORS.group} />
               <XAxis dataKey="mes" tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} />
               <YAxis tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} />
-              <Tooltip contentStyle={{ fontFamily: FONT.body, fontSize: 12, borderRadius: 8 }} />
+              <Tooltip contentStyle={{ fontFamily: FONT.body, fontSize: 12, borderRadius: 0 }} />
               <Line type="monotone" dataKey="uds" stroke={COLORS.accent} strokeWidth={2} dot={{ r: 3 }} name="Unidades" />
             </LineChart>
           </ResponsiveContainer>
-        </div>
+        </Papel>
       )}
 
       {/* Selector de método */}
-      <div style={{ marginBottom: 14 }}>
+      <div>
+        <SeccionLabel bg={VERDE}>Método de análisis</SeccionLabel>
         <TabsPastilla tabs={METODOS} activeId={metodo} onChange={id => setMetodo(id as MetodoId)} />
       </div>
 
-      {/* Render por método */}
+      {/* Render por método (6 vistas Recharts: se reutilizan tal cual, solo capa visual de arriba) */}
       {metodo === 'boston'   && <Boston dishes={dishes} />}
       {metodo === 'pavesic'  && <Pavesic dishes={dishes} />}
       {metodo === 'lebruto'  && <LeBruto dishes={dishes} />}
       {metodo === 'omnes'    && <Omnes dishes={dishes} />}
       {metodo === 'atkinson' && <Atkinson dishes={dishes} />}
       {metodo === 'taylor'   && <Taylor dishes={dishes} />}
-    </div>
+    </PantallaCantera>
   )
 }
 
@@ -521,7 +570,7 @@ function BTooltip({ active, payload }: { active?: boolean; payload?: Array<{ pay
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 8, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 0, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 13, marginBottom: 2 }}>{d.nombre}</div>
       <div>Popularidad: {fmtDec(d.mix)}% {d.estimado && <span style={{ color: COLORS.warn }}>(est.)</span>}</div>
       <div>Margen: {fmtEur(d.margen)} ({fmtDec(d.margenPct * 100)}%)</div>
@@ -609,7 +658,7 @@ function PTooltip({ active, payload }: { active?: boolean; payload?: Array<{ pay
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 8, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
+    <div style={{ background: BLANCO, border: `0.5px solid ${COLORS.brd}`, borderRadius: 0, padding: '8px 12px', fontFamily: FONT.body, fontSize: 12 }}>
       <div style={{ fontFamily: FONT.heading, fontSize: 13, marginBottom: 2 }}>{d.nombre}</div>
       <div>Food cost: {fmtDec(d.foodCostPct * 100)}%</div>
       <div>Margen pond.: {fmtEur(d.mcw)}</div>
@@ -717,7 +766,7 @@ function Omnes({ dishes }: { dishes: Dish[] }) {
           <span>{fmtEur(t.rango[0])} – {fmtEur(t.rango[1])}</span>
           <span style={{ color: col, fontWeight: 600 }}>{fmtDec(t.pct)}%</span>
         </div>
-        <div style={{ height: 8, borderRadius: 4, background: COLORS.group, overflow: 'hidden' }}>
+        <div style={{ height: 8, borderRadius: 0, background: COLORS.group, overflow: 'hidden' }}>
           <div style={{ width: `${Math.min(100, t.pct)}%`, height: '100%', background: col }} />
         </div>
       </div>
@@ -773,7 +822,7 @@ function Omnes({ dishes }: { dishes: Dish[] }) {
             <CartesianGrid strokeDasharray="3 3" stroke={COLORS.group} />
             <XAxis dataKey="tramo" tick={{ fontFamily: FONT.body, fontSize: 10, fill: COLORS.sec }} />
             <YAxis tick={{ fontFamily: FONT.body, fontSize: 11, fill: COLORS.sec }} tickFormatter={(v: number) => `${v}%`} />
-            <Tooltip contentStyle={{ fontFamily: FONT.body, fontSize: 12, borderRadius: 8 }} />
+            <Tooltip contentStyle={{ fontFamily: FONT.body, fontSize: 12, borderRadius: 0 }} />
             <Legend wrapperStyle={{ fontFamily: FONT.body, fontSize: 12 }} />
             <Bar dataKey="Oferta" fill={COLORS.sec} radius={[3, 3, 0, 0]} />
             <Bar dataKey="Demanda" fill={COLORS.accent} radius={[3, 3, 0, 0]} />
@@ -819,7 +868,7 @@ function Atkinson({ dishes }: { dishes: Dish[] }) {
               <span style={{ fontFamily: FONT.body, fontSize: 12, color: r.margen >= 0 ? COLORS.sec : COLORS.err }}>{fmtEur(r.margen)}</span>
               <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.pri, fontWeight: 600 }}>{fmtEur(r.contribTotal)}</span>
               <span style={{ position: 'relative', fontFamily: FONT.body, fontSize: 11, color: COLORS.mut }}>
-                <span style={{ position: 'absolute', inset: 0, width: `${Math.min(100, acum)}%`, background: `${COLORS.accent}22`, borderRadius: 3 }} />
+                <span style={{ position: 'absolute', inset: 0, width: `${Math.min(100, acum)}%`, background: `${COLORS.accent}22`, borderRadius: 0 }} />
                 <span style={{ position: 'relative' }}>{fmtDec(acum)}%</span>
               </span>
             </div>
@@ -865,7 +914,7 @@ function Taylor({ dishes }: { dishes: Dish[] }) {
           <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '28px 1.6fr 1fr 64px', gap: 10, alignItems: 'center' }}>
             <span style={{ fontFamily: FONT.heading, fontSize: 13, color: COLORS.mut, textAlign: 'right' }}>{i + 1}</span>
             <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.pri, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre}{r.estimado ? ' ·est' : ''}</span>
-            <div style={{ height: 10, borderRadius: 5, background: COLORS.group, overflow: 'hidden' }}>
+            <div style={{ height: 10, borderRadius: 0, background: COLORS.group, overflow: 'hidden' }}>
               <div style={{ width: `${r.score}%`, height: '100%', background: colorScore(r.score) }} />
             </div>
             <span style={{ fontFamily: FONT.heading, fontSize: 14, fontWeight: 600, color: colorScore(r.score), textAlign: 'right' }}>{fmtDec(r.score)}</span>

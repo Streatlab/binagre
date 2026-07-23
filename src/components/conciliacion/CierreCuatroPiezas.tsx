@@ -143,7 +143,7 @@ export function CierreCuatroPiezas() {
                 letterSpacing: '1px',
                 textTransform: 'uppercase',
                 padding: '2px 8px',
-                borderRadius: 4,
+                borderRadius: 0,
               }}
             >
               Rushour: pendiente CSV

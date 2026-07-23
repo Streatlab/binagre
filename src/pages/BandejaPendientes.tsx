@@ -1,6 +1,8 @@
-import { BLANCO, GRANATE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, INK, ROSA_S } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import { Papel, FrasePotente } from '@/components/kit/cantera'
 
 // ──────────────────────────────────────────────────────────────────────────
 // BANDEJA DE PENDIENTES (cola única de Documentación)
@@ -31,10 +33,6 @@ const ORDEN_MOTIVOS = [
   'Sin conciliar',
   'Otro',
 ]
-
-const NEO_INK = 'var(--neo-ink)'
-const NEO_SHADOW = '4px 4px 0 var(--neo-shadow-color)'
-const NEO_CARD: React.CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 0, boxShadow: NEO_SHADOW }
 
 function fmtEur(n: number | null): string {
   if (n === null || n === undefined) return '—'
@@ -83,44 +81,46 @@ export default function BandejaPendientes() {
   )
 
   const wrap: React.CSSProperties = { background: 'var(--neo-bg)', padding: '24px 28px', minHeight: '100vh' }
-  const h2: React.CSSProperties = { color: GRANATE, fontFamily: 'Oswald, sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }
-  const sub: React.CSSProperties = { fontFamily: 'Lexend, sans-serif', fontSize: 13, color: 'var(--sl-text-muted)', display: 'block', marginTop: 4 }
 
   return (
     <div style={wrap}>
-      <div style={{ marginBottom: 18 }}>
-        <h2 style={h2}>PENDIENTES</h2>
-        <span style={sub}>
-          {cargando ? 'Cargando…' : `${filas.length} documento${filas.length === 1 ? '' : 's'} aún sin cerrar al 100%`}
-        </span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Pendientes']} subtitulo={cargando ? 'Cargando…' : `${filas.length} documento${filas.length === 1 ? '' : 's'} aún sin cerrar al 100%`} />
+        {/* Chips por motivo — filtros a la derecha */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setFiltro(null)}
+            style={chip(filtro === null)}
+          >
+            Todos · {filas.length}
+          </button>
+          {motivosOrdenados.map(mt => (
+            <button key={mt} onClick={() => setFiltro(mt)} style={chip(filtro === mt)}>
+              {mt} · {porMotivo.get(mt)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && (
-        <div style={{ background: '#B01D2318', color: GRANATE, padding: '10px 14px', borderRadius: 8, fontFamily: 'Lexend, sans-serif', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ background: ROSA_S, color: GRANATE, border: `2px solid ${GRANATE}`, padding: '10px 14px', borderRadius: 0, fontFamily: 'Lexend, sans-serif', fontSize: 13, marginBottom: 16 }}>
           {error}
         </div>
       )}
 
-      {/* Chips por motivo */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-        <button
-          onClick={() => setFiltro(null)}
-          style={chip(filtro === null)}
-        >
-          Todos · {filas.length}
-        </button>
-        {motivosOrdenados.map(mt => (
-          <button key={mt} onClick={() => setFiltro(mt)} style={chip(filtro === mt)}>
-            {mt} · {porMotivo.get(mt)}
-          </button>
-        ))}
-      </div>
+      {!cargando && (
+        filas.length === 0 ? (
+          <FrasePotente significado="logro">Nada pendiente: todos los documentos están al 100%.</FrasePotente>
+        ) : (
+          <FrasePotente significado="coste">Hay {filas.length} documento{filas.length !== 1 ? 's' : ''} sin cerrar al 100%: complétalos antes de conciliar el mes.</FrasePotente>
+        )
+      )}
 
       {/* Tabla */}
-      <div style={{ background: 'var(--sl-card)', overflow: 'hidden', ...NEO_CARD }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
-            <tr style={{ background: '#1e2233', color: BLANCO, textAlign: 'left' }}>
+            <tr style={{ background: INK, color: BLANCO, textAlign: 'left' }}>
               <th style={th}>Motivo</th>
               <th style={th}>Proveedor</th>
               <th style={{ ...th, textAlign: 'right' }}>Importe</th>
@@ -145,7 +145,7 @@ export default function BandejaPendientes() {
             ))}
           </tbody>
         </table>
-      </div>
+      </Papel>
     </div>
   )
 }
@@ -158,7 +158,7 @@ function chip(activo: boolean): React.CSSProperties {
     background: activo ? GRANATE : 'var(--sl-card)',
     color: activo ? BLANCO : 'var(--sl-text-secondary)',
     border: '1px solid ' + (activo ? GRANATE : 'var(--sl-border)'),
-    borderRadius: 999,
+    borderRadius: 0,
     padding: '6px 14px',
     fontFamily: 'Oswald, sans-serif',
     fontSize: 11,
@@ -172,9 +172,9 @@ function chip(activo: boolean): React.CSSProperties {
 function badge(motivo: string): React.CSSProperties {
   const rojo = motivo === 'Sin importe' || motivo === 'Importe pendiente de releer' || motivo === 'Sin NIF'
   return {
-    background: rojo ? '#B01D2318' : 'var(--sl-thead)',
+    background: rojo ? ROSA_S : 'var(--sl-thead)',
     color: rojo ? GRANATE : 'var(--sl-text-secondary)',
-    borderRadius: 6,
+    borderRadius: 0,
     padding: '3px 9px',
     fontSize: 11,
     fontWeight: 600,

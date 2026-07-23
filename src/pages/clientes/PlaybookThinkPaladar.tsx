@@ -1,27 +1,27 @@
-import { BLANCO } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { COLORS, FONT, CARDS, lbl, kpiMid, TABS_PILL } from '@/components/panel/resumen/tokens'
+import { INK, BLANCO, OSW, LEX, GRANATE, VERDE, AMA, GRIS, ROJO } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
 import { fmtEur, fmtNumES } from '@/utils/format'
 
-/* ═════════════ PLAYBOOK THINK PALADAR · v2 ═════════════
+/* ═════════════ PLAYBOOK THINK PALADAR ═════════════
+   CANTERA ALEGRE v1.0 (área Clientes/Marketing · rosa). Solo capa visual.
    De documento estático a herramienta viva:
    - Realidad: KPIs en vivo (reseñas, facturación, ventas por plato) leídos del ERP
    - Checklist: cada táctica con estado persistente (tabla mkt_playbook_tp_estado, aislada)
    - Resultados: lee crm_campanas reales para ver qué promo se lanzó / funcionó
    - Conexión: enlaces directos a Reseñas, Ventas, Menú Engineering, Plan de campañas
-   Estilo canónico Binagre. NO toca mkt_playbook_estado (Playbook Agencia Delivery).
+   NO toca mkt_playbook_estado (Playbook Agencia Delivery).
    NOTA: colaboración con Think Paladar finalizada el 30/06/2026. Se conserva como
    manual interno + traspaso de métricas al ERP (ver bloque "Hacerlo solos").
 */
 
-const ACCENT = COLORS.redSL
 const EST_TABLE = 'mkt_playbook_tp_estado'
 
 type Estado = 'pendiente' | 'aplicando' | 'aplicado' | 'descartado'
 const EST_LABEL: Record<Estado, string> = { pendiente: 'Pendiente', aplicando: 'Aplicando', aplicado: 'Aplicado', descartado: 'Descartado' }
-const EST_COLOR: Record<Estado, string> = { pendiente: COLORS.mut, aplicando: COLORS.warn, aplicado: COLORS.ok, descartado: COLORS.err }
+const EST_COLOR: Record<Estado, string> = { pendiente: GRIS, aplicando: AMA, aplicado: VERDE, descartado: ROJO }
 const EST_NEXT: Record<Estado, Estado> = { pendiente: 'aplicando', aplicando: 'aplicado', aplicado: 'descartado', descartado: 'pendiente' }
 
 type Bloque = { id: string; label: string }
@@ -40,64 +40,96 @@ const BLOQUES: Bloque[] = [
 /* ── helpers visuales ── */
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div style={{ ...CARDS.std, marginBottom: 14 }}>
-      <div style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: ACCENT, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 10 }}>{titulo}</div>
-      {children}
+    <div style={{ marginBottom: 14 }}>
+      <SeccionLabel bg={GRANATE}>{titulo}</SeccionLabel>
+      <Papel ceja={GRANATE}>{children}</Papel>
     </div>
   )
 }
 function Bullet({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', gap: 8, marginBottom: 7, fontFamily: FONT.body, fontSize: 13.5, color: COLORS.sec, lineHeight: 1.5 }}>
-      <span style={{ color: ACCENT, flexShrink: 0, fontWeight: 700 }}>·</span>
+    <div style={{ display: 'flex', gap: 8, marginBottom: 7, fontFamily: LEX, fontSize: 13.5, color: INK, lineHeight: 1.5 }}>
+      <span style={{ color: GRANATE, flexShrink: 0, fontWeight: 700 }}>·</span>
       <span>{children}</span>
     </div>
   )
 }
 function Dato({ children }: { children: React.ReactNode }) {
-  return <strong style={{ color: COLORS.pri, fontWeight: 600 }}>{children}</strong>
+  return <strong style={{ color: INK, fontWeight: 700 }}>{children}</strong>
 }
-function KpiCard({ label, value, sub, color, onClick }: { label: string; value: string; sub?: string; color?: string; onClick?: () => void }) {
+const lblCelda: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }
+const valCelda: React.CSSProperties = { fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6 }
+const subCelda: React.CSSProperties = { fontFamily: LEX, fontSize: 11.5, marginTop: 4 }
+
+function StatCelda({ label, value, sub, bg = BLANCO, color, first, onClick }: { label: string; value: string; sub?: string; bg?: string; color?: string; first?: boolean; onClick?: () => void }) {
   return (
-    <div onClick={onClick} style={{ ...CARDS.std, flex: 1, minWidth: 150, cursor: onClick ? 'pointer' : 'default' }}>
-      <div style={lbl}>{label}</div>
-      <div style={{ ...kpiMid, marginTop: 6, color: color ?? COLORS.pri }}>{value}</div>
-      {sub && <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 2 }}>{sub}</div>}
-    </div>
+    <PlanchaCelda bg={bg} color={color} first={first} style={onClick ? { cursor: 'pointer' } : undefined}>
+      <div onClick={onClick}>
+        <div style={lblCelda}>{label}</div>
+        <div style={valCelda}>{value}</div>
+        {sub && <div style={subCelda}>{sub}</div>}
+      </div>
+    </PlanchaCelda>
   )
 }
 
-const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500, padding: '8px 10px', textAlign: 'left', borderBottom: `1px solid ${COLORS.brd}` }
-const td: React.CSSProperties = { fontFamily: FONT.body, fontSize: 13, color: COLORS.sec, padding: '8px 10px', borderBottom: `1px solid ${COLORS.group}`, verticalAlign: 'top' }
+const th: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: BLANCO, fontWeight: 600, padding: '10px 12px', textAlign: 'left', whiteSpace: 'nowrap' }
+const td: React.CSSProperties = { fontFamily: LEX, fontSize: 13, color: INK, padding: '10px 12px', borderBottom: `2px solid ${INK}`, verticalAlign: 'top' }
+const linkBtn: React.CSSProperties = { padding: '8px 14px', border: `2px solid ${INK}`, borderRadius: 0, background: BLANCO, color: GRANATE, fontFamily: OSW, fontSize: 12.5, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', cursor: 'pointer' }
 
 export default function PlaybookThinkPaladar() {
   const [bloque, setBloque] = useState<string>('realidad')
 
+  const titular = 'Colaboración finalizada el 30 de junio de 2026: ahora Streat Lab opera el delivery solo, con la metodología y los datos reales del ERP.'
+  const atencionHero = [
+    'Colaboración FINALIZADA 30 jun 2026',
+    '9 bloques de conocimiento',
+    'Checklist con estado persistente',
+    'Datos en vivo del ERP',
+  ]
+
   return (
-    <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: ACCENT, letterSpacing: 3, textTransform: 'uppercase' }}>PLAYBOOK THINK PALADAR</div>
-        <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 2 }}>Colaboración FINALIZADA (30 jun 2026) · ahora operamos el delivery solos · metodología + datos reales del ERP · v2</div>
+    <PantallaCantera>
+      {/* 1 · Héroe del área Clientes (rosa) */}
+      <HeroCantera
+        area="marketing"
+        titular={titular}
+        etiquetaDato="Estado de la colaboración"
+        cifra="Cerrada"
+        resumen={<>KPI del contrato: <b>15.000 €</b> de facturación Binagre para el mes 2 · fee 450 €/mes × 4 meses</>}
+        atencion={atencionHero}
+      />
+
+      {/* 2 · Frase potente */}
+      <FrasePotente significado="oportunidad">Lo aprendido con Think Paladar ya no depende de su portal: vive dentro del ERP y se actualiza solo con datos reales.</FrasePotente>
+
+      {/* Navegación propia de la pantalla — pastillas planas arriba-derecha */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {BLOQUES.map(b => {
+            const on = bloque === b.id
+            return (
+              <button key={b.id} onClick={() => setBloque(b.id)} style={{
+                padding: '7px 13px', border: `2px solid ${INK}`, borderRadius: 0,
+                background: on ? GRANATE : BLANCO, color: on ? BLANCO : INK,
+                boxShadow: on ? SHADOW_DURA : 'none',
+                fontFamily: OSW, fontSize: 11.5, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', cursor: 'pointer',
+              }}>{b.label}</button>
+            )
+          })}
+        </div>
       </div>
 
-      <div style={{ ...TABS_PILL.container, flexWrap: 'wrap' }}>
-        {BLOQUES.map(b => (
-          <button key={b.id} onClick={() => setBloque(b.id)} style={bloque === b.id ? TABS_PILL.active : TABS_PILL.inactive}>{b.label}</button>
-        ))}
-      </div>
-
-      <div style={{ marginTop: 16, maxWidth: 960 }}>
-        {bloque === 'realidad' && <BloqueRealidad />}
-        {bloque === 'checklist' && <BloqueChecklist />}
-        {bloque === 'resultados' && <BloqueResultados />}
-        {bloque === 'metodo' && <BloqueMetodo />}
-        {bloque === 'reglas' && <BloqueReglas />}
-        {bloque === 'promos' && <BloquePromos />}
-        {bloque === 'plataformas' && <BloquePlataformas />}
-        {bloque === 'cronologia' && <BloqueCronologia />}
-        {bloque === 'solos' && <BloqueSolos />}
-      </div>
-    </div>
+      {bloque === 'realidad' && <BloqueRealidad />}
+      {bloque === 'checklist' && <BloqueChecklist />}
+      {bloque === 'resultados' && <BloqueResultados />}
+      {bloque === 'metodo' && <BloqueMetodo />}
+      {bloque === 'reglas' && <BloqueReglas />}
+      {bloque === 'promos' && <BloquePromos />}
+      {bloque === 'plataformas' && <BloquePlataformas />}
+      {bloque === 'cronologia' && <BloqueCronologia />}
+      {bloque === 'solos' && <BloqueSolos />}
+    </PantallaCantera>
   )
 }
 
@@ -138,50 +170,57 @@ function BloqueRealidad() {
     })()
   }, [])
 
-  if (cargando) return <div style={{ ...CARDS.std, color: COLORS.mut }}>Cargando datos reales del ERP…</div>
+  if (cargando) return <Papel ceja={GRIS}><div style={{ color: GRIS, fontFamily: LEX }}>Cargando datos reales del ERP…</div></Papel>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <Seccion titulo="La realidad ahora mismo (datos del ERP)">
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 4 }}>
-          <KpiCard label="Rating medio" value={kpi ? kpi.rating.toFixed(2) : '—'} sub={kpi ? `${fmtNumES(kpi.resenas)} reseñas · ${kpi.marcas} marcas` : ''} color={kpi && kpi.rating >= 4.5 ? COLORS.ok : COLORS.warn} onClick={() => nav('/clientes/resenas')} />
-          <KpiCard label="Facturación 30d" value={factMes != null ? fmtEur(factMes) : '—'} sub="toca para ver Ventas" onClick={() => nav('/finanzas/ventas-panel?tab=ventas')} />
-          <KpiCard label="KPI Inés mes 2" value={fmtEur(15000)} sub="objetivo facturación Binagre" color={ACCENT} />
-        </div>
-        <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>Las tarjetas con datos enlazan al módulo de origen. El rating sale de Panel Reseñas; la facturación, de Ventas.</div>
-      </Seccion>
+      <div>
+        <SeccionLabel bg={GRANATE}>La realidad ahora mismo (datos del ERP)</SeccionLabel>
+        <Papel ceja={GRANATE}>
+          <Plancha style={{ marginBottom: 4 }}>
+            <StatCelda first bg={kpi && kpi.rating >= 4.5 ? VERDE : AMA} color={kpi && kpi.rating >= 4.5 ? BLANCO : INK} label="Rating medio" value={kpi ? kpi.rating.toFixed(2) : '—'} sub={kpi ? `${fmtNumES(kpi.resenas)} reseñas · ${kpi.marcas} marcas` : ''} onClick={() => nav('/clientes/resenas')} />
+            <StatCelda bg={INK} color={BLANCO} label="Facturación 30d" value={factMes != null ? fmtEur(factMes) : '—'} sub="toca para ver Ventas" onClick={() => nav('/finanzas/ventas-panel?tab=ventas')} />
+            <StatCelda bg={GRANATE} label="KPI Inés mes 2" value={fmtEur(15000)} sub="objetivo facturación Binagre" />
+          </Plancha>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Las tarjetas con datos enlazan al módulo de origen. El rating sale de Panel Reseñas; la facturación, de Ventas.</div>
+        </Papel>
+      </div>
 
-      <Seccion titulo="Top platos reales (por unidades vendidas)">
-        {topPlatos.length === 0 ? (
-          <div style={{ color: COLORS.mut, fontSize: 13 }}>Aún sin datos de ventas por plato. Cuando entren, el top aparece aquí para decidir qué promocionar.</div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={th}>Plato</th><th style={{ ...th, textAlign: 'right' }}>Unidades</th><th style={{ ...th, textAlign: 'right' }}>Ingresos</th></tr></thead>
-            <tbody>
-              {topPlatos.map((p, i) => (
-                <tr key={i}>
-                  <td style={td}>{p.plato}</td>
-                  <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, fontWeight: 600, color: COLORS.pri }}>{fmtNumES(p.unidades)}</td>
-                  <td style={{ ...td, textAlign: 'right' }}>{fmtEur(p.ingresos)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <div style={{ marginTop: 10 }}>
-          <button onClick={() => nav('/cocina/menu-engineering')} style={linkBtn}>Abrir Menú Engineering →</button>
-        </div>
-      </Seccion>
+      <div>
+        <SeccionLabel bg={AMA} color={INK}>Top platos reales (por unidades vendidas)</SeccionLabel>
+        <Papel ceja={AMA} pad={topPlatos.length ? '0' : undefined} style={{ overflowX: 'auto' }}>
+          {topPlatos.length === 0 ? (
+            <div style={{ color: GRIS, fontSize: 13, fontFamily: LEX, padding: '20px 22px' }}>Aún sin datos de ventas por plato. Cuando entren, el top aparece aquí para decidir qué promocionar.</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr style={{ background: INK }}><th style={th}>Plato</th><th style={{ ...th, textAlign: 'right' }}>Unidades</th><th style={{ ...th, textAlign: 'right' }}>Ingresos</th></tr></thead>
+              <tbody>
+                {topPlatos.map((p, i) => (
+                  <tr key={i}>
+                    <td style={td}>{p.plato}</td>
+                    <td style={{ ...td, textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: INK }}>{fmtNumES(p.unidades)}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{fmtEur(p.ingresos)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div style={{ padding: topPlatos.length ? '12px 22px' : '0 22px 16px' }}>
+            <button onClick={() => nav('/cocina/menu-engineering')} style={linkBtn}>Abrir Menú Engineering →</button>
+          </div>
+        </Papel>
+      </div>
 
-      <Seccion titulo="Regla TP que cruza con estos datos">
-        <Bullet>"Lo más vendido" en la app debe ordenarse por <Dato>MARGEN</Dato>, no por unidades. Cruza este top con el margen de Menú Engineering antes de decidir qué subir.</Bullet>
-        <Bullet>Actualizar ese bloque cada <Dato>15 días</Dato> con foto excelente.</Bullet>
-      </Seccion>
+      <div>
+        <SeccionLabel bg={GRANATE}>Regla TP que cruza con estos datos</SeccionLabel>
+        <Papel ceja={GRANATE}>
+          <Bullet>"Lo más vendido" en la app debe ordenarse por <Dato>MARGEN</Dato>, no por unidades. Cruza este top con el margen de Menú Engineering antes de decidir qué subir.</Bullet>
+          <Bullet>Actualizar ese bloque cada <Dato>15 días</Dato> con foto excelente.</Bullet>
+        </Papel>
+      </div>
     </div>
   )
 }
-
-const linkBtn: React.CSSProperties = { padding: '7px 14px', borderRadius: 8, border: `1px solid ${COLORS.brd}`, background: 'transparent', color: ACCENT, fontFamily: FONT.body, fontSize: 13, fontWeight: 600, cursor: 'pointer' }
 
 /* ═════════════ CHECKLIST — tácticas con estado persistente ═════════════ */
 type Tactica = { clave: string; texto: string; grupo: string }
@@ -228,31 +267,37 @@ function BloqueChecklist() {
   const total = TACTICAS.length
   const aplicadas = TACTICAS.filter(t => estados[t.clave] === 'aplicado').length
 
-  if (cargando) return <div style={{ ...CARDS.std, color: COLORS.mut }}>Cargando estado del checklist…</div>
+  if (cargando) return <Papel ceja={GRIS}><div style={{ color: GRIS, fontFamily: LEX }}>Cargando estado del checklist…</div></Papel>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        <KpiCard label="Aplicadas" value={`${aplicadas}/${total}`} sub="tácticas TP en marcha" color={COLORS.ok} />
-        <KpiCard label="Progreso" value={`${Math.round((aplicadas / total) * 100)}%`} sub="del playbook implementado" color={ACCENT} />
+      <div>
+        <SeccionLabel bg={VERDE}>Progreso del checklist</SeccionLabel>
+        <Plancha>
+          <StatCelda first bg={VERDE} label="Aplicadas" value={`${aplicadas}/${total}`} sub="tácticas TP en marcha" />
+          <StatCelda bg={GRANATE} label="Progreso" value={`${Math.round((aplicadas / total) * 100)}%`} sub="del playbook implementado" />
+        </Plancha>
       </div>
-      <Seccion titulo="Tácticas Think Paladar · toca para cambiar estado">
-        <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginBottom: 12 }}>Cada toque avanza: Pendiente → Aplicando → Aplicado → Descartado. Se guarda solo.</div>
-        {grupos.map(g => (
-          <div key={g} style={{ marginBottom: 14 }}>
-            <div style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.sec, marginBottom: 6 }}>{g}</div>
-            {TACTICAS.filter(t => t.grupo === g).map(t => {
-              const est = (estados[t.clave] || 'pendiente') as Estado
-              return (
-                <div key={t.clave} onClick={() => avanzar(t.clave)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', marginBottom: 5, borderRadius: 8, border: `1px solid ${COLORS.group}`, background: COLORS.card, cursor: 'pointer' }}>
-                  <span style={{ flex: 1, fontFamily: FONT.body, fontSize: 13.5, color: COLORS.pri }}>{t.texto}</span>
-                  <span style={{ fontFamily: FONT.heading, fontSize: 11, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: BLANCO, background: EST_COLOR[est], padding: '3px 9px', borderRadius: 12, whiteSpace: 'nowrap' }}>{EST_LABEL[est]}</span>
-                </div>
-              )
-            })}
-          </div>
-        ))}
-      </Seccion>
+      <div>
+        <SeccionLabel bg={GRANATE}>Tácticas Think Paladar · toca para cambiar estado</SeccionLabel>
+        <Papel ceja={GRANATE}>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginBottom: 12 }}>Cada toque avanza: Pendiente → Aplicando → Aplicado → Descartado. Se guarda solo.</div>
+          {grupos.map(g => (
+            <div key={g} style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', color: INK, fontWeight: 700, marginBottom: 6 }}>{g}</div>
+              {TACTICAS.filter(t => t.grupo === g).map(t => {
+                const est = (estados[t.clave] || 'pendiente') as Estado
+                return (
+                  <div key={t.clave} onClick={() => avanzar(t.clave)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', marginBottom: 5, border: `2px solid ${INK}`, background: BLANCO, cursor: 'pointer' }}>
+                    <span style={{ flex: 1, fontFamily: LEX, fontSize: 13.5, color: INK }}>{t.texto}</span>
+                    <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: BLANCO, background: EST_COLOR[est], padding: '3px 9px', whiteSpace: 'nowrap' }}>{EST_LABEL[est]}</span>
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+        </Papel>
+      </div>
     </div>
   )
 }
@@ -274,7 +319,7 @@ function BloqueResultados() {
     })()
   }, [])
 
-  if (cargando) return <div style={{ ...CARDS.std, color: COLORS.mut }}>Cargando campañas reales…</div>
+  if (cargando) return <Papel ceja={GRIS}><div style={{ color: GRIS, fontFamily: LEX }}>Cargando campañas reales…</div></Papel>
 
   const conVeredicto = camps.filter(c => c.veredicto)
   const activas = camps.filter(c => c.estado === 'activa' || c.estado === 'en_curso')
@@ -282,58 +327,70 @@ function BloqueResultados() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        <KpiCard label="Campañas totales" value={String(camps.length)} sub="en el plan" onClick={() => nav('/clientes/crm')} />
-        <KpiCard label="Activas" value={String(activas.length)} sub="ahora mismo" color={COLORS.warn} />
-        <KpiCard label="Con veredicto" value={String(conVeredicto.length)} sub="ya evaluadas" color={COLORS.ok} />
+      <div>
+        <SeccionLabel bg={GRANATE}>Resumen de campañas</SeccionLabel>
+        <Plancha>
+          <StatCelda first bg={GRANATE} label="Campañas totales" value={String(camps.length)} sub="en el plan" onClick={() => nav('/clientes/crm')} />
+          <StatCelda bg={AMA} color={INK} label="Activas" value={String(activas.length)} sub="ahora mismo" />
+          <StatCelda bg={VERDE} label="Con veredicto" value={String(conVeredicto.length)} sub="ya evaluadas" />
+        </Plancha>
       </div>
 
       {conVeredicto.length > 0 && (
-        <Seccion titulo="Qué funcionó (campañas con veredicto)">
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={th}>Campaña</th><th style={th}>Canal</th><th style={th}>Veredicto</th><th style={th}>Aprendizaje</th></tr></thead>
-            <tbody>
-              {conVeredicto.map((c, i) => (
-                <tr key={i}>
-                  <td style={td}>{c.nombre}</td>
-                  <td style={td}>{CANAL_LABEL[c.canal] || c.canal}</td>
-                  <td style={{ ...td, fontWeight: 600, color: COLORS.pri }}>{c.veredicto}</td>
-                  <td style={td}>{c.aprendizaje || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Seccion>
+        <div>
+          <SeccionLabel bg={VERDE}>Qué funcionó (campañas con veredicto)</SeccionLabel>
+          <Papel ceja={VERDE} pad="0" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr style={{ background: INK }}><th style={th}>Campaña</th><th style={th}>Canal</th><th style={th}>Veredicto</th><th style={th}>Aprendizaje</th></tr></thead>
+              <tbody>
+                {conVeredicto.map((c, i) => (
+                  <tr key={i}>
+                    <td style={td}>{c.nombre}</td>
+                    <td style={td}>{CANAL_LABEL[c.canal] || c.canal}</td>
+                    <td style={{ ...td, fontWeight: 700, color: INK }}>{c.veredicto}</td>
+                    <td style={td}>{c.aprendizaje || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Papel>
+        </div>
       )}
 
-      <Seccion titulo={`Próximas campañas planificadas (${planificadas.length})`}>
-        {planificadas.length === 0 ? (
-          <div style={{ color: COLORS.mut, fontSize: 13 }}>Sin campañas planificadas.</div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={th}>Campaña</th><th style={th}>Marca</th><th style={th}>Canal</th><th style={{ ...th, textAlign: 'right' }}>Presupuesto</th></tr></thead>
-            <tbody>
-              {planificadas.slice(0, 12).map((c, i) => (
-                <tr key={i}>
-                  <td style={td}>{c.nombre}</td>
-                  <td style={td}>{c.marca}</td>
-                  <td style={td}>{CANAL_LABEL[c.canal] || c.canal}</td>
-                  <td style={{ ...td, textAlign: 'right' }}>{fmtEur(c.presupuesto)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <div style={{ marginTop: 10 }}>
-          <button onClick={() => nav('/clientes/crm')} style={linkBtn}>Abrir CRM / Campañas →</button>
-        </div>
-      </Seccion>
+      <div>
+        <SeccionLabel bg={GRANATE}>Próximas campañas planificadas ({planificadas.length})</SeccionLabel>
+        <Papel ceja={GRANATE} pad={planificadas.length ? '0' : undefined} style={{ overflowX: 'auto' }}>
+          {planificadas.length === 0 ? (
+            <div style={{ color: GRIS, fontSize: 13, fontFamily: LEX, padding: '20px 22px' }}>Sin campañas planificadas.</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr style={{ background: INK }}><th style={th}>Campaña</th><th style={th}>Marca</th><th style={th}>Canal</th><th style={{ ...th, textAlign: 'right' }}>Presupuesto</th></tr></thead>
+              <tbody>
+                {planificadas.slice(0, 12).map((c, i) => (
+                  <tr key={i}>
+                    <td style={td}>{c.nombre}</td>
+                    <td style={td}>{c.marca}</td>
+                    <td style={td}>{CANAL_LABEL[c.canal] || c.canal}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{fmtEur(c.presupuesto)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div style={{ padding: planificadas.length ? '12px 22px' : '0 22px 16px' }}>
+            <button onClick={() => nav('/clientes/crm')} style={linkBtn}>Abrir CRM / Campañas →</button>
+          </div>
+        </Papel>
+      </div>
 
-      <Seccion titulo="Lo más valioso capturado durante TP">
-        <Bullet>Qué promo funcionó en qué plataforma y con qué segmento — con números reales.</Bullet>
-        <Bullet>Qué platos en promo generaron recurrencia (el Flash Deal de Glovo es el experimento clave).</Bullet>
-        <Bullet>Rellenar el campo <Dato>veredicto</Dato> y <Dato>aprendizaje</Dato> de cada campaña al cerrarla: ahí queda el conocimiento ahora que TP se ha ido.</Bullet>
-      </Seccion>
+      <div>
+        <SeccionLabel bg={GRANATE}>Lo más valioso capturado durante TP</SeccionLabel>
+        <Papel ceja={GRANATE}>
+          <Bullet>Qué promo funcionó en qué plataforma y con qué segmento — con números reales.</Bullet>
+          <Bullet>Qué platos en promo generaron recurrencia (el Flash Deal de Glovo es el experimento clave).</Bullet>
+          <Bullet>Rellenar el campo <Dato>veredicto</Dato> y <Dato>aprendizaje</Dato> de cada campaña al cerrarla: ahí queda el conocimiento ahora que TP se ha ido.</Bullet>
+        </Papel>
+      </div>
     </div>
   )
 }
@@ -424,17 +481,20 @@ function BloquePromos() {
       <Seccion titulo="Just Eat">
         <Bullet><Dato>25% sobre ticket final</Dato>, todos los usuarios. Más simple, sin segmentación.</Bullet>
       </Seccion>
-      <Seccion titulo="Segmentos de público (definición TP)">
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr><th style={th}>Segmento</th><th style={th}>Definición</th></tr></thead>
-          <tbody>
-            <tr><td style={td}><Dato>Nuevos</Dato></td><td style={td}>Nunca ha pedido en tu negocio</td></tr>
-            <tr><td style={td}><Dato>Recurrentes</Dato></td><td style={td}>Ha pedido en los últimos 6 meses</td></tr>
-            <tr><td style={td}><Dato>Inactivos</Dato></td><td style={td}>No pide desde hace más de 45 días</td></tr>
-            <tr><td style={td}><Dato>Prime</Dato></td><td style={td}>Suscrito a envíos premium (Uber One)</td></tr>
-          </tbody>
-        </table>
-      </Seccion>
+      <div>
+        <SeccionLabel bg={GRANATE}>Segmentos de público (definición TP)</SeccionLabel>
+        <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead><tr style={{ background: INK }}><th style={th}>Segmento</th><th style={th}>Definición</th></tr></thead>
+            <tbody>
+              <tr><td style={td}><Dato>Nuevos</Dato></td><td style={td}>Nunca ha pedido en tu negocio</td></tr>
+              <tr><td style={td}><Dato>Recurrentes</Dato></td><td style={td}>Ha pedido en los últimos 6 meses</td></tr>
+              <tr><td style={td}><Dato>Inactivos</Dato></td><td style={td}>No pide desde hace más de 45 días</td></tr>
+              <tr><td style={td}><Dato>Prime</Dato></td><td style={td}>Suscrito a envíos premium (Uber One)</td></tr>
+            </tbody>
+          </table>
+        </Papel>
+      </div>
     </>
   )
 }
@@ -455,16 +515,19 @@ function BloquePlataformas() {
         <Bullet>Glovo: esperar <Dato>30 días</Dato> para repetir descuento en el mismo producto.</Bullet>
         <Bullet>El <Dato>2x1</Dato> no cuenta como descuento de % → evita Ómnibus.</Bullet>
       </Seccion>
-      <Seccion titulo="Contactos account managers">
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr><th style={th}>Plataforma</th><th style={th}>Contacto</th></tr></thead>
-          <tbody>
-            <tr><td style={td}>Glovo</td><td style={td}>pilar.gonzalez@glovoapp.com</td></tr>
-            <tr><td style={td}>Just Eat</td><td style={td}>claudia.abad@justeattakeaway.com · Tamara (config)</td></tr>
-            <tr><td style={td}>Uber Eats</td><td style={td}>alvar.noguera@uber.com</td></tr>
-          </tbody>
-        </table>
-      </Seccion>
+      <div>
+        <SeccionLabel bg={GRANATE}>Contactos account managers</SeccionLabel>
+        <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead><tr style={{ background: INK }}><th style={th}>Plataforma</th><th style={th}>Contacto</th></tr></thead>
+            <tbody>
+              <tr><td style={td}>Glovo</td><td style={td}>pilar.gonzalez@glovoapp.com</td></tr>
+              <tr><td style={td}>Just Eat</td><td style={td}>claudia.abad@justeattakeaway.com · Tamara (config)</td></tr>
+              <tr><td style={td}>Uber Eats</td><td style={td}>alvar.noguera@uber.com</td></tr>
+            </tbody>
+          </table>
+        </Papel>
+      </div>
     </>
   )
 }
@@ -490,19 +553,22 @@ function BloqueCronologia() {
     ['30 jun', 'FIN de la colaboración con Think Paladar. Streat Lab pasa a operar el delivery por su cuenta'],
   ]
   return (
-    <Seccion titulo="Línea temporal de la colaboración">
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead><tr><th style={{ ...th, width: 120 }}>Fecha</th><th style={th}>Hito</th></tr></thead>
-        <tbody>
-          {filas.map(([f, h], i) => (
-            <tr key={i}>
-              <td style={{ ...td, fontFamily: FONT.heading, color: ACCENT, fontWeight: 600, whiteSpace: 'nowrap' }}>{f}</td>
-              <td style={td}>{h}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Seccion>
+    <div>
+      <SeccionLabel bg={GRANATE}>Línea temporal de la colaboración</SeccionLabel>
+      <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead><tr style={{ background: INK }}><th style={{ ...th, width: 120 }}>Fecha</th><th style={th}>Hito</th></tr></thead>
+          <tbody>
+            {filas.map(([f, h], i) => (
+              <tr key={i}>
+                <td style={{ ...td, fontFamily: OSW, color: GRANATE, fontWeight: 700, whiteSpace: 'nowrap' }}>{f}</td>
+                <td style={td}>{h}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Papel>
+    </div>
   )
 }
 

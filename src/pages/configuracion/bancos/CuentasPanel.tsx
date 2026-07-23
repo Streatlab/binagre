@@ -1,13 +1,14 @@
-import { BLANCO, GRANATE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, INK, OSW } from '@/styles/neobrutal'
+import { CONFIG_AMBER_WASH } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { Star, Landmark } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { fmtEur } from '@/lib/format'
-import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { EditModal, Field } from '@/components/configuracion/EditModal'
 import { StatusTag } from '@/components/configuracion/StatusTag'
 import TitularesPanel from './TitularesPanel'
+import { PantallaCantera, HeroCantera, Papel, SHADOW_DURA } from '@/components/kit/cantera'
 
 interface Cuenta {
   id: string
@@ -105,7 +106,7 @@ export default function CuentasPanel() {
   if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
   if (error) {
     return (
-      <div style={{ padding: 16, background: '#B01D2320', color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>
+      <div style={{ padding: 16, background: `${GRANATE}20`, color: GRANATE, borderRadius: 0, fontFamily: FONT.body }}>
         {error}
       </div>
     )
@@ -128,13 +129,28 @@ export default function CuentasPanel() {
   const td: React.CSSProperties = { padding: '12px 14px', fontFamily: FONT.body, fontSize: 13, color: T.pri }
   const mono: React.CSSProperties = { ...td, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12.5 }
 
+  const activas = cuentas.filter(c => c.activa).length
+  const saldoTotal = cuentas.reduce((s, c) => s + (c.saldo_actual ?? 0), 0)
+  const principal = cuentas.find(c => c.es_principal)
+
   return (
-    <>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={cuentas.length > 0 ? 'Así está repartido tu dinero entre cuentas' : 'Todavía no has dado de alta ninguna cuenta'}
+        etiquetaDato="Cuentas activas"
+        cifra={activas}
+        resumen={cuentas.length > 0
+          ? <>{fmtEur(saldoTotal)} en saldo sumado{principal ? <> · principal: {principal.alias}</> : null}</>
+          : 'Añade tu primera cuenta bancaria para poder conciliar movimientos importados.'}
+      />
+
       <TitularesPanel />
 
-      <div style={{ height: 16 }} />
-
-      <ConfigGroupCard title="Cuentas bancarias" subtitle={`${cuentas.length}`}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
+        <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, fontWeight: 700, padding: '18px 22px 10px' }}>
+          Cuentas bancarias <span style={{ color: GRANATE }}>· {cuentas.length}</span>
+        </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
             <thead>
@@ -181,7 +197,7 @@ export default function CuentasPanel() {
                   </td>
                   <td style={{ ...td, textAlign: 'center' }}>
                     {c.es_principal ? (
-                      <Star size={16} fill="#F5C36B" color="#F5C36B" />
+                      <Star size={16} fill={CONFIG_AMBER_WASH.txtSubDark} color={CONFIG_AMBER_WASH.txtSubDark} />
                     ) : (
                       <span style={{ color: T.mut }}>—</span>
                     )}
@@ -204,8 +220,9 @@ export default function CuentasPanel() {
             onClick={() => open()}
             style={{
               padding: '7px 14px',
-              borderRadius: 6,
-              border: 'none',
+              borderRadius: 0,
+              border: `2px solid ${INK}`,
+              boxShadow: SHADOW_DURA,
               background: GRANATE,
               color: BLANCO,
               fontFamily: FONT.heading,
@@ -217,7 +234,7 @@ export default function CuentasPanel() {
             }}
           >+ Nueva cuenta</button>
         </div>
-      </ConfigGroupCard>
+      </Papel>
 
       {(editing || creating) && (
         <EditModal
@@ -253,6 +270,6 @@ export default function CuentasPanel() {
           </Field>
         </EditModal>
       )}
-    </>
+    </PantallaCantera>
   )
 }

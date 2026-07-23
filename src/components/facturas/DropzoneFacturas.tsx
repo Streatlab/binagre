@@ -37,7 +37,7 @@ export default function DropzoneFacturas({ T, onSubir, subiendo }: Props) {
         style={{
           backgroundColor: T.card,
           border: `2px dashed ${dragging ? T.accentRed : T.border}`,
-          borderRadius: 12,
+          borderRadius: 0,
           padding: 20,
           minHeight: 140,
           display: 'flex',
@@ -92,7 +92,7 @@ export default function DropzoneFacturas({ T, onSubir, subiendo }: Props) {
               style={{
                 backgroundColor: T.base,
                 border: `1px solid ${T.border}`,
-                borderRadius: 6,
+                borderRadius: 0,
                 padding: '6px 10px',
                 fontFamily: T.fontUi,
                 fontSize: 11,

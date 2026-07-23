@@ -1,4 +1,4 @@
-import { BLANCO, GRIS } from '@/styles/neobrutal'
+import { BLANCO, GRIS, INK } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { COLORS, OSWALD, LEXEND } from '@/components/panel/resumen/tokens'
@@ -40,8 +40,8 @@ export function PanelCobertura() {
     <div
       style={{
         background: BLANCO,
-        border: '1px solid #e5e2dc',
-        borderRadius: 14,
+        border: `1px solid ${GRIS}`,
+        borderRadius: 0,
         padding: '20px 28px',
         marginBottom: 18,
         display: 'flex',
@@ -68,35 +68,35 @@ export function PanelCobertura() {
         <div style={{ fontFamily: OSWALD, fontSize: 48, fontWeight: 700, color: barColor, lineHeight: 1 }}>
           {pct.toFixed(1)}%
         </div>
-        <div style={{ height: 5, borderRadius: 3, background: '#ece9e3', marginTop: 8, overflow: 'hidden' }}>
+        <div style={{ height: 5, borderRadius: 0, background: `${GRIS}`, marginTop: 8, overflow: 'hidden' }}>
           <div
             style={{
               width: `${Math.min(pct, 100)}%`,
               height: '100%',
               background: barColor,
-              borderRadius: 3,
+              borderRadius: 0,
               transition: 'width 0.6s ease',
             }}
           />
         </div>
       </div>
 
-      <div style={{ width: 1, height: 52, background: '#e5e2dc', flexShrink: 0 }} />
+      <div style={{ width: 1, height: 52, background: GRIS, flexShrink: 0 }} />
 
       {/* Bloque MOVIMIENTOS */}
       <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
         <Stat
           label="Mov. cuadrados"
           value={`${kpi.movimientos_con_factura} / ${kpi.movimientos_total}`}
-          color="#1e2233"
+          color={INK}
         />
       </div>
 
-      <div style={{ width: 1, height: 52, background: '#e5e2dc', flexShrink: 0 }} />
+      <div style={{ width: 1, height: 52, background: GRIS, flexShrink: 0 }} />
 
       {/* Bloque FACTURAS (otro universo: el módulo de Facturas/OCR) */}
       <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
-        <Stat label="Facturas totales" value={kpi.facturas_total} color="#1e2233" />
+        <Stat label="Facturas totales" value={kpi.facturas_total} color={INK} />
         <Stat
           label="Facturas sin categoría"
           value={kpi.facturas_sin_categoria}

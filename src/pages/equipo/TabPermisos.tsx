@@ -1,11 +1,13 @@
-import { BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
-import { useEffect, useState } from 'react'
+import { BLANCO, BORDE_SUAVE, CLARO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { LIBRO_ESTADO_OK_BG, LIBRO_ESTADO_BAJA_BG, BADGE_PENDIENTE_BG } from '@/styles/palettes'
+import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle, XCircle, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, cardStyle } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
 import ModalSolicitud from '@/components/equipo/ModalSolicitud'
 import { syncRango } from '@/utils/calendarioOperativoSync'
 import { useAuth } from '@/context/AuthContext'
+import { HeroCantera, Papel, FrasePotente, PantallaCantera, SHADOW_DURA } from '@/components/kit/cantera'
 
 interface Empleado { id: string; nombre: string }
 interface Solicitud {
@@ -40,9 +42,9 @@ const TIPO_EVENTO: Record<string, string> = {
 }
 
 function estadoBadge(estado: Solicitud['estado']) {
-  if (estado === 'aprobado') return { color: VERDE, bg: '#1D9E7520', icon: <CheckCircle size={12} />, label: 'Aprobado' }
-  if (estado === 'rechazado') return { color: GRANATE, bg: '#B01D2320', icon: <XCircle size={12} />, label: 'Rechazado' }
-  return { color: NAR, bg: '#f5a62320', icon: <Clock size={12} />, label: 'Pendiente' }
+  if (estado === 'aprobado') return { color: VERDE, bg: LIBRO_ESTADO_OK_BG, icon: <CheckCircle size={12} />, label: 'Aprobado' }
+  if (estado === 'rechazado') return { color: GRANATE, bg: LIBRO_ESTADO_BAJA_BG, icon: <XCircle size={12} />, label: 'Rechazado' }
+  return { color: NAR, bg: BADGE_PENDIENTE_BG, icon: <Clock size={12} />, label: 'Pendiente' }
 }
 
 export default function TabPermisos() {
@@ -133,9 +135,28 @@ export default function TabPermisos() {
     { key: 'rechazado', label: 'Rechazadas' },
   ]
 
+  const pendientesCount = useMemo(() => solicitudes.filter(s => s.estado === 'pendiente').length, [solicitudes])
+
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={pendientesCount > 0
+          ? `Tienes ${pendientesCount} permiso${pendientesCount !== 1 ? 's' : ''} pendiente${pendientesCount !== 1 ? 's' : ''} de revisar`
+          : 'No hay permisos pendientes de revisar'}
+        etiquetaDato="Solicitudes pendientes"
+        cifra={String(pendientesCount)}
+        resumen={<>{solicitudes.length} solicitud{solicitudes.length !== 1 ? 'es' : ''} registrada{solicitudes.length !== 1 ? 's' : ''} en total.</>}
+        atencion={[pendientesCount > 0 ? `${pendientesCount} pendientes` : null, `${solicitudes.length} totales`]}
+      />
+
+      {pendientesCount > 0 ? (
+        <FrasePotente significado="oportunidad">Hay {pendientesCount} solicitud{pendientesCount !== 1 ? 'es' : ''} esperando aprobación: revísalas antes de que se acumulen.</FrasePotente>
+      ) : (
+        <FrasePotente significado="logro">Todas las solicitudes de permisos están al día.</FrasePotente>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         {/* Filtros */}
         <div style={{ display: 'flex', gap: 8 }}>
           {filtros.map(f => (
@@ -143,8 +164,8 @@ export default function TabPermisos() {
               key={f.key}
               onClick={() => setFiltro(f.key)}
               style={{
-                padding: '6px 14px', borderRadius: 6, border: `1px solid ${T.brd}`,
-                background: filtro === f.key ? GRANATE : T.card,
+                padding: '6px 14px', border: `2px solid ${INK}`, borderRadius: 0,
+                background: filtro === f.key ? GRANATE : BLANCO,
                 color: filtro === f.key ? BLANCO : T.sec,
                 fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase',
                 cursor: 'pointer',
@@ -156,16 +177,16 @@ export default function TabPermisos() {
         </div>
         <button
           onClick={() => setModalOpen(true)}
-          style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
+          style={{ padding: '8px 16px', border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
         >
           + Solicitar permiso
         </button>
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
+        <Papel ceja={GRANATE} style={{ textAlign: 'center', color: T.mut }}>Cargando…</Papel>
       ) : (
-        <div style={{ ...cardStyle(T), padding: 0, overflow: 'hidden' }}>
+        <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${T.brd}` }}>
@@ -190,7 +211,7 @@ export default function TabPermisos() {
                     </td>
                     <td style={td}>{TIPO_LABELS[sol.tipo] ?? sol.tipo}</td>
                     <td style={td}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 4, background: badge.bg, color: badge.color, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 0, background: badge.bg, color: badge.color, fontSize: 10, fontFamily: FONT.heading, letterSpacing: '1px', textTransform: 'uppercase' }}>
                         {badge.icon}{badge.label}
                       </span>
                     </td>
@@ -199,12 +220,12 @@ export default function TabPermisos() {
                       <td style={{ ...td, textAlign: 'right' }}>
                         {sol.estado === 'pendiente' && (
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                            <button onClick={() => aprobar(sol.id)} style={{ padding: '5px 10px', borderRadius: 5, border: 'none', background: VERDE, color: BLANCO, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Aprobar</button>
-                            <button onClick={() => setNotaRej({ id: sol.id, nota: '' })} style={{ padding: '5px 10px', borderRadius: 5, border: `1px solid ${T.brd}`, background: T.card, color: GRANATE, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Rechazar</button>
+                            <button onClick={() => aprobar(sol.id)} style={{ padding: '5px 10px', borderRadius: 0, border: 'none', background: VERDE, color: BLANCO, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Aprobar</button>
+                            <button onClick={() => setNotaRej({ id: sol.id, nota: '' })} style={{ padding: '5px 10px', borderRadius: 0, border: `1px solid ${T.brd}`, background: T.card, color: GRANATE, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer', letterSpacing: '1px' }}>Rechazar</button>
                           </div>
                         )}
                         {sol.estado === 'aprobado' && (
-                          <button onClick={() => revocarAprobacion(sol.id)} style={{ padding: '5px 10px', borderRadius: 5, border: `1px solid ${T.brd}`, background: T.card, color: T.mut, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer' }}>Revocar</button>
+                          <button onClick={() => revocarAprobacion(sol.id)} style={{ padding: '5px 10px', borderRadius: 0, border: `1px solid ${T.brd}`, background: T.card, color: T.mut, fontFamily: FONT.heading, fontSize: 10, cursor: 'pointer' }}>Revocar</button>
                         )}
                       </td>
                     )}
@@ -213,26 +234,26 @@ export default function TabPermisos() {
               })}
             </tbody>
           </table>
-        </div>
+        </Papel>
       )}
 
       {/* Modal rechazo con nota */}
       {notaRej && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-          <div style={{ backgroundColor: INK, borderRadius: 12, border: `1px solid ${T.brd}`, width: 380, padding: 24, boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}>
+          <div style={{ backgroundColor: INK, borderRadius: 0, border: `1px solid ${T.brd}`, width: 380, padding: 24, boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}>
             <div style={{ fontFamily: FONT.heading, fontSize: 14, color: T.pri, marginBottom: 14, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Rechazar solicitud</div>
             <textarea
               placeholder="Motivo del rechazo (obligatorio)…"
               value={notaRej.nota}
               onChange={e => setNotaRej(n => n ? { ...n, nota: e.target.value } : null)}
-              style={{ width: '100%', padding: '8px 10px', background: INK, border: `1px solid ${T.brd}`, borderRadius: 6, color: T.pri, fontFamily: FONT.body, fontSize: 13, minHeight: 80, resize: 'vertical', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', background: INK, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, minHeight: 80, resize: 'vertical', boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
-              <button onClick={() => setNotaRej(null)} style={{ padding: '7px 14px', borderRadius: 6, border: `1px solid ${T.brd}`, background: '#222', color: T.pri, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={() => setNotaRej(null)} style={{ padding: '7px 14px', borderRadius: 0, border: `1px solid ${T.brd}`, background: CLARO, color: T.pri, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
               <button
                 onClick={() => rechazar(notaRej.id, notaRej.nota)}
                 disabled={!notaRej.nota.trim()}
-                style={{ padding: '7px 16px', borderRadius: 6, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: notaRej.nota.trim() ? 'pointer' : 'not-allowed', opacity: notaRej.nota.trim() ? 1 : 0.5 }}
+                style={{ padding: '7px 16px', borderRadius: 0, border: 'none', background: GRANATE, color: BLANCO, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', cursor: notaRej.nota.trim() ? 'pointer' : 'not-allowed', opacity: notaRej.nota.trim() ? 1 : 0.5 }}
               >
                 Confirmar rechazo
               </button>
@@ -248,6 +269,6 @@ export default function TabPermisos() {
           onSaved={() => { fetchAll(); setModalOpen(false) }}
         />
       )}
-    </div>
+    </PantallaCantera>
   )
 }

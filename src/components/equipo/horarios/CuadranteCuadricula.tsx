@@ -19,8 +19,9 @@ import { useTheme, FONT, cardStyle } from '@/styles/tokens'
 import { esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
 import {
   DIAS, type DiaKey, type Empleado, type Turno, type Tramo,
-  horasReales, horasBrutas,
+  horasReales, horasBrutas, colorEmpleado,
 } from './utils'
+import { PANEL_SIDEBAR_BG, VERDE_GUARDANDO } from '@/styles/palettes'
 import {
   cargarOverrides, guardarSemana, claveOverride, normalizarHora,
   type OverridesMap,
@@ -28,7 +29,7 @@ import {
 import { crearEmpleado, archivarEmpleado, guardarOrden, renombrarEmpleado } from './personal'
 
 const FESTIVO_ROJO = GRANATE
-const NEGRO = '#1e2233'
+const NEGRO = PANEL_SIDEBAR_BG
 const SEMANA_SIN_LIBRE = '2026-06-15'
 
 /** Descanso de 30 min/día descontado a TODAS las personas (afecta solo al cálculo de horas efectivas). */
@@ -55,7 +56,7 @@ function turnoDe(tramos: Tramo[], pila: string): Turno {
 function miniBtn(T: ReturnType<typeof useTheme>['T'], disabled: boolean): CSSProperties {
   return {
     width: 18, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    border: `1px solid ${T.brd}`, background: T.card, color: T.mut, borderRadius: 3,
+    border: `1px solid ${T.brd}`, background: T.card, color: T.mut, borderRadius: 0,
     cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.3 : 1, padding: 0,
   }
 }
@@ -196,17 +197,7 @@ export function CuadranteCuadricula({
     return [...reordenados, ...nuevos]
   }, [empleados, ordenLocal])
 
-  function color(idx: number) {
-    const pal = [
-      { bg: '#B5D4F4', text: '#042C53' },
-      { bg: '#C0DD97', text: '#173404' },
-      { bg: '#F4C0D1', text: '#4B1528' },
-      { bg: '#FAC775', text: '#412402' },
-      { bg: '#9FE1CB', text: '#04342C' },
-      { bg: '#CECBF6', text: '#26215C' },
-    ]
-    return pal[idx % pal.length]
-  }
+  const color = colorEmpleado
 
   function totalEmp(empId: string, pila: string) {
     let real = 0, bruto = 0
@@ -312,7 +303,7 @@ export function CuadranteCuadricula({
               <Pencil size={14} /> Editar
             </button>
           ) : (
-            <button onClick={guardarTodo} disabled={guardado === 'guardando'} style={topBtn(guardado === 'guardando' ? '#7a8' : VERDE, guardado === 'guardando')}>
+            <button onClick={guardarTodo} disabled={guardado === 'guardando'} style={topBtn(guardado === 'guardando' ? VERDE_GUARDANDO : VERDE, guardado === 'guardando')}>
               {guardado === 'guardando' ? 'Guardando…' : 'Guardar'}
             </button>
           )}
@@ -324,7 +315,7 @@ export function CuadranteCuadricula({
           <div />
           {dias.map(({ dia, num, festivo, festNombre }) => (
             <div key={dia} title={festNombre ?? undefined}
-              style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 4, border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
+              style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 0, border: festivo ? `2px solid ${FESTIVO_ROJO}` : 'none' }}>
               <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: festivo ? FESTIVO_ROJO : T.mut, fontWeight: festivo ? 700 : 500 }}>{dia} {num}</div>
               {festivo && (
                 <div style={{ fontFamily: FONT.body, fontSize: 8, fontWeight: 600, color: FESTIVO_ROJO, lineHeight: 1.1, marginTop: 1 }}>{festNombre}</div>
@@ -371,7 +362,7 @@ export function CuadranteCuadricula({
                 ))}
 
                 {/* Total semana: neto (negro) arriba, barra, bruto (rojo) abajo — siempre, para todos */}
-                <div style={{ background: col.bg, color: col.text, borderRadius: 5, padding: '6px 4px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                <div style={{ background: col.bg, color: col.text, borderRadius: 0, padding: '6px 4px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                   <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 17, fontWeight: 700, color: NEGRO }}>{fmtHM(tot.real)}</span>
                   <div style={{ width: '60%', height: 1, background: 'rgba(0,0,0,0.25)' }} />
                   <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 13, fontWeight: 600, color: GRANATE }}>{fmtHM(tot.bruto)}</span>
@@ -388,7 +379,7 @@ export function CuadranteCuadricula({
             <>
               <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRANATE, fontWeight: 500, padding: '8px 4px', display: 'flex', alignItems: 'center' }}>Cierra</div>
               {dias.map(({ dia }) => (
-                <div key={dia} style={{ fontFamily: FONT.body, fontSize: 11, textAlign: 'center', background: T.group, borderRadius: 4, padding: '6px 2px', fontWeight: 500, color: T.sec, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div key={dia} style={{ fontFamily: FONT.body, fontSize: 11, textAlign: 'center', background: T.group, borderRadius: 0, padding: '6px 2px', fontWeight: 500, color: T.sec, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {cierres[dia] ?? ''}
                 </div>
               ))}
@@ -407,7 +398,7 @@ export function CuadranteCuadricula({
             placeholder="Nombre de la persona…"
             style={{
               flex: '0 0 240px', maxWidth: 240, fontFamily: FONT.body, fontSize: 13,
-              padding: '8px 10px', border: `1px solid ${T.brd}`, borderRadius: 6,
+              padding: '8px 10px', border: `1px solid ${T.brd}`, borderRadius: 0,
               background: T.card, color: T.pri, outline: 'none',
             }}
           />
@@ -424,7 +415,7 @@ function topBtn(bg: string, disabled = false): CSSProperties {
   return {
     display: 'flex', alignItems: 'center', gap: 6, fontFamily: FONT.heading, fontSize: 12,
     letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 700,
-    color: BLANCO, background: bg, border: 'none', padding: '8px 20px', borderRadius: 6,
+    color: BLANCO, background: bg, border: 'none', padding: '8px 20px', borderRadius: 0,
     cursor: disabled ? 'default' : 'pointer',
   }
 }
@@ -475,7 +466,7 @@ function Celda({
 
   if (!editable) {
     return (
-      <div style={{ background: fondo, color: texto, borderRadius: 5, padding: '8px 4px', textAlign: 'center', minHeight: 70, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: borde, fontStyle: vacio ? 'italic' : 'normal', fontSize: vacio ? 13 : 16 }}>
+      <div style={{ background: fondo, color: texto, borderRadius: 0, padding: '8px 4px', textAlign: 'center', minHeight: 70, display: 'flex', flexDirection: 'column', justifyContent: 'center', border: borde, fontStyle: vacio ? 'italic' : 'normal', fontSize: vacio ? 13 : 16 }}>
         {vacio ? (ocultarLibre ? '' : 'Libre') : (
           <>
             <span style={{ fontWeight: 700, whiteSpace: 'pre-line', fontSize: 16, lineHeight: 1.3 }}>{tramos.map(t => `${t.entrada}–${t.salida}`).join('\n')}</span>
@@ -491,12 +482,12 @@ function Celda({
   const inputStyle: CSSProperties = {
     width: 56, textAlign: 'center', fontFamily: 'Oswald, sans-serif', fontSize: 16, fontWeight: 700,
     color: texto, background: 'rgba(255,255,255,0.6)', border: `1px solid ${vacio ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.2)'}`,
-    borderRadius: 3, padding: '4px 0', outline: 'none',
+    borderRadius: 0, padding: '4px 0', outline: 'none',
   }
   const sep = <span style={{ fontSize: 13, opacity: 0.6 }}>–</span>
 
   return (
-    <div style={{ background: fondo, borderRadius: 5, padding: '6px 3px', textAlign: 'center', minHeight: 70, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, border: borde }}>
+    <div style={{ background: fondo, borderRadius: 0, padding: '6px 3px', textAlign: 'center', minHeight: 70, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, border: borde }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         <input className="hor-input" maxLength={5} inputMode="numeric" style={inputStyle} value={t1e} placeholder="--:--"
           onChange={e => setT1e(e.target.value)}

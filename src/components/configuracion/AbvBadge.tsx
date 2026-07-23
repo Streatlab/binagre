@@ -13,7 +13,7 @@ export function AbvBadge({
         padding: '3px 8px',
         background: bg,
         color: BLANCO,
-        borderRadius: 4,
+        borderRadius: 0,
         fontSize: 10,
         letterSpacing: '0.04em',
         fontWeight: 700,

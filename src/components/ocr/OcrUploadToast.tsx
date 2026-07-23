@@ -1,4 +1,8 @@
-import { BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, NAR, ROJO, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, CREMA, GRANATE, GRIS, INK, NAR, ROJO, VERDE } from '@/styles/neobrutal'
+import {
+  OCR_TOAST_GRANATE_OSCURO, CORREO_ALERTA_BORDE, OCR_TOAST_AMBER_BG, OCR_TOAST_AMBER_TXT,
+  OCR_TOAST_VERDE_WASH, OCR_TOAST_ROJO_WASH,
+} from '@/styles/palettes'
 // OcrUploadToast v11 — aviso visible durante subida (no cerrar a media subida)
 import { useState, useEffect } from 'react'
 import { useOcrUpload, cargarResumenManifiesto, reintentarPendientes } from '@/lib/ocrUploadStore'
@@ -23,12 +27,12 @@ function AchtungBanner({ session }: { session: OcrSession }) {
   const esDrive = (session.achtungMensaje || '').toUpperCase().includes('DRIVE')
   return (
     <div style={{
-      background: 'linear-gradient(135deg, #B01D23, #7a0d12)',
+      background: `linear-gradient(135deg, ${GRANATE}, ${OCR_TOAST_GRANATE_OSCURO})`,
       color: BLANCO,
       padding: '14px 16px',
-      borderRadius: 10,
+      borderRadius: 0,
       marginBottom: 10,
-      border: '2px solid #FF4757',
+      border: `2px solid ${CORREO_ALERTA_BORDE}`,
       animation: 'achtungPulse 1.4s ease-in-out infinite',
       boxShadow: '0 0 16px rgba(255, 71, 87, 0.5)',
     }}>
@@ -44,7 +48,7 @@ function AchtungBanner({ session }: { session: OcrSession }) {
           href="/api/oauth/google?action=start"
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10,
-            padding: '8px 14px', borderRadius: 8, background: BLANCO, color: GRANATE,
+            padding: '8px 14px', borderRadius: 0, background: BLANCO, color: GRANATE,
             textDecoration: 'none', fontFamily: 'Oswald, sans-serif', fontSize: 11,
             letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700,
           }}
@@ -65,11 +69,11 @@ function SubiendoBanner({ session }: { session: OcrSession }) {
   if (!subiendo) return null
   return (
     <div style={{
-      background: '#FFF3E0',
+      background: OCR_TOAST_AMBER_BG,
       border: `1px solid ${NAR}`,
-      color: '#8a4b00',
+      color: OCR_TOAST_AMBER_TXT,
       padding: '10px 12px',
-      borderRadius: 8,
+      borderRadius: 0,
       marginBottom: 10,
       fontSize: 11.5,
       fontFamily: 'Lexend, sans-serif',
@@ -125,7 +129,7 @@ function ResumenManifiestoPanel({ grupoId }: { grupoId: string }) {
   }
 
   return (
-    <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: okFaltan ? '#EAF7F1' : '#FDECEC', border: `1px solid ${okFaltan ? VERDE : ROJO}` }}>
+    <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 0, background: okFaltan ? OCR_TOAST_VERDE_WASH : OCR_TOAST_ROJO_WASH, border: `1px solid ${okFaltan ? VERDE : ROJO}` }}>
       <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10.5, letterSpacing: '0.5px', lineHeight: 1.5, color: INK, fontWeight: 600 }}>
         {linea}
       </div>
@@ -144,7 +148,7 @@ function ResumenManifiestoPanel({ grupoId }: { grupoId: string }) {
           </div>
           {r.reencolables > 0 && (
             <button onClick={onRetomar} disabled={retomando}
-              style={{ marginTop: 8, width: '100%', background: retomando ? '#999' : GRANATE, color: BLANCO, border: 'none', borderRadius: 6, padding: '8px 10px', cursor: retomando ? 'default' : 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>
+              style={{ marginTop: 8, width: '100%', background: retomando ? GRIS : GRANATE, color: BLANCO, border: 'none', borderRadius: 0, padding: '8px 10px', cursor: retomando ? 'default' : 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 700 }}>
               {retomando ? 'Retomando…' : `↻ Retomar pendientes (${r.reencolables})`}
             </button>
           )}
@@ -166,7 +170,7 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
   const tieneAchtung = esAbortReal
 
   const bgPrincipal = BLANCO
-  const bgSubtle = '#f5f3ef'
+  const bgSubtle = CREMA
   const bordeColor = tieneAchtung ? GRANATE : BORDE_SUAVE
   const textoPrincipal = INK
   const textoMuted = GRIS
@@ -176,7 +180,7 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
       background: bgPrincipal,
       color: textoPrincipal,
       padding: '14px 18px',
-      borderRadius: 12,
+      borderRadius: 0,
       width: '100%', // C04: responsive
       maxWidth: 380, // C04: max-width en vez de width fijo
       fontFamily: 'Lexend, sans-serif',
@@ -207,39 +211,39 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
           {session.procesando && !confirmarCancelar && (
             session.pausada
               ? <button onClick={onReanudar}
-                  style={{ background: NAR, border: 'none', color: BLANCO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
+                  style={{ background: NAR, border: 'none', color: BLANCO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 0, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
                   ▶ Reanudar
                 </button>
               : <button onClick={onPausar}
-                  style={{ background: 'transparent', border: `0.5px solid ${NAR}`, color: NAR, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  style={{ background: 'transparent', border: `0.5px solid ${NAR}`, color: NAR, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 0, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
                   ⏸ Pausar
                 </button>
           )}
           {session.procesando && !confirmarCancelar && (
             <button onClick={() => setConfirmarCancelar(true)}
-              style={{ background: 'transparent', border: '0.5px solid #d0c8bc', color: ROJO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              style={{ background: 'transparent', border: `0.5px solid ${BORDE_SUAVE}`, color: ROJO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 0, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase' }}>
               Cancelar
             </button>
           )}
           {session.procesando && confirmarCancelar && (
             <>
               <button onClick={() => setConfirmarCancelar(false)}
-                style={{ background: BLANCO, border: '0.5px solid #d0c8bc', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>
+                style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 0, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>
                 No
               </button>
               <button onClick={() => { onCancelar(); setConfirmarCancelar(false) }}
-                style={{ background: ROJO, border: 'none', color: BLANCO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
+                style={{ background: ROJO, border: 'none', color: BLANCO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 0, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>
                 Sí, cancelar
               </button>
             </>
           )}
-          <button onClick={onMini} title="Minimizar a icono" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 13, fontFamily: 'Lexend, sans-serif' }}>⌄</button>
+          <button onClick={onMini} title="Minimizar a icono" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 0, fontSize: 13, fontFamily: 'Lexend, sans-serif' }}>⌄</button>
           {session.procesando
-            ? <button onClick={onOcultar} title="Ocultar (sigue procesando en segundo plano)" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>–</button>
+            ? <button onClick={onOcultar} title="Ocultar (sigue procesando en segundo plano)" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 0, fontSize: 11, fontFamily: 'Lexend, sans-serif' }}>–</button>
             : (confirmarCerrar
                 ? <>
-                    <button onClick={() => setConfirmarCerrar(false)} style={{ background: BLANCO, border: '0.5px solid #d0c8bc', color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>No</button>
-                    <button onClick={onCerrar} style={{ background: ROJO, border: 'none', color: BLANCO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 6, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>Sí, cerrar</button>
+                    <button onClick={() => setConfirmarCerrar(false)} style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, color: textoMuted, cursor: 'pointer', padding: '0 8px', height: 22, borderRadius: 0, fontSize: 10, fontFamily: 'Lexend, sans-serif' }}>No</button>
+                    <button onClick={onCerrar} style={{ background: ROJO, border: 'none', color: BLANCO, cursor: 'pointer', padding: '0 10px', height: 22, borderRadius: 0, fontSize: 10, fontFamily: 'Oswald, sans-serif', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>Sí, cerrar</button>
                   </>
                 : <button onClick={() => setConfirmarCerrar(true)} title="Cerrar" style={{ background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', width: 22, height: 22, borderRadius: '50%', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>)
           }
@@ -254,7 +258,7 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
         {session.achtung > 0 && <span style={{ color: GRANATE, fontWeight: 700 }}>⚠ {session.achtung}</span>}
         {session.cancelados > 0 && <span style={{ color: textoMuted }}>⊘ {session.cancelados}</span>}
       </div>
-      <div style={{ height: 4, background: bgSubtle, borderRadius: 2, overflow: 'hidden' }}>
+      <div style={{ height: 4, background: bgSubtle, borderRadius: 0, overflow: 'hidden' }}>
         <div style={{
           width: `${pct}%`, height: '100%',
           background: session.cancelado ? GRIS : (tieneAchtung ? GRANATE : (session.pausada ? NAR : (session.procesando ? GRANATE : VERDE))),
@@ -267,12 +271,12 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
       {session.log.length > 0 && (
         <>
           <button onClick={() => setExpandido(x => !x)}
-            style={{ marginTop: 10, width: '100%', padding: '6px 8px', borderRadius: 6, background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            style={{ marginTop: 10, width: '100%', padding: '6px 8px', borderRadius: 0, background: bgSubtle, border: 'none', color: textoMuted, cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span>Detalle ({session.log.length})</span>
             <span>{expandido ? '▲' : '▼'}</span>
           </button>
           {expandido && (
-            <div style={{ marginTop: 6, maxHeight: 240, overflowY: 'auto', background: bgSubtle, borderRadius: 6, padding: '8px 10px' }}>
+            <div style={{ marginTop: 6, maxHeight: 240, overflowY: 'auto', background: bgSubtle, borderRadius: 0, padding: '8px 10px' }}>
               {[...session.log].reverse().map((entry, idx) => {
                 const colors: Record<string, string> = {
                   ok: VERDE, duplicado: textoMuted, ignorada: textoMuted, pendiente: NAR,
@@ -280,7 +284,7 @@ function SessionToast({ session, onCerrar, onOcultar, onCancelar, onPausar, onRe
                 }
                 const esCritico = entry.status === 'error' || entry.status === 'achtung'
                 return (
-                  <div key={idx} style={{ padding: '6px 0', borderBottom: idx < session.log.length - 1 ? `0.5px solid #d0c8bc` : 'none' }}>
+                  <div key={idx} style={{ padding: '6px 0', borderBottom: idx < session.log.length - 1 ? `0.5px solid ${BORDE_SUAVE}` : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors[entry.status], flexShrink: 0 }} />
                       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: textoPrincipal }}>{entry.filename}</span>

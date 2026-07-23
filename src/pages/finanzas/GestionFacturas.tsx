@@ -1,4 +1,5 @@
-import { AZUL, BLANCO, BORDE_SUAVE, GRANATE, INK, NAR, OSC, ROJO } from '@/styles/neobrutal'
+import { AMA, AMA_S, AZUL, BLANCO, BORDE_SUAVE, CLARO, GRANATE, GRIS, INK, NAR, OSC, ROJO, ROSA_S, SHADOW, VERDE, VERDE_S } from '@/styles/neobrutal'
+import { DRIVE_TRIM, DRIVE_ANIO_BG, DRIVE_ANIO_TEXT } from '@/styles/palettes'
 import { useMultiSort } from '@/hooks/useMultiSort'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
 /**
@@ -22,7 +23,9 @@ import { useTheme, groupStyle } from '@/styles/tokens'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
+import { fmtEur } from '@/lib/format'
 import ModalDescartarFactura, { type FacturaDescartable } from '@/components/documentacion/ModalDescartarFactura'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
 
 type TabId = 'facturas' | 'ventas' | 'exportar'
 type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'doc' | 'estado'
@@ -54,13 +57,8 @@ const MESES_ES = ['', 'Enero','Febrero','Marzo','Abril','Mayo','Junio',
                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 const MESES_POR_TRIM: Record<number, number[]> = { 1:[1,2,3], 2:[4,5,6], 3:[7,8,9], 4:[10,11,12] }
-const TRIM_PALETTE: Record<number, {bg:string;headDark:string}> = {
-  1:{bg:'#dde8f4',headDark:'#3a5f80'},
-  2:{bg:'#dee9d4',headDark:'#3d6027'},
-  3:{bg:'#f4e8c8',headDark:'#7d5a1a'},
-  4:{bg:'#e3d8eb',headDark:'#4a3163'},
-}
-const ANIO_BG = '#fbe5e8'
+const TRIM_PALETTE = DRIVE_TRIM
+const ANIO_BG = DRIVE_ANIO_BG
 
 function fmtFechaCorta(iso: string|null): string {
   if (!iso) return '—'
@@ -91,16 +89,16 @@ function generarMeses(desdeISO: string): {valor: string; label: string}[] {
 // TODO: migrar a v_estado_documento — leer estado de facturas desde la vista en vez de la columna estado directa
 function colorEstado(estado: string|null): {bg:string;col:string;lbl:string} {
   switch (estado) {
-    case 'asociada':                 return {bg:'#e8f5ec',col:COLORS.ok,   lbl:'CONCILIADA'}
-    case 'pendiente_revision':       return {bg:'#fcf0dc',col:COLORS.warn, lbl:'PEND. REV.'}
-    case 'pendiente_titular_manual': return {bg:'#fcf0dc',col:COLORS.warn, lbl:'FALTA TITULAR'}
-    case 'sin_match':                return {bg:'#fce8e8',col:COLORS.redSL,lbl:'SIN MATCH'}
-    case 'historica':                return {bg:'#eef0f4',col:COLORS.mut,  lbl:'HISTÓRICA'}
-    case 'duplicada':                return {bg:'#fce8e8',col:COLORS.redSL,lbl:'DUPLICADA'}
-    case 'no_conciliable':           return {bg:'#eef0f4',col:COLORS.mut,  lbl:'DESCARTADA'}
-    case 'error':                    return {bg:'#fce8e8',col:COLORS.redSL,lbl:'ERROR'}
-    case 'procesando':               return {bg:'#eef0f4',col:COLORS.mut,  lbl:'PROCESANDO'}
-    default:                         return {bg:'#eef0f4',col:COLORS.mut,  lbl:(estado||'—').toUpperCase()}
+    case 'asociada':                 return {bg:VERDE_S,col:COLORS.ok,   lbl:'CONCILIADA'}
+    case 'pendiente_revision':       return {bg:AMA_S,  col:COLORS.warn, lbl:'PEND. REV.'}
+    case 'pendiente_titular_manual': return {bg:AMA_S,  col:COLORS.warn, lbl:'FALTA TITULAR'}
+    case 'sin_match':                return {bg:ROSA_S, col:COLORS.redSL,lbl:'SIN MATCH'}
+    case 'historica':                return {bg:CLARO,  col:COLORS.mut,  lbl:'HISTÓRICA'}
+    case 'duplicada':                return {bg:ROSA_S, col:COLORS.redSL,lbl:'DUPLICADA'}
+    case 'no_conciliable':           return {bg:CLARO,  col:COLORS.mut,  lbl:'DESCARTADA'}
+    case 'error':                    return {bg:ROSA_S, col:COLORS.redSL,lbl:'ERROR'}
+    case 'procesando':               return {bg:CLARO,  col:COLORS.mut,  lbl:'PROCESANDO'}
+    default:                         return {bg:CLARO,  col:COLORS.mut,  lbl:(estado||'—').toUpperCase()}
   }
 }
 
@@ -315,15 +313,15 @@ export default function GestionFacturas() {
     return(
       <div ref={ref} style={{position:'relative'}}>
         <button onClick={()=>setOpen(o=>!o)}
-          style={{padding:'6px 10px',borderRadius:8,border:`0.5px solid ${T.brd}`,background:T.card,fontSize:13,fontFamily:FONT.body,color:T.pri,cursor:'pointer',display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
+          style={{padding:'6px 10px',borderRadius:0,border:`0.5px solid ${T.brd}`,background:T.card,fontSize:13,fontFamily:FONT.body,color:T.pri,cursor:'pointer',display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
           <span>{labelActual}</span>
           <span style={{fontSize:10}}>▾</span>
         </button>
         {open&&(
-          <div style={{position:'absolute',top:'100%',right:0,background:T.card,border:`0.5px solid ${T.brd}`,borderRadius:8,zIndex:50,maxHeight:260,overflowY:'auto',boxShadow:'0 4px 12px rgba(0,0,0,0.06)',minWidth:180}}>
+          <div style={{position:'absolute',top:'100%',right:0,background:T.card,border:`0.5px solid ${T.brd}`,borderRadius:0,zIndex:50,maxHeight:260,overflowY:'auto',boxShadow:SHADOW,minWidth:180}}>
             {mesesDisp.map(m=>(
               <button key={m.valor} onClick={()=>{setMesSeleccionado(m.valor);setOpen(false)}}
-                style={{display:'block',width:'100%',textAlign:'left',padding:'8px 12px',background:m.valor===mesSeleccionado?'#FF475715':'transparent',color:m.valor===mesSeleccionado?ROJO:T.mut,fontFamily:FONT.body,fontSize:13,border:'none',cursor:'pointer'}}>
+                style={{display:'block',width:'100%',textAlign:'left',padding:'8px 12px',background:m.valor===mesSeleccionado?CLARO:'transparent',color:m.valor===mesSeleccionado?ROJO:T.mut,fontFamily:FONT.body,fontSize:13,border:'none',cursor:'pointer'}}>
                 {m.label}
               </button>
             ))}
@@ -341,32 +339,80 @@ export default function GestionFacturas() {
   ]
 
   const tdStyle: CSSProperties = {padding:'11px 12px',fontSize:13,fontFamily:FONT.body,color:COLORS.pri,borderBottom:`0.5px solid ${COLORS.brd}`,whiteSpace:'nowrap'}
-  const islaStyle: CSSProperties = {background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:8,padding:'4px 6px',display:'flex',alignItems:'center',gap:4}
+  const islaStyle: CSSProperties = {background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:0,padding:'4px 6px',display:'flex',alignItems:'center',gap:4}
+
+  // Métricas del héroe: derivadas del mismo listado filtrado que ve la tabla (sin recalcular estado/negocio).
+  const totalFiltradas = facturasFiltradas.length
+  const conciliadasFiltradas = facturasFiltradas.filter(f=>f.estado==='asociada').length
+  const sinDocFiltradas = facturasFiltradas.filter(f=>!f.pdf_drive_url).length
+  const importeFiltradas = facturasFiltradas.reduce((a,f)=>a+(f.total||0),0)
+  const pctConciliadas = totalFiltradas>0 ? (conciliadasFiltradas/totalFiltradas)*100 : null
+  const heroTitular = totalFiltradas===0
+    ? 'No hay facturas para este filtro.'
+    : `${conciliadasFiltradas} de ${totalFiltradas} facturas ya conciliadas.`
+  const heroAtencion = [
+    `${totalFiltradas} facturas`,
+    sinDocFiltradas>0 ? `${sinDocFiltradas} sin documento` : null,
+    `Plazo gestoría ${mesLabel}: ${plazoLabel}`,
+  ].filter(Boolean) as string[]
 
   return(
-    <div style={{fontFamily:FONT.body,position:'relative'}}>
+    <PantallaCantera embedded style={{fontFamily:FONT.body,position:'relative',padding:0}}>
 
       {bannerVisible&&(
-        <div style={{background:'#fff3cd',border:'1px solid #ffc107',borderRadius:8,padding:'8px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:INK}}>
+        <div style={{background:AMA_S,border:`2px solid ${AMA}`,borderRadius:0,padding:'8px 16px',display:'flex',alignItems:'center',gap:12,fontFamily:FONT.body,fontSize:13,color:INK}}>
           <span style={{flexShrink:0,fontSize:14}}>⚠️</span>
           <span style={{flex:1,fontSize:13}}>
             Plazo gestoría <strong>{mesLabel}</strong>: {plazoLabel}
           </span>
           <button onClick={()=>setActiveTab('exportar')}
-            style={{background:GRANATE,color:BLANCO,border:'none',borderRadius:6,padding:'6px 12px',fontSize:12,fontFamily:'Oswald, sans-serif',fontWeight:600,cursor:'pointer',textTransform:'uppercase',letterSpacing:'0.05em',flexShrink:0}}>
+            style={{background:GRANATE,color:BLANCO,border:'none',borderRadius:0,padding:'6px 12px',fontSize:12,fontFamily:'Oswald, sans-serif',fontWeight:600,cursor:'pointer',textTransform:'uppercase',letterSpacing:'0.05em',flexShrink:0}}>
             Exportar ZIP
           </button>
           <button onClick={()=>setBannerVisible(false)}
-            style={{background:'none',border:'none',cursor:'pointer',color:'#666',fontSize:16,padding:'0 4px',flexShrink:0,lineHeight:1}}
+            style={{background:'none',border:'none',cursor:'pointer',color:GRIS,fontSize:16,padding:'0 4px',flexShrink:0,lineHeight:1}}
             title="Cerrar">×</button>
         </div>
       )}
 
+      <HeroCantera
+        area="papeleo"
+        titular={heroTitular}
+        etiquetaDato="Importe de las facturas filtradas"
+        cifra={fmtEur(importeFiltradas)}
+        resumen={pctConciliadas!=null ? <>Conciliadas: <b>{pctConciliadas.toFixed(0)}%</b></> : undefined}
+        atencion={heroAtencion}
+      />
+
+      <Plancha>
+        <PlanchaCelda bg={BLANCO} first>
+          <div style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600,color:COLORS.mut}}>Facturas</div>
+          <div style={{fontFamily:FONT.heading,fontWeight:700,fontSize:22,marginTop:6}}>{totalFiltradas}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={VERDE}>
+          <div style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}}>Conciliadas</div>
+          <div style={{fontFamily:FONT.heading,fontWeight:700,fontSize:22,marginTop:6}}>{conciliadasFiltradas}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={NAR}>
+          <div style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}}>Sin doc.</div>
+          <div style={{fontFamily:FONT.heading,fontWeight:700,fontSize:22,marginTop:6}}>{sinDocFiltradas}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AZUL}>
+          <div style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}}>Importe</div>
+          <div style={{fontFamily:FONT.heading,fontWeight:700,fontSize:22,marginTop:6}}>{fmtEur(importeFiltradas)}</div>
+        </PlanchaCelda>
+      </Plancha>
+
+      {totalFiltradas>0 && pctConciliadas!=null && (
+        pctConciliadas>=80
+          ? <FrasePotente significado="logro">Casi todo casado: el papeleo de este filtro está prácticamente al día.</FrasePotente>
+          : pctConciliadas>=50
+            ? <FrasePotente significado="oportunidad">Vas por buen camino, todavía queda parte por conciliar.</FrasePotente>
+            : <FrasePotente significado="peligro">Menos de la mitad conciliada: revisa las facturas sin match antes del cierre.</FrasePotente>
+      )}
+
       <div style={groupStyle(T)}>
-        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
-          <h2 style={{color:COLORS.redSL,fontFamily:FONT.heading,fontSize:22,fontWeight:600,letterSpacing:'3px',margin:0,textTransform:'uppercase'}}>
-            GESTOR DOCUMENTAL
-          </h2>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'flex-end',marginBottom:18,flexWrap:'wrap',gap:12}}>
           <MesDropdown/>
         </div>
 
@@ -377,7 +423,7 @@ export default function GestionFacturas() {
             <div style={{display:'flex',gap:10,alignItems:'center',marginTop:14,marginBottom:14,flexWrap:'wrap'}}>
               <ToggleTitular titularKey={titularKey} setTitularKey={setTitularKey}/>
               <input type="text" placeholder="Buscar proveedor, NIF, importe…" value={busqueda} onChange={e=>setBusqueda(e.target.value)}
-                style={{flex:1,minWidth:220,height:36,padding:'0 12px',borderRadius:8,border:`0.5px solid ${COLORS.brd}`,background:COLORS.card,fontSize:13,fontFamily:FONT.body,color:COLORS.pri,outline:'none'}}/>
+                style={{flex:1,minWidth:220,height:36,padding:'0 12px',borderRadius:0,border:`0.5px solid ${COLORS.brd}`,background:COLORS.card,fontSize:13,fontFamily:FONT.body,color:COLORS.pri,outline:'none'}}/>
               <div style={{...islaStyle,padding:0,overflow:'hidden'}}>
                 <select value={categoriaId} onChange={e=>setCategoria(e.target.value)}
                   style={{...DROPDOWN_BTN,border:'none',background:'transparent',minWidth:280,height:36,paddingRight:28,cursor:'pointer'}}>
@@ -388,13 +434,14 @@ export default function GestionFacturas() {
               <ClearSortButton show={ms.showClearButton} onClear={ms.clearSorts} />
             </div>
 
+            <SeccionLabel bg={GRANATE}>Facturas</SeccionLabel>
             <div style={{display:'grid',gridTemplateColumns:'280px 1fr',gap:14}}>
-              <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:14,fontSize:13,fontFamily:FONT.body,alignSelf:'start'}}>
+              <Papel ceja={NAR} pad="14px" style={{fontSize:13,fontFamily:FONT.body,alignSelf:'start'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,paddingBottom:8,borderBottom:`0.5px solid ${COLORS.brd}`}}>
                   <span style={{fontFamily:FONT.heading,fontSize:12,letterSpacing:'1.5px',textTransform:'uppercase',color:COLORS.pri,fontWeight:600}}>📁 Drive</span>
                   {driveFiltro.anio&&(
                     <button type="button" onClick={()=>setDriveFiltro({})}
-                      style={{fontSize:10,padding:'3px 9px',border:'none',background:COLORS.group,borderRadius:4,color:COLORS.sec,cursor:'pointer',fontFamily:FONT.body}}>
+                      style={{fontSize:10,padding:'3px 9px',border:'none',background:COLORS.group,borderRadius:0,color:COLORS.sec,cursor:'pointer',fontFamily:FONT.body}}>
                       limpiar
                     </button>
                   )}
@@ -405,9 +452,9 @@ export default function GestionFacturas() {
                     titularColor={titularKey==='ruben'?COLOR_RUBEN:COLOR_EMILIO}
                     onSelect={setDriveFiltro} onToggleExpand={key=>setExpansionMap(m=>({...m,[key]:!m[key]}))}/>
                 ))}
-              </div>
+              </Papel>
 
-              <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,overflow:'hidden'}}>
+              <Papel ceja={GRANATE} pad="0" style={{overflow:'hidden'}}>
                 <div style={{overflowX:'auto'}}>
                   <table style={{width:'100%',borderCollapse:'separate',borderSpacing:0}}>
                     <thead>
@@ -436,7 +483,7 @@ export default function GestionFacturas() {
                             <td style={tdStyle}>{f.proveedor_nombre||'—'}</td>
                             <td style={{...tdStyle,color:COLORS.mut,fontSize:12}}>{f.nif_emisor||'—'}</td>
                             <td style={{...tdStyle,textAlign:'right',fontWeight:500}}>{fmtNum(f.total,2)}</td>
-                            <td style={tdStyle}><span style={{background:COLORS.bg,fontSize:11,padding:'3px 9px',borderRadius:4,border:`0.5px solid ${COLORS.brd}`,fontFamily:FONT.body,color:COLORS.sec}}>{catLbl}</span></td>
+                            <td style={tdStyle}><span style={{background:COLORS.bg,fontSize:11,padding:'3px 9px',borderRadius:0,border:`0.5px solid ${COLORS.brd}`,fontFamily:FONT.body,color:COLORS.sec}}>{catLbl}</span></td>
                             {f.pdf_drive_url?(
                               <td style={tdDoc} onClick={e=>{e.stopPropagation();window.open(f.pdf_drive_url!,'_blank','noopener,noreferrer')}} title="Ver factura">
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',minHeight:38,fontSize:22,lineHeight:1,color:COLORS.pri,cursor:'pointer',userSelect:'none'}}>📎</div>
@@ -446,7 +493,7 @@ export default function GestionFacturas() {
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',minHeight:38,fontSize:18,lineHeight:1,color:NAR,fontWeight:600}}>✕</div>
                               </td>
                             )}
-                            <td style={tdStyle}><span style={{background:est.bg,color:est.col,fontFamily:FONT.heading,fontSize:9,letterSpacing:'0.5px',padding:'2px 8px',borderRadius:9,fontWeight:500}}>{est.lbl}</span></td>
+                            <td style={tdStyle}><span style={{background:est.bg,color:est.col,fontFamily:FONT.heading,fontSize:9,letterSpacing:'0.5px',padding:'2px 8px',borderRadius:0,fontWeight:500}}>{est.lbl}</span></td>
                             <td style={{...tdDoc,padding:'6px 8px'}} onClick={e=>e.stopPropagation()}>
                               {f.estado==='no_conciliable'?(
                                 <span style={{fontSize:11,color:COLORS.mut,fontFamily:FONT.body}}>descartada</span>
@@ -458,7 +505,7 @@ export default function GestionFacturas() {
                                     total:f.total, titular_id:f.titular_id,
                                   })}
                                   title="Descartar"
-                                  style={{background:'transparent',border:`0.5px solid ${COLORS.brd}`,borderRadius:6,color:NAR,cursor:'pointer',padding:'5px 9px',fontSize:11,fontFamily:FONT.body}}>
+                                  style={{background:'transparent',border:`0.5px solid ${COLORS.brd}`,borderRadius:0,color:NAR,cursor:'pointer',padding:'5px 9px',fontSize:11,fontFamily:FONT.body}}>
                                   Descartar
                                 </button>
                               )}
@@ -472,7 +519,7 @@ export default function GestionFacturas() {
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </Papel>
             </div>
           </>
         )}
@@ -482,9 +529,9 @@ export default function GestionFacturas() {
             <div style={{display:'flex',gap:10,alignItems:'center',marginTop:14,marginBottom:14}}>
               <ToggleTitular titularKey={titularKey} setTitularKey={setTitularKey}/>
             </div>
-            <div style={{marginTop:24,padding:60,textAlign:'center',background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,color:COLORS.mut,fontFamily:FONT.body,fontSize:14}}>
+            <Papel ceja={NAR} style={{marginTop:24,padding:60,textAlign:'center',color:COLORS.mut,fontFamily:FONT.body,fontSize:14}}>
               Subida de resúmenes de ventas (Uber Eats CSV, Glovo, Just Eat) · Próximamente
-            </div>
+            </Papel>
           </>
         )}
 
@@ -512,7 +559,7 @@ export default function GestionFacturas() {
           }}
         />
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 
@@ -526,7 +573,7 @@ function ToggleTitular({titularKey,setTitularKey}:{titularKey:'ruben'|'emilio';s
         const bd: string = isActive?'none':`0.5px solid ${COLORS.brd}`
         return(
           <button key={t} onClick={()=>setTitularKey(t)}
-            style={{padding:'8px 18px',borderRadius:8,border:bd,background:bg,fontFamily:FONT.body,fontSize:13,color:clr,cursor:'pointer',fontWeight:500,minWidth:90}}>
+            style={{padding:'8px 18px',borderRadius:0,border:bd,background:bg,fontFamily:FONT.body,fontSize:13,color:clr,cursor:'pointer',fontWeight:500,minWidth:90}}>
             {t==='ruben'?'Rubén':'Emilio'}
           </button>
         )
@@ -612,33 +659,33 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
 
-        <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:'20px 22px'}}>
+        <Papel ceja={GRANATE} pad="20px 22px">
           <p style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',margin:'0 0 14px'}}>
             Antes de exportar
           </p>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:facturasConfirmadas?'#EAF3DE':'#FCEBEB',borderRadius:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:facturasConfirmadas?VERDE_S:ROSA_S,borderRadius:0}}>
               <input type="checkbox" checked={facturasConfirmadas} onChange={e=>setFacturasConfirmadas(e.target.checked)}
-                style={{width:18,height:18,accentColor:'#639922',cursor:'pointer',flexShrink:0}}/>
-              <span style={{flex:1,fontSize:13,color:facturasConfirmadas?'#173404':'#501313',fontWeight:500}}>
+                style={{width:18,height:18,accentColor:VERDE,cursor:'pointer',flexShrink:0}}/>
+              <span style={{flex:1,fontSize:13,color:facturasConfirmadas?VERDE:GRANATE,fontWeight:500}}>
                 Todas las facturas del mes importadas
               </span>
-              <span style={{fontSize:12,color:facturasConfirmadas?'#3B6D11':'#A32D2D'}}>{numFacturas} facturas</span>
+              <span style={{fontSize:12,color:facturasConfirmadas?VERDE:ROJO}}>{numFacturas} facturas</span>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:ventasConfirmadas?'#EAF3DE':'#FCEBEB',borderRadius:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:ventasConfirmadas?VERDE_S:ROSA_S,borderRadius:0}}>
               <input type="checkbox" checked={ventasConfirmadas} onChange={e=>setVentasConfirmadas(e.target.checked)}
-                style={{width:18,height:18,accentColor:'#639922',cursor:'pointer',flexShrink:0}}/>
-              <span style={{flex:1,fontSize:13,color:ventasConfirmadas?'#173404':'#501313',fontWeight:500}}>
+                style={{width:18,height:18,accentColor:VERDE,cursor:'pointer',flexShrink:0}}/>
+              <span style={{flex:1,fontSize:13,color:ventasConfirmadas?VERDE:GRANATE,fontWeight:500}}>
                 Ventas Uber Eats subidas
               </span>
-              <span style={{fontSize:12,color:ventasConfirmadas?'#3B6D11':'#A32D2D'}}>
+              <span style={{fontSize:12,color:ventasConfirmadas?VERDE:ROJO}}>
                 {checkingUber?'Comprobando…':`${numResumenesUber} resúmenes`}
               </span>
             </div>
           </div>
-        </div>
+        </Papel>
 
-        <div style={{background:COLORS.card,border:`0.5px solid ${COLORS.brd}`,borderRadius:14,padding:'20px 22px'}}>
+        <Papel ceja={NAR} pad="20px 22px">
           <p style={{fontFamily:FONT.heading,fontSize:11,letterSpacing:'1.5px',color:COLORS.mut,textTransform:'uppercase',margin:'0 0 14px'}}>El ZIP contendrá</p>
           <div style={{display:'flex',flexDirection:'column',gap:10,fontSize:13,fontFamily:FONT.body}}>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -650,10 +697,10 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
               <span><strong style={{fontWeight:500}}>Ventas</strong> · {checkingUber?'…':`${numResumenesUber} Resumen${numResumenesUber===1?'':'es'}`} Uber</span>
             </div>
           </div>
-        </div>
+        </Papel>
 
         {errorZip&&(
-          <div style={{background:'#fce8e8',border:'1px solid #f5c2c7',borderRadius:8,padding:'10px 14px',fontSize:13,color:COLORS.redSL,fontFamily:FONT.body,wordBreak:'break-word'}}>
+          <div style={{background:ROSA_S,border:`2px solid ${ROJO}`,borderRadius:0,padding:'10px 14px',fontSize:13,color:COLORS.redSL,fontFamily:FONT.body,wordBreak:'break-word'}}>
             ⚠️ {errorZip}
           </div>
         )}
@@ -661,7 +708,7 @@ function TabExportar({titularKey,setTitularKey,titularId,mesLabel,facturasMes,me
         <button
           disabled={!todoOk||generando}
           onClick={handleGenerarZip}
-          style={{width:'100%',padding:'14px 20px',background:todoOk&&!generando?INK:BORDE_SUAVE,color:BLANCO,border:'none',borderRadius:8,fontSize:14,fontWeight:500,fontFamily:FONT.body,cursor:todoOk&&!generando?'pointer':'not-allowed'}}>
+          style={{width:'100%',padding:'14px 20px',background:todoOk&&!generando?GRANATE:BORDE_SUAVE,color:BLANCO,border:`3px solid ${INK}`,borderRadius:0,boxShadow:todoOk&&!generando?SHADOW_DURA:'none',fontSize:14,fontWeight:500,fontFamily:FONT.body,cursor:todoOk&&!generando?'pointer':'not-allowed'}}>
           {generando?'Generando ZIP…':`Generar paquete ZIP · ${mesLabel}`}
         </button>
       </div>
@@ -692,7 +739,7 @@ function NodoArbolItem({node,level,filtroActivo,expansionMap,titularColor,onSele
   let nodoBl: string = '3px solid transparent'
 
   if(node.kind==='titular'){nodoColor=titularColor;nodoFf=FONT.heading;nodoFs=14;nodoFw=600;nodoBl=`3px solid ${titularColor}`}
-  else if(node.kind==='anio'){nodoBg=ANIO_BG;nodoColor='#7a1218';nodoFf=FONT.heading;nodoFw=600}
+  else if(node.kind==='anio'){nodoBg=ANIO_BG;nodoColor=DRIVE_ANIO_TEXT;nodoFf=FONT.heading;nodoFw=600}
   else if(node.kind==='trim'&&node.trimNum){const p=TRIM_PALETTE[node.trimNum];nodoBg=p.bg;nodoColor=p.headDark;nodoFf=FONT.heading;nodoFw=700}
   else if(node.kind==='mes'&&node.trimNum){nodoBg=TRIM_PALETTE[node.trimNum].bg+'60'}
   if(esActivo){nodoBg=node.kind==='trim'&&node.trimNum?TRIM_PALETTE[node.trimNum].headDark:titularColor;nodoColor=BLANCO;nodoFw=700;nodoBl=`3px solid ${nodoBg}`}
@@ -709,7 +756,7 @@ function NodoArbolItem({node,level,filtroActivo,expansionMap,titularColor,onSele
           <span style={{width:24,display:'inline-block',textAlign:'center',color:COLORS.mut,flexShrink:0}}>·</span>
         )}
         <button type="button" onClick={()=>onSelect(node.filtro)}
-          style={{width:'100%',display:'flex',alignItems:'center',padding:'6px 8px',paddingLeft:6+level*12,background:nodoBg,border:'none',borderLeft:nodoBl,borderRadius:node.kind==='mes'?'0 4px 4px 0':'0 6px 6px 0',cursor:'pointer',fontFamily:nodoFf,fontSize:nodoFs,textAlign:'left',color:nodoColor,fontWeight:nodoFw,opacity:node.count===0&&!esActivo?0.5:1,marginBottom:node.kind==='titular'?4:1,letterSpacing:node.kind==='titular'?'1px':'normal',textTransform:node.kind==='titular'?'uppercase':'none'}}>
+          style={{width:'100%',display:'flex',alignItems:'center',padding:'6px 8px',paddingLeft:6+level*12,background:nodoBg,border:'none',borderLeft:nodoBl,borderRadius:0,cursor:'pointer',fontFamily:nodoFf,fontSize:nodoFs,textAlign:'left',color:nodoColor,fontWeight:nodoFw,opacity:node.count===0&&!esActivo?0.5:1,marginBottom:node.kind==='titular'?4:1,letterSpacing:node.kind==='titular'?'1px':'normal',textTransform:node.kind==='titular'?'uppercase':'none'}}>
           <span style={{flex:1}}>{node.label}</span>
           <span style={{color:esActivo?BLANCO:COLORS.mut,fontSize:11,marginLeft:8,fontWeight:500,opacity:esActivo?0.9:1}}>{node.count>0?node.count:'—'}</span>
         </button>

@@ -38,6 +38,7 @@ import { parsearBBVA } from '../_lib/parserBBVA.js'
 import type { ExtractedFactura } from '../_lib/ocr-types.js'
 import { descargarRespaldoStorage } from '../_lib/google-drive.js'
 import { extraerLineasFacturaTexto, sumaConIva } from '../_lib/extraerLineasFactura.js'
+import { procesarDocumentoEquipo } from '../_lib/procesarDocEquipo.js'
 
 // ── Titular por NIF (Rubén/Emilio) ─────────────────────────────────────────
 const NIF_RUBEN = '21669051S'
@@ -340,11 +341,31 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
       // Clasificador universal: desviar nóminas / Seg. Social / extractos del motor
       // de facturas (task 7). No se ingesta a ciegas: se deja aviso + aprendizaje.
       const cls = await clasificarAdjuntoCartero(adj)
-      if (cls.destino !== 'factura') {
+      if (cls.destino === 'doc_equipo') {
+        // Mismo motor que el botón de Equipo (procesarDocEquipo.ts): un adjunto
+        // de nómina/resumen/RLC/RNT que llega por correo se procesa EXACTAMENTE
+        // igual que si se hubiera subido a mano — nunca se queda en un aviso sin
+        // ingesta. La dedup contra un documento ya subido por el botón la da la
+        // propia lógica de subidaDocEquipo.ts (mismo empleado+mes/año actualiza).
+        clasificados++
+        const { body: outEquipo } = await procesarDocumentoEquipo(adj.buffer, adj.nombre, 'correo')
+        await supabaseAdmin.from('avisos_papeleo').insert({
+          tipo: 'doc_equipo_recibido',
+          titulo: `Documento de equipo recibido · ${adj.nombre}`,
+          detalle: `Clasificado como ${cls.motivo}. Remitente: ${adj.remitente || '—'}. Destino: ${outEquipo.destino || 'desconocido'}.`,
+          estado: 'abierto',
+          payload: { archivo: adj.nombre, remitente: adj.remitente, asunto: adj.asunto, subtipo: cls.subtipo, resultado: outEquipo },
+        })
+        if (!cls.porRegla && adj.remitente) await aprenderReglaCorreo(adj.remitente, cls.destino)
+        mensajesConExito.add(adj.messageId)
+        resultados.push({ archivo: adj.nombre, remitente: adj.remitente, asunto: adj.asunto, estado: 'doc_equipo', motivo: cls.motivo, destino: outEquipo.destino })
+        continue
+      }
+      if (cls.destino === 'extracto') {
         clasificados++
         await supabaseAdmin.from('avisos_papeleo').insert({
-          tipo: cls.destino === 'extracto' ? 'extracto_recibido' : 'doc_equipo_recibido',
-          titulo: `${cls.destino === 'extracto' ? 'Extracto bancario' : 'Documento de equipo'} recibido · ${adj.nombre}`,
+          tipo: 'extracto_recibido',
+          titulo: `Extracto bancario recibido · ${adj.nombre}`,
           detalle: `Clasificado como ${cls.motivo}. Remitente: ${adj.remitente || '—'}. No se procesa como factura; requiere ingesta específica.`,
           estado: 'abierto',
           payload: { archivo: adj.nombre, remitente: adj.remitente, asunto: adj.asunto, subtipo: cls.subtipo, destino: cls.destino },

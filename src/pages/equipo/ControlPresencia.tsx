@@ -1,7 +1,9 @@
-import { BLANCO, GRANATE, GRIS, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { BLANCO, CLARO, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { PRESENCIA_WASH_VERDE_BG, PRESENCIA_WASH_ROJO_BG, PRESENCIA_SALIDA_TXT } from '@/styles/palettes'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -30,12 +32,11 @@ interface EstadoEmpleado {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const BG = INK
-const CARD = INK
-const CARD2 = INK
+const CARD = BLANCO
+const CARD2 = CLARO
 const BRD = INK
 const BRD2 = INK
-const PRI = BLANCO
+const PRI = INK
 const MUT = GRIS
 const ROJO = GRANATE
 const AMARILLO = LIMA
@@ -88,18 +89,12 @@ function calcHorasEntrePares(fichajes: Fichaje[]): number {
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function KpiBadge({ label, value, color }: { label: string; value: string | number; color?: string }) {
+function KpiBadge({ label, value, color, first }: { label: string; value: string | number; color?: string; first?: boolean }) {
   return (
-    <div style={{
-      background: CARD,
-      border: `1px solid ${BRD}`,
-      borderRadius: 10,
-      padding: '14px 20px',
-      minWidth: 140,
-    }}>
+    <PlanchaCelda first={first} bg={color ? BLANCO : BLANCO} color={color ?? PRI}>
       <div style={{ fontFamily: FONT_LABEL, fontSize: 11, color: MUT, letterSpacing: '1.5px', textTransform: 'uppercase' as const, marginBottom: 6 }}>{label}</div>
       <div style={{ fontFamily: FONT_LABEL, fontSize: 28, fontWeight: 700, color: color ?? PRI }}>{value}</div>
-    </div>
+    </PlanchaCelda>
   )
 }
 
@@ -114,9 +109,10 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
         letterSpacing: '1px',
         textTransform: 'uppercase' as const,
         padding: '8px 18px',
-        borderRadius: 6,
-        border: active ? `1px solid ${ROJO}` : `1px solid ${BRD}`,
-        background: active ? ROJO : 'transparent',
+        borderRadius: 0,
+        border: `3px solid ${INK}`,
+        boxShadow: active ? SHADOW_DURA : 'none',
+        background: active ? ROJO : BLANCO,
         color: active ? BLANCO : MUT,
         cursor: 'pointer',
       }}
@@ -281,9 +277,9 @@ export default function ControlPresencia() {
   const totalHorasPeriodo = diasHist.reduce((acc, d) => acc + d.horas, 0)
 
   const inputStyle = {
-    background: INK,
-    border: `1px solid ${BRD2}`,
-    borderRadius: 6,
+    background: BLANCO,
+    border: `2px solid ${INK}`,
+    borderRadius: 0,
     color: PRI,
     fontFamily: FONT_BODY,
     fontSize: 13,
@@ -292,22 +288,42 @@ export default function ControlPresencia() {
 
   if (loading) {
     return (
-      <div style={{ background: BG, minHeight: '100vh', padding: '28px', fontFamily: FONT_BODY, color: MUT }}>
-        Cargando...
-      </div>
+      <PantallaCantera embedded style={{ fontFamily: FONT_BODY, color: MUT }}>
+        Cargando…
+      </PantallaCantera>
     )
   }
 
+  const fuera = usuarios.length - dentroCount
+
   return (
-    <div style={{ background: BG, minHeight: '100vh', padding: '28px', fontFamily: FONT_BODY }}>
-      <h1 style={{ fontFamily: FONT_LABEL, fontSize: 22, letterSpacing: '3px', textTransform: 'uppercase', color: ROJO, fontWeight: 600, margin: '0 0 20px' }}>
-        Control de Presencia
-      </h1>
+    <PantallaCantera embedded style={{ fontFamily: FONT_BODY }}>
+      <HeroCantera
+        area="equipo"
+        titular={dentroCount > 0
+          ? `Ahora mismo hay ${dentroCount} persona${dentroCount !== 1 ? 's' : ''} fichada${dentroCount !== 1 ? 's' : ''} dentro`
+          : 'Ahora mismo no hay nadie fichado dentro'}
+        etiquetaDato="Dentro ahora"
+        cifra={`${dentroCount} / ${usuarios.length}`}
+        resumen={<>{fuera} fuera de {usuarios.length} empleados activos.</>}
+        atencion={[
+          `${dentroCount} dentro`,
+          `${fuera} fuera`,
+        ]}
+      />
+
+      {!tableExists ? (
+        <FrasePotente significado="peligro">El registro de fichajes no está activo: pulsa «Inicializar BD» para empezar a capturar presencia.</FrasePotente>
+      ) : dentroCount === 0 && usuarios.length > 0 ? (
+        <FrasePotente significado="coste">Nadie tiene fichaje abierto ahora mismo: comprueba que el equipo esté fichando entrada.</FrasePotente>
+      ) : (
+        <FrasePotente significado="logro">Control de presencia activo: {dentroCount} de {usuarios.length} personas fichadas ahora mismo.</FrasePotente>
+      )}
 
       {!tableExists && (
-        <div style={{ backgroundColor: INK, border: `1px solid ${AMARILLO}`, borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
-          <p style={{ color: AMARILLO, fontFamily: FONT_LABEL, fontSize: 14, margin: '0 0 8px', letterSpacing: '1px' }}>
-            TABLA FICHAJES NO ENCONTRADA
+        <Papel ceja={AMARILLO}>
+          <p style={{ color: INK, fontFamily: FONT_LABEL, fontSize: 14, margin: '0 0 8px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+            Tabla fichajes no encontrada
           </p>
           <p style={{ color: MUT, fontSize: 13, margin: '0 0 16px' }}>
             La tabla <code style={{ color: PRI }}>fichajes</code> no existe. Pulsa para intentar crearla (requiere RPC <code style={{ color: PRI }}>execute_sql</code> habilitado).
@@ -315,14 +331,14 @@ export default function ControlPresencia() {
           <button
             onClick={inicializarBD}
             disabled={inicializando}
-            style={{ background: AMARILLO, color: INK, fontFamily: FONT_LABEL, fontSize: 13, fontWeight: 700, letterSpacing: '1px', padding: '8px 20px', borderRadius: 6, border: 'none', cursor: 'pointer', textTransform: 'uppercase' }}
+            style={{ background: AMARILLO, color: INK, fontFamily: FONT_LABEL, fontSize: 13, fontWeight: 700, letterSpacing: '1px', padding: '8px 20px', border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, cursor: 'pointer', textTransform: 'uppercase' }}
           >
             {inicializando ? 'Inicializando...' : 'Inicializar BD'}
           </button>
-        </div>
+        </Papel>
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
         <TabBtn label="Ahora" active={tab === 'ahora'} onClick={() => setTab('ahora')} />
         <TabBtn label="Hoy" active={tab === 'hoy'} onClick={() => setTab('hoy')} />
         <TabBtn label="Historico" active={tab === 'historico'} onClick={() => setTab('historico')} />
@@ -330,12 +346,12 @@ export default function ControlPresencia() {
 
       {/* ── TAB: AHORA ── */}
       {tab === 'ahora' && (
-        <div>
-          <div style={{ display: 'flex', gap: 14, marginBottom: 24, flexWrap: 'wrap' }}>
-            <KpiBadge label="Dentro ahora" value={`${dentroCount} / ${usuarios.length}`} color={VERDE} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Plancha>
+            <KpiBadge first label="Dentro ahora" value={`${dentroCount} / ${usuarios.length}`} color={VERDE} />
             <KpiBadge label="Total empleados" value={usuarios.length} />
-            <KpiBadge label="Fuera" value={usuarios.length - dentroCount} color={MUT} />
-          </div>
+            <KpiBadge label="Fuera" value={fuera} color={MUT} />
+          </Plancha>
 
           {estadoActual.length === 0 && (
             <p style={{ color: MUT, fontSize: 14 }}>No hay empleados activos.</p>
@@ -347,8 +363,8 @@ export default function ControlPresencia() {
                 key={e.usuario.id}
                 style={{
                   background: CARD,
-                  border: `1px solid ${BRD}`,
-                  borderRadius: 10,
+                  border: `3px solid ${INK}`,
+                  borderRadius: 0,
                   padding: '14px 18px',
                   display: 'flex',
                   alignItems: 'center',
@@ -359,7 +375,6 @@ export default function ControlPresencia() {
                   width: 12, height: 12, borderRadius: '50%',
                   background: e.dentro ? VERDE : BRD2,
                   flexShrink: 0,
-                  boxShadow: e.dentro ? `0 0 6px ${VERDE}` : 'none',
                 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontFamily: FONT_LABEL, fontSize: 14, color: PRI, fontWeight: 600 }}>{e.usuario.nombre}</div>
@@ -372,7 +387,7 @@ export default function ControlPresencia() {
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', minWidth: 80 }}>
-                  <div style={{ fontFamily: FONT_LABEL, fontSize: 16, color: e.horasHoy > 0 ? AMARILLO : MUT }}>
+                  <div style={{ fontFamily: FONT_LABEL, fontSize: 16, color: e.horasHoy > 0 ? NAR : MUT }}>
                     {e.horasHoy > 0 ? fmtHorasFmt(e.horasHoy) : '—'}
                   </div>
                   <div style={{ fontSize: 11, color: MUT }}>hoy</div>
@@ -387,8 +402,9 @@ export default function ControlPresencia() {
                     letterSpacing: '0.5px',
                     textTransform: 'uppercase' as const,
                     padding: '7px 16px',
-                    borderRadius: 6,
-                    border: 'none',
+                    border: `3px solid ${INK}`,
+                    boxShadow: SHADOW_DURA,
+                    borderRadius: 0,
                     cursor: fichandoId === e.usuario.id ? 'not-allowed' : 'pointer',
                     background: e.dentro ? ROJO : VERDE,
                     color: BLANCO,
@@ -410,20 +426,21 @@ export default function ControlPresencia() {
 
       {/* ── TAB: HOY ── */}
       {tab === 'hoy' && (
-        <div>
-          <div style={{ display: 'flex', gap: 14, marginBottom: 24, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Plancha>
             <KpiBadge
+              first
               label="Horas-persona hoy"
               value={fmtHorasFmt(fichajesHoy.length > 0 ? calcHorasEntrePares(fichajesHoy) : 0)}
-              color={AMARILLO}
+              color={NAR}
             />
             <KpiBadge label="Fichajes" value={fichajesHoy.length} />
-          </div>
+          </Plancha>
 
           {fichajesHoy.length === 0 ? (
             <p style={{ color: MUT, fontSize: 14 }}>Sin fichajes hoy.</p>
           ) : (
-            <div style={{ background: CARD, border: `1px solid ${BRD}`, borderRadius: 10, overflow: 'hidden' }}>
+            <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '90px 1fr 100px 1fr',
@@ -431,7 +448,7 @@ export default function ControlPresencia() {
                 padding: '10px 16px',
                 fontFamily: FONT_LABEL,
                 fontSize: 11,
-                color: MUT,
+                color: BLANCO,
                 letterSpacing: '1.5px',
                 textTransform: 'uppercase' as const,
               }}>
@@ -456,13 +473,14 @@ export default function ControlPresencia() {
                       alignItems: 'center',
                     }}
                   >
-                    <div style={{ fontFamily: FONT_LABEL, color: AMARILLO }}>{fmtHora(f.timestamp)}</div>
+                    <div style={{ fontFamily: FONT_LABEL, color: NAR }}>{fmtHora(f.timestamp)}</div>
                     <div>{u?.nombre ?? f.usuario_id.slice(0, 8)}</div>
                     <div>
                       <span style={{
-                        background: f.tipo === 'entrada' ? '#0d3320' : '#2a0d0d',
-                        color: f.tipo === 'entrada' ? VERDE : '#ff6b6b',
-                        borderRadius: 4,
+                        background: f.tipo === 'entrada' ? PRESENCIA_WASH_VERDE_BG : PRESENCIA_WASH_ROJO_BG,
+                        color: f.tipo === 'entrada' ? VERDE : PRESENCIA_SALIDA_TXT,
+                        border: `2px solid ${INK}`,
+                        borderRadius: 0,
                         padding: '2px 8px',
                         fontSize: 11,
                         fontFamily: FONT_LABEL,
@@ -476,15 +494,16 @@ export default function ControlPresencia() {
                   </div>
                 )
               })}
-            </div>
+            </Papel>
           )}
         </div>
       )}
 
       {/* ── TAB: HISTORICO ── */}
       {tab === 'historico' && (
-        <div>
-          <div style={{ display: 'flex', gap: 14, marginBottom: 20, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <SeccionLabel bg={GRANATE}>Filtro</SeccionLabel>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: -12 }}>
             <div>
               <div style={{ fontFamily: FONT_LABEL, fontSize: 11, color: MUT, letterSpacing: '1px', marginBottom: 4, textTransform: 'uppercase' as const }}>Empleado</div>
               <select
@@ -507,17 +526,17 @@ export default function ControlPresencia() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
-            <KpiBadge label="Total horas periodo" value={fmtHorasFmt(totalHorasPeriodo)} color={AMARILLO} />
+          <Plancha>
+            <KpiBadge first label="Total horas periodo" value={fmtHorasFmt(totalHorasPeriodo)} color={NAR} />
             <KpiBadge label="Dias trabajados" value={diasHist.filter(d => d.horas > 0).length} />
-          </div>
+          </Plancha>
 
           {loadingHist ? (
             <p style={{ color: MUT, fontSize: 14 }}>Cargando...</p>
           ) : diasHist.length === 0 ? (
             <p style={{ color: MUT, fontSize: 14 }}>Sin registros en el periodo.</p>
           ) : (
-            <div style={{ background: CARD, border: `1px solid ${BRD}`, borderRadius: 10, overflow: 'hidden' }}>
+            <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '120px 90px 90px 90px 1fr',
@@ -525,7 +544,7 @@ export default function ControlPresencia() {
                 padding: '10px 16px',
                 fontFamily: FONT_LABEL,
                 fontSize: 11,
-                color: MUT,
+                color: BLANCO,
                 letterSpacing: '1.5px',
                 textTransform: 'uppercase' as const,
               }}>
@@ -549,17 +568,17 @@ export default function ControlPresencia() {
                     alignItems: 'center',
                   }}
                 >
-                  <div style={{ fontFamily: FONT_LABEL, color: AMARILLO }}>{fmtFecha(d.fecha + 'T12:00:00')}</div>
+                  <div style={{ fontFamily: FONT_LABEL, color: NAR }}>{fmtFecha(d.fecha + 'T12:00:00')}</div>
                   <div style={{ color: VERDE }}>{d.entrada ?? '—'}</div>
-                  <div style={{ color: '#ff6b6b' }}>{d.salida ?? '—'}</div>
+                  <div style={{ color: PRESENCIA_SALIDA_TXT }}>{d.salida ?? '—'}</div>
                   <div style={{ color: d.horas > 0 ? PRI : MUT }}>{d.horas > 0 ? fmtHorasFmt(d.horas) : '—'}</div>
                   <div style={{ color: MUT }}>{d.nota ?? '—'}</div>
                 </div>
               ))}
-            </div>
+            </Papel>
           )}
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
 }

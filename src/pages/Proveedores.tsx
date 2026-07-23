@@ -1,9 +1,10 @@
-import { BLANCO, GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, INK, LIMA, VERDE, AZUL } from '@/styles/neobrutal'
 import { useState, useEffect, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, pageTitleStyle, FONT } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { useEsMovil } from '@/hooks/useEsMovil'
+import { HeroCantera, Papel, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 /* ─── Neobrutal ─────────────────────────────────────────── */
 const NEO_INK = 'var(--neo-ink)'
@@ -67,7 +68,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
   const inp: CSSProperties = {
     background: 'var(--sl-input-edit)',
     border: '1px solid var(--sl-border)',
-    borderRadius: 6,
+    borderRadius: 0,
     color: 'var(--sl-text-primary)',
     padding: '7px 10px',
     fontSize: 13,
@@ -199,7 +200,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
             {!isNew && !confirmDelete && (
               <button
                 onClick={() => setConfirmDelete(true)}
-                style={{ background: 'none', border: '1px solid #B01D23', color: GRANATE, borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: FONT.body }}
+                style={{ background: 'none', border: `1px solid ${GRANATE}`, color: GRANATE, borderRadius: 0, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontFamily: FONT.body }}
               >
                 Eliminar
               </button>
@@ -216,7 +217,7 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
           <div style={{ display: 'flex', gap: 10 }}>
             <button
               onClick={onClose}
-              style={{ background: 'var(--sl-btn-cancel-bg)', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', borderRadius: 6, padding: '7px 16px', cursor: 'pointer', fontSize: 13, fontFamily: FONT.body }}
+              style={{ background: 'var(--sl-btn-cancel-bg)', border: '1px solid var(--sl-btn-cancel-border)', color: 'var(--sl-btn-cancel-text)', borderRadius: 0, padding: '7px 16px', cursor: 'pointer', fontSize: 13, fontFamily: FONT.body }}
             >
               Cancelar
             </button>
@@ -236,7 +237,6 @@ function ModalDetalle({ prov, pedidos, onClose, onSave, onDelete, saving }: Moda
 
 /* ─── Main Component ────────────────────────────────────── */
 export default function Proveedores() {
-  const { T } = useTheme()
   const movil = useEsMovil()
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
   const [proveedores, setProveedores] = useState<ProveedorEnriquecido[]>([])
@@ -386,9 +386,24 @@ export default function Proveedores() {
     whiteSpace: 'nowrap',
   }
 
+  const activos = proveedores.filter(p => p.activo).length
+  const totalCompradoGlobal = proveedores.reduce((s, p) => s + (p.total_comprado || 0), 0)
+  const conFacturas = proveedores.filter(p => p.facturas_count > 0).length
+
   return (
-    <div style={{ padding: 28, fontFamily: FONT.body, background: 'var(--sl-app)', minHeight: '100vh' }}>
-      <h1 style={pageTitleStyle(T)}>Proveedores</h1>
+    <PantallaCantera embedded>
+      {/* HÉROE (azul · área Compras) */}
+      <HeroCantera
+        area="cashflow"
+        titular={proveedores.length === 0 ? 'Aún no hay proveedores dados de alta.' : 'Así está tu mapa de proveedores.'}
+        etiquetaDato="Comprado a proveedores"
+        cifra={totalCompradoGlobal > 0 ? fmtEur(totalCompradoGlobal) : '—'}
+        resumen={<>{activos} de {proveedores.length} activos · {conFacturas} con facturas OCR casadas</>}
+        atencion={[
+          filtrados.length !== proveedores.length ? `${filtrados.length} tras el filtro` : null,
+          gruposCat.length > 0 ? `${gruposCat.length} categorías` : null,
+        ].filter(Boolean) as string[]}
+      />
 
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
@@ -399,7 +414,7 @@ export default function Proveedores() {
           style={{
             background: 'var(--sl-input-edit)',
             border: '1px solid var(--sl-border)',
-            borderRadius: 8,
+            borderRadius: 0,
             color: 'var(--sl-text-primary)',
             padding: '8px 14px',
             fontSize: 13,
@@ -434,7 +449,7 @@ export default function Proveedores() {
       </div>
 
       {error && (
-        <div style={{ color: GRANATE, backgroundColor: '#B01D2318', border: '1px solid #B01D2355', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
+        <div style={{ color: GRANATE, backgroundColor: GRANATE + '18', border: `1px solid ${GRANATE}55`, borderRadius: 0, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -455,7 +470,9 @@ export default function Proveedores() {
       )}
 
       {!loading && !movil && (
-        <div style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, overflowX: 'auto' }}>
+        <div>
+        <SeccionLabel bg={AZUL}>Proveedores</SeccionLabel>
+        <Papel ceja={AZUL} pad="0" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr>
@@ -501,7 +518,7 @@ export default function Proveedores() {
                   </td>
                   <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                     {p.facturas_count > 0
-                      ? <span style={{ background: 'var(--sl-input-edit)', border: '1px solid var(--sl-btn-cancel-border)', borderRadius: 4, padding: '2px 8px', fontSize: 11, color: 'var(--sl-btn-cancel-text)' }}>{p.facturas_count}</span>
+                      ? <span style={{ background: 'var(--sl-input-edit)', border: '1px solid var(--sl-btn-cancel-border)', borderRadius: 0, padding: '2px 8px', fontSize: 11, color: 'var(--sl-btn-cancel-text)' }}>{p.facturas_count}</span>
                       : <span style={{ color: 'var(--sl-text-muted)', fontSize: 12 }}>—</span>
                     }
                   </td>
@@ -509,7 +526,7 @@ export default function Proveedores() {
                     <span style={{
                       fontSize: 11,
                       padding: '2px 8px',
-                      borderRadius: 4,
+                      borderRadius: 0,
                       background: p.activo ? 'rgba(29,158,117,0.15)' : 'rgba(176,29,35,0.15)',
                       color: p.activo ? VERDE : GRANATE,
                       border: `1px solid ${p.activo ? VERDE : GRANATE}`,
@@ -524,6 +541,7 @@ export default function Proveedores() {
               ))}
             </tbody>
           </table>
+        </Papel>
         </div>
       )}
 
@@ -538,7 +556,7 @@ export default function Proveedores() {
           saving={saving}
         />
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 
@@ -579,7 +597,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
 
   if (filtrados.length === 0) {
     return (
-      <div style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, padding: 40, textAlign: 'center', color: 'var(--sl-text-muted)', fontSize: 13 }}>
+      <div style={{ background: 'var(--sl-card-alt)', border: `3px solid ${NEO_INK}`, borderRadius: 0, padding: 40, textAlign: 'center', color: 'var(--sl-text-muted)', fontSize: 13 }}>
         {buscando ? 'Sin resultados para la búsqueda' : 'Sin proveedores registrados'}
       </div>
     )
@@ -587,7 +605,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
 
   if (buscando) {
     return (
-      <div style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--sl-card-alt)', border: `3px solid ${NEO_INK}`, borderRadius: 0, overflow: 'hidden' }}>
         {filtrados.map((p, idx) => fila(p, idx < filtrados.length - 1))}
       </div>
     )
@@ -598,7 +616,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
       {grupos.map(([cat, items]) => {
         const open = abiertos.has(cat)
         return (
-          <div key={cat} style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, border: `3px solid ${open ? LIMA : NEO_INK}`, overflow: 'hidden' }}>
+          <div key={cat} style={{ background: 'var(--sl-card-alt)', border: `3px solid ${open ? LIMA : NEO_INK}`, borderRadius: 0, overflow: 'hidden' }}>
             <button
               onClick={() => toggleGrupo(cat)}
               style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}
@@ -609,7 +627,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
                 </svg>
                 <span style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 600, color: 'var(--sl-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</span>
               </span>
-              <span style={{ fontFamily: FONT.body, fontSize: 11, color: 'var(--sl-btn-cancel-text)', background: 'var(--sl-btn-cancel-bg)', padding: '3px 9px', borderRadius: 20, flexShrink: 0 }}>{items.length}</span>
+              <span style={{ fontFamily: FONT.body, fontSize: 11, color: 'var(--sl-btn-cancel-text)', background: 'var(--sl-btn-cancel-bg)', padding: '3px 9px', borderRadius: 0, flexShrink: 0 }}>{items.length}</span>
             </button>
             {open && (
               <div style={{ borderTop: '0.5px solid var(--sl-border)' }}>

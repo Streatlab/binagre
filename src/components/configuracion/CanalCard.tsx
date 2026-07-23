@@ -1,12 +1,9 @@
 import { fmtEur } from '@/lib/format'
+import { CANALCARD } from '@/styles/palettes'
 
 type CanalColor = 'ue' | 'gl' | 'je'
 
-const COLORS: Record<CanalColor, { bg: string; border: string; text: string; val: string }> = {
-  ue: { bg: '#DCEFE0', border: '#22B573', text: '#027b4b', val: '#22B573' },
-  gl: { bg: '#F4EEBC', border: '#DCCF2A', text: '#5c550d', val: '#8a7d00' },
-  je: { bg: '#F9E8CC', border: '#E89A2B', text: '#B8561F', val: '#E89A2B' },
-}
+const COLORS: Record<CanalColor, { bg: string; border: string; text: string; val: string }> = CANALCARD
 
 export function CanalCard({
   color, label, bruto, pedidos,

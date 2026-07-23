@@ -6,7 +6,7 @@ import { semaforoColor } from '@/styles/tokens'
 import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlataforma'
 import { useConfig } from '@/hooks/useConfig'
 import { INK, CREMA, OSW, LEX, AMA, GRANATE, GRIS, BLANCO } from '@/styles/neobrutal'
-import { th, thR, thC, td, tdNum, tdCod, zebra, BAND } from './estilosTabla'
+import { th, thR, thC, td, tdNum, tdCod, zebra, BAND, SUBT, ZEBRA_B } from './estilosTabla'
 import CabeceraEscandallo from './CabeceraEscandallo'
 
 interface Props { recetasList: Receta[]; busqueda?: string; onBuscar: (v: string) => void; onSelect: (r: Receta) => void; onNew?: () => void }
@@ -125,7 +125,7 @@ export default function TabRecetas({ recetasList, busqueda = '', onBuscar, onSel
                       <td style={td}>
                         <div style={{ fontFamily: LEX, fontSize: 15, fontWeight: 700, color: INK, lineHeight: 1.05, whiteSpace: 'normal' }}>{r.nombre}</div>
                         {(r.categoria || r.unidad) && (
-                          <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '.3px', textTransform: 'uppercase', color: '#5a4f3a', marginTop: 1 }}>
+                          <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, letterSpacing: '.3px', textTransform: 'uppercase', color: SUBT, marginTop: 1 }}>
                             {[r.categoria, r.unidad].filter(Boolean).join(' · ')}
                           </div>
                         )}
@@ -171,7 +171,7 @@ export default function TabRecetas({ recetasList, busqueda = '', onBuscar, onSel
         )}
 
         {!!filtered.length && (
-          <div style={{ background: '#F7EACE', borderTop: `3px solid ${INK}`, padding: '10px 14px', display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ background: ZEBRA_B, borderTop: `3px solid ${INK}`, padding: '10px 14px', display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', color: INK }}>Margen por canal (UE · GL · JE · WEB · DIR):</span>
             {[
               { c: semaforoColor(60), t: 'Sano · cubre gastos + margen (≥50%)' },

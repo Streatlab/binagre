@@ -14,7 +14,9 @@ import ModalIngrediente from '@/components/escandallo/ModalIngrediente'
 import ModalMerma from '@/components/escandallo/ModalMerma'
 import EditorCategoriasIngredientes from '@/components/escandallo/EditorCategoriasIngredientes'
 import { useTheme } from '@/styles/tokens'
-import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, ROSA, GRANATE, ROJO, BLANCO } from '@/styles/neobrutal'
+import { INK, CREMA, SHADOW, BORDER_CARD, OSW, LEX, AMA, ROSA, ROJO, BLANCO } from '@/styles/neobrutal'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import { PantallaCantera } from '@/components/kit/cantera'
 
 type Tab = 'indice' | 'ingredientes' | 'mermas' | 'eps' | 'recetas' | 'equivalencias' | 'auto'
 const TAB_KEY = 'sl_fichas_tab'
@@ -109,12 +111,11 @@ export default function Escandallo() {
   }
 
   return (
-    <div style={{ background: CREMA, minHeight: '100%' }}>
+    <PantallaCantera>
       {/* ===== MARCO: cabecera clara + pestañas rosas (folder) ===== */}
       <div style={{ background: CREMA, padding: '22px 32px 0', borderBottom: `4px solid ${INK}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 10 }}>
-          <h2 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 'clamp(26px,3.2vw,40px)', lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: 0 }}>Escandallo</h2>
-          <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK }}>Banco de trabajo · Comer bien, aquí y ahora</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
+          <RutaPantalla niveles={['Escandallo']} subtitulo="Banco de trabajo · Comer bien, aquí y ahora" />
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 16, flexWrap: 'wrap' }}>
           {TABS.map(t => {
@@ -247,7 +248,7 @@ export default function Escandallo() {
         />
       )}
       {modalCategorias && <ModalCategoriasIngredientes onClose={() => setModalCategorias(false)} />}
-    </div>
+    </PantallaCantera>
   )
 }
 

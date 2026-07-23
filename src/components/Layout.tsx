@@ -8,9 +8,10 @@ import ResponsiveTables from '@/components/ResponsiveTables'
 import OcrCompletadoGlobal from '@/components/ocr/OcrCompletadoGlobal'
 import OcrUploadToast from '@/components/ocr/OcrUploadToast'
 import CommandPalette from '@/components/CommandPalette'
+import ProgresoGlobal from '@/components/kit/ProgresoGlobal'
 import { useEsMovil } from '@/hooks/useEsMovil'
 import { useTheme } from '@/styles/tokens'
-import ShellMovil from '@/mobile/ShellMovil'
+import AppMovil from '@/mobile/AppMovil'
 
 // Fondo del wrapper del ERP: crema en modo claro (mismo crema del sidebar).
 const CREMA_WRAP = NAR_S
@@ -21,8 +22,9 @@ export default function Layout() {
   const { isDark } = useTheme()
   const appBg = isDark ? 'var(--sl-app)' : CREMA_WRAP
 
-  // En móvil: app propia (shell con carrusel inferior). En ordenador: ERP de siempre.
-  if (movil) return <ShellMovil />
+  // En móvil: piel PWA (Cantera Alegre + dock Mac). En ordenador: ERP de siempre.
+  // El contenido en ambos casos son las mismas pantallas reales del ERP.
+  if (movil) return <AppMovil />
 
   return (
     <div className="flex h-screen text-[var(--sl-text-primary)] font-sans" style={{ background: appBg }}>
@@ -55,6 +57,7 @@ export default function Layout() {
       <OcrUploadToast />
       <OcrCompletadoGlobal />
       <CommandPalette />
+      <ProgresoGlobal />
     </div>
   )
 }

@@ -1,8 +1,9 @@
-import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, VERDE, LEX } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { Plus, Trash2, Check, X, Pencil } from 'lucide-react'
+import { PantallaCantera, HeroCantera, Papel, SeccionLabel } from '@/components/kit/cantera'
 
 // Pestaña OCR / Plantillas: define cómo el lector OCR extrae datos de las facturas
 // de cada proveedor a partir de su NIF. Estas plantillas viven en la tabla
@@ -109,39 +110,51 @@ export default function TabOcrPlantillas() {
 
   const fechaLabel = (v: string | null) => FORMATOS_FECHA.find(f => f.v === v)?.l.split(' ')[0] ?? '—'
 
-  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
+  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
   const sel: React.CSSProperties = { ...inp, cursor: 'pointer' }
-  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
-  const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
+  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 0, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
+  const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 0, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
   const th: React.CSSProperties = { textAlign: 'left', padding: '10px 14px', fontSize: 11, letterSpacing: 1, color: T.mut, textTransform: 'uppercase' }
 
-  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando plantillas…</div>
+  if (loading) return (
+    <PantallaCantera embedded>
+      <Papel ceja={GRIS}><div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13, fontWeight: 600 }}>Cargando plantillas…</div></Papel>
+    </PantallaCantera>
+  )
+
+  const activas = filas.filter(f => f.activa).length
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-        Cada plantilla le dice al lector OCR cómo extraer el total, el número y la fecha de las facturas de un proveedor, identificándolo por su NIF. El procesamiento de facturas lee de aquí: si un proveedor no tiene plantilla, sus facturas quedan «pendientes de plantilla». Al guardar una plantilla, las facturas pendientes de ese NIF se reconcilian solas. {filas.length} plantillas activas.
-      </div>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={filas.length === 0 ? 'Todavía no hay plantillas OCR' : 'Así lee el OCR cada factura, proveedor a proveedor'}
+        etiquetaDato={filas.length > 0 ? 'Plantillas activas' : undefined}
+        cifra={filas.length > 0 ? `${activas} / ${filas.length}` : undefined}
+        resumen="Cada plantilla le dice al lector OCR cómo extraer el total, el número y la fecha de las facturas de un proveedor, identificándolo por su NIF. Si un proveedor no tiene plantilla, sus facturas quedan «pendientes de plantilla». Al guardar una plantilla, las facturas pendientes de ese NIF se reconcilian solas."
+      />
 
-      <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 600, color: T.sec }}>Nueva plantilla</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input value={nNif} onChange={e => setNNif(e.target.value)} placeholder="NIF (ej: B12345678)" style={{ ...inp, flex: 1, minWidth: 130 }} />
-          <input value={nRazon} onChange={e => setNRazon(e.target.value)} placeholder="Nombre del proveedor" style={{ ...inp, flex: 1.4, minWidth: 160 }} />
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input value={nTotal} onChange={e => setNTotal(e.target.value)} placeholder="Etiqueta del total (ej: Total)" style={{ ...inp, flex: 1, minWidth: 130 }} />
-          <input value={nNum} onChange={e => setNNum(e.target.value)} placeholder="Etiqueta del nº factura (ej: Factura)" style={{ ...inp, flex: 1, minWidth: 130 }} />
-          <select value={nFecha} onChange={e => setNFecha(e.target.value)} style={{ ...sel, flex: 1, minWidth: 150 }}>
-            {FORMATOS_FECHA.map(f => <option key={f.v} value={f.v}>{f.l}</option>)}
-          </select>
-          <button onClick={crear} style={btnP}><Plus size={16} /> Añadir</button>
-        </div>
+      <div>
+        <SeccionLabel bg={GRANATE}>Nueva plantilla</SeccionLabel>
+        <Papel ceja={GRANATE} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <input value={nNif} onChange={e => setNNif(e.target.value)} placeholder="NIF (ej: B12345678)" style={{ ...inp, flex: 1, minWidth: 130 }} />
+            <input value={nRazon} onChange={e => setNRazon(e.target.value)} placeholder="Nombre del proveedor" style={{ ...inp, flex: 1.4, minWidth: 160 }} />
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <input value={nTotal} onChange={e => setNTotal(e.target.value)} placeholder="Etiqueta del total (ej: Total)" style={{ ...inp, flex: 1, minWidth: 130 }} />
+            <input value={nNum} onChange={e => setNNum(e.target.value)} placeholder="Etiqueta del nº factura (ej: Factura)" style={{ ...inp, flex: 1, minWidth: 130 }} />
+            <select value={nFecha} onChange={e => setNFecha(e.target.value)} style={{ ...sel, flex: 1, minWidth: 150 }}>
+              {FORMATOS_FECHA.map(f => <option key={f.v} value={f.v}>{f.l}</option>)}
+            </select>
+            <button onClick={crear} style={btnP}><Plus size={16} /> Añadir</button>
+          </div>
+        </Papel>
       </div>
 
       <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por nombre o NIF…" style={{ ...inp, maxWidth: 300 }} />
 
-      <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, overflow: 'auto' }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body, fontSize: 14 }}>
           <thead>
             <tr style={{ background: T.group }}>
@@ -179,7 +192,7 @@ export default function TabOcrPlantillas() {
                     <td style={{ padding: '10px 14px', color: T.sec }}>{fechaLabel(r.plantilla_fecha_formato)}</td>
                     <td style={{ textAlign: 'center' }}>
                       <button onClick={() => toggleActiva(r.id, r.activa)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-                        <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? VERDE : '#999' }} />
+                        <span style={{ display: 'inline-block', width: 11, height: 11, borderRadius: '50%', background: r.activa ? VERDE : GRIS }} />
                       </button>
                     </td>
                     <td style={{ padding: '10px 14px' }}><div style={{ display: 'flex', gap: 4 }}>
@@ -193,7 +206,7 @@ export default function TabOcrPlantillas() {
             {visibles.length === 0 && <tr><td colSpan={7} style={{ padding: 20, textAlign: 'center', color: T.mut }}>Sin plantillas.</td></tr>}
           </tbody>
         </table>
-      </div>
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

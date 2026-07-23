@@ -9,7 +9,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal'
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, GRIS, BLANCO } from '@/styles/neobrutal'
+import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 import {
   nuevoDocA4, pintarMarco, pintarCabecera, pintarCamposId, pintarPie,
   abrirImprimir, descargar, P_INK, P_GREY, P_LINE, P_WRITE, P_RED_SOFT2, P_RED_DARK, MARGEN, BOX,
@@ -537,26 +538,29 @@ export default function ChecklistsAperturaCierre() {
     padding: '9px 12px', background: BLANCO, border: `3px solid ${INK}`, color: INK,
     fontFamily: LEX, fontSize: 14, outline: 'none',
   }
-  const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW }
-
   // ─── Render ─────────────────────────────────────────────────────────────────
 
+  const tabActual = TABS.find(t => t.key === activeTab)
+  const esHistorico = activeTab === 'historico'
+
+  const titularHero = esHistorico
+    ? (historico.length > 0 ? `${historico.length} registros en el histórico de checklists.` : 'Aún no hay histórico de checklists.')
+    : totalItems === 0 ? `Checklist de ${tabActual?.label.toLowerCase()} sin cargar todavía.`
+    : todoCompleto ? `Checklist de ${tabActual?.label.toLowerCase()} completado.`
+    : completadosCount === 0 ? `Checklist de ${tabActual?.label.toLowerCase()} sin empezar.`
+    : `Checklist de ${tabActual?.label.toLowerCase()} en marcha.`
+
+  const atencionHero = esHistorico ? [] : [
+    ejecucion?.responsable ? `Responsable: ${ejecucion.responsable}` : null,
+    ejecucion?.incidencias ? 'Incidencias registradas' : null,
+    ejecucion?.origen === 'foto' ? 'Cargado por foto' : null,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={{ fontFamily: LEX, padding: '28px', background: CREMA, minHeight: '100vh', color: INK }}>
+    <PantallaCantera>
 
-      {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <span style={eyebrow(AMA)}>OPERACIONES</span>
-        <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color: GRANATE, margin: '10px 0 6px' }}>
-          CHECKLISTS OPERATIVOS
-        </h1>
-        <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>
-          {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
-        </span>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
+      {/* Filtros propios planos: tipo de checklist */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
@@ -580,11 +584,19 @@ export default function ChecklistsAperturaCierre() {
         ))}
       </div>
 
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        periodo={new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^\w/, c => c.toUpperCase())}
+        titular={titularHero}
+        etiquetaDato={!esHistorico && totalItems > 0 ? 'Progreso del checklist' : undefined}
+        cifra={!esHistorico && totalItems > 0 ? `${completadosCount}/${totalItems} — ${pct}%` : undefined}
+        atencion={atencionHero}
+      />
+
       {/* Error */}
       {error && (
-        <div style={{ ...card, background: ROJO, color: BLANCO, padding: '12px 18px', fontFamily: LEX, fontSize: 13, marginBottom: 20 }}>
-          {error}
-        </div>
+        <Papel ceja={ROJO} style={{ background: ROJO, color: BLANCO }}>{error}</Papel>
       )}
 
       {/* Loading */}
@@ -593,8 +605,8 @@ export default function ChecklistsAperturaCierre() {
       )}
 
       {/* ─── Histórico ─────────────────────────────────────────────── */}
-      {!loading && !error && activeTab === 'historico' && (
-        <div style={{ ...card, overflowX: 'auto' }}>
+      {!loading && !error && esHistorico && (
+        <Papel ceja={NAR} pad="0" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEX }}>
             <thead>
               <tr style={{ background: INK }}>
@@ -649,14 +661,14 @@ export default function ChecklistsAperturaCierre() {
               })}
             </tbody>
           </table>
-        </div>
+        </Papel>
       )}
 
       {/* ─── Checklist del día ─────────────────────────────────────── */}
-      {!loading && !error && activeTab !== 'historico' && !modoEdicion && (
-        <div>
+      {!loading && !error && !esHistorico && !modoEdicion && (
+        <>
           {/* Acciones */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <button
               onClick={() => imprimirDesde(activeTab as TipoChecklist, items.map(i => i.item_nombre), 'imprimir')}
               style={btnSecundario}
@@ -698,101 +710,92 @@ export default function ChecklistsAperturaCierre() {
 
           {/* Mensaje resultado foto */}
           {msgFoto && (
-            <div style={{ ...card, background: msgFoto.startsWith('Foto leída') ? VERDE : ROJO, color: BLANCO, padding: '10px 16px', fontSize: 13, marginBottom: 16, fontFamily: LEX }}>
+            <Papel ceja={msgFoto.startsWith('Foto leída') ? VERDE : ROJO} style={{ background: msgFoto.startsWith('Foto leída') ? VERDE : ROJO, color: BLANCO }}>
               {msgFoto}
-            </div>
+            </Papel>
+          )}
+
+          {/* 3 · Frase potente (una sola, según estado del checklist) */}
+          {ejecucion && totalItems > 0 && (
+            todoCompleto
+              ? <FrasePotente significado="logro">Checklist de {tabActual?.label.toLowerCase()} completado: todo listo para seguir.</FrasePotente>
+              : ejecucion.incidencias
+                ? <FrasePotente significado="peligro">Hay incidencias anotadas en este checklist: revísalas antes de cerrar el turno.</FrasePotente>
+                : pct < 50
+                  ? <FrasePotente significado="peligro">El checklist va por debajo de la mitad: quedan {totalItems - completadosCount} puntos por marcar.</FrasePotente>
+                  : <FrasePotente significado="coste">Quedan {totalItems - completadosCount} puntos por marcar para cerrar el checklist.</FrasePotente>
           )}
 
           {/* Incidencias */}
           {ejecucion?.incidencias && (
-            <div style={{ ...card, background: AMA, padding: '10px 16px', fontSize: 13, marginBottom: 16 }}>
+            <Papel ceja={AMA}>
               <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', marginRight: 10 }}>Incidencias</span>
               {ejecucion.incidencias}
-            </div>
-          )}
-
-          {/* Progreso */}
-          {ejecucion && (
-            <div style={{ ...card, padding: '16px 18px', marginBottom: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-                <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>
-                  Progreso
-                </span>
-                <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 28, lineHeight: 1, color: progressColor(pct) }}>
-                  {completadosCount}/{totalItems} <span style={{ fontSize: 18 }}>— {pct}%</span>
-                </span>
-              </div>
-              <div style={{ background: CLARO, border: `2px solid ${INK}`, height: 16, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${pct}%`, background: progressColor(pct), borderRight: pct > 0 && pct < 100 ? `2px solid ${INK}` : 'none', transition: 'width 0.4s ease' }} />
-              </div>
-              {todoCompleto && (
-                <div style={{ marginTop: 14, background: VERDE, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontSize: 22, color: BLANCO }}>✓</span>
-                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 15, letterSpacing: '1px', textTransform: 'uppercase', color: BLANCO }}>
-                    Checklist completado
-                  </span>
-                </div>
-              )}
-            </div>
+            </Papel>
           )}
 
           {/* Items */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
-            {items.map(item => (
-              <div
-                key={item.id}
-                onClick={() => toggleItem(item)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14,
-                  padding: '12px 16px',
-                  border: BORDER_CARD,
-                  boxShadow: item.completado ? 'none' : SHADOW,
-                  background: item.completado ? CLARO : BLANCO,
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                }}
-              >
-                <div style={{
-                  width: 28,
-                  height: 28,
-                  border: `3px solid ${INK}`,
-                  background: item.completado ? VERDE : BLANCO,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}>
-                  {item.completado && (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M2 7L6 11L12 3" stroke={BLANCO} strokeWidth="3" strokeLinecap="square" />
-                    </svg>
-                  )}
-                </div>
+          {ejecucion && (
+            <div>
+              <SeccionLabel bg={NAR}>Puntos de control</SeccionLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {items.map(item => (
+                  <div
+                    key={item.id}
+                    onClick={() => toggleItem(item)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 14,
+                      padding: '12px 16px',
+                      border: BORDER_CARD,
+                      boxShadow: item.completado ? 'none' : SHADOW,
+                      background: item.completado ? CLARO : BLANCO,
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                    }}
+                  >
+                    <div style={{
+                      width: 28,
+                      height: 28,
+                      border: `3px solid ${INK}`,
+                      background: item.completado ? VERDE : BLANCO,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}>
+                      {item.completado && (
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M2 7L6 11L12 3" stroke={BLANCO} strokeWidth="3" strokeLinecap="square" />
+                        </svg>
+                      )}
+                    </div>
 
-                <span style={{
-                  fontFamily: LEX,
-                  fontSize: 15,
-                  color: item.completado ? GRIS : INK,
-                  textDecoration: item.completado ? 'line-through' : 'none',
-                  flex: 1,
-                }}>
-                  {item.item_nombre}
-                </span>
+                    <span style={{
+                      fontFamily: LEX,
+                      fontSize: 15,
+                      color: item.completado ? GRIS : INK,
+                      textDecoration: item.completado ? 'line-through' : 'none',
+                      flex: 1,
+                    }}>
+                      {item.item_nombre}
+                    </span>
 
-                {item.completado_at && (
-                  <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, color: VERDE, flexShrink: 0 }}>
-                    {fmtHora(item.completado_at)}
-                  </span>
-                )}
+                    {item.completado_at && (
+                      <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, color: VERDE, flexShrink: 0 }}>
+                        {fmtHora(item.completado_at)}
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
           {/* Añadir item temporal */}
           {showAddTemp ? (
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <input
                 type="text"
                 value={nuevoItemTempNombre}
@@ -811,25 +814,25 @@ export default function ChecklistsAperturaCierre() {
               <button onClick={toggleModoEdicion} style={btnSecundario}>Editar plantilla</button>
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* ─── Edición plantilla ─────────────────────────────────────── */}
-      {!loading && !error && activeTab !== 'historico' && modoEdicion && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-            <span style={eyebrow(AMA)}>EDITANDO PLANTILLA — {TIPO_LABEL[activeTab as TipoChecklist].toUpperCase()}</span>
+      {!loading && !error && !esHistorico && modoEdicion && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <SeccionLabel bg={AMA}>EDITANDO PLANTILLA — {TIPO_LABEL[activeTab as TipoChecklist].toUpperCase()}</SeccionLabel>
             <button onClick={toggleModoEdicion} style={btnGranate}>Guardar y cerrar</button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {plantillas.length === 0 && (
               <div style={{ color: GRIS, fontSize: 13, padding: '12px 0', fontFamily: LEX }}>
                 No hay items en la plantilla. Añade items con el botón de abajo.
               </div>
             )}
             {plantillas.map((p, idx) => (
-              <div key={p.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', boxShadow: 'none' }}>
+              <div key={p.id} style={{ background: BLANCO, border: BORDER_CARD, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
                 <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, color: GRIS, minWidth: 24, textAlign: 'right' }}>
                   {idx + 1}
                 </span>
@@ -863,9 +866,9 @@ export default function ChecklistsAperturaCierre() {
           ) : (
             <button onClick={() => setShowAddPlantilla(true)} style={btnPrimario}>+ Añadir item</button>
           )}
-        </div>
+        </>
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 

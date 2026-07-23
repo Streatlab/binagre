@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, GRIS, INK } from '@/styles/neobrutal'
+import { CONFIG_BORDE, CONFIG_MUT, KPI_POS_VERDE } from '@/styles/palettes'
 import type { ReactNode } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -19,12 +20,12 @@ export function KpiCard({
 }) {
   const isDark = useIsDark()
   const cardBg = isDark ? INK : BLANCO
-  const border = isDark ? INK : '#E9E1D0'
-  const labelColor = isDark ? GRIS : '#9E9588'
+  const border = isDark ? INK : CONFIG_BORDE
+  const labelColor = isDark ? GRIS : CONFIG_MUT
   const valueColor = isDark ? BLANCO : INK
 
   const subColor =
-    subTone === 'pos' ? '#22B573' :
+    subTone === 'pos' ? KPI_POS_VERDE :
     subTone === 'neg' ? GRANATE :
     labelColor
   const subPrefix = subTone === 'pos' ? '▲ ' : subTone === 'neg' ? '▼ ' : ''
@@ -34,7 +35,7 @@ export function KpiCard({
       style={{
         background: cardBg,
         border: `1px solid ${border}`,
-        borderRadius: 12,
+        borderRadius: 0,
         padding: '24px 26px',
       }}
     >

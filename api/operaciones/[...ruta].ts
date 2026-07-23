@@ -15,11 +15,14 @@ import peAction from '../_puertas/pe-action.js'
 import equipoReintentarDrive from '../_puertas/equipo-reintentar-drive.js'
 import equipoReprocessRevision from '../_puertas/equipo-reprocess-revision.js'
 import equipoSubir from '../_puertas/equipo-subir.js'
+import equipoRechazados from '../_puertas/equipo-rechazados.js'
 import equipoRevisionResolver from '../_puertas/equipo-revision-resolver.js'
+import equipoPdfFirmado from '../_puertas/equipo-pdf-firmado.js'
 import nominasSubir from '../_puertas/nominas-subir.js'
 import nominasIdAction from '../_puertas/nominas-id-action.js'
 import nominasResumenSubir from '../_puertas/nominas-resumen-subir.js'
 import nominasSegsocialSubir from '../_puertas/nominas-segsocial-subir.js'
+import nominasBarrido from '../_puertas/nominas-barrido.js'
 
 // Config unificada: subidas de documentos hasta 20mb y lecturas con IA de hasta 60s.
 export const config = {
@@ -49,6 +52,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (b === 'reintentar-drive') return equipoReintentarDrive(req, res)
     if (b === 'reprocess-revision') return equipoReprocessRevision(req, res)
     if (b === 'subir') return equipoSubir(req, res)
+    if (b === 'rechazados') {
+      if (c) req.query.action = c   // /api/equipo/rechazados/descargar|reenviado
+      if (d) req.query.id = d        // /api/equipo/rechazados/<action>/<id>
+      return equipoRechazados(req, res)
+    }
+    if (b === 'pdf-firmado') return equipoPdfFirmado(req, res)
     if (b === 'revision' && c && d === 'resolver') {
       req.query.id = c
       return equipoRevisionResolver(req, res)
@@ -59,6 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (b === 'subir') return nominasSubir(req, res)
     if (b === 'resumen' && c === 'subir') return nominasResumenSubir(req, res)
     if (b === 'segsocial' && c === 'subir') return nominasSegsocialSubir(req, res)
+    if (b === 'barrido') return nominasBarrido(req, res)
     if (b && c) {
       req.query.id = b
       req.query.action = c

@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, GRIS, INK, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, CLARO, CREMA, GRANATE, GRIS, INK, NAR, OSC, ROJO, VERDE } from '@/styles/neobrutal'
 import { useMultiSort } from '@/hooks/useMultiSort'
 import SortableHeader, { ClearSortButton } from '@/components/ui/SortableHeader'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
@@ -406,7 +406,7 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
         </span>
       </div>
       {logs.length > 0 && (
-        <div style={{ marginBottom: 16, padding: 12, background: '#f5f3ef', borderRadius: 8 }}>
+        <div style={{ marginBottom: 16, padding: 12, background: CREMA, borderRadius: 0 }}>
           {logs.map((l, i) => (
             <div key={i} style={{ marginBottom: 4, fontSize: 13 }}>
               <strong>{l.archivo}</strong> — {l.plataforma}: {l.nuevas} nuevas, {l.duplicadas} duplicadas, {l.actualizadas} actualizadas
@@ -416,7 +416,7 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
         </div>
       )}
       <VentasPlatosFranjas fechaDesde={fechaDesde} fechaHasta={fechaHasta} />
-      <div style={{ background: BLANCO, border: '0.5px solid #d0c8bc', borderRadius: 14, overflow: 'hidden', marginTop: 16 }}>
+      <div style={{ background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`, borderRadius: 0, overflow: 'hidden', marginTop: 16 }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontFamily: 'Lexend, sans-serif', fontSize: 13 }}>
           <thead>
             <tr>
@@ -432,7 +432,7 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
               <tr><td colSpan={HEADERS.length} style={{ padding: '24px 16px', textAlign: 'center', color: GRIS }}>Sin resultados</td></tr>
             ) : filasPagina.map((f, idx) => {
               const isLast = idx === filasPagina.length - 1
-              const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : '0.5px solid #ebe8e2' }
+              const tdBase: React.CSSProperties = { padding: '8px 16px', borderBottom: isLast ? 'none' : `0.5px solid ${CLARO}` }
               return (
                 <tr key={f.id}>
                   <td style={{ ...tdBase, color: GRIS, fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(f.fecha_deposito)}</td>
@@ -449,7 +449,7 @@ export default function VentasTab({ fechaDesde, fechaHasta, titulares }: Props) 
           </tbody>
         </table>
       </div>
-      <div style={{ marginTop: 12, fontSize: 13, color: '#666' }}>
+      <div style={{ marginTop: 12, fontSize: 13, color: GRIS }}>
         {filasFiltradas.length} liquidaciones · Neto total: {agregados.totalNeto.toFixed(2)}€
       </div>
     </div>

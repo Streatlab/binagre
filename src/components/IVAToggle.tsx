@@ -1,9 +1,9 @@
-import { BLANCO } from '@/styles/neobrutal'
+import { BLANCO, GRANATE } from '@/styles/neobrutal'
 import { useIVA } from '@/contexts/IVAContext'
 import { useTheme, FONT } from '@/styles/tokens'
 
-const ROJO_ACTIVO = '#C4372C'
-const ROJO_HOVER  = '#A52D24'
+const ROJO_ACTIVO = GRANATE
+const ROJO_HOVER  = GRANATE
 
 export default function IVAToggle() {
   const { modo, setModo } = useIVA()

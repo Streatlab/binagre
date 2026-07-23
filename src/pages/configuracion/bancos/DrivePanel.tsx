@@ -1,7 +1,8 @@
-import { BLANCO, GRANATE, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, VERDE, ROJO, INK, OSW } from '@/styles/neobrutal'
+import { TABCOSTES_MANUAL_FG_LIGHT } from '@/styles/palettes'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useTheme, FONT } from '@/styles/tokens'
-import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
+import { PantallaCantera, HeroCantera, Papel, SHADOW_DURA } from '@/components/kit/cantera'
 
 interface Status {
   conectado: boolean
@@ -53,8 +54,9 @@ export default function DrivePanel() {
     padding: '8px 14px',
     background: GRANATE,
     color: BLANCO,
-    border: 'none',
-    borderRadius: 8,
+    border: `2px solid ${INK}`,
+    borderRadius: 0,
+    boxShadow: SHADOW_DURA,
     fontFamily: FONT.heading,
     fontSize: 11,
     letterSpacing: '1.2px',
@@ -66,8 +68,8 @@ export default function DrivePanel() {
     padding: '8px 14px',
     background: 'transparent',
     color: T.sec,
-    border: `0.5px solid ${T.brd}`,
-    borderRadius: 8,
+    border: `1px solid ${T.brd}`,
+    borderRadius: 0,
     fontFamily: FONT.heading,
     fontSize: 11,
     letterSpacing: '1.2px',
@@ -79,19 +81,26 @@ export default function DrivePanel() {
   const email = data?.email
 
   return (
-    <ConfigGroupCard title="Drive (Google)" subtitle="archivado automático de facturas">
-      <div style={{ padding: '18px 22px' }}>
-        <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec, marginBottom: 14, lineHeight: 1.5 }}>
-          Conecta una sola cuenta Google. Los PDFs de todas las facturas se archivarán ahí dentro de
-          carpetas <code>RUBEN/</code> o <code>EMILIO/</code> según el titular de cada factura.
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={conectado ? 'Drive conectado: las facturas se archivan solas' : 'Todavía no has conectado Drive'}
+        etiquetaDato="Cuenta Google"
+        cifra={conectado ? (email || 'Conectado') : undefined}
+        resumen="Los PDFs de todas las facturas se archivan en carpetas RUBEN/ o EMILIO/ según el titular de cada factura."
+      />
+
+      <Papel ceja={GRANATE}>
+        <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, fontWeight: 700, marginBottom: 14 }}>
+          Drive (Google) <span style={{ color: GRANATE, textTransform: 'none', letterSpacing: 'normal' }}>· archivado automático de facturas</span>
         </div>
 
         {msg && (
           <div style={{
             padding: 12,
-            borderRadius: 8,
-            background: msg.startsWith('❌') ? '#A32D2D22' : '#1D9E7522',
-            borderLeft: `3px solid ${msg.startsWith('❌') ? '#A32D2D' : VERDE}`,
+            borderRadius: 0,
+            background: msg.startsWith('❌') ? `${ROJO}22` : `${VERDE}22`,
+            borderLeft: `3px solid ${msg.startsWith('❌') ? TABCOSTES_MANUAL_FG_LIGHT : VERDE}`,
             fontFamily: FONT.body, fontSize: 12, color: T.pri,
             marginBottom: 14,
           }}>{msg}</div>
@@ -102,8 +111,8 @@ export default function DrivePanel() {
         {!loading && data && (
           <div style={{
             background: T.card,
-            border: `0.5px solid ${T.brd}`,
-            borderRadius: 10,
+            border: `1px solid ${T.brd}`,
+            borderRadius: 0,
             padding: '16px 18px',
             display: 'flex',
             alignItems: 'center',
@@ -128,7 +137,7 @@ export default function DrivePanel() {
             }
           </div>
         )}
-      </div>
-    </ConfigGroupCard>
+      </Papel>
+    </PantallaCantera>
   )
 }

@@ -1,4 +1,5 @@
 import { BLANCO, GRANATE, INK, ROJO } from '@/styles/neobrutal'
+import { DARK_WASH_VERDE_BG, DARK_WASH_ROJO_BG, VERDE_POSITIVO } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -128,7 +129,7 @@ export default function TabMovimientos({ desde, hasta }: Props) {
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
           style={{
-            padding: '7px 12px', borderRadius: 8,
+            padding: '7px 12px', borderRadius: 0,
             border: `0.5px solid ${T.brd}`, background: INK,
             color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 200,
           }}
@@ -137,7 +138,7 @@ export default function TabMovimientos({ desde, hasta }: Props) {
           value={filtroIngrediente}
           onChange={e => setFiltroIngrediente(e.target.value)}
           style={{
-            padding: '7px 12px', borderRadius: 8,
+            padding: '7px 12px', borderRadius: 0,
             border: `0.5px solid ${T.brd}`, background: INK,
             color: T.pri, fontSize: 13, fontFamily: FONT.body,
           }}
@@ -153,7 +154,7 @@ export default function TabMovimientos({ desde, hasta }: Props) {
               key={t}
               onClick={() => setFiltroTipo(t)}
               style={{
-                padding: '6px 14px', borderRadius: 6,
+                padding: '6px 14px', borderRadius: 0,
                 border: `0.5px solid ${T.brd}`,
                 background: filtroTipo === t ? GRANATE : 'transparent',
                 color: filtroTipo === t ? BLANCO : T.sec,
@@ -197,9 +198,9 @@ export default function TabMovimientos({ desde, hasta }: Props) {
                   <td style={tdStyle}>{m.nombre}</td>
                   <td style={tdStyle}>
                     <span style={{
-                      fontSize: 11, padding: '2px 8px', borderRadius: 4,
-                      background: m.tipo === 'entrada' ? '#1a2a1a' : '#2a1a1a',
-                      color: m.tipo === 'entrada' ? '#4caf50' : ROJO,
+                      fontSize: 11, padding: '2px 8px', borderRadius: 0,
+                      background: m.tipo === 'entrada' ? DARK_WASH_VERDE_BG : DARK_WASH_ROJO_BG,
+                      color: m.tipo === 'entrada' ? VERDE_POSITIVO : ROJO,
                       fontFamily: FONT.heading, letterSpacing: '0.5px', textTransform: 'uppercase',
                     }}>
                       {m.tipo}

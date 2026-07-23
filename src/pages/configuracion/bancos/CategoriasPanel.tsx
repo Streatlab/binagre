@@ -1,9 +1,10 @@
-import { GRANATE } from '@/styles/neobrutal'
+import { GRANATE, INK, OSW, LEX, AMA } from '@/styles/neobrutal'
+import { CONFIG_AMBER_WASH, CATEGORIAS_N1_LIGHT, CATEGORIAS_ING_LIGHT, STATUSTAG, TABCOSTES_MANUAL_FG_DARK } from '@/styles/palettes'
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
-import ConfigGroupCard from '@/components/configuracion/ConfigGroupCard'
 import { InlineEdit } from '@/components/configuracion/InlineEdit'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 
 interface CatPyg {
   id: string               // ej: "2.11.1"
@@ -79,12 +80,18 @@ export default function CategoriasPanel() {
     await refetch()
   }
 
-  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando…</div>
+  if (loading) return (
+    <PantallaCantera embedded>
+      <Papel ceja={GRANATE}><div style={{ padding: 20, color: T.mut, fontFamily: LEX }}>Cargando…</div></Papel>
+    </PantallaCantera>
+  )
   if (error) {
     return (
-      <div style={{ padding: 16, background: '#B01D2320', color: GRANATE, borderRadius: 10, fontFamily: FONT.body }}>
-        {error}
-      </div>
+      <PantallaCantera embedded>
+        <Papel ceja={GRANATE}>
+          <div style={{ color: GRANATE, fontFamily: LEX }}>{error}</div>
+        </Papel>
+      </PantallaCantera>
     )
   }
 
@@ -117,8 +124,8 @@ export default function CategoriasPanel() {
   }
   const groupRowBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
   const subGroupBg = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
-  const accentN1 = isDark ? '#F09595' : '#A32D2D'
-  const accentIng = isDark ? '#5DCAA5' : '#3B6D11'
+  const accentN1 = isDark ? TABCOSTES_MANUAL_FG_DARK : CATEGORIAS_N1_LIGHT
+  const accentIng = isDark ? STATUSTAG.ok.fgDark : CATEGORIAS_ING_LIGHT
 
   function GroupHeaderN1({ cat }: { cat: CatPyg }) {
     const accent = cat.id === '1' ? accentIng : accentN1
@@ -197,53 +204,56 @@ export default function CategoriasPanel() {
   }
 
   const totalActivas = cats.length
+  const totalConFactura = cats.filter(c => c.nivel === 3 && c.requiere_factura).length
 
   return (
-    <ConfigGroupCard title="Categorías P&G" subtitle={`${totalActivas} categorías`}>
-      <div
-        style={{
-          margin: '0 22px 14px',
-          padding: 14,
-          background: isDark ? 'rgba(186,117,23,0.18)' : '#FAEEDA',
-          border: `1px solid ${isDark ? 'rgba(250,199,117,0.28)' : '#FAC775'}`,
-          borderRadius: 8,
-          fontSize: 12.5,
-          color: isDark ? '#F5C36B' : '#854F0B',
-          fontFamily: FONT.body,
-        }}
-      >
-        <strong style={{ color: isDark ? '#FAC775' : '#412402' }}>Categorías canónicas P&amp;G.</strong>{' '}
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular="Así están organizadas tus categorías de P&G"
+        etiquetaDato="Categorías activas"
+        cifra={totalActivas}
+        resumen={<>{totalConFactura} detalles exigen factura adjunta para considerarse conciliados</>}
+      />
+
+      <Papel ceja={AMA} style={{ fontSize: 12.5, color: isDark ? CONFIG_AMBER_WASH.txtSubDark : CONFIG_AMBER_WASH.txtSubLight, fontFamily: FONT.body }}>
+        <strong style={{ color: isDark ? CONFIG_AMBER_WASH.txtStrongDark : CONFIG_AMBER_WASH.txtStrongLight }}>Categorías canónicas P&amp;G.</strong>{' '}
         Estas son las únicas categorías válidas para conciliación, gastos, presupuestos y P&amp;G. La columna
         <em> Requiere factura</em> determina si un movimiento bancario necesita factura adjunta para considerarse conciliado.
-      </div>
+      </Papel>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={th}>Código</th>
-              <th style={th}>Nombre</th>
-              <th style={{ ...th, textAlign: 'center' }}>Requiere factura</th>
-              <th style={{ ...th, textAlign: 'center' }}>Orden</th>
-              <th style={{ ...th, textAlign: 'right' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {arbol.map(({ n1, grupos, sueltos3 }) => (
-              <Fragment key={n1.id}>
-                <GroupHeaderN1 cat={n1} />
-                {grupos.map(({ n2, hijos }) => (
-                  <Fragment key={n2.id}>
-                    {grupos.length > 1 || (grupos.length === 1 && hijos.length > 0) ? <GroupHeaderN2 cat={n2} /> : null}
-                    {hijos.map(c => <FilaN3 key={c.id} c={c} />)}
-                  </Fragment>
-                ))}
-                {sueltos3.map(c => <FilaN3 key={c.id} c={c} />)}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </ConfigGroupCard>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
+        <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '2px', textTransform: 'uppercase', color: INK, fontWeight: 700, padding: '18px 22px 10px' }}>
+          Categorías P&amp;G <span style={{ color: GRANATE }}>· {totalActivas}</span>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: 13, whiteSpace: 'nowrap', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={th}>Código</th>
+                <th style={th}>Nombre</th>
+                <th style={{ ...th, textAlign: 'center' }}>Requiere factura</th>
+                <th style={{ ...th, textAlign: 'center' }}>Orden</th>
+                <th style={{ ...th, textAlign: 'right' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {arbol.map(({ n1, grupos, sueltos3 }) => (
+                <Fragment key={n1.id}>
+                  <GroupHeaderN1 cat={n1} />
+                  {grupos.map(({ n2, hijos }) => (
+                    <Fragment key={n2.id}>
+                      {grupos.length > 1 || (grupos.length === 1 && hijos.length > 0) ? <GroupHeaderN2 cat={n2} /> : null}
+                      {hijos.map(c => <FilaN3 key={c.id} c={c} />)}
+                    </Fragment>
+                  ))}
+                  {sueltos3.map(c => <FilaN3 key={c.id} c={c} />)}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

@@ -1,4 +1,6 @@
-import { BLANCO, GRIS, INK, OSC, ROJO } from '@/styles/neobrutal'
+import { BLANCO, BORDE_SUAVE, GRIS, INK, OSC, ROJO, ROSA_S, SHADOW, AZUL, VERDE, NAR, GRANATE, AMA } from '@/styles/neobrutal'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SHADOW_DURA } from '@/components/kit/cantera'
+import { VENTAS_CANAL_CHIP } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useRef, Suspense, lazy } from 'react'
 import { ChevronDown } from 'lucide-react'
 import TabsPastilla from '@/components/ui/TabsPastilla'
@@ -6,7 +8,7 @@ import SelectorFechaUniversal from '@/components/ui/SelectorFechaUniversal'
 import { supabase } from '@/lib/supabase'
 import { fechaLocalStr } from '@/utils/fechaLocal'
 import { fmtEur } from '@/utils/format'
-import { COLOR, COLORS, OSWALD, LEXEND, CARDS } from '@/components/panel/resumen/tokens'
+import { OSWALD, LEXEND } from '@/components/panel/resumen/tokens'
 
 // Pareto Ventas ya existe como página; se monta aquí como pestaña sin tocar su lógica.
 const ParetoVentas = lazy(() => import('@/pages/analytics/ParetoVentas'))
@@ -51,13 +53,7 @@ const fmtF = (s: string | null) => {
 const NOMBRE_PLAT: Record<string, string> = {
   uber: 'Uber Eats', glovo: 'Glovo', just_eat: 'Just Eat', rushour: 'Rushour', desconocido: 'Desconocido',
 }
-const PILL_PLAT: Record<string, { bg: string; tx: string }> = {
-  uber:     { bg: '#06C16722', tx: '#05833f' },
-  glovo:    { bg: '#F2D20033', tx: '#8a7400' },
-  just_eat: { bg: '#FF800022', tx: '#c25e00' },
-  rushour:  { bg: '#1e223318', tx: '#1e2233' },
-  desconocido: { bg: '#9aa0ad22', tx: '#6b7280' },
-}
+const PILL_PLAT = VENTAS_CANAL_CHIP
 const nombrePlat = (p: string) => NOMBRE_PLAT[p] || p
 const pillPlat = (p: string) => PILL_PLAT[p] || PILL_PLAT.desconocido
 
@@ -65,7 +61,7 @@ function PastillaPlataforma({ plataforma }: { plataforma: string }) {
   const c = pillPlat(plataforma)
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 999,
+      display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 0,
       background: c.bg, color: c.tx, fontFamily: OSWALD, fontSize: 12, fontWeight: 600,
       letterSpacing: '0.3px', whiteSpace: 'nowrap',
     }}>{nombrePlat(plataforma)}</span>
@@ -74,13 +70,13 @@ function PastillaPlataforma({ plataforma }: { plataforma: string }) {
 
 // ── Multi-selector (mismo patrón que Panel Global) ─────────────────────────
 const dropdownBtn: React.CSSProperties = {
-  padding: '6px 10px', borderRadius: 8, border: '0.5px solid #d0c8bc',
+  padding: '6px 10px', borderRadius: 0, border: `0.5px solid ${BORDE_SUAVE}`,
   background: BLANCO, fontSize: 13, fontFamily: 'Lexend, sans-serif', color: INK,
   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', position: 'relative',
 }
 const menuStyle: React.CSSProperties = {
-  position: 'absolute', top: 38, right: 0, background: BLANCO, border: '0.5px solid #d0c8bc',
-  borderRadius: 8, width: 260, fontSize: 12, color: OSC, boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+  position: 'absolute', top: 38, right: 0, background: BLANCO, border: `0.5px solid ${BORDE_SUAVE}`,
+  borderRadius: 0, width: 260, fontSize: 12, color: OSC, boxShadow: SHADOW,
   zIndex: 100, maxHeight: 360, overflowY: 'auto', paddingTop: 2, paddingBottom: 2,
 }
 
@@ -113,17 +109,17 @@ function MultiSelect({
             style={{
               display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px',
               background: 'transparent', border: 'none', fontSize: 13, fontFamily: 'Lexend, sans-serif',
-              color: GRIS, cursor: 'pointer', borderBottom: '0.5px solid #ebe8e2',
+              color: GRIS, cursor: 'pointer', borderBottom: `0.5px solid ${BORDE_SUAVE}`,
             }}
             onClick={() => { onAll(); setOpen(false) }}
           >Todos</button>
           {options.length === 0 && (
-            <div style={{ padding: '8px 12px', color: '#9aa0ad', fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>Sin datos</div>
+            <div style={{ padding: '8px 12px', color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>Sin datos</div>
           )}
           {options.map(o => (
             <label key={o.id} style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '2px 10px', cursor: 'pointer', lineHeight: 1.3,
-              background: selected.includes(o.id) ? '#FF475715' : 'transparent',
+              background: selected.includes(o.id) ? ROSA_S : 'transparent',
               color: selected.includes(o.id) ? ROJO : GRIS,
               fontFamily: 'Lexend, sans-serif', fontSize: 12, whiteSpace: 'nowrap',
             }}>
@@ -148,70 +144,68 @@ function CardsResumen({ rows }: { rows: VentaRow[] }) {
   }, [rows])
 
   const cards = [
-    { label: 'Ventas (bruto)', value: fmtEur(t.bruto), color: COLORS.pri },
-    { label: 'Te pagan (neto)', value: fmtEur(t.neto), color: COLORS.ok },
-    { label: 'Pedidos', value: nf0(t.pedidos), color: COLORS.pri },
-    { label: 'Ticket medio', value: fmtEur(t.ticket), color: COLORS.pri },
-    { label: 'Marcas', value: t.marcas, color: COLORS.pri },
+    { label: 'Ventas (bruto)', value: fmtEur(t.bruto), bg: AZUL },
+    { label: 'Te pagan (neto)', value: fmtEur(t.neto), bg: VERDE },
+    { label: 'Pedidos', value: nf0(t.pedidos), bg: NAR },
+    { label: 'Ticket medio', value: fmtEur(t.ticket), bg: GRANATE },
+    { label: 'Marcas', value: String(t.marcas), bg: AMA },
   ]
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 14 }}>
-      {cards.map(c => (
-        <div key={c.label} style={{ ...CARDS.std }}>
-          <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase' }}>{c.label}</div>
-          <div style={{ fontFamily: OSWALD, fontSize: 30, fontWeight: 600, color: c.color, lineHeight: 1.05, marginTop: 6 }}>{c.value}</div>
-        </div>
+    <Plancha style={{ marginBottom: 14 }}>
+      {cards.map((c, i) => (
+        <PlanchaCelda key={c.label} bg={c.bg} first={i === 0}>
+          <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase' }}>{c.label}</div>
+          <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 700, lineHeight: 1.05, marginTop: 6 }}>{c.value}</div>
+        </PlanchaCelda>
       ))}
-    </div>
+    </Plancha>
   )
 }
 
 function TablaResumen({ rows, cargando }: { rows: VentaRow[]; cargando: boolean }) {
-  const th: React.CSSProperties = { fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, padding: '10px 12px', borderBottom: `0.5px solid ${COLORS.brd}`, whiteSpace: 'nowrap' }
-  const tdL: React.CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: COLORS.pri, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.brd}` }
-  const tdR: React.CSSProperties = { ...tdL, fontFamily: OSWALD, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
+  const th: React.CSSProperties = { fontFamily: OSWALD, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: BLANCO, padding: '10px 12px', whiteSpace: 'nowrap' }
+  const tdL: React.CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: INK, padding: '9px 12px' }
+  const tdR: React.CSSProperties = { ...tdL, fontFamily: OSWALD, fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }
 
-  if (cargando) return <div style={{ ...CARDS.std, textAlign: 'center', color: COLORS.mut, fontFamily: LEXEND, padding: 28 }}>Cargando…</div>
+  if (cargando) return <Papel ceja={VERDE}><div style={{ textAlign: 'center', color: GRIS, fontFamily: LEXEND, padding: 10 }}>Cargando…</div></Papel>
   if (rows.length === 0) return (
-    <div style={{ ...CARDS.std, textAlign: 'center', padding: 36 }}>
-      <div style={{ fontFamily: OSWALD, fontSize: 15, color: COLORS.mut, letterSpacing: 1 }}>Sin ventas en este periodo</div>
-      <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLORS.mut, marginTop: 6 }}>Sube liquidaciones o resúmenes de plataforma en Documentación → Bandeja</div>
-    </div>
+    <Papel ceja={VERDE} style={{ textAlign: 'center' }}>
+      <div style={{ fontFamily: OSWALD, fontSize: 15, color: GRIS, letterSpacing: 1 }}>Sin ventas en este periodo</div>
+      <div style={{ fontFamily: LEXEND, fontSize: 13, color: GRIS, marginTop: 6 }}>Sube liquidaciones o resúmenes de plataforma en Documentación → Bandeja</div>
+    </Papel>
   )
 
   return (
-    <div style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 820 }}>
-          <thead>
-            <tr>
-              <th style={{ ...th, textAlign: 'left' }}>Periodo</th>
-              <th style={{ ...th, textAlign: 'left' }}>Plataforma</th>
-              <th style={{ ...th, textAlign: 'left' }}>Marca</th>
-              <th style={{ ...th, textAlign: 'right' }}>Bruto</th>
-              <th style={{ ...th, textAlign: 'right' }}>Neto (te pagan)</th>
-              <th style={{ ...th, textAlign: 'right' }}>Pedidos</th>
-              <th style={{ ...th, textAlign: 'right' }}>Ticket</th>
-              <th style={{ ...th, textAlign: 'left' }}>Pago</th>
+    <Papel ceja={VERDE} pad="0" style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEXEND, minWidth: 820 }}>
+        <thead>
+          <tr style={{ background: INK }}>
+            <th style={{ ...th, textAlign: 'left' }}>Periodo</th>
+            <th style={{ ...th, textAlign: 'left' }}>Plataforma</th>
+            <th style={{ ...th, textAlign: 'left' }}>Marca</th>
+            <th style={{ ...th, textAlign: 'right' }}>Bruto</th>
+            <th style={{ ...th, textAlign: 'right' }}>Neto (te pagan)</th>
+            <th style={{ ...th, textAlign: 'right' }}>Pedidos</th>
+            <th style={{ ...th, textAlign: 'right' }}>Ticket</th>
+            <th style={{ ...th, textAlign: 'left' }}>Pago</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.id} style={{ borderBottom: `2px solid ${INK}` }}>
+              <td style={tdL}>{fmtF(r.fecha_inicio_periodo)} – {fmtF(r.fecha_fin_periodo)}</td>
+              <td style={tdL}><PastillaPlataforma plataforma={r.plataforma} /></td>
+              <td style={tdL}>{r.marca === 'SIN_MARCA' ? <span style={{ color: GRIS, fontStyle: 'italic' }}>sin marca</span> : r.marca}</td>
+              <td style={tdR}>{fmtEur(r.bruto)}</td>
+              <td style={{ ...tdR, color: VERDE }}>{fmtEur(r.neto)}</td>
+              <td style={tdR}>{nf0(r.pedidos)}</td>
+              <td style={tdR}>{fmtEur(r.ticket_medio)}</td>
+              <td style={tdL}>{fmtF(r.fecha_pago)}</td>
             </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => (
-              <tr key={r.id}>
-                <td style={tdL}>{fmtF(r.fecha_inicio_periodo)} – {fmtF(r.fecha_fin_periodo)}</td>
-                <td style={tdL}><PastillaPlataforma plataforma={r.plataforma} /></td>
-                <td style={tdL}>{r.marca === 'SIN_MARCA' ? <span style={{ color: COLORS.mut, fontStyle: 'italic' }}>sin marca</span> : r.marca}</td>
-                <td style={tdR}>{fmtEur(r.bruto)}</td>
-                <td style={{ ...tdR, color: COLORS.ok }}>{fmtEur(r.neto)}</td>
-                <td style={tdR}>{nf0(r.pedidos)}</td>
-                <td style={tdR}>{fmtEur(r.ticket_medio)}</td>
-                <td style={tdL}>{fmtF(r.fecha_pago)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          ))}
+        </tbody>
+      </table>
+    </Papel>
   )
 }
 
@@ -240,10 +234,11 @@ const TIPO_OPTS: Array<{ id: string; label: string }> = [
 function Pildora({ activo, children, onClick }: { activo: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
     <button onClick={onClick} style={{
-      padding: '6px 12px', borderRadius: 999, cursor: 'pointer',
-      border: `0.5px solid ${activo ? COLORS.redSL : COLORS.brd}`,
-      background: activo ? COLORS.redSL : BLANCO,
-      color: activo ? BLANCO : COLORS.sec,
+      padding: '6px 12px', borderRadius: 0, cursor: 'pointer',
+      border: `2px solid ${INK}`,
+      background: activo ? GRANATE : BLANCO,
+      color: activo ? BLANCO : INK,
+      boxShadow: activo ? SHADOW_DURA : 'none',
       fontFamily: OSWALD, fontSize: 12, fontWeight: 600, letterSpacing: '0.5px', whiteSpace: 'nowrap',
     }}>{children}</button>
   )
@@ -279,79 +274,79 @@ function DetalleVentas({
   const dimLabel = DIM_OPTS.find(o => o.id === dim)?.label || 'Plato'
   const mostrarPlat = dim === 'plato' || dim === 'dia' || dim === 'hora'
 
-  const th: React.CSSProperties = { fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, padding: '10px 12px', borderBottom: `0.5px solid ${COLORS.brd}`, whiteSpace: 'nowrap' }
-  const tdL: React.CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: COLORS.pri, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.brd}` }
-  const tdR: React.CSSProperties = { ...tdL, fontFamily: OSWALD, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
+  const th: React.CSSProperties = { fontFamily: OSWALD, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: BLANCO, padding: '10px 12px', whiteSpace: 'nowrap' }
+  const tdL: React.CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: INK, padding: '9px 12px' }
+  const tdR: React.CSSProperties = { ...tdL, fontFamily: OSWALD, fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }
 
   return (
     <>
       {/* Mini-resumen del periodo */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
-        {[
-          { label: 'Unidades', value: nf0(total.unidades), color: COLORS.pri },
-          { label: dimLabel + 's distintos', value: nf0(total.items), color: COLORS.pri },
-          { label: 'Importe', value: fmtEur(total.importe), color: COLORS.ok },
-        ].map(c => (
-          <div key={c.label} style={{ ...CARDS.std }}>
-            <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase' }}>{c.label}</div>
-            <div style={{ fontFamily: OSWALD, fontSize: 30, fontWeight: 600, color: c.color, lineHeight: 1.05, marginTop: 6 }}>{c.value}</div>
-          </div>
-        ))}
-      </div>
+      <Plancha style={{ marginBottom: 14 }}>
+        <PlanchaCelda bg={AZUL} first>
+          <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Unidades</div>
+          <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 700, lineHeight: 1.05, marginTop: 6 }}>{nf0(total.unidades)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={NAR}>
+          <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase' }}>{dimLabel}s distintos</div>
+          <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 700, lineHeight: 1.05, marginTop: 6 }}>{nf0(total.items)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={VERDE}>
+          <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Importe</div>
+          <div style={{ fontFamily: OSWALD, fontSize: 26, fontWeight: 700, lineHeight: 1.05, marginTop: 6 }}>{fmtEur(total.importe)}</div>
+        </PlanchaCelda>
+      </Plancha>
 
-      {/* Selectores: ver por (dimensión) + filtro por tipo de línea */}
-      <div style={{ ...CARDS.std, marginBottom: 14, display: 'flex', flexWrap: 'wrap', gap: 18, alignItems: 'center' }}>
+      {/* Selectores: ver por (dimensión) + filtro por tipo de línea — planos */}
+      <div style={{ border: `2px solid ${INK}`, borderRadius: 0, padding: '12px 14px', marginBottom: 14, display: 'flex', flexWrap: 'wrap', gap: 18, alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase', marginRight: 2 }}>Ver por</span>
+          <span style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: GRIS, textTransform: 'uppercase', marginRight: 2 }}>Ver por</span>
           {DIM_OPTS.map(o => <Pildora key={o.id} activo={dim === o.id} onClick={() => setDim(o.id)}>{o.label}</Pildora>)}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase', marginRight: 2 }}>Tipo</span>
+          <span style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: GRIS, textTransform: 'uppercase', marginRight: 2 }}>Tipo</span>
           {TIPO_OPTS.map(o => <Pildora key={o.id || 'todo'} activo={tipo === o.id} onClick={() => setTipo(o.id)}>{o.label}</Pildora>)}
         </div>
       </div>
 
       {cargando ? (
-        <div style={{ ...CARDS.std, textAlign: 'center', color: COLORS.mut, fontFamily: LEXEND, padding: 28 }}>Cargando…</div>
+        <Papel ceja={NAR}><div style={{ textAlign: 'center', color: GRIS, fontFamily: LEXEND, padding: 10 }}>Cargando…</div></Papel>
       ) : rows.length === 0 ? (
-        <div style={{ ...CARDS.std, textAlign: 'center', padding: 36 }}>
-          <div style={{ fontFamily: OSWALD, fontSize: 15, color: COLORS.mut, letterSpacing: 1 }}>Sin datos en este periodo</div>
-          <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLORS.mut, marginTop: 6 }}>Sube los pedidos de Glovo / Uber / Sincro en Documentación → Bandeja</div>
-        </div>
+        <Papel ceja={NAR} style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 15, color: GRIS, letterSpacing: 1 }}>Sin datos en este periodo</div>
+          <div style={{ fontFamily: LEXEND, fontSize: 13, color: GRIS, marginTop: 6 }}>Sube los pedidos de Glovo / Uber / Sincro en Documentación → Bandeja</div>
+        </Papel>
       ) : (
-        <div style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 640 }}>
-              <thead>
-                <tr>
-                  <th style={{ ...th, textAlign: 'left', width: 44 }}>#</th>
-                  <th style={{ ...th, textAlign: 'left' }}>{dimLabel}</th>
-                  {mostrarPlat && <th style={{ ...th, textAlign: 'left' }}>Plataforma</th>}
-                  <th style={{ ...th, textAlign: 'right' }}>Unidades</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Peso</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Importe</th>
+        <Papel ceja={NAR} pad="0" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEXEND, minWidth: 640 }}>
+            <thead>
+              <tr style={{ background: INK }}>
+                <th style={{ ...th, textAlign: 'left', width: 44 }}>#</th>
+                <th style={{ ...th, textAlign: 'left' }}>{dimLabel}</th>
+                {mostrarPlat && <th style={{ ...th, textAlign: 'left' }}>Plataforma</th>}
+                <th style={{ ...th, textAlign: 'right' }}>Unidades</th>
+                <th style={{ ...th, textAlign: 'right' }}>Peso</th>
+                <th style={{ ...th, textAlign: 'right' }}>Importe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={`${r.etiqueta}|${i}`} style={{ borderBottom: `2px solid ${INK}` }}>
+                  <td style={{ ...tdR, textAlign: 'left', color: GRIS }}>{i + 1}</td>
+                  <td style={tdL}>{dim === 'plataforma' ? <PastillaPlataforma plataforma={r.etiqueta} /> : (r.etiqueta || <span style={{ color: GRIS, fontStyle: 'italic' }}>sin valor</span>)}</td>
+                  {mostrarPlat && <td style={tdL}><PastillaPlataforma plataforma={r.plataforma} /></td>}
+                  <td style={tdR}>{nf0(r.unidades)}</td>
+                  <td style={{ ...tdR, width: 120 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                      <div style={{ height: 6, width: `${(r.unidades / maxU) * 60}px`, background: GRANATE }} />
+                      <span style={{ color: GRIS, fontSize: 11 }}>{Math.round((r.unidades / total.unidades) * 100)}%</span>
+                    </div>
+                  </td>
+                  <td style={tdR}>{Number(r.importe) ? fmtEur(Number(r.importe)) : '—'}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={`${r.etiqueta}|${i}`}>
-                    <td style={{ ...tdR, textAlign: 'left', color: COLORS.mut }}>{i + 1}</td>
-                    <td style={tdL}>{dim === 'plataforma' ? <PastillaPlataforma plataforma={r.etiqueta} /> : (r.etiqueta || <span style={{ color: COLORS.mut, fontStyle: 'italic' }}>sin valor</span>)}</td>
-                    {mostrarPlat && <td style={tdL}><PastillaPlataforma plataforma={r.plataforma} /></td>}
-                    <td style={tdR}>{nf0(r.unidades)}</td>
-                    <td style={{ ...tdR, width: 120 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-                        <div style={{ height: 6, width: `${(r.unidades / maxU) * 60}px`, background: COLORS.redSL, borderRadius: 3 }} />
-                        <span style={{ color: COLORS.mut, fontSize: 11 }}>{Math.round((r.unidades / total.unidades) * 100)}%</span>
-                      </div>
-                    </td>
-                    <td style={tdR}>{Number(r.importe) ? fmtEur(Number(r.importe)) : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              ))}
+            </tbody>
+          </table>
+        </Papel>
       )}
     </>
   )
@@ -420,87 +415,85 @@ function Liquidaciones({
 
   const pct = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
 
-  const th: React.CSSProperties = { fontFamily: OSWALD, fontSize: 10, fontWeight: 500, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, padding: '10px 12px', borderBottom: `0.5px solid ${COLORS.brd}`, whiteSpace: 'nowrap' }
-  const tdL: React.CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: COLORS.pri, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.brd}` }
-  const tdR: React.CSSProperties = { ...tdL, fontFamily: OSWALD, fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }
+  const th: React.CSSProperties = { fontFamily: OSWALD, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: BLANCO, padding: '10px 12px', whiteSpace: 'nowrap' }
+  const tdL: React.CSSProperties = { fontFamily: LEXEND, fontSize: 13, color: INK, padding: '9px 12px' }
+  const tdR: React.CSSProperties = { ...tdL, fontFamily: OSWALD, fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }
 
   const cards = [
-    { label: 'Ventas (bruto)', value: fmtEur(t.bruto), sub: `${nf0(t.pedidos)} pedidos`, color: COLORS.pri },
-    { label: 'Comisión plataforma', value: fmtEur(t.comision), sub: `${pct(t.pctComision)} s/bruto`, color: COLORS.redSL },
-    { label: 'Ads + Promos', value: fmtEur(t.adsPromo), sub: 'inversión en visibilidad', color: COLORS.redSL },
-    { label: 'Pago neto (al banco)', value: fmtEur(t.neto), sub: 'lo que llega de verdad', color: COLORS.ok },
-    { label: 'Te queda', value: pct(t.pctNeto), sub: 'de cada euro vendido', color: COLORS.ok },
+    { label: 'Ventas (bruto)', value: fmtEur(t.bruto), sub: `${nf0(t.pedidos)} pedidos`, bg: AZUL },
+    { label: 'Comisión plataforma', value: fmtEur(t.comision), sub: `${pct(t.pctComision)} s/bruto`, bg: GRANATE },
+    { label: 'Ads + Promos', value: fmtEur(t.adsPromo), sub: 'inversión en visibilidad', bg: NAR },
+    { label: 'Pago neto (al banco)', value: fmtEur(t.neto), sub: 'lo que llega de verdad', bg: VERDE },
+    { label: 'Te queda', value: pct(t.pctNeto), sub: 'de cada euro vendido', bg: AMA },
   ]
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 14 }}>
-        {cards.map(c => (
-          <div key={c.label} style={{ ...CARDS.std }}>
-            <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: COLORS.mut, textTransform: 'uppercase' }}>{c.label}</div>
-            <div style={{ fontFamily: OSWALD, fontSize: 30, fontWeight: 600, color: c.color, lineHeight: 1.05, marginTop: 6 }}>{c.value}</div>
-            <div style={{ fontFamily: LEXEND, fontSize: 11, color: COLORS.mut, marginTop: 4 }}>{c.sub}</div>
-          </div>
+      <Plancha style={{ marginBottom: 14 }}>
+        {cards.map((c, i) => (
+          <PlanchaCelda key={c.label} bg={c.bg} first={i === 0}>
+            <div style={{ fontFamily: OSWALD, fontSize: 11, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase' }}>{c.label}</div>
+            <div style={{ fontFamily: OSWALD, fontSize: 24, fontWeight: 700, lineHeight: 1.05, marginTop: 6 }}>{c.value}</div>
+            <div style={{ fontFamily: LEXEND, fontSize: 11, marginTop: 4, opacity: 0.85 }}>{c.sub}</div>
+          </PlanchaCelda>
         ))}
-      </div>
+      </Plancha>
 
       {cargando ? (
-        <div style={{ ...CARDS.std, textAlign: 'center', color: COLORS.mut, fontFamily: LEXEND, padding: 28 }}>Cargando…</div>
+        <Papel ceja={GRANATE}><div style={{ textAlign: 'center', color: GRIS, fontFamily: LEXEND, padding: 10 }}>Cargando…</div></Papel>
       ) : rowsF.length === 0 ? (
-        <div style={{ ...CARDS.std, textAlign: 'center', padding: 36 }}>
-          <div style={{ fontFamily: OSWALD, fontSize: 15, color: COLORS.mut, letterSpacing: 1 }}>Sin liquidaciones en este periodo</div>
-          <div style={{ fontFamily: LEXEND, fontSize: 13, color: COLORS.mut, marginTop: 6 }}>Pulsa “Recoger correo” en Documentación para importar los resúmenes de pago de las plataformas</div>
-        </div>
+        <Papel ceja={GRANATE} style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: OSWALD, fontSize: 15, color: GRIS, letterSpacing: 1 }}>Sin liquidaciones en este periodo</div>
+          <div style={{ fontFamily: LEXEND, fontSize: 13, color: GRIS, marginTop: 6 }}>Pulsa “Recoger correo” en Documentación para importar los resúmenes de pago de las plataformas</div>
+        </Papel>
       ) : (
-        <div style={{ ...CARDS.std, padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 980 }}>
-              <thead>
-                <tr>
-                  <th style={{ ...th, textAlign: 'left' }}>Periodo</th>
-                  <th style={{ ...th, textAlign: 'left' }}>Plataforma</th>
-                  <th style={{ ...th, textAlign: 'left' }}>Marca</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Pedidos</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Bruto</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Comisión</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Ads+Promo</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Neto</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Te queda</th>
-                  <th style={{ ...th, textAlign: 'left' }}>Cobro</th>
-                  <th style={{ ...th, textAlign: 'center' }}>Doc</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rowsF.map(r => {
-                  const bruto = Number(r.ventas_bruto) || 0
-                  const neto = Number(r.pago_neto) || 0
-                  const adsPromo = (Number(r.ads) || 0) + (Number(r.promociones) || 0)
-                  const pNeto = bruto > 0 ? (neto / bruto) * 100 : 0
-                  const sinMarca = !r.marca || r.marca === 'SIN_MARCA'
-                  return (
-                    <tr key={r.id} style={sinMarca ? { background: `${COLORS.warn}14` } : undefined}>
-                      <td style={tdL}>{fmtF(r.fecha_inicio_periodo)} – {fmtF(r.fecha_fin_periodo)}</td>
-                      <td style={tdL}><PastillaPlataforma plataforma={r.plataforma} /></td>
-                      <td style={tdL}>{sinMarca ? <span style={{ color: COLORS.warn, fontWeight: 600 }}>⚠ Marca sin detectar — revisar</span> : r.marca}</td>
-                      <td style={tdR}>{r.pedidos != null ? nf0(r.pedidos) : '—'}</td>
-                      <td style={tdR}>{fmtEur(bruto)}</td>
-                      <td style={{ ...tdR, color: COLORS.redSL }}>{r.comision != null ? fmtEur(Number(r.comision)) : '—'}</td>
-                      <td style={{ ...tdR, color: adsPromo > 0 ? COLORS.redSL : COLORS.mut }}>{adsPromo > 0 ? fmtEur(adsPromo) : '—'}</td>
-                      <td style={{ ...tdR, color: COLORS.ok }}>{fmtEur(neto)}</td>
-                      <td style={{ ...tdR, color: pNeto < 45 ? COLORS.err : COLORS.sec }}>{bruto > 0 ? pct(pNeto) : '—'}</td>
-                      <td style={tdL}>{fmtF(r.fecha_cobro)}</td>
-                      <td style={{ ...tdL, textAlign: 'center' }}>
-                        {r.doc_url
-                          ? <a href={r.doc_url} target="_blank" rel="noopener noreferrer" style={{ color: COLORS.redSL, textDecoration: 'none', fontFamily: OSWALD, fontWeight: 600 }}>ver</a>
-                          : <span style={{ color: COLORS.mut }}>—</span>}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: LEXEND, minWidth: 980 }}>
+            <thead>
+              <tr style={{ background: INK }}>
+                <th style={{ ...th, textAlign: 'left' }}>Periodo</th>
+                <th style={{ ...th, textAlign: 'left' }}>Plataforma</th>
+                <th style={{ ...th, textAlign: 'left' }}>Marca</th>
+                <th style={{ ...th, textAlign: 'right' }}>Pedidos</th>
+                <th style={{ ...th, textAlign: 'right' }}>Bruto</th>
+                <th style={{ ...th, textAlign: 'right' }}>Comisión</th>
+                <th style={{ ...th, textAlign: 'right' }}>Ads+Promo</th>
+                <th style={{ ...th, textAlign: 'right' }}>Neto</th>
+                <th style={{ ...th, textAlign: 'right' }}>Te queda</th>
+                <th style={{ ...th, textAlign: 'left' }}>Cobro</th>
+                <th style={{ ...th, textAlign: 'center' }}>Doc</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rowsF.map(r => {
+                const bruto = Number(r.ventas_bruto) || 0
+                const neto = Number(r.pago_neto) || 0
+                const adsPromo = (Number(r.ads) || 0) + (Number(r.promociones) || 0)
+                const pNeto = bruto > 0 ? (neto / bruto) * 100 : 0
+                const sinMarca = !r.marca || r.marca === 'SIN_MARCA'
+                return (
+                  <tr key={r.id} style={{ borderBottom: `2px solid ${INK}`, background: sinMarca ? `${NAR}14` : 'transparent' }}>
+                    <td style={tdL}>{fmtF(r.fecha_inicio_periodo)} – {fmtF(r.fecha_fin_periodo)}</td>
+                    <td style={tdL}><PastillaPlataforma plataforma={r.plataforma} /></td>
+                    <td style={tdL}>{sinMarca ? <span style={{ color: NAR, fontWeight: 600 }}>⚠ Marca sin detectar — revisar</span> : r.marca}</td>
+                    <td style={tdR}>{r.pedidos != null ? nf0(r.pedidos) : '—'}</td>
+                    <td style={tdR}>{fmtEur(bruto)}</td>
+                    <td style={{ ...tdR, color: GRANATE }}>{r.comision != null ? fmtEur(Number(r.comision)) : '—'}</td>
+                    <td style={{ ...tdR, color: adsPromo > 0 ? GRANATE : GRIS }}>{adsPromo > 0 ? fmtEur(adsPromo) : '—'}</td>
+                    <td style={{ ...tdR, color: VERDE }}>{fmtEur(neto)}</td>
+                    <td style={{ ...tdR, color: pNeto < 45 ? ROJO : INK }}>{bruto > 0 ? pct(pNeto) : '—'}</td>
+                    <td style={tdL}>{fmtF(r.fecha_cobro)}</td>
+                    <td style={{ ...tdL, textAlign: 'center' }}>
+                      {r.doc_url
+                        ? <a href={r.doc_url} target="_blank" rel="noopener noreferrer" style={{ color: GRANATE, textDecoration: 'none', fontFamily: OSWALD, fontWeight: 600 }}>ver</a>
+                        : <span style={{ color: GRIS }}>—</span>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </Papel>
       )}
     </>
   )
@@ -574,22 +567,56 @@ export function Ventas({ embedded = false }: { embedded?: boolean } = {}) {
     (marcasFiltro.length === 0 || marcasFiltro.includes(r.marca || 'SIN_MARCA'))
   ), [rows, canalesFiltro, marcasFiltro])
 
+  const totalesHero = useMemo(() => {
+    const bruto = rowsFiltradas.reduce((a, r) => a + (r.bruto || 0), 0)
+    const neto = rowsFiltradas.reduce((a, r) => a + (r.neto || 0), 0)
+    const pedidos = rowsFiltradas.reduce((a, r) => a + (r.pedidos || 0), 0)
+    const comision = bruto - neto
+    const pctComision = bruto > 0 ? (comision / bruto) * 100 : 0
+    return { bruto, neto, pedidos, comision, pctComision }
+  }, [rowsFiltradas])
+
+  const titular = totalesHero.bruto === 0
+    ? 'Aún no hay ventas registradas en este periodo.'
+    : <>Tus canales mueven <b>{fmtEur(totalesHero.bruto)}</b> en ventas brutas este periodo.</>
+
+  const atencion = [
+    `Bruto ${fmtEur(totalesHero.bruto)}`,
+    totalesHero.bruto > 0 ? `Comisión plataformas ${totalesHero.pctComision.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%` : null,
+    marcasFiltro.length > 0 ? `${marcasFiltro.length} marca${marcasFiltro.length > 1 ? 's' : ''} filtrada${marcasFiltro.length > 1 ? 's' : ''}` : null,
+    canalesFiltro.length > 0 ? `${canalesFiltro.length} canal${canalesFiltro.length > 1 ? 'es' : ''} filtrado${canalesFiltro.length > 1 ? 's' : ''}` : null,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={{ background: embedded ? 'transparent' : COLOR.bgPagina, padding: embedded ? 0 : '24px 28px', minHeight: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        {!embedded && <h2 style={{ color: COLORS.redSL, fontFamily: OSWALD, fontSize: 22, fontWeight: 600, letterSpacing: '3px', margin: 0, textTransform: 'uppercase' }}>VENTAS</h2>}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <SelectorFechaUniversal nombreModulo="ventas" defaultOpcion="este_mes" onChange={(d, h) => { setDesde(d); setHasta(h) }} />
-          <MultiSelect label="Todas las marcas" options={marcasOpts} selected={marcasFiltro}
-            onToggle={id => setMarcasFiltro(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}
-            onAll={() => setMarcasFiltro([])} />
-          <MultiSelect label="Canales" options={canalesOpts} selected={canalesFiltro}
-            onToggle={id => setCanalesFiltro(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}
-            onAll={() => setCanalesFiltro([])} />
-        </div>
+    <PantallaCantera embedded={embedded}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <SelectorFechaUniversal nombreModulo="ventas" defaultOpcion="este_mes" onChange={(d, h) => { setDesde(d); setHasta(h) }} />
+        <MultiSelect label="Todas las marcas" options={marcasOpts} selected={marcasFiltro}
+          onToggle={id => setMarcasFiltro(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}
+          onAll={() => setMarcasFiltro([])} />
+        <MultiSelect label="Canales" options={canalesOpts} selected={canalesFiltro}
+          onToggle={id => setCanalesFiltro(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])}
+          onAll={() => setCanalesFiltro([])} />
       </div>
 
+      {/* 1 · Héroe del área Ventas (verde) */}
+      <HeroCantera
+        area="ventas"
+        periodo={`${fmtF(fechaLocalStr(desde))} – ${fmtF(fechaLocalStr(hasta))}`}
+        titular={titular}
+        etiquetaDato="Te pagan (neto)"
+        cifra={fmtEur(totalesHero.neto)}
+        resumen={<>{nf0(totalesHero.pedidos)} pedidos en el periodo.</>}
+        atencion={atencion}
+      />
+
+      {/* 2 · Plancha comparativa de KPIs (pestaña Resumen) */}
       {tab === 'resumen' && <CardsResumen rows={rowsFiltradas} />}
+
+      {/* 3 · Frase potente (coste · granate, distinto del héroe verde) */}
+      {totalesHero.bruto > 0 && (
+        <FrasePotente significado="coste">Las plataformas se quedan {totalesHero.pctComision.toLocaleString('es-ES', { maximumFractionDigits: 1 })}% de tus ventas brutas: cada punto que bajes es margen directo.</FrasePotente>
+      )}
 
       <TabsPastilla
         tabs={[
@@ -602,7 +629,7 @@ export function Ventas({ embedded = false }: { embedded?: boolean } = {}) {
         onChange={(id) => cambiar(id as Tab)}
       />
 
-      <Suspense fallback={<div style={{ padding: 24, color: COLORS.mut, fontFamily: LEXEND }}>Cargando…</div>}>
+      <Suspense fallback={<div style={{ padding: 24, color: GRIS, fontFamily: LEXEND }}>Cargando…</div>}>
         {tab === 'resumen' && <TablaResumen rows={rowsFiltradas} cargando={cargando} />}
         {tab === 'detalle' && (
           <>
@@ -614,7 +641,7 @@ export function Ventas({ embedded = false }: { embedded?: boolean } = {}) {
         {tab === 'liquidaciones' && <Liquidaciones desde={desde} hasta={hasta} marcasFiltro={marcasFiltro} canalesFiltro={canalesFiltro} />}
         {tab === 'pareto' && <ParetoVentas />}
       </Suspense>
-    </div>
+    </PantallaCantera>
   )
 }
 

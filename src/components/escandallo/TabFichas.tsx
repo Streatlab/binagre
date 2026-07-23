@@ -6,6 +6,12 @@ import ModalEditarFicha from './ModalEditarFicha'
 import { fmtEur, fmtNum } from '@/lib/format'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
+import { GRANATE, BLANCO, GRIS, INK } from '@/styles/neobrutal'
+import {
+  PRINT_BN_BG, PRINT_BN_TXT,
+  ESCANDALLO_OK_BG, ESCANDALLO_OK_TXT, ESCANDALLO_WARN_BG, ESCANDALLO_WARN_BORDE,
+  ESCANDALLO_WARN_ICON, ESCANDALLO_WARN_BTN, ESCANDALLO_WARN_TXT,
+} from '@/styles/palettes'
 
 interface Match { iding: string; nombre: string; precio: number; prov: string }
 interface IngLinea { cant: string; ud: string; ingrediente: string; equivalencia: string; grupo?: number; match: Match | null }
@@ -158,10 +164,10 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
   const etiquetaLista = tipo === 'receta' ? 'Recetas' : tipo === 'ep' ? 'EPS' : 'Fichas EPS / Receta'
 
   const pill = (active: boolean): React.CSSProperties => ({
-    padding: '4px 11px', borderRadius: 99, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+    padding: '4px 11px', borderRadius: 0, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
     border: active ? 'none' : '1px solid var(--sl-border)',
-    background: active ? '#B01D23' : 'transparent',
-    color: active ? '#fff' : 'var(--sl-text-secondary)',
+    background: active ? GRANATE : 'transparent',
+    color: active ? BLANCO : 'var(--sl-text-secondary)',
   })
 
   return (
@@ -173,13 +179,13 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
             <button onClick={() => setGamaSel(g)} style={pill(gamaSel === g)}>{g}</button>
             {gestionGamas && (
               <>
-                <button onClick={() => renombrarGama(g)} title="Renombrar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 12, padding: 2 }}><Pencil size={12} /></button>
-                <button onClick={() => eliminarGama(g)} title="Eliminar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B01D23', fontSize: 13, padding: 2 }}>×</button>
+                <button onClick={() => renombrarGama(g)} title="Renombrar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: GRIS, fontSize: 12, padding: 2 }}><Pencil size={12} /></button>
+                <button onClick={() => eliminarGama(g)} title="Eliminar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: GRANATE, fontSize: 13, padding: 2 }}>×</button>
               </>
             )}
           </span>
         ))}
-        <button onClick={() => setGestionGamas(v => !v)} style={{ ...pill(false), borderStyle: 'dashed', color: gestionGamas ? '#B01D23' : 'var(--sl-text-muted)' }}>
+        <button onClick={() => setGestionGamas(v => !v)} style={{ ...pill(false), borderStyle: 'dashed', color: gestionGamas ? GRANATE : 'var(--sl-text-muted)' }}>
           {gestionGamas ? 'Listo' : 'Gestionar gamas'}
         </button>
         {gestionGamas && <button onClick={crearGama} style={{ ...pill(false), borderStyle: 'dashed' }}>+ Nueva gama</button>}
@@ -194,11 +200,11 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
               return (
                 <button key={f.id} onClick={() => setSel(f)}
                   className={'text-left px-3 py-2 rounded-lg transition flex items-center gap-2 ' +
-                    (sel?.id === f.id ? 'bg-[#ece9e3]' : 'hover:bg-[var(--sl-card)]')}
+                    (sel?.id === f.id ? 'bg-[var(--sl-thead)]' : 'hover:bg-[var(--sl-card)]')}
                   style={{ color: 'var(--sl-text-primary)' }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#999', flexShrink: 0 }}>{f.codigo}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: GRIS, flexShrink: 0 }}>{f.codigo}</span>
                   <span style={{ flex: 1, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase', fontFamily: 'Lexend, sans-serif' }}>{f.nombre}</span>
-                  {alertas > 0 && <AlertTriangle size={13} color="#d97706" />}
+                  {alertas > 0 && <AlertTriangle size={13} color={ESCANDALLO_WARN_ICON} />}
                 </button>
               )
             })}
@@ -433,10 +439,10 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
       <td className="ficha-equiv" style={{ textAlign: 'right', width: 78, whiteSpace: 'nowrap', padding: '1px 0' }}>{i.equivalencia || '—'}</td>
       <td className="no-print" style={{ textAlign: 'right', width: 86, paddingLeft: 6 }}>
         {i.match
-          ? <span style={{ background: '#dcfce7', color: '#166534', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>✓ {i.match.prov}</span>
+          ? <span style={{ background: ESCANDALLO_OK_BG, color: ESCANDALLO_OK_TXT, fontSize: 10, padding: '2px 7px', borderRadius: 0 }}>✓ {i.match.prov}</span>
           : NO_COSTE(i)
-            ? <span style={{ color: '#aaa', fontSize: 11 }}>no coste</span>
-            : <span style={{ background: '#fef3c7', color: '#92400e', fontSize: 10, padding: '2px 7px', borderRadius: 99 }}>⚠ sin enlazar</span>}
+            ? <span style={{ color: GRIS, fontSize: 11 }}>no coste</span>
+            : <span style={{ background: ESCANDALLO_WARN_BG, color: ESCANDALLO_WARN_TXT, fontSize: 10, padding: '2px 7px', borderRadius: 0 }}>⚠ sin enlazar</span>}
       </td>
     </tr>
   )
@@ -463,12 +469,12 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
       </div>
 
       {sinEnlazar.length > 0 && (
-        <div className="no-print" style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <AlertTriangle size={18} color="#b45309" />
-          <div style={{ flex: 1, fontSize: 13, color: '#92400e' }}>
+        <div className="no-print" style={{ background: ESCANDALLO_WARN_BG, border: `1px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 0, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <AlertTriangle size={18} color={ESCANDALLO_WARN_BTN} />
+          <div style={{ flex: 1, fontSize: 13, color: ESCANDALLO_WARN_TXT }}>
             <strong>{sinEnlazar.length} sin enlazar al escandallo:</strong> {sinEnlazar.map(i => i.ingrediente).join(', ')}.
           </div>
-          <button onClick={() => setEditando(true)} style={{ background: '#b45309', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <button onClick={() => setEditando(true)} style={{ background: ESCANDALLO_WARN_BTN, color: BLANCO, border: 'none', borderRadius: 0, padding: '5px 10px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
             <Link2 size={13} /> Resolver
           </button>
         </div>
@@ -558,7 +564,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
                   const on = alergManual.includes(a)
                   return (
                     <button key={a} onClick={() => setAlergManual(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a])}
-                      style={{ padding: '4px 9px', borderRadius: 99, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? 'var(--m-acento)' : 'transparent', color: on ? '#fff' : 'var(--sl-text-secondary)' }}>
+                      style={{ padding: '4px 9px', borderRadius: 0, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? 'var(--m-acento)' : 'transparent', color: on ? BLANCO : 'var(--sl-text-secondary)' }}>
                       {a}
                     </button>
                   )
@@ -569,7 +575,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
                 ? <div className="ficha-alerg-val">Ninguno</div>
                 : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, paddingTop: 2 }}>
                     {alergAuto.map(a => (
-                      <span key={a} style={{ padding: '3px 9px', borderRadius: 99, fontSize: 11, fontFamily: "'Oswald', sans-serif", background: 'var(--m-soft)', color: 'var(--m-acento)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{a}</span>
+                      <span key={a} style={{ padding: '3px 9px', borderRadius: 0, fontSize: 11, fontFamily: "'Oswald', sans-serif", background: 'var(--m-soft)', color: 'var(--m-acento)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{a}</span>
                     ))}
                   </div>
             )}
@@ -580,7 +586,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
       </div>
 
       <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-        <button onClick={() => setBn(v => !v)} style={{ ...btn, background: bn ? '#e7e7e7' : 'transparent', color: bn ? '#111' : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
+        <button onClick={() => setBn(v => !v)} style={{ ...btn, background: bn ? PRINT_BN_BG : 'transparent', color: bn ? PRINT_BN_TXT : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
         <button onClick={imprimir} style={btn}><Printer size={15} /> Imprimir</button>
         <button onClick={descargarPdf} style={btn}><Printer size={15} /> PDF</button>
         <button onClick={() => setEditando(true)} style={btn}><Pencil size={15} /> Editar</button>
@@ -589,7 +595,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
   )
 }
 
-const btn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'Oswald, sans-serif', letterSpacing: '0.04em' }
+const btn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 0, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'Oswald, sans-serif', letterSpacing: '0.04em' }
 
 const FICHA_CSS = `
 /* ── Ficha EPS/Receta — misma superficie clara que el modal Ingredientes (--bg-card) ── */
@@ -657,27 +663,27 @@ const FICHA_CSS = `
     position: absolute; left: 0; top: 0; width: 100%;
     min-height: 245mm; box-sizing: border-box; padding: 6mm;
     display: flex; flex-direction: column;
-    background: #fff !important; color: #111 !important;
-    border: 1px solid #111 !important; border-radius: 6px !important;
+    background: #fff !important; color: ${INK} !important;
+    border: 1px solid ${INK} !important; border-radius: 6px !important;
   }
   .print-ficha .sec-prep { flex: 1 1 auto; min-height: 60mm; }
-  .print-ficha .ficha-head { border-bottom: 2px solid #111 !important; padding: 4mm 6mm; }
-  .print-ficha .ficha-id { background: #111 !important; color: #fff !important; font-size: 21px !important; padding: 2px 14px !important; }
+  .print-ficha .ficha-head { border-bottom: 2px solid ${INK} !important; padding: 4mm 6mm; }
+  .print-ficha .ficha-id { background: ${INK} !important; color: #fff !important; font-size: 21px !important; padding: 2px 14px !important; }
   .print-ficha .ficha-table-ing { font-size: 16px !important; }
   .print-ficha .ficha-table-ing td { padding: 0.4mm 0 !important; line-height: 1.1 !important; }
-  .print-ficha .ficha-title { color: #111 !important; }
-  .print-ficha .ficha-meta { border-color: #ccc !important; }
-  .print-ficha .ficha-meta .cell { border-color: #ccc !important; }
-  .print-ficha .ficha-meta .lbl { color: #555 !important; }
-  .print-ficha .ficha-meta .val { color: #111 !important; }
-  .print-ficha .ficha-meta .val-calc { background: #fff !important; border-color: #111 !important; color: #111 !important; }
-  .print-ficha .ficha-section { border-color: #ccc !important; padding: 4mm 6mm; }
-  .print-ficha .ficha-seclabel { color: #444 !important; border-color: #111 !important; }
-  .print-ficha .ficha-grupo { color: #666 !important; border-color: #111 !important; }
-  .print-ficha .ficha-table td { color: #111 !important; }
-  .print-ficha .ficha-table th { color: #555 !important; }
-  .print-ficha .ficha-equiv { color: #777 !important; }
-  .print-ficha .ficha-steps, .print-ficha .ficha-alerg-val { color: #111 !important; }
+  .print-ficha .ficha-title { color: ${INK} !important; }
+  .print-ficha .ficha-meta { border-color: ${GRIS} !important; }
+  .print-ficha .ficha-meta .cell { border-color: ${GRIS} !important; }
+  .print-ficha .ficha-meta .lbl { color: ${GRIS} !important; }
+  .print-ficha .ficha-meta .val { color: ${INK} !important; }
+  .print-ficha .ficha-meta .val-calc { background: #fff !important; border-color: ${INK} !important; color: ${INK} !important; }
+  .print-ficha .ficha-section { border-color: ${GRIS} !important; padding: 4mm 6mm; }
+  .print-ficha .ficha-seclabel { color: ${GRIS} !important; border-color: ${INK} !important; }
+  .print-ficha .ficha-grupo { color: ${GRIS} !important; border-color: ${INK} !important; }
+  .print-ficha .ficha-table td { color: ${INK} !important; }
+  .print-ficha .ficha-table th { color: ${GRIS} !important; }
+  .print-ficha .ficha-equiv { color: ${GRIS} !important; }
+  .print-ficha .ficha-steps, .print-ficha .ficha-alerg-val { color: ${INK} !important; }
   .print-ficha ol { list-style-type: decimal !important; padding-left: 22px !important; }
   .print-ficha ol li { display: list-item !important; }
 }

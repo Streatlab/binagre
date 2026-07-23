@@ -1,8 +1,9 @@
-import { BLANCO, GRANATE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, LEX } from '@/styles/neobrutal'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { Plus, Trash2, Check, X, Pencil } from 'lucide-react'
+import { PantallaCantera, HeroCantera, Papel } from '@/components/kit/cantera'
 
 interface Regla {
   id: string
@@ -49,29 +50,37 @@ export default function TabReglasIngredientes() {
 
   const visibles = reglas.filter(r => !busca || r.alias.includes(busca.toLowerCase()) || r.ingrediente_canonico.toLowerCase().includes(busca.toLowerCase()))
 
-  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 8, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
-  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 8, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
-  const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 6, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
+  const inp: React.CSSProperties = { background: T.inp, border: `1px solid ${T.brd}`, borderRadius: 0, color: T.pri, fontFamily: FONT.body, fontSize: 13, padding: '8px 12px', outline: 'none' }
+  const btnP: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: GRANATE, color: BLANCO, border: 'none', borderRadius: 0, padding: '8px 14px', fontFamily: FONT.body, fontSize: 13, cursor: 'pointer' }
+  const ico: React.CSSProperties = { background: 'transparent', border: `0.5px solid ${T.brd}`, borderRadius: 0, color: T.sec, cursor: 'pointer', padding: 5, display: 'flex' }
 
-  if (loading) return <div style={{ padding: 24, color: T.mut, fontFamily: FONT.body }}>Cargando reglas…</div>
+  if (loading) return (
+    <PantallaCantera embedded>
+      <Papel ceja={GRIS}><div style={{ padding: 32, textAlign: 'center', color: GRIS, fontFamily: LEX, fontSize: 13, fontWeight: 600 }}>Cargando reglas…</div></Papel>
+    </PantallaCantera>
+  )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: T.mut }}>
-        Cuando dictas una ficha, estas reglas convierten lo que dices (ej. «arroz») en el ingrediente real del escandallo (ej. «Arroz largo_ALC»). El sistema reutiliza estas reglas en todas las elaboraciones.
-      </div>
+    <PantallaCantera embedded>
+      <HeroCantera
+        area="equipo"
+        titular={reglas.length === 0 ? 'Todavía no hay reglas de normalización' : 'Así traduce el dictado a ingredientes reales del escandallo'}
+        etiquetaDato={reglas.length > 0 ? 'Reglas activas' : undefined}
+        cifra={reglas.length > 0 ? String(reglas.length) : undefined}
+        resumen="Cuando dictas una ficha, estas reglas convierten lo que dices (ej. «arroz») en el ingrediente real del escandallo (ej. «Arroz largo_ALC»). El sistema las reutiliza en todas las elaboraciones."
+      />
 
       {/* Crear nueva */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <Papel ceja={GRANATE} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <input value={nuevoAlias} onChange={e => setNuevoAlias(e.target.value)} placeholder="Cuando digo… (ej: arroz)" style={{ ...inp, flex: 1, minWidth: 160 }} />
         <input value={nuevoCanonico} onChange={e => setNuevoCanonico(e.target.value)} placeholder="Usar ingrediente… (ej: Arroz largo_ALC)" style={{ ...inp, flex: 1.4, minWidth: 200 }} />
         <button onClick={crear} style={btnP}><Plus size={16} /> Añadir regla</button>
-      </div>
+      </Papel>
 
       <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar regla…" style={{ ...inp, maxWidth: 280 }} />
 
       {/* Lista */}
-      <div style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 12, overflow: 'hidden' }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body, fontSize: 14 }}>
           <thead>
             <tr style={{ background: T.group }}>
@@ -106,7 +115,7 @@ export default function TabReglasIngredientes() {
             ))}
           </tbody>
         </table>
-      </div>
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

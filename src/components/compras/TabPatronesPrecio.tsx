@@ -1,4 +1,5 @@
 import { INK, LIMA } from '@/styles/neobrutal'
+import { DARK_WASH_AMA_BG } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, cardStyle } from '@/styles/tokens'
@@ -50,7 +51,7 @@ export default function TabPatronesPrecio() {
     <div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'center' }}>
         <input type="text" placeholder="Buscar plato..." value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          style={{ padding: '7px 12px', borderRadius: 8, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 220 }} />
+          style={{ padding: '7px 12px', borderRadius: 0, border: `0.5px solid ${T.brd}`, background: INK, color: T.pri, fontSize: 13, fontFamily: FONT.body, minWidth: 220 }} />
         <span style={{ color: T.mut, fontSize: 12, marginLeft: 'auto' }}>Cada fila = un precio probado. El que más vende al mes gana.</span>
       </div>
 
@@ -84,7 +85,7 @@ export default function TabPatronesPrecio() {
                   <td style={{ ...td, textAlign: 'right', color: T.mut }}>{r.meses}</td>
                   <td style={td}>
                     {idx === 0 && arr.length > 1 && (
-                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#2a2a1a', color: LIMA, fontFamily: FONT.heading, textTransform: 'uppercase' }}>Precio ganador</span>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 0, background: DARK_WASH_AMA_BG, color: LIMA, fontFamily: FONT.heading, textTransform: 'uppercase' }}>Precio ganador</span>
                     )}
                   </td>
                 </tr>

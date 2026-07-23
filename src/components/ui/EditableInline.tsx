@@ -1,4 +1,4 @@
-import { BLANCO, OSC } from '@/styles/neobrutal'
+import { BLANCO, OSC, ROJO } from '@/styles/neobrutal'
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toastStore';
@@ -60,8 +60,8 @@ export const EditableInline: React.FC<Props> = ({
         onBlur={guardar}
         onKeyDown={onKey}
         style={{
-          width: 80, padding: '0 4px', border: '1px solid #FF4757',
-          borderRadius: 3, fontFamily: 'inherit', fontSize: 'inherit',
+          width: 80, padding: '0 4px', border: `1px solid ${ROJO}`,
+          borderRadius: 0, fontFamily: 'inherit', fontSize: 'inherit',
           color, background: BLANCO
         }}
       />
@@ -72,7 +72,7 @@ export const EditableInline: React.FC<Props> = ({
     <span
       onClick={() => setEditing(true)}
       style={{
-        borderBottom: '1px dashed #d0c8bc',
+        borderBottom: '1px dashed var(--sl-border)',
         cursor: 'text',
         color,
         padding: '0 2px',

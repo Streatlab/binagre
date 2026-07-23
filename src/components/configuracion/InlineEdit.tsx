@@ -54,7 +54,7 @@ export function InlineEdit({
         onKeyDown={handleKey}
         min={min} max={max} step={step ?? (type === 'text' ? undefined : 0.01)}
         disabled={saving}
-        className={`w-full px-2 py-1 rounded-md border-2 border-[#B01D23] bg-white text-[13.5px] font-medium focus:outline-none ${align === 'right' ? 'text-right tabular-nums' : ''}`}
+        className={`w-full px-2 py-1 rounded-md border-2 border-accent-red bg-white text-[13.5px] font-medium focus:outline-none ${align === 'right' ? 'text-right tabular-nums' : ''}`}
         placeholder={placeholder}
       />
     )
@@ -64,7 +64,7 @@ export function InlineEdit({
   return (
     <span
       onClick={() => setEditing(true)}
-      className={`inline-block w-full cursor-pointer rounded-md px-2 py-1 hover:bg-[#FAF4E4] ${align === 'right' ? 'text-right tabular-nums' : ''} ${display === '' ? 'text-[#9E9588]' : ''}`}
+      className={`inline-block w-full cursor-pointer rounded-md px-2 py-1 hover:bg-config-hover-alt ${align === 'right' ? 'text-right tabular-nums' : ''} ${display === '' ? 'text-config-mut' : ''}`}
       title="Click para editar"
     >
       {display || placeholder || '—'}

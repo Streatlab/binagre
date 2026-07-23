@@ -1,17 +1,23 @@
 /**
- * ResolverPendientes v2 — único punto de entrada del trabajo pesado de Papeleo.
- * Ya NO ejecuta nada él mismo en bucle: crea filas en papeleo_tareas y dispara
- * un tick inmediato; el motor (cron papeleo-agenda-tick, cada 5 min, SOLO si
- * hay algo programado/cortado) hace el resto en servidor. Superpersistencia:
- * recargar o cerrar la pestaña no afecta — el toast de progreso se realimenta
- * de papeleo_tareas y reaparece solo con tareas activas.
+ * ResolverPendientes v3 — dispara el trabajo pesado de Papeleo y calla.
+ *
+ * Ya NO pinta el panel de estado con Pausar/Reanudar/Cancelar: ese aparato
+ * lo retiró Rubén (nunca lo usa). El progreso lo muestra ahora, de forma única
+ * para todo el ERP, <ProgresoGlobal/> (montado en el shell): panel persistente
+ * que se realimenta de papeleo_tareas, minimizable a reloj de arena y SIN
+ * botones de control.
+ *
+ * Aquí queda: el botón para lanzar, el modal de volumen (mucho stock → ahora
+ * por lotes o posponer a hora sin robots), el watchdog que reanima el motor si
+ * se atasca y el cierre honesto (si algo acabó en error, se avisa con opción de
+ * reintentar; nunca un "resuelto" que oculte un fallo).
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { RefreshCw, AlertTriangle, Pause, Play, X as XIcon } from 'lucide-react'
+import { RefreshCw, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
 import { HORAS_FIJAS, bandaQueChoca, proximaOcurrencia } from '@/lib/papeleoHoras'
-import { OSW, LEX, INK, VERDE, NAR, ROJO, AMA, GRIS, SHADOW, BORDER_CARD, BLANCO } from '@/styles/neobrutal'
+import { OSW, LEX, INK, VERDE, GRIS, SHADOW, BORDER_CARD, BLANCO, ROJO } from '@/styles/neobrutal'
 
 interface Inventario {
   en_storage: number
@@ -33,13 +39,8 @@ interface TareaFila {
   created_at: string
 }
 
-// El cron papeleo-agenda-tick late cada 5 min. Si una tarea en_curso lleva más
-// de esto sin latido, o una programada vencida sigue esperando, el motor de
-// servidor no está avanzando (cron caído, endpoint roto tras un deploy…): el
-// cliente lo espolea con un tick y lo dice en claro. Umbral = 2+ ticks perdidos.
 const MOTOR_ATASCADO_MS = 12 * 60 * 1000
 const NUDGE_THROTTLE_MS = 60 * 1000
-
 const UMBRAL_LOTES = 300
 
 const TIPOS_INVENTARIO: { tipo: string; campo: keyof Inventario }[] = [
@@ -48,14 +49,6 @@ const TIPOS_INVENTARIO: { tipo: string; campo: keyof Inventario }[] = [
   { tipo: 'archivar_drive', campo: 'archivar_drive' },
   { tipo: 'limpieza', campo: 'limpieza' },
 ]
-
-const ETIQUETA_TIPO: Record<string, string> = {
-  despertar_dormidos: 'Documentos dormidos',
-  releer_ocr: 'Relecturas',
-  archivar_drive: 'Archivado a Drive',
-  limpieza: 'Limpieza de trastero',
-  conciliar: 'Conciliación',
-}
 
 async function jget(url: string): Promise<Record<string, unknown>> {
   const r = await fetch(url, { method: 'GET' })
@@ -73,16 +66,11 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
   const [errorHora, setErrorHora] = useState<string | null>(null)
 
   const [tareas, setTareas] = useState<TareaFila[]>([])
-  const [accionando, setAccionando] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  // Ids de todas las tareas que hemos visto activas en esta tanda: al vaciarse
-  // las activas, consultamos su estado FINAL real para no cantar "resuelto"
-  // cuando alguna acabó en error (fallo silencioso = justo lo que se veta).
   const vigiladas = useRef<Set<string>>(new Set())
   const tareasPrevias = useRef(0)
+  const ultimoNudge = useRef(0)
 
-  // Reintenta solo las tareas que terminaron en error: vuelven a 'programada'
-  // conservando su cursor (retoman donde murieron) y se dispara un tick.
   const reintentarErroradas = useCallback(async (ids: string[]) => {
     if (ids.length === 0) return
     await supabase.from('papeleo_tareas')
@@ -93,10 +81,6 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
     cargarTareasRef.current?.()
   }, [])
 
-  // Cierre honesto: cuando ya no queda ninguna activa, mira cómo acabaron de
-  // verdad las que vigilábamos. Si todas completaron → éxito; si alguna erró →
-  // aviso con el número y botón «Reintentar» (un aviso sin acción no puede
-  // existir). Nunca un "resuelto" que oculte un fallo.
   const cierreHonesto = useCallback(async () => {
     const ids = [...vigiladas.current]
     vigiladas.current.clear()
@@ -119,8 +103,6 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
     onDone?.()
   }, [onDone, reintentarErroradas])
 
-  const ultimoNudge = useRef(0)
-
   const cargarTareas = useCallback(async () => {
     const { data } = await supabase
       .from('papeleo_tareas')
@@ -132,9 +114,7 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
     activas.forEach((t) => vigiladas.current.add(t.id))
     setTareas(activas)
 
-    // Watchdog + autocuración: si el motor de servidor lleva rato sin avanzar
-    // (cron caído / endpoint roto), lo espoleamos desde aquí. Nudge idempotente
-    // (el claim es atómico) y con throttle para no martillear.
+    // Watchdog: si el motor de servidor lleva rato sin avanzar, lo espoleamos.
     const ahora = Date.now()
     const atascado = activas.some((t) => {
       if (t.estado === 'en_curso') return !t.ultimo_latido || (ahora - new Date(t.ultimo_latido).getTime()) > MOTOR_ATASCADO_MS
@@ -194,8 +174,6 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
 
   async function lanzarAhora(datos: Inventario) {
     await crearTareas(datos, new Date().toISOString())
-    // Dispara un tick inmediato para no esperar los 5 min del cron; el resto
-    // lo termina el motor en servidor aunque se cierre la pestaña.
     jget('/api/facturas?action=agenda-tick').catch(() => {})
     setModalAbierto(false)
     await cargarTareas()
@@ -217,54 +195,13 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
     }
   }
 
-  async function pausarTodo() {
-    setAccionando(true)
-    try {
-      const ids = tareas.filter((t) => t.estado === 'programada' || t.estado === 'en_curso').map((t) => t.id)
-      if (ids.length > 0) await supabase.from('papeleo_tareas').update({ estado: 'pausada' }).in('id', ids)
-      await cargarTareas()
-    } finally { setAccionando(false) }
-  }
-
-  async function reanudarTodo() {
-    setAccionando(true)
-    try {
-      const ids = tareas.filter((t) => t.estado === 'pausada').map((t) => t.id)
-      if (ids.length > 0) {
-        await supabase.from('papeleo_tareas').update({ estado: 'programada', programada_para: new Date().toISOString() }).in('id', ids)
-        jget('/api/facturas?action=agenda-tick').catch(() => {})
-      }
-      await cargarTareas()
-    } finally { setAccionando(false) }
-  }
-
-  async function cancelarTodo() {
-    setAccionando(true)
-    try {
-      const ids = tareas.filter((t) => t.estado !== 'completada').map((t) => t.id)
-      if (ids.length > 0) await supabase.from('papeleo_tareas').update({ estado: 'error', detalle: 'cancelada por Rubén' }).in('id', ids)
-      await cargarTareas()
-    } finally { setAccionando(false) }
-  }
-
-  const hayEnCurso = tareas.some((t) => t.estado === 'en_curso')
-  const hayProgramadas = tareas.some((t) => t.estado === 'programada')
-  const hayPausadas = tareas.some((t) => t.estado === 'pausada')
-  const motorAtascado = tareas.some((t) => {
-    const ref = t.estado === 'en_curso' ? t.ultimo_latido : t.estado === 'programada' ? t.programada_para : null
-    return !!ref && (Date.now() - new Date(ref).getTime()) > MOTOR_ATASCADO_MS
-  }) && !hayPausadas
-  const procesadosTotal = tareas.reduce((a, t) => a + num(t.procesados), 0)
-  const proximaHora = (() => {
-    const prox = tareas.find((t) => t.estado === 'programada' && t.programada_para)
-    if (!prox?.programada_para) return null
-    const d = new Date(prox.programada_para)
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  })()
+  // Solo se muestra el botón de disparo cuando NO hay trabajo en marcha.
+  // Con trabajo en marcha no se pinta nada aquí: el progreso lo lleva ProgresoGlobal.
+  const hayTrabajo = tareas.length > 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-      {tareas.length === 0 ? (
+      {!hayTrabajo && (
         <button
           onClick={comprobarInventario}
           disabled={comprobando}
@@ -278,48 +215,6 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
           <RefreshCw size={16} strokeWidth={2.6} style={comprobando ? { animation: 'sl-spin 1s linear infinite' } : undefined} />
           {comprobando ? 'Comprobando…' : 'Resolver pendientes'}
         </button>
-      ) : (
-        <div style={{
-          background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: '12px 16px',
-          minWidth: 280, maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 8,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {motorAtascado
-              ? <AlertTriangle size={16} strokeWidth={2.6} color={AMA} style={{ flexShrink: 0 }} />
-              : hayEnCurso
-                ? <RefreshCw size={16} strokeWidth={2.6} color={NAR} style={{ animation: 'sl-spin 1s linear infinite', flexShrink: 0 }} />
-                : hayPausadas
-                  ? <Pause size={16} strokeWidth={2.6} color={GRIS} style={{ flexShrink: 0 }} />
-                  : <RefreshCw size={16} strokeWidth={2.6} color={AMA} style={{ flexShrink: 0 }} />}
-            <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 12.5, letterSpacing: '0.5px', color: INK, textTransform: 'uppercase' }}>
-              {motorAtascado ? 'Reanudando' : hayPausadas && !hayEnCurso ? 'Pausado' : hayEnCurso ? 'Resolviendo pendientes' : 'Programado'}
-            </span>
-          </div>
-          <span style={{ fontFamily: LEX, fontSize: 12.5, color: INK }}>
-            {motorAtascado
-              ? 'Tardó en responder; reanudando solo. No hace falta que hagas nada.'
-              : hayEnCurso || hayPausadas
-                ? `Tarea ${tareas.filter((t) => t.estado === 'completada').length + 1} de ${tareas.length} · ${procesadosTotal} procesados · reanuda solo si se corta`
-                : hayProgramadas && proximaHora
-                  ? `Programado para las ${proximaHora}`
-                  : 'En cola'}
-          </span>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {hayPausadas
-              ? (
-                <button onClick={reanudarTodo} disabled={accionando} style={btnMini(VERDE)}>
-                  <Play size={13} strokeWidth={2.6} /> Reanudar
-                </button>
-              ) : (
-                <button onClick={pausarTodo} disabled={accionando} style={btnMini(GRIS)}>
-                  <Pause size={13} strokeWidth={2.6} /> Pausar
-                </button>
-              )}
-            <button onClick={cancelarTodo} disabled={accionando} style={btnMini(ROJO)}>
-              <XIcon size={13} strokeWidth={2.6} /> Cancelar
-            </button>
-          </div>
-        </div>
       )}
 
       {modalAbierto && inventario && (
@@ -329,7 +224,7 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: 24, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 14 }}
+            style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: 24, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 14 }}
           >
             <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 15, textTransform: 'uppercase', letterSpacing: '0.5px', color: INK }}>
               {inventario.total} documentos pendientes
@@ -346,7 +241,7 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button onClick={() => lanzarAhora(inventario)} style={btnGrande(VERDE)}>Procesar ahora por lotes</button>
-              <button onClick={() => setPosponiendo((v) => !v)} style={btnGrande('#222222')}>Posponer</button>
+              <button onClick={() => setPosponiendo((v) => !v)} style={btnGrande(INK)}>Posponer</button>
             </div>
 
             {posponiendo && (
@@ -416,23 +311,15 @@ function FilaInventario({ label, valor }: { label: string; valor: number }) {
 
 function btnGrande(bg: string): React.CSSProperties {
   return {
-    background: bg, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW,
+    background: bg, color: BLANCO, border: BORDER_CARD, boxShadow: SHADOW,
     padding: '9px 16px', fontFamily: OSW, fontWeight: 700, fontSize: 12.5, letterSpacing: '1px',
     textTransform: 'uppercase', cursor: 'pointer',
   }
 }
 
-function btnMini(bg: string): React.CSSProperties {
-  return {
-    background: bg, color: '#fff', border: `1px solid ${INK}`, padding: '5px 10px',
-    fontFamily: OSW, fontWeight: 700, fontSize: 11, letterSpacing: '0.5px', textTransform: 'uppercase',
-    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
-  }
-}
-
 function chipHora(activa: boolean): React.CSSProperties {
   return {
-    background: activa ? INK : '#fff', color: activa ? '#fff' : INK, border: `1px solid ${INK}`,
+    background: activa ? INK : BLANCO, color: activa ? BLANCO : INK, border: `1px solid ${INK}`,
     padding: '6px 12px', fontFamily: LEX, fontSize: 12.5, cursor: 'pointer',
   }
 }
