@@ -87,16 +87,16 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [ ] Marketing · Playbook ThinkPaladar
 
 ### Cocina
-- [ ] Cocina · Hoy
+- [x] Cocina · Hoy
 - [ ] Cocina Operativa · Recetario
 - [ ] Cocina Operativa · Carta
 - [ ] Cocina Operativa · Menú familia
 - [ ] Cocina Operativa · Producción
 - [ ] Cocina Operativa · Plato maestro
-- [ ] Cocina Dinero · Datos (Escandallo)
-- [ ] Cocina Dinero · Menú engineering
+- [x] Cocina Dinero · Datos (Escandallo · cabecera; KPIs viven en sub-tabs)
+- [x] Cocina Dinero · Menú engineering
 - [ ] Cocina Dinero · Pareto ingredientes
-- [ ] Cocina Dinero · Coste por plato
+- [x] Cocina Dinero · Coste por plato
 - [ ] Cocina · Inventario
 - [ ] Cocina · Platos maestros (catálogo)
 
