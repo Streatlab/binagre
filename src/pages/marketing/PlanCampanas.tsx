@@ -1,13 +1,15 @@
-import { BLANCO } from '@/styles/neobrutal'
+import { BLANCO, INK, CREMA, AMA, VERDE, NAR, GRANATE, AZUL, GRIS, OSW, LEX } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { COLORS, FONT, CARDS, lbl, lblSm, kpiMid, TABS_PILL } from '@/components/panel/resumen/tokens'
+import { COLORS, FONT, lbl, TABS_PILL } from '@/components/panel/resumen/tokens'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 import { fmtEur } from '@/utils/format'
 
 /* ═════════════ PLAN ADS & PROMOS · Jul–Dic 2026 ═════════════
    Panel estratégico + planificador financiero del Plan Maestro.
    Lee/escribe crm_campanas (codigo_promo LIKE 'PLAN-%') y lee crm_campanas_metricas.
    Tabs: Resumen · Retorno · Cronograma · Por marca · Por canal · Detalle.
+   CANTERA ALEGRE v1.0 (área Marketing · rosa). Solo capa visual; datos/lógica intactos.
 */
 
 type Campana = {
@@ -45,8 +47,8 @@ const TABS = [
   { id: 'detalle', label: 'Detalle' },
 ] as const
 
-const th: React.CSSProperties = { fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLORS.mut, fontWeight: 500, padding: '8px 10px', textAlign: 'left', borderBottom: `1px solid ${COLORS.brd}`, cursor: 'pointer', userSelect: 'none' }
-const td: React.CSSProperties = { fontFamily: FONT.body, fontSize: 13, color: COLORS.sec, padding: '8px 10px', borderBottom: `1px solid ${COLORS.group}` }
+const th: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, padding: '9px 10px', textAlign: 'left', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }
+const td: React.CSSProperties = { fontFamily: LEX, fontSize: 13, color: INK, padding: '9px 10px', borderBottom: `2px solid ${INK}` }
 const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: `0.5px solid ${COLORS.brd}`, background: COLORS.card, color: COLORS.pri, fontSize: 13, fontFamily: FONT.body, outline: 'none' }
 const btnGhost: React.CSSProperties = { padding: '4px 10px', borderRadius: 6, border: `0.5px solid ${COLORS.brd}`, background: 'transparent', color: COLORS.sec, cursor: 'pointer', fontSize: 11, fontFamily: FONT.body }
 
@@ -54,17 +56,17 @@ const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const dias = (a: string, b: string) => Math.round((new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86400000)
 
-function KpiCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+function KpiCard({ label, value, sub, color, first }: { label: string; value: string; sub?: string; color?: string; first?: boolean }) {
   return (
-    <div style={{ ...CARDS.std, flex: 1, minWidth: 150 }}>
-      <div style={lbl}>{label}</div>
-      <div style={{ ...kpiMid, marginTop: 6, color: color ?? COLORS.pri }}>{value}</div>
-      {sub && <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut, marginTop: 2 }}>{sub}</div>}
-    </div>
+    <PlanchaCelda bg={BLANCO} color={INK} first={first}>
+      <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600, color: GRIS }}>{label}</div>
+      <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, lineHeight: 1.05, marginTop: 6, color: color ?? INK }}>{value}</div>
+      {sub && <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 4 }}>{sub}</div>}
+    </PlanchaCelda>
   )
 }
 function Pill({ text, bg, txt }: { text: string; bg: string; txt?: string }) {
-  return <span style={{ fontSize: 10, fontFamily: FONT.heading, letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 4, background: bg, color: txt ?? BLANCO, textTransform: 'uppercase' }}>{text}</span>
+  return <span style={{ fontSize: 10, fontFamily: OSW, letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 4, background: bg, color: txt ?? BLANCO, textTransform: 'uppercase' }}>{text}</span>
 }
 function Bar({ pct, color, h = 8 }: { pct: number; color: string; h?: number }) {
   return (
@@ -196,52 +198,87 @@ export default function PlanCampanas() {
     const head = ['codigo', 'nombre', 'marca', 'canal', 'tipo', 'mecanica', 'inicio', 'fin', 'presupuesto', 'kpi', 'meta', 'estado', 'objetivo']
     const rows = camp.map(c => [c.codigo_promo, c.nombre, c.marca || 'Multi', CANAL_LABEL[c.canal] || c.canal, TIPO_LABEL[c.tipo] || c.tipo, MECANICA_LABEL[c.mecanica_plataforma || ''] || '', c.fecha_inicio, c.fecha_fin || '', c.presupuesto, c.kpi_principal, c.kpi_meta ?? '', c.estado, c.objetivo_smart])
     const csv = [head, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n')
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'plan_ads_promos_jul_dic_2026.csv'; a.click()
   }
 
-  if (cargando) return <div style={{ background: COLORS.bg, minHeight: '100vh', padding: 28, color: COLORS.mut, fontFamily: FONT.body }}>Cargando plan...</div>
+  if (cargando) return <PantallaCantera><div style={{ padding: 40, color: GRIS, fontFamily: OSW, textTransform: 'uppercase', letterSpacing: '1px' }}>Cargando plan…</div></PantallaCantera>
+
+  const urgentes = alertas.filter(a => a.sev === 'urgente').length
+  const avisos = alertas.filter(a => a.sev === 'aviso').length
+  const titular = camp.length === 0
+    ? 'Aún no hay campañas cargadas del plan.'
+    : urgentes > 0 ? `${urgentes} campaña${urgentes > 1 ? 's' : ''} necesita${urgentes > 1 ? 'n' : ''} acción esta quincena.`
+    : 'El plan de ads y promos avanza sin bloqueos urgentes.'
+  const atencionHero = [
+    `${camp.length} campañas · ${tot.activas} activas`,
+    urgentes ? `${urgentes} arrancan en <14 días` : null,
+    avisos ? `${avisos} sin métricas o vencidas` : null,
+    `ROAS objetivo ≥ ${tot.roasObj.toFixed(1)}:1`,
+  ].filter(Boolean) as string[]
 
   return (
-    <div style={{ background: COLORS.bg, minHeight: '100vh', padding: '24px 28px', fontFamily: FONT.body, color: COLORS.pri }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-        <div>
-          <div style={{ fontFamily: FONT.heading, fontSize: 22, fontWeight: 600, color: COLORS.redSL, letterSpacing: 3, textTransform: 'uppercase' }}>Plan Ads &amp; Promos · Jul–Dic 2026</div>
-          <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut, marginTop: 2 }}>{camp.length} campañas · {tot.activas} activas · Uber Eats · Glovo · Just Eat</div>
-        </div>
+    <PantallaCantera>
+      {/* Filtros propios: exportar, arriba-derecha */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button onClick={exportCSV} style={btnGhost}>Exportar CSV</button>
       </div>
 
-      {msg && <div style={{ ...CARDS.std, borderLeft: `3px solid ${COLORS.ok}`, margin: '0 0 12px', fontSize: 13, color: COLORS.pri }}>{msg}</div>}
+      {msg && <Papel ceja={VERDE} pad="10px 16px" style={{ fontSize: 13, color: INK }}>{msg}</Papel>}
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-        {OBJETIVOS.map(o => (
-          <div key={o.k} style={{ ...CARDS.std, flex: 1, minWidth: 150, borderLeft: `3px solid ${o.c}` }}>
-            <div style={lblSm}>{o.k}</div>
-            <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 700, color: o.c, marginTop: 2 }}>{o.v}</div>
-            <div style={{ fontFamily: FONT.body, fontSize: 11, color: COLORS.mut, marginTop: 2 }}>{o.s}</div>
-          </div>
-        ))}
+      {/* 1 · Héroe del área Marketing (rosa) */}
+      <HeroCantera
+        area="marketing"
+        periodo="Jul–Dic 2026"
+        titular={titular}
+        etiquetaDato="Presupuesto total del plan"
+        cifra={fmtEur(tot.presupuesto)}
+        resumen={<>Ads {fmtEur(tot.ads)} · Promos {fmtEur(tot.promo)} · Uber Eats · Glovo · Just Eat</>}
+        atencion={atencionHero}
+      />
+
+      {/* 2 · Plancha de objetivos del plan (KPIs comparables) */}
+      <div>
+        <SeccionLabel bg={GRANATE}>Objetivos del plan</SeccionLabel>
+        <Plancha>
+          {OBJETIVOS.map((o, i) => (
+            <PlanchaCelda key={o.k} bg={o.c} first={i === 0}>
+              <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>{o.k}</div>
+              <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 26, lineHeight: 1.05, marginTop: 6 }}>{o.v}</div>
+              <div style={{ fontFamily: LEX, fontSize: 12, marginTop: 4 }}>{o.s}</div>
+            </PlanchaCelda>
+          ))}
+        </Plancha>
       </div>
 
-      <div style={{ ...CARDS.std, marginBottom: 14 }}>
-        <div style={{ ...lblSm, marginBottom: 8 }}>Próximas acciones</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {alertas.map((a, i) => {
-            const col = a.sev === 'urgente' ? COLORS.err : a.sev === 'aviso' ? COLORS.warn : COLORS.ok
-            return <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: FONT.body, fontSize: 13, color: COLORS.sec }}><span style={{ width: 8, height: 8, borderRadius: 4, background: col, flexShrink: 0 }} />{a.txt}</div>
-          })}
-        </div>
+      {/* 3 · Frase potente (color por significado, distinto del héroe rosa) */}
+      {urgentes > 0
+        ? <FrasePotente significado="peligro">{urgentes} campaña{urgentes > 1 ? 's arrancan' : ' arranca'} en menos de 14 días sin activar: revísalo antes de perder inversión.</FrasePotente>
+        : avisos > 0
+          ? <FrasePotente significado="coste">Hay campañas activas sin métricas cargadas: sin datos no hay retorno medible.</FrasePotente>
+          : <FrasePotente significado="logro">Plan al día: sin acciones urgentes pendientes.</FrasePotente>}
+
+      {/* Próximas acciones — papel (sin sombra) */}
+      <div>
+        <SeccionLabel bg={NAR}>Próximas acciones</SeccionLabel>
+        <Papel ceja={NAR}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {alertas.map((a, i) => {
+              const col = a.sev === 'urgente' ? COLORS.err : a.sev === 'aviso' ? COLORS.warn : COLORS.ok
+              return <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: LEX, fontSize: 13, color: INK }}><span style={{ width: 8, height: 8, borderRadius: 4, background: col, flexShrink: 0 }} />{a.txt}</div>
+            })}
+          </div>
+        </Papel>
       </div>
 
       {camp.length === 0 ? (
-        <div style={{ ...CARDS.std, color: COLORS.mut }}>No hay campañas del plan cargadas (codigo_promo PLAN-*).</div>
+        <Papel ceja={GRIS}><div style={{ color: GRIS, fontFamily: LEX }}>No hay campañas del plan cargadas (codigo_promo PLAN-*).</div></Papel>
       ) : (
         <>
           <div style={TABS_PILL.container}>
             {TABS.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={tab === t.id ? TABS_PILL.active : TABS_PILL.inactive}>{t.label}</button>)}
           </div>
-          <div style={{ marginTop: 14 }}>
+          <div>
             {tab === 'resumen' && <TabResumen tot={tot} porCanal={porCanal} mesData={mesData} porMarca={porMarca} />}
             {tab === 'retorno' && <TabRetorno porCanal={porCanal} totPresupuesto={tot.presupuesto} />}
             {tab === 'cronograma' && <TabCronograma camp={camp} />}
@@ -251,7 +288,7 @@ export default function PlanCampanas() {
           </div>
         </>
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 
@@ -262,55 +299,55 @@ function TabResumen({ tot, porCanal, mesData, porMarca }: any) {
   const canalSegs = Object.entries(porCanal).map(([c, v]: any) => ({ label: CANAL_LABEL[c] || c, value: v.eur, color: CANAL_COLOR[c] || COLORS.mut }))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        <KpiCard label="Campañas" value={String(porMarca.reduce((s: number, m: any) => s + m[1].n, 0))} sub={`${porMarca.length} marcas`} color={COLORS.redSL} />
+      <Plancha>
+        <KpiCard first label="Campañas" value={String(porMarca.reduce((s: number, m: any) => s + m[1].n, 0))} sub={`${porMarca.length} marcas`} color={COLORS.redSL} />
         <KpiCard label="Presupuesto total" value={fmtEur(tot.presupuesto)} sub="semestre" color={COLORS.ok} />
         <KpiCard label="Ads (posición)" value={fmtEur(tot.ads)} sub={`${Math.round(tot.ads / tot.presupuesto * 100)}%`} color={COLORS.lun} />
         <KpiCard label="Promos (descuentos)" value={fmtEur(tot.promo)} sub={`${Math.round(tot.promo / tot.presupuesto * 100)}%`} color={COLORS.modal} />
         <KpiCard label="ROAS objetivo" value={`≥ ${tot.roasObj.toFixed(1)}:1`} sub="campañas de ads" color={COLORS.ok} />
-      </div>
+      </Plancha>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 14 }}>
-        <div style={CARDS.std}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+        <Papel ceja={COLORS.lun} style={{ flex: '1 1 280px' }}>
           <div style={{ ...lbl, marginBottom: 10 }}>Inversión por objetivo</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Donut segs={tipoSegs} center={`${Object.keys(tot.porTipo).length}`} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
               {tipoSegs.map(s => (
-                <div key={s.label} style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.sec }}>
+                <div key={s.label} style={{ fontFamily: LEX, fontSize: 12, color: COLORS.sec }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: s.color, marginRight: 6 }} />{s.label}</span><b style={{ color: COLORS.pri }}>{fmtEur(s.value)}</b></div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-        <div style={CARDS.std}>
+        </Papel>
+        <Papel ceja={GRANATE} style={{ flex: '1 1 280px' }}>
           <div style={{ ...lbl, marginBottom: 10 }}>Inversión por plataforma</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Donut segs={canalSegs} center={`${canalSegs.length}`} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
               {canalSegs.sort((a, b) => b.value - a.value).map(s => (
-                <div key={s.label} style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.sec }}>
+                <div key={s.label} style={{ fontFamily: LEX, fontSize: 12, color: COLORS.sec }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: s.color, marginRight: 6 }} />{s.label}</span><b style={{ color: COLORS.pri }}>{fmtEur(s.value)}</b></div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        </Papel>
       </div>
 
-      <div style={CARDS.big}>
+      <Papel ceja={AMA}>
         <div style={{ ...lbl, marginBottom: 14 }}>Presupuesto por mes</div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, height: 180, paddingBottom: 4 }}>
           {mesData.map((m: any) => (
             <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-              <div style={{ fontFamily: FONT.heading, fontSize: 12, fontWeight: 600, color: COLORS.pri, marginBottom: 4 }}>{fmtEur(m.eur)}</div>
-              <div style={{ width: '70%', maxWidth: 60, height: `${(m.eur / maxMes) * 100}%`, background: COLORS.redSL, borderRadius: '6px 6px 0 0', minHeight: 4 }} />
-              <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.mut, marginTop: 6 }}>{m.label}</div>
+              <div style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, color: INK, marginBottom: 4 }}>{fmtEur(m.eur)}</div>
+              <div style={{ width: '70%', maxWidth: 60, height: `${(m.eur / maxMes) * 100}%`, background: GRANATE, minHeight: 4 }} />
+              <div style={{ fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS, marginTop: 6 }}>{m.label}</div>
             </div>
           ))}
         </div>
-      </div>
+      </Papel>
     </div>
   )
 }
@@ -333,53 +370,53 @@ function TabRetorno({ porCanal, totPresupuesto }: { porCanal: Record<string, any
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ ...CARDS.std, display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ fontFamily: FONT.body, fontSize: 13, color: COLORS.mut }}>Supuestos editables:</div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: FONT.body, fontSize: 13, color: COLORS.sec }}>ROAS ads (€ venta / € ads)
+      <Papel ceja={GRIS} style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ fontFamily: LEX, fontSize: 13, color: COLORS.mut }}>Supuestos editables:</div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: LEX, fontSize: 13, color: COLORS.sec }}>ROAS ads (€ venta / € ads)
           <input type="number" step="0.5" value={roasAds} onChange={e => setRoasAds(Number(e.target.value) || 0)} style={{ ...inp, width: 80 }} /></label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: FONT.body, fontSize: 13, color: COLORS.sec }}>Multiplicador promo (€ venta / € descuento)
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: LEX, fontSize: 13, color: COLORS.sec }}>Multiplicador promo (€ venta / € descuento)
           <input type="number" step="0.5" value={multPromo} onChange={e => setMultPromo(Number(e.target.value) || 0)} style={{ ...inp, width: 80 }} /></label>
-      </div>
+      </Papel>
 
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-        <KpiCard label="Inversión total" value={fmtEur(totPresupuesto)} sub="ads + promos, semestre" color={COLORS.modal} />
+      <Plancha>
+        <KpiCard first label="Inversión total" value={fmtEur(totPresupuesto)} sub="ads + promos, semestre" color={COLORS.modal} />
         <KpiCard label="Ventas proyectadas" value={fmtEur(ventasTot)} sub="brutas incrementales" color={COLORS.lun} />
         <KpiCard label="Margen proyectado" value={fmtEur(margenTot)} sub="tras plataforma − inversión" color={margenTot >= 0 ? COLORS.ok : COLORS.err} />
         <KpiCard label="ROI del plan" value={`${Math.round(roiTot * 100)}%`} sub="margen / inversión" color={COLORS.ok} />
         <KpiCard label="Cobertura objetivo +70%" value={`${Math.round(cobertura * 100)}%`} sub={`de ${fmtEur(objetivoIncremental)} incrementales`} color={COLORS.redSL} />
-      </div>
+      </Plancha>
 
-      <div style={{ ...CARDS.std, overflowX: 'auto' }}>
-        <div style={{ ...lbl, marginBottom: 10 }}>Retorno proyectado por canal</div>
+      <Papel ceja={AZUL} pad="0" style={{ overflowX: 'auto' }}>
+        <div style={{ ...lbl, margin: '16px 16px 10px' }}>Retorno proyectado por canal</div>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr>
+          <thead><tr style={{ background: INK }}>
             <th style={th}>Canal</th><th style={{ ...th, textAlign: 'right' }}>Inversión</th><th style={{ ...th, textAlign: 'right' }}>Ads</th><th style={{ ...th, textAlign: 'right' }}>Promo</th>
             <th style={{ ...th, textAlign: 'right' }}>Ventas proy.</th><th style={{ ...th, textAlign: 'right' }}>Neto canal</th><th style={{ ...th, textAlign: 'right' }}>Margen neto</th>
           </tr></thead>
           <tbody>
             {filas.map(f => (
               <tr key={f.canal}>
-                <td style={{ ...td, color: CANAL_TXT[f.canal] || CANAL_COLOR[f.canal], fontFamily: FONT.heading, fontWeight: 600 }}>{CANAL_LABEL[f.canal] || f.canal}</td>
+                <td style={{ ...td, color: CANAL_TXT[f.canal] || CANAL_COLOR[f.canal], fontFamily: OSW, fontWeight: 600 }}>{CANAL_LABEL[f.canal] || f.canal}</td>
                 <td style={{ ...td, textAlign: 'right' }}>{fmtEur(f.inv)}</td>
                 <td style={{ ...td, textAlign: 'right', color: COLORS.mut }}>{fmtEur(f.ads)}</td>
                 <td style={{ ...td, textAlign: 'right', color: COLORS.mut }}>{fmtEur(f.promo)}</td>
                 <td style={{ ...td, textAlign: 'right' }}>{fmtEur(f.ventas)}</td>
                 <td style={{ ...td, textAlign: 'right' }}>{Math.round(f.neto * 100)}%</td>
-                <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, color: f.margenNeto >= 0 ? COLORS.ok : COLORS.err }}>{fmtEur(f.margenNeto)}</td>
+                <td style={{ ...td, textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: f.margenNeto >= 0 ? COLORS.ok : COLORS.err }}>{fmtEur(f.margenNeto)}</td>
               </tr>
             ))}
             <tr>
-              <td style={{ ...td, fontFamily: FONT.heading, color: COLORS.pri }}>TOTAL</td>
-              <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, color: COLORS.pri }}>{fmtEur(totPresupuesto)}</td>
+              <td style={{ ...td, fontFamily: OSW, fontWeight: 700, color: INK }}>TOTAL</td>
+              <td style={{ ...td, textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: INK }}>{fmtEur(totPresupuesto)}</td>
               <td style={td}></td><td style={td}></td>
-              <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, color: COLORS.pri }}>{fmtEur(ventasTot)}</td>
+              <td style={{ ...td, textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: INK }}>{fmtEur(ventasTot)}</td>
               <td style={td}></td>
-              <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, color: margenTot >= 0 ? COLORS.ok : COLORS.err }}>{fmtEur(margenTot)}</td>
+              <td style={{ ...td, textAlign: 'right', fontFamily: OSW, fontWeight: 700, color: margenTot >= 0 ? COLORS.ok : COLORS.err }}>{fmtEur(margenTot)}</td>
             </tr>
           </tbody>
         </table>
-        <div style={{ fontFamily: FONT.body, fontSize: 11, color: COLORS.mut, marginTop: 8 }}>Modelo conservador y editable. Ventas = ads×ROAS + promo×multiplicador. Margen = ventas×neto del canal − inversión. Ajusta los supuestos arriba; los números no son promesa, son herramienta de decisión.</div>
-      </div>
+        <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS, padding: '8px 16px 16px' }}>Modelo conservador y editable. Ventas = ads×ROAS + promo×multiplicador. Margen = ventas×neto del canal − inversión. Ajusta los supuestos arriba; los números no son promesa, son herramienta de decisión.</div>
+      </Papel>
     </div>
   )
 }
@@ -399,24 +436,24 @@ function TabCronograma({ camp }: { camp: Campana[] }) {
   while (cur <= maxD) { meses.push({ label: `${MESES[cur.getMonth()]} ${String(cur.getFullYear()).slice(2)}`, left: Math.max(0, ((cur.getTime() - minD.getTime()) / totalMs) * 100) }); cur.setMonth(cur.getMonth() + 1) }
   const orden = [...camp].sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio))
   return (
-    <div style={CARDS.big}>
+    <Papel ceja={GRANATE}>
       <div style={{ ...lbl, marginBottom: 12 }}>Cronograma · color = plataforma · etiqueta = mecánica · línea = hoy</div>
       <div style={{ position: 'relative' }}>
         <div style={{ position: 'relative', height: 18, marginLeft: 210, marginBottom: 6 }}>
-          {meses.map((m, i) => <span key={i} style={{ position: 'absolute', left: `${m.left}%`, fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: COLORS.mut }}>{m.label}</span>)}
+          {meses.map((m, i) => <span key={i} style={{ position: 'absolute', left: `${m.left}%`, fontFamily: OSW, fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS }}>{m.label}</span>)}
         </div>
-        {enRango && <div style={{ position: 'absolute', left: `calc(210px + ${hoyPct}% * (100% - 210px) / 100)`, top: 18, bottom: 0, width: 2, background: COLORS.redSL, opacity: 0.5, zIndex: 2, pointerEvents: 'none' }} />}
+        {enRango && <div style={{ position: 'absolute', left: `calc(210px + ${hoyPct}% * (100% - 210px) / 100)`, top: 18, bottom: 0, width: 2, background: GRANATE, opacity: 0.5, zIndex: 2, pointerEvents: 'none' }} />}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {orden.map(c => {
             const x1 = pos(c.fecha_inicio), x2 = c.fecha_fin ? pos(c.fecha_fin) : x1 + 4
             return (
               <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 200, flexShrink: 0, fontFamily: FONT.body, fontSize: 12, color: COLORS.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  <span style={{ color: CANAL_TXT[c.canal] || CANAL_COLOR[c.canal], fontWeight: 600 }}>{c.marca || 'Multi'}</span> <span style={{ color: COLORS.mut }}>· {c.producto || c.tipo}</span>
+                <div style={{ width: 200, flexShrink: 0, fontFamily: LEX, fontSize: 12, color: COLORS.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{ color: CANAL_TXT[c.canal] || CANAL_COLOR[c.canal], fontWeight: 600 }}>{c.marca || 'Multi'}</span> <span style={{ color: GRIS }}>· {c.producto || c.tipo}</span>
                 </div>
                 <div style={{ flex: 1, position: 'relative', height: 24, background: COLORS.group, borderRadius: 6 }}>
                   <div style={{ position: 'absolute', left: `${x1}%`, width: `${Math.max(4, x2 - x1)}%`, top: 2, bottom: 2, background: CANAL_COLOR[c.canal] || COLORS.mut, borderRadius: 5, display: 'flex', alignItems: 'center', paddingLeft: 8, overflow: 'hidden', opacity: c.estado === 'pausada' ? 0.4 : 1 }} title={`${c.nombre} · ${fmtEur(Number(c.presupuesto))} · ${c.estado}`}>
-                    <span style={{ fontFamily: FONT.heading, fontSize: 9, color: CANAL_TXT[c.canal] || BLANCO, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || c.tipo}</span>
+                    <span style={{ fontFamily: OSW, fontSize: 9, color: CANAL_TXT[c.canal] || BLANCO, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || c.tipo}</span>
                   </div>
                 </div>
               </div>
@@ -424,41 +461,41 @@ function TabCronograma({ camp }: { camp: Campana[] }) {
           })}
         </div>
       </div>
-    </div>
+    </Papel>
   )
 }
 
 /* ═════════════ POR MARCA ═════════════ */
 function TabMarcas({ porMarca, camp }: { porMarca: [string, any][]; camp: Campana[] }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(340px,1fr))', gap: 14 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
       {porMarca.map(([marca, v]) => {
         const cs = camp.filter(c => (c.marca || 'Multi') === marca)
         return (
-          <div key={marca} style={CARDS.std}>
+          <Papel key={marca} ceja={GRANATE} style={{ flex: '1 1 340px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ fontFamily: FONT.heading, fontSize: 15, letterSpacing: '0.5px', color: COLORS.redSL, fontWeight: 600 }}>{marca}</div>
-              <div style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 600, color: COLORS.pri }}>{fmtEur(v.eur)}</div>
+              <div style={{ fontFamily: OSW, fontSize: 15, letterSpacing: '0.5px', color: GRANATE, fontWeight: 600 }}>{marca}</div>
+              <div style={{ fontFamily: OSW, fontSize: 15, fontWeight: 600, color: INK }}>{fmtEur(v.eur)}</div>
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
               {Array.from(v.canales).map((c: any) => <Pill key={c} text={CANAL_LABEL[c] || c} bg={CANAL_COLOR[c] || COLORS.mut} txt={CANAL_TXT[c]} />)}
-              <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>{v.n} campañas</span>
+              <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{v.n} campañas</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {cs.map(c => (
                 <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingBottom: 6, borderBottom: `1px solid ${COLORS.group}` }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nombre.split('·').slice(1).join('·').trim() || c.nombre}</div>
-                    <div style={{ fontFamily: FONT.body, fontSize: 10, color: COLORS.mut }}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || c.tipo} · {c.fecha_inicio.slice(5)}→{c.fecha_fin ? c.fecha_fin.slice(5) : '—'}</div>
+                    <div style={{ fontFamily: LEX, fontSize: 12, color: COLORS.sec, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nombre.split('·').slice(1).join('·').trim() || c.nombre}</div>
+                    <div style={{ fontFamily: LEX, fontSize: 10, color: GRIS }}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || c.tipo} · {c.fecha_inicio.slice(5)}→{c.fecha_fin ? c.fecha_fin.slice(5) : '—'}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     <Pill text={CANAL_LABEL[c.canal] || c.canal} bg={CANAL_COLOR[c.canal] || COLORS.mut} txt={CANAL_TXT[c.canal]} />
-                    <span style={{ fontFamily: FONT.heading, fontSize: 12, color: COLORS.pri }}>{fmtEur(Number(c.presupuesto))}</span>
+                    <span style={{ fontFamily: OSW, fontSize: 12, color: INK }}>{fmtEur(Number(c.presupuesto))}</span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </Papel>
         )
       })}
     </div>
@@ -473,13 +510,13 @@ function TabCanales({ porCanal, camp, totalPresupuesto }: { porCanal: Record<str
         const cs = camp.filter(c => c.canal === canal)
         const mecanicas = Array.from(new Set(cs.map(c => MECANICA_LABEL[c.mecanica_plataforma || ''] || c.tipo)))
         return (
-          <div key={canal} style={{ ...CARDS.std, borderLeft: `3px solid ${CANAL_COLOR[canal] || COLORS.mut}` }}>
+          <Papel key={canal} ceja={CANAL_COLOR[canal] || GRIS}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-              <div style={{ fontFamily: FONT.heading, fontSize: 16, fontWeight: 600, letterSpacing: '0.5px', color: CANAL_TXT[canal] || CANAL_COLOR[canal] }}>{CANAL_LABEL[canal] || canal}</div>
+              <div style={{ fontFamily: OSW, fontSize: 16, fontWeight: 600, letterSpacing: '0.5px', color: CANAL_TXT[canal] || CANAL_COLOR[canal] }}>{CANAL_LABEL[canal] || canal}</div>
               <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>Presupuesto <b style={{ color: COLORS.pri }}>{fmtEur(v.eur)}</b> ({Math.round(v.eur / totalPresupuesto * 100)}%)</span>
-                <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>Campañas <b style={{ color: COLORS.pri }}>{v.n}</b></span>
-                <span style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>Neto canal <b style={{ color: COLORS.ok }}>{Math.round((CANAL_NETO[canal] || 0) * 100)}%</b></span>
+                <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Presupuesto <b style={{ color: INK }}>{fmtEur(v.eur)}</b> ({Math.round(v.eur / totalPresupuesto * 100)}%)</span>
+                <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Campañas <b style={{ color: INK }}>{v.n}</b></span>
+                <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Neto canal <b style={{ color: VERDE }}>{Math.round((CANAL_NETO[canal] || 0) * 100)}%</b></span>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -490,16 +527,16 @@ function TabCanales({ porCanal, camp, totalPresupuesto }: { porCanal: Record<str
                 <tbody>
                   {cs.map(c => (
                     <tr key={c.id}>
-                      <td style={{ ...td, fontFamily: FONT.heading, fontSize: 12, color: COLORS.pri }}>{c.marca || 'Multi'}</td>
+                      <td style={{ ...td, fontFamily: OSW, fontSize: 12, color: INK }}>{c.marca || 'Multi'}</td>
                       <td style={{ ...td, fontSize: 12, maxWidth: 320 }}>{c.objetivo_smart}</td>
                       <td style={{ ...td, whiteSpace: 'nowrap', fontSize: 12 }}>{c.fecha_inicio.slice(5)}→{c.fecha_fin ? c.fecha_fin.slice(5) : '—'}</td>
-                      <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, color: COLORS.pri }}>{fmtEur(Number(c.presupuesto))}</td>
+                      <td style={{ ...td, textAlign: 'right', fontFamily: OSW, color: INK }}>{fmtEur(Number(c.presupuesto))}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
+          </Papel>
         )
       })}
     </div>
@@ -551,11 +588,11 @@ function TabDetalle({ camp, aggMet, onEstado }: { camp: Campana[]; aggMet: Recor
         <input placeholder="Buscar..." value={q} onChange={e => setQ(e.target.value)} style={{ ...inp, flex: 1, minWidth: 160 }} />
         {(fCanal !== 'todos' || fMarca !== 'todas' || fTipo !== 'todos' || q) && <button onClick={() => { setFCanal('todos'); setFMarca('todas'); setFTipo('todos'); setQ('') }} style={btnGhost}>Limpiar</button>}
       </div>
-      <div style={{ fontFamily: FONT.body, fontSize: 12, color: COLORS.mut }}>{lista.length} campañas · {fmtEur(presupuestoFiltrado)} de presupuesto</div>
+      <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{lista.length} campañas · {fmtEur(presupuestoFiltrado)} de presupuesto</div>
 
-      <div style={{ ...CARDS.std, overflowX: 'auto' }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr>
+          <thead><tr style={{ background: INK }}>
             <th style={th} onClick={() => sort('nombre')}>Campaña</th>
             <th style={th} onClick={() => sort('marca')}>Marca</th>
             <th style={th} onClick={() => sort('canal')}>Canal</th>
@@ -572,19 +609,19 @@ function TabDetalle({ camp, aggMet, onEstado }: { camp: Campana[]; aggMet: Recor
               return (
                 <tr key={c.id}>
                   <td style={td}>
-                    <div style={{ fontFamily: FONT.heading, fontSize: 13, fontWeight: 600, color: COLORS.pri }}>{c.nombre}</div>
-                    <div style={{ fontSize: 11, color: COLORS.mut }}>{c.codigo_promo} · {c.objetivo_smart}</div>
+                    <div style={{ fontFamily: OSW, fontSize: 13, fontWeight: 600, color: INK }}>{c.nombre}</div>
+                    <div style={{ fontSize: 11, color: GRIS }}>{c.codigo_promo} · {c.objetivo_smart}</div>
                   </td>
                   <td style={td}>{c.marca || 'Multi'}</td>
                   <td style={td}><Pill text={CANAL_LABEL[c.canal] || c.canal} bg={CANAL_COLOR[c.canal] || COLORS.mut} txt={CANAL_TXT[c.canal]} /></td>
                   <td style={td}>{MECANICA_LABEL[c.mecanica_plataforma || ''] || '—'}</td>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>{c.fecha_inicio.slice(5)} → {c.fecha_fin ? c.fecha_fin.slice(5) : '—'}</td>
-                  <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, color: COLORS.pri }}>{fmtEur(Number(c.presupuesto))}</td>
+                  <td style={{ ...td, textAlign: 'right', fontFamily: OSW, color: INK }}>{fmtEur(Number(c.presupuesto))}</td>
                   <td style={{ ...td, minWidth: 120 }}>
-                    {a ? <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Bar pct={pct} color={semColor(pct)} h={6} /><span style={{ fontFamily: FONT.heading, fontSize: 12, color: semColor(pct) }}>{pct}%</span></div>
-                      : <span style={{ fontFamily: FONT.body, fontSize: 11, color: COLORS.mut }}>sin métricas</span>}
+                    {a ? <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Bar pct={pct} color={semColor(pct)} h={6} /><span style={{ fontFamily: OSW, fontSize: 12, color: semColor(pct) }}>{pct}%</span></div>
+                      : <span style={{ fontFamily: LEX, fontSize: 11, color: GRIS }}>sin métricas</span>}
                   </td>
-                  <td style={td}><span style={{ color: ESTADO_COLOR[c.estado] || COLORS.mut, fontFamily: FONT.heading, fontSize: 11, textTransform: 'uppercase' }}>{c.estado}</span></td>
+                  <td style={td}><span style={{ color: ESTADO_COLOR[c.estado] || COLORS.mut, fontFamily: OSW, fontSize: 11, textTransform: 'uppercase' }}>{c.estado}</span></td>
                   <td style={td}>
                     <div style={{ display: 'flex', gap: 4 }}>
                       {c.estado !== 'activa' && <button onClick={() => onEstado(c, 'activa')} style={{ ...btnGhost, borderColor: COLORS.ok, color: COLORS.ok }}>Activar</button>}
@@ -596,7 +633,7 @@ function TabDetalle({ camp, aggMet, onEstado }: { camp: Campana[]; aggMet: Recor
             })}
           </tbody>
         </table>
-      </div>
+      </Papel>
     </div>
   )
 }
