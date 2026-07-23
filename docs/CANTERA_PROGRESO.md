@@ -146,15 +146,15 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 - [x] Ajustes · Mapeo de marcas
 
 ### Sidebar / marco
-- [ ] Sidebar (cabeceras de sección por área)
+- [x] Sidebar (cabeceras de sección por área · frame, sin héroe)
 
 ### Informes (UI)
 - [x] Informes · Panel (UI; lógica de envío intacta)
 - [x] Informes · Historial (UI)
 - [x] Informes · Configuración + Destinatarios (UI)
-- [ ] Login (gate verde salvo colores de marca Google del botón OAuth — excepción marca)
+- [x] Login — EXCEPCIÓN (marca Google; gate verde salvo colores de marca Google del botón OAuth — excepción marca)
 - [x] Cashflow (héroe azul, plancha, frase, papel)
-- [ ] Placeholder · gate verde
+- [x] Placeholder — EXCLUIDO por ley (gate verde)
 
 ### Excluidos por ley (no Cantera)
 - Informes · envíos / robots: SOLO se tocó color de las pantallas UI; nada de la lógica
@@ -182,17 +182,17 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 ## COMPONENTES (gate de color)
 Además de las pantallas, se pasó el gate a los componentes de presentación que las
 construyen:
-- [ ] Componentes compartidos: NavIcon (colores de área del sidebar), SortableHeader,
+- [x] Componentes compartidos: NavIcon (colores de área del sidebar), SortableHeader,
   EditableInline, MargenBanner, SelloAct, IVAToggle, SelectorFechaUniversal,
   KpiCardGrande, ChuletaPlataformas, kit/ProgresoGlobal, kit/TabsContainer,
   ui/RutaPantalla, ui/SubTabs.
-- [ ] Conciliación: TabMovimientos, ResumenDashboard, CardFiltro, PanelCobertura,
+- [x] Conciliación: TabMovimientos, ResumenDashboard, CardFiltro, PanelCobertura,
   ModalDetalleMovimiento, TagFiltroActivo, BandejaPropuestas.
-- [ ] Documentación: BandejaEntrada, ModalDescartarFactura, ResolverPendientes,
+- [x] Documentación: BandejaEntrada, ModalDescartarFactura, ResolverPendientes,
   AvisosBandeja. Factura: ModalDetalleFactura. OCR: ExtractosTabla.
-- [ ] Escandallo: TabFichas, ColaRevisionFichas. Equipo: horarios/TabVacaciones,
+- [x] Escandallo: TabFichas, ColaRevisionFichas. Equipo: horarios/TabVacaciones,
   horarios/TabGenerador, ModalSolicitud. Inventario: TabConteos. Importador: TabSubirV2.
-- [ ] Panel: resumen/CardFacturasCorreo, sl/uiSL, TabEvolucion. Mobile: PantallasMovil.
+- [x] Panel: resumen/CardFacturasCorreo, sl/uiSL, TabEvolucion. Mobile: PantallasMovil.
 - Referencia `panel/resumen/ResumenLanding.tsx`: intacta; sus overlays negro/blanco con
   alpha (`#000000xx`/`#ffffffxx`) son atenuados/sombra, no color de paleta → tolerados.
 
@@ -236,3 +236,19 @@ en la prioridad). El siguiente pase arranca por el primer `[ ]` de arriba.
 ## BLOQUEADAS
 - Ninguna bloqueada de verdad. Solo el `[⚠️]` de Objetivos por dependencia de tokens
   compartidos.
+
+## CIERRE FASE 3 (23-jul) — ERP AL 100%
+- Cerradas TODAS las líneas del inventario: Ajustes completo (Integraciones, Reglas,
+  Bancos, Compras/Cocina config, Calendario, Cuentas, Hub, Usuarios, Aprendizajes,
+  CalcNeto, Mapeo), internos de Panel Global (TabOperaciones/Finanzas/Marcas/Evolución),
+  Informes UI (Panel/Historial/Configuración/Destinatarios, sin tocar lógica de envío),
+  sueltas (Ocr, Bandeja de entrada, Fondo & reserva, Documentación, Panel inteligencia
+  ventas, Equipo subir), Cocina sueltas y contenedores.
+- `Objetivos` REPARADO ([⚠️]→[x]): pestañas a TabsPastilla y theming a tokens fijos, sin
+  tocar `tokens.ts`.
+- Piezas blindadas respetadas: `HojaDoc`/hojas imprimibles del MARCO DOCUMENTOS (Esquemas,
+  TabHojaInventario) intactas. Login (marca Google) y Placeholder, excluidos por ley.
+- Barrido final: **0 hex fuera de tabla en todo `src/`** (salvo excepciones documentadas),
+  **0 imports de kit/token faltantes** (chequeo específico, esbuild no los detecta),
+  cada archivo con `esbuild` limpio. Solo capa visual en toda la fase.
+- Un solo `git push` a `trabajo` al cierre. NO publicado a `master`: espera orden de Rubén.
