@@ -232,27 +232,35 @@ async function marcaDePedido(page: Page, id: string, candidatas: string[]): Prom
   return marcaEnTexto(texto, candidatas);
 }
 
-/** Nombres de marca conocidos (actuales + anteriores) para reconocer en el
- * detalle de pedido. Todas las marcas, no solo activas: una marca recién
- * desactivada puede seguir teniendo pedidos JE de hoy en curso.
+/** Nombres de marca conocidos para reconocer en el detalle de pedido, con su
+ * traducción al nombre canónico.
  *
  * FIX 23-jul (regresión "Streat Lab como marca"): 'Streat Lab' es la EMPRESA
  * y aparece en la cabecera del detalle de Sinqro de TODOS los pedidos, así
- * que nunca puede ser candidata: si se deja, cualquier pedido cuyo nombre de
- * marca real no aparezca en el detalle "resuelve" falsamente a la empresa,
- * contamina rankings y envenena la caché id→marca. Excluida, ese pedido queda
- * sin resolver y aplica LEY-ANTIFALSOS (fallback agregado del lote), que es
- * el comportamiento diseñado. 'Black Label by Streat Lab' SÍ es marca real y
- * sigue ganando por longitud cuando aparece en el texto. */
-async function marcasConocidas(): Promise<string[]> {
-  const { data } = await sb.from('marcas').select('nombre, nombre_anterior');
-  const out = new Set<string>();
-  for (const m of (data || []) as { nombre: string | null; nombre_anterior: string | null }[]) {
-    if (m.nombre) out.add(m.nombre);
-    if (m.nombre_anterior) out.add(m.nombre_anterior);
+ * que nunca puede ser candidata. 'Black Label by Streat Lab' SÍ es marca real
+ * y sigue ganando por longitud cuando aparece en el texto.
+ *
+ * Rubén (24-jul): Just Eat SIEMPRE muestra la marca dentro de cada pedido.
+ * Si un pedido no casa, es que el nombre difiere del canónico → se reconocen
+ * también los alias (marca_alias) y los nombres anteriores, y el resultado se
+ * traduce SIEMPRE al nombre canónico de `marcas` antes de guardar. */
+async function marcasConocidas(): Promise<{ nombres: string[]; canonico: Map<string, string> }> {
+  const [{ data: ms }, { data: als }] = await Promise.all([
+    sb.from('marcas').select('id, nombre, nombre_anterior'),
+    sb.from('marca_alias').select('nombre_alias, marca_id'),
+  ]);
+  const canonico = new Map<string, string>();
+  const porId = new Map<string, string>();
+  for (const m of (ms || []) as { id: string; nombre: string | null; nombre_anterior: string | null }[]) {
+    if (m.nombre) { canonico.set(m.nombre, m.nombre); porId.set(m.id, m.nombre); }
+    if (m.nombre_anterior && m.nombre) canonico.set(m.nombre_anterior, m.nombre);
   }
-  out.delete('Streat Lab');
-  return [...out];
+  for (const a of (als || []) as { nombre_alias: string | null; marca_id: string | null }[]) {
+    const canon = a.marca_id ? porId.get(a.marca_id) : undefined;
+    if (a.nombre_alias && canon && canon !== 'Streat Lab') canonico.set(a.nombre_alias, canon);
+  }
+  canonico.delete('Streat Lab');
+  return { nombres: [...canonico.keys()], canonico };
 }
 
 /** Caché id→marca de lo ya resuelto hoy (evita revisitar el detalle de
@@ -273,14 +281,14 @@ const MAX_DETALLES_POR_TICK = 40;
 /** Resuelve el desglose por marca de los pedidos JE del día, usando caché +
  * detalle de pedido para lo nuevo. Todo o nada (ver agruparPorMarca). */
 async function resolverDesgloseJE(page: Page, fecha: string, pedidosJE: PedidoJE[]) {
-  const candidatas = await marcasConocidas();
+  const { nombres: candidatas, canonico } = await marcasConocidas();
   const cache = await cacheMarcasHoy(fecha);
 
   const pendientesTodos = [...new Set(pedidosJE.map((p) => p.id).filter((id): id is string => !!id && !cache.has(id)))];
   const pendientes = pendientesTodos.slice(0, MAX_DETALLES_POR_TICK);
   for (const id of pendientes) {
     const marca = await marcaDePedido(page, id, candidatas);
-    if (marca) cache.set(id, marca);
+    if (marca) cache.set(id, canonico.get(marca) ?? marca);
     // si no resuelve, se queda fuera de la caché: agruparPorMarca hará fallback para este pedido.
   }
   if (pendientes.length) await log(P, 'marca_je', `${fecha}: ${pendientes.length} detalle(s) de pedido visitado(s), caché=${cache.size}`);
