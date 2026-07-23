@@ -1,4 +1,5 @@
 {
+  "ignoreCommand": "bash -c \"git log -1 --pretty=%B | grep -qF '[deploy]' && exit 1 || exit 0\"",
   "rewrites": [
     {
       "source": "/api/ocr-queue",
