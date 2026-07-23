@@ -1,10 +1,10 @@
-import { BLANCO, GRANATE, INK, LIMA, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, INK, LIMA, VERDE, AZUL } from '@/styles/neobrutal'
 import { useState, useEffect, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
-import RutaPantalla from '@/components/ui/RutaPantalla'
 import { fmtEur, fmtDate } from '@/utils/format'
 import { useEsMovil } from '@/hooks/useEsMovil'
+import { HeroCantera, Papel, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 /* ─── Neobrutal ─────────────────────────────────────────── */
 const NEO_INK = 'var(--neo-ink)'
@@ -386,11 +386,24 @@ export default function Proveedores() {
     whiteSpace: 'nowrap',
   }
 
+  const activos = proveedores.filter(p => p.activo).length
+  const totalCompradoGlobal = proveedores.reduce((s, p) => s + (p.total_comprado || 0), 0)
+  const conFacturas = proveedores.filter(p => p.facturas_count > 0).length
+
   return (
-    <div style={{ padding: 28, fontFamily: FONT.body, background: 'var(--sl-app)', minHeight: '100vh' }}>
-      <div style={{ marginBottom: 14 }}>
-        <RutaPantalla niveles={['Proveedores']} />
-      </div>
+    <PantallaCantera embedded>
+      {/* HÉROE (azul · área Compras) */}
+      <HeroCantera
+        area="cashflow"
+        titular={proveedores.length === 0 ? 'Aún no hay proveedores dados de alta.' : 'Así está tu mapa de proveedores.'}
+        etiquetaDato="Comprado a proveedores"
+        cifra={totalCompradoGlobal > 0 ? fmtEur(totalCompradoGlobal) : '—'}
+        resumen={<>{activos} de {proveedores.length} activos · {conFacturas} con facturas OCR casadas</>}
+        atencion={[
+          filtrados.length !== proveedores.length ? `${filtrados.length} tras el filtro` : null,
+          gruposCat.length > 0 ? `${gruposCat.length} categorías` : null,
+        ].filter(Boolean) as string[]}
+      />
 
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
@@ -457,7 +470,9 @@ export default function Proveedores() {
       )}
 
       {!loading && !movil && (
-        <div style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, overflowX: 'auto' }}>
+        <div>
+        <SeccionLabel bg={AZUL}>Proveedores</SeccionLabel>
+        <Papel ceja={AZUL} pad="0" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr>
@@ -526,6 +541,7 @@ export default function Proveedores() {
               ))}
             </tbody>
           </table>
+        </Papel>
         </div>
       )}
 
@@ -540,7 +556,7 @@ export default function Proveedores() {
           saving={saving}
         />
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 
@@ -581,7 +597,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
 
   if (filtrados.length === 0) {
     return (
-      <div style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, padding: 40, textAlign: 'center', color: 'var(--sl-text-muted)', fontSize: 13 }}>
+      <div style={{ background: 'var(--sl-card-alt)', border: `3px solid ${NEO_INK}`, borderRadius: 0, padding: 40, textAlign: 'center', color: 'var(--sl-text-muted)', fontSize: 13 }}>
         {buscando ? 'Sin resultados para la búsqueda' : 'Sin proveedores registrados'}
       </div>
     )
@@ -589,7 +605,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
 
   if (buscando) {
     return (
-      <div style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--sl-card-alt)', border: `3px solid ${NEO_INK}`, borderRadius: 0, overflow: 'hidden' }}>
         {filtrados.map((p, idx) => fila(p, idx < filtrados.length - 1))}
       </div>
     )
@@ -600,7 +616,7 @@ function VistaMovilProveedores({ buscando, filtrados, grupos, abiertos, toggleGr
       {grupos.map(([cat, items]) => {
         const open = abiertos.has(cat)
         return (
-          <div key={cat} style={{ background: 'var(--sl-card-alt)', ...NEO_CARD, border: `3px solid ${open ? LIMA : NEO_INK}`, overflow: 'hidden' }}>
+          <div key={cat} style={{ background: 'var(--sl-card-alt)', border: `3px solid ${open ? LIMA : NEO_INK}`, borderRadius: 0, overflow: 'hidden' }}>
             <button
               onClick={() => toggleGrupo(cat)}
               style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', padding: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}

@@ -1,12 +1,12 @@
-import { AMA_S, AZUL, AZUL_CL, BLANCO, GRANATE, GRIS, INK, NAR, NAR_S, VERDE } from '@/styles/neobrutal'
+import { AMA_S, AZUL, AZUL_CL, BLANCO, GRANATE, GRIS, INK, NAR, VERDE } from '@/styles/neobrutal'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import { Plus, X, Trash2, Save, FolderOpen, ChevronLeft, ChevronRight, Printer, Eraser, GripVertical } from 'lucide-react'
+import { HeroCantera, Papel, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
 
 const OSWALD = "'Oswald', sans-serif"
 const LEXEND = "'Lexend', sans-serif"
-const PAGE_BG = NAR_S
 const SHADOW = `4px 4px 0 ${INK}`
 const SHADOW_SM = `3px 3px 0 ${INK}`
 const RED = GRANATE
@@ -174,15 +174,16 @@ export default function MenuFamilia() {
     background: BLANCO, border: `2px solid ${INK}`, borderRadius: 0,
     padding: '5px 8px', color: INK, fontFamily: LEXEND, fontSize: 12, width: '100%',
   }
-  const card: React.CSSProperties = { background: BLANCO, border: `3px solid ${INK}`, borderRadius: 0, boxShadow: SHADOW, padding: 14 }
   const h3: React.CSSProperties = { fontFamily: OSWALD, fontWeight: 600, fontSize: 13, marginBottom: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK }
   const chip: React.CSSProperties = {
     display: 'flex', alignItems: 'flex-start', gap: 5, background: BLANCO, border: `2px solid ${INK}`,
     borderRadius: 0, padding: '4px 6px', cursor: 'grab',
   }
 
+  const sinEscandallo = platos.filter(p => costeDePlato(p) == null).length
+
   return (
-    <div style={{ background: PAGE_BG, minHeight: '100vh', padding: '24px 28px', fontFamily: LEXEND, color: INK }}>
+    <PantallaCantera embedded style={{ fontFamily: LEXEND, color: INK }}>
       <style>{`
         @media print {
           aside { display: none !important; }
@@ -195,12 +196,17 @@ export default function MenuFamilia() {
         }
       `}</style>
 
-      <div style={{ fontFamily: OSWALD, fontSize: 22, fontWeight: 700, color: INK, letterSpacing: 3, textTransform: 'uppercase' }}>
-        Menú Familia
-      </div>
-      <div style={{ fontFamily: LEXEND, fontSize: 13, color: GRIS, marginTop: 2, marginBottom: 16 }}>
-        Comidas del personal · planificación semanal
-      </div>
+      {/* HÉROE (naranja · área Cocina) */}
+      <HeroCantera
+        area="cocina"
+        titular={`Menú familia listo para la semana del ${fmtCorto(semana)}.`}
+        resumen="Comidas del personal · planificación semanal. Arrastra platos del catálogo a cada día."
+        atencion={[
+          platos.length > 0 ? `${platos.length} platos en catálogo` : null,
+          sinEscandallo > 0 ? `${sinEscandallo} sin escandallo` : null,
+          plantillas.length > 0 ? `${plantillas.length} plantillas guardadas` : null,
+        ].filter(Boolean) as string[]}
+      />
 
       {/* barra superior */}
       <div className="mf-no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -280,9 +286,15 @@ export default function MenuFamilia() {
         </div>
       </div>
 
+      {sinEscandallo > 0 ? (
+        <FrasePotente significado="coste">{sinEscandallo} platos del catálogo van sin escandallo: no sabes lo que cuesta darle de comer al equipo ese día.</FrasePotente>
+      ) : platos.length > 0 ? (
+        <FrasePotente significado="logro">Todo el catálogo tiene escandallo: sabes exactamente lo que cuesta cada comida del personal.</FrasePotente>
+      ) : null}
+
       {/* catálogo + plantillas */}
-      <div className="mf-no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 22, maxWidth: 740 }}>
-        <div style={card}>
+      <div className="mf-no-print" style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+        <Papel ceja={NAR} style={{ flex: '1 1 320px', minWidth: 280, boxShadow: 'none' }}>
           <h3 style={h3}>Catálogo de platos · arrastra a un día</h3>
           <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
             <input style={inp} placeholder="Nuevo plato…" value={nuevoPlato}
@@ -313,9 +325,9 @@ export default function MenuFamilia() {
             })}
             {!platos.length && !loading && <span style={{ fontSize: 12, color: GRIS }}>Sin platos todavía.</span>}
           </div>
-        </div>
+        </Papel>
 
-        <div style={card}>
+        <Papel ceja={NAR} style={{ flex: '1 1 240px', minWidth: 220, boxShadow: 'none' }}>
           <h3 style={h3}>Plantillas</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {plantillas.map(t => (
@@ -327,12 +339,12 @@ export default function MenuFamilia() {
             ))}
             {!plantillas.length && <span style={{ fontSize: 12, color: GRIS }}>Sin plantillas. Monta una semana y pulsa "Plantilla".</span>}
           </div>
-        </div>
+        </Papel>
       </div>
 
       <datalist id="catalogo-platos">
         {platos.map(p => <option key={p.id} value={p.nombre} />)}
       </datalist>
-    </div>
+    </PantallaCantera>
   )
 }

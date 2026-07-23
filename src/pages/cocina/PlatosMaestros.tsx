@@ -8,16 +8,17 @@
  *
  * Reutiliza: unificar_plato, platos_duplicados (Tanda 8) + fn_sugerir_alias_maestro,
  * fn_fusionar_maestros, fn_fusionar_ficha_huerfana (nuevas de este bloque).
- * Estilo: Neobrutal (@/styles/neobrutal), mismo patrón que CostePlato.tsx / TabEquivalencias.tsx.
+ * CANTERA ALEGRE v1.0 (área Cocina · naranja). Solo capa visual.
  */
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  OSW, LEX, INK, CREMA, CLARO, GRIS, GRANATE, VERDE, AMA, AZUL, BLANCO,
+  OSW, LEX, INK, CREMA, CLARO, GRIS, GRANATE, VERDE, AMA, AZUL, NAR, BLANCO,
   VERDE_S, AMA_S, ROSA_S, AZUL_S,
-  SHADOW, BORDER, BORDER_CARD, d, cardWash, cardHead, pill,
+  cardHead, pill,
 } from '@/styles/neobrutal'
 import RutaPantalla from '@/components/ui/RutaPantalla'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
 
 interface Maestro {
   id: number
@@ -289,55 +290,80 @@ export default function PlatosMaestros() {
 
   if (cargando) {
     return (
-      <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
-        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW }}><Vacio>Cargando platos maestros…</Vacio></div>
-      </div>
+      <PantallaCantera>
+        <Papel ceja={NAR} pad="0"><Vacio>Cargando platos maestros…</Vacio></Papel>
+      </PantallaCantera>
     )
   }
 
   return (
-    <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
-      <div style={{ marginBottom: 14 }}>
-        <RutaPantalla niveles={['Plato maestro']} subtitulo="El catálogo real de lo que vendes: un plato, un nombre, sus variantes colgando. Fusiona duplicados y prioriza qué recetas faltan por euros." />
-      </div>
-
-      {/* Hero */}
-      <div style={{ background: GRANATE, border: BORDER_CARD, boxShadow: SHADOW, padding: '18px 22px', marginBottom: 16, color: BLANCO }}>
-        <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', opacity: 0.85 }}>PLATOS MAESTROS CON RECETA</div>
-        <div style={{ ...d('clamp(30px,4.2vw,40px)', BLANCO) }}>{pct1(stats.pct)}</div>
-        <div style={{ fontFamily: LEX, fontSize: 12, opacity: 0.92, fontWeight: 600, marginTop: 8 }}>
-          {eur0(stats.eCon)} con receta · {eur0(stats.eSin)} de la cola pendiente
+    <PantallaCantera>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
+        <RutaPantalla niveles={['Cocina', 'Plato maestro']} subtitulo="El catálogo real de lo que vendes: un plato, un nombre, sus variantes colgando. Fusiona duplicados y prioriza qué recetas faltan por euros." />
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {(['sin_receta', 'con_receta', 'todos'] as Filtro[]).map(f => {
+            const on = f === filtro
+            const label = f === 'sin_receta' ? 'Sin receta' : f === 'con_receta' ? 'Con receta' : 'Todos'
+            return (
+              <button key={f} onClick={() => setFiltro(f)}
+                style={{ padding: '6px 12px', cursor: 'pointer', background: on ? GRANATE : BLANCO, color: on ? BLANCO : INK, border: `2px solid ${INK}`, fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{label}</button>
+            )
+          })}
+          <input placeholder="Buscar plato o alias…" value={busca} onChange={e => setBusca(e.target.value)} style={{ ...inp, minWidth: 220 }} />
         </div>
       </div>
+
+      {/* HÉROE (naranja · área Cocina) */}
+      <HeroCantera
+        area="cocina"
+        titular={stats.pct >= 80 ? 'Casi todo el catálogo tiene receta enlazada.' : 'Buena parte del catálogo va todavía sin receta.'}
+        etiquetaDato="Platos maestros con receta"
+        cifra={pct1(stats.pct)}
+        resumen={<>{eur0(stats.eCon)} con receta · {eur0(stats.eSin)} de la cola pendiente</>}
+        atencion={[
+          dupPendientes.length > 0 ? `${dupPendientes.length} duplicados por decidir` : null,
+          fichasHuerfanas.length > 0 ? `${fichasHuerfanas.length} fichas huérfanas` : null,
+          sugerencias.filter(s => !rechazadas.has(s.plato_norm)).length > 0 ? `${sugerencias.filter(s => !rechazadas.has(s.plato_norm)).length} alias sugeridos` : null,
+        ].filter(Boolean) as string[]}
+      />
 
       {aviso && <Nota tono="verde">{aviso}</Nota>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12, marginBottom: 16, marginTop: aviso ? 16 : 0 }}>
-        <div style={cardWash(VERDE_S)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Con receta</div>
-          <div style={{ ...d('26px', VERDE), margin: '6px 0' }}>{nf0(stats.conReceta)}</div>
+      {/* KPI · Plancha de celdas sólidas pegadas */}
+      <Plancha>
+        <PlanchaCelda bg={VERDE} color={BLANCO} first>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Con receta</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, margin: '6px 0' }}>{nf0(stats.conReceta)}</div>
           <span style={pill(VERDE_S, VERDE)}>{eur0(stats.eCon)}</span>
-        </div>
-        <div style={cardWash(ROSA_S)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Sin receta (cola)</div>
-          <div style={{ ...d('26px', GRANATE), margin: '6px 0' }}>{nf0(stats.sinReceta)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={GRANATE} color={BLANCO}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Sin receta (cola)</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, margin: '6px 0' }}>{nf0(stats.sinReceta)}</div>
           <span style={pill(ROSA_S, GRANATE)}>{eur0(stats.eSin)}</span>
-        </div>
-        <div style={cardWash(AZUL_S)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Duplicados</div>
-          <div style={{ ...d('26px', AZUL), margin: '6px 0' }}>{nf0(dupPendientes.length)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AZUL} color={BLANCO}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Duplicados</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, margin: '6px 0' }}>{nf0(dupPendientes.length)}</div>
           <span style={pill(AZUL_S, AZUL)}>de {nf0(dups.length)} sugeridos · {dupResueltos} resueltos</span>
-        </div>
-        <div style={cardWash(AMA_S)}>
-          <div style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Fichas huérfanas</div>
-          <div style={{ ...d('26px', AMA), margin: '6px 0' }}>{nf0(fichasHuerfanas.length)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AMA} color={INK}>
+          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Fichas huérfanas</div>
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, margin: '6px 0' }}>{nf0(fichasHuerfanas.length)}</div>
           <span style={pill(AMA_S, AMA)}>del Bloque 5, por resolver</span>
-        </div>
-      </div>
+        </PlanchaCelda>
+      </Plancha>
+
+      {dupPendientes.length > 0 ? (
+        <FrasePotente significado="coste">{dupPendientes.length} platos parecen el mismo plato repetido: mientras no los fusiones, las ventas van partidas en dos.</FrasePotente>
+      ) : stats.pct >= 80 ? (
+        <FrasePotente significado="logro">Casi toda la carta real tiene receta: el food cost que ves es de fiar.</FrasePotente>
+      ) : (
+        <FrasePotente significado="oportunidad">Escandalla primero los platos maestros que más facturan: menos altas, más cobertura.</FrasePotente>
+      )}
 
       {/* ── Fichas huérfanas (cola de revisión Bloque 5) ── */}
       {fichasHuerfanas.length > 0 && (
-        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden', marginBottom: 16 }}>
+        <Papel ceja={AMA} pad="0" style={{ overflow: 'hidden' }}>
           <div style={{ ...cardHead(AMA), color: INK }}>Fichas huérfanas por resolver ({fichasHuerfanas.length})</div>
           <div style={{ padding: '14px 16px' }}>
             <p style={{ fontFamily: LEX, fontSize: 12, color: GRIS, margin: '0 0 10px' }}>
@@ -370,12 +396,12 @@ export default function PlatosMaestros() {
               )
             })}
           </div>
-        </div>
+        </Papel>
       )}
 
       {/* ── Duplicados pendientes ── */}
       {dupPendientes.length > 0 && (
-        <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden', marginBottom: 16 }}>
+        <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
           <div style={cardHead(GRANATE)}>Platos que parecen el mismo ({dupPendientes.length})</div>
           <div style={{ padding: '14px 16px', overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -403,12 +429,12 @@ export default function PlatosMaestros() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Papel>
       )}
 
       {/* ── Sugerencias de alias (siempre con confirmación humana) ── */}
       {sugerencias.filter(s => !rechazadas.has(s.plato_norm)).length > 0 && (
-        <div style={{ background: BLANCO, border: `3px solid ${AZUL}`, boxShadow: SHADOW, padding: 12, marginBottom: 16 }}>
+        <Papel ceja={AZUL}>
           <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 14, letterSpacing: '.5px', textTransform: 'uppercase', color: AZUL, marginBottom: 8 }}>
             Alias sueltos con sugerencia ({sugerencias.filter(s => !rechazadas.has(s.plato_norm)).length})
           </div>
@@ -428,11 +454,11 @@ export default function PlatosMaestros() {
               )
             })}
           </div>
-        </div>
+        </Papel>
       )}
 
       {/* ── Asignación manual de alias ── */}
-      <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Papel ceja={AMA} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontFamily: OSW, fontSize: 12, letterSpacing: '.5px', textTransform: 'uppercase', color: GRIS }}>Asignar alias manual:</span>
         <input placeholder="Nombre de la variante" value={manualAlias} onChange={e => setManualAlias(e.target.value)} style={{ ...inp, minWidth: 240 }} />
         <select value={manualMaestro} onChange={e => setManualMaestro(e.target.value)} style={{ ...inp, minWidth: 220 }}>
@@ -440,31 +466,20 @@ export default function PlatosMaestros() {
           {maestros.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
         </select>
         <button style={btn(AMA, INK)} onClick={asignarManual}>Vincular</button>
-      </div>
+      </Papel>
 
       {/* ── Tabla principal ── */}
-      <div style={{ background: BLANCO, border: BORDER, boxShadow: SHADOW, overflow: 'hidden' }}>
+      <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
         <div style={{ ...cardHead(GRANATE), display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div>
             <div>Cola priorizada por euros — qué receta crear primero</div>
-            <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 500, marginTop: 2, textTransform: 'none', letterSpacing: 0 }}>Ordenada de más a menos facturación. Filtra, busca, expande alias, crea o fusiona.</div>
+            <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 500, marginTop: 2, textTransform: 'none', letterSpacing: 0 }}>Ordenada de más a menos facturación. Filtra arriba, busca, expande alias, crea o fusiona.</div>
           </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {(['sin_receta', 'con_receta', 'todos'] as Filtro[]).map(f => {
-              const on = f === filtro
-              const label = f === 'sin_receta' ? 'Sin receta' : f === 'con_receta' ? 'Con receta' : 'Todos'
-              return (
-                <button key={f} onClick={() => setFiltro(f)}
-                  style={{ padding: '6px 12px', cursor: 'pointer', background: on ? BLANCO : 'transparent', color: on ? GRANATE : BLANCO, border: `2px solid ${BLANCO}`, fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{label}</button>
-              )
-            })}
-          </div>
+          <span style={{ fontFamily: OSW, fontSize: 12, fontWeight: 600, color: BLANCO, opacity: 0.9 }}>{lista.length} de {maestros.length}</span>
         </div>
 
         <div style={{ padding: '14px 16px' }}>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-            <input placeholder="Buscar plato o alias…" value={busca} onChange={e => setBusca(e.target.value)} style={{ ...inp, minWidth: 260 }} />
-            <span style={{ fontFamily: OSW, fontSize: 12, color: GRIS }}>{lista.length} de {maestros.length}</span>
             {nuevoNombre === null ? (
               <button style={btn(AMA, INK)} onClick={() => setNuevoNombre('')}>+ Nuevo plato maestro</button>
             ) : (
@@ -535,7 +550,7 @@ export default function PlatosMaestros() {
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </Papel>
+    </PantallaCantera>
   )
 }

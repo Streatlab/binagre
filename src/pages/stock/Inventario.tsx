@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTheme, FONT } from '@/styles/tokens'
-import RutaPantalla from '@/components/ui/RutaPantalla'
 import TabsPastilla from '@/components/ui/TabsPastilla'
+import { HeroCantera, PantallaCantera } from '@/components/kit/cantera'
 import TabConteos from '@/components/inventario/TabConteos'
 import TabMovimientos from '@/components/inventario/TabMovimientos'
 import TabMermas from '@/components/inventario/TabMermas'
@@ -86,11 +86,16 @@ export default function Inventario() {
   const { desde, hasta } = getPeriodoFechas(periodo)
 
   return (
-    <div style={{ padding: '24px 28px', minHeight: '100vh', background: T.bg, fontFamily: FONT.body }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
-        <RutaPantalla niveles={['Compras & Inventario', TABS.find(t => t.key === tab)?.label ?? '']} />
+    <PantallaCantera embedded>
+      {/* HÉROE (azul · área Compras) */}
+      <HeroCantera
+        area="cashflow"
+        titular="Stock, compras y precios de proveedor, todo en el mismo sitio."
+        resumen={<>Estás en <b>{TABS.find(t => t.key === tab)?.label ?? ''}</b></>}
+      />
 
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
         {CON_PERIODO.includes(tab) && (
           <select
             value={periodo}
@@ -129,6 +134,6 @@ export default function Inventario() {
       {tab === 'movimientos' && <TabMovimientos  desde={desde} hasta={hasta} />}
       {tab === 'mermas'      && <TabMermas       desde={desde} hasta={hasta} />}
       {tab === 'foodcost'    && <TabAnalisisFoodCost />}
-    </div>
+    </PantallaCantera>
   )
 }

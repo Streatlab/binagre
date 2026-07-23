@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import React from 'react'
 import { supabase } from '@/lib/supabase'
-import { useTheme, FONT, pageTitleStyle, groupStyle } from '@/styles/tokens'
-import { GRANATE, BLANCO } from '@/styles/neobrutal'
+import { useTheme, FONT } from '@/styles/tokens'
+import { GRANATE, BLANCO, VERDE, NAR, AZUL } from '@/styles/neobrutal'
 import { PRINT_BN_BG, PRINT_BN_TXT, COBERTURA_VERDE, COBERTURA_NARANJA, COBERTURA_NARANJA_CLARO } from '@/styles/palettes'
 import type { TokenSet } from '@/styles/tokens'
+import { HeroCantera, Papel, PantallaCantera, FrasePotente, SeccionLabel } from '@/components/kit/cantera'
 import { Printer, Download, ShoppingCart, Search, Trash2, RotateCcw, Share2, ListChecks, Scale, Gauge, ChevronDown, ChevronRight, FileSpreadsheet, Copy, Check, Sparkles } from 'lucide-react'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
@@ -226,15 +227,39 @@ export default function ListaCompra() {
     M.descargar(doc, `lista-compra-semana-${semanaN}`)
   }
 
-  if (loading) return <div style={{ ...groupStyle(T), width: '100%' }}><h1 style={pageTitleStyle(T)}>Lista de Compra</h1><div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando…</div></div>
+  if (loading) return (
+    <PantallaCantera embedded>
+      <div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Cargando lista de compra…</div>
+    </PantallaCantera>
+  )
+
+  const gapsCount = cobertura.escandallo + cobertura.sin
+  const titular = gapsCount > 0
+    ? 'Hay referencias sin precio de robot: revísalas antes de mandar el pedido.'
+    : 'Todas las referencias tienen precio: la lista está lista para pedir.'
 
   return (
-    <div style={{ ...groupStyle(T), width: '100%' }}>
+    <PantallaCantera embedded>
       <style>{CSS}</style>
 
-      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-        <ShoppingCart size={24} color={GRANATE} />
-        <h1 style={{ ...pageTitleStyle(T), margin: 0 }}>Lista de Compra</h1>
+      {/* HÉROE (azul · área Compras) */}
+      <HeroCantera
+        area="cashflow"
+        periodo={metaTexto}
+        titular={titular}
+        etiquetaDato="Referencias en la lista"
+        cifra={String(totalRefs)}
+        resumen={cobertura.total > 0 ? <>{fmtPct(cobertura.pctRobot)} con precio de robot{cobertura.escandallo > 0 ? <> · {cobertura.escandallo} de escandallo</> : null}{cobertura.sin > 0 ? <> · {cobertura.sin} sin precio</> : null}</> : undefined}
+        atencion={[
+          bajoMinimoIds.size > 0 ? `${bajoMinimoIds.size} bajo mínimo` : null,
+          comparativa.items.length > 0 ? `Ahorro hasta ${fmtPct(comparativa.items[0].ahorroPct)} comparando súper` : null,
+          papeleraItems.length > 0 ? `${papeleraItems.length} en la papelera` : null,
+        ].filter(Boolean) as string[]}
+      />
+
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 2 }}>
+        <ShoppingCart size={18} color={GRANATE} />
+        <span style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.mut }}>{vista === 'lista' ? 'Vista lista' : 'Papelera'}</span>
       </div>
 
       {/* Botones */}
@@ -301,7 +326,8 @@ export default function ListaCompra() {
 
       {/* Cobertura de precios del robot (solo pantalla) */}
       {vista === 'lista' && cobertura.total > 0 && (
-        <div className="no-print" style={{ border: `1px solid ${T.brd}`, borderRadius: 12, background: T.card, marginBottom: 12, overflow: 'hidden' }}>
+        <div className="no-print">
+        <Papel ceja={AZUL} pad="0" style={{ overflow: 'hidden' }}>
           <button
             onClick={() => setCobOpen(o => !o)}
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
@@ -347,12 +373,14 @@ export default function ListaCompra() {
               </table>
             </div>
           )}
+        </Papel>
         </div>
       )}
 
       {/* Comparador Mercadona vs Alcampo — ahorro potencial (solo pantalla) */}
       {vista === 'lista' && comparativa.nComparables > 0 && (
-        <div className="no-print" style={{ border: `1px solid ${T.brd}`, borderRadius: 12, background: T.card, marginBottom: 16, overflow: 'hidden' }}>
+        <div className="no-print">
+        <Papel ceja={AZUL} pad="0" style={{ overflow: 'hidden' }}>
           <button
             onClick={() => setCmpOpen(o => !o)}
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
@@ -407,6 +435,7 @@ export default function ListaCompra() {
               </table>
             </div>
           )}
+        </Papel>
         </div>
       )}
 
@@ -463,7 +492,9 @@ export default function ListaCompra() {
 
       {/* Vista: PAPELERA */}
       {vista === 'papelera' && (
-        <div className="no-print" style={{ border: `1px solid ${T.brd}`, borderRadius: 10, background: T.card, overflow: 'hidden' }}>
+        <div className="no-print">
+          <SeccionLabel bg={AZUL}>Papelera</SeccionLabel>
+          <Papel ceja={AZUL} pad="0" style={{ overflow: 'hidden' }}>
           {papeleraItems.length === 0 ? (
             <div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>La papelera está vacía</div>
           ) : (
@@ -488,9 +519,17 @@ export default function ListaCompra() {
               </tbody>
             </table>
           )}
+          </Papel>
         </div>
       )}
-    </div>
+
+      {gapsCount === 0 && cobertura.total > 0 && vista === 'lista' && (
+        <FrasePotente significado="logro">Todas las referencias de la lista tienen precio conocido: puedes mandarla a comprar sin sorpresas.</FrasePotente>
+      )}
+      {gapsCount > 0 && vista === 'lista' && (
+        <FrasePotente significado="coste">{gapsCount} referencias van sin precio de robot: revísalas en "Cobertura del robot" antes de pedir.</FrasePotente>
+      )}
+    </PantallaCantera>
   )
 }
 

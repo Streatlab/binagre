@@ -2,16 +2,17 @@ import { BLANCO, GRANATE, LIMA, NAR, ROJO, VERDE } from '@/styles/neobrutal'
 /**
  * T-F4-05 — Carta · CRUD carta_platos con food cost por canal.
  * Implementa T-F4-05 + T-F4-06 (margen por canal).
+ * CANTERA ALEGRE v1.0 (área Cocina · naranja). Solo capa visual.
  */
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { vincularPlato, desvincularPlato } from '@/lib/cocina/vincularCliente'
-import { useTheme, FONT, pageTitleStyle, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
+import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 import { marginPorTodosCanales, type MargenPorCanal } from '@/lib/marcas/foodCostPorCanal'
 import { fmtEur } from '@/utils/format'
-import { useIsMobile } from '@/hooks/useIsMobile'
 import { similitudPlato } from '@/utils/normPlato'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
 
 /** Umbral mínimo para sugerir un enlace automático (Tanda 8) — por debajo, mejor no
  *  sugerir nada que sugerir mal; el usuario sigue teniendo el selector manual del form. */
@@ -56,7 +57,6 @@ const NEO_CARD: CSSProperties = { border: `3px solid ${NEO_INK}`, borderRadius: 
 
 export default function Carta() {
   const { T, isDark } = useTheme()
-  const isMobile = useIsMobile()
   const [tab, setTab] = useState<Tab>('platos')
   const [platos, setPlatos] = useState<Plato[]>([])
   const [recetas, setRecetas] = useState<Receta[]>([])
@@ -105,10 +105,25 @@ export default function Carta() {
     padding: '9px 12px', borderBottom: `0.5px solid ${T.brd}`, verticalAlign: 'middle',
   }
 
+  const titular = sinReceta > 0
+    ? `${sinReceta} platos de la carta van sin receta: no sabes lo que te cuestan.`
+    : 'Toda la carta tiene receta enlazada: sabes lo que te cuesta cada plato.'
+
   return (
-    <div style={{ background: 'var(--neo-bg)', ...NEO_CARD, padding: isMobile ? '16px 12px' : '24px 28px', width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={pageTitleStyle(T)}>Carta</h1>
+    <PantallaCantera embedded>
+      {/* HÉROE (naranja · área Cocina) */}
+      <HeroCantera
+        area="cocina"
+        titular={titular}
+        etiquetaDato="Margen bruto medio"
+        cifra={fmtEur(margenMedio)}
+        resumen={<>{platosActivos.length} platos activos en carta</>}
+        atencion={[
+          sinReceta > 0 ? `${sinReceta} sin receta` : null,
+        ].filter(Boolean) as string[]}
+      />
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button
           onClick={() => { setEditId(null); setShowForm(true) }}
           style={{
@@ -121,12 +136,27 @@ export default function Carta() {
         </button>
       </div>
 
-      {/* KPI cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 20 }}>
-        <KpiMini label="Platos activos" value={String(platosActivos.length)} T={T} />
-        <KpiMini label="Margen bruto medio" value={fmtEur(margenMedio)} T={T} />
-        <KpiMini label="Sin receta" value={String(sinReceta)} T={T} accent={sinReceta > 0 ? COLOR_AMARILLO : undefined} />
-      </div>
+      {/* KPI · Plancha de celdas sólidas pegadas */}
+      <Plancha>
+        <PlanchaCelda bg={NAR} color={BLANCO} first>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Platos activos</div>
+          <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 24, marginTop: 6 }}>{platosActivos.length}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={VERDE} color={BLANCO}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Margen bruto medio</div>
+          <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 24, marginTop: 6 }}>{fmtEur(margenMedio)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={sinReceta > 0 ? COLOR_AMARILLO : NAR} color={BLANCO}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 600 }}>Sin receta</div>
+          <div style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: 24, marginTop: 6 }}>{sinReceta}</div>
+        </PlanchaCelda>
+      </Plancha>
+
+      {sinReceta > 0 ? (
+        <FrasePotente significado="coste">Cada plato sin receta enlazada vende a ciegas: no hay food cost ni margen real detrás.</FrasePotente>
+      ) : (
+        <FrasePotente significado="logro">Toda la carta tiene coste conocido: el margen que ves es el margen real.</FrasePotente>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -187,7 +217,7 @@ export default function Carta() {
           onSave={() => { setShowForm(false); setRefreshKey(k => k + 1) }}
         />
       )}
-    </div>
+    </PantallaCantera>
   )
 }
 
@@ -213,7 +243,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
   onVincular: (id: string, recetaId: string) => void
 }) {
   return (
-    <div style={{ ...NEO_CARD, overflowX: 'auto' }}>
+    <Papel ceja={NAR} pad="0" style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
         <thead>
           <tr>
@@ -317,7 +347,7 @@ function TabPlatos({ platos, recetas, recetaMap, T, thStyle, tdStyle, onEdit, on
           )}
         </tbody>
       </table>
-    </div>
+    </Papel>
   )
 }
 
@@ -361,7 +391,7 @@ function TabPorCanal({ platos, recetaMap, T, thStyle, tdStyle }: {
   }
 
   return (
-    <div style={{ ...NEO_CARD, overflowX: 'auto' }}>
+    <Papel ceja={NAR} pad="0" style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
         <thead>
           <tr>
@@ -401,7 +431,7 @@ function TabPorCanal({ platos, recetaMap, T, thStyle, tdStyle }: {
           )}
         </tbody>
       </table>
-    </div>
+    </Papel>
   )
 }
 
@@ -500,12 +530,3 @@ function PlatoForm({ T, plato, recetas, onClose, onSave }: {
   )
 }
 
-/* ─── KPI Mini ─── */
-function KpiMini({ label, value, T, accent }: { label: string; value: string; T: ReturnType<typeof useTheme>['T']; accent?: string }) {
-  return (
-    <div style={{ background: T.card, ...NEO_CARD, padding: '14px 16px' }}>
-      <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: T.mut, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: FONT.heading, fontSize: 'clamp(17px,5vw,22px)', fontWeight: 600, color: accent ?? T.pri }}>{value}</div>
-    </div>
-  )
-}
