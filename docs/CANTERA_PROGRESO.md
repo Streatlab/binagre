@@ -6,135 +6,155 @@ ley: prompt AUTOLOOP + referencia validada `src/pages/PanelGlobal.tsx` /
 `ui/RutaPantalla`, `ui/TabsPastilla`, `ui/SubTabs`, `kit/HeroTocho`, `kit/FraseHero`,
 tokens `styles/neobrutal.ts` + `styles/kit.ts`.
 
-Estados: `[ ]` pendiente · `[x]` hecha (cabecera v4 + gate de color verde + superficies
-Cantera) · `[⚠️]` bloqueada. Nota: la cabecera v4 (RutaPantalla + TabsPastilla/SubTabs)
-ya se aplicó en tanda previa a casi todo; aquí se cierra el CUERPO (gate de color,
-superficies papel/plancha, tipografía, sin lavados) pantalla por pantalla.
+## FASE 2 · CUERPO REAL (re-auditoría honesta 23-jul)
+La tanda anterior solo logró **gate de color verde** + cabecera v4 en algunos padres.
+Eso NO es Cantera Alegre. Se resetea a `[ ]` toda pantalla que no cumpla LOS 6
+CRITERIOS. El `[x]` solo se pone cuando una pantalla cumple los 6:
 
-Gate de color = 0 hex fuera de los 12 tokens + colores de canal (script scratchpad/gate.sh).
-Solo capa visual: prohibido tocar queries, cálculos, Supabase, API, lógica.
+1. **Cabecera v4**: `RutaPantalla` (Módulo ▸ Pestaña ▸ Subpestaña) + `TabsPastilla`/
+   `SubTabs` + filtros planos. Fuera `eyebrow + h1 granate + subtítulo gris`.
+2. **Héroe del área** con su color (Resumen amarillo · Cashflow/Tesorería azul ·
+   Facturación/Ventas verde · Papeleo granate · Cocina/Ops naranja · Marcas/Marketing
+   rosa · Equipo tinta · EEFF/Objetivos amarillo). Anatomía: claim + pastilla periodo +
+   titular frase natural (no dato suelto) + etiqueta + cifra gigante € + chip variación +
+   resumen + tira de atención blanca pegada (máx 4 chips).
+3. **UNA frase potente** tras la plancha, color por SIGNIFICADO (rojo peligro · granate
+   coste · rosa oportunidad · verde logro), distinta del color del héroe.
+4. **Superficies**: plancha = tarjetas sólidas PEGADAS con borde 3px (no grid con gap) ·
+   resto = papel blanco, ceja 7px color de familia, gap 16px, sin sombra. Radio 0.
+   Columna, ancho máx 1360.
+5. **Sombra dura** 3px 3px 0 tinta SOLO en lo pulsable + resumen/neto del héroe. Fuera
+   `boxShadow: SHADOW` de tarjetas/tablas informativas.
+6. **Cifras/tipografía por ley**: € solo en cifra gigante y totales · es-ES · 2 dec
+   <1.000 y 0 desde 1.000 · variación triángulo+signo+color · "—" si falta · numérico a
+   la derecha · Oswald titulares/cifras + Lexend texto.
+
+Se mantiene lo logrado: 0 hex fuera de los 12 tokens + colores de canal.
+Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
+(`HeroCantera`, `Papel`, `Plancha`, `PlanchaCelda`, `FrasePotente`) + `ui/RutaPantalla`
+/`TabsPastilla`/`SubTabs`. Solo capa visual: nada de queries, cálculos, props, lógica.
 
 ## INVENTARIO
 
 ### Portada / Panel
-- [x] Panel Global · Resumen (REFERENCIA validada)
-- [x] Panel Global · Operaciones / Finanzas / Cashflow / Evolución / Marcas (tabs del panel)
-- [x] Home (Hoy) — portada
-- [x] Panel Dirección
+- [x] Panel Global · Resumen (REFERENCIA validada · cumple los 6 criterios)
+- [ ] Panel Global · Operaciones / Finanzas / Cashflow / Evolución / Marcas (tabs del panel)
+- [ ] Home (Hoy) — portada
+- [ ] Panel Dirección
 
 ### Finanzas
-- [x] Papeleo · Bandeja entrada
-- [x] Papeleo · Facturas (OCR)
-- [x] Papeleo · Conciliación
-- [x] Papeleo · Gestor documental
-- [x] Papeleo · Facturación
-- [x] Papeleo · Gestoría
-- [x] Ventas · Ventas
-- [x] Ventas · Objetivos
-- [x] Ventas · Ticket medio
-- [x] Ventas · Repetición clientes
-- [x] Resultados · Running
-- [x] Resultados · P&G
-- [x] Resultados · Estados financieros
-- [x] Resultados · Evolución (análisis horiz/vert)
-- [x] Rentabilidad · Punto de equilibrio
-- [x] Rentabilidad · Por marca y canal (break-even)
-- [x] Rentabilidad · ROI por canal
-- [x] Rentabilidad · Por franja horaria
-- [x] Tesorería · Calendario
-- [x] Tesorería · Gastos fijos
-- [x] Tesorería · Fondo & reserva
-- [x] Tesorería · Historial
-- [x] Tesorería · 13 semanas
-- [x] Tesorería · Escenarios
-- [x] Tesorería · Salud financiera (fondo maniobra)
-- [x] Panel de alertas
-- [x] Bandeja de pendientes
+- [ ] Papeleo · Bandeja entrada
+- [ ] Papeleo · Facturas (OCR)
+- [ ] Papeleo · Conciliación
+- [ ] Papeleo · Gestor documental
+- [ ] Papeleo · Facturación
+- [ ] Papeleo · Gestoría
+- [ ] Ventas · Ventas
+- [ ] Ventas · Objetivos
+- [ ] Ventas · Ticket medio
+- [ ] Ventas · Repetición clientes
+- [ ] Resultados · Running
+- [ ] Resultados · P&G
+- [ ] Resultados · Estados financieros
+- [ ] Resultados · Evolución (análisis horiz/vert)
+- [ ] Rentabilidad · Punto de equilibrio
+- [ ] Rentabilidad · Por marca y canal (break-even)
+- [ ] Rentabilidad · ROI por canal
+- [ ] Rentabilidad · Por franja horaria
+- [ ] Tesorería · Calendario
+- [ ] Tesorería · Gastos fijos
+- [ ] Tesorería · Fondo & reserva
+- [ ] Tesorería · Historial
+- [ ] Tesorería · 13 semanas
+- [ ] Tesorería · Escenarios
+- [ ] Tesorería · Salud financiera (fondo maniobra)
+- [ ] Panel de alertas
+- [ ] Bandeja de pendientes
 
 ### Ventas y Clientes (áreas)
-- [x] Analítica · Margen por canal
-- [x] Analítica · Ventas por marca
-- [x] Analítica · Pareto ventas
-- [x] Analítica · Revenue & ticket
-- [x] Analítica · Predicción demanda
-- [x] Clientes · CRM tienda propia
-- [x] Clientes · Club fidelización
-- [x] Marketing · Panel MKT
-- [x] Marketing · Plan campañas
-- [x] Marketing · Rendimiento ads/promo
-- [x] Marketing · Panel reseñas
-- [x] Marketing · Benchmark
-- [x] Marketing · Playbook ThinkPaladar
+- [ ] Analítica · Margen por canal
+- [ ] Analítica · Ventas por marca
+- [ ] Analítica · Pareto ventas
+- [ ] Analítica · Revenue & ticket
+- [ ] Analítica · Predicción demanda
+- [ ] Clientes · CRM tienda propia
+- [ ] Clientes · Club fidelización
+- [ ] Marketing · Panel MKT
+- [ ] Marketing · Plan campañas
+- [ ] Marketing · Rendimiento ads/promo
+- [ ] Marketing · Panel reseñas
+- [ ] Marketing · Benchmark
+- [ ] Marketing · Playbook ThinkPaladar
 
 ### Cocina
-- [x] Cocina · Hoy
-- [x] Cocina Operativa · Recetario
-- [x] Cocina Operativa · Carta
-- [x] Cocina Operativa · Menú familia
-- [x] Cocina Operativa · Producción
-- [x] Cocina Operativa · Plato maestro
-- [x] Cocina Dinero · Datos (Escandallo)
-- [x] Cocina Dinero · Menú engineering
-- [x] Cocina Dinero · Pareto ingredientes
-- [x] Cocina Dinero · Coste por plato
-- [x] Cocina · Inventario
-- [x] Cocina · Platos maestros (catálogo)
+- [ ] Cocina · Hoy
+- [ ] Cocina Operativa · Recetario
+- [ ] Cocina Operativa · Carta
+- [ ] Cocina Operativa · Menú familia
+- [ ] Cocina Operativa · Producción
+- [ ] Cocina Operativa · Plato maestro
+- [ ] Cocina Dinero · Datos (Escandallo)
+- [ ] Cocina Dinero · Menú engineering
+- [ ] Cocina Dinero · Pareto ingredientes
+- [ ] Cocina Dinero · Coste por plato
+- [ ] Cocina · Inventario
+- [ ] Cocina · Platos maestros (catálogo)
 
 ### Compras
-- [x] Compras · Lista de compra
-- [x] Compras · Inventario (stock)
-- [x] Compras · Proveedores
+- [ ] Compras · Lista de compra
+- [ ] Compras · Inventario (stock)
+- [ ] Compras · Proveedores
 
 ### Operaciones
-- [x] Registro diario · Checklists
-- [x] Registro diario · Tareas operativas
-- [x] Registro diario · Temperaturas
-- [x] Registro diario · Bitácora
-- [x] Registro diario · Pulso cocina
-- [x] Mantenimiento · Libro equipos
-- [x] Mantenimiento · Daños menaje
-- [x] Mantenimiento · Pedidos menaje
-- [x] Calidad · BPM/Calidad
-- [x] Calidad · Manuales
-- [x] Reclamación reembolsos
-- [x] Reuniones equipo
+- [ ] Registro diario · Checklists
+- [ ] Registro diario · Tareas operativas
+- [ ] Registro diario · Temperaturas
+- [ ] Registro diario · Bitácora
+- [ ] Registro diario · Pulso cocina
+- [ ] Mantenimiento · Libro equipos
+- [ ] Mantenimiento · Daños menaje
+- [ ] Mantenimiento · Pedidos menaje
+- [ ] Calidad · BPM/Calidad
+- [ ] Calidad · Manuales
+- [ ] Reclamación reembolsos
+- [ ] Reuniones equipo
 
 ### Equipo
-- [x] Equipo · Personas (Fichas/Organigrama/Incentivos/Portal)
-- [x] Equipo · Dinero (Nóminas/Costes/SegSocial)
-- [x] Equipo · Día a día (Horarios/Fichajes/Calendario/Permisos)
-- [x] Equipo · Documentos
+- [ ] Equipo · Personas (Fichas/Organigrama/Incentivos/Portal)
+- [ ] Equipo · Dinero (Nóminas/Costes/SegSocial)
+- [ ] Equipo · Día a día (Horarios/Fichajes/Calendario/Permisos)
+- [ ] Equipo · Documentos
 
 ### Marcas / Tareas / Importar
-- [x] Marcas (simple)
-- [x] Tareas
-- [x] Importar ventas
+- [ ] Marcas (simple)
+- [ ] Tareas
+- [ ] Importar ventas
 
 ### Ajustes
-- [x] Ajustes · Hub
-- [x] Ajustes · Integraciones (Marcas/Canales/Drive)
-- [x] Ajustes · Reglas (Ingredientes/Conciliación/Plantillas/Diccionario/Correo)
-- [x] Ajustes · Bancos
-- [x] Ajustes · Cuentas bancarias
-- [x] Ajustes · Bancos y cuentas
-- [x] Ajustes · Compras config (Costes/Proveedores/Categorías/Unidades)
-- [x] Ajustes · Cocina config (Categorías/Unidades/Proveedores/Formato)
-- [x] Ajustes · Usuarios
-- [x] Ajustes · Calendario operativo
-- [x] Ajustes · Aprendizajes ERP
-- [x] Ajustes · Aprendizaje calcNeto
-- [x] Ajustes · Mapeo de marcas
+- [ ] Ajustes · Hub
+- [ ] Ajustes · Integraciones (Marcas/Canales/Drive)
+- [ ] Ajustes · Reglas (Ingredientes/Conciliación/Plantillas/Diccionario/Correo)
+- [ ] Ajustes · Bancos
+- [ ] Ajustes · Cuentas bancarias
+- [ ] Ajustes · Bancos y cuentas
+- [ ] Ajustes · Compras config (Costes/Proveedores/Categorías/Unidades)
+- [ ] Ajustes · Cocina config (Categorías/Unidades/Proveedores/Formato)
+- [ ] Ajustes · Usuarios
+- [ ] Ajustes · Calendario operativo
+- [ ] Ajustes · Aprendizajes ERP
+- [ ] Ajustes · Aprendizaje calcNeto
+- [ ] Ajustes · Mapeo de marcas
 
 ### Sidebar / marco
-- [x] Sidebar (cabeceras de sección por área)
+- [ ] Sidebar (cabeceras de sección por área)
 
 ### Informes (UI)
-- [x] Informes · Panel (gate verde; lógica de envío/robots NO tocada)
-- [x] Informes · Historial (gate verde)
-- [x] Informes · Configuración (gate verde)
-- [x] Login (gate verde salvo colores de marca Google del botón OAuth — excepción marca)
-- [x] Cashflow (tab del Panel) · gate verde
-- [x] Placeholder · gate verde
+- [ ] Informes · Panel (gate verde; lógica de envío/robots NO tocada)
+- [ ] Informes · Historial (gate verde)
+- [ ] Informes · Configuración (gate verde)
+- [ ] Login (gate verde salvo colores de marca Google del botón OAuth — excepción marca)
+- [ ] Cashflow (tab del Panel) · gate verde
+- [ ] Placeholder · gate verde
 
 ### Excluidos por ley (no Cantera)
 - Informes · envíos / robots: SOLO se tocó color de las pantallas UI; nada de la lógica
@@ -162,17 +182,17 @@ Solo capa visual: prohibido tocar queries, cálculos, Supabase, API, lógica.
 ## COMPONENTES (gate de color)
 Además de las pantallas, se pasó el gate a los componentes de presentación que las
 construyen:
-- [x] Componentes compartidos: NavIcon (colores de área del sidebar), SortableHeader,
+- [ ] Componentes compartidos: NavIcon (colores de área del sidebar), SortableHeader,
   EditableInline, MargenBanner, SelloAct, IVAToggle, SelectorFechaUniversal,
   KpiCardGrande, ChuletaPlataformas, kit/ProgresoGlobal, kit/TabsContainer,
   ui/RutaPantalla, ui/SubTabs.
-- [x] Conciliación: TabMovimientos, ResumenDashboard, CardFiltro, PanelCobertura,
+- [ ] Conciliación: TabMovimientos, ResumenDashboard, CardFiltro, PanelCobertura,
   ModalDetalleMovimiento, TagFiltroActivo, BandejaPropuestas.
-- [x] Documentación: BandejaEntrada, ModalDescartarFactura, ResolverPendientes,
+- [ ] Documentación: BandejaEntrada, ModalDescartarFactura, ResolverPendientes,
   AvisosBandeja. Factura: ModalDetalleFactura. OCR: ExtractosTabla.
-- [x] Escandallo: TabFichas, ColaRevisionFichas. Equipo: horarios/TabVacaciones,
+- [ ] Escandallo: TabFichas, ColaRevisionFichas. Equipo: horarios/TabVacaciones,
   horarios/TabGenerador, ModalSolicitud. Inventario: TabConteos. Importador: TabSubirV2.
-- [x] Panel: resumen/CardFacturasCorreo, sl/uiSL, TabEvolucion. Mobile: PantallasMovil.
+- [ ] Panel: resumen/CardFacturasCorreo, sl/uiSL, TabEvolucion. Mobile: PantallasMovil.
 - Referencia `panel/resumen/ResumenLanding.tsx`: intacta; sus overlays negro/blanco con
   alpha (`#000000xx`/`#ffffffxx`) son atenuados/sombra, no color de paleta → tolerados.
 
