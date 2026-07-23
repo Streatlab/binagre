@@ -121,9 +121,9 @@ Componentes canónicos a REUTILIZAR (no reescribir): `kit/cantera.tsx`
 
 ### Equipo
 - [ ] Equipo · Personas (Fichas/Organigrama/Incentivos/Portal)
-- [ ] Equipo · Dinero (Nóminas/Costes/SegSocial)
+- [x] Equipo · Dinero (Nóminas/Costes/SegSocial)
 - [ ] Equipo · Día a día (Horarios/Fichajes/Calendario/Permisos)
-- [ ] Equipo · Documentos
+- [x] Equipo · Documentos
 
 ### Marcas / Tareas / Importar
 - [ ] Marcas (simple)
