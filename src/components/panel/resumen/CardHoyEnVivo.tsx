@@ -1,7 +1,12 @@
-import { BLANCO, GRANATE, GRIS, INK, CLARO, TRACK, ROSA, ROJO, AMA, VERDE, NAR, AZUL, CORP } from '@/styles/neobrutal'
+import { BLANCO, GRIS, INK, TRACK, ROSA, ROJO, AMA, VERDE, NAR, AZUL, CORP, CREMA } from '@/styles/neobrutal'
 /**
- * CardHoyEnVivo — sección "HOY EN VIVO" del Resumen (Panel Global), a ancho completo,
- * justo encima del estado de salud del periodo.
+ * CardHoyEnVivo — franja "HOY EN VIVO". Desde el 23-jul vive ARRIBA de la
+ * pantalla Hoy (Home.tsx), trasladada desde Panel Global · Resumen.
+ *
+ * ESTILO: CANTERA ALEGRE v1.0 (LEY-ESTILO-01, 22-jul-2026). Reescrita con las
+ * piezas canónicas del kit (Plancha/PlanchaCelda para KPIs pegados, Papel con
+ * ceja de familia para los bloques, Pill para eyebrows). Derogada la banda a
+ * sangre y las sombras duras en lo no pulsable. Cifras es-ES vía lib/format.
  *
  * NETO: usa la calculadora central del ERP (netoResolver sobre calcNetoPlataforma).
  * Regla "real manda": si hay liquidación real la usa; si no, aplica el ratio calibrado del
@@ -20,16 +25,16 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { loadConfigCanales, recargarConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 import { resolverNetoCanal, loadVentasReales, loadRatiosCalibrados, type FuenteNeto } from '@/lib/panel/netoResolver'
+import { Papel, Plancha, PlanchaCelda, Pill } from '@/components/kit/cantera'
 
-/* ── tokens idénticos a ResumenLanding (theme-aware, de neobrutal.ts) ── */
-const SHADOW = `4px 4px 0 ${INK}`
 const OSW = "'Oswald', sans-serif"
 const LEX = "'Lexend', sans-serif"
-const PAD = '40px'
 
+/* etiqueta pequeña de celda/bloque (Oswald 11, tracking, mayúsculas) */
+const micro: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, fontWeight: 600 }
+/* cifra-bloque de la ley: Oswald 34 */
+const cifraBloque = (color = INK): React.CSSProperties => ({ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 1, color, margin: '8px 0 6px' })
 const d = (size: string, color = INK): React.CSSProperties => ({ fontFamily: OSW, fontWeight: 700, fontSize: size, lineHeight: 0.95, letterSpacing: '-0.5px', textTransform: 'uppercase', color })
-const eyebrow = (bg: string, color = INK): React.CSSProperties => ({ display: 'inline-block', background: bg, color, border: `2px solid ${INK}`, fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', padding: '4px 12px' })
-const micro: React.CSSProperties = { fontFamily: OSW, fontSize: 12, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }
 
 const E2 = (n: number) => fmtEur(n, { showEuro: false, decimals: 2 })
 const N = (n: number) => fmtNum(n, 0)
@@ -70,28 +75,18 @@ const FUENTE_TXT: Record<FuenteNeto, string> = {
   estimado: 'fórmula de comisiones',
 }
 
-/** Anillo neobrutal: aro con borde de tinta, relleno plano, sin degradados. */
+/** Anillo: aro plano con borde de tinta, sin degradados (radio 0 no aplica a un aro). */
 function Anillo({ pct, color }: { pct: number; color: string }) {
   const r = 44
   const c = 2 * Math.PI * r
   const v = Math.max(0, Math.min(pct, 100))
   return (
-    <svg width="116" height="116" viewBox="0 0 116 116" style={{ flexShrink: 0 }}>
-      <circle cx="58" cy="58" r={r} fill="none" stroke={INK} strokeWidth="22" />
-      <circle cx="58" cy="58" r={r} fill="none" stroke={TRACK} strokeWidth="16" />
-      <circle cx="58" cy="58" r={r} fill="none" stroke={color} strokeWidth="16" strokeDasharray={`${(c * v) / 100} ${c}`} transform="rotate(-90 58 58)" />
+    <svg width="108" height="108" viewBox="0 0 116 116" style={{ flexShrink: 0 }}>
+      <circle cx="58" cy="58" r={r} fill="none" stroke={INK} strokeWidth="20" />
+      <circle cx="58" cy="58" r={r} fill="none" stroke={TRACK} strokeWidth="14" />
+      <circle cx="58" cy="58" r={r} fill="none" stroke={color} strokeWidth="14" strokeDasharray={`${(c * v) / 100} ${c}`} transform="rotate(-90 58 58)" />
       <text x="58" y="66" textAnchor="middle" style={{ fontFamily: OSW, fontWeight: 700, fontSize: 24, fill: INK }}>{Math.round(v)}%</text>
     </svg>
-  )
-}
-
-function Kpi({ label, valor, color, pie }: { label: string; valor: string; color: string; pie?: React.ReactNode }) {
-  return (
-    <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
-      <div style={micro}>{label}</div>
-      <div style={{ ...d('clamp(26px,3.6vw,44px)', color), margin: '8px 0 8px' }}>{valor}</div>
-      {pie}
-    </div>
   )
 }
 
@@ -188,60 +183,55 @@ export default function CardHoyEnVivo() {
       : 'mezcla calibrado + fórmula'
 
   return (
-    <section style={{ background: CLARO, borderBottom: `4px solid ${INK}`, padding: `32px ${PAD} 36px`, fontFamily: LEX, color: INK }}>
-      {/* cabecera */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-        <span style={eyebrow(vivo ? VERDE : GRIS, BLANCO)}>{vivo ? '● Hoy en vivo' : '● Robot parado'}</span>
-        <span style={{ ...eyebrow(INK, AMA), fontSize: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: LEX, color: INK }}>
+      {/* cabecera de la franja: pills canónicas, sin banda a sangre */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <Pill bg={vivo ? VERDE : GRIS} color={BLANCO} fontSize={12}>{vivo ? '● Hoy en vivo' : '● Robot parado'}</Pill>
+        <Pill bg={INK} color={AMA} fontSize={11}>
           {minutos === null ? 'Sin datos del robot' : minutos === 0 ? 'Actualizado ahora mismo' : `Actualizado hace ${minutos} min`}
-        </span>
+        </Pill>
         <div style={{ flex: 1 }} />
         <span style={micro}>Rushour · en directo cada 5 min</span>
       </div>
 
-      {/* métricas del día */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) 280px', gap: 16, alignItems: 'stretch' }}>
-        <Kpi
-          label="Pedidos"
-          valor={N(k?.pedidos ?? 0)}
-          color={NAR}
-          pie={<span style={{ ...eyebrow(NAR, BLANCO), fontSize: 11 }}>{N(k?.clientes_nuevos ?? 0)} nuevos · {N(k?.clientes_recurrentes ?? 0)} repiten</span>}
-        />
-        <Kpi
-          label="Facturación bruta"
-          valor={E2(bruto)}
-          color={INK}
-          pie={<span style={{ ...eyebrow(AMA), fontSize: 11 }}>hace 7 días · {E2(k?.bruto_hace_7d ?? 0)}</span>}
-        />
-        <Kpi
-          label="Neto estimado"
-          valor={calcLista ? E2(netoTotal) : '—'}
-          color={VERDE}
-          pie={<span title={`Neto calculado con la calculadora del ERP: ${fuenteTxt}`} style={{ ...eyebrow(VERDE, BLANCO), fontSize: 11, cursor: 'help' }}>{Math.round(pctNeto)}% s/ bruto · {fuenteTxt}</span>}
-        />
-        <Kpi
-          label="Ticket medio"
-          valor={E2(k?.ticket_medio ?? 0)}
-          color={AZUL}
-          pie={<span style={{ ...eyebrow(AZUL, BLANCO), fontSize: 11 }}>{N(k?.pedidos_hace_7d ?? 0)} ped hace 7 días</span>}
-        />
-
-        <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+      {/* PLANCHA de KPIs del día: celdas sólidas pegadas (ley de superficies) */}
+      <Plancha>
+        <PlanchaCelda bg={BLANCO} first>
+          <div style={micro}>Pedidos</div>
+          <div style={cifraBloque(NAR)}>{N(k?.pedidos ?? 0)}</div>
+          <div style={{ ...micro, color: NAR }}>{N(k?.clientes_nuevos ?? 0)} nuevos · {N(k?.clientes_recurrentes ?? 0)} repiten</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AMA}>
+          <div style={{ ...micro, color: INK, opacity: 0.75 }}>Facturación bruta</div>
+          <div style={cifraBloque(INK)}>{E2(bruto)}</div>
+          <div style={{ ...micro, color: INK, opacity: 0.75 }}>hace 7 días · {E2(k?.bruto_hace_7d ?? 0)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={VERDE}>
+          <div style={{ ...micro, color: BLANCO, opacity: 0.85 }}>Neto estimado</div>
+          <div style={cifraBloque(BLANCO)}>{calcLista ? E2(netoTotal) : '—'}</div>
+          <div title={`Neto calculado con la calculadora del ERP: ${fuenteTxt}`} style={{ ...micro, color: BLANCO, opacity: 0.85, cursor: 'help' }}>{Math.round(pctNeto)}% s/ bruto · {fuenteTxt}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={AZUL}>
+          <div style={{ ...micro, color: BLANCO, opacity: 0.85 }}>Ticket medio</div>
+          <div style={cifraBloque(BLANCO)}>{E2(k?.ticket_medio ?? 0)}</div>
+          <div style={{ ...micro, color: BLANCO, opacity: 0.85 }}>{N(k?.pedidos_hace_7d ?? 0)} ped hace 7 días</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={BLANCO} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Anillo pct={pctVs7d} color={colorRitmo} />
           <div>
             <div style={micro}>Ritmo del día</div>
-            <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, lineHeight: 1.45 }}>
-              de lo que hiciste<br />el mismo día<br />hace 7 días
+            <div style={{ fontFamily: LEX, fontSize: 12.5, fontWeight: 600, marginTop: 6, lineHeight: 1.4 }}>
+              de lo que hiciste el mismo día hace 7 días
             </div>
           </div>
-        </div>
-      </div>
+        </PlanchaCelda>
+      </Plancha>
 
-      {/* plataformas · marcas · productos */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.1fr 1fr', gap: 16, marginTop: 16 }}>
-        {/* plataformas + curva */}
-        <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
-          <span style={{ ...eyebrow(AMA), fontSize: 12 }}>Por dónde entran</span>
+      {/* BLOQUES DE PAPEL con ceja de familia: plataformas · marcas · productos */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+        {/* plataformas + curva · ceja amarilla */}
+        <Papel ceja={AMA} pad="16px 18px">
+          <Pill bg={AMA} fontSize={11}>Por dónde entran</Pill>
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {canales.length === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: GRIS }}>Sin pedidos todavía.</span>}
             {canales.map(c => {
@@ -250,18 +240,18 @@ export default function CardHoyEnVivo() {
               return (
                 <div key={c.canal}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
-                    <span style={d('16px')}>{CANAL_NOMBRE[c.canal] ?? c.canal}</span>
-                    <span style={d('16px')}>
+                    <span style={d('15px')}>{CANAL_NOMBRE[c.canal] ?? c.canal}</span>
+                    <span style={d('15px')}>
                       <span style={{ color: NAR }}>{N(c.pedidos)}</span>
                       <span style={{ color: GRIS }}> · </span>
-                      <span>{E2(c.euros)}</span>
+                      <span style={{ color: AZUL }}>{E2(c.euros)}</span>
                       <span style={{ color: GRIS }}> · </span>
                       <span style={{ color: VERDE }}>{calcLista ? E2(neto) : '—'}</span>
                     </span>
                   </div>
-                  <div style={{ position: 'relative', height: 20, background: TRACK, border: `3px solid ${INK}`, overflow: 'hidden' }}>
+                  <div style={{ position: 'relative', height: 16, background: TRACK, border: `2px solid ${INK}`, overflow: 'hidden' }}>
                     <div style={{ width: `${Math.max(3, Math.min(100, pct))}%`, height: '100%', background: CORP[c.canal] ?? GRIS }} />
-                    <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontFamily: OSW, fontSize: 12, fontWeight: 700 }}>{Math.round(pct)}%</span>
+                    <span style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', fontFamily: OSW, fontSize: 11, fontWeight: 700 }}>{Math.round(pct)}%</span>
                   </div>
                 </div>
               )
@@ -276,7 +266,7 @@ export default function CardHoyEnVivo() {
                   <div key={h.hora} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                     <div
                       title={`${N(h.pedidos)} pedidos · ${E2(h.euros)}`}
-                      style={{ width: '100%', height: Math.max(6, (h.euros / maxEuros) * 38), background: AMA, border: `3px solid ${INK}` }}
+                      style={{ width: '100%', height: Math.max(6, (h.euros / maxEuros) * 38), background: AMA, border: `2px solid ${INK}` }}
                     />
                     <span style={{ fontFamily: OSW, fontSize: 10.5, fontWeight: 600 }}>{new Date(h.hora).getHours()}h</span>
                   </div>
@@ -284,11 +274,11 @@ export default function CardHoyEnVivo() {
               </div>
             </div>
           )}
-        </div>
+        </Papel>
 
-        {/* marcas */}
-        <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
-          <span style={{ ...eyebrow(ROSA, BLANCO), fontSize: 12 }}>Marcas que tiran hoy</span>
+        {/* marcas · ceja rosa */}
+        <Papel ceja={ROSA} pad="16px 18px">
+          <Pill bg={ROSA} color={BLANCO} fontSize={11}>Marcas que tiran hoy</Pill>
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {marcas.length === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: GRIS }}>Sin pedidos todavía.</span>}
             {marcas.map(mk => {
@@ -296,30 +286,30 @@ export default function CardHoyEnVivo() {
               return (
                 <div key={mk.marca}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5, gap: 10 }}>
-                    <span style={{ ...d('15px'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mk.marca}</span>
-                    <span style={{ ...d('16px'), whiteSpace: 'nowrap' }}>
+                    <span style={{ ...d('14px'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mk.marca}</span>
+                    <span style={{ ...d('15px'), whiteSpace: 'nowrap' }}>
                       <span style={{ color: NAR }}>{N(mk.pedidos)}</span>
                       <span style={{ color: GRIS }}> · </span>
                       <span>{E2(mk.euros)}</span>
                     </span>
                   </div>
-                  <div style={{ height: 18, background: TRACK, border: `3px solid ${INK}`, overflow: 'hidden' }}>
+                  <div style={{ height: 14, background: TRACK, border: `2px solid ${INK}`, overflow: 'hidden' }}>
                     <div style={{ width: `${Math.max(3, pct)}%`, height: '100%', background: ROSA }} />
                   </div>
                 </div>
               )
             })}
           </div>
-        </div>
+        </Papel>
 
-        {/* productos */}
-        <div style={{ background: BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW, padding: '16px 18px' }}>
-          <span style={{ ...eyebrow(VERDE, BLANCO), fontSize: 12 }}>Lo más vendido hoy</span>
+        {/* productos · ceja verde */}
+        <Papel ceja={VERDE} pad="16px 18px">
+          <Pill bg={VERDE} color={BLANCO} fontSize={11}>Lo más vendido hoy</Pill>
           <div style={{ marginTop: 12 }}>
             {platos.length === 0 && <span style={{ fontSize: 13, fontWeight: 600, color: GRIS }}>Sin ventas todavía.</span>}
             {platos.map((pl, i) => (
               <div key={pl.plato} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: i === 0 ? `2px solid ${INK}` : `1px solid ${INK}22` }}>
-                <span style={{ ...d('18px', i === 0 ? ROSA : INK), width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
+                <span style={{ ...d('17px', i === 0 ? ROSA : INK), width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
                 <span style={{ fontSize: 13.5, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.plato}</span>
                 <span style={{ width: 46, height: 10, background: TRACK, border: `2px solid ${INK}`, flexShrink: 0 }}>
                   <span style={{ display: 'block', width: `${Math.max(6, (pl.unidades / maxPlato) * 100)}%`, height: '100%', background: AZUL }} />
@@ -328,8 +318,8 @@ export default function CardHoyEnVivo() {
               </div>
             ))}
           </div>
-        </div>
+        </Papel>
       </div>
-    </section>
+    </div>
   )
 }
