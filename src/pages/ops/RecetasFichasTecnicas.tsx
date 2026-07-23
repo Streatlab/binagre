@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur, fmtNum } from '@/utils/format'
 import { useTheme } from '@/contexts/ThemeContext'
 import type { Receta } from '@/components/escandallo/types'
+import { Papel } from '@/components/kit/cantera'
 
 interface RecetaFicha extends Receta {
   elaboracion?: string | null
@@ -268,7 +269,7 @@ export default function RecetasFichasTecnicas() {
             </div>
 
             {/* CATEGORÍA */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Categoría</span>
               {selected.categoria ? (
                 <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', textTransform: 'uppercase', backgroundColor: T.brd, color: T.sec, padding: '3px 10px', borderRadius: 99, display: 'inline-block' }}>
@@ -277,10 +278,10 @@ export default function RecetasFichasTecnicas() {
               ) : (
                 <span style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: T.mut }}>—</span>
               )}
-            </div>
+            </Papel>
 
             {/* INGREDIENTES */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Ingredientes</span>
               {lineas.length === 0 ? (
                 <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: T.mut, fontStyle: 'italic', margin: 0 }}>Sin ingredientes</p>
@@ -312,10 +313,10 @@ export default function RecetasFichasTecnicas() {
                   </tbody>
                 </table>
               )}
-            </div>
+            </Papel>
 
             {/* ELABORACIÓN */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Elaboración</span>
               {selected.elaboracion ? (
                 <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: T.pri, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>
@@ -326,10 +327,10 @@ export default function RecetasFichasTecnicas() {
                   ⚠ Sin elaboración — pulsa Editar para añadirla
                 </p>
               )}
-            </div>
+            </Papel>
 
             {/* HERRAMIENTAS */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Herramientas</span>
               {selected.herramientas ? (
                 <p style={{ fontFamily: 'Lexend, sans-serif', fontSize: 13, color: T.pri, margin: 0 }}>
@@ -340,10 +341,10 @@ export default function RecetasFichasTecnicas() {
                   Sin herramientas definidas
                 </p>
               )}
-            </div>
+            </Papel>
 
             {/* ALÉRGENOS */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Alérgenos</span>
               {selected.alergenos && selected.alergenos.length > 0 ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -358,10 +359,10 @@ export default function RecetasFichasTecnicas() {
                   Sin alérgenos definidos
                 </p>
               )}
-            </div>
+            </Papel>
 
             {/* FOTO */}
-            <div style={{ marginBottom: 20 }}>
+            <Papel ceja={T.red} style={{ marginBottom: 14, background: 'var(--sl-card)' }}>
               <span style={sectionLabel}>Foto</span>
               {selected.foto_url ? (
                 <img
@@ -376,7 +377,7 @@ export default function RecetasFichasTecnicas() {
                   </span>
                 </div>
               )}
-            </div>
+            </Papel>
           </>
         )}
       </div>
@@ -388,7 +389,7 @@ export default function RecetasFichasTecnicas() {
           onClick={() => setEditOpen(false)}
         >
           <div
-            style={{ backgroundColor: isDark ? INK : BLANCO, border: `1px solid ${T.brd}`, borderRadius: 10, padding: 24, width: '100%', maxWidth: 500, display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '90vh', overflowY: 'auto' }}
+            style={{ backgroundColor: isDark ? INK : BLANCO, border: `2px solid ${T.brd}`, borderTop: `5px solid ${T.red}`, borderRadius: 0, padding: 24, width: '100%', maxWidth: 500, display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '90vh', overflowY: 'auto' }}
             onClick={e => e.stopPropagation()}
           >
             <h2 style={{ fontFamily: 'Oswald, sans-serif', fontSize: 15, color: T.pri, margin: 0, letterSpacing: '0.04em', textTransform: 'uppercase' }}>

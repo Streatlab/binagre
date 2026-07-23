@@ -1,14 +1,13 @@
-import { BLANCO, BORDE_SUAVE, GRIS, INK, NAR, ROJO_S } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, INK, NAR, VERDE } from '@/styles/neobrutal'
 import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { toLocalDateStr } from '@/lib/dateRange'
-import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
+import { COLORS } from '@/components/panel/resumen/tokens'
 import { fmtEur } from '@/utils/format'
+import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
-
-const BG_OPS = INK
 interface Pedido {
   id: string
   fecha: string
@@ -22,9 +21,9 @@ const ESTADOS = ['pendiente', 'enviado', 'recibido', 'cancelado']
 
 function estadoColor(estado: string | null): string {
   switch (estado) {
-    case 'recibido': return COLORS.ok
+    case 'recibido': return VERDE
     case 'enviado': return NAR
-    case 'cancelado': return COLOR.textMut
+    case 'cancelado': return GRIS
     default: return COLORS.glovo
   }
 }
@@ -87,113 +86,142 @@ export default function PedidosMenaje() {
     setPedidos(prev => prev.map(p => p.id === id ? { ...p, estado } : p))
   }
 
+  const pendientes = pedidos.filter(p => (p.estado ?? 'pendiente') === 'pendiente')
+  const enviados = pedidos.filter(p => p.estado === 'enviado')
+
+  const titularHero = pedidos.length === 0
+    ? 'Aún no hay pedidos de menaje.'
+    : pendientes.length > 0
+      ? `${pendientes.length} ${pendientes.length === 1 ? 'pedido pendiente' : 'pedidos pendientes'} de gestionar.`
+      : 'Sin pedidos pendientes de gestionar.'
+
+  const atencionHero = [
+    pendientes.length > 0 ? `${pendientes.length} pendientes` : null,
+    enviados.length > 0 ? `${enviados.length} enviados` : null,
+    `${pedidos.length} en total`,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={{ backgroundColor: BG_OPS, minHeight: '100vh', padding: '1.5rem', fontFamily: FONT.body }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontFamily: FONT.heading, textTransform: 'uppercase', letterSpacing: 3, color: BLANCO, fontSize: 22, margin: 0 }}>
-          Pedidos Menaje
-        </h1>
-        <button
-          onClick={() => setShowForm(f => !f)}
-          style={{ backgroundColor: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, padding: '0.5rem 1.25rem', fontFamily: FONT.heading, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', cursor: 'pointer' }}
-        >
+    <PantallaCantera>
+
+      {/* Acción propia */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button onClick={() => setShowForm(f => !f)}
+          style={{ padding: '9px 18px', background: COLORS.glovo, color: INK, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
           + Nuevo pedido
         </button>
       </div>
 
-      {error && (
-        <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, color: ROJO_S, borderRadius: 8, padding: '1rem', marginBottom: 16 }}>
-          {error}
-        </div>
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        titular={titularHero}
+        atencion={atencionHero}
+      />
+
+      {error && <Papel ceja={ERROR_BANNER_BORDE} style={{ background: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, color: COLORS.redSL }}>{error}</Papel>}
+
+      {/* 3 · Frase potente */}
+      {!loading && pedidos.length > 0 && (
+        pendientes.length > 0
+          ? <FrasePotente significado="coste">Hay pedidos sin enviar: revísalos para no quedarte sin menaje.</FrasePotente>
+          : <FrasePotente significado="logro">Todos los pedidos están enviados o recibidos.</FrasePotente>
       )}
 
       {showForm && (
-        <div style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 8, padding: '1rem', marginBottom: 24 }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 12 }}>
-            Nuevo Pedido
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+        <Papel ceja={GRANATE}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             {[
               { key: 'fecha', label: 'Fecha', type: 'date' },
               { key: 'proveedor', label: 'Proveedor *', type: 'text' },
-              { key: 'descripcion', label: 'Descripcion', type: 'text' },
+              { key: 'descripcion', label: 'Descripción', type: 'text' },
               { key: 'coste', label: 'Coste (€)', type: 'number' },
             ].map(f => (
-              <div key={f.key}>
-                <div style={{ fontSize: 11, color: COLOR.textMut, marginBottom: 4 }}>{f.label}</div>
+              <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 150 }}>
+                <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>{f.label}</label>
                 <input
                   type={f.type}
                   value={form[f.key as keyof typeof form] as string}
                   onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                  style={{ width: '100%', backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, color: BLANCO, padding: '0.5rem', borderRadius: 6, boxSizing: 'border-box' }}
+                  style={{ padding: '8px 10px', background: BLANCO, border: `3px solid ${INK}`, color: INK, fontFamily: FONT.body, fontSize: 13 }}
                 />
               </div>
             ))}
-            <div>
-              <div style={{ fontSize: 11, color: COLOR.textMut, marginBottom: 4 }}>Estado</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 150 }}>
+              <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Estado</label>
               <select
                 value={form.estado}
                 onChange={e => setForm(prev => ({ ...prev, estado: e.target.value }))}
-                style={{ width: '100%', backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, color: BLANCO, padding: '0.5rem', borderRadius: 6 }}
+                style={{ padding: '8px 10px', background: BLANCO, border: `3px solid ${INK}`, color: INK, fontFamily: FONT.body, fontSize: 13 }}
               >
                 {ESTADOS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button onClick={guardar} disabled={saving} style={{ backgroundColor: COLORS.redSL, color: BLANCO, border: 'none', borderRadius: 6, padding: '0.5rem 1.25rem', fontFamily: FONT.heading, fontSize: 12, cursor: 'pointer' }}>
-              Guardar
+            <button onClick={guardar} disabled={saving}
+              style={{ padding: '9px 18px', background: COLORS.redSL, color: BLANCO, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving ? 'Guardando…' : 'Guardar'}
             </button>
-            <button onClick={() => setShowForm(false)} style={{ backgroundColor: INK, border: `1px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, padding: '0.5rem 1.25rem', fontSize: 13, cursor: 'pointer' }}>
+            <button onClick={() => setShowForm(false)}
+              style={{ padding: '9px 14px', background: BLANCO, border: `3px solid ${INK}`, color: GRIS, fontSize: 13, cursor: 'pointer' }}>
               Cancelar
             </button>
           </div>
-        </div>
+        </Papel>
       )}
 
       {loading ? (
-        <div style={{ color: COLOR.textMut, fontSize: 13 }}>Cargando...</div>
+        <div style={{ color: GRIS, fontSize: 13 }}>Cargando…</div>
       ) : (
-        <div style={{ overflowX: 'auto', borderRadius: 8, border: `1px solid ${BORDE_SUAVE}` }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ backgroundColor: INK }}>
-                {['Fecha', 'Proveedor', 'Descripcion', 'Coste', 'Estado'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: COLOR.textMut, borderBottom: `1px solid ${BORDE_SUAVE}` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {pedidos.length === 0 ? (
-                <tr><td colSpan={5} style={{ padding: '20px 14px', color: COLOR.textMut, textAlign: 'center' }}>Sin pedidos</td></tr>
-              ) : pedidos.map((p, i) => (
-                <tr key={p.id} style={{ backgroundColor: i % 2 === 0 ? BG_OPS : INK, borderBottom: `1px solid ${BORDE_SUAVE}` }}>
-                  <td style={{ padding: '10px 14px', color: GRIS }}>{p.fecha}</td>
-                  <td style={{ padding: '10px 14px', color: BLANCO, fontWeight: 500 }}>{p.proveedor}</td>
-                  <td style={{ padding: '10px 14px', color: GRIS }}>{p.descripcion ?? '—'}</td>
-                  <td style={{ padding: '10px 14px', color: COLORS.glovo }}>{p.coste !== null ? fmtEur(p.coste) : '—'}</td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <select
-                      value={p.estado ?? 'pendiente'}
-                      onChange={e => cambiarEstado(p.id, e.target.value)}
-                      style={{
-                        backgroundColor: estadoColor(p.estado) + '22',
-                        border: `1px solid ${estadoColor(p.estado)}`,
-                        color: estadoColor(p.estado),
-                        padding: '3px 8px', borderRadius: 10,
-                        fontFamily: FONT.heading, fontSize: 11, letterSpacing: 1,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {ESTADOS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </td>
+        <div>
+          <SeccionLabel bg={GRANATE}>Pedidos</SeccionLabel>
+          <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: INK }}>
+                  {['Fecha', 'Proveedor', 'Descripción', 'Coste', 'Estado'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: BLANCO, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pedidos.length === 0 ? (
+                  <tr><td colSpan={5} style={{ padding: '20px 14px', color: GRIS, textAlign: 'center' }}>Sin pedidos</td></tr>
+                ) : pedidos.map(p => (
+                  <tr key={p.id} style={{ borderBottom: `2px solid ${INK}` }}>
+                    <td style={{ padding: '10px 14px', color: GRIS, whiteSpace: 'nowrap' }}>{fmtFechaTabla(p.fecha)}</td>
+                    <td style={{ padding: '10px 14px', color: INK, fontWeight: 500 }}>{p.proveedor}</td>
+                    <td style={{ padding: '10px 14px', color: GRIS }}>{p.descripcion ?? '—'}</td>
+                    <td style={{ padding: '10px 14px', color: INK, textAlign: 'right' }}>{p.coste !== null ? fmtEur(p.coste) : '—'}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <select
+                        value={p.estado ?? 'pendiente'}
+                        onChange={e => cambiarEstado(p.id, e.target.value)}
+                        style={{
+                          backgroundColor: BLANCO,
+                          border: `2px solid ${estadoColor(p.estado)}`,
+                          color: estadoColor(p.estado),
+                          padding: '3px 8px',
+                          fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {ESTADOS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Papel>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
+}
+
+function fmtFechaTabla(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  return y && m && d ? `${d}/${m}/${y}` : iso
 }

@@ -1,13 +1,12 @@
-import { BLANCO, BORDE_SUAVE, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, INK } from '@/styles/neobrutal'
 import { ERROR_BANNER_BG, ERROR_BANNER_BORDE } from '@/styles/palettes'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { toLocalDateStr } from '@/lib/dateRange'
-import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
+import { COLORS } from '@/components/panel/resumen/tokens'
+import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
-
-const BG_OPS = INK
 interface DanoMenaje {
   id: string
   item: string
@@ -80,37 +79,63 @@ export default function DanosMenaje() {
   const mes = mesActual()
   const kpiMes = danos.filter(d => d.fecha.startsWith(mes)).reduce((s, d) => s + (d.coste_total ?? 0), 0)
   const kpiTotal = danos.reduce((s, d) => s + (d.coste_total ?? 0), 0)
+  const danosMes = danos.filter(d => d.fecha.startsWith(mes))
+
+  const titularHero = danos.length === 0
+    ? 'Aún no hay daños de menaje registrados.'
+    : danosMes.length > 0
+      ? `${danosMes.length} ${danosMes.length === 1 ? 'daño' : 'daños'} registrados este mes.`
+      : 'Sin daños registrados este mes.'
+
+  const atencionHero = [
+    danosMes.length > 0 ? `${danosMes.length} este mes` : null,
+    `${danos.length} en total`,
+  ].filter(Boolean) as string[]
 
   return (
-    <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: BLANCO }}>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: COLORS.redSL, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>DAÑOS MENAJE</h1>
-          <span style={{ fontSize: 13, color: COLOR.textMut }}>Registro de rotura y pérdida de menaje</span>
-        </div>
+    <PantallaCantera>
+
+      {/* Acción propia */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button onClick={() => setShowForm(s => !s)}
-          style={{ padding: '8px 18px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
+          style={{ padding: '9px 18px', background: COLORS.glovo, color: INK, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
           + Añadir daño
         </button>
       </div>
 
-      {error && <div style={{ backgroundColor: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, borderRadius: 8, padding: '14px 18px', color: ROJO_S, fontSize: 13, marginBottom: 20 }}>{error}</div>}
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        titular={titularHero}
+        etiquetaDato="Coste este mes"
+        cifra={fmtEurLocal(kpiMes)}
+        atencion={atencionHero}
+      />
+
+      {error && <Papel ceja={ERROR_BANNER_BORDE} style={{ background: ERROR_BANNER_BG, border: `1px solid ${ERROR_BANNER_BORDE}`, color: COLORS.redSL }}>{error}</Papel>}
+
+      {/* 3 · Frase potente */}
+      {!loading && (
+        kpiTotal > 0
+          ? <FrasePotente significado="coste">El menaje roto o perdido cuesta dinero: revisa manipulación y almacenaje.</FrasePotente>
+          : <FrasePotente significado="logro">Sin daños de menaje registrados: la manipulación va bien.</FrasePotente>
+      )}
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 24 }}>
-        <div style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 10, padding: '16px 20px' }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 6 }}>Coste Este Mes</div>
-          <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 600, color: COLORS.redSL }}>{fmtEurLocal(kpiMes)}</div>
-        </div>
-        <div style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 10, padding: '16px 20px' }}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: COLOR.textMut, marginBottom: 6 }}>Coste Total Histórico</div>
-          <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 600, color: BLANCO }}>{fmtEurLocal(kpiTotal)}</div>
-        </div>
-      </div>
+      <Plancha>
+        <PlanchaCelda first bg={COLORS.redSL}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 6 }}>Coste Este Mes</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 600 }}>{fmtEurLocal(kpiMes)}</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={BLANCO}>
+          <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: GRIS, marginBottom: 6 }}>Coste Total Histórico</div>
+          <div style={{ fontFamily: FONT.heading, fontSize: 26, fontWeight: 600, color: INK }}>{fmtEurLocal(kpiTotal)}</div>
+        </PlanchaCelda>
+      </Plancha>
 
       {/* Form inline */}
       {showForm && (
-        <div style={{ background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 10, padding: '20px', marginBottom: 20 }}>
+        <Papel ceja={GRANATE}>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             {[
               { label: 'Ítem', key: 'item', type: 'text', flex: 2 },
@@ -120,48 +145,53 @@ export default function DanosMenaje() {
               { label: 'Fecha', key: 'fecha', type: 'date', flex: 1 },
             ].map(f => (
               <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: f.flex, minWidth: 120 }}>
-                <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut }}>{f.label}</label>
+                <label style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>{f.label}</label>
                 <input type={f.type} value={(form as Record<string, string>)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                  style={{ padding: '8px 10px', background: INK, border: `1px solid ${BORDE_SUAVE}`, borderRadius: 6, color: BLANCO, fontSize: 13 }} />
+                  style={{ padding: '8px 10px', background: BLANCO, border: `3px solid ${INK}`, color: INK, fontFamily: FONT.body, fontSize: 13 }} />
               </div>
             ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button onClick={addDano} disabled={saving}
-              style={{ padding: '8px 18px', background: COLORS.redSL, color: BLANCO, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              style={{ padding: '9px 18px', background: COLORS.redSL, color: BLANCO, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
               {saving ? 'Guardando…' : 'Guardar'}
             </button>
             <button onClick={() => setShowForm(false)}
-              style={{ padding: '8px 14px', background: INK, border: `1px solid ${BORDE_SUAVE}`, color: GRIS, borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+              style={{ padding: '9px 14px', background: BLANCO, border: `3px solid ${INK}`, color: GRIS, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
           </div>
-        </div>
+        </Papel>
       )}
 
-      {loading ? <div style={{ color: COLOR.textMut, fontSize: 13 }}>Cargando…</div> : (
-        <div style={{ overflowX: 'auto', borderRadius: 10, border: `1px solid ${BORDE_SUAVE}` }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: INK }}>
-                {['Ítem', 'Cantidad', 'Coste Unit.', 'Coste Total', 'Descripción', 'Fecha'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: COLOR.textMut, fontWeight: 600, borderBottom: `1px solid ${BORDE_SUAVE}`, whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {danos.length === 0 ? (
-                <tr><td colSpan={6} style={{ padding: '20px 14px', color: COLOR.textMut, textAlign: 'center' }}>Sin registros aún</td></tr>
-              ) : danos.map((d, i) => (
-                <tr key={d.id} style={{ background: i % 2 === 0 ? BG_OPS : INK, borderBottom: `1px solid ${BORDE_SUAVE}` }}>
-                  <td style={{ padding: '10px 14px', color: BLANCO, fontWeight: 500 }}>{d.item}</td>
-                  <td style={{ padding: '10px 14px', color: GRIS }}>{d.cantidad}</td>
-                  <td style={{ padding: '10px 14px', color: GRIS }}>{fmtEurLocal(d.coste_unitario)}</td>
-                  <td style={{ padding: '10px 14px', color: COLORS.redSL, fontWeight: 600 }}>{fmtEurLocal(d.coste_total)}</td>
-                  <td style={{ padding: '10px 14px', color: COLOR.textMut, fontSize: 12 }}>{d.descripcion ?? '—'}</td>
-                  <td style={{ padding: '10px 14px', color: COLOR.textMut, whiteSpace: 'nowrap' }}>{fmtFecha(d.fecha)}</td>
+      {loading ? <div style={{ color: GRIS, fontSize: 13 }}>Cargando…</div> : (
+        <div>
+          <SeccionLabel bg={GRANATE}>Registros</SeccionLabel>
+          <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: INK }}>
+                  {['Ítem', 'Cantidad', 'Coste Unit.', 'Coste Total', 'Descripción', 'Fecha'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: BLANCO, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {danos.length === 0 ? (
+                  <tr><td colSpan={6} style={{ padding: '20px 14px', color: GRIS, textAlign: 'center' }}>Sin registros aún</td></tr>
+                ) : danos.map(d => (
+                  <tr key={d.id} style={{ borderBottom: `2px solid ${INK}` }}>
+                    <td style={{ padding: '10px 14px', color: INK, fontWeight: 500 }}>{d.item}</td>
+                    <td style={{ padding: '10px 14px', color: GRIS, textAlign: 'right' }}>{d.cantidad}</td>
+                    <td style={{ padding: '10px 14px', color: GRIS, textAlign: 'right' }}>{fmtEurLocal(d.coste_unitario)}</td>
+                    <td style={{ padding: '10px 14px', color: COLORS.redSL, fontWeight: 600, textAlign: 'right' }}>{fmtEurLocal(d.coste_total)}</td>
+                    <td style={{ padding: '10px 14px', color: GRIS, fontSize: 12 }}>{d.descripcion ?? '—'}</td>
+                    <td style={{ padding: '10px 14px', color: GRIS, whiteSpace: 'nowrap' }}>{fmtFecha(d.fecha)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Papel>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
 }

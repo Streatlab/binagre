@@ -1,9 +1,11 @@
-import { AZUL_CL, BLANCO, BORDE_SUAVE, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
-import { MANUALES_CAT_EMERGENCIA, MANUALES_CAT_RRHH, MANUALES_DANGER_TXT, PANEL_SIDEBAR_BG } from '@/styles/palettes'
+import { AZUL_CL, BLANCO, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { MANUALES_CAT_EMERGENCIA, MANUALES_CAT_RRHH, MANUALES_DANGER_TXT } from '@/styles/palettes'
 import { useEffect, useState, useCallback } from 'react'
+import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtDate } from '@/utils/format'
 import { FONT } from '@/styles/tokens'
+import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,141 +75,86 @@ const EMPTY_DRAFT: ManualDraft = {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const S = {
-  page: {
-    fontFamily: FONT.body,
-    color: BLANCO,
-    minHeight: '100vh',
-    padding: 24,
-  } as React.CSSProperties,
-
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  } as React.CSSProperties,
-
-  title: {
-    fontFamily: FONT.heading,
-    fontSize: 22,
-    letterSpacing: '3px',
-    textTransform: 'uppercase' as const,
-    color: GRANATE,
-    fontWeight: 600,
-    margin: 0,
-  } as React.CSSProperties,
-
   btnPrimary: {
     backgroundColor: GRANATE,
     color: BLANCO,
-    border: 'none',
-    borderRadius: 6,
-    padding: '8px 18px',
+    border: `3px solid ${INK}`,
+    boxShadow: `3px 3px 0 ${INK}`,
+    padding: '9px 18px',
     fontFamily: FONT.heading,
-    fontSize: 13,
+    fontSize: 12,
     letterSpacing: '1px',
     textTransform: 'uppercase' as const,
     cursor: 'pointer',
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   btnSecondary: {
-    backgroundColor: INK,
+    backgroundColor: BLANCO,
     color: GRIS,
-    border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 6,
+    border: `2px solid ${INK}`,
     padding: '8px 16px',
     fontFamily: FONT.heading,
-    fontSize: 13,
+    fontSize: 12,
     letterSpacing: '1px',
     textTransform: 'uppercase' as const,
     cursor: 'pointer',
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   btnAdd: {
     backgroundColor: LIMA,
     color: INK,
-    border: 'none',
-    borderRadius: 6,
-    padding: '8px 18px',
+    border: `3px solid ${INK}`,
+    boxShadow: `3px 3px 0 ${INK}`,
+    padding: '9px 18px',
     fontFamily: FONT.heading,
-    fontSize: 13,
+    fontSize: 12,
     letterSpacing: '1px',
     textTransform: 'uppercase' as const,
     cursor: 'pointer',
     fontWeight: 700,
-  } as React.CSSProperties,
-
-  filters: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-    flexWrap: 'wrap' as const,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   searchInput: {
-    backgroundColor: INK,
-    border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 6,
-    color: BLANCO,
-    padding: '6px 12px',
+    backgroundColor: BLANCO,
+    border: `3px solid ${INK}`,
+    color: INK,
+    padding: '8px 12px',
     fontFamily: FONT.body,
     fontSize: 13,
     width: 220,
     outline: 'none',
-  } as React.CSSProperties,
-
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: 14,
-  } as React.CSSProperties,
-
-  card: {
-    backgroundColor: INK,
-    border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 8,
-    padding: 16,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 8,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   cardTitle: {
     fontFamily: FONT.heading,
     fontSize: 15,
     fontWeight: 600,
-    color: BLANCO,
+    color: INK,
     letterSpacing: '0.5px',
     margin: 0,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   cardMeta: {
     fontSize: 11,
     color: GRIS,
     fontFamily: FONT.body,
-  } as React.CSSProperties,
-
-  cardActions: {
-    display: 'flex',
-    gap: 6,
-    marginTop: 4,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   overlay: {
     position: 'fixed' as const,
     inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     zIndex: 1000,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-  } as React.CSSProperties,
+    padding: 16,
+  } as CSSProperties,
 
   modal: {
-    backgroundColor: INK,
-    border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 10,
+    backgroundColor: BLANCO,
+    border: `3px solid ${INK}`,
+    borderTop: `7px solid ${GRANATE}`,
     padding: 28,
     width: '90%',
     maxWidth: 680,
@@ -216,17 +163,17 @@ const S = {
     display: 'flex',
     flexDirection: 'column' as const,
     gap: 16,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   modalTitle: {
     fontFamily: FONT.heading,
     fontSize: 18,
     letterSpacing: '2px',
     textTransform: 'uppercase' as const,
-    color: LIMA,
+    color: GRANATE,
     margin: 0,
     fontWeight: 600,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   label: {
     fontFamily: FONT.heading,
@@ -236,40 +183,25 @@ const S = {
     color: GRIS,
     marginBottom: 4,
     display: 'block',
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   input: {
     width: '100%',
-    backgroundColor: INK,
-    border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 6,
-    color: BLANCO,
+    backgroundColor: BLANCO,
+    border: `3px solid ${INK}`,
+    color: INK,
     padding: '8px 12px',
     fontFamily: FONT.body,
     fontSize: 14,
     outline: 'none',
     boxSizing: 'border-box' as const,
-  } as React.CSSProperties,
-
-  select: {
-    width: '100%',
-    backgroundColor: INK,
-    border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 6,
-    color: BLANCO,
-    padding: '8px 12px',
-    fontFamily: FONT.body,
-    fontSize: 14,
-    outline: 'none',
-    boxSizing: 'border-box' as const,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   textarea: {
     width: '100%',
-    backgroundColor: INK,
-    border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 6,
-    color: BLANCO,
+    backgroundColor: BLANCO,
+    border: `3px solid ${INK}`,
+    color: INK,
     padding: '8px 12px',
     fontFamily: FONT.body,
     fontSize: 13,
@@ -278,27 +210,26 @@ const S = {
     minHeight: 220,
     lineHeight: 1.6,
     boxSizing: 'border-box' as const,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   modalActions: {
     display: 'flex',
     gap: 8,
     justifyContent: 'flex-end',
     flexWrap: 'wrap' as const,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   viewContent: {
-    backgroundColor: INK,
-    border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 6,
+    backgroundColor: BLANCO,
+    border: `2px solid ${INK}`,
     padding: '12px 16px',
-    color: GRIS,
+    color: INK,
     fontFamily: FONT.body,
     fontSize: 13,
     lineHeight: 1.7,
     whiteSpace: 'pre-wrap' as const,
     minHeight: 120,
-  } as React.CSSProperties,
+  } as CSSProperties,
 
   emptyState: {
     textAlign: 'center' as const,
@@ -306,34 +237,32 @@ const S = {
     padding: '60px 0',
     fontFamily: FONT.body,
     fontSize: 14,
-  } as React.CSSProperties,
+  } as CSSProperties,
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function pillStyle(active: boolean): React.CSSProperties {
+function pillStyle(active: boolean): CSSProperties {
   return {
     padding: '4px 12px',
-    borderRadius: 20,
     fontSize: 12,
     fontFamily: FONT.heading,
     letterSpacing: '0.5px',
     textTransform: 'uppercase',
     cursor: 'pointer',
-    border: active ? `1px solid ${LIMA}` : `1px solid ${BORDE_SUAVE}`,
-    backgroundColor: active ? LIMA : INK,
-    color: active ? INK : GRIS,
+    border: `2px solid ${INK}`,
+    backgroundColor: active ? LIMA : BLANCO,
+    color: INK,
   }
 }
 
-function catBadgeStyle(cat: Categoria): React.CSSProperties {
+function catBadgeStyle(cat: Categoria): CSSProperties {
   const c = CAT_COLORS[cat]
   return {
     display: 'inline-block',
-    backgroundColor: c + '22',
+    backgroundColor: BLANCO,
     color: c,
-    border: `1px solid ${c}55`,
-    borderRadius: 4,
+    border: `2px solid ${c}`,
     padding: '2px 8px',
     fontSize: 11,
     fontFamily: FONT.heading,
@@ -343,17 +272,16 @@ function catBadgeStyle(cat: Categoria): React.CSSProperties {
   }
 }
 
-function btnSmall(variant: 'view' | 'edit' | 'archive'): React.CSSProperties {
+function btnSmall(variant: 'view' | 'edit' | 'archive'): CSSProperties {
   const map = {
-    view:    { bg: PANEL_SIDEBAR_BG, color: LIMA },
-    edit:    { bg: INK, color: BLANCO },
-    archive: { bg: INK, color: GRIS },
+    view:    { color: GRANATE },
+    edit:    { color: INK },
+    archive: { color: GRIS },
   }
   return {
-    backgroundColor: map[variant].bg,
+    backgroundColor: BLANCO,
     color: map[variant].color,
-    border: `1px solid ${BORDE_SUAVE}`,
-    borderRadius: 4,
+    border: `2px solid ${INK}`,
     padding: '4px 10px',
     fontSize: 11,
     fontFamily: FONT.heading,
@@ -489,16 +417,43 @@ export default function ManualesOperaciones() {
     cargar()
   }
 
+  const activos = manuales.filter(m => m.activo)
+  const archivados = manuales.filter(m => !m.activo)
+
+  const titularHero = manuales.length === 0
+    ? 'Aún no hay manuales de operaciones.'
+    : `${activos.length} ${activos.length === 1 ? 'manual activo' : 'manuales activos'} para consultar.`
+
+  const atencionHero = [
+    `${activos.length} activos`,
+    archivados.length > 0 ? `${archivados.length} archivados` : null,
+    `${CATEGORIAS.length} categorías`,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={S.page}>
-      {/* Header */}
-      <div style={S.header}>
-        <h1 style={S.title}>Manuales de Operaciones</h1>
+    <PantallaCantera>
+
+      {/* Acción propia */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button style={S.btnAdd} onClick={abrirNuevo}>+ Nuevo Manual</button>
       </div>
 
+      {/* 1 · Héroe del área Operaciones (naranja) */}
+      <HeroCantera
+        area="ops"
+        titular={titularHero}
+        atencion={atencionHero}
+      />
+
+      {error && <Papel ceja={MANUALES_CAT_EMERGENCIA} style={{ color: MANUALES_CAT_EMERGENCIA }}>{error}</Papel>}
+
+      {/* 3 · Frase potente */}
+      {!loading && !error && manuales.length > 0 && (
+        <FrasePotente significado="oportunidad">Cada manual actualizado evita errores repetidos en el turno.</FrasePotente>
+      )}
+
       {/* Category pills */}
-      <div style={S.filters}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <button style={pillStyle(catFilter === 'todos')} onClick={() => setCatFilter('todos')}>
           Todos
         </button>
@@ -514,7 +469,7 @@ export default function ManualesOperaciones() {
       </div>
 
       {/* Search + toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <input
           style={S.searchInput}
           placeholder="Buscar por título o contenido..."
@@ -536,9 +491,6 @@ export default function ManualesOperaciones() {
       {loading && (
         <p style={{ color: GRIS, fontFamily: FONT.body, fontSize: 13 }}>Cargando...</p>
       )}
-      {error && (
-        <p style={{ color: MANUALES_CAT_EMERGENCIA, fontFamily: FONT.body, fontSize: 13 }}>Error: {error}</p>
-      )}
       {!loading && !error && filtered.length === 0 && (
         <div style={S.emptyState}>
           {verArchivados
@@ -547,42 +499,45 @@ export default function ManualesOperaciones() {
         </div>
       )}
 
-      {/* Grid */}
+      {/* Lista */}
       {!loading && !error && filtered.length > 0 && (
-        <div style={S.grid}>
-          {filtered.map(m => (
-            <div key={m.id} style={S.card}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                <p style={S.cardTitle}>{m.titulo}</p>
-                <span style={catBadgeStyle(m.categoria)}>
-                  {CATEGORIAS.find(c => c.value === m.categoria)?.label ?? m.categoria}
-                </span>
-              </div>
+        <div>
+          <SeccionLabel bg={GRANATE}>{verArchivados ? 'Archivados' : 'Manuales'}</SeccionLabel>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+            {filtered.map(m => (
+              <Papel key={m.id} ceja={CAT_COLORS[m.categoria]} style={{ flex: '1 1 300px', minWidth: 280, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <p style={S.cardTitle}>{m.titulo}</p>
+                  <span style={catBadgeStyle(m.categoria)}>
+                    {CATEGORIAS.find(c => c.value === m.categoria)?.label ?? m.categoria}
+                  </span>
+                </div>
 
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <span style={S.cardMeta}>v{m.version}</span>
-                <span style={S.cardMeta}>Actualizado: {fmtDate(m.updated_at)}</span>
-                {m.creado_por && <span style={S.cardMeta}>Por: {m.creado_por}</span>}
-              </div>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <span style={S.cardMeta}>v{m.version}</span>
+                  <span style={S.cardMeta}>Actualizado: {fmtDate(m.updated_at)}</span>
+                  {m.creado_por && <span style={S.cardMeta}>Por: {m.creado_por}</span>}
+                </div>
 
-              {m.contenido && (
-                <p style={{ ...S.cardMeta, fontSize: 12 }}>
-                  {m.contenido.slice(0, 120)}{m.contenido.length > 120 ? '…' : ''}
-                </p>
-              )}
+                {m.contenido && (
+                  <p style={{ ...S.cardMeta, fontSize: 12 }}>
+                    {m.contenido.slice(0, 120)}{m.contenido.length > 120 ? '…' : ''}
+                  </p>
+                )}
 
-              <div style={S.cardActions}>
-                <button style={btnSmall('view')} onClick={() => abrirVer(m)}>Ver</button>
-                {m.activo
-                  ? <>
-                      <button style={btnSmall('edit')} onClick={() => abrirEditar(m)}>Editar</button>
-                      <button style={btnSmall('archive')} onClick={() => archivar(m)}>Archivar</button>
-                    </>
-                  : <button style={btnSmall('edit')} onClick={() => restaurar(m)}>Restaurar</button>
-                }
-              </div>
-            </div>
-          ))}
+                <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                  <button style={btnSmall('view')} onClick={() => abrirVer(m)}>Ver</button>
+                  {m.activo
+                    ? <>
+                        <button style={btnSmall('edit')} onClick={() => abrirEditar(m)}>Editar</button>
+                        <button style={btnSmall('archive')} onClick={() => archivar(m)}>Archivar</button>
+                      </>
+                    : <button style={btnSmall('edit')} onClick={() => restaurar(m)}>Restaurar</button>
+                  }
+                </div>
+              </Papel>
+            ))}
+          </div>
         </div>
       )}
 
@@ -642,7 +597,7 @@ export default function ManualesOperaciones() {
                 <div>
                   <label style={S.label}>Categoría</label>
                   <select
-                    style={S.select}
+                    style={S.input}
                     value={draft.categoria}
                     onChange={e => setDraft(d => ({ ...d, categoria: e.target.value as Categoria }))}
                   >
@@ -704,6 +659,6 @@ export default function ManualesOperaciones() {
           </div>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
 }
