@@ -1,10 +1,10 @@
-/* ─────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────
    ADAPTACIÓN MÓVIL DE LAS PANTALLAS REALES DEL ERP
    Regla de oro: no se pierde NI UN DATO. No se ocultan tarjetas,
    columnas ni pestañas. Solo se reordena a una columna y se permite
    deslizar lo que de verdad no quepa (tablas anchas).
    Se aplica solo dentro de la app móvil (.movil-scope).
-   ───────────────────────────────────────────────────────────── */
+   ────────────────────────────────────── */
 
 /* Caja global: nada puede ser más ancho que la pantalla */
 .movil-scope,
@@ -34,9 +34,12 @@
   width: 100% !important;
 }
 
-/* TODA rejilla → una sola columna */
-.movil-scope [style*="display: grid"],
-.movil-scope [style*="display:grid"] {
+/* Rejillas de TARJETAS → una sola columna.
+   EXCEPCIÓN: los micro-gráficos (barras por día/hora) usan `repeat(N,…)` o
+   alinean las barras al fondo (`align-items:end/flex-end`). Esos NO se colapsan:
+   si no, las barras se apilan y se ven mezcladas. */
+.movil-scope [style*="display: grid"]:not([style*="repeat("]):not([style*="align-items: end"]):not([style*="align-items:end"]):not([style*="align-items: flex-end"]):not([style*="align-items:flex-end"]),
+.movil-scope [style*="display:grid"]:not([style*="repeat("]):not([style*="align-items: end"]):not([style*="align-items:end"]):not([style*="align-items: flex-end"]):not([style*="align-items:flex-end"]) {
   display: grid !important;
   grid-template-columns: 1fr !important;
   gap: 0.7rem !important;
@@ -76,19 +79,30 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
-.movil-scope table {
-  display: block;
-  width: 100%;
+/* Tablas: se mantienen como tabla REAL (columnas alineadas cabecera↔cuerpo) y
+   es su CONTENEDOR el que desliza en horizontal. Así nunca ensanchan la app ni
+   se solapan las columnas. Se exceptúan del tope max-width:100% de arriba, que
+   si no las comprime dentro del viewport y mezcla las columnas. */
+.movil-scope :has(> table) {
+  max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+.movil-scope table {
+  display: table;
+  width: auto;
+  min-width: 100%;
+  max-width: none !important;
   border-collapse: collapse;
 }
-.movil-scope thead, .movil-scope tbody, .movil-scope tr { display: table; width: 100%; table-layout: fixed; }
+.movil-scope thead, .movil-scope tbody, .movil-scope tfoot, .movil-scope tr {
+  max-width: none !important;
+}
 .movil-scope th, .movil-scope td {
-  word-break: break-word;
-  white-space: normal;
-  padding: 0.4rem 0.5rem !important;
-  font-size: 0.85rem !important;
+  max-width: none !important;
+  white-space: nowrap;
+  padding: 0.4rem 0.6rem !important;
+  font-size: 0.82rem !important;
 }
 
 /* Texto que venía forzado a una línea: que pueda partir */
@@ -146,12 +160,12 @@
 
 .movil-scope { overflow-x: hidden; }
 
-/* ─────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────
    EXCEPCIÓN · MARCO DE DOCUMENTOS (hojas imprimibles)
    La "hoja" (HojaDoc) tiene estilo blindado propio: NO se
    neobrutaliza ni se fuerza a una columna. Se muestra tal cual,
    solo deslizable en horizontal si no cabe. Fuente: marcoDoc.ts.
-   ───────────────────────────────────────────────────────────── */
+   ────────────────────────────────────── */
 .movil-scope .hoja-doc {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
