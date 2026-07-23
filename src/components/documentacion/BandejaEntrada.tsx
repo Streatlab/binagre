@@ -4,6 +4,7 @@ import { toast } from '@/lib/toastStore'
 import { enviarAEquipoSeguro } from '@/lib/equipo/subidaSegura'
 import AvisosBandeja from '@/components/documentacion/AvisosBandeja'
 import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER, BORDER_CARD, GRANATE, VERDE, NAR, AZUL, ROJO, GRIS, BLANCO } from '@/styles/neobrutal'
+import { HeroCantera, FrasePotente, PantallaCantera } from '@/components/kit/cantera'
 
 // ── Bandeja de entrada — 5 BOTONES ──────────────────────────────────────────
 //   · BANCO    → extracto (CSV/PDF). Pregunta titular y vuelca a Conciliación.
@@ -418,8 +419,13 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
   const colorTitulo = modal.destino === 'banco' ? AZUL : modal.destino === 'ventas' ? VERDE : modal.destino === 'equipo' ? VERDE : GRANATE
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
+    <PantallaCantera embedded style={{ marginTop: 16 }}>
+      <HeroCantera
+        area="papeleo"
+        titular="Suelta lo que sea: el sistema lo lee y lo reparte solo."
+        resumen="Banco, ventas, facturas o equipo — un botón por destino, sin tener que clasificar nada a mano."
+      />
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         <BtnSubir
           label="Banco" color={AZUL} colorHover={`color-mix(in srgb, ${AZUL} 75%, black)`}
           sub="Extractos del banco (CSV o PDF). Pregunta de quién es y vuelca a Conciliación."
@@ -446,9 +452,7 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
           onClick={recogerCorreo} ocupado={recogiendoCorreo}
         />
       </div>
-      <div style={{ fontFamily: LEX, fontSize: 12, color: INK, marginBottom: 16, textAlign: 'center' }}>
-        Si un documento entra por el botón equivocado, el sistema lo detecta por contenido, lo redirige solo y te avisa.
-      </div>
+      <FrasePotente significado="logro">Si un documento entra por el botón equivocado, el sistema lo detecta por contenido, lo redirige solo y te avisa.</FrasePotente>
 
       <AvisosBandeja onResuelto={() => onProcesado?.()} />
 
@@ -510,6 +514,6 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
           </div>
         </div>
       )}
-    </div>
+    </PantallaCantera>
   )
 }

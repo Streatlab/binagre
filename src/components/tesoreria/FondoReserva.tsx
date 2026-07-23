@@ -11,11 +11,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  OSW, LEX, INK, CREMA, CLARO, OSC, D1, SHADOW, BORDER_CARD,
+  OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD,
   VERDE, ROJO, AMA, NAR, AZUL, GRANATE, GRIS, CORP, CLARA, eyebrow, d, E2, EUR, P0,
   BLANCO, VERDE_S, AMA_S, ROSA_S, NAR_S,
 } from '@/styles/neobrutal'
 import { fmtEur } from '@/lib/format'
+import { HeroCantera, FrasePotente, PantallaCantera } from '@/components/kit/cantera'
 
 interface Config { id: number; pct: number; activo: boolean; fecha_inicio: string; objetivo_fijos_mes: number; cuenta_destino: string | null; match_traspaso: string | null; tolerancia_dias: number }
 interface Orden {
@@ -372,10 +373,6 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
     cargar()
   }
 
-  const wrap: CSSProperties = embedded
-    ? { padding: 0 }
-    : { background: CREMA, minHeight: '100vh', padding: '28px 32px' }
-
   if (loading) {
     return <div style={{ ...(embedded ? {} : { background: CREMA, minHeight: '100vh' }), padding: embedded ? 8 : 40, ...d('20px'), color: GRIS }}>Cargando fondo…</div>
   }
@@ -397,8 +394,20 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
   const simCubre = simPend.filter(r => r.acum <= simDisponible + 0.001).length
   const simUltimo = simPend.filter(r => r.acum <= simDisponible + 0.001).slice(-1)[0]?.concepto ?? ''
 
+  // Hero tesorería (área azul): titular natural + cifra pendiente + tira de atención.
+  const heroTitular = totalPendiente <= 0
+    ? 'Todo al día: nada pendiente de ingresar en el fondo.'
+    : nivel === 'bloqueo'
+      ? `Llevas ${diasMasAntigua} días sin barrer: hay que ingresar ya.`
+      : 'Tienes cobros de plataforma esperando entrar en el fondo.'
+  const heroAtencion = [
+    agenda && agenda.hoy > 0 ? `${E2(agenda.hoy)} € de hoy` : null,
+    agenda && agenda.semana > 0 && agenda.semana !== totalPendiente ? `${E2(agenda.semana)} € de esta semana` : null,
+    totalPendiente > 0 ? `${pendientes.length} cobro${pendientes.length === 1 ? '' : 's'} al ${cfg?.pct ?? 5}%` : null,
+  ].filter(Boolean) as string[]
+
   return (
-    <div style={wrap}>
+    <PantallaCantera embedded={embedded}>
 
       {/* CABECERA (solo en modo pagina completa) */}
       {!embedded && (
@@ -457,44 +466,33 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
       )}
 
       {/* ══ HERO · QUE TIENES QUE INGRESAR ══ */}
-      <div style={{
-        background: nivel === 'bloqueo' ? OSC : AMA, color: nivel === 'bloqueo' ? D1 : INK,
-        border: BORDER_CARD, boxShadow: SHADOW, padding: '24px 26px', marginBottom: 18,
-      }}>
-        {totalPendiente > 0 ? (
-          <>
-            <span style={eyebrow(nivel === 'bloqueo' ? ROJO : INK, nivel === 'bloqueo' ? BLANCO : AMA)}>
-              {nivel === 'bloqueo' ? `Llevas ${diasMasAntigua} días sin barrer` : 'Ingresa en el fondo'}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 28, flexWrap: 'wrap', marginTop: 14 }}>
-              <div>
-                <div style={{ ...d('64px', nivel === 'bloqueo' ? D1 : INK) }}>{E2(totalPendiente)} €</div>
-                <div style={{ fontFamily: LEX, fontSize: 13, marginTop: 6, opacity: 0.85 }}>
-                  {agenda && agenda.hoy > 0 && <><strong>{E2(agenda.hoy)} € de hoy</strong> · </>}
-                  {agenda && agenda.semana > 0 && agenda.semana !== totalPendiente && <>{E2(agenda.semana)} € de esta semana · </>}
-                  {pendientes.length} cobro{pendientes.length === 1 ? '' : 's'} de plataforma al {cfg?.pct ?? 5}%
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginLeft: 'auto' }}>
-                {ordenesHoy.length > 0 && (
-                  <button disabled={ocupado} onClick={() => cumplirLote(ordenesHoy, 'Barrido de hoy')}
-                    style={{ ...btn, background: BLANCO, color: INK }}>
-                    Ingresado lo de hoy · {E2(agenda?.hoy ?? 0)} €
-                  </button>
-                )}
-                {ordenesSemana.length > 0 && ordenesSemana.length !== pendientes.length && (
-                  <button disabled={ocupado} onClick={() => cumplirLote(ordenesSemana, 'Barrido de la semana')}
-                    style={{ ...btn, background: BLANCO, color: INK }}>
-                    Lo de la semana · {E2(agenda?.semana ?? 0)} €
-                  </button>
-                )}
-                <button disabled={ocupado} onClick={() => cumplirLote(pendientes, 'Barrido total')}
-                  style={{ ...btn, background: VERDE, color: BLANCO }}>
-                  Todo ingresado · {E2(totalPendiente)} €
+      <HeroCantera
+        area="tesoreria"
+        titular={heroTitular}
+        etiquetaDato={totalPendiente > 0 ? 'Pendiente de ingresar en el fondo' : undefined}
+        cifra={totalPendiente > 0 ? `${E2(totalPendiente)} €` : undefined}
+        atencion={heroAtencion}
+        resumen={totalPendiente > 0 ? (
+          <div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {ordenesHoy.length > 0 && (
+                <button disabled={ocupado} onClick={() => cumplirLote(ordenesHoy, 'Barrido de hoy')}
+                  style={{ ...btn, background: BLANCO, color: INK }}>
+                  Ingresado lo de hoy · {E2(agenda?.hoy ?? 0)} €
                 </button>
-              </div>
+              )}
+              {ordenesSemana.length > 0 && ordenesSemana.length !== pendientes.length && (
+                <button disabled={ocupado} onClick={() => cumplirLote(ordenesSemana, 'Barrido de la semana')}
+                  style={{ ...btn, background: BLANCO, color: INK }}>
+                  Lo de la semana · {E2(agenda?.semana ?? 0)} €
+                </button>
+              )}
+              <button disabled={ocupado} onClick={() => cumplirLote(pendientes, 'Barrido total')}
+                style={{ ...btn, background: VERDE, color: BLANCO }}>
+                Todo ingresado · {E2(totalPendiente)} €
+              </button>
             </div>
-            <div style={{ display: 'flex', height: 14, border: `2px solid ${INK}`, marginTop: 18, overflow: 'hidden', background: BLANCO }}>
+            <div style={{ display: 'flex', height: 14, border: `2px solid ${INK}`, marginTop: 14, overflow: 'hidden', background: BLANCO }}>
               {(['uber', 'glovo', 'je'] as const).map(k => {
                 const v = mixCanal[k] ?? 0
                 if (v <= 0 || totalPendiente <= 0) return null
@@ -514,16 +512,17 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
                 )
               })}
             </div>
-          </>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <div style={{ ...d('40px') }}>Todo al día ✓</div>
-            <div style={{ fontFamily: LEX, fontSize: 13.5 }}>
-              No hay nada pendiente de ingresar. En cuanto entre un cobro de plataforma, aquí verás cuánto apartar.
-            </div>
           </div>
-        )}
-      </div>
+        ) : 'En cuanto entre un cobro de plataforma, aquí verás cuánto apartar.'}
+      />
+
+      {totalPendiente > 0 && (
+        nivel === 'bloqueo'
+          ? <FrasePotente significado="peligro">Llevas {diasMasAntigua} días sin barrer: el fondo se está quedando atrás.</FrasePotente>
+          : cobertura >= 100
+            ? <FrasePotente significado="logro">El fondo ya cubre los fijos reales del mes: ingresa esto y sigues sobrado.</FrasePotente>
+            : <FrasePotente significado="oportunidad">Barre estos cobros hoy: cuanto antes entren, antes cubres los fijos del mes.</FrasePotente>
+      )}
 
       {/* ══ TRES CARDS ══ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 18 }}>
@@ -924,12 +923,13 @@ export function FondoReserva({ embedded = false }: { embedded?: boolean }) {
           </div>
         )}
       </div>
-    </div>
+    </PantallaCantera>
   )
 }
 
+// Papel ceja (sin sombra): bloque informativo, no pulsable.
 const card: CSSProperties = {
-  background: `var(--neo-card, ${BLANCO})`, border: BORDER_CARD, boxShadow: SHADOW, padding: '18px 20px',
+  background: `var(--neo-card, ${BLANCO})`, border: BORDER_CARD, borderTop: `7px solid ${AZUL}`, borderRadius: 0, padding: '18px 20px',
 }
 const btn: CSSProperties = {
   border: BORDER_CARD, boxShadow: '3px 3px 0 var(--neo-shadow-color)', padding: '11px 18px',

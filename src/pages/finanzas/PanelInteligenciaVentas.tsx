@@ -13,6 +13,7 @@ import { fmtEur } from '@/utils/format'
 import {
   COLORS, OSWALD, LEXEND, lbl, lblXs, kpiBig, CARDS, BAR, SUBTABS,
 } from '@/components/panel/resumen/tokens'
+import { Papel, Plancha, PlanchaCelda } from '@/components/kit/cantera'
 import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 import { loadConfigCanales, loadMarcasPorCanal, type CanalConfig, type MarcasPorCanal } from '@/lib/panel/calcNetoPlataforma'
 
@@ -231,28 +232,28 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
         <span style={{ ...lblXs, color: COLORS.glovoDark }}>UNIDADES REALES DEL PERIODO · IMPORTES ESTIMADOS HASTA ENCHUFAR EXPORT</span>
       </div>
 
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        {kpis.map(c => (
-          <div key={c.label} style={{ ...CARDS.big, padding: '20px 22px' }}>
+      {/* KPIs comparables — Plancha (celdas sólidas pegadas) */}
+      <Plancha>
+        {kpis.map((c, i) => (
+          <PlanchaCelda key={c.label} bg={BLANCO} first={i === 0}>
             <div style={{ ...lbl, fontSize: 11 }}>{c.label}</div>
             <div style={{ ...kpiBig, color: c.color, marginTop: 6 }}>{c.value}</div>
-          </div>
+          </PlanchaCelda>
         ))}
-      </div>
+      </Plancha>
 
-      {/* Coste de depender */}
-      <div style={{ ...CARDS.std, background: `${COLORS.redSL}0d`, border: `0.5px solid ${COLORS.redSL}33` }}>
+      {/* Coste de depender — Papel ceja (sin sombra) */}
+      <Papel ceja={COLORS.redSL}>
         <div style={{ ...lbl, color: COLORS.redSL }}>COSTE DE DEPENDER DE PLATAFORMAS</div>
         <div style={{ fontFamily: OSWALD, fontSize: 34, fontWeight: 600, color: COLORS.redSL, lineHeight: 1.05, marginTop: 4 }}>
           {fmtEur(d.comisionAnual)} <span style={{ fontSize: 14, color: COLORS.mut }}>/año proyectado</span>
         </div>
         <div style={{ fontFamily: LEXEND, fontSize: 12, color: COLORS.sec, marginTop: 6 }}>Cada pedido movido a tienda online (0% comisión) recupera ~30% de margen.</div>
-      </div>
+      </Papel>
 
-      {/* Reparto + Mapa horario */}
+      {/* Reparto + Mapa horario — Papel ceja (sin sombra) */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div style={{ ...CARDS.std }}>
+        <Papel ceja={COLORS.ok}>
           <div style={tituloCard}>REPARTO POR PLATAFORMA (EST.)</div>
           <ResponsiveContainer width="100%" height={210}>
             <PieChart>
@@ -270,8 +271,8 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
               </div>
             ))}
           </div>
-        </div>
-        <div style={{ ...CARDS.std }}>
+        </Papel>
+        <Papel ceja={COLORS.redSL}>
           <div style={tituloCard}>VENTAS POR FRANJA HORARIA (REAL)</div>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={d.porHora}>
@@ -284,11 +285,11 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </Papel>
       </div>
 
-      {/* Evolución */}
-      <div style={{ ...CARDS.std }}>
+      {/* Evolución — Papel ceja (sin sombra) */}
+      <Papel ceja={COLORS.ok}>
         <div style={tituloCard}>EVOLUCIÓN EN EL PERIODO (EST.)</div>
         <ResponsiveContainer width="100%" height={280}>
           <AreaChart data={d.evolucion}>
@@ -306,10 +307,10 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
             <Line type="monotone" dataKey="neto" stroke={COLORS.ok} strokeWidth={2} dot={false} name="Neto" />
           </AreaChart>
         </ResponsiveContainer>
-      </div>
+      </Papel>
 
-      {/* Margen por plataforma */}
-      <div style={{ ...CARDS.std }}>
+      {/* Margen por plataforma — Papel ceja (sin sombra) */}
+      <Papel ceja={COLORS.redSL}>
         <div style={tituloCard}>MARGEN TRAS COMISIÓN POR PLATAFORMA (EST.)</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {d.plataformas.map((p) => (
@@ -327,10 +328,10 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
             </div>
           ))}
         </div>
-      </div>
+      </Papel>
 
-      {/* INFORMES por dimensión — con descarga */}
-      <div style={{ ...CARDS.std }}>
+      {/* INFORMES por dimensión — con descarga — Papel ceja (sin sombra) */}
+      <Papel ceja={COLORS.ok}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
           <div style={{ ...lbl }}>INFORMES DE VENTAS</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -364,7 +365,7 @@ export default function PanelInteligenciaVentas({ desde, hasta, marcasFiltro, ca
             Estimado de ejemplo. Saldrá real en cuanto la Carta tenga cada plato asignado a su familia/categoría.
           </div>
         )}
-      </div>
+      </Papel>
     </div>
   )
 }
