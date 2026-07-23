@@ -13,6 +13,7 @@ import {
   C, Card, CardHead, Hero, HeroPill, Kpi, KpiGrid, Pill, Nota, Vacio, Atencion,
   eur0, num0, pct1,
 } from '@/components/panel/sl/uiSL'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 
 interface Maestro { id: number; nombre: string; es_extra: boolean | null; receta_id: string | null; euros: number | null }
 interface Receta { id: string; nombre: string; coste_rac: number | null }
@@ -113,11 +114,8 @@ export default function PlatoMaestro() {
 
   return (
     <div className="sl-skin" style={{ minHeight: '100vh', padding: '24px 28px' }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.4px' }}>Plato Maestro</div>
-        <div style={{ fontSize: 12, color: C.grisCl, fontWeight: 700, marginTop: 2 }}>
-          La identidad única de cada plato. Vincula aquí una vez y se aplica en todo: Análisis, Pareto, Coste y Carta.
-        </div>
+      <div style={{ marginBottom: 14 }}>
+        <RutaPantalla niveles={['Plato maestro']} subtitulo="La identidad única de cada plato. Vincula aquí una vez y se aplica en todo: Análisis, Pareto, Coste y Carta." />
       </div>
 
       <Hero

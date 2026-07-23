@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 
 interface Marca {
   id: string
@@ -81,11 +82,8 @@ export default function Marcas() {
 
   return (
     <div style={{ fontFamily: FONT.body, padding: isMobile ? '16px' : '28px', background: 'var(--neo-bg)', minHeight: '100vh', color: 'var(--sl-text-primary)' }}>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 'clamp(20px, 5vw, 26px)', letterSpacing: '3px', color: GRANATE, fontWeight: 800, textTransform: 'uppercase', margin: '0 0 4px' }}>MARCAS</h1>
-          <span style={{ fontSize: 13, color: 'var(--sl-text-muted)' }}>Gestion de marcas del negocio</span>
-        </div>
+      <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Marcas']} subtitulo="Gestion de marcas del negocio" />
         <button onClick={openCreate}
           style={{ padding: '10px 18px', minHeight: 44, background: LIMA, color: 'var(--sl-text-primary)', ...NEO_CARD, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 800, cursor: 'pointer' }}>
           + Nueva marca

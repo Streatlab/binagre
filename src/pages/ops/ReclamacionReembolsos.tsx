@@ -9,6 +9,8 @@ import type {
   Reclamacion, Canal, EstadoReclamacion, TipoReclamacion, PedidoVerificado, } from "../../lib/reclamaciones/useReclamaciones";
 import {
   OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal';
+import RutaPantalla from '@/components/ui/RutaPantalla';
+import TabsPastilla from '@/components/ui/TabsPastilla';
 
 type TabKey = "todas" | "pendiente" | "reclamada" | "cobrada" | "cobrada_doble" | "rechazada" | "incobrable";
 
@@ -63,6 +65,16 @@ export default function ReclamacionReembolsos() {
   const mGL  = useMemo(() => computeMetricasPorCanal(data, "glovo"), [data]);
   const mJE  = useMemo(() => computeMetricasPorCanal(data, "just_eat"), [data]);
 
+  const TABS: { id: TabKey; label: string; badge?: number }[] = [
+    { id: "todas", label: "Todas", badge: data.length },
+    { id: "pendiente", label: "Pendientes", badge: m.pendientes },
+    { id: "reclamada", label: "Reclamadas", badge: m.reclamadas },
+    { id: "cobrada", label: "Cobradas", badge: m.cobradas - m.dobles },
+    { id: "cobrada_doble", label: "Dobles", badge: m.dobles },
+    { id: "rechazada", label: "Rechazadas", badge: m.rechazadas },
+    { id: "incobrable", label: "Incobrables", badge: m.incobrables },
+  ];
+
   const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW };
   const btnPrim: React.CSSProperties = {
     fontFamily: OSW, fontWeight: 600, fontSize: 13, letterSpacing: "1px", textTransform: "uppercase",
@@ -76,14 +88,8 @@ export default function ReclamacionReembolsos() {
   return (
     <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: "100vh", color: INK }}>
 
-      <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <span style={eyebrow(NAR, BLANCO)}>OPERACIONES</span>
-          <h1 style={{ fontFamily: OSW, fontWeight: 700, fontSize: 34, lineHeight: 0.95, letterSpacing: "-0.5px", textTransform: "uppercase", color: GRANATE, margin: "10px 0 6px" }}>
-            REEMBOLSOS
-          </h1>
-          <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Reclamaciones a plataformas · seguimiento hasta el cobro</span>
-        </div>
+      <div style={{ marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
+        <RutaPantalla niveles={['Reembolsos', TABS.find(t => t.id === tab)?.label ?? '']} subtitulo="Reclamaciones a plataformas · seguimiento hasta el cobro" />
         <button onClick={() => setShowNew(true)} style={btnPrim}>+ Nuevo reembolso</button>
       </div>
 
@@ -110,26 +116,9 @@ export default function ReclamacionReembolsos() {
         <CanalCard label="Just Eat"  color={NAR}   data={mJE} card={card} />
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {([
-          ["todas", "Todas", data.length],
-          ["pendiente", "Pendientes", m.pendientes],
-          ["reclamada", "Reclamadas", m.reclamadas],
-          ["cobrada", "Cobradas", m.cobradas - m.dobles],
-          ["cobrada_doble", "Dobles", m.dobles],
-          ["rechazada", "Rechazadas", m.rechazadas],
-          ["incobrable", "Incobrables", m.incobrables],
-        ] as [TabKey, string, number][]).map(([k, label, count]) => (
-          <button key={k} onClick={() => setTab(k)} style={{
-            padding: "8px 16px", border: `3px solid ${INK}`,
-            background: tab === k ? GRANATE : BLANCO, color: tab === k ? BLANCO : INK,
-            boxShadow: tab === k ? SHADOW : "none",
-            fontFamily: OSW, fontSize: 13, fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", cursor: "pointer",
-          }}>
-            {label} <span style={{ opacity: 0.7, marginLeft: 3 }}>{count}</span>
-          </button>
-        ))}
-      </div>
+      <TabsPastilla tabs={TABS} activeId={tab} onChange={id => setTab(id as TabKey)} />
+
+      <div style={{ height: 16 }} />
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <select style={selectNeo} value={filterMes} onChange={e => setFilterMes(e.target.value)}>

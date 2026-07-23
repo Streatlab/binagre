@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { useTheme, FONT, tabActiveStyle, tabInactiveStyle, tabsContainerStyle, pageTitleStyle } from '@/styles/tokens'
+import { useTheme, FONT } from '@/styles/tokens'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabConteos from '@/components/inventario/TabConteos'
 import TabMovimientos from '@/components/inventario/TabMovimientos'
 import TabMermas from '@/components/inventario/TabMermas'
@@ -77,7 +79,7 @@ export function getPeriodoFechas(periodo: PeriodoInventario): { desde: string; h
 const CON_PERIODO: TabKey[] = ['conteos', 'movimientos', 'mermas']
 
 export default function Inventario() {
-  const { T, isDark } = useTheme()
+  const { T } = useTheme()
   const [tab, setTab] = useState<TabKey>('stockreal')
   const [periodo, setPeriodo] = useState<PeriodoInventario>('mes')
 
@@ -86,8 +88,8 @@ export default function Inventario() {
   return (
     <div style={{ padding: '24px 28px', minHeight: '100vh', background: T.bg, fontFamily: FONT.body }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h1 style={pageTitleStyle(T)}>Compras & Inventario</h1>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+        <RutaPantalla niveles={['Compras & Inventario', TABS.find(t => t.key === tab)?.label ?? '']} />
 
         {CON_PERIODO.includes(tab) && (
           <select
@@ -111,18 +113,9 @@ export default function Inventario() {
         )}
       </div>
 
-      {/* Tabs */}
-      <div style={{ ...tabsContainerStyle(), flexWrap: 'wrap' }}>
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            style={tab === t.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <TabsPastilla tabs={TABS.map(t => ({ id: t.key, label: t.label }))} activeId={tab} onChange={id => setTab(id as TabKey)} />
+
+      <div style={{ height: 16 }} />
 
       {/* Tab content */}
       {tab === 'stockreal'   && <TabStockReal />}

@@ -10,6 +10,8 @@ import { FONT } from '@/styles/tokens'
 import { fmtNum, fmtEur, fmtDate } from '@/utils/format'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import TabHojaInventario from './TabHojaInventario'
+import RutaPantalla from '@/components/ui/RutaPantalla'
+import TabsPastilla from '@/components/ui/TabsPastilla'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -79,18 +81,6 @@ const S: Record<string, React.CSSProperties> = {
   calc:  { backgroundColor: GRANATE + '18', border: `1px solid ${GRANATE}`, color: GRANATE, padding: '4px 10px', borderRadius: 0, fontSize: 13, fontFamily: FONT.body, display: 'inline-block', textAlign: 'right' as const, minWidth: 70 },
 }
 
-function tabBtn(active: boolean): React.CSSProperties {
-  return {
-    padding: '9px 18px', borderRadius: 0, minHeight: 44,
-    border: `3px solid ${NEO_INK}`,
-    backgroundColor: active ? GRANATE : 'var(--sl-card)',
-    color: active ? BLANCO : 'var(--sl-text-primary)',
-    boxShadow: active ? NEO_SHADOW : 'none',
-    fontFamily: FONT.heading, fontSize: 12, fontWeight: 700,
-    letterSpacing: '0.5px', textTransform: 'uppercase' as const, cursor: 'pointer',
-  }
-}
-
 function activeBtn(active: boolean): React.CSSProperties {
   return {
     padding: '7px 14px', borderRadius: 0,
@@ -106,6 +96,13 @@ function activeBtn(active: boolean): React.CSSProperties {
 // ── Componente principal ───────────────────────────────────────────────────────
 
 type Tab = 'conteo' | 'hoja' | 'produccion' | 'entradas'
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'conteo',     label: 'Conteo físico' },
+  { id: 'hoja',       label: 'Hoja de Inventario' },
+  { id: 'produccion', label: 'Producción' },
+  { id: 'entradas',   label: 'Entradas MP' },
+]
 
 export default function CocinaInventario() {
   const isMobile = useIsMobile()
@@ -150,8 +147,9 @@ export default function CocinaInventario() {
 
   return (
     <div style={{ ...S.page, padding: isMobile ? '14px 12px' : '24px 28px' }}>
-      <div style={S.title}>Inventario Cocina</div>
-      <div style={S.sub}>Control de stock · producción semanal · entradas de materia prima</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Inventario Cocina', TABS.find(t => t.id === tab)?.label ?? '']} subtitulo="Control de stock · producción semanal · entradas de materia prima" />
+      </div>
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12, marginBottom: 20 }}>
@@ -172,13 +170,9 @@ export default function CocinaInventario() {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <button onClick={() => setTab('conteo')} style={tabBtn(tab === 'conteo')}>Conteo físico</button>
-        <button onClick={() => setTab('hoja')} style={tabBtn(tab === 'hoja')}>Hoja de Inventario</button>
-        <button onClick={() => setTab('produccion')} style={tabBtn(tab === 'produccion')}>Producción</button>
-        <button onClick={() => setTab('entradas')} style={tabBtn(tab === 'entradas')}>Entradas MP</button>
-      </div>
+      <TabsPastilla tabs={TABS} activeId={tab} onChange={id => setTab(id as Tab)} />
+
+      <div style={{ height: 16 }} />
 
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: 'var(--sl-text-muted)' }}>Cargando datos…</div>

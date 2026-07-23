@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { toLocalDateStr } from '@/lib/dateRange'
 import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 
 
 const BG_OPS = INK
@@ -107,11 +108,8 @@ export default function ReunionesEquipo() {
 
   return (
     <div style={{ fontFamily: FONT.body, padding: '28px', background: BG_OPS, minHeight: '100vh', color: BLANCO }}>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontFamily: FONT.heading, fontSize: 22, letterSpacing: '3px', color: BLANCO, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 4px' }}>REUNIONES EQUIPO</h1>
-          <span style={{ fontSize: 13, color: COLOR.textMut }}>Actas y acuerdos de reuniones</span>
-        </div>
+      <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+        <RutaPantalla niveles={['Reuniones equipo']} subtitulo="Actas y acuerdos de reuniones" />
         <button onClick={() => setShowForm(s => !s)}
           style={{ padding: '8px 18px', background: COLORS.glovo, color: BG_OPS, border: 'none', borderRadius: 6, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
           + Nueva reunion

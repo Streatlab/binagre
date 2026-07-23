@@ -15,8 +15,9 @@ import { supabase } from '@/lib/supabase'
 import {
   OSW, LEX, INK, CREMA, CLARO, GRIS, GRANATE, VERDE, AMA, AZUL, BLANCO,
   VERDE_S, AMA_S, ROSA_S, AZUL_S,
-  SHADOW, BORDER, BORDER_CARD, d, eyebrow, cardWash, cardHead, pill,
+  SHADOW, BORDER, BORDER_CARD, d, cardWash, cardHead, pill,
 } from '@/styles/neobrutal'
+import RutaPantalla from '@/components/ui/RutaPantalla'
 
 interface Maestro {
   id: number
@@ -296,10 +297,8 @@ export default function PlatosMaestros() {
 
   return (
     <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: '100vh', color: INK }}>
-      <div style={{ marginBottom: 20 }}>
-        <span style={eyebrow(CLARO)}>COCINA</span>
-        <h1 style={{ ...d('clamp(26px,3.4vw,36px)', GRANATE), margin: '10px 0 6px' }}>PLATO MAESTRO</h1>
-        <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>El catálogo real de lo que vendes: un plato, un nombre, sus variantes colgando. Fusiona duplicados y prioriza qué recetas faltan por euros.</span>
+      <div style={{ marginBottom: 14 }}>
+        <RutaPantalla niveles={['Plato maestro']} subtitulo="El catálogo real de lo que vendes: un plato, un nombre, sus variantes colgando. Fusiona duplicados y prioriza qué recetas faltan por euros." />
       </div>
 
       {/* Hero */}
