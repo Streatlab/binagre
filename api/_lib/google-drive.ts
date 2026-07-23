@@ -22,6 +22,9 @@ const STORAGE_BUCKET = 'facturas'
 type DriveExtracted = {
   proveedor_nombre: string
   numero_factura?: string
+  /** Huella del propio archivo. Hace el nombre unico y evita que dos documentos
+   *  del mismo proveedor y fecha se pisen en Drive/Storage. */
+  hash?: string
   fecha_factura: string
   tipo: 'proveedor' | 'plataforma'
   plataforma?: 'uber' | 'glovo' | 'just_eat' | null
@@ -110,7 +113,13 @@ export function generarNombreArchivo(extracted: DriveExtracted, ext: string): st
   const numero = slug(extracted.numero_factura || '').slice(0, 40) || 'SN'
   const fecha = (extracted.fecha_factura || '').slice(0, 10) || 'sin-fecha'
   const extClean = ext.replace(/^\./, '').toLowerCase() || 'bin'
-  return `${proveedor}_${numero}_${fecha}.${extClean}`
+  // Sufijo unico obligatorio: sin el, dos facturas del mismo proveedor y misma
+  // fecha sin numero legible generan el mismo nombre y una machaca a la otra en
+  // Storage (paso de verdad: 1.586 fichas compartiendo 131 archivos). Se usa la
+  // huella del archivo para que sea reproducible; si no la hay, marca de tiempo.
+  const sufijo = (extracted.hash && extracted.hash.slice(0, 8))
+    || Date.now().toString(36)
+  return `${proveedor}_${numero}_${fecha}_${sufijo}.${extClean}`
 }
 
 // Niveles de carpeta (TITULAR/AÑO/T/MES/TIPO) que comparten Drive y Storage.
