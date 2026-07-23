@@ -329,22 +329,44 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
       const r = await enviarAEquipoSeguro(archivos, (hechos, total) => {
         toast.loading(`Leyendo documentos de equipo (${hechos}/${total})…`, { id: tid })
       })
+      // Resumen con VERDAD: lo de personal, lo que se reenvió (y a qué módulo lo
+      // recogió de verdad) y lo que se rechazó por no ser de ningún buzón.
       const partes: string[] = []
       if (r.nominas) partes.push(`${r.nominas} nómina${r.nominas !== 1 ? 's' : ''}`)
       if (r.resumenes) partes.push(`${r.resumenes} resumen${r.resumenes !== 1 ? 'es' : ''}`)
       if (r.segSocial) partes.push(`${r.segSocial} Seguridad Social`)
       if (r.revisar) partes.push(`${r.revisar} por revisar`)
 
-      if (r.aRepescar > 0) {
-        partes.push(`${r.aRepescar} en repesca`)
-        toast.aviso(
-          `EQUIPO · ${partes.join(' · ')}. Los de repesca están guardados y se reintentan solos; no hace falta volver a subirlos.`,
-          { id: tid, duration: 20000 },
+      const reenv = Object.entries(r.reencaminados)
+      const totalReenv = reenv.reduce((a, [, n]) => a + n, 0)
+      const frases: string[] = []
+      if (totalReenv > 0) {
+        frases.push(
+          `${totalReenv} documento${totalReenv !== 1 ? 's' : ''} no ${totalReenv !== 1 ? 'eran' : 'era'} de personal: ` +
+          reenv.map(([mod, n]) => `${n} a ${mod}`).join(' y ') + '.',
         )
-      } else if (partes.length === 0) {
+      }
+      if (r.rechazados.length > 0) {
+        frases.push(
+          `${r.rechazados.length} rechazado${r.rechazados.length !== 1 ? 's' : ''} ` +
+          `(${r.rechazados[0].nombre}: ${r.rechazados[0].motivo})`,
+        )
+      }
+      if (r.aRepescar > 0) {
+        frases.push(`${r.aRepescar} en repesca: están guardados y se reintentan solos, no hace falta volver a subirlos.`)
+      }
+
+      const cabecera = partes.length > 0 ? `EQUIPO · ${partes.join(' · ')}` : 'EQUIPO'
+      const texto = [cabecera, ...frases].join(' — ')
+
+      if (partes.length === 0 && totalReenv === 0 && r.rechazados.length === 0 && r.aRepescar === 0) {
         toast.error(`No se pudo procesar: ${r.errores[0] || 'sin respuesta'}`, { id: tid })
+      } else if (r.rechazados.length > 0 || r.aRepescar > 0) {
+        toast.aviso(texto, { id: tid, duration: 25000 })
+      } else if (totalReenv > 0) {
+        toast.success(texto, { id: tid, duration: 20000 })
       } else {
-        toast.success(`EQUIPO · ${partes.join(' · ')}`, { id: tid })
+        toast.success(texto, { id: tid })
       }
     } catch (e: any) {
       toast.error(e?.message || 'Error al enviar los documentos de equipo', { id: tid })
@@ -476,7 +498,7 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
               <>
                 <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 8, marginBottom: 18 }}>
                   {modal.destino === 'equipo'
-                    ? 'Cada documento se guarda antes de leerse: si alguno no se puede leer ahora, queda apuntado y el sistema lo reintenta solo. No se pierde ninguno.'
+                    ? 'Cada documento se guarda antes de leerse. Lo que no sea de personal se reenvía solo al módulo que le toque, y lo que no reconozca ningún módulo se rechaza con el motivo. No se pierde ninguno.'
                     : 'El sistema clasifica cada documento por su contenido, aplica el diccionario de proveedores y lo redirige si no corresponde a este botón.'}
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
