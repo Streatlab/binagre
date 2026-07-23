@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/lib/toastStore'
 import { fmtEur, fmtDate, fmtEurFactura } from '@/lib/format'
-import { OSW, LEX, INK, GRIS, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, d, eyebrow, BLANCO } from '@/styles/neobrutal'
+import { OSW, LEX, INK, GRIS, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, d, eyebrow, BLANCO } from '@/styles/neobrutal'
 import ModalDescartarFactura, { type FacturaDescartable } from '@/components/documentacion/ModalDescartarFactura'
 
 // ── Avisos autoaprendibles de Papeleo ────────────────────────────────────────
@@ -118,7 +118,7 @@ function SelectorCategoria({ cats, value, onChange, disabled }: { cats: Categori
         }}
         disabled={disabled}
         placeholder="Buscar categoría (nombre o código)…"
-        style={{ fontFamily: LEX, fontSize: 12, padding: '7px 9px', border: `2px solid ${INK}`, background: disabled ? '#eee' : BLANCO, color: INK, minWidth: 210, width: '100%' }}
+        style={{ fontFamily: LEX, fontSize: 12, padding: '7px 9px', border: `2px solid ${INK}`, background: disabled ? CLARO : BLANCO, color: INK, minWidth: 210, width: '100%' }}
       />
       {open && (
         <ul style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, background: BLANCO, border: `2px solid ${INK}`, maxHeight: 220, overflowY: 'auto', margin: '2px 0 0', padding: 0, listStyle: 'none', boxShadow: SHADOW }}>
@@ -141,7 +141,7 @@ function SelectorCategoria({ cats, value, onChange, disabled }: { cats: Categori
 
 const btnMiniEstilo: CSSProperties = {
   fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase',
-  border: `2px solid ${INK}`, boxShadow: SHADOW, padding: '7px 12px', cursor: 'pointer', color: '#fff', whiteSpace: 'nowrap',
+  border: `2px solid ${INK}`, boxShadow: SHADOW, padding: '7px 12px', cursor: 'pointer', color: BLANCO, whiteSpace: 'nowrap',
 }
 
 // Una fila de aviso (real o sintética). Todo tipo con botón tiene su rama; el
@@ -162,7 +162,7 @@ function FilaAviso({ a, factura, mov, cats, cat, onCat, ocupado, resolver, setDe
   const necesitaFallback = !tiposConAccionPropia.has(a.tipo) && !factura
 
   return (
-    <div style={{ display: 'flex', alignItems: 'stretch', border: BORDER_CARD, marginBottom: 8, background: '#fff' }}>
+    <div style={{ display: 'flex', alignItems: 'stretch', border: BORDER_CARD, marginBottom: 8, background: BLANCO }}>
       <div style={{ width: 6, background: est.bg, flexShrink: 0 }} />
 
       <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: '10px 14px', minWidth: 0 }}>

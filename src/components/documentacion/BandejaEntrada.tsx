@@ -415,33 +415,33 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
   }
 
   const tituloModal = modal.destino === 'banco' ? 'Extracto bancario' : modal.destino === 'ventas' ? 'Documentos de ventas' : modal.destino === 'equipo' ? 'Documentos de equipo' : 'Facturas'
-  const colorTitulo = modal.destino === 'banco' ? AZUL : modal.destino === 'ventas' ? VERDE : modal.destino === 'equipo' ? '#3D8B8B' : GRANATE
+  const colorTitulo = modal.destino === 'banco' ? AZUL : modal.destino === 'ventas' ? VERDE : modal.destino === 'equipo' ? VERDE : GRANATE
 
   return (
     <div style={{ marginTop: 16 }}>
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
         <BtnSubir
-          label="Banco" color={AZUL} colorHover="#16459e"
+          label="Banco" color={AZUL} colorHover={`color-mix(in srgb, ${AZUL} 75%, black)`}
           sub="Extractos del banco (CSV o PDF). Pregunta de quién es y vuelca a Conciliación."
           onArchivos={abrirModal('banco')} preparando={preparando}
         />
         <BtnSubir
-          label="Ventas" color={VERDE} colorHover="#157a5a"
+          label="Ventas" color={VERDE} colorHover={`color-mix(in srgb, ${VERDE} 75%, black)`}
           sub="Liquidaciones, resúmenes, historial de pedidos y productos de plataforma. Van directos a Ventas."
           onArchivos={abrirModal('ventas')} preparando={preparando}
         />
         <BtnSubir
-          label="Facturas" color={GRANATE} colorHover="#8f1519"
+          label="Facturas" color={GRANATE} colorHover={`color-mix(in srgb, ${GRANATE} 75%, black)`}
           sub="Facturas de proveedores y plataformas. OCR, Drive y cruce con Conciliación."
           onArchivos={abrirModal('facturas')} preparando={preparando}
         />
         <BtnSubir
-          label="Equipo" color="#3D8B8B" colorHover="#2c6666"
+          label="Equipo" color={VERDE} colorHover={`color-mix(in srgb, ${VERDE} 65%, black)`}
           sub="Nóminas, resumen y Seguridad Social — suelta todo junto."
           onArchivos={abrirModal('equipo')} preparando={preparando}
         />
         <BtnCorreo
-          label="Correo" color="#6C4BD8" colorHover="#5636ab"
+          label="Correo" color={AZUL} colorHover={`color-mix(in srgb, ${AZUL} 65%, black)`}
           sub="Recoge el buzón ahora mismo, sin esperar al robot de las 07:00."
           onClick={recogerCorreo} ocupado={recogiendoCorreo}
         />

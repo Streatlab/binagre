@@ -1,4 +1,4 @@
-import { BLANCO, GRANATE, INK, ROJO_S } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, INK, ROJO_S } from '@/styles/neobrutal'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -29,7 +29,7 @@ interface Props {
 }
 
 const inp: React.CSSProperties = {
-  width: '100%', boxSizing: 'border-box', background: INK, border: '1px solid #383838',
+  width: '100%', boxSizing: 'border-box', background: INK, border: `1px solid ${GRIS}`,
   borderRadius: 8, color: BLANCO, fontFamily: 'Lexend, sans-serif', fontSize: 13, padding: '10px 12px', outline: 'none',
 }
 
@@ -166,12 +166,12 @@ export default function ModalDescartarFactura({ factura, onClose, onDescartada }
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ backgroundColor: INK, borderRadius: 14, width: '100%', maxWidth: 460, border: '1px solid #383838', padding: 22 }}
+        style={{ backgroundColor: INK, borderRadius: 14, width: '100%', maxWidth: 460, border: `1px solid ${GRIS}`, padding: 22 }}
       >
         <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: 14, letterSpacing: 2, textTransform: 'uppercase', color: ROJO_S, marginBottom: 4, fontWeight: 600 }}>
           Descartar factura
         </div>
-        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: '#ccc', marginBottom: 16 }}>
+        <div style={{ fontFamily: 'Lexend, sans-serif', fontSize: 12, color: GRIS, marginBottom: 16 }}>
           {factura.proveedor_nombre || factura.nif_emisor || factura.pdf_original_name || 'Factura'}
         </div>
 
@@ -186,7 +186,7 @@ export default function ModalDescartarFactura({ factura, onClose, onDescartada }
           </label>
 
           {modo === 'siempre' && (
-            <div style={{ marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 8, background: '#2d1515', border: '1px solid #aa3030', borderRadius: 8, padding: '10px 12px' }}>
+            <div style={{ marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 8, background: INK, border: `1px solid ${GRANATE}`, borderRadius: 8, padding: '10px 12px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'Lexend, sans-serif', fontSize: 12.5, color: ROJO_S }}>
                 <input type="radio" checked={campo === 'pdf_original_name'} onChange={() => setCampo('pdf_original_name')} disabled={!factura.pdf_original_name} />
                 Por nombre de archivo{factura.pdf_original_name ? ` (${factura.pdf_original_name})` : ' (sin dato)'}
@@ -214,7 +214,7 @@ export default function ModalDescartarFactura({ factura, onClose, onDescartada }
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} disabled={guardando}
-            style={{ padding: '9px 16px', background: INK, border: '1px solid #383838', borderRadius: 8, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', cursor: guardando ? 'default' : 'pointer' }}>
+            style={{ padding: '9px 16px', background: INK, border: `1px solid ${GRIS}`, borderRadius: 8, color: BLANCO, fontFamily: 'Oswald, sans-serif', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', cursor: guardando ? 'default' : 'pointer' }}>
             Cancelar
           </button>
           <button onClick={confirmar} disabled={guardando || bloqueadoSiempre}

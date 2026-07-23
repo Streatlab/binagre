@@ -13,7 +13,7 @@ const TAG_STYLE: React.CSSProperties = {
   gap: 4,
   padding: '2px 8px',
   borderRadius: 10,
-  background: '#FF475715',
+  background: `${ROJO}15`,
   color: ROJO,
   fontSize: 11,
   fontWeight: 500,

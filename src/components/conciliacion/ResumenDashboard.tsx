@@ -1,4 +1,4 @@
-import { AZUL_CL, BLANCO, GRANATE, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { AMA, AZUL, AZUL_CL, BLANCO, GRANATE, GRIS, LIMA, NAR, ROJO as ROJO_TOKEN, ROSA, VERDE } from '@/styles/neobrutal'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
@@ -114,7 +114,7 @@ interface Props {
    ═══════════════════════════════════════════════════════════ */
 
 const VERDE_OK   = VERDE
-const ROJO       = '#A32D2D'
+const ROJO       = ROJO_TOKEN
 
 const COLOR_CANAL: Record<string, string> = {
   'Uber Eats': VERDE,
@@ -126,11 +126,11 @@ const COLOR_CANAL: Record<string, string> = {
 
 const COLOR_CATEGORIA: Record<string, string> = {
   'RRHH':         GRANATE,
-  'Proveedores':  '#D85A30',
-  'Alquiler':     '#F59E0B',
-  'Suministros':  '#7F77DD',
-  'Marketing':    '#D4537E',
-  'Otros':        '#888780',
+  'Proveedores':  NAR,
+  'Alquiler':     AMA,
+  'Suministros':  AZUL,
+  'Marketing':    ROSA,
+  'Otros':        GRIS,
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -457,7 +457,7 @@ export function ResumenDashboard(_props: Props) {
       const ant = MOCK_CANALES_ANTERIOR.find(x => x.canal === c.canal)?.importe ?? 0
       const deltaPct = ant !== 0 ? ((c.importe - ant) / ant) * 100 : null
       const porcentaje = sumIng > 0 ? Math.round((c.importe / sumIng) * 100) : 0
-      return { ...c, color: COLOR_CANAL[c.canal] ?? '#888', deltaPct, porcentaje }
+      return { ...c, color: COLOR_CANAL[c.canal] ?? GRIS, deltaPct, porcentaje }
     })
     .sort((a, b) => b.importe - a.importe)
 
@@ -467,7 +467,7 @@ export function ResumenDashboard(_props: Props) {
       const ant = MOCK_CATEGORIAS_ANTERIOR.find(x => x.categoria === c.categoria)?.importe ?? 0
       const deltaPct = ant !== 0 ? ((c.importe - ant) / ant) * 100 : null
       const porcentaje = sumGst > 0 ? Math.round((c.importe / sumGst) * 100) : 0
-      return { ...c, color: COLOR_CATEGORIA[c.categoria] ?? '#888', deltaPct, porcentaje }
+      return { ...c, color: COLOR_CATEGORIA[c.categoria] ?? GRIS, deltaPct, porcentaje }
     })
     .sort((a, b) => b.importe - a.importe)
 

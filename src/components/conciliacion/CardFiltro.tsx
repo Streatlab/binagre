@@ -1,4 +1,4 @@
-import { BLANCO, GRIS, ROJO, VERDE } from '@/styles/neobrutal'
+import { BLANCO, GRANATE, GRIS, ROJO, VERDE } from '@/styles/neobrutal'
 import React from 'react'
 import { fmtEur } from '@/utils/format'
 
@@ -12,7 +12,7 @@ interface CardFiltroProps {
 
 const FILTER_BASE: React.CSSProperties = {
   background: BLANCO,
-  border: '0.5px solid #d0c8bc',
+  border: `0.5px solid ${GRIS}`,
   borderRadius: 12,
   padding: '14px 16px',
   cursor: 'pointer',
@@ -21,9 +21,9 @@ const FILTER_BASE: React.CSSProperties = {
 }
 
 const ACTIVE_STYLES: Record<string, React.CSSProperties> = {
-  ingresos: { border: '1.5px solid #1D9E75', boxShadow: '0 0 0 3px #1D9E7515' },
-  gastos: { border: '1.5px solid #E24B4A', boxShadow: '0 0 0 3px #E24B4A15' },
-  pendientes: { border: '1.5px solid #FF4757', boxShadow: '0 0 0 3px #FF475715' },
+  ingresos: { border: `1.5px solid ${VERDE}`, boxShadow: `0 0 0 3px ${VERDE}15` },
+  gastos: { border: `1.5px solid ${GRANATE}`, boxShadow: `0 0 0 3px ${GRANATE}15` },
+  pendientes: { border: `1.5px solid ${ROJO}`, boxShadow: `0 0 0 3px ${ROJO}15` },
 }
 
 const TYPE_COLOR: Record<string, string> = {

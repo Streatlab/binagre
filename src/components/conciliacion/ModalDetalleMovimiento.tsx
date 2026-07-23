@@ -510,7 +510,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
           {facturasAsociadas.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: mostrarBuscador ? 12 : 0 }}>
               {facturasAsociadas.map(f => (
-                <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#1D9E7510', border: '0.5px solid #1D9E7540', borderRadius: 8, fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>
+                <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: `${VERDE}10`, border: `0.5px solid ${VERDE}40`, borderRadius: 8, fontFamily: 'Lexend, sans-serif', fontSize: 12 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: CANAL_UBER_DARK, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {f.factura_numero} · {f.factura_proveedor}
@@ -527,7 +527,7 @@ export default function ModalDetalleMovimiento({ movimiento, categoriasPyg, titu
                       </a>
                     )}
                     <button onClick={() => handleDesasociar(f)}
-                      style={{ padding: '3px 8px', background: BLANCO, border: '0.5px solid #E24B4A40', borderRadius: 6, color: ROJO, cursor: 'pointer', fontSize: 11 }}>
+                      style={{ padding: '3px 8px', background: BLANCO, border: `0.5px solid ${ROJO}40`, borderRadius: 6, color: ROJO, cursor: 'pointer', fontSize: 11 }}>
                       Quitar
                     </button>
                   </div>

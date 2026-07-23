@@ -224,7 +224,7 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: '#fff', border: BORDER_CARD, boxShadow: SHADOW, padding: 24, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 14 }}
+            style={{ background: BLANCO, border: BORDER_CARD, boxShadow: SHADOW, padding: 24, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 14 }}
           >
             <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 15, textTransform: 'uppercase', letterSpacing: '0.5px', color: INK }}>
               {inventario.total} documentos pendientes
@@ -241,7 +241,7 @@ export default function ResolverPendientes({ onDone }: { onDone?: () => void }) 
 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button onClick={() => lanzarAhora(inventario)} style={btnGrande(VERDE)}>Procesar ahora por lotes</button>
-              <button onClick={() => setPosponiendo((v) => !v)} style={btnGrande('#222222')}>Posponer</button>
+              <button onClick={() => setPosponiendo((v) => !v)} style={btnGrande(INK)}>Posponer</button>
             </div>
 
             {posponiendo && (
@@ -311,7 +311,7 @@ function FilaInventario({ label, valor }: { label: string; valor: number }) {
 
 function btnGrande(bg: string): React.CSSProperties {
   return {
-    background: bg, color: '#fff', border: BORDER_CARD, boxShadow: SHADOW,
+    background: bg, color: BLANCO, border: BORDER_CARD, boxShadow: SHADOW,
     padding: '9px 16px', fontFamily: OSW, fontWeight: 700, fontSize: 12.5, letterSpacing: '1px',
     textTransform: 'uppercase', cursor: 'pointer',
   }
@@ -319,7 +319,7 @@ function btnGrande(bg: string): React.CSSProperties {
 
 function chipHora(activa: boolean): React.CSSProperties {
   return {
-    background: activa ? INK : '#fff', color: activa ? '#fff' : INK, border: `1px solid ${INK}`,
+    background: activa ? INK : BLANCO, color: activa ? BLANCO : INK, border: `1px solid ${INK}`,
     padding: '6px 12px', fontFamily: LEX, fontSize: 12.5, cursor: 'pointer',
   }
 }

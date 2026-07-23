@@ -1,4 +1,4 @@
-import { BLANCO, LIMA } from '@/styles/neobrutal'
+import { BLANCO, GRIS, LIMA } from '@/styles/neobrutal'
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { COLORS, OSWALD, LEXEND, CARDS, DROPDOWN_BTN } from '@/components/panel/resumen/tokens'
@@ -321,7 +321,7 @@ export function BandejaPropuestas() {
             onClick={() => setToastInfo(null)}
             style={{
               background: 'transparent',
-              color: '#aaa',
+              color: GRIS,
               border: 'none',
               fontSize: 16,
               cursor: 'pointer',

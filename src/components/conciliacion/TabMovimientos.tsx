@@ -499,7 +499,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
     borderRadius: 14,
     padding: '18px 20px',
     cursor: 'pointer',
-    boxShadow: isActive ? '0 0 0 3px #FF475715' : 'none',
+    boxShadow: isActive ? `0 0 0 3px ${ROJO}15` : 'none',
     transition: 'border-color 0.15s, box-shadow 0.15s',
   })
 
@@ -554,7 +554,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
               style={{
                 flex: 1, padding: '5px 6px', borderRadius: 5,
                 border: filtroCard === 'pend_sin_cat' ? `1px solid ${CORREO_ERROR_BORDE}` : `0.5px solid ${BORDE_SUAVE}`,
-                background: filtroCard === 'pend_sin_cat' ? '#E24B4A10' : BLANCO,
+                background: filtroCard === 'pend_sin_cat' ? `${ROJO}10` : BLANCO,
                 cursor: 'pointer', textAlign: 'center',
               }}>
               <div style={{ color: GRIS, fontSize: 9, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 2 }}>Sin categoría</div>
@@ -740,7 +740,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
 
                     return (
                       <tr key={m.id} onClick={() => setModalMov(m)} style={{ cursor: 'pointer' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f5f3ef60' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${CLARO}60` }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}>
                         <td style={{ ...tdBase, color: GRIS, fontSize: 12, whiteSpace: 'nowrap' }}>
                           {fmtDate(m.fecha)}
@@ -761,7 +761,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                               {catInfo.nombre}
                             </span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: '#E24B4A10', border: '0.5px dashed #E24B4A50', fontFamily: 'Lexend, sans-serif', fontSize: 12, color: ROJO, fontStyle: 'italic' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: `${ROJO}10`, border: `0.5px dashed ${ROJO}50`, fontFamily: 'Lexend, sans-serif', fontSize: 12, color: ROJO, fontStyle: 'italic' }}>
                               sin categoría
                             </span>
                           )}
@@ -808,7 +808,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                               No conciliable
                             </span>
                           ) : estado === 'conciliado' ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#0F6E5615', color: CANAL_UBER_DARK }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: `${VERDE}15`, color: CANAL_UBER_DARK }}>
                               Conciliado
                             </span>
                           ) : estado === 'parcial' ? (
@@ -816,7 +816,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                               Parcial
                             </span>
                           ) : (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: '#E24B4A15', color: ROJO }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Oswald, sans-serif', fontSize: 10, letterSpacing: '1px', fontWeight: 500, textTransform: 'uppercase', background: `${ROJO}15`, color: ROJO }}>
                               Pendiente
                             </span>
                           )}
@@ -828,7 +828,7 @@ export default function TabMovimientos({ periodoDesde, periodoHasta }: TabMovimi
                               Rubén
                             </span>
                           ) : isEmilio ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: '#1E5BCC15', color: AZUL, whiteSpace: 'nowrap' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, fontFamily: 'Lexend, sans-serif', fontSize: 11, fontWeight: 500, background: `${AZUL}15`, color: AZUL, whiteSpace: 'nowrap' }}>
                               <span style={{ width: 6, height: 6, borderRadius: '50%', background: AZUL, flexShrink: 0 }} />
                               Emilio
                             </span>
