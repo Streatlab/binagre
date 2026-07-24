@@ -744,7 +744,7 @@ function TabInventarioPermanente({ T, inventario, onChanged }: { T: ReturnType<t
           ))}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => setEdit(!edit)} style={{ ...btnGhost, background: edit ? GRANATE : 'transparent', color: edit ? BLANCO : 'var(--sl-text-secondary)', borderColor: edit ? GRANATE : 'var(--sl-border)' }}><Pencil size={14} /> {edit ? 'Terminar edición' : 'Editar'}</button>
+          <button onClick={() => setEdit(!edit)} style={{ ...btnGhost, background: edit ? 'var(--m-acento)' : 'transparent', color: edit ? BLANCO : 'var(--sl-text-secondary)', borderColor: edit ? 'var(--m-acento)' : 'var(--sl-border)' }}><Pencil size={14} /> {edit ? 'Terminar edición' : 'Editar'}</button>
           <BnToggle bn={bn} setBn={setBn} />
           <BotonImprimir compacto documentoId="cocina.inventario_permanente" titulo={`Inventario permanente · ${ubi.nombre}`} generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirInventarioPDF(ubi, rec, opts.bn, activa + 1, ubis.length) }} />
           <BotonImprimir compacto documentoId="cocina.inventario_permanente" titulo="Inventario permanente · TODAS las hojas" etiqueta="Imprimir todo" generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirInventarioTodosPDF(ubis, rec, opts.bn) }} />
@@ -765,7 +765,7 @@ function TabInventarioPermanente({ T, inventario, onChanged }: { T: ReturnType<t
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', flex: 1 }}>
                       <input defaultValue={it.nombre} onBlur={e => { const v = e.target.value.trim(); if (v && v !== it.nombre) updItem(it, { nombre: v }) }} style={{ ...editInput, flex: 1, minWidth: 120 }} />
                       <input defaultValue={it.min_seguridad ?? ''} placeholder="—" onBlur={e => { const v = e.target.value.trim(); const num = v === '' ? null : Number(v); if (num !== it.min_seguridad) updItem(it, { min_seguridad: num }) }} style={{ ...editInput, width: 54, textAlign: 'center' }} />
-                      <button onClick={() => borrarItem(it)} style={{ background: 'none', border: 'none', color: GRANATE, cursor: 'pointer', padding: 2 }}><Trash2 size={15} /></button>
+                      <button onClick={() => borrarItem(it)} style={{ background: 'none', border: 'none', color: 'var(--m-acento)', cursor: 'pointer', padding: 2 }}><Trash2 size={15} /></button>
                     </span>
                   ) : (
                     <>
