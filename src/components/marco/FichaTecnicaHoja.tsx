@@ -1,45 +1,35 @@
 /* ==============================================================================
- * FICHA TÉCNICA — HOJA (pantalla = papel)
- * Modelo VALIDADO por Rubén (24-jul-2026): el documento imprimible de EPs y
- * recetas. Lo que se ve en el ERP es EXACTAMENTE lo que sale por impresora.
+ * FICHA EPS / RECETA — HOJA IMPRIMIBLE (pantalla = papel)
+ * Traslado LITERAL del paquete de diseño validado por Rubén (24-jul-2026):
+ * `ficha-eps.html` + `ficha-eps.css`. Clases con prefijo `eps-`, tokens y
+ * medidas en mm exactamente como vienen del paquete.
  *
- * Anatomía (no se cambia sin orden explícita de Rubén):
- *   Cabecera  → logo · pastilla de área + tipo de documento · nombre grande ·
- *               gama debajo · caja derecha con Código / Revisión / Fecha.
- *   Meta      → 4 celdas: tiempo de preparación, rendimiento, coste tanda,
- *               € / ración (esta última destacada en el acento del área).
- *   Cuerpo    → Ingredientes (tabla con cabecera y filas alternas),
- *               Preparación (pasos enmarcados y numerados en acento).
- *   Pie       → Conservación (4 métodos) y Alérgenos (14 casillas).
+ * Es el ÚNICO documento de EPs y recetas: cambia el rótulo del tipo, nada más.
+ * El PDF se obtiene imprimiendo esta misma hoja, así que papel y pantalla no
+ * pueden divergir nunca.
  *
- * Radio único 6px · Oswald (títulos/etiquetas) + Barlow Semi Condensed (datos).
+ * Fuentes: Oswald (números, eyebrows, etiquetas, KPI) + Lexend (cuerpo y tablas).
+ * Reglas irrompibles del paquete: legible en cocina, sin aire de más, paleta
+ * apagada con acento de Cocina #a8524e, imprimible en color y en B/N, y con
+ * huecos rellenables a mano (Equivalencia, Fecha, casillas, tiempos).
+ * PROHIBIDO tocar estructura, medidas o paleta sin orden explícita de Rubén.
  * ============================================================================== */
 import React from 'react'
-
-export type AreaFicha = 'cocina' | 'finanzas' | 'equipo'
-
-const ACENTO: Record<AreaFicha, string> = { cocina: '#A8524E', finanzas: '#4B5A72', equipo: '#5C8A6E' }
-const AREA_LABEL: Record<AreaFicha, string> = { cocina: 'Cocina', finanzas: 'Finanzas', equipo: 'Equipo' }
+import { ICONOS_ALERGENOS, ICONOS_CONSERVACION, ALERGENOS_14, ALERGENOS_2, CONSERVACION_4 } from '@/lib/iconosFicha'
 
 export interface LineaIng { ingrediente: string; cantidad: string; unidad: string; equivalencia?: string }
 export interface LineaConserva { metodo: string; tiempo: string }
 
-export const ALERGENOS_FICHA = [
-  'Gluten', 'Lácteos', 'Huevos',
-  'Soja', 'Frutos secos', 'Crustáceos',
-  'Pescado', 'Moluscos', 'Cacahuetes',
-  'Apio', 'Mostaza', 'Sésamo',
-]
-export const ALERGENOS_FICHA_PIE = ['Sulfitos', 'Altramuces']
+export const ALERGENOS_FICHA = ALERGENOS_14.map(a => a.nombre)
+export const ALERGENOS_FICHA_PIE = ALERGENOS_2.map(a => a.nombre)
 
 interface Props {
-  area?: AreaFicha
-  tipoDoc: string            // "Elaboración previa" | "Receta"
+  tipoDoc: string                 // "Elaboración previa" | "Receta"
   nombre: string
   gama?: string | null
   codigo?: string | null
   revision?: number | null
-  fecha?: string             // vacío → __/__/__ para rellenar a mano
+  fecha?: string | null
   tiempoPrep?: string | null
   rendimiento?: string | null
   costeTanda: string
@@ -47,11 +37,19 @@ interface Props {
   ingredientes: LineaIng[]
   pasos: string[]
   conservacion: LineaConserva[]
-  alergenos: string[]        // los marcados
-  extra?: React.ReactNode    // controles de pantalla (no imprimen)
+  alergenos: string[]
+  bn?: boolean
 }
 
-/** Pone en negrita los ingredientes que aparecen citados dentro de un paso. */
+function Icono({ svg, sm }: { svg: string; sm?: boolean }) {
+  return (
+    <svg className={'eps-icono' + (sm ? ' eps-icono--sm' : '')} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+      dangerouslySetInnerHTML={{ __html: svg }} />
+  )
+}
+
+/** Los ingredientes citados dentro de un paso van en negrita, como en el modelo. */
 function resaltar(texto: string, ingredientes: LineaIng[]): React.ReactNode[] {
   const terminos = new Set<string>()
   ingredientes.forEach(i => {
@@ -69,118 +67,93 @@ function resaltar(texto: string, ingredientes: LineaIng[]): React.ReactNode[] {
   let last = 0, m: RegExpExecArray | null, k = 0
   while ((m = re.exec(texto)) !== null) {
     if (m.index > last) out.push(texto.slice(last, m.index))
-    out.push(<strong key={k++}>{m[0]}</strong>)
+    out.push(<b key={k++}>{m[0]}</b>)
     last = m.index + m[0].length
   }
   if (last < texto.length) out.push(texto.slice(last))
   return out.length ? out : [texto]
 }
 
-function SecLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="fdoc-sec">
-      <span className="fdoc-sec-cuadro" />
-      <span className="fdoc-sec-txt">{children}</span>
-    </div>
-  )
-}
-
 export default function FichaTecnicaHoja({
-  area = 'cocina', tipoDoc, nombre, gama, codigo, revision, fecha,
+  tipoDoc, nombre, gama, codigo, revision, fecha,
   tiempoPrep, rendimiento, costeTanda, costeRacion,
-  ingredientes, pasos, conservacion, alergenos, extra,
+  ingredientes, pasos, conservacion, alergenos, bn,
 }: Props) {
-  const marcados = new Set(alergenos.map(a => a.toLowerCase()))
-  const tieneAlerg = (a: string) => marcados.has(a.toLowerCase()) ||
-    (a === 'Lácteos' && marcados.has('lacteos')) || (a === 'Huevos' && marcados.has('huevo'))
+  const marcados = new Set((alergenos ?? []).map(a => a.toLowerCase()))
+  const tiene = (n: string) => marcados.has(n.toLowerCase()) ||
+    (n === 'Lácteos' && marcados.has('lacteos')) || (n === 'Huevos' && marcados.has('huevo'))
 
-  const conserva = (metodo: string) => {
+  const tiempoDe = (metodo: string) => {
     const raiz: Record<string, string[]> = {
       'Táper': ['tapper', 'taper', 'tupper', 'táper'], 'Biberón': ['biber'],
       'Vacío': ['vacio', 'vacío', 'vac'], 'Congelación': ['congel'],
     }
     const claves = raiz[metodo] ?? [metodo.toLowerCase().slice(0, 4)]
     const hit = (conservacion ?? []).find(c => claves.some(k => (c.metodo ?? '').toLowerCase().includes(k)))
-    return hit?.tiempo ?? 'NO'
+    return hit?.tiempo ?? ''
   }
 
-  const casilla = (a: string) => (
-    <div key={a} className="fdoc-alerg-item">
-      <span className={'fdoc-check' + (tieneAlerg(a) ? ' on' : '')} />
-      <span className="fdoc-alerg-txt">{a}</span>
+  const celdaAlerg = (a: { k: string; nombre: string }) => (
+    <div className="eps-alerg__celda" key={a.k}>
+      <span className={'eps-casilla' + (tiene(a.nombre) ? ' eps-casilla--on' : '')} />
+      <span className="eps-alerg__k">{a.nombre}</span>
+      <Icono svg={ICONOS_ALERGENOS[a.k]} sm />
     </div>
   )
 
   return (
-    <div className="fdoc-wrap" style={{ ['--fdoc-acento' as any]: ACENTO[area] }}>
+    <div className={'eps-hoja' + (bn ? ' eps-hoja--bn' : '')}>
       <style>{CSS}</style>
 
-      {/* ── CABECERA ── */}
-      <div className="fdoc-cab">
-        <img className="fdoc-logo" src="/data/STREAT LAB LOGO-04.jpg" alt="Streat Lab"
-          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-        <div className="fdoc-cab-centro">
-          <div className="fdoc-cab-tira">
-            <span className="fdoc-pill-area">{AREA_LABEL[area]}</span>
-            <span className="fdoc-tipodoc">{tipoDoc}</span>
+      <header className="eps-header">
+        <img className="eps-logo" src="/data/STREAT LAB LOGO-04.jpg" alt="Streat Lab"
+          onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }} />
+        <div style={{ flex: 1, minWidth: 0, paddingTop: '.4mm' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2.4mm', marginBottom: '1.2mm' }}>
+            <span className="eps-chip">Cocina</span>
+            <span className="eps-eyebrow">{tipoDoc}</span>
           </div>
-          <div className="fdoc-nombre">{(nombre ?? '').replace(/\.\s*$/, '')}</div>
-          {gama && <div className="fdoc-gama">{gama}</div>}
+          <h1 className="eps-titulo">{(nombre ?? '').replace(/\.\s*$/, '')}</h1>
+          {gama && <div className="eps-categoria">{gama}</div>}
         </div>
-        <div className="fdoc-caja-id">
-          <div className="fdoc-caja-fila">
-            <div className="fdoc-caja-lbl">Código</div>
-            <div className="fdoc-caja-val">{codigo || '—'}</div>
+        <div className="eps-control">
+          <div style={{ padding: '1.2mm 2.4mm', borderBottom: '1px solid var(--rule)' }}>
+            <div className="eps-control__k">Código</div>
+            <div className="eps-control__v">{codigo || '—'}</div>
           </div>
-          <div className="fdoc-caja-fila fdoc-caja-doble">
-            <div>
-              <div className="fdoc-caja-lbl">Revisión</div>
-              <div className="fdoc-caja-val">{String(revision ?? 1).padStart(2, '0')}</div>
+          <div style={{ display: 'flex' }}>
+            <div style={{ flex: 1, padding: '1.2mm 2.4mm', borderRight: '1px solid var(--rule)' }}>
+              <div className="eps-control__k">Revisión</div>
+              <div className="eps-control__v">{String(revision ?? 1).padStart(2, '0')}</div>
             </div>
-            <div>
-              <div className="fdoc-caja-lbl">Fecha</div>
-              <div className="fdoc-caja-val">{fecha || '__/__/__'}</div>
+            <div style={{ flex: 1, padding: '1.2mm 2.4mm' }}>
+              <div className="eps-control__k">Fecha</div>
+              <div className={'eps-control__v' + (fecha ? '' : ' eps-control__v--hueco')}>{fecha || '__/__/__'}</div>
             </div>
           </div>
         </div>
+      </header>
+
+      <div className="eps-banda">
+        <div><div className="eps-banda__k">Tiempo de preparación</div><div className="eps-banda__v">{tiempoPrep || '—'}</div></div>
+        <div><div className="eps-banda__k">Rendimiento</div><div className="eps-banda__v">{rendimiento || '—'}</div></div>
+        <div><div className="eps-banda__k">Coste tanda</div><div className="eps-banda__v">{costeTanda}</div></div>
+        <div><div className="eps-banda__k">€ / Ración</div><div className="eps-banda__v eps-banda__v--acc">{costeRacion}</div></div>
       </div>
 
-      <div className="fdoc-regla" />
-
-      {/* ── META ── */}
-      <div className="fdoc-meta">
-        <div className="fdoc-meta-cel">
-          <div className="fdoc-meta-lbl">Tiempo de preparación</div>
-          <div className="fdoc-meta-val">{tiempoPrep || '—'}</div>
-        </div>
-        <div className="fdoc-meta-cel">
-          <div className="fdoc-meta-lbl">Rendimiento</div>
-          <div className="fdoc-meta-val">{rendimiento || '—'}</div>
-        </div>
-        <div className="fdoc-meta-cel">
-          <div className="fdoc-meta-lbl">Coste tanda</div>
-          <div className="fdoc-meta-val">{costeTanda}</div>
-        </div>
-        <div className="fdoc-meta-cel fdoc-meta-destacada">
-          <div className="fdoc-meta-lbl">€ / Ración</div>
-          <div className="fdoc-meta-val">{costeRacion}</div>
-        </div>
-      </div>
-
-      {/* ── INGREDIENTES ── */}
-      <SecLabel>Ingredientes</SecLabel>
-      <table className="fdoc-tabla">
+      <div className="eps-seccion">Ingredientes</div>
+      <table className="eps-tabla">
         <thead>
           <tr>
             <th>Ingrediente</th>
             <th className="num">Cantidad</th>
             <th className="ud">Unidad</th>
-            <th>Equivalencia</th>
+            <th className="eq">Equivalencia</th>
           </tr>
         </thead>
         <tbody>
           {ingredientes.length === 0 && (
-            <tr><td colSpan={4} className="fdoc-vacio">Sin ingredientes enlazados.</td></tr>
+            <tr><td colSpan={4} style={{ color: 'var(--fill)' }}>Sin ingredientes enlazados.</td></tr>
           )}
           {ingredientes.map((i, k) => (
             <tr key={k}>
@@ -193,142 +166,173 @@ export default function FichaTecnicaHoja({
         </tbody>
       </table>
 
-      {/* ── PREPARACIÓN ── */}
-      <SecLabel>Preparación</SecLabel>
-      <div className="fdoc-pasos">
-        {pasos.length === 0 && <div className="fdoc-paso"><span className="fdoc-paso-n">—</span><span className="fdoc-paso-txt">Sin elaboración escrita.</span></div>}
+      <div className="eps-seccion">Preparación</div>
+      <div className="eps-pasos">
+        {pasos.length === 0 && (
+          <div className="eps-paso"><span className="eps-paso__n">—</span><span className="eps-paso__t">Sin elaboración escrita.</span></div>
+        )}
         {pasos.map((p, k) => (
-          <div className="fdoc-paso" key={k}>
-            <span className="fdoc-paso-n">{k + 1}.</span>
-            <span className="fdoc-paso-txt">{resaltar(p, ingredientes)}</span>
+          <div className="eps-paso" key={k}>
+            <span className="eps-paso__n">{k + 1}.</span>
+            <span className="eps-paso__t">{resaltar(p, ingredientes)}</span>
           </div>
         ))}
       </div>
 
-      {/* ── PIE: CONSERVACIÓN + ALÉRGENOS ── */}
-      <div className="fdoc-pie">
-        <div className="fdoc-pie-col fdoc-pie-conserva">
-          <SecLabel>Conservación</SecLabel>
-          <table className="fdoc-tabla fdoc-tabla-conserva">
-            <tbody>
-              {['Táper', 'Biberón', 'Vacío', 'Congelación'].map(m => (
-                <tr key={m}>
-                  <td>{m}</td>
-                  <td className="num">{conserva(m)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="eps-pie">
+        <div className="eps-conserva">
+          <div className="eps-seccion">Conservación</div>
+          <div className="eps-conserva__caja">
+            {CONSERVACION_4.map(c => (
+              <div className="eps-conserva__fila" key={c.k}>
+                <Icono svg={ICONOS_CONSERVACION[c.k]} />
+                <span className="eps-conserva__k">{c.nombre}</span>
+                <span className="eps-conserva__t">{tiempoDe(c.nombre)}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="fdoc-pie-col fdoc-pie-alerg">
-          <SecLabel>Alérgenos</SecLabel>
-          <div className="fdoc-alerg-grid">{ALERGENOS_FICHA.map(casilla)}</div>
-          <div className="fdoc-alerg-grid fdoc-alerg-pie">{ALERGENOS_FICHA_PIE.map(casilla)}</div>
+        <div className="eps-alerg">
+          <div className="eps-seccion">Alérgenos</div>
+          <div className="eps-alerg__grid">{ALERGENOS_14.map(celdaAlerg)}</div>
+          <div className="eps-alerg__grid2">{ALERGENOS_2.map(celdaAlerg)}</div>
         </div>
       </div>
-
-      {extra && <div className="no-print fdoc-extra">{extra}</div>}
     </div>
   )
 }
 
+/* CSS LITERAL del paquete `ficha-eps.css` (+ el bloque de impresión que aísla la
+   hoja del resto del ERP; el documento en sí no se toca). */
 const CSS = `
-.fdoc-wrap {
-  background: #fff; color: #232323;
-  border: 1px solid #ded7d0; border-radius: 6px;
-  padding: 20px 24px 24px;
-  font-family: 'Barlow Semi Condensed', 'Oswald', sans-serif;
+.eps-hoja{
+  --paper:#ffffff;
+  --ink:#241d15;
+  --ink-2:#5c554a;
+  --ink-3:#8a8275;
+  --rule:#c3bba8;
+  --rule-2:#7d7566;
+  --thead:#efe9dc;
+  --zebra:#f8f4ec;
+  --fill:#a49a86;
+  --acc:#a8524e;
+  --acc-bn:#565656;
+  --osw:'Oswald', system-ui, sans-serif;
+  --lex:'Lexend', system-ui, sans-serif;
 }
-
-/* ── Cabecera ── */
-.fdoc-cab { display: flex; align-items: flex-start; gap: 16px; }
-.fdoc-logo { height: 46px; width: auto; object-fit: contain; flex-shrink: 0; margin-top: 2px; }
-.fdoc-cab-centro { flex: 1; min-width: 0; }
-.fdoc-cab-tira { display: flex; align-items: center; gap: 12px; }
-.fdoc-pill-area {
-  font-family: 'Oswald', sans-serif; font-size: 10px; font-weight: 700;
-  letter-spacing: 0.18em; text-transform: uppercase; color: var(--fdoc-acento);
-  border: 1px solid var(--fdoc-acento); border-radius: 6px; padding: 2px 9px 2px 7px;
-  display: inline-flex; align-items: center; gap: 6px;
+.eps-hoja{
+  box-sizing:border-box; width:210mm; min-height:297mm;
+  padding:9mm 10mm 8mm; background:var(--paper); color:var(--ink);
+  font-family:var(--lex); display:flex; flex-direction:column;
+  margin:0 auto;
 }
-.fdoc-pill-area::before { content: ''; width: 7px; height: 7px; background: var(--fdoc-acento); display: inline-block; }
-.fdoc-tipodoc { font-family: 'Oswald', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.28em; text-transform: uppercase; color: #6c6c6c; }
-.fdoc-nombre { font-family: 'Oswald', sans-serif; font-size: 34px; font-weight: 700; line-height: 1.05; letter-spacing: 0.01em; text-transform: uppercase; color: #232323; margin-top: 4px; }
-.fdoc-gama { font-size: 15px; color: #7a7269; margin-top: 1px; }
+.eps-hoja--bn{ --acc:var(--acc-bn); }
+.eps-hoja *{ box-sizing:border-box; }
 
-.fdoc-caja-id { width: 210px; flex-shrink: 0; border: 1px solid #ded7d0; border-radius: 6px; overflow: hidden; }
-.fdoc-caja-fila { padding: 5px 10px 6px; border-bottom: 1px solid #ded7d0; }
-.fdoc-caja-fila:last-child { border-bottom: none; }
-.fdoc-caja-doble { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.fdoc-caja-lbl { font-family: 'Oswald', sans-serif; font-size: 8px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: #8b8279; }
-.fdoc-caja-val { font-family: 'Oswald', sans-serif; font-size: 17px; font-weight: 700; color: #232323; line-height: 1.15; }
+.eps-header{ display:flex; align-items:flex-start; gap:5mm;
+  border-bottom:2px solid var(--acc); padding-bottom:3mm; margin-bottom:2.6mm; }
+.eps-logo{ width:19mm; height:19mm; object-fit:contain; flex:none; display:block; }
+.eps-chip{ display:inline-flex; align-items:center; gap:1.6mm;
+  border:1.4px solid var(--acc); border-radius:2px; padding:.7mm 2.2mm;
+  font-family:var(--osw); font-weight:700; font-size:3mm;
+  letter-spacing:1.6px; text-transform:uppercase; color:var(--acc); }
+.eps-chip::before{ content:""; width:2.6mm; height:2.6mm; border-radius:1px; background:var(--acc); }
+.eps-eyebrow{ font-family:var(--osw); font-size:2.7mm; letter-spacing:2.2px;
+  font-weight:500; text-transform:uppercase; color:var(--ink-3); }
+.eps-titulo{ margin:0; font-family:var(--osw); font-size:8.4mm; font-weight:700;
+  line-height:.98; letter-spacing:-.3px; text-transform:uppercase; }
+.eps-categoria{ margin-top:1mm; font-family:var(--lex); font-size:2.9mm; color:var(--ink-2); }
 
-.fdoc-regla { height: 1px; background: #ded7d0; margin: 14px 0 12px; }
+.eps-control{ flex:none; width:40mm; border:1px solid var(--rule-2); border-radius:2px; background:var(--paper); }
+.eps-control__k{ font-family:var(--osw); font-size:2.3mm; letter-spacing:1.2px;
+  text-transform:uppercase; color:var(--ink-3); }
+.eps-control__v{ font-family:var(--osw); font-size:3.6mm; font-weight:600; }
+.eps-control__v--hueco{ color:var(--fill); }
 
-/* ── Meta ── */
-.fdoc-meta { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #ded7d0; border-radius: 6px; overflow: hidden; }
-.fdoc-meta-cel { padding: 8px 12px 9px; border-right: 1px solid #ded7d0; }
-.fdoc-meta-cel:last-child { border-right: none; }
-.fdoc-meta-lbl { font-family: 'Oswald', sans-serif; font-size: 8px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: #8b8279; }
-.fdoc-meta-val { font-family: 'Oswald', sans-serif; font-size: 18px; font-weight: 700; color: #232323; line-height: 1.2; }
-.fdoc-meta-destacada { background: color-mix(in srgb, var(--fdoc-acento) 8%, #fff); }
-.fdoc-meta-destacada .fdoc-meta-val { color: var(--fdoc-acento); }
+.eps-banda{ display:grid; grid-template-columns:repeat(4,1fr);
+  border:1px solid var(--rule-2); border-radius:2px; margin-bottom:2.6mm; }
+.eps-banda > div{ padding:1.5mm 2.4mm; border-right:1px solid var(--rule); }
+.eps-banda > div:last-child{ border-right:0; background:var(--zebra); }
+.eps-banda__k{ font-family:var(--osw); font-size:2.3mm; letter-spacing:1px;
+  text-transform:uppercase; color:var(--ink-3); }
+.eps-banda__v{ font-family:var(--osw); font-size:4mm; font-weight:600; color:var(--ink); }
+.eps-banda__v--acc{ font-weight:700; color:var(--acc); }
 
-/* ── Etiqueta de sección ── */
-.fdoc-sec { display: flex; align-items: center; gap: 8px; margin: 16px 0 7px; }
-.fdoc-sec-cuadro { width: 9px; height: 9px; background: var(--fdoc-acento); flex-shrink: 0; }
-.fdoc-sec-txt { font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.26em; text-transform: uppercase; color: var(--fdoc-acento); }
+.eps-seccion{ display:flex; align-items:center; gap:2.2mm; margin-bottom:1.4mm;
+  font-family:var(--osw); font-size:2.9mm; letter-spacing:1.8px;
+  text-transform:uppercase; font-weight:600; color:var(--acc); }
+.eps-seccion::before{ content:""; width:3mm; height:3mm; background:var(--acc); flex:none; }
 
-/* ── Tablas ── */
-.fdoc-tabla { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid #ded7d0; border-radius: 6px; overflow: hidden; font-size: 15px; }
-.fdoc-tabla th {
-  background: #f2eeea; text-align: left; padding: 6px 12px;
-  font-family: 'Oswald', sans-serif; font-size: 10px; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase; color: #4a443e;
-  border-bottom: 1px solid #ded7d0;
-}
-.fdoc-tabla td { padding: 5px 12px; border-bottom: 1px solid #ece7e2; color: #232323; line-height: 1.15; }
-.fdoc-tabla tbody tr:last-child td { border-bottom: none; }
-.fdoc-tabla tbody tr:nth-child(even) td { background: #faf7f5; }
-.fdoc-tabla th.num, .fdoc-tabla td.num { text-align: right; font-family: 'Oswald', sans-serif; font-weight: 700; white-space: nowrap; width: 90px; }
-.fdoc-tabla th.num { font-weight: 700; }
-.fdoc-tabla th.ud, .fdoc-tabla td.ud { width: 110px; color: #7a7269; }
-.fdoc-vacio { color: #8b8279; font-style: italic; }
-.fdoc-tabla-conserva { font-size: 15px; }
-.fdoc-tabla-conserva td:first-child { font-family: 'Oswald', sans-serif; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-size: 13px; }
+.eps-tabla{ width:100%; border-collapse:collapse; table-layout:fixed;
+  font-family:var(--lex); border:1px solid var(--rule-2); margin-bottom:2.6mm; }
+.eps-tabla thead tr{ background:var(--thead); font-family:var(--osw); font-size:2.9mm;
+  text-transform:uppercase; letter-spacing:.4px; border-bottom:1.6px solid var(--acc); }
+.eps-tabla th{ padding:1.3mm 2.4mm; font-weight:600; text-align:left; border-right:1px solid var(--rule); }
+.eps-tabla th:last-child{ border-right:0; }
+.eps-tabla th.num{ text-align:right; width:20mm; }
+.eps-tabla th.ud{ width:22mm; }
+.eps-tabla th.eq{ width:52mm; }
+.eps-tabla td{ height:7.2mm; border-top:1px solid var(--rule);
+  border-right:1px solid var(--rule); padding:0 2.4mm; font-size:3.6mm;
+  font-weight:500; color:var(--ink); }
+.eps-tabla td:last-child{ border-right:0; }
+.eps-tabla td.num{ text-align:right; font-family:var(--osw); font-weight:600; }
+.eps-tabla td.ud{ font-family:var(--lex); font-size:3.3mm; color:var(--ink-2); }
+.eps-tabla tbody tr:nth-child(even){ background:var(--zebra); }
 
-/* ── Pasos ── */
-.fdoc-pasos { border: 1px solid #ded7d0; border-radius: 6px; overflow: hidden; }
-.fdoc-paso { display: flex; gap: 10px; padding: 7px 12px; border-bottom: 1px solid #ece7e2; font-size: 15px; line-height: 1.3; }
-.fdoc-paso:last-child { border-bottom: none; }
-.fdoc-paso-n { font-family: 'Oswald', sans-serif; font-weight: 700; color: var(--fdoc-acento); flex-shrink: 0; min-width: 16px; }
-.fdoc-paso-txt { flex: 1; min-width: 0; }
+.eps-pasos{ border:1px solid var(--rule-2); border-radius:2px; margin-bottom:2.6mm; }
+.eps-paso{ display:flex; gap:2.6mm; align-items:baseline;
+  border-bottom:1px solid var(--rule); padding:1.5mm 3mm; }
+.eps-pasos > .eps-paso:last-child{ border-bottom:0; }
+.eps-paso__n{ font-family:var(--osw); font-size:3.4mm; font-weight:700;
+  color:var(--acc); flex:none; min-width:5mm; }
+.eps-paso__t{ font-family:var(--lex); font-size:3.5mm; line-height:1.35; color:var(--ink); }
 
-/* ── Pie ── */
-.fdoc-pie { display: flex; gap: 26px; align-items: flex-start; margin-top: 4px; }
-.fdoc-pie-conserva { width: 300px; flex-shrink: 0; }
-.fdoc-pie-alerg { flex: 1; min-width: 0; }
-.fdoc-alerg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.fdoc-alerg-pie { grid-template-columns: repeat(3, 1fr); margin-top: 6px; }
-.fdoc-alerg-item { display: flex; align-items: center; gap: 8px; border: 1px solid #ded7d0; border-radius: 6px; padding: 5px 9px; }
-.fdoc-check { width: 11px; height: 11px; border: 1px solid #b3aaa1; border-radius: 2px; flex-shrink: 0; display: inline-block; }
-.fdoc-check.on { background: var(--fdoc-acento); border-color: var(--fdoc-acento); }
-.fdoc-alerg-txt { font-family: 'Oswald', sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #4a443e; }
-.fdoc-extra { margin-top: 14px; }
+.eps-pie{ display:flex; gap:4mm; }
+.eps-conserva{ width:64mm; flex:none; }
+.eps-conserva__caja{ border:1px solid var(--rule-2); border-radius:2px; }
+.eps-conserva__fila{ display:flex; align-items:center; gap:2.2mm;
+  padding:1.6mm 2.4mm; border-bottom:1px solid var(--rule); }
+.eps-conserva__caja > .eps-conserva__fila:last-child{ border-bottom:0; }
+.eps-conserva__k{ flex:none; font-family:var(--osw); font-size:3.2mm; font-weight:500;
+  text-transform:uppercase; letter-spacing:.4px; color:var(--ink); }
+.eps-conserva__t{ margin-left:auto; font-family:var(--osw); font-size:3.2mm;
+  font-weight:700; color:var(--ink); }
 
-/* ── IMPRESIÓN: la hoja de pantalla ES el papel ── */
-@media print {
-  @page { size: A4 portrait; margin: 12mm; }
-  html, body { background: #fff !important; }
-  body * { visibility: hidden; }
-  .fdoc-wrap, .fdoc-wrap * { visibility: visible; }
-  .no-print { display: none !important; }
-  .fdoc-wrap {
-    position: absolute; left: 0; top: 0; width: 100%;
-    border: none !important; padding: 0 !important;
-    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+.eps-alerg{ flex:1; min-width:0; }
+.eps-alerg__grid{ border:1px solid var(--rule-2); border-radius:2px;
+  display:grid; grid-template-columns:repeat(3,1fr); overflow:hidden; }
+.eps-alerg__grid2{ display:grid; grid-template-columns:1fr 1fr;
+  border:1px solid var(--rule-2); border-radius:0 0 2px 2px;
+  overflow:hidden; width:66.6%; margin:-1px auto 0; }
+.eps-alerg__celda{ display:flex; align-items:center; gap:1.4mm; padding:1.3mm 1.6mm;
+  border-top:1px solid var(--rule); border-right:1px solid var(--rule); }
+.eps-alerg__grid > .eps-alerg__celda:nth-child(-n+3){ border-top:0; }
+.eps-alerg__grid > .eps-alerg__celda:nth-child(3n){ border-right:0; }
+.eps-alerg__grid2 > .eps-alerg__celda{ border-top:0; }
+.eps-alerg__grid2 > .eps-alerg__celda:last-child{ border-right:0; }
+.eps-alerg__k{ flex:1; font-family:var(--osw); font-size:2.5mm; font-weight:600;
+  text-transform:uppercase; letter-spacing:.2px; color:var(--ink); line-height:1.05; }
+
+.eps-casilla{ flex:none; width:3.4mm; height:3.4mm;
+  border:1.2px solid var(--rule-2); border-radius:1px; background:#fff; }
+.eps-casilla--on{ background:var(--acc); border-color:var(--acc); }
+
+.eps-icono{ flex:none; width:4mm; height:4mm; color:var(--ink-2); }
+.eps-icono--sm{ width:3.4mm; height:3.4mm; }
+
+@media print{
+  @page{ size:A4 portrait; margin:0; }
+  html, body{ background:#fff !important; }
+  body *{ visibility:hidden; }
+  .eps-hoja, .eps-hoja *{ visibility:visible; }
+  .no-print{ display:none !important; }
+  .eps-hoja{
+    position:absolute; left:0; top:0;
+    width:210mm; min-height:auto; page-break-after:always;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
   }
-  .fdoc-paso, .fdoc-alerg-item, .fdoc-tabla tr { break-inside: avoid; }
-  .fdoc-pie { break-inside: avoid; }
+  .eps-paso, .eps-conserva__fila, .eps-alerg__celda, .eps-tabla tr{ break-inside:avoid; }
+  .eps-pie{ break-inside:avoid; }
 }
 `
