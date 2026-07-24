@@ -154,6 +154,10 @@
       "destination": "/api/operaciones/fichaje"
     },
     {
+      "source": "/api/operaciones/boveda/:ruta*",
+      "destination": "/api/operaciones/boveda"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
