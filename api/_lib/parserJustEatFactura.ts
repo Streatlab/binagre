@@ -108,3 +108,43 @@ export function parseFacturaJustEat(html: string | null | undefined): VentaPlata
     ...(com != null ? { comision_eur: com } : {}),
   } as VentaPlataformaParseada
 }
+
+// ── Reembolsos en la factura de Just Eat ─────────────────────────────────────
+// Verificado con facturas reales (jun-jul 2026):
+//  · Descuento: línea de factura "Ajuste Pedido 186115822 (Sujeto a IVA @ 21%) 6,75€"
+//    → nos cobran ese importe + IVA por la reclamación del cliente.
+//  · Devolución: línea del estado de cuenta "Compensacion pedido 186437711 GL011080558 15/07/26 13,95€"
+//    → nos abonan la reclamación aprobada.
+
+export interface ReembolsoJustEat {
+  clase: 'ajuste' | 'compensacion'
+  pedido: string
+  importe: number       // ajuste: importe con IVA (lo que nos quitan) · compensación: abono
+  referencia: string | null
+}
+
+export function extraerReembolsosJustEat(html: string | null | undefined): ReembolsoJustEat[] {
+  if (!html || !/just\s*eat/i.test(html)) return []
+  const full = htmlALineas(html).join('\n')
+  const out: ReembolsoJustEat[] = []
+
+  // Ventana acotada [\s\S]{0,80}? — el .doc puede partir la línea en varias celdas/saltos
+  const reAjuste = /Ajuste\s+Pedido\s+(\d{6,})[\s\S]{0,80}?([\d.,]+)\s*€/gi
+  let m: RegExpExecArray | null
+  while ((m = reAjuste.exec(full)) !== null) {
+    const base = importe(m[2])
+    if (base != null && base > 0) {
+      const conIva = /sujeto a iva\s*@?\s*21/i.test(m[0]) ? Math.round(base * 1.21 * 100) / 100 : base
+      out.push({ clase: 'ajuste', pedido: m[1], importe: conIva, referencia: null })
+    }
+  }
+
+  const reComp = /Compensaci[oó]n\s+pedido\s+(\d{6,})\s+(\S+)?[\s\S]{0,60}?(-?[\d.,]+)\s*€/gi
+  while ((m = reComp.exec(full)) !== null) {
+    const imp = importe(m[3])
+    if (imp != null && imp !== 0) {
+      out.push({ clase: 'compensacion', pedido: m[1], importe: Math.abs(imp), referencia: m[2] || null })
+    }
+  }
+  return out
+}
