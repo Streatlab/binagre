@@ -15,18 +15,23 @@ Commits locales en rama `claude/localizar-autoloop-gyrljz` (base = origin/trabaj
 
 ## FASES
 - [x] F0 · Checklist creado
-- [ ] F1 · Mapa del sistema actual (botones, clasificadores, cartero, subidas, toasts, enchufes, conciliación)
-- [ ] F2 · Cajón de sastre (BD + API + UI Bandeja)
-- [ ] F3 · Enrutador único: botón Documentación + cartero comparten pipeline
-- [ ] F4 · Superpersistencia de subidas (cola BD reanudable multi-dispositivo, sin cron)
-- [ ] F5 · Toast/ProgresoGlobal Cantera Alegre (20 s, reloj de arena, clic-info)
-- [ ] F6 · Auditoría y conexión de enchufes
-- [ ] F7 · Conciliación bancaria conforme LEY (verificación + reparación)
-- [ ] F8 · Gate verde + verificación externa + commits + push único final a rama de sesión
+- [x] F1 · Mapa del sistema actual (3 exploraciones paralelas + auditoría BD)
+- [x] F2 · Cajón de sastre: equipo_docs_revision estado=descartado como cajón único; UI renombrada, botón Descartar (API action descartar), reenvío a Banco con selector de titular; extractos y repescas agotadas caen al cajón (trigger trg_manifiesto_error_a_cajon)
+- [x] F3 · Enrutador único: botón DOCUMENTACIÓN (los 4 botones retirados de la UI; tuberías vivas para reenvíos); cartero (cron + fn_forzar_cartero + botón Correo) repuntado a /api/facturas?action=cartero = mismo motor; lo irreconocible del correo va al cajón, no a facturas basura; guarda anti-basura (imagen sin texto no gasta OCR de pago); detección de extracto por parsearBBVA
+- [x] F4 · Superpersistencia: guarda-primero (Storage+equipo_manifiesto+huella) ya existente + tarea visible multi-dispositivo en papeleo_tareas (ProgresoGlobal la pinta en web y móvil); repesca 15min/3 intentos ya existente; agotada → cajón. SIN crons nuevos (solo se repuntó uno existente)
+- [x] F5 · Toasts 20 s; ProgresoGlobal ya era Cantera Alegre con reloj de arena y BD → añadido refresco al pulsar, pastilla final 20 s, contador "Al cajón" y línea de último detalle real
+- [x] F6 · Enchufes: Glovo liquidación → glovo_liquidaciones (LEY-GLOVO-01, upsert por nº factura); cuota autónomos → gastos_fijos (trigger, cat 2.21.1); rebarrido automático de conciliación al terminar lote (cartero y subida); nóminas→gastos_fijos ya existía (triggers 23-jul); errores mudos destapados (reglas PDF, liquidaciones de correo → avisos_papeleo)
+- [x] F7 · Conciliación conforme LEY: fn_auto_match_movimiento reescrita (exacto + fn_prov_canon + ventana por proveedor + candidato único + blindada), fn_match_params tol 0, matching.ts backend/frontend tol 0. Verificado: 0 enlaces con importe desigual en BD
+- [x] F8 · Gate verde (candado 5/12 functions, vitest, tsc -b, vite build) + verificación externa por greps y SQL + push único a rama de sesión
 
 ## DECISIONES
 - D1: El push final único va a la rama de sesión `claude/localizar-autoloop-gyrljz` (no a `trabajo`, no a `master`): preserva el trabajo sin publicar. Rubén decide el merge.
 - D2: Cambios de BD solo ADITIVOS (tablas/funciones nuevas, sin romper lo existente). Sin crons nuevos; la repesca se apoya en triggers + reanudación cliente + el cron condicional ya existente (no se crea ninguno).
+- D3: El resumen mensual de Uber NO alimenta facturacion_diario: esa tabla es día×marca×canal y un mensual no tiene granularidad diaria — conectarlo inventaría datos. Sigue en ventas_plataforma, que es su sitio.
+- D4: Cartero canónico = /api/facturas?action=cartero (comparte motor con los botones). La edge cartero-correo queda desplegada pero sin programación ni forzado (clasificaba solo factura/ventas y metía basura en facturas).
+- D5: Extractos por botón único/correo → cajón con instrucción de reenvío a Banco eligiendo titular (el titular no se adivina; LEY: no inventar).
+- D6: La clasificación de personal en subidas masivas va SIN pista de IA (solo marcadores deterministas): con 15.000-50.000 archivos la pista pagada por documento era inasumible; el reencaminado gratis cubre el resto. La pista sigue disponible en la cola de revisión.
+- D7: pdf.js API/worker mismatch: ya estaba corregido en trabajo (rasterizado usa el mismo pdfjs de unpdf); verificado, sin acción.
 
 ## ⚠️ BLOQUEADOS
 (vacío)
