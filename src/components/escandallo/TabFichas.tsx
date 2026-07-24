@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Printer, FileDown, Pencil, AlertTriangle, Link2 } from 'lucide-react'
 import ModalEditarFicha from './ModalEditarFicha'
 import FichaEPSPrint from '@/components/escandallo/FichaEPSPrint'
+import HojaA4 from '@/components/escandallo/HojaA4'
 import { toFichaEPS, limpiarIngrediente, type LineaOrigen } from '@/components/escandallo/fichaEPSAdapter'
 import { GRANATE, BLANCO, GRIS, INK, CREMA, OSW, LEX } from '@/styles/neobrutal'
 import { estiloFiltro, estiloBoton, estiloItemLista, SelectCantera } from '@/components/kit/controles'
@@ -11,9 +12,6 @@ import {
   ESCANDALLO_OK_BG, ESCANDALLO_OK_TXT, ESCANDALLO_WARN_BORDE,
   ESCANDALLO_WARN_ICON, ESCANDALLO_WARN_BTN, ESCANDALLO_WARN_TXT,
 } from '@/styles/palettes'
-
-/** Logo primario de Streat Lab (el mismo archivo que usa el documento de Design). */
-const LOGO_DOC = '/data/STREAT LAB LOGO-04.jpg'
 
 interface Match { iding: string; nombre: string; precio: number; prov: string }
 interface IngLinea { cant: string; ud: string; ingrediente: string; equivalencia: string; grupo?: number; match: Match | null }
@@ -31,14 +29,18 @@ const ALERGENOS_EDITABLES = [
   'Moluscos', 'Cacahuetes', 'Apio', 'Mostaza', 'Sésamo', 'Sulfitos', 'Altramuces',
 ]
 
-/* Aísla la hoja al imprimir: el resto del ERP no sale en el papel. */
+/* Aísla la hoja al imprimir: el resto del ERP no sale en el papel y, al recortar
+   el alto del documento a una página, tampoco salen hojas en blanco detrás. */
 const CSS_IMPRESION = `
 @media print{
   @page{ size:A4 portrait; margin:0; }
-  html, body{ background:#fff !important; }
+  html, body{
+    background:#fff !important; margin:0 !important; padding:0 !important;
+    height:296.4mm !important; overflow:hidden !important;
+  }
   body *{ visibility:hidden; }
   #zona-impresion, #zona-impresion *{ visibility:visible; }
-  #zona-impresion{ position:absolute; left:0; top:0; }
+  #zona-impresion{ position:fixed; left:0; top:0; overflow:visible !important; }
   .no-print{ display:none !important; }
 }
 `
@@ -309,7 +311,9 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
 
       {/* DOCUMENTO APROBADO — no se reinterpreta: se pinta tal cual */}
       <div id="zona-impresion" style={{ overflowX: 'auto' }}>
-        <FichaEPSPrint ficha={ficha} bn={false} logoSrc={LOGO_DOC} />
+        <HojaA4 key={f.id}>
+          <FichaEPSPrint ficha={ficha} bn={false} />
+        </HojaA4>
       </div>
 
       <div className="no-print" style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
