@@ -3,6 +3,7 @@ import TabsPastilla from '@/components/ui/TabsPastilla'
 import TabFichas from '@/components/escandallo/TabFichas'
 import ColaRevisionFichas from '@/components/escandallo/ColaRevisionFichas'
 import { HeroCantera, PantallaCantera } from '@/components/kit/cantera'
+import { BuscadorCantera } from '@/components/kit/controles'
 
 type Tab = 'eps' | 'recetas'
 
@@ -31,12 +32,7 @@ export default function Recetario() {
           activeId={tab}
           onChange={(id) => setTab(id as Tab)}
         />
-        <input
-          className="flex-1 bg-[var(--sl-card)] border border-[var(--sl-border)] rounded-lg px-3 py-2 text-sm text-[var(--sl-text-primary)] placeholder:text-[var(--sl-text-muted)] focus:outline-none focus:border-accent"
-          placeholder="Buscar..."
-          value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
-        />
+        <BuscadorCantera value={busqueda} onChange={setBusqueda} placeholder="Buscar ficha, código o ingrediente…" />
       </div>
 
       <ColaRevisionFichas />
