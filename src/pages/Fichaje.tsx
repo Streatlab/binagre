@@ -1,6 +1,8 @@
-// FICHAJE · Quiosco de tablet (ruta pública /fichaje, instalable como PWA propia).
+// FICHAJE · Quiosco de tablet (ruta /fichaje, aislada del ERP e instalable como PWA).
 // CANTERA ALEGRE v1.0 · área EQUIPO → héroe TINTA (texto crema, mark amarillo).
 // Radio 0 · sombra dura 3px solo en lo pulsable · rojo exclusivo de lo negativo.
+// CANDADO 24-jul: desde esta pantalla NO se ve ningún registro ni se llega al ERP.
+// El PIN de administración aquí sirve solo para soltar el candado del dispositivo.
 // Registro legal RD-ley 8/2019: la BD es append-only; aquí solo se pulsa y se ve.
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -25,10 +27,11 @@ type Emp = {
   horario_hoy: { inicio: string; fin: string; turno: string | null }[]
 }
 type Tipo = 'entrada' | 'salida' | 'pausa_inicio' | 'pausa_fin'
-type Pantalla = 'home' | 'pin' | 'accion' | 'confirm' | 'adminpin' | 'admin'
+type Pantalla = 'home' | 'pin' | 'accion' | 'confirm' | 'candado'
 
 const API = '/api/operaciones/fichaje'
 const COLA_KEY = 'fichaje_cola_offline'
+const QUIOSCO_KEY = 'sl_dispositivo_quiosco'
 
 const fmtHora = (ts: string) => new Date(ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' })
 const fmtMin = (m: number) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`
@@ -42,7 +45,9 @@ const COLOR_ACCION: Record<Tipo, string> = { entrada: VERDE, salida: ROJO, pausa
 function colaLeer(): Array<{ empleado_id: string; pin: string; tipo: Tipo; ts: string }> {
   try { return JSON.parse(localStorage.getItem(COLA_KEY) || '[]') } catch { return [] }
 }
-function colaGuardar(items: ReturnType<typeof colaLeer>) { localStorage.setItem(COLA_KEY, JSON.stringify(items)) }
+function colaGuardar(items: ReturnType<typeof colaLeer>) {
+  try { localStorage.setItem(COLA_KEY, JSON.stringify(items)) } catch { /* sin almacenamiento */ }
+}
 
 async function post(action: string, body: unknown) {
   const r = await fetch(`${API}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -62,10 +67,9 @@ export default function Fichaje() {
   const [offline, setOffline] = useState(!navigator.onLine)
   const [reloj, setReloj] = useState(new Date())
   const [enviando, setEnviando] = useState(false)
-  // Admin
-  const [adminPin, setAdminPin] = useState('')
-  const [adminData, setAdminData] = useState<{ fecha: string; registros: Array<{ empleado_id: string; nombre: string; estado: string; min_trabajo: number; min_pausa: number; entrada_ts: string | null; salida_ts: string | null; eventos: Array<{ id: string; tipo: string; ts: string; correccion: boolean }> }> } | null>(null)
-  const [adminError, setAdminError] = useState<string | null>(null)
+  // Candado del dispositivo (único uso del PIN de administración en la tablet)
+  const [candadoPin, setCandadoPin] = useState('')
+  const [candadoError, setCandadoError] = useState<string | null>(null)
   const holdRef = useRef<number | null>(null)
   const [holding, setHolding] = useState(false)
   const idleRef = useRef<number | null>(null)
@@ -115,11 +119,11 @@ export default function Fichaje() {
   // Vuelta sola al inicio si nadie toca nada (15 s en PIN, 25 s en acción)
   useEffect(() => {
     if (idleRef.current) window.clearTimeout(idleRef.current)
-    if (pantalla === 'pin' || pantalla === 'adminpin') idleRef.current = window.setTimeout(irInicio, 15000)
+    if (pantalla === 'pin' || pantalla === 'candado') idleRef.current = window.setTimeout(irInicio, 15000)
     if (pantalla === 'accion') idleRef.current = window.setTimeout(irInicio, 25000)
     return () => { if (idleRef.current) window.clearTimeout(idleRef.current) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pantalla, pin, adminPin])
+  }, [pantalla, pin, candadoPin])
 
   // Cuenta atrás de bloqueo
   useEffect(() => {
@@ -131,20 +135,20 @@ export default function Fichaje() {
 
   function irInicio() {
     setPantalla('home'); setSel(null); setPin(''); setPinError(null); setIntento(0)
-    setBloqueoSeg(0); setAdminPin(''); setAdminError(null); setAdminData(null)
+    setBloqueoSeg(0); setCandadoPin(''); setCandadoError(null)
   }
 
   function tocarEmpleado(e: Emp) { setSel(e); setPin(''); setPinError(null); setIntento(0); setPantalla('pin') }
 
-  function tecla(n: string, esAdmin = false) {
-    const set = esAdmin ? setAdminPin : setPin
-    const val = esAdmin ? adminPin : pin
+  function tecla(n: string, esCandado = false) {
+    const set = esCandado ? setCandadoPin : setPin
+    const val = esCandado ? candadoPin : pin
     if (n === 'del') return set(val.slice(0, -1))
     if (val.length >= 6) return
     const nuevo = val + n
     set(nuevo)
     if (nuevo.length === 6) {
-      if (esAdmin) validarAdmin(nuevo)
+      if (esCandado) soltarCandado(nuevo)
       else setTimeout(() => setPantalla('accion'), 150) // el PIN se valida al fichar
     }
   }
@@ -176,16 +180,24 @@ export default function Fichaje() {
     }
   }
 
-  async function validarAdmin(p: string) {
-    setAdminError(null)
-    const j = await post('admin-registros', { pin: p })
-    if (j.registros) { setAdminData(j); setPantalla('admin') }
-    else { setAdminError('PIN DE ADMINISTRADOR INCORRECTO'); setAdminPin('') }
+  // Suelta el candado del dispositivo: solo con PIN de administración.
+  async function soltarCandado(p: string) {
+    setCandadoError(null)
+    try {
+      const j = await post('quiosco-desbloquear', { pin: p })
+      if (j.ok) {
+        try { localStorage.removeItem(QUIOSCO_KEY) } catch { /* sin almacenamiento */ }
+        window.location.replace('/')
+        return
+      }
+    } catch { /* sin red: se queda en el quiosco */ }
+    setCandadoError('PIN DE ADMINISTRACIÓN INCORRECTO')
+    setCandadoPin('')
   }
 
   function logoDown() {
     setHolding(true)
-    holdRef.current = window.setTimeout(() => { setHolding(false); setAdminPin(''); setPantalla('adminpin') }, 3000)
+    holdRef.current = window.setTimeout(() => { setHolding(false); setCandadoPin(''); setCandadoError(null); setPantalla('candado') }, 3000)
   }
   function logoUp() { setHolding(false); if (holdRef.current) window.clearTimeout(holdRef.current) }
 
@@ -232,10 +244,10 @@ export default function Fichaje() {
     </div>
   )
 
-  const Teclado = ({ esAdmin = false }: { esAdmin?: boolean }) => (
+  const Teclado = ({ esCandado = false }: { esCandado?: boolean }) => (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(84px, 118px))', gap: 14 }}>
       {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((n, i) => n === '' ? <div key={i} /> : (
-        <button key={i} onClick={() => tecla(n, esAdmin)}
+        <button key={i} onClick={() => tecla(n, esCandado)}
           style={{ ...boton(BLANCO, TINTA), fontSize: n === 'del' ? 26 : 36, padding: '18px 0', minHeight: 76 }}>
           {n === 'del' ? '⌫' : n}
         </button>
@@ -292,12 +304,12 @@ export default function Fichaje() {
           {!emps.length && <div style={{ fontFamily: LEX, color: MUT, padding: 20 }}>Cargando equipo…</div>}
         </div>
         <div style={{ textAlign: 'center', padding: '0 0 14px', fontFamily: LEX, fontSize: 12, color: MUT }}>
-          Toca tu tarjeta para fichar · mantén pulsado STREAT LAB para administración
+          Toca tu tarjeta para fichar
         </div>
       </>)}
 
-      {/* ══ PIN empleado / admin ══ */}
-      {(pantalla === 'pin' || pantalla === 'adminpin') && (<>
+      {/* ══ PIN del empleado ══ */}
+      {pantalla === 'pin' && (<>
         <Cabecera>
           <button onClick={irInicio} style={{ ...boton(BLANCO, TINTA), fontSize: 17, padding: '12px 20px' }}>← VOLVER</button>
         </Cabecera>
@@ -310,26 +322,21 @@ export default function Fichaje() {
         ) : (
           <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 'clamp(24px,5vw,70px)', padding: '20px 16px 30px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, minWidth: 260 }}>
-              {pantalla === 'pin' && sel && (
+              {sel && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <Avatar e={sel} size={64} />
                   <div style={{ fontFamily: OSW, fontWeight: 600, fontSize: 'clamp(22px,3.2vw,30px)', textTransform: 'uppercase', boxShadow: `inset 0 -12px 0 ${AMA}` }}>{sel.nombre.split(' ')[0]}</div>
                 </div>
               )}
-              {pantalla === 'adminpin' && (
-                <div style={{ fontFamily: OSW, fontWeight: 600, fontSize: 24, letterSpacing: 2, boxShadow: `inset 0 -12px 0 ${AMA}` }}>ADMINISTRACIÓN</div>
-              )}
               <div style={{ fontFamily: OSW, fontSize: 14, letterSpacing: 3, color: MUT }}>INTRODUCE TU PIN</div>
-              <Puntos val={pantalla === 'pin' ? pin : adminPin} error={!!pinError || !!adminError} />
-              {(pinError || adminError) ? (
-                <div style={{ fontFamily: OSW, fontWeight: 600, fontSize: 18, color: ROJO, letterSpacing: 1 }}>
-                  {pantalla === 'pin' ? `PIN INCORRECTO · INTENTO ${intento} DE 3` : adminError}
-                </div>
+              <Puntos val={pin} error={!!pinError} />
+              {pinError ? (
+                <div style={{ fontFamily: OSW, fontWeight: 600, fontSize: 18, color: ROJO, letterSpacing: 1 }}>PIN INCORRECTO · INTENTO {intento} DE 3</div>
               ) : (
                 <div style={{ fontFamily: LEX, fontSize: 14, color: MUT }}>6 cifras</div>
               )}
             </div>
-            <Teclado esAdmin={pantalla === 'adminpin'} />
+            <Teclado />
           </div>
         )}
       </>)}
@@ -378,38 +385,21 @@ export default function Fichaje() {
         </div>
       )}
 
-      {/* ══ ADMIN ══ */}
-      {pantalla === 'admin' && adminData && (<>
+      {/* ══ CANDADO DEL DISPOSITIVO (solo dueño) ══ */}
+      {pantalla === 'candado' && (<>
         <Cabecera>
-          <button onClick={irInicio} style={{ ...boton(BLANCO, TINTA), fontSize: 17, padding: '12px 20px' }}>← SALIR</button>
+          <button onClick={irInicio} style={{ ...boton(BLANCO, TINTA), fontSize: 17, padding: '12px 20px' }}>← VOLVER</button>
         </Cabecera>
-        <div style={{ flex: 1, width: '100%', maxWidth: 1100, margin: '0 auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ background: BLANCO, borderTop: `7px solid ${TINTA}`, border: BORDE, padding: 18 }}>
-            <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 22, letterSpacing: 1, marginBottom: 12 }}>REGISTROS DE HOY · {adminData.fecha}</div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: LEX, fontSize: 14.5 }}>
-              <thead>
-                <tr style={{ fontFamily: OSW, letterSpacing: 1, fontSize: 12, color: MUT, textAlign: 'left' }}>
-                  <th style={{ padding: '6px 8px' }}>EMPLEADO</th><th>ENTRADA</th><th>SALIDA</th><th>PAUSAS</th><th style={{ textAlign: 'right' }}>TOTAL</th><th>EVENTOS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {adminData.registros.map(r => (
-                  <tr key={r.empleado_id} style={{ borderTop: `2px solid ${CLARO}` }}>
-                    <td style={{ padding: '10px 8px', fontFamily: OSW, fontWeight: 600 }}>{r.nombre}</td>
-                    <td>{r.entrada_ts ? fmtHora(r.entrada_ts) : '—'}</td>
-                    <td>{r.salida_ts ? fmtHora(r.salida_ts) : '—'}</td>
-                    <td>{fmtMin(r.min_pausa)}</td>
-                    <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmtMin(r.min_trabajo)}</td>
-                    <td style={{ color: MUT, fontSize: 13 }}>{r.eventos.map(ev => `${ETIQUETA[ev.tipo as Tipo] || ev.tipo} ${fmtHora(ev.ts)}${ev.correccion ? '*' : ''}`).join(' · ')}</td>
-                  </tr>
-                ))}
-                {!adminData.registros.length && <tr><td colSpan={6} style={{ padding: 16, color: MUT }}>Sin fichajes hoy.</td></tr>}
-              </tbody>
-            </table>
-            <div style={{ fontFamily: LEX, fontSize: 12, color: MUT, marginTop: 10 }}>
-              * = corrección manual (queda trazada). Las correcciones y el informe mensual completo están en el ERP → Equipo → Presencia.
+        <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 'clamp(24px,5vw,70px)', padding: '20px 16px 30px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, minWidth: 280, maxWidth: 420 }}>
+            <div style={{ fontFamily: OSW, fontWeight: 600, fontSize: 24, letterSpacing: 2, boxShadow: `inset 0 -12px 0 ${AMA}` }}>SOLTAR ESTE DISPOSITIVO</div>
+            <div style={{ fontFamily: LEX, fontSize: 15, color: MUT, textAlign: 'center' }}>
+              Esta tablet solo puede abrir el fichaje. Con el PIN de administración se libera y vuelve a poder entrar al ERP.
             </div>
+            <Puntos val={candadoPin} error={!!candadoError} />
+            {candadoError && <div style={{ fontFamily: OSW, fontWeight: 600, fontSize: 18, color: ROJO, letterSpacing: 1 }}>{candadoError}</div>}
           </div>
+          <Teclado esCandado />
         </div>
       </>)}
     </div>
