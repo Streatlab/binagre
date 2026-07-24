@@ -1,5 +1,5 @@
 import { OSW, LEX, INK, CREMA, CLARO, SHADOW, GRANATE, VERDE, GRIS, BLANCO } from '@/styles/neobrutal'
-import { HeroCantera, Papel, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import { HeroCantera, Papel, PantallaCantera, SeccionLabel, VERDE_EQUIPO } from '@/components/kit/cantera'
 import { useEffect, useState } from 'react'
 import { Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -253,7 +253,7 @@ export default function TabIncentivos() {
           etiqueta="Plan de incentivos"
         />
         <button onClick={guardar} disabled={saving}
-          style={{ padding: '9px 16px', border: `3px solid ${INK}`, boxShadow: SHADOW, background: GRANATE, color: BLANCO, fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          style={{ padding: '9px 16px', border: `3px solid ${INK}`, boxShadow: SHADOW, background: VERDE_EQUIPO, color: BLANCO, fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <Save size={14} /> {saving ? 'Guardando…' : 'Guardar mes'}
         </button>
       </div>
@@ -320,8 +320,8 @@ export default function TabIncentivos() {
         </div>
       </Papel>
 
-      <SeccionLabel bg={GRANATE}>Bloque colectivo · todos o nadie</SeccionLabel>
-      <Papel ceja={GRANATE}>
+      <SeccionLabel bg={VERDE_EQUIPO}>Bloque colectivo · todos o nadie</SeccionLabel>
+      <Papel ceja={VERDE_EQUIPO}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <label style={chkLabel}>
             <input type="checkbox" checked={mc.retrasos_ok} onChange={e => setMc({ ...mc, retrasos_ok: e.target.checked })} style={chk} />
@@ -358,8 +358,8 @@ export default function TabIncentivos() {
         </div>
       </Papel>
 
-      <SeccionLabel bg={GRANATE}>Incentivos por empleado</SeccionLabel>
-      <Papel ceja={GRANATE} pad="0" style={{ overflowX: 'auto' }}>
+      <SeccionLabel bg={VERDE_EQUIPO}>Incentivos por empleado</SeccionLabel>
+      <Papel ceja={VERDE_EQUIPO} pad="0" style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: INK }}>
