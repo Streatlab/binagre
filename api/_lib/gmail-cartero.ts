@@ -178,7 +178,20 @@ export async function recogerFacturasDelCorreo(
         if (!errIns) liquidacionesGuardadas++
       }
       uidsLiquidacion.push(uid)
-    } catch { /* best-effort: no romper el flujo de facturas */ }
+    } catch (e) {
+      // Antes era un catch totalmente mudo: una liquidación que fallara al
+      // guardarse desaparecía sin rastro. Ahora deja aviso accionable.
+      console.error('[cartero] liquidación no guardada:', (e as Error)?.message)
+      try {
+        await supabaseAdmin.from('avisos_papeleo').insert({
+          tipo: 'lectura_fallida',
+          titulo: `Liquidación de plataforma sin guardar (correo)`,
+          detalle: `Referencia ${String(datos.referencia_pago || '—')} · tabla ${String(datos.tabla || '—')}: ${(e as Error)?.message || 'error desconocido'}. El correo sigue en el buzón.`,
+          estado: 'abierto',
+          payload: { referencia_pago: datos.referencia_pago, tabla: datos.tabla },
+        })
+      } catch { /* el aviso es best-effort */ }
+    }
   }
   if (uidsLiquidacion.length) {
     const lock3 = await client.getMailboxLock('INBOX')

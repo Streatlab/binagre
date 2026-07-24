@@ -31,16 +31,18 @@ export async function cargarMatchingConfig(): Promise<(proveedor: string) => Mat
   if (!cachePromise) cachePromise = fetchConfig()
   const rows = await cachePromise
 
-  const FALLBACK: MatchingParams = { ventana_dias: 60, tolerancia_eur: 0.05 }
+  // LEY-MATCH-01 (14-jul-2026): importe exacto al céntimo — tolerancia siempre 0,
+  // se configure lo que se configure. Solo la ventana es por proveedor.
+  const FALLBACK: MatchingParams = { ventana_dias: 60, tolerancia_eur: 0 }
   const defaultRow = rows.find(r => r.proveedor === null)
   const defaults: MatchingParams = defaultRow
-    ? { ventana_dias: defaultRow.ventana_dias, tolerancia_eur: defaultRow.tolerancia_eur }
+    ? { ventana_dias: defaultRow.ventana_dias, tolerancia_eur: 0 }
     : FALLBACK
 
   return function paramsPara(proveedor: string): MatchingParams {
     const needle = proveedor.toLowerCase()
     const match = rows.find(r => r.proveedor !== null && needle.includes(r.proveedor.toLowerCase()))
-    return match ? { ventana_dias: match.ventana_dias, tolerancia_eur: match.tolerancia_eur } : defaults
+    return match ? { ventana_dias: match.ventana_dias, tolerancia_eur: 0 } : defaults
   }
 }
 

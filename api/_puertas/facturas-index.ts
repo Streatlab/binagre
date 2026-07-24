@@ -38,7 +38,7 @@ import { parsearBBVA } from '../_lib/parserBBVA.js'
 import type { ExtractedFactura } from '../_lib/ocr-types.js'
 import { descargarRespaldoStorage } from '../_lib/google-drive.js'
 import { extraerLineasFacturaTexto, sumaConIva } from '../_lib/extraerLineasFactura.js'
-import { procesarDocumentoEquipo } from '../_lib/procesarDocEquipo.js'
+import { procesarDocumentoEquipo, mandarAlCajon } from '../_lib/procesarDocEquipo.js'
 
 // ── Titular por NIF (Rubén/Emilio) ─────────────────────────────────────────
 const NIF_RUBEN = '21669051S'
@@ -330,7 +330,7 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
 
   const { adjuntos, mensajesRevisados, _mover } = recogida
 
-  let ok = 0, manual = 0, duplicadas = 0, errores = 0, clasificados = 0
+  let ok = 0, manual = 0, duplicadas = 0, errores = 0, clasificados = 0, alCajon = 0
   const resultados: Record<string, unknown>[] = []
   const mensajesConExito = new Set<string>()
   const mensajesConFallo = new Set<string>()
@@ -363,10 +363,14 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
       }
       if (cls.destino === 'extracto') {
         clasificados++
+        // Igual que el botón único: el extracto necesita titular → cajón de
+        // sastre con instrucción de reenvío, además del aviso.
+        await mandarAlCajon(adj.buffer, adj.nombre,
+          `Extracto bancario recibido por correo (${cls.motivo}). Reenvíalo a Banco desde el cajón de sastre indicando el titular.`, 'correo')
         await supabaseAdmin.from('avisos_papeleo').insert({
           tipo: 'extracto_recibido',
           titulo: `Extracto bancario recibido · ${adj.nombre}`,
-          detalle: `Clasificado como ${cls.motivo}. Remitente: ${adj.remitente || '—'}. No se procesa como factura; requiere ingesta específica.`,
+          detalle: `Clasificado como ${cls.motivo}. Remitente: ${adj.remitente || '—'}. Está en el cajón de sastre para reenviarlo a Banco con titular.`,
           estado: 'abierto',
           payload: { archivo: adj.nombre, remitente: adj.remitente, asunto: adj.asunto, subtipo: cls.subtipo, destino: cls.destino },
         })
@@ -381,6 +385,18 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
         { nombre: adj.nombre, buffer: adj.buffer, mimeType: adj.mimeType },
         sesionId,
       )
+      // Cajón de sastre: si NADIE quiso el documento (todo ignorada/error), no se
+      // queda como factura basura ni rebota eternamente en el buzón — va al cajón
+      // con su motivo y el correo se da por tratado. Igual que el botón único.
+      const nadieLoQuiso = procesados.length > 0 && procesados.every(r => r.estado === 'ignorada' || r.estado === 'error')
+      if (nadieLoQuiso) {
+        const motivo = String(procesados[0]?.motivo || procesados[0]?.error || 'ningún módulo del ERP reconoce este documento')
+        await mandarAlCajon(adj.buffer, adj.nombre, `Correo: ${motivo}`, 'correo')
+        alCajon++
+        mensajesConExito.add(adj.messageId)
+        resultados.push({ archivo: adj.nombre, remitente: adj.remitente, asunto: adj.asunto, estado: 'al_cajon', motivo })
+        continue
+      }
       for (const r of procesados) {
         if (r.estado === 'ok') ok++
         else if (r.estado === 'lectura_manual') manual++
@@ -429,6 +445,14 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
     procesados_hoy: ok + duplicadas + manual,
   }).eq('id', 1)
 
+  // Rebarrido automático al terminar el lote (LEY 100%): las facturas nuevas
+  // pueden desbloquear pendientes antiguos. Fire-and-forget, nunca bloquea.
+  if (ok > 0) {
+    const host = req.headers['x-forwarded-host'] || req.headers.host
+    const proto = (req.headers['x-forwarded-proto'] as string) || 'https'
+    if (host) fetch(`${proto}://${host}/api/facturas?action=reconciliar-pendientes`, { method: 'GET' }).catch(() => {})
+  }
+
   return res.status(200).json({
     ok: true,
     mensajes_revisados: mensajesRevisados,
@@ -437,6 +461,7 @@ async function cartero(req: VercelRequest, res: VercelResponse) {
     lectura_manual: manual,
     duplicadas,
     errores,
+    al_cajon: alCajon,
     clasificados,
     movidos_a_procesadas: moverIds.length,
     origen_correo_marcadas: facturasOrigenCorreo.size,
