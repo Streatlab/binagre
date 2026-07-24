@@ -289,9 +289,13 @@ function descargarCamaraPDF(grupos: { titulo: string; secs: Seccion[] }[], parti
 
 // Inventario: una hoja A4 apaisada por ubicación. 2 columnas, stock mínimo entre paréntesis,
 // línea continua a la derecha para anotar.
-function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi, ctx: M.Ctx, bn: boolean) {
+function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi, ctx: M.Ctx, bn: boolean, hoja = 1, hojas = 1) {
   const pal = M.paleta(AREA, bn)
-  const yTop = M.pintarCabecera(doc, ctx, { docNombre: 'Inventario Permanente', meta: 'FECHA: ___ / ___ / ______', tituloCentrado: ubi.nombre, area: AREA, bn })
+  const yTop0 = M.pintarCabecera(doc, ctx, { docNombre: 'Inventario Permanente', meta: `SL-COC-103 · REV. 01 · FECHA ___ / ___ / ______ · HOJA ${hoja}/${hojas}`, tituloCentrado: ubi.nombre, area: AREA, bn })
+  // instrucción fija (modelo Design rev. 01)
+  M.fDato(doc, ctx, false); doc.setFontSize(7.2); doc.setTextColor(...M.GRIS)
+  doc.text('( ) = stock EXACTO a tener · escribe la cantidad real en la línea; al coger uno, tacha el número y escribe el nuevo', M.contentBox(doc).x0, yTop0 - 1)
+  const yTop = yTop0 + 3
   const cb = M.contentBox(doc)
   const usableW = cb.w
 
@@ -353,13 +357,17 @@ function pintarInventarioUbi(doc: jsPDF, ubi: InvUbi, ctx: M.Ctx, bn: boolean) {
       y += gap
     }
   }
+  // pie: responsable de aterrizaje (modelo Design rev. 01)
+  M.fTitulo(doc, ctx, true); doc.setFontSize(6.5); doc.setTextColor(...M.GRIS)
+  doc.text('RESPONSABLE DE ATERRIZAJE:', cb.x0, cb.bottom + 5)
+  M.lineaRelleno(doc, cb.x0 + 42, cb.x0 + 100, cb.bottom + 5)
 }
 
-function construirInventarioPDF(ubi: InvUbi, rec: M.Recursos, bn = false): jsPDF {
+function construirInventarioPDF(ubi: InvUbi, rec: M.Recursos, bn = false, hoja = 1, hojas = 1): jsPDF {
   const doc = M.nuevaHoja({ orientation: 'landscape' })
   const ctx = M.preparar(doc, rec)
   M.pintarEspina(doc, AREA, ctx, bn)
-  pintarInventarioUbi(doc, ubi, ctx, bn)
+  pintarInventarioUbi(doc, ubi, ctx, bn, hoja, hojas)
   M.pintarPaginado(doc, 1, 1, ctx)
   return doc
 }
@@ -370,7 +378,7 @@ function construirInventarioTodosPDF(ubis: InvUbi[], rec: M.Recursos, bn = false
   ubis.forEach((u, i) => {
     if (i > 0) doc.addPage()
     M.pintarEspina(doc, AREA, ctx, bn)
-    pintarInventarioUbi(doc, u, ctx, bn)
+    pintarInventarioUbi(doc, u, ctx, bn, i + 1, ubis.length)
     M.pintarPaginado(doc, i + 1, ubis.length, ctx)
   })
   return doc
@@ -695,14 +703,15 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <BnToggle bn={bn} setBn={setBn} />
-          <BotonImprimir compacto documentoId="cocina.inventario_permanente" titulo={`Inventario permanente · ${ubi.nombre}`} generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirInventarioPDF(ubi, rec, opts.bn) }} />
+          <BotonImprimir compacto documentoId="cocina.inventario_permanente" titulo={`Inventario permanente · ${ubi.nombre}`} generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirInventarioPDF(ubi, rec, opts.bn, activa + 1, ubis.length) }} />
+          <BotonImprimir compacto documentoId="cocina.inventario_permanente" titulo="Inventario permanente · TODAS las hojas" etiqueta="Imprimir todo" generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirInventarioTodosPDF(ubis, rec, opts.bn) }} />
           <button onClick={async () => { const rec = await M.cargarRecursos(); descargarInventarioPDF(ubi, rec, bn) }} style={btnGhost}><Download size={15} /> Esta ubicación</button>
           <button onClick={async () => { const rec = await M.cargarRecursos(); descargarInventarioTodosPDF(ubis, rec, bn) }} style={btnPrimary}><FileDown size={15} /> Descargar todo</button>
         </div>
       </div>
 
 
-      <HojaDoc area="cocina" docNombre="Inventario Permanente" tituloCentrado={ubi.nombre} meta="INVENTARIO PERMANENTE · FECHA __ / __ / ____">
+      <HojaDoc area="cocina" docNombre="Inventario Permanente" tituloCentrado={ubi.nombre} meta="SL-COC-103 · REV. 01 · FECHA __ / __ / ____">
         <div className="inv-cats">
           {ubi.cats.map(cat => (
             <div className="inv-cat" key={cat.nombre}>
