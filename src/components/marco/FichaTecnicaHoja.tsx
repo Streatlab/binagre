@@ -8,6 +8,10 @@
  * El PDF se obtiene imprimiendo esta misma hoja, así que papel y pantalla no
  * pueden divergir nunca.
  *
+ * Logo: `/data/logo-icon.svg` (vectorial, del propio repo). Se usa el SVG y no
+ * el JPG porque el JPG está en CMYK y algunos navegadores lo desvirtúan al
+ * imprimir; si el SVG faltara, cae al JPG automáticamente.
+ *
  * Fuentes: Oswald (números, eyebrows, etiquetas, KPI) + Lexend (cuerpo y tablas).
  * Reglas irrompibles del paquete: legible en cocina, sin aire de más, paleta
  * apagada con acento de Cocina #a8524e, imprimible en color y en B/N, y con
@@ -106,8 +110,12 @@ export default function FichaTecnicaHoja({
       <style>{CSS}</style>
 
       <header className="eps-header">
-        <img className="eps-logo" src="/data/STREAT LAB LOGO-04.jpg" alt="Streat Lab"
-          onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }} />
+        <img className="eps-logo" src="/data/logo-icon.svg" alt="Streat Lab"
+          onError={e => {
+            const img = e.currentTarget as HTMLImageElement
+            if (!img.dataset.fb) { img.dataset.fb = '1'; img.src = '/data/STREAT LAB LOGO-04.jpg' }
+            else img.style.visibility = 'hidden'
+          }} />
         <div style={{ flex: 1, minWidth: 0, paddingTop: '.4mm' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '2.4mm', marginBottom: '1.2mm' }}>
             <span className="eps-chip">Cocina</span>
