@@ -1,19 +1,20 @@
-# INCENTIVOS v11 — Modelo vigente (jul 2026)
+# INCENTIVOS v13 — Modelo vigente (jul 2026)
 
 Tope: 250 €/persona/mes. Multiplicador de facturación sobre todo lo ganado.
 
 ## Candado de facturación
-- Automático desde ventas; **override manual** en incentivos_mes.fact_override si algo falla.
-- < 25.000 € brutos → 0 € · 25–28k → ×1 · 28–31k → ×1,2 · +31k → ×1,4
+- Automático desde ventas; override manual (incentivos_mes.fact_override).
+- < 25.000 € → 0 € · 25–28k → ×1 · 28–31k → ×1,2 · +31k → ×1,4
 
-## Regla de muerte (incentivos_mes.muerte)
-Pedido cancelado/sin aceptar por cocina o cierre de tienda en horario → 0 € para todos.
+## Reglas de muerte
+- **Grupal** (incentivos_mes.muerte): cancelación/no aceptado por cocina o cierre en horario → 0 € para todos.
+- **Personal / regla de compañerismo** (incentivos_medicion.muerte_personal): falta de respeto, incidente grave de actitud o dejar tirado al equipo → 0 € solo para esa persona.
 
 ## Colectivo (incentivos_mes)
-- Reembolsos (total + sin_foto que cuentan doble): 0 € → 60 € · ≤50 € → 40 € · 50–100 € → 20 € · +100 € → 0 €
-- Inventario permanente sin descuadres (examen sorpresa) → 40 €
-- Entregas a tiempo: sin retrasos al rider ni pedidos demorados (retrasos_ok) → 15 €
-- Valoración de clientes se mantiene/mejora (valoracion_ok, nota en valoracion_nota) → 15 €
+- **Entregas a tiempo**: sin retrasos al rider y tiempo de preparación cumplido → **50 €** (mayor peso: es lo que más premian los algoritmos)
+- Reembolsos (total + sin_foto doble): 0 € → 40 € (30+10 premio) · ≤50 € → 30 € · 50–100 € → 15 € · +100 € → 0 €
+- Inventario permanente: examen sorpresa con descuadre ≤ 2% del valor contado → 35 €
+- Valoración de clientes se mantiene/mejora → 10 €
 
 ## Individual (incentivos_medicion)
 - Vacío de cámara → 40 € · Checklists con doble firma → 25 € · Fechado y conservación → 10 €
@@ -25,8 +26,8 @@ Pedido cancelado/sin aceptar por cocina o cierre de tienda en horario → 0 € 
 - 3 meses seguidos al 100% → +50 €
 
 ## Cálculo
-total = muerte || k=0 ? 0 : min(250, max(0, colectivo + individual − penalización) × k)
-Verdad en BD: v_incentivos_mes / v_incentivos_total. UI: TabIncentivos.tsx. Portal empleado: pestaña "Mis incentivos" (contador en vivo) en TabPortal.tsx, con selector de empleado para admin.
+total = muerte || muerte_personal || k=0 ? 0 : min(250, max(0, colectivo + individual − penalización) × k)
+Verdad en BD: v_incentivos_mes / v_incentivos_total. UI: TabIncentivos.tsx. Portal: pestaña "Mis incentivos".
 
 ## Fase 2 (pendiente)
-Robot de métricas de plataforma (errores, no completados, reembolsos, retrasos, valoraciones automáticas), panel de métricas, checklists digitales con foto, muerte automática, bonus constancia automático.
+Robot de métricas de plataforma (retrasos, tiempo preparación, errores, no completados, reembolsos, valoraciones), panel de métricas, checklists digitales con foto, muerte automática, bonus constancia automático.
