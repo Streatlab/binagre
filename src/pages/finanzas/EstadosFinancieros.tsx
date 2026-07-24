@@ -10,6 +10,8 @@ import {
   OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, BLANCO } from '@/styles/neobrutal'
 import { fmtEur, fmtPct, fmtDate } from '@/lib/format'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 type TabKey = 'pyg' | 'balance' | 'cashflow'
 
@@ -23,6 +25,101 @@ const thLabel: React.CSSProperties = { padding: '10px 12px', textAlign: 'left', 
 const thNum: React.CSSProperties = { padding: '10px 10px', textAlign: 'right', fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: CREMA, fontWeight: 600, whiteSpace: 'nowrap' }
 const tdLabel: React.CSSProperties = { padding: '9px 12px', fontFamily: OSW, fontSize: 13, whiteSpace: 'nowrap', textAlign: 'left' }
 const tdNum: React.CSSProperties = { padding: '9px 10px', fontFamily: OSW, fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — LANDSCAPE — documentoId finanzas.estados_financieros ═══ */
+const AREA_PDF: M.Area = 'finanzas'
+interface FilaEF { label: string; values: number[]; bold?: boolean }
+
+function construirEstadosFinancierosPDF(pyg: PygAnual, balance: BalanceEstado, cashFlow: CashFlowAnual, año: number, rec: M.Recursos, bn = false) {
+  if (!pyg || !balance || !cashFlow) return null
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA_PDF, bn)
+  const cb = M.contentBox(doc)
+  const nuevaPagina = () => { M.pintarEspina(doc, AREA_PDF, ctx, bn); return M.pintarCabecera(doc, ctx, { docNombre: 'Estados financieros', meta: `Año ${año}`, area: AREA_PDF, bn }) }
+  let y = nuevaPagina()
+
+  const pintarSeccion = (titulo: string) => {
+    if (y > cb.bottom - 16) { doc.addPage(); y = nuevaPagina() }
+    doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.roundedRect(cb.x0, y, cb.w, 7, M.R, M.R, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(10.5); doc.setTextColor(255, 255, 255)
+    doc.text(titulo.toUpperCase(), cb.x0 + 3, y + 5)
+    y += 10
+  }
+
+  const pintarTablaMensual = (filas: FilaEF[]) => {
+    const cols = [...MESES, 'Total']
+    const wLabel = 34
+    const wCol = (cb.w - wLabel) / cols.length
+    const xCol = (i: number) => cb.x0 + wLabel + i * wCol
+    const cabTabla = () => {
+      doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.rect(cb.x0, y, cb.w, 5.5, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(7); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+      doc.text('CONCEPTO', cb.x0 + 1.5, y + 3.8)
+      cols.forEach((c, i) => doc.text(c.toUpperCase(), xCol(i) + wCol - 1.5, y + 3.8, { align: 'right' }))
+      y += 5.5
+    }
+    cabTabla()
+    for (const f of filas) {
+      if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina(); cabTabla() }
+      doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+      M.fDato(doc, ctx, !!f.bold); doc.setFontSize(f.bold ? 8.3 : 7.8); doc.setTextColor(...(f.bold ? pal.acento : M.TINTA))
+      doc.text(f.label, cb.x0 + 1.5, y + 3.6)
+      f.values.forEach((v, i) => doc.text(fmt0(v), xCol(i) + wCol - 1.5, y + 3.6, { align: 'right' }))
+      y += 4.8
+    }
+    y += 4
+  }
+
+  // ── P&G ──
+  pintarSeccion('P&G')
+  const totGasto = (fn: (m: PygAnual['meses'][number]) => number) => pyg.meses.reduce((s, m) => s + fn(m), 0)
+  pintarTablaMensual([
+    { label: 'Ingresos', values: [...pyg.meses.map(m => m.ingresos), pyg.totalIngresos] },
+    { label: 'Producto', values: [...pyg.meses.map(m => m.producto), totGasto(m => m.producto)] },
+    { label: 'Equipo', values: [...pyg.meses.map(m => m.equipo), totGasto(m => m.equipo)] },
+    { label: 'Controlables', values: [...pyg.meses.map(m => m.controlables), totGasto(m => m.controlables)] },
+    { label: 'Alquiler', values: [...pyg.meses.map(m => m.alquiler), totGasto(m => m.alquiler)] },
+    { label: 'Otros gastos', values: [...pyg.meses.map(m => m.otrosGastos), totGasto(m => m.otrosGastos)] },
+    { label: 'Total gastos', values: [...pyg.meses.map(m => m.totalGastos), pyg.totalGastos], bold: true },
+    { label: 'Resultado del ejercicio', values: [...pyg.meses.map(m => m.resultado), pyg.resultadoEjercicio], bold: true },
+  ])
+
+  // ── Balance ──
+  pintarSeccion(`Balance a ${fmtDate(balance.fecha)}`)
+  const wLabelBal = cb.w * 0.6
+  const filasBalance: { label: string; value: number; bold?: boolean }[] = [
+    { label: 'Caja', value: balance.caja },
+    { label: 'Cobros pendientes de plataformas', value: balance.cobrosPendientesPlataformas },
+    { label: 'ACTIVO TOTAL', value: balance.activo, bold: true },
+    { label: 'Facturas de proveedor vivas sin conciliar', value: balance.pasivoFacturasPendientes },
+    { label: 'PASIVO TOTAL', value: balance.pasivo, bold: true },
+    { label: 'PATRIMONIO NETO (estimado, residual)', value: balance.patrimonioNeto, bold: true },
+  ]
+  for (const f of filasBalance) {
+    if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+    M.fDato(doc, ctx, !!f.bold); doc.setFontSize(f.bold ? 8.5 : 8); doc.setTextColor(...(f.bold ? pal.acento : M.TINTA))
+    doc.text(f.label, cb.x0 + 1.5, y + 3.6)
+    doc.text(fmt0(f.value), cb.x0 + wLabelBal + 40, y + 3.6, { align: 'right' })
+    y += 4.8
+  }
+  y += 4
+
+  // ── Cash Flow ──
+  pintarSeccion('Cash Flow')
+  const totCF = (fn: (m: CashFlowAnual['meses'][number]) => number) => cashFlow.meses.reduce((s, m) => s + fn(m), 0)
+  pintarTablaMensual([
+    { label: 'Operativo', values: [...cashFlow.meses.map(m => m.operativo), totCF(m => m.operativo)] },
+    { label: 'Inversión', values: [...cashFlow.meses.map(m => m.inversion), 0] },
+    { label: 'Financiación', values: [...cashFlow.meses.map(m => m.financiacion), totCF(m => m.financiacion)] },
+    { label: 'Flujo neto del mes', values: [...cashFlow.meses.map(m => m.flujoNeto), cashFlow.flujoNetoAcumulado], bold: true },
+  ])
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } = {}) {
   const currentYear = new Date().getFullYear()
@@ -112,6 +209,7 @@ export function EstadosFinancieros({ embedded = false }: { embedded?: boolean } 
         <button onClick={() => setComparar(c => !c)} style={{ ...selectNeo, background: comparar ? AMA : BLANCO }}>
           {comparar ? '✓ ' : ''}Comparar con {año - 1}
         </button>
+        <BotonImprimir compacto documentoId="finanzas.estados_financieros" titulo={`Estados financieros · ${año}`} generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirEstadosFinancierosPDF(pyg, balance, cashFlow, año, rec, opts.bn) }} />
       </div>
 
       {/* 1 · Héroe del área Resultados (amarillo) */}

@@ -13,6 +13,8 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { INK, GRIS, OSW, LEX, VERDE, ROJO, GRANATE, AMA, BLANCO } from '@/styles/neobrutal'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 type TipoInforme = 'cierre_diario' | 'cobros_lunes' | 'cierre_semanal' | 'cierre_mensual' | 'resumen_manana' | 'pulso'
 
@@ -73,6 +75,82 @@ const FLAG_INFORME: Record<TipoInforme, string> = {
 
 interface DestinatarioWA { id: string; nombre: string; whatsapp: string }
 interface ModalWA { tipo: TipoInforme; cargando: boolean; lista: DestinatarioWA[]; seleccion: Set<string> }
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL — documentoId finanzas.informe_periodico ═══
+ * DECISIÓN AUTÓNOMA: este panel solo lista tipos de informe configurados y su
+ * historial de envíos (el contenido real de cada informe —cierre diario/semanal—
+ * se calcula y envía server-side, no se carga aquí). El PDF imprime, por tanto,
+ * el estado/índice ya cargado en pantalla: informes automáticos + últimos envíos. */
+const AREA_PDF: M.Area = 'finanzas'
+
+function construirInformePeriodicoPDF(configs: InformeConfig[], envios: EnvioReciente[], rec: M.Recursos, bn = false) {
+  if (configs.length === 0 && envios.length === 0) return null
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA_PDF, bn)
+  const cb = M.contentBox(doc)
+  const nuevaPagina = () => { M.pintarEspina(doc, AREA_PDF, ctx, bn); return M.pintarCabecera(doc, ctx, { docNombre: 'Informe periódico', meta: 'Estado de informes automáticos', area: AREA_PDF, bn }) }
+  let y = nuevaPagina()
+
+  const tituloSeccion = (t: string) => {
+    if (y > cb.bottom - 14) { doc.addPage(); y = nuevaPagina() }
+    M.fTitulo(doc, ctx, true); doc.setFontSize(11); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(t.toUpperCase(), cb.x0, y + 4); y += 8
+  }
+
+  tituloSeccion('Informes automáticos')
+  for (const c of configs) {
+    if (y > cb.bottom - 8) { doc.addPage(); y = nuevaPagina() }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 8.6, cb.x1, y + 8.6)
+    M.fDato(doc, ctx, true); doc.setFontSize(9.5); doc.setTextColor(...M.TINTA)
+    doc.text(c.nombre, cb.x0 + 1.5, y + 4)
+    doc.setFontSize(8); doc.setTextColor(...pal.acento)
+    doc.text(c.activo ? 'ACTIVO' : 'PAUSADO', cb.x1 - 1.5, y + 4, { align: 'right' })
+    M.fDato(doc, ctx, false); doc.setFontSize(7.6); doc.setTextColor(...M.GRIS)
+    doc.text(HORARIOS_LEGIBLES[c.tipo] || c.cron_schedule, cb.x0 + 1.5, y + 7.8)
+    doc.text(c.ultima_ejecucion ? `Último envío: ${new Date(c.ultima_ejecucion).toLocaleString('es-ES')}` : 'Sin ejecutar aún', cb.x1 - 1.5, y + 7.8, { align: 'right' })
+    y += 9.6
+  }
+  y += 4
+
+  tituloSeccion('Últimos envíos')
+  if (envios.length === 0) {
+    M.fDato(doc, ctx, false); doc.setFontSize(9); doc.setTextColor(...M.GRIS)
+    doc.text('Aún no hay envíos registrados.', cb.x0 + 1.5, y + 3); y += 7
+  } else {
+    const wFecha = 30, wCanal = 20, wEstado = 26
+    const wInforme = (cb.w - wFecha - wCanal - wEstado) * 0.45
+    const wDest = cb.w - wFecha - wCanal - wEstado - wInforme
+    const xFecha = cb.x0, xInforme = xFecha + wFecha, xDest = xInforme + wInforme, xCanal = xDest + wDest, xEstado = cb.x1
+    const cabTabla = () => {
+      doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(7); doc.setTextColor(255, 255, 255)
+      doc.text('CUÁNDO', xFecha + 1.2, y + 4.2)
+      doc.text('INFORME', xInforme + 1.2, y + 4.2)
+      doc.text('DESTINATARIO', xDest + 1.2, y + 4.2)
+      doc.text('CANAL', xCanal + wCanal - 1.2, y + 4.2, { align: 'right' })
+      doc.text('ESTADO', xEstado - wEstado / 2, y + 4.2, { align: 'center' })
+      y += 6
+    }
+    cabTabla()
+    for (const e of envios) {
+      if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina(); cabTabla() }
+      doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+      M.fDato(doc, ctx, false); doc.setFontSize(7.4); doc.setTextColor(...M.TINTA)
+      doc.text(new Date(e.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), xFecha + 1.2, y + 3.6)
+      doc.text(e.tipo.replace(/_/g, ' '), xInforme + 1.2, y + 3.6, { maxWidth: wInforme - 2 })
+      doc.text(e.destinatario_nombre || '—', xDest + 1.2, y + 3.6, { maxWidth: wDest - 2 })
+      doc.text(e.canal, xCanal + wCanal - 1.2, y + 3.6, { align: 'right' })
+      doc.setTextColor(...pal.acento); doc.setFontSize(6.8)
+      doc.text(e.estado.toUpperCase(), xEstado - wEstado / 2, y + 3.6, { align: 'center' })
+      y += 4.8
+    }
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 export default function InformesPanel() {
   const navigate = useNavigate()
@@ -209,10 +287,11 @@ export default function InformesPanel() {
       />
 
       {/* Filtros planos: atajos de navegación */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <button onClick={() => navigate('/informes/destinatarios')} style={filtroBtn}>👥 Gestionar destinatarios</button>
         <button onClick={() => navigate('/informes/historial')} style={filtroBtn}>🕒 Ver historial completo</button>
         <button onClick={() => navigate('/informes/configuracion')} style={filtroBtn}>⚙️ Configuración</button>
+        <BotonImprimir compacto documentoId="finanzas.informe_periodico" titulo="Informe periódico" generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirInformePeriodicoPDF(configs, envios, rec, opts.bn) }} />
       </div>
 
       {/* 2 · Cards de informes */}

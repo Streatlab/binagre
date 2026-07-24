@@ -1,5 +1,7 @@
 import { AZUL, BLANCO, BORDER_FINO, CLARO, GRANATE, GRIS, INK, LIMA, NAR, ROJO, AMA, VERDE, CREMA, OSW, LEX } from '@/styles/neobrutal'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 import TabsPastilla from '@/components/ui/TabsPastilla'
 import { OBJ_ROW_FINDE_BG, OBJ_ROW_HOY_BG, OBJ_ROW_HOY_FESTIVO_BG, OBJ_FESTIVO_BORDE, OBJ_FESTIVO_TXT, OBJ_FESTIVO_PILL_TXT } from '@/styles/palettes'
 import { useState, useEffect, useMemo, useCallback } from 'react'
@@ -71,6 +73,76 @@ const FESTIVO_TXT = OBJ_FESTIVO_TXT
 
 function barColor(pct: number): string {
   return pct > 0 ? VERDE : ROJO
+}
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — APAISADO — documentoId finanzas.objetivos_categoria ═══ */
+const AREA_PDF: M.Area = 'finanzas'
+
+function construirObjetivosPDF(grupos: PresupuestoGrupo[], getPresVal: (codigo: string, mes: number) => number, presAnio: number, rec: M.Recursos, bn = false) {
+  if (grupos.every(g => g.codigos.length === 0)) return null
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA_PDF, bn)
+  const cb = M.contentBox(doc)
+  const nuevaPagina = () => { M.pintarEspina(doc, AREA_PDF, ctx, bn); return M.pintarCabecera(doc, ctx, { docNombre: 'Objetivos por categoría', meta: `Presupuesto ${presAnio}`, area: AREA_PDF, bn }) }
+  let y = nuevaPagina()
+
+  const cols = [...MESES, 'Total']
+  const wLabel = 46
+  const wCol = (cb.w - wLabel) / cols.length
+  const xCol = (i: number) => cb.x0 + wLabel + i * wCol
+
+  const cabTabla = () => {
+    doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.rect(cb.x0, y, cb.w, 5.5, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(7); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text('CATEGORÍA', cb.x0 + 1.5, y + 3.8)
+    cols.forEach((c, i) => doc.text(c.toUpperCase(), xCol(i) + wCol - 1.5, y + 3.8, { align: 'right' }))
+    y += 5.5
+  }
+
+  const totalMesGlobal = (mes: number) => grupos.reduce((s, g) => s + g.codigos.reduce((a, c) => a + getPresVal(c.codigo, mes), 0), 0)
+
+  for (const grupo of grupos) {
+    if (grupo.codigos.length === 0) continue
+    if (y > cb.bottom - 18) { doc.addPage(); y = nuevaPagina() }
+    doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.roundedRect(cb.x0, y, cb.w, 6.5, M.R, M.R, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(255, 255, 255)
+    doc.text(grupo.label.toUpperCase(), cb.x0 + 3, y + 4.5)
+    y += 9
+    cabTabla()
+    let totalGrupoAnual = 0
+    for (const cat of grupo.codigos) {
+      if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina(); cabTabla() }
+      doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+      M.fDato(doc, ctx, false); doc.setFontSize(7.6); doc.setTextColor(...M.TINTA)
+      doc.text(`${cat.codigo} ${cat.nombre}`, cb.x0 + 1.5, y + 3.6, { maxWidth: wLabel - 2 })
+      let totalCat = 0
+      for (let i = 0; i < 12; i++) { const v = getPresVal(cat.codigo, i + 1); totalCat += v; doc.text(v > 0 ? fmtEur(v) : '—', xCol(i) + wCol - 1.5, y + 3.6, { align: 'right' }) }
+      totalGrupoAnual += totalCat
+      doc.setTextColor(...pal.acento); doc.text(fmtEur(totalCat), xCol(12) + wCol - 1.5, y + 3.6, { align: 'right' })
+      y += 4.8
+    }
+    if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina(); cabTabla() }
+    doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 5.2, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(7.6); doc.setTextColor(...pal.acento)
+    doc.text(`TOTAL ${grupo.label.split(' ')[0].toUpperCase()}`, cb.x0 + 1.5, y + 3.7)
+    for (let i = 0; i < 12; i++) { const v = grupo.codigos.reduce((a, c) => a + getPresVal(c.codigo, i + 1), 0); doc.text(fmtEur(v), xCol(i) + wCol - 1.5, y + 3.7, { align: 'right' }) }
+    doc.text(fmtEur(totalGrupoAnual), xCol(12) + wCol - 1.5, y + 3.7, { align: 'right' })
+    y += 7.5
+  }
+
+  if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+  doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+  M.fTitulo(doc, ctx, true); doc.setFontSize(8.5); doc.setTextColor(255, 255, 255)
+  doc.text(`TOTAL GASTOS ${presAnio}`, cb.x0 + 1.5, y + 4.2)
+  let totalAnualGlobal = 0
+  for (let i = 0; i < 12; i++) { const v = totalMesGlobal(i + 1); totalAnualGlobal += v; doc.text(fmtEur(v), xCol(i) + wCol - 1.5, y + 4.2, { align: 'right' }) }
+  doc.text(fmtEur(totalAnualGlobal), xCol(12) + wCol - 1.5, y + 4.2, { align: 'right' })
+  y += 6
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
 }
 
 export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
@@ -745,6 +817,7 @@ export function Objetivos({ embedded = false }: { embedded?: boolean } = {}) {
               Copiar año anterior
             </button>
             {presSaving && <span style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>Guardando…</span>}
+            <BotonImprimir compacto documentoId="finanzas.objetivos_categoria" titulo={`Objetivos por categoría · ${presAnio}`} generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirObjetivosPDF(presupuestoGrupos, getPresVal, presAnio, rec, opts.bn) }} />
           </div>
 
           {presLoading ? (

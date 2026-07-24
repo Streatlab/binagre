@@ -8,10 +8,71 @@ import { useTesoreria13Semanas, UMBRAL_VERDE, type SemanaTesoreria, type Estado,
 import { OSW, LEX, INK, CREMA, GRANATE, VERDE, ROJO, NAR, AMA, GRIS, BLANCO } from '@/styles/neobrutal'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
 import { fmtEur } from '@/lib/format'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 const ESTADO_LABEL: Record<Estado, string> = { verde: 'Holgado', ambar: 'Ajustado', rojo: 'En números rojos' }
 const ESTADO_COLOR: Record<Estado, string> = { verde: VERDE, ambar: AMA, rojo: ROJO }
 const ESTADO_FG: Record<Estado, string> = { verde: BLANCO, ambar: INK, rojo: BLANCO }
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — APAISADO — documentoId finanzas.tesoreria_13s ═══ */
+const AREA_PDF: M.Area = 'finanzas'
+
+function construirTesoreria13PDF(
+  saldoInicial: number, saldoInicialFuente: string, semanas: SemanaTesoreria[],
+  saldoMinimo: number, semanaCritica: SemanaTesoreria | null, rec: M.Recursos, bn = false,
+) {
+  if (!semanas.length) return null
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA_PDF, bn)
+  const cb = M.contentBox(doc)
+  const meta = `Saldo hoy ${fmtEur(saldoInicial, { decimals: 2 })} (${saldoInicialFuente === 'extracto' ? 'extracto real' : saldoInicialFuente === 'manual' ? 'saldo manual' : 'sin dato'}) · Saldo mínimo previsto ${fmtEur(saldoMinimo, { decimals: 2, signed: true })}`
+  const nuevaPagina = () => { M.pintarEspina(doc, AREA_PDF, ctx, bn); return M.pintarCabecera(doc, ctx, { docNombre: 'Tesorería 13 semanas', meta, area: AREA_PDF, bn }) }
+  let y = nuevaPagina()
+
+  const cols = ['Semana', 'Entradas', 'Salidas', 'Saldo semana', 'Saldo acumulado', 'Estado']
+  const wSemana = 34, wEstado = 30
+  const wResto = (cb.w - wSemana - wEstado) / 4
+  const xSemana = cb.x0
+  const xCol = (i: number) => cb.x0 + wSemana + i * wResto
+  const xEstado = cb.x1 - wEstado
+
+  const cabTabla = () => {
+    doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(8); doc.setTextColor(255, 255, 255)
+    doc.text(cols[0].toUpperCase(), xSemana + 1.5, y + 4.2)
+    for (let i = 1; i < 5; i++) doc.text(cols[i].toUpperCase(), xCol(i - 1) + wResto - 1.5, y + 4.2, { align: 'right' })
+    doc.text(cols[5].toUpperCase(), xEstado + wEstado / 2, y + 4.2, { align: 'center' })
+    y += 6
+  }
+  cabTabla()
+  for (const s of semanas) {
+    if (y > cb.bottom - 7) { doc.addPage(); y = nuevaPagina(); cabTabla() }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 5.4, cb.x1, y + 5.4)
+    const critica = s.estado !== 'verde'
+    M.fDato(doc, ctx, critica); doc.setFontSize(8.3); doc.setTextColor(...M.TINTA)
+    doc.text(s.semana, xSemana + 1.5, y + 4)
+    doc.text(fmtEur(s.entradas, { decimals: 2 }), xCol(0) + wResto - 1.5, y + 4, { align: 'right' })
+    doc.text(fmtEur(s.salidas, { decimals: 2 }), xCol(1) + wResto - 1.5, y + 4, { align: 'right' })
+    doc.text(fmtEur(s.saldoSemana, { decimals: 2, signed: true }), xCol(2) + wResto - 1.5, y + 4, { align: 'right' })
+    M.fDato(doc, ctx, true); doc.setTextColor(...(critica ? pal.acento : M.TINTA))
+    doc.text(fmtEur(s.saldoAcumulado, { decimals: 2, signed: true }), xCol(3) + wResto - 1.5, y + 4, { align: 'right' })
+    M.fDato(doc, ctx, critica); doc.setTextColor(...(critica ? pal.acento : M.GRIS)); doc.setFontSize(7)
+    doc.text(ESTADO_LABEL[s.estado].toUpperCase(), xEstado + wEstado / 2, y + 4, { align: 'center' })
+    y += 5.6
+  }
+  y += 4
+  if (semanaCritica) {
+    if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+    M.fDato(doc, ctx, false); doc.setFontSize(8); doc.setTextColor(...M.GRIS)
+    doc.text(`Semana más crítica: ${semanaCritica.semana} · saldo acumulado ${fmtEur(semanaCritica.saldoAcumulado, { decimals: 2, signed: true })}`, cb.x0, y + 3)
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 export function Tesoreria13Semanas({ embedded = false }: { embedded?: boolean } = {}) {
   const {
@@ -45,6 +106,10 @@ export function Tesoreria13Semanas({ embedded = false }: { embedded?: boolean } 
 
   return (
     <PantallaCantera embedded={embedded}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <BotonImprimir compacto documentoId="finanzas.tesoreria_13s" titulo="Tesorería 13 semanas" generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirTesoreria13PDF(saldoInicial, saldoInicialFuente, semanas, saldoMinimo, semanaCritica, rec, opts.bn) }} />
+      </div>
+
       {/* 1 · Héroe del área Tesorería (azul) */}
       <HeroCantera
         area="tesoreria"
