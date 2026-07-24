@@ -66,7 +66,10 @@ export default function ModalImprimir({ abierto, onCerrar, documentoId, titulo, 
     if (!abierto) return
     setEstado({ fase: 'listo' })
     setPrefs(null)
-    cargarPreferencias(documentoId, titulo)
+    // Si la red se cuelga, a los 4s caemos a los defaults: el modal nunca se queda en "Cargando…"
+    const timeout = new Promise<ReturnType<typeof preferenciasPorDefecto>>(res =>
+      setTimeout(() => res(preferenciasPorDefecto(documentoId, titulo)), 4000))
+    Promise.race([cargarPreferencias(documentoId, titulo), timeout])
       .then(p => { setPrefs(p); setTinta(p.tinta); setOrientacion(p.orientacion); setCopias(p.copias) })
       .catch(() => {
         const p = preferenciasPorDefecto(documentoId, titulo)
