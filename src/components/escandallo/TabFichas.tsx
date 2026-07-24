@@ -5,6 +5,7 @@ import { Printer, Pencil, AlertTriangle, Link2 } from 'lucide-react'
 import ModalEditarFicha from './ModalEditarFicha'
 import { fmtEur, fmtNum } from '@/lib/format'
 import * as M from '@/lib/marcoDoc'
+import { construirFichaTecnicaPDF } from '@/lib/fichaTecnicaPdf'
 import BotonImprimir from '@/components/BotonImprimir'
 import FichaTecnicaHoja, { ALERGENOS_FICHA, ALERGENOS_FICHA_PIE, type LineaIng } from '@/components/marco/FichaTecnicaHoja'
 import { GRANATE, BLANCO, GRIS, INK, CREMA, OSW, LEX } from '@/styles/neobrutal'
@@ -207,121 +208,6 @@ function costeLinea(i: IngLinea): number {
   return factor * i.match.precio
 }
 
-/* ═══ FICHA TÉCNICA — PDF con MARCO ÚNICO (src/lib/marcoDoc.ts) ═══ */
-
-const AREA_F: M.Area = 'cocina'
-
-function secLabelPDF(doc: any, ctx: M.Ctx, pal: M.Paleta, x0: number, x1: number, txt: string, y: number): number {
-  M.fTitulo(doc, ctx, true); doc.setFontSize(10); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
-  doc.text(txt.toUpperCase(), x0, y + 3)
-  doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.4); doc.line(x0, y + 4.6, x1, y + 4.6)
-  return y + 8.5
-}
-
-function construirFichaPDF(f: Ficha, ingredientes: IngLinea[], alergenos: string[], costeTanda: number, costeRac: number, rec: M.Recursos, bn = false) {
-  const doc = M.nuevaHoja({ orientation: 'portrait' })
-  const ctx = M.preparar(doc, rec)
-  const pal = M.paleta(AREA_F, bn)
-  const cb = M.contentBox(doc)
-
-  M.pintarEspina(doc, AREA_F, ctx, bn)
-  let y = M.pintarCabecera(doc, ctx, {
-    docNombre: f.codigo ?? (f.tipo === 'receta' ? 'REC' : 'EP'),
-    tituloCentrado: (f.nombre ?? '').replace(/\.\s*$/, ''),
-    area: AREA_F, bn,
-  })
-
-  const ensure = (h: number) => {
-    if (y + h > cb.bottom) { doc.addPage(); M.pintarEspina(doc, AREA_F, ctx, bn); y = cb.top + 2 }
-  }
-
-  const cells: [string, string][] = [
-    ['Tiempo de preparación', f.tiempo_prep ?? '—'],
-    ['Rendimiento', f.raciones ? `${fmtNum(f.raciones)} rac.` : '—'],
-    ['Coste tanda', fmtEur(costeTanda, { decimals: 2 })],
-    ['€ / Ración', fmtEur(costeRac, { decimals: 2 })],
-  ]
-  const metaH = 12, cw = cb.w / 4
-  M.tablaWrap(doc, cb.x0, y, cb.w, metaH)
-  cells.forEach((c, i) => {
-    const x = cb.x0 + i * cw
-    if (i > 0) { doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.2); doc.line(x, y + 1.5, x, y + metaH - 1.5) }
-    M.fTitulo(doc, ctx, true); doc.setFontSize(7); doc.setTextColor(...M.GRIS)
-    doc.text(c[0].toUpperCase(), x + cw / 2, y + 4.6, { align: 'center' })
-    M.fDato(doc, ctx, true); doc.setFontSize(11)
-    if (i === 3) doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2]); else doc.setTextColor(...M.TINTA)
-    doc.text(c[1], x + cw / 2, y + 9.6, { align: 'center' })
-  })
-  y += metaH + 6
-
-  y = secLabelPDF(doc, ctx, pal, cb.x0, cb.x1, 'Ingredientes', y)
-  const rowH = 5
-  const nCol = ingredientes.length >= 16 ? 2 : 1
-  const gap = 8
-  const colW = (cb.w - gap * (nCol - 1)) / nCol
-  const per = Math.ceil(ingredientes.length / nCol) || 1
-  let maxY = y
-  for (let c = 0; c < nCol; c++) {
-    const x = cb.x0 + c * (colW + gap)
-    let yy = y
-    ingredientes.slice(c * per, (c + 1) * per).forEach(ing => {
-      const nom = ing.match?.nombre ?? ing.ingrediente
-      const cant = `${fmtCant(ing.cant)} ${fmtUd(ing.ud)}`.trim()
-      M.fDato(doc, ctx, true); doc.setFontSize(9.5); doc.setTextColor(...M.GRIS)
-      const cantW = doc.getTextWidth(cant)
-      M.fDato(doc, ctx, false); doc.setTextColor(...M.TINTA)
-      M.fitFont(doc, nom, colW - cantW - 4, 9.5, 7)
-      doc.text(nom, x, yy + 3.4)
-      M.fDato(doc, ctx, true); doc.setFontSize(9.5); doc.setTextColor(...M.GRIS)
-      doc.text(cant, x + colW, yy + 3.4, { align: 'right' })
-      doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(x, yy + rowH - 0.6, x + colW, yy + rowH - 0.6)
-      yy += rowH
-    })
-    if (yy > maxY) maxY = yy
-  }
-  y = maxY + 6
-
-  y = secLabelPDF(doc, ctx, pal, cb.x0, cb.x1, 'Preparación', y)
-  const badge = 5.2
-  const pasos = f.pasos ?? []
-  if (!pasos.length) {
-    M.fDato(doc, ctx, false); doc.setFontSize(10); doc.setTextColor(...M.GRIS); doc.text('—', cb.x0, y + 3); y += 6
-  }
-  pasos.forEach((paso, idx) => {
-    M.fDato(doc, ctx, false); doc.setFontSize(10)
-    const tx = cb.x0 + badge + 3
-    const lines = doc.splitTextToSize(paso, cb.x1 - tx) as string[]
-    const blockH = Math.max(badge, lines.length * 4.5) + 2.6
-    ensure(blockH)
-    doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.roundedRect(cb.x0, y, badge, badge, M.R, M.R, 'F')
-    M.fTitulo(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(255, 255, 255)
-    doc.text(String(idx + 1), cb.x0 + badge / 2, y + badge / 2 + 1.3, { align: 'center' })
-    M.fDato(doc, ctx, false); doc.setFontSize(10); doc.setTextColor(...M.TINTA)
-    doc.text(lines, tx, y + 3.4)
-    y += blockH
-  })
-  y += 4
-
-  ensure(14)
-  y = secLabelPDF(doc, ctx, pal, cb.x0, cb.x1, 'Alérgenos', y)
-  if (!alergenos.length) {
-    M.fDato(doc, ctx, false); doc.setFontSize(10); doc.setTextColor(...M.GRIS); doc.text('Ninguno', cb.x0, y + 3)
-  } else {
-    let px = cb.x0, py = y
-    alergenos.forEach(a => {
-      M.fDato(doc, ctx, true); doc.setFontSize(8)
-      const w = doc.getTextWidth(a) + 4.8
-      if (px + w > cb.x1) { px = cb.x0; py += 6.5 }
-      M.pill(doc, px, py, a, AREA_F, ctx, { bn })
-      px += w + 2
-    })
-  }
-
-  const tp = doc.getNumberOfPages()
-  for (let p = 1; p <= tp; p++) { doc.setPage(p); M.pintarPaginado(doc, p, tp, ctx) }
-  return doc
-}
-
 function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineasEP }: { ficha: Ficha; alergMap: Record<string, string[]>; gamasAll: string[]; onSaved: () => void; costeReal?: { tanda: number; rac: number }; lineasEP?: { ingrediente: string; cant: string; ud: string }[] }) {
   const tienePropios = (f.ingredientes ?? []).some(i => i.ingrediente && i.cant)
   const ingredientes: IngLinea[] = tienePropios
@@ -359,22 +245,38 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
     onSaved()
   }
 
-  async function generarPdfFicha(bnFlag: boolean) {
-    const rec = await M.cargarRecursos()
-    return construirFichaPDF(f, ingredientes, alergAuto, costeTanda, costeRac, rec, bnFlag)
-  }
-  async function descargarPdf() {
-    const rec = await M.cargarRecursos()
-    M.descargar(construirFichaPDF(f, ingredientes, alergAuto, costeTanda, costeRac, rec, false), `${f.codigo ?? f.tipo}-${f.nombre}`)
-  }
-
-  // Datos reales del escandallo → líneas de la hoja imprimible
+  // ── FUENTE ÚNICA de datos: pantalla y PDF beben de aquí ──
   const lineasHoja: LineaIng[] = ingredientes.map(i => ({
     ingrediente: i.match?.nombre ?? i.ingrediente,
     cantidad: fmtCant(i.cant),
     unidad: fmtUd(i.ud),
     equivalencia: i.equivalencia || '',
   }))
+  const datosFicha = {
+    area: 'cocina' as const,
+    tipoDoc: f.tipo === 'receta' ? 'Receta' : 'Elaboración previa',
+    nombre: f.nombre,
+    gama: f.gama,
+    codigo: f.codigo,
+    revision: f.edicion,
+    tiempoPrep: f.tiempo_prep,
+    rendimiento: f.raciones ? `${fmtNum(f.raciones, 0)} rac.` : null,
+    costeTanda: fmtEur(costeTanda, { decimals: 2 }),
+    costeRacion: fmtEur(costeRac, { decimals: 2 }),
+    ingredientes: lineasHoja,
+    pasos: f.pasos ?? [],
+    conservacion: f.conservacion ?? [],
+    alergenos: alergAuto,
+  }
+
+  async function generarPdfFicha(bnFlag: boolean) {
+    const rec = await M.cargarRecursos()
+    return construirFichaTecnicaPDF(datosFicha, rec, bnFlag)
+  }
+  async function descargarPdf() {
+    const rec = await M.cargarRecursos()
+    M.descargar(construirFichaTecnicaPDF(datosFicha, rec, false), `${f.codigo ?? f.tipo}-${f.nombre}`)
+  }
 
   return (
     <div className="flex-1 min-w-0">
@@ -425,22 +327,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
         </div>
       )}
 
-      <FichaTecnicaHoja
-        area="cocina"
-        tipoDoc={f.tipo === 'receta' ? 'Receta' : 'Elaboración previa'}
-        nombre={f.nombre}
-        gama={f.gama}
-        codigo={f.codigo}
-        revision={f.edicion}
-        tiempoPrep={f.tiempo_prep}
-        rendimiento={f.raciones ? `${fmtNum(f.raciones, 0)} rac.` : null}
-        costeTanda={fmtEur(costeTanda, { decimals: 2 })}
-        costeRacion={fmtEur(costeRac, { decimals: 2 })}
-        ingredientes={lineasHoja}
-        pasos={f.pasos ?? []}
-        conservacion={f.conservacion ?? []}
-        alergenos={alergAuto}
-      />
+      <FichaTecnicaHoja {...datosFicha} />
 
       <div className="no-print" style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
         <BotonImprimir compacto documentoId={f.tipo === 'receta' ? 'cocina.ficha_receta' : 'cocina.ficha_ep'} titulo={`Ficha técnica · ${f.codigo ? f.codigo + ' · ' : ''}${f.nombre}`} generarPdf={opts => generarPdfFicha(opts.bn)} />
