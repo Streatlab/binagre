@@ -15,7 +15,10 @@ import { INK, CREMA, BLANCO, AMA, VERDE, ROSA, AZUL, NAR, GRANATE, ROJO, GRIS, O
 export const SHADOW_DURA = `3px 3px 0 ${INK}`
 export const MAXW = 1360
 
-/** Color de héroe por área (la ley). */
+/** Verde salvia de Equipo: el mismo del marco de documentos (#5C8A6E). */
+export const VERDE_EQUIPO = '#5C8A6E'
+
+/** Color de héroe por área (la ley). Equipo pasa de tinta a verde salvia (24-jul-2026): pantalla = papel. */
 export type AreaCantera = 'resumen' | 'cashflow' | 'tesoreria' | 'ventas' | 'facturacion' | 'papeleo' | 'cocina' | 'ops' | 'marcas' | 'marketing' | 'equipo' | 'objetivos' | 'eeff'
 const AREA_BG: Record<AreaCantera, string> = {
   resumen: AMA, objetivos: AMA, eeff: AMA,
@@ -24,7 +27,7 @@ const AREA_BG: Record<AreaCantera, string> = {
   papeleo: GRANATE,
   cocina: NAR, ops: NAR,
   marcas: ROSA, marketing: ROSA,
-  equipo: INK,
+  equipo: VERDE_EQUIPO,
 }
 /** Sobre amarillo, tinta; sobre el resto de vivos, blanco/crema. */
 export function textoSobre(bg: string): string {
