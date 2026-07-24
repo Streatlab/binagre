@@ -23,6 +23,7 @@ import nominasIdAction from '../_puertas/nominas-id-action.js'
 import nominasResumenSubir from '../_puertas/nominas-resumen-subir.js'
 import nominasSegsocialSubir from '../_puertas/nominas-segsocial-subir.js'
 import nominasBarrido from '../_puertas/nominas-barrido.js'
+import fichaje from '../_puertas/fichaje.js'
 
 // Config unificada: subidas de documentos hasta 20mb y lecturas con IA de hasta 60s.
 export const config = {
@@ -46,6 +47,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (a === 'pe' && b) {
     req.query.action = b
     return peAction(req, res)
+  }
+
+  if (a === 'fichaje' && b) {
+    req.query.action = b
+    return fichaje(req, res)
   }
 
   if (a === 'equipo') {
