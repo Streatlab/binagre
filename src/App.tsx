@@ -8,6 +8,7 @@ import Login from '@/pages/Login'
 import { TabsContainer } from '@/components/kit/TabsContainer'
 
 const Home = React.lazy(() => import('@/pages/Home'))
+const FichajeKiosco = React.lazy(() => import('@/pages/Fichaje'))
 const PapeleoPage = React.lazy(() => import('@/pages/finanzas/Documentacion'))
 const RentabilidadPage = React.lazy(() => import('@/pages/finanzas/RentabilidadPage'))
 const Proveedores = React.lazy(() => import('@/pages/Proveedores'))
@@ -145,6 +146,8 @@ function AppRoutes() {
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
         <Route path="/login" element={usuario ? <Navigate to="/" replace /> : <Login />} />
+        {/* Quiosco de fichaje: ruta PÚBLICA para la tablet, sin acceso al resto del ERP */}
+        <Route path="/fichaje" element={<FichajeKiosco />} />
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Home />} />
           <Route path="finanzas/papeleo" element={<ProtectedRoute solo={['admin']}><PapeleoPage /></ProtectedRoute>} />
