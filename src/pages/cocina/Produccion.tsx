@@ -449,7 +449,7 @@ export default function Produccion() {
       ) : activeTab === 'camara' ? (
         <TabOrdenacionCamara T={T} secciones={secciones} partidas={partidas} />
       ) : activeTab === 'inventario' ? (
-        <TabInventarioPermanente T={T} inventario={inventario} />
+        <TabInventarioPermanente T={T} inventario={inventario} onChanged={cargarBase} />
       ) : (
         <Esquemas />
       )}
@@ -683,15 +683,57 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
 
 // ─── TAB: INVENTARIO PERMANENTE ────────────────────────────────────────────────
 
-function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTheme>['T']; inventario: InvItem[] }) {
+function TabInventarioPermanente({ T, inventario, onChanged }: { T: ReturnType<typeof useTheme>['T']; inventario: InvItem[]; onChanged: () => void }) {
   const ubis = useMemo(() => agruparInventario(inventario), [inventario])
   const [activa, setActiva] = useState(0)
   const [bn, setBn] = useState(false)
+  const [edit, setEdit] = useState(false)
+  const [nuevoNombre, setNuevoNombre] = useState<Record<string, string>>({})
+  const [nuevoStock, setNuevoStock] = useState<Record<string, string>>({})
+  const [nuevaCat, setNuevaCat] = useState('')
 
   if (!ubis.length) {
     return <div style={{ padding: 36, textAlign: 'center', color: T.mut, fontFamily: FONT.body }}>Sin inventario todavía.</div>
   }
   const ubi = ubis[Math.min(activa, ubis.length - 1)]
+
+  async function updItem(it: InvItem, patch: Partial<InvItem>) {
+    await supabase.from('inventario_permanente').update(patch).eq('id', it.id)
+    onChanged()
+  }
+  async function borrarItem(it: InvItem) {
+    if (!confirm(`¿Quitar "${it.nombre}" del inventario?`)) return
+    await supabase.from('inventario_permanente').update({ activo: false }).eq('id', it.id)
+    onChanged()
+  }
+  async function addItem(cat: InvCat) {
+    const nombre = (nuevoNombre[cat.nombre] ?? '').trim()
+    if (!nombre) return
+    const stockTxt = (nuevoStock[cat.nombre] ?? '').trim()
+    const base = cat.items[0]
+    await supabase.from('inventario_permanente').insert({
+      ubicacion: ubi.nombre, ord_ubi: base?.ord_ubi ?? activa + 1,
+      categoria: cat.nombre, ord_cat: base?.ord_cat ?? 1,
+      nombre, min_seguridad: stockTxt === '' ? null : Number(stockTxt),
+      ord_item: cat.items.length + 1, activo: true,
+    })
+    setNuevoNombre(v => ({ ...v, [cat.nombre]: '' }))
+    setNuevoStock(v => ({ ...v, [cat.nombre]: '' }))
+    onChanged()
+  }
+  async function addCategoria() {
+    const nombre = nuevaCat.trim().toUpperCase()
+    if (!nombre) return
+    const maxCat = Math.max(0, ...ubi.cats.map(c => c.items[0]?.ord_cat ?? 0))
+    await supabase.from('inventario_permanente').insert({
+      ubicacion: ubi.nombre, ord_ubi: ubi.cats[0]?.items[0]?.ord_ubi ?? activa + 1,
+      categoria: nombre, ord_cat: maxCat + 1, nombre: 'Nuevo ítem', min_seguridad: null, ord_item: 1, activo: true,
+    })
+    setNuevaCat('')
+    onChanged()
+  }
+
+  const editInput: React.CSSProperties = { fontFamily: 'Lexend, sans-serif', fontSize: 16, padding: '3px 8px', border: '1px solid var(--sl-border)', borderRadius: 0, background: 'var(--bg-card)', color: 'var(--text-primary)' }
 
   return (
     <div style={M.marcoCSSVars('cocina') as React.CSSProperties}>
@@ -702,6 +744,7 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
           ))}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => setEdit(!edit)} style={{ ...btnGhost, background: edit ? GRANATE : 'transparent', color: edit ? BLANCO : 'var(--sl-text-secondary)', borderColor: edit ? GRANATE : 'var(--sl-border)' }}><Pencil size={14} /> {edit ? 'Terminar edición' : 'Editar'}</button>
           <BnToggle bn={bn} setBn={setBn} />
           <BotonImprimir compacto documentoId="cocina.inventario_permanente" titulo={`Inventario permanente · ${ubi.nombre}`} generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirInventarioPDF(ubi, rec, opts.bn, activa + 1, ubis.length) }} />
           <BotonImprimir compacto documentoId="cocina.inventario_permanente" titulo="Inventario permanente · TODAS las hojas" etiqueta="Imprimir todo" generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirInventarioTodosPDF(ubis, rec, opts.bn) }} />
@@ -710,21 +753,45 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
         </div>
       </div>
 
-
-      <HojaDoc area="cocina" docNombre="Inventario Permanente" tituloCentrado={ubi.nombre} meta="SL-COC-103 · REV. 01 · FECHA __ / __ / ____">
+      <HojaDoc area="cocina" docNombre="Inventario Permanente" tituloCentrado={ubi.nombre} meta={`SL-COC-103 · REV. 01 · FECHA __ / __ / ____ · HOJA ${activa + 1}/${ubis.length}`}>
+        <div className="inv-instr">( ) = stock EXACTO a tener · escribe la cantidad real en la línea; al coger uno, tacha el número y escribe el nuevo</div>
         <div className="inv-cats">
           {ubi.cats.map(cat => (
             <div className="inv-cat" key={cat.nombre}>
               <div className="inv-cat-head">{cat.nombre}</div>
               {cat.items.map(it => (
                 <div className="inv-row" key={it.id}>
-                  <span className="inv-name">{it.nombre}{it.min_seguridad != null && <span className="inv-min-inline"> ({it.min_seguridad})</span>}</span>
-                  <span className="inv-write" />
+                  {edit ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', flex: 1 }}>
+                      <input defaultValue={it.nombre} onBlur={e => { const v = e.target.value.trim(); if (v && v !== it.nombre) updItem(it, { nombre: v }) }} style={{ ...editInput, flex: 1, minWidth: 120 }} />
+                      <input defaultValue={it.min_seguridad ?? ''} placeholder="—" onBlur={e => { const v = e.target.value.trim(); const num = v === '' ? null : Number(v); if (num !== it.min_seguridad) updItem(it, { min_seguridad: num }) }} style={{ ...editInput, width: 54, textAlign: 'center' }} />
+                      <button onClick={() => borrarItem(it)} style={{ background: 'none', border: 'none', color: GRANATE, cursor: 'pointer', padding: 2 }}><Trash2 size={15} /></button>
+                    </span>
+                  ) : (
+                    <>
+                      <span className="inv-name">{it.nombre}{it.min_seguridad != null && <span className="inv-min-inline"> ({it.min_seguridad})</span>}</span>
+                      <span className="inv-write" />
+                    </>
+                  )}
                 </div>
               ))}
+              {edit && (
+                <div style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center' }}>
+                  <input value={nuevoNombre[cat.nombre] ?? ''} onChange={e => setNuevoNombre(v => ({ ...v, [cat.nombre]: e.target.value }))} onKeyDown={e => e.key === 'Enter' && addItem(cat)} placeholder="+ nuevo ítem" style={{ ...editInput, flex: 1, minWidth: 110 }} />
+                  <input value={nuevoStock[cat.nombre] ?? ''} onChange={e => setNuevoStock(v => ({ ...v, [cat.nombre]: e.target.value }))} onKeyDown={e => e.key === 'Enter' && addItem(cat)} placeholder="( )" style={{ ...editInput, width: 54, textAlign: 'center' }} />
+                  <button onClick={() => addItem(cat)} style={{ ...btnGhost, padding: '4px 10px' }}><Plus size={14} /></button>
+                </div>
+              )}
             </div>
           ))}
         </div>
+        {edit && (
+          <div style={{ display: 'flex', gap: 8, padding: '10px 14px', alignItems: 'center', borderTop: '1px solid var(--sl-border)' }}>
+            <input value={nuevaCat} onChange={e => setNuevaCat(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCategoria()} placeholder="+ nueva categoría en esta hoja" style={{ ...editInput, flex: 1, maxWidth: 320 }} />
+            <button onClick={addCategoria} style={btnGhost}><Plus size={14} /> Categoría</button>
+          </div>
+        )}
+        <div className="inv-resp">RESPONSABLE DE ATERRIZAJE: <span className="inv-resp-line" /></div>
       </HojaDoc>
     </div>
   )
@@ -901,6 +968,9 @@ const FICHA_CSS = `
 .inv-hoja { border: 2px solid var(--m-acento); border-radius: 10px; overflow: hidden; background: var(--bg-card); }
 .inv-head { background: var(--m-soft); color: var(--m-acento); font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 24px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid var(--m-acento); }
 .inv-head-sub { font-size: 13px; font-weight: 500; }
+.inv-instr { font-family: 'Lexend', sans-serif; font-size: 12.5px; color: var(--text-muted); padding: 6px 14px 10px; }
+.inv-resp { font-family: 'Oswald', sans-serif; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); padding: 12px 14px; display: flex; align-items: flex-end; gap: 8px; }
+.inv-resp-line { display: inline-block; width: 200px; border-bottom: 1.5px solid var(--sl-border); }
 .inv-cats { column-count: 2; column-gap: 0; }
 .inv-cat { break-inside: avoid; border-right: 1px solid var(--sl-border); }
 .inv-cat-head { font-family: 'Oswald', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 15px; color: #fff; background: var(--m-acento); padding: 7px 14px; border-bottom: 2px solid var(--m-espina); }
