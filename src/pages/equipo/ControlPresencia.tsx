@@ -1,129 +1,128 @@
-import { BLANCO, CLARO, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
-import { PRESENCIA_WASH_VERDE_BG, PRESENCIA_WASH_ROJO_BG, PRESENCIA_SALIDA_TXT } from '@/styles/palettes'
-import { useEffect, useState, useCallback } from 'react'
+// EQUIPO · CONTROL DE PRESENCIA
+// Lee el registro legal de fichajes (RD-ley 8/2019) que alimenta el quiosco /fichaje.
+// Ya NO usa la tabla `usuarios` ni inserta fichajes a pelo: todo pasa por la API
+// protegida (/api/operaciones/fichaje/admin-*), que exige el PIN de administración.
+// El registro es inalterable: aquí no se edita nada, solo se AÑADEN correcciones
+// con motivo obligatorio, que quedan trazadas como tales.
+import { useCallback, useEffect, useState } from 'react'
 import type { jsPDF } from 'jspdf'
-import { supabase } from '@/lib/supabase'
+import { BLANCO, CLARO, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { FONT } from '@/styles/tokens'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
 import * as M from '@/lib/marcoDoc'
 import BotonImprimir from '@/components/BotonImprimir'
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// ── Tipos ──────────────────────────────────────────────────────────────────
 
-interface Usuario {
-  id: string
+type Evento = { id: string; tipo: string; ts: string; correccion: boolean; motivo: string | null }
+
+type Registro = {
+  empleado_id: string
   nombre: string
-  email?: string | null
-  activo?: boolean | null
+  previsto_inicio: string | null
+  previsto_fin: string | null
+  eventos: Evento[]
+  estado: string
+  min_trabajo: number
+  min_pausa: number
+  entrada_ts: string | null
+  salida_ts: string | null
 }
 
-interface Fichaje {
-  id: string
-  usuario_id: string
-  tipo: 'entrada' | 'salida'
-  timestamp: string
-  nota: string | null
-  created_at: string
+type DiaInforme = {
+  fecha: string
+  estado: string
+  min_trabajo: number
+  min_pausa: number
+  entrada_ts: string | null
+  salida_ts: string | null
+  previsto_inicio: string | null
+  previsto_fin: string | null
+  corregido: boolean
 }
 
-interface EstadoEmpleado {
-  usuario: Usuario
-  dentro: boolean
-  horaEntrada: string | null
-  horasHoy: number
-}
+type Empleado = { id: string; nombre: string; nif: string | null; fichaje_activo: boolean | null }
 
-// ── Constants ──────────────────────────────────────────────────────────────
+// ── Tokens ─────────────────────────────────────────────────────────────────
 
-const CARD = BLANCO
-const CARD2 = CLARO
-const BRD = INK
-const BRD2 = INK
 const PRI = INK
 const MUT = GRIS
 const ROJO = GRANATE
-const AMARILLO = LIMA
 const FONT_BODY = FONT.body
 const FONT_LABEL = FONT.heading
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function fmtHora(ts: string): string {
-  return new Date(ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-}
-
-function fmtFecha(ts: string): string {
-  return new Date(ts).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
-function fmtHorasFmt(h: number): string {
-  const hh = Math.floor(h)
-  const mm = Math.round((h - hh) * 60)
-  return `${hh}h ${mm.toString().padStart(2, '0')}m`
-}
-
-function hoyISO(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function mesInicioISO(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
-}
-
-function calcHorasEntrePares(fichajes: Fichaje[]): number {
-  const sorted = [...fichajes].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-  let total = 0
-  let entrada: Date | null = null
-  for (const f of sorted) {
-    if (f.tipo === 'entrada') {
-      entrada = new Date(f.timestamp)
-    } else if (f.tipo === 'salida' && entrada) {
-      total += (new Date(f.timestamp).getTime() - entrada.getTime()) / 3600000
-      entrada = null
-    }
-  }
-  if (entrada) {
-    total += (Date.now() - entrada.getTime()) / 3600000
-  }
-  return total
-}
-
-type DiaResumen = {
-  fecha: string
-  entrada: string | null
-  salida: string | null
-  horas: number
-  nota: string | null
-}
-
-function agruparPorDia(fics: Fichaje[]): DiaResumen[] {
-  const dias: Record<string, Fichaje[]> = {}
-  for (const f of fics) {
-    const dia = f.timestamp.slice(0, 10)
-    if (!dias[dia]) dias[dia] = []
-    dias[dia].push(f)
-  }
-  return Object.entries(dias).map(([fecha, fs]) => {
-    const sorted = [...fs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-    const e = sorted.find(f => f.tipo === 'entrada')
-    const s = [...sorted].reverse().find(f => f.tipo === 'salida')
-    return {
-      fecha,
-      entrada: e ? fmtHora(e.timestamp) : null,
-      salida: s ? fmtHora(s.timestamp) : null,
-      horas: calcHorasEntrePares(fs),
-      nota: e?.nota ?? s?.nota ?? null,
-    }
-  }).sort((a, b) => a.fecha.localeCompare(b.fecha))
-}
-
-// ─── FASE 2: PDF con el marco único (área 'equipo') — botón Imprimir ────────
 const AREA: M.Area = 'equipo'
+const LLAVE_SESION = 'sl.fichaje.pinAdmin'
 
-/** Parte mensual de fichajes de un empleado. Sin días registrados → null (regla del marco). */
-function construirFichajesPDF(usuario: Usuario, dias: DiaResumen[], periodo: string, rec: M.Recursos, bn = false): jsPDF | null {
+const TIPOS: Array<{ v: string; t: string }> = [
+  { v: 'entrada', t: 'Entrada' },
+  { v: 'pausa_inicio', t: 'Empieza pausa' },
+  { v: 'pausa_fin', t: 'Vuelve de pausa' },
+  { v: 'salida', t: 'Salida' },
+]
+
+// ── Utilidades ─────────────────────────────────────────────────────────────
+
+function hoyMadrid(): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date())
+}
+
+function mesMadrid(): string {
+  return hoyMadrid().slice(0, 7)
+}
+
+function fmtHora(ts: string | null): string {
+  if (!ts) return '—'
+  return new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ts))
+}
+
+function fmtHoraPrevista(h: string | null): string {
+  return h ? h.slice(0, 5) : '—'
+}
+
+function fmtMin(min: number): string {
+  if (!min || min <= 0) return '—'
+  return `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, '0')}m`
+}
+
+function fmtFechaLarga(f: string): string {
+  const [y, m, d] = f.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
+
+function nombreTipo(t: string): string {
+  return TIPOS.find(x => x.v === t)?.t ?? t
+}
+
+function colorEstado(e: string): string {
+  return e === 'trabajando' ? VERDE : e === 'pausa' ? NAR : MUT
+}
+
+/** Une día + hora local (el ERP se usa desde España) en un instante ISO. */
+function isoDesde(fecha: string, hora: string): string {
+  return new Date(`${fecha}T${hora}:00`).toISOString()
+}
+
+async function llamar<T>(accion: string, cuerpo: Record<string, unknown>, pin: string): Promise<T> {
+  const r = await fetch(`/api/operaciones/fichaje/${accion}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...cuerpo, pin_admin: pin }),
+  })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error((j as { error?: string })?.error || 'No se pudo consultar el registro')
+  return j as T
+}
+
+// ── PDF: parte mensual firmable (marco de documentos, área Equipo) ─────────
+
+function construirParteMensual(
+  nombre: string,
+  nif: string | null,
+  mes: string,
+  dias: DiaInforme[],
+  rec: M.Recursos,
+  bn = false,
+): jsPDF | null {
   if (dias.length === 0) return null
 
   const doc = M.nuevaHoja({ orientation: 'landscape' })
@@ -132,62 +131,90 @@ function construirFichajesPDF(usuario: Usuario, dias: DiaResumen[], periodo: str
   const cb = M.contentBox(doc)
 
   const xFecha = cb.x0 + 1.5
-  const xEntrada = cb.x0 + cb.w * 0.28
-  const xSalida = cb.x0 + cb.w * 0.46
-  const xHoras = cb.x0 + cb.w * 0.64
-  const xNota = cb.x0 + cb.w * 0.80
+  const xPrev = cb.x0 + cb.w * 0.20
+  const xEnt = cb.x0 + cb.w * 0.38
+  const xSal = cb.x0 + cb.w * 0.50
+  const xPau = cb.x0 + cb.w * 0.62
+  const xTra = cb.x0 + cb.w * 0.74
+  const xObs = cb.x0 + cb.w * 0.88
+
+  const [y0, m0] = mes.split('-').map(Number)
+  const etiquetaMes = new Date(y0, m0 - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
 
   const nuevaPagina = () => {
     M.pintarEspina(doc, AREA, ctx, bn)
-    return M.pintarCabecera(doc, ctx, { docNombre: 'Parte de Fichajes', meta: periodo, tituloCentrado: usuario.nombre, area: AREA, bn })
+    return M.pintarCabecera(doc, ctx, {
+      docNombre: 'Registro de Jornada',
+      meta: `${etiquetaMes}${nif ? ` · NIF ${nif}` : ''}`,
+      tituloCentrado: nombre,
+      area: AREA,
+      bn,
+    })
   }
   let y = nuevaPagina()
 
   doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
   M.fTitulo(doc, ctx, true); doc.setFontSize(8); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
   doc.text('Fecha', xFecha, y + 4.2)
-  doc.text('Entrada', xEntrada, y + 4.2)
-  doc.text('Salida', xSalida, y + 4.2)
-  doc.text('Horas', xHoras, y + 4.2)
-  doc.text('Nota', xNota, y + 4.2)
+  doc.text('Previsto', xPrev, y + 4.2)
+  doc.text('Entrada', xEnt, y + 4.2)
+  doc.text('Salida', xSal, y + 4.2)
+  doc.text('Pausa', xPau, y + 4.2)
+  doc.text('Trabajado', xTra, y + 4.2)
+  doc.text('Obs.', xObs, y + 4.2)
   y += 6
 
-  let totalHoras = 0
+  let totalMin = 0
   for (const d of dias) {
-    if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+    if (y > cb.bottom - 22) { doc.addPage(); y = nuevaPagina() }
     doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
     M.fDato(doc, ctx, false); doc.setFontSize(9); doc.setTextColor(...M.TINTA)
-    doc.text(fmtFecha(d.fecha + 'T12:00:00'), xFecha, y + 3.6)
+    doc.text(fmtFechaLarga(d.fecha), xFecha, y + 3.6)
     doc.setTextColor(...M.GRIS)
-    doc.text(d.entrada ?? '—', xEntrada, y + 3.6)
-    doc.text(d.salida ?? '—', xSalida, y + 3.6)
+    doc.text(
+      d.previsto_inicio ? `${fmtHoraPrevista(d.previsto_inicio)}–${fmtHoraPrevista(d.previsto_fin)}` : '—',
+      xPrev, y + 3.6,
+    )
+    doc.text(fmtHora(d.entrada_ts), xEnt, y + 3.6)
+    doc.text(fmtHora(d.salida_ts), xSal, y + 3.6)
+    doc.text(fmtMin(d.min_pausa), xPau, y + 3.6)
     doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
-    doc.text(d.horas > 0 ? fmtHorasFmt(d.horas) : '—', xHoras, y + 3.6)
+    doc.text(fmtMin(d.min_trabajo), xTra, y + 3.6)
     doc.setTextColor(...M.GRIS)
-    doc.text(d.nota ?? '—', xNota, y + 3.6)
-    totalHoras += d.horas
+    doc.text(d.corregido ? 'Corregido' : '', xObs, y + 3.6)
+    totalMin += d.min_trabajo
     y += 4.8
   }
 
   y += 3
-  if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+  if (y > cb.bottom - 20) { doc.addPage(); y = nuevaPagina() }
   doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.4); doc.line(cb.x0, y, cb.x1, y)
   y += 4
   M.fTitulo(doc, ctx, true); doc.setFontSize(10); doc.setTextColor(...M.TINTA)
-  doc.text('TOTAL HORAS DEL PERIODO', xFecha, y)
+  doc.text('TOTAL HORAS DEL MES', xFecha, y)
   doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
-  doc.text(fmtHorasFmt(totalHoras), xHoras, y)
+  doc.text(fmtMin(totalMin), xTra, y)
+
+  // Firma: exigida por la normativa de registro de jornada.
+  y += 14
+  if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() + 14 }
+  doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.2)
+  doc.line(cb.x0, y, cb.x0 + cb.w * 0.34, y)
+  doc.line(cb.x0 + cb.w * 0.52, y, cb.x1, y)
+  M.fTitulo(doc, ctx, true); doc.setFontSize(8); doc.setTextColor(...M.GRIS)
+  doc.text('Firma del trabajador', cb.x0, y + 4)
+  doc.text('Firma de la empresa', cb.x0 + cb.w * 0.52, y + 4)
 
   const totalPag = doc.getNumberOfPages()
   for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
   return doc
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────
+// ── Piezas ─────────────────────────────────────────────────────────────────
 
-function KpiBadge({ label, value, color, first }: { label: string; value: string | number; color?: string; first?: boolean }) {
+function Kpi({ label, value, color, first }: { label: string; value: string | number; color?: string; first?: boolean }) {
   return (
-    <PlanchaCelda first={first} bg={color ? BLANCO : BLANCO} color={color ?? PRI}>
+    <PlanchaCelda first={first} bg={BLANCO} color={color ?? PRI}>
       <div style={{ fontFamily: FONT_LABEL, fontSize: 11, color: MUT, letterSpacing: '1.5px', textTransform: 'uppercase' as const, marginBottom: 6 }}>{label}</div>
       <div style={{ fontFamily: FONT_LABEL, fontSize: 28, fontWeight: 700, color: color ?? PRI }}>{value}</div>
     </PlanchaCelda>
@@ -199,18 +226,10 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
     <button
       onClick={onClick}
       style={{
-        fontFamily: FONT_LABEL,
-        fontSize: 13,
-        fontWeight: 600,
-        letterSpacing: '1px',
-        textTransform: 'uppercase' as const,
-        padding: '8px 18px',
-        borderRadius: 0,
-        border: `3px solid ${INK}`,
-        boxShadow: active ? SHADOW_DURA : 'none',
-        background: active ? ROJO : BLANCO,
-        color: active ? BLANCO : MUT,
-        cursor: 'pointer',
+        fontFamily: FONT_LABEL, fontSize: 13, fontWeight: 600, letterSpacing: '1px',
+        textTransform: 'uppercase' as const, padding: '8px 18px', borderRadius: 0,
+        border: `3px solid ${INK}`, boxShadow: active ? SHADOW_DURA : 'none',
+        background: active ? ROJO : BLANCO, color: active ? BLANCO : MUT, cursor: 'pointer',
       }}
     >
       {label}
@@ -218,441 +237,404 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
   )
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────
+const inputStyle = {
+  background: BLANCO, border: `2px solid ${INK}`, borderRadius: 0, color: PRI,
+  fontFamily: FONT_BODY, fontSize: 13, padding: '6px 10px',
+}
+
+const btnStyle = (bg: string, color = BLANCO) => ({
+  fontFamily: FONT_LABEL, fontSize: 12, fontWeight: 700, letterSpacing: '0.5px',
+  textTransform: 'uppercase' as const, padding: '7px 16px', border: `3px solid ${INK}`,
+  boxShadow: SHADOW_DURA, borderRadius: 0, cursor: 'pointer', background: bg, color,
+})
+
+function Etiqueta({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontFamily: FONT_LABEL, fontSize: 11, color: MUT, letterSpacing: '1px', marginBottom: 4, textTransform: 'uppercase' as const }}>
+      {children}
+    </div>
+  )
+}
+
+// ── Pantalla ───────────────────────────────────────────────────────────────
 
 export default function ControlPresencia() {
-  const [tab, setTab] = useState<'ahora' | 'hoy' | 'historico'>('ahora')
-  const [usuarios, setUsuarios] = useState<Usuario[]>([])
-  const [fichajesHoy, setFichajesHoy] = useState<Fichaje[]>([])
-  const [loading, setLoading] = useState(true)
-  const [tableExists, setTableExists] = useState(true)
-  const [inicializando, setInicializando] = useState(false)
-  const [fichandoId, setFichandoId] = useState<string | null>(null)
+  const [pin, setPin] = useState<string>('')
+  const [pinInput, setPinInput] = useState('')
+  const [errorPin, setErrorPin] = useState('')
 
-  // Histórico
-  const [histUsuarioId, setHistUsuarioId] = useState<string>('')
-  const [histDesde, setHistDesde] = useState<string>(mesInicioISO())
-  const [histHasta, setHistHasta] = useState<string>(hoyISO())
-  const [fichajesHist, setFichajesHist] = useState<Fichaje[]>([])
-  const [loadingHist, setLoadingHist] = useState(false)
+  const [tab, setTab] = useState<'dia' | 'parte'>('dia')
+  const [fecha, setFecha] = useState<string>(hoyMadrid())
+  const [registros, setRegistros] = useState<Registro[]>([])
+  const [empleados, setEmpleados] = useState<Empleado[]>([])
+  const [cargando, setCargando] = useState(false)
+  const [error, setError] = useState('')
 
-  const cargarTodo = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { data: uData, error: uErr } = await supabase
-        .from('usuarios')
-        .select('id, nombre, email, activo')
-        .order('nombre')
+  // Corrección: añadir evento olvidado
+  const [addPara, setAddPara] = useState<string | null>(null)
+  const [addTipo, setAddTipo] = useState('entrada')
+  const [addHora, setAddHora] = useState('09:00')
+  const [addMotivo, setAddMotivo] = useState('')
 
-      if (uErr) { setLoading(false); return }
-      const activos = (uData ?? []).filter((u: Usuario) => u.activo !== false)
-      setUsuarios(activos)
-      if (activos.length > 0) {
-        setHistUsuarioId(prev => prev || activos[0].id)
-      }
+  // Corrección: anular evento
+  const [anular, setAnular] = useState<{ id: string; empleado_id: string } | null>(null)
+  const [anularMotivo, setAnularMotivo] = useState('')
 
-      const hoy = hoyISO()
-      const { data: fData, error: fErr } = await supabase
-        .from('fichajes')
-        .select('*')
-        .gte('timestamp', `${hoy}T00:00:00`)
-        .lte('timestamp', `${hoy}T23:59:59`)
-        .order('timestamp', { ascending: true })
-
-      if (fErr && (fErr as { code?: string }).code === '42P01') {
-        setTableExists(false)
-        setLoading(false)
-        return
-      }
-
-      setTableExists(true)
-      setFichajesHoy((fData as Fichaje[]) ?? [])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { cargarTodo() }, [cargarTodo])
-
-  const estadoActual: EstadoEmpleado[] = usuarios.map(u => {
-    const mis = fichajesHoy.filter(f => f.usuario_id === u.id)
-    const sorted = [...mis].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-    const ultimo = sorted[sorted.length - 1]
-    const dentro = ultimo?.tipo === 'entrada'
-    const primeraEntrada = sorted.find(f => f.tipo === 'entrada')
-    return {
-      usuario: u,
-      dentro,
-      horaEntrada: primeraEntrada ? fmtHora(primeraEntrada.timestamp) : null,
-      horasHoy: calcHorasEntrePares(mis),
-    }
-  })
-
-  const dentroCount = estadoActual.filter(e => e.dentro).length
-
-  async function fichar(usuarioId: string, tipo: 'entrada' | 'salida') {
-    setFichandoId(usuarioId)
-    await supabase.from('fichajes').insert({
-      usuario_id: usuarioId,
-      tipo,
-      timestamp: new Date().toISOString(),
-      nota: null,
-    })
-    setFichandoId(null)
-    cargarTodo()
-  }
-
-  async function inicializarBD() {
-    setInicializando(true)
-    const sql = `CREATE TABLE IF NOT EXISTS fichajes (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      usuario_id uuid REFERENCES usuarios(id),
-      tipo text CHECK (tipo IN ('entrada','salida')),
-      timestamp timestamptz DEFAULT now(),
-      nota text,
-      created_at timestamptz DEFAULT now()
-    );`
-    // Intenta via rpc si existe, si no, muestra aviso
-    const { error } = await supabase.rpc('execute_sql' as never, { query: sql })
-    if (error) {
-      alert('No se pudo crear la tabla automáticamente. Ejecuta el SQL manualmente en Supabase:\n\n' + sql)
-    }
-    setInicializando(false)
-    cargarTodo()
-  }
-
-  async function cargarHistorico() {
-    if (!histUsuarioId) return
-    setLoadingHist(true)
-    const { data } = await supabase
-      .from('fichajes')
-      .select('*')
-      .eq('usuario_id', histUsuarioId)
-      .gte('timestamp', `${histDesde}T00:00:00`)
-      .lte('timestamp', `${histHasta}T23:59:59`)
-      .order('timestamp', { ascending: true })
-    setFichajesHist((data as Fichaje[]) ?? [])
-    setLoadingHist(false)
-  }
+  // Parte mensual
+  const [parteEmp, setParteEmp] = useState('')
+  const [parteMes, setParteMes] = useState(mesMadrid())
+  const [parteDias, setParteDias] = useState<DiaInforme[]>([])
+  const [parteCargando, setParteCargando] = useState(false)
 
   useEffect(() => {
-    if (tab === 'historico' && histUsuarioId) cargarHistorico()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, histUsuarioId, histDesde, histHasta])
+    const guardado = sessionStorage.getItem(LLAVE_SESION)
+    if (guardado) setPin(guardado)
+  }, [])
 
-  const diasHist = agruparPorDia(fichajesHist)
-  const totalHorasPeriodo = diasHist.reduce((acc, d) => acc + d.horas, 0)
+  const cargarDia = useCallback(async () => {
+    if (!pin) return
+    setCargando(true); setError('')
+    try {
+      const r = await llamar<{ registros: Registro[] }>('admin-registros', { fecha }, pin)
+      setRegistros(r.registros || [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error')
+    } finally {
+      setCargando(false)
+    }
+  }, [pin, fecha])
 
-  const inputStyle = {
-    background: BLANCO,
-    border: `2px solid ${INK}`,
-    borderRadius: 0,
-    color: PRI,
-    fontFamily: FONT_BODY,
-    fontSize: 13,
-    padding: '6px 10px',
+  const cargarEmpleados = useCallback(async () => {
+    if (!pin) return
+    try {
+      const r = await llamar<{ empleados: Empleado[] }>('admin-empleados', {}, pin)
+      setEmpleados(r.empleados || [])
+      setParteEmp(prev => prev || (r.empleados?.[0]?.id ?? ''))
+    } catch { /* silencio: el día ya avisa si el PIN falla */ }
+  }, [pin])
+
+  useEffect(() => { if (pin) { cargarDia(); cargarEmpleados() } }, [pin, cargarDia, cargarEmpleados])
+
+  const cargarParte = useCallback(async () => {
+    if (!pin || !parteEmp) return
+    setParteCargando(true)
+    try {
+      const r = await llamar<{ dias: DiaInforme[] }>('admin-informe', { empleado_id: parteEmp, mes: parteMes }, pin)
+      setParteDias(r.dias || [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error')
+    } finally {
+      setParteCargando(false)
+    }
+  }, [pin, parteEmp, parteMes])
+
+  useEffect(() => { if (tab === 'parte') cargarParte() }, [tab, cargarParte])
+
+  async function entrar() {
+    setErrorPin('')
+    try {
+      await llamar('admin-registros', { fecha: hoyMadrid() }, pinInput)
+      sessionStorage.setItem(LLAVE_SESION, pinInput)
+      setPin(pinInput)
+      setPinInput('')
+    } catch {
+      setErrorPin('PIN de administración incorrecto.')
+    }
   }
 
-  if (loading) {
+  function salir() {
+    sessionStorage.removeItem(LLAVE_SESION)
+    setPin(''); setRegistros([]); setEmpleados([]); setParteDias([])
+  }
+
+  async function guardarAlta(empleadoId: string) {
+    if (!addMotivo.trim()) { setError('El motivo es obligatorio: el registro es inalterable y toda corrección queda trazada.'); return }
+    try {
+      await llamar('admin-corregir', {
+        empleado_id: empleadoId, tipo: addTipo, ts: isoDesde(fecha, addHora), motivo: addMotivo.trim(),
+      }, pin)
+      setAddPara(null); setAddMotivo(''); setError('')
+      cargarDia()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error')
+    }
+  }
+
+  async function guardarAnulacion() {
+    if (!anular) return
+    if (!anularMotivo.trim()) { setError('El motivo es obligatorio para anular un fichaje.'); return }
+    try {
+      await llamar('admin-corregir', {
+        empleado_id: anular.empleado_id, anula_id: anular.id, motivo: anularMotivo.trim(),
+      }, pin)
+      setAnular(null); setAnularMotivo(''); setError('')
+      cargarDia()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error')
+    }
+  }
+
+  // ── Candado: sin PIN no se ve el registro ────────────────────────────────
+  if (!pin) {
     return (
-      <PantallaCantera embedded style={{ fontFamily: FONT_BODY, color: MUT }}>
-        Cargando…
+      <PantallaCantera embedded style={{ fontFamily: FONT_BODY }}>
+        <HeroCantera
+          area="equipo"
+          titular="El registro de jornada está protegido"
+          etiquetaDato="Acceso"
+          cifra="PIN"
+          resumen={<>Solo con el PIN de administración se pueden ver y corregir los fichajes del equipo.</>}
+          atencion={['Registro inalterable', 'Correcciones trazadas']}
+        />
+        <Papel ceja={GRANATE}>
+          <Etiqueta>PIN de administración</Etiqueta>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="password"
+              inputMode="numeric"
+              value={pinInput}
+              onChange={e => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onKeyDown={e => { if (e.key === 'Enter') entrar() }}
+              placeholder="······"
+              style={{ ...inputStyle, fontSize: 20, letterSpacing: '8px', width: 160 }}
+            />
+            <button onClick={entrar} style={btnStyle(VERDE)}>Entrar</button>
+          </div>
+          {errorPin && <p style={{ color: ROJO, fontSize: 13, marginTop: 10 }}>{errorPin}</p>}
+        </Papel>
       </PantallaCantera>
     )
   }
 
-  const fuera = usuarios.length - dentroCount
+  const dentro = registros.filter(r => r.estado === 'trabajando').length
+  const enPausa = registros.filter(r => r.estado === 'pausa').length
+  const conRegistro = registros.filter(r => r.eventos.length > 0).length
+  const ausentes = registros.filter(r => r.previsto_inicio && r.eventos.length === 0)
+  const minTotal = registros.reduce((a, r) => a + r.min_trabajo, 0)
+  const esHoy = fecha === hoyMadrid()
+  const empParte = empleados.find(e => e.id === parteEmp)
+  const minParte = parteDias.reduce((a, d) => a + d.min_trabajo, 0)
 
   return (
     <PantallaCantera embedded style={{ fontFamily: FONT_BODY }}>
       <HeroCantera
         area="equipo"
-        titular={dentroCount > 0
-          ? `Ahora mismo hay ${dentroCount} persona${dentroCount !== 1 ? 's' : ''} fichada${dentroCount !== 1 ? 's' : ''} dentro`
-          : 'Ahora mismo no hay nadie fichado dentro'}
-        etiquetaDato="Dentro ahora"
-        cifra={`${dentroCount} / ${usuarios.length}`}
-        resumen={<>{fuera} fuera de {usuarios.length} empleados activos.</>}
-        atencion={[
-          `${dentroCount} dentro`,
-          `${fuera} fuera`,
-        ]}
+        titular={esHoy
+          ? (dentro > 0 ? `Ahora mismo hay ${dentro} persona${dentro !== 1 ? 's' : ''} trabajando` : 'Ahora mismo no hay nadie fichado dentro')
+          : `Registro del ${fmtFechaLarga(fecha)}`}
+        etiquetaDato={esHoy ? 'Dentro ahora' : 'Con registro'}
+        cifra={esHoy ? String(dentro) : String(conRegistro)}
+        resumen={<>{fmtMin(minTotal)} de jornada registrada · {conRegistro} persona{conRegistro !== 1 ? 's' : ''} con fichajes.</>}
+        atencion={[`${dentro} trabajando`, `${enPausa} en pausa`, `${ausentes.length} sin fichar`]}
       />
 
-      {!tableExists ? (
-        <FrasePotente significado="peligro">El registro de fichajes no está activo: pulsa «Inicializar BD» para empezar a capturar presencia.</FrasePotente>
-      ) : dentroCount === 0 && usuarios.length > 0 ? (
-        <FrasePotente significado="coste">Nadie tiene fichaje abierto ahora mismo: comprueba que el equipo esté fichando entrada.</FrasePotente>
+      {ausentes.length > 0 ? (
+        <FrasePotente significado="peligro">
+          {ausentes.length} persona{ausentes.length !== 1 ? 's' : ''} con turno previsto y sin ningún fichaje: {ausentes.map(a => a.nombre).join(', ')}.
+        </FrasePotente>
+      ) : conRegistro === 0 ? (
+        <FrasePotente significado="coste">Sin fichajes en esta fecha: comprueba que la tablet del quiosco esté encendida.</FrasePotente>
       ) : (
-        <FrasePotente significado="logro">Control de presencia activo: {dentroCount} de {usuarios.length} personas fichadas ahora mismo.</FrasePotente>
+        <FrasePotente significado="logro">Registro de jornada al día: {conRegistro} persona{conRegistro !== 1 ? 's' : ''} y {fmtMin(minTotal)} anotadas.</FrasePotente>
       )}
 
-      {!tableExists && (
-        <Papel ceja={AMARILLO}>
-          <p style={{ color: INK, fontFamily: FONT_LABEL, fontSize: 14, margin: '0 0 8px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-            Tabla fichajes no encontrada
-          </p>
-          <p style={{ color: MUT, fontSize: 13, margin: '0 0 16px' }}>
-            La tabla <code style={{ color: PRI }}>fichajes</code> no existe. Pulsa para intentar crearla (requiere RPC <code style={{ color: PRI }}>execute_sql</code> habilitado).
-          </p>
-          <button
-            onClick={inicializarBD}
-            disabled={inicializando}
-            style={{ background: AMARILLO, color: INK, fontFamily: FONT_LABEL, fontSize: 13, fontWeight: 700, letterSpacing: '1px', padding: '8px 20px', border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, cursor: 'pointer', textTransform: 'uppercase' }}
-          >
-            {inicializando ? 'Inicializando...' : 'Inicializar BD'}
-          </button>
-        </Papel>
-      )}
-
-      <div style={{ display: 'flex', gap: 8 }}>
-        <TabBtn label="Ahora" active={tab === 'ahora'} onClick={() => setTab('ahora')} />
-        <TabBtn label="Hoy" active={tab === 'hoy'} onClick={() => setTab('hoy')} />
-        <TabBtn label="Historico" active={tab === 'historico'} onClick={() => setTab('historico')} />
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <TabBtn label="Día" active={tab === 'dia'} onClick={() => setTab('dia')} />
+        <TabBtn label="Parte mensual" active={tab === 'parte'} onClick={() => setTab('parte')} />
+        <button onClick={salir} style={{ ...btnStyle(BLANCO, MUT), marginLeft: 'auto', boxShadow: 'none' }}>Bloquear</button>
       </div>
 
-      {/* ── TAB: AHORA ── */}
-      {tab === 'ahora' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Plancha>
-            <KpiBadge first label="Dentro ahora" value={`${dentroCount} / ${usuarios.length}`} color={VERDE} />
-            <KpiBadge label="Total empleados" value={usuarios.length} />
-            <KpiBadge label="Fuera" value={fuera} color={MUT} />
-          </Plancha>
-
-          {estadoActual.length === 0 && (
-            <p style={{ color: MUT, fontSize: 14 }}>No hay empleados activos.</p>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {estadoActual.map(e => (
-              <div
-                key={e.usuario.id}
-                style={{
-                  background: CARD,
-                  border: `3px solid ${INK}`,
-                  borderRadius: 0,
-                  padding: '14px 18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 16,
-                }}
-              >
-                <div style={{
-                  width: 12, height: 12, borderRadius: '50%',
-                  background: e.dentro ? VERDE : BRD2,
-                  flexShrink: 0,
-                }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: FONT_LABEL, fontSize: 14, color: PRI, fontWeight: 600 }}>{e.usuario.nombre}</div>
-                  <div style={{ fontSize: 12, color: MUT, marginTop: 2 }}>
-                    {e.dentro
-                      ? `Entro: ${e.horaEntrada ?? '—'} · ${fmtHorasFmt(e.horasHoy)} acum. hoy`
-                      : e.horasHoy > 0
-                        ? `Fuera · ${fmtHorasFmt(e.horasHoy)} acum. hoy`
-                        : 'Sin fichajes hoy'}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right', minWidth: 80 }}>
-                  <div style={{ fontFamily: FONT_LABEL, fontSize: 16, color: e.horasHoy > 0 ? NAR : MUT }}>
-                    {e.horasHoy > 0 ? fmtHorasFmt(e.horasHoy) : '—'}
-                  </div>
-                  <div style={{ fontSize: 11, color: MUT }}>hoy</div>
-                </div>
-                <button
-                  disabled={fichandoId === e.usuario.id || !tableExists}
-                  onClick={() => fichar(e.usuario.id, e.dentro ? 'salida' : 'entrada')}
-                  style={{
-                    fontFamily: FONT_LABEL,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    letterSpacing: '0.5px',
-                    textTransform: 'uppercase' as const,
-                    padding: '7px 16px',
-                    border: `3px solid ${INK}`,
-                    boxShadow: SHADOW_DURA,
-                    borderRadius: 0,
-                    cursor: fichandoId === e.usuario.id ? 'not-allowed' : 'pointer',
-                    background: e.dentro ? ROJO : VERDE,
-                    color: BLANCO,
-                    opacity: fichandoId === e.usuario.id ? 0.6 : 1,
-                    minWidth: 110,
-                  }}
-                >
-                  {fichandoId === e.usuario.id
-                    ? 'Fichando...'
-                    : e.dentro
-                      ? 'Fichar Salida'
-                      : 'Fichar Entrada'}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+      {error && (
+        <div style={{ border: `3px solid ${INK}`, background: BLANCO, padding: '10px 14px', color: ROJO, fontSize: 13 }}>{error}</div>
       )}
 
-      {/* ── TAB: HOY ── */}
-      {tab === 'hoy' && (
+      {/* ── DÍA ── */}
+      {tab === 'dia' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Plancha>
-            <KpiBadge
-              first
-              label="Horas-persona hoy"
-              value={fmtHorasFmt(fichajesHoy.length > 0 ? calcHorasEntrePares(fichajesHoy) : 0)}
-              color={NAR}
-            />
-            <KpiBadge label="Fichajes" value={fichajesHoy.length} />
-          </Plancha>
-
-          {fichajesHoy.length === 0 ? (
-            <p style={{ color: MUT, fontSize: 14 }}>Sin fichajes hoy.</p>
-          ) : (
-            <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '90px 1fr 100px 1fr',
-                background: INK,
-                padding: '10px 16px',
-                fontFamily: FONT_LABEL,
-                fontSize: 11,
-                color: BLANCO,
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase' as const,
-              }}>
-                <div>Hora</div>
-                <div>Empleado</div>
-                <div>Tipo</div>
-                <div>Nota</div>
-              </div>
-              {fichajesHoy.map((f, i) => {
-                const u = usuarios.find(uu => uu.id === f.usuario_id)
-                return (
-                  <div
-                    key={f.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '90px 1fr 100px 1fr',
-                      padding: '10px 16px',
-                      background: i % 2 === 0 ? CARD : CARD2,
-                      borderTop: `1px solid ${BRD}`,
-                      fontSize: 13,
-                      color: PRI,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <div style={{ fontFamily: FONT_LABEL, color: NAR }}>{fmtHora(f.timestamp)}</div>
-                    <div>{u?.nombre ?? f.usuario_id.slice(0, 8)}</div>
-                    <div>
-                      <span style={{
-                        background: f.tipo === 'entrada' ? PRESENCIA_WASH_VERDE_BG : PRESENCIA_WASH_ROJO_BG,
-                        color: f.tipo === 'entrada' ? VERDE : PRESENCIA_SALIDA_TXT,
-                        border: `2px solid ${INK}`,
-                        borderRadius: 0,
-                        padding: '2px 8px',
-                        fontSize: 11,
-                        fontFamily: FONT_LABEL,
-                        letterSpacing: '0.5px',
-                        textTransform: 'uppercase' as const,
-                      }}>
-                        {f.tipo}
-                      </span>
-                    </div>
-                    <div style={{ color: MUT }}>{f.nota ?? '—'}</div>
-                  </div>
-                )
-              })}
-            </Papel>
-          )}
-        </div>
-      )}
-
-      {/* ── TAB: HISTORICO ── */}
-      {tab === 'historico' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <SeccionLabel bg={GRANATE}>Filtro</SeccionLabel>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: -12 }}>
+          <SeccionLabel bg={GRANATE}>Fecha</SeccionLabel>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: -12 }}>
             <div>
-              <div style={{ fontFamily: FONT_LABEL, fontSize: 11, color: MUT, letterSpacing: '1px', marginBottom: 4, textTransform: 'uppercase' as const }}>Empleado</div>
-              <select
-                value={histUsuarioId}
-                onChange={ev => setHistUsuarioId(ev.target.value)}
-                style={{ ...inputStyle, minWidth: 180 }}
-              >
-                {usuarios.map(u => (
-                  <option key={u.id} value={u.id}>{u.nombre}</option>
-                ))}
+              <Etiqueta>Día</Etiqueta>
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={inputStyle} />
+            </div>
+            <button onClick={cargarDia} style={btnStyle(INK)}>Actualizar</button>
+          </div>
+
+          <Plancha>
+            <Kpi first label="Trabajando" value={dentro} color={VERDE} />
+            <Kpi label="En pausa" value={enPausa} color={NAR} />
+            <Kpi label="Sin fichar" value={ausentes.length} color={ausentes.length ? ROJO : MUT} />
+            <Kpi label="Jornada del día" value={fmtMin(minTotal)} />
+          </Plancha>
+
+          {cargando ? (
+            <p style={{ color: MUT, fontSize: 14 }}>Cargando registro…</p>
+          ) : registros.length === 0 ? (
+            <p style={{ color: MUT, fontSize: 14 }}>Sin fichajes ni turnos previstos en esta fecha.</p>
+          ) : (
+            registros.map(r => (
+              <Papel key={r.empleado_id} ceja={r.eventos.length === 0 && r.previsto_inicio ? ROJO : GRANATE}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                  <div style={{ width: 12, height: 12, borderRadius: '50%', background: colorEstado(r.estado), flexShrink: 0 }} />
+                  <div style={{ fontFamily: FONT_LABEL, fontSize: 16, color: PRI, fontWeight: 700 }}>{r.nombre}</div>
+                  <div style={{ fontSize: 12, color: MUT }}>
+                    Previsto {r.previsto_inicio ? `${fmtHoraPrevista(r.previsto_inicio)}–${fmtHoraPrevista(r.previsto_fin)}` : 'sin turno'}
+                    {' · '}Entrada {fmtHora(r.entrada_ts)} · Salida {fmtHora(r.salida_ts)}
+                  </div>
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 18, alignItems: 'center' }}>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontFamily: FONT_LABEL, fontSize: 18, color: PRI }}>{fmtMin(r.min_trabajo)}</div>
+                      <div style={{ fontSize: 11, color: MUT }}>trabajado</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontFamily: FONT_LABEL, fontSize: 18, color: MUT }}>{fmtMin(r.min_pausa)}</div>
+                      <div style={{ fontSize: 11, color: MUT }}>pausa</div>
+                    </div>
+                    <button
+                      onClick={() => { setAddPara(addPara === r.empleado_id ? null : r.empleado_id); setAddMotivo(''); setError('') }}
+                      style={btnStyle(LIMA, INK)}
+                    >
+                      {addPara === r.empleado_id ? 'Cancelar' : 'Añadir fichaje'}
+                    </button>
+                  </div>
+                </div>
+
+                {r.eventos.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                    {r.eventos.map(ev => (
+                      <div
+                        key={ev.id}
+                        style={{
+                          border: `2px solid ${INK}`, background: ev.correccion ? CLARO : BLANCO,
+                          padding: '6px 10px', display: 'flex', gap: 8, alignItems: 'center',
+                        }}
+                      >
+                        <span style={{ fontFamily: FONT_LABEL, fontSize: 13, color: PRI }}>{fmtHora(ev.ts)}</span>
+                        <span style={{ fontSize: 12, color: MUT }}>{nombreTipo(ev.tipo)}</span>
+                        {ev.correccion && (
+                          <span title={ev.motivo ?? ''} style={{ fontFamily: FONT_LABEL, fontSize: 10, color: NAR, letterSpacing: '0.5px' }}>CORREGIDO</span>
+                        )}
+                        <button
+                          onClick={() => { setAnular({ id: ev.id, empleado_id: r.empleado_id }); setAnularMotivo(''); setError('') }}
+                          style={{ background: 'none', border: 'none', color: ROJO, fontSize: 11, cursor: 'pointer', fontFamily: FONT_LABEL, letterSpacing: '0.5px' }}
+                        >
+                          ANULAR
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {anular?.empleado_id === r.empleado_id && (
+                  <div style={{ marginTop: 12, borderTop: `2px solid ${INK}`, paddingTop: 12, display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: 240 }}>
+                      <Etiqueta>Motivo de la anulación (obligatorio)</Etiqueta>
+                      <input
+                        value={anularMotivo}
+                        onChange={e => setAnularMotivo(e.target.value)}
+                        placeholder="Ej.: fichaje duplicado por error"
+                        style={{ ...inputStyle, width: '100%' }}
+                      />
+                    </div>
+                    <button onClick={guardarAnulacion} style={btnStyle(ROJO)}>Anular</button>
+                    <button onClick={() => setAnular(null)} style={{ ...btnStyle(BLANCO, MUT), boxShadow: 'none' }}>Cancelar</button>
+                  </div>
+                )}
+
+                {addPara === r.empleado_id && (
+                  <div style={{ marginTop: 12, borderTop: `2px solid ${INK}`, paddingTop: 12, display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <div>
+                      <Etiqueta>Qué</Etiqueta>
+                      <select value={addTipo} onChange={e => setAddTipo(e.target.value)} style={inputStyle}>
+                        {TIPOS.map(t => <option key={t.v} value={t.v}>{t.t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <Etiqueta>Hora</Etiqueta>
+                      <input type="time" value={addHora} onChange={e => setAddHora(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 220 }}>
+                      <Etiqueta>Motivo (obligatorio)</Etiqueta>
+                      <input
+                        value={addMotivo}
+                        onChange={e => setAddMotivo(e.target.value)}
+                        placeholder="Ej.: se dejó el móvil y no pudo fichar"
+                        style={{ ...inputStyle, width: '100%' }}
+                      />
+                    </div>
+                    <button onClick={() => guardarAlta(r.empleado_id)} style={btnStyle(VERDE)}>Guardar</button>
+                  </div>
+                )}
+              </Papel>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ── PARTE MENSUAL ── */}
+      {tab === 'parte' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <SeccionLabel bg={GRANATE}>Parte para inspección</SeccionLabel>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: -12 }}>
+            <div>
+              <Etiqueta>Empleado</Etiqueta>
+              <select value={parteEmp} onChange={e => setParteEmp(e.target.value)} style={{ ...inputStyle, minWidth: 200 }}>
+                {empleados.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
               </select>
             </div>
             <div>
-              <div style={{ fontFamily: FONT_LABEL, fontSize: 11, color: MUT, letterSpacing: '1px', marginBottom: 4, textTransform: 'uppercase' as const }}>Desde</div>
-              <input type="date" value={histDesde} onChange={ev => setHistDesde(ev.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <div style={{ fontFamily: FONT_LABEL, fontSize: 11, color: MUT, letterSpacing: '1px', marginBottom: 4, textTransform: 'uppercase' as const }}>Hasta</div>
-              <input type="date" value={histHasta} onChange={ev => setHistHasta(ev.target.value)} style={inputStyle} />
+              <Etiqueta>Mes</Etiqueta>
+              <input type="month" value={parteMes} onChange={e => setParteMes(e.target.value)} style={inputStyle} />
             </div>
             <div style={{ marginLeft: 'auto' }}>
               <BotonImprimir
                 compacto
-                documentoId="equipo.fichajes_mes"
-                titulo={`Parte mensual de fichajes · ${usuarios.find(u => u.id === histUsuarioId)?.nombre ?? ''}`}
+                documentoId="equipo.registro_jornada_mes"
+                titulo={`Registro de jornada · ${empParte?.nombre ?? ''}`}
                 generarPdf={async opts => {
+                  if (!empParte) return null
                   const rec = await M.cargarRecursos()
-                  const usuario = usuarios.find(u => u.id === histUsuarioId)
-                  if (!usuario) return null
-                  return construirFichajesPDF(usuario, diasHist, `${fmtFecha(histDesde + 'T12:00:00')} – ${fmtFecha(histHasta + 'T12:00:00')}`, rec, opts.bn)
+                  return construirParteMensual(empParte.nombre, empParte.nif, parteMes, parteDias, rec, opts.bn)
                 }}
               />
             </div>
           </div>
 
           <Plancha>
-            <KpiBadge first label="Total horas periodo" value={fmtHorasFmt(totalHorasPeriodo)} color={NAR} />
-            <KpiBadge label="Dias trabajados" value={diasHist.filter(d => d.horas > 0).length} />
+            <Kpi first label="Horas del mes" value={fmtMin(minParte)} />
+            <Kpi label="Días con jornada" value={parteDias.filter(d => d.min_trabajo > 0).length} />
+            <Kpi label="Días corregidos" value={parteDias.filter(d => d.corregido).length} color={parteDias.some(d => d.corregido) ? NAR : MUT} />
           </Plancha>
 
-          {loadingHist ? (
-            <p style={{ color: MUT, fontSize: 14 }}>Cargando...</p>
-          ) : diasHist.length === 0 ? (
-            <p style={{ color: MUT, fontSize: 14 }}>Sin registros en el periodo.</p>
+          {parteCargando ? (
+            <p style={{ color: MUT, fontSize: 14 }}>Cargando parte…</p>
+          ) : parteDias.length === 0 ? (
+            <p style={{ color: MUT, fontSize: 14 }}>Sin jornadas ni turnos previstos en el mes.</p>
           ) : (
             <Papel ceja={GRANATE} pad="0" style={{ overflow: 'hidden' }}>
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: '120px 90px 90px 90px 1fr',
-                background: INK,
-                padding: '10px 16px',
-                fontFamily: FONT_LABEL,
-                fontSize: 11,
-                color: BLANCO,
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase' as const,
+                display: 'grid', gridTemplateColumns: '110px 140px 90px 90px 100px 110px 1fr',
+                background: INK, padding: '10px 16px', fontFamily: FONT_LABEL, fontSize: 11,
+                color: BLANCO, letterSpacing: '1.5px', textTransform: 'uppercase' as const,
               }}>
-                <div>Fecha</div>
-                <div>Entrada</div>
-                <div>Salida</div>
-                <div>Horas</div>
-                <div>Nota</div>
+                <div>Fecha</div><div>Previsto</div><div>Entrada</div><div>Salida</div><div>Pausa</div><div>Trabajado</div><div>Obs.</div>
               </div>
-              {diasHist.map((d, i) => (
+              {parteDias.map((d, i) => (
                 <div
                   key={d.fecha}
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: '120px 90px 90px 90px 1fr',
-                    padding: '10px 16px',
-                    background: i % 2 === 0 ? CARD : CARD2,
-                    borderTop: `1px solid ${BRD}`,
-                    fontSize: 13,
-                    color: PRI,
-                    alignItems: 'center',
+                    display: 'grid', gridTemplateColumns: '110px 140px 90px 90px 100px 110px 1fr',
+                    padding: '10px 16px', background: i % 2 === 0 ? BLANCO : CLARO,
+                    borderTop: `1px solid ${INK}`, fontSize: 13, color: PRI, alignItems: 'center',
                   }}
                 >
-                  <div style={{ fontFamily: FONT_LABEL, color: NAR }}>{fmtFecha(d.fecha + 'T12:00:00')}</div>
-                  <div style={{ color: VERDE }}>{d.entrada ?? '—'}</div>
-                  <div style={{ color: PRESENCIA_SALIDA_TXT }}>{d.salida ?? '—'}</div>
-                  <div style={{ color: d.horas > 0 ? PRI : MUT }}>{d.horas > 0 ? fmtHorasFmt(d.horas) : '—'}</div>
-                  <div style={{ color: MUT }}>{d.nota ?? '—'}</div>
+                  <div style={{ fontFamily: FONT_LABEL }}>{fmtFechaLarga(d.fecha)}</div>
+                  <div style={{ color: MUT }}>{d.previsto_inicio ? `${fmtHoraPrevista(d.previsto_inicio)}–${fmtHoraPrevista(d.previsto_fin)}` : '—'}</div>
+                  <div style={{ color: VERDE }}>{fmtHora(d.entrada_ts)}</div>
+                  <div style={{ color: MUT }}>{fmtHora(d.salida_ts)}</div>
+                  <div style={{ color: MUT }}>{fmtMin(d.min_pausa)}</div>
+                  <div style={{ color: d.min_trabajo > 0 ? PRI : ROJO }}>{d.min_trabajo > 0 ? fmtMin(d.min_trabajo) : 'Sin fichar'}</div>
+                  <div style={{ color: NAR, fontSize: 11, fontFamily: FONT_LABEL }}>{d.corregido ? 'CORREGIDO' : ''}</div>
                 </div>
               ))}
             </Papel>
