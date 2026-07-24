@@ -5,6 +5,7 @@ import { Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import * as M from '@/lib/marcoDoc'
 import BotonImprimir from '@/components/BotonImprimir'
+import { construirPlanIncentivosPDF } from '@/lib/planIncentivosPdf'
 
 type Config = {
   fact_min: number; fact_t2: number; fact_t3: number
@@ -128,6 +129,10 @@ function construirIncentivosPDF(cfg: Config, mc: MesColectivo, e: EmpRow, m: Med
       : `(${EUR(r.col)} colectivo + ${EUR(r.ind)} individual − ${EUR(r.pen)}) × ${r.k}. Tope ${EUR(Number(cfg.tope_total))}. Si la cocina no llega a ${Number(cfg.fact_min).toLocaleString('es-ES')} €, no hay incentivos.`
   doc.text(nota, cb.x0, y, { maxWidth: cb.w })
 
+  y += 10
+  M.fDato(doc, ctx, false); doc.setFontSize(7); doc.setTextColor(...M.GRIS)
+  doc.text(doc.splitTextToSize('Documento personal e intransferible (protección de datos). El plan puede modificarse en función de las métricas a conseguir; cualquier cambio se avisa antes del mes en que empieza a aplicar.', cb.w), cb.x0, y)
+
   M.pintarPaginado(doc, 1, 1, ctx)
   return doc
 }
@@ -241,6 +246,12 @@ export default function TabIncentivos() {
         </select>
         <input type="number" value={anio} onChange={e => setAnio(Number(e.target.value))} style={{ ...numInput, width: 80 }} />
         <div style={{ flex: 1 }} />
+        <BotonImprimir
+          documentoId="equipo.plan_incentivos"
+          titulo={`Plan de Incentivos de Cocina · SL-EQP-PR-001`}
+          generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirPlanIncentivosPDF(cfg as unknown as Record<string, number>, rec, { bn: opts.bn, mes, anio }) }}
+          etiqueta="Plan de incentivos"
+        />
         <button onClick={guardar} disabled={saving}
           style={{ padding: '9px 16px', border: `3px solid ${INK}`, boxShadow: SHADOW, background: GRANATE, color: BLANCO, fontFamily: OSW, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <Save size={14} /> {saving ? 'Guardando…' : 'Guardar mes'}
@@ -420,7 +431,7 @@ export default function TabIncentivos() {
       </Papel>
 
       <div style={{ fontFamily: LEX, fontSize: 12, color: INK }}>
-        Tope {EUR(Number(cfg.tope_total))} por persona. Reembolsos: 0 € → {EUR(Number(cfg.reemb_eur1) + Number(cfg.reemb_cero_extra))} · ≤{EUR(Number(cfg.reemb_lim1))} → {EUR(Number(cfg.reemb_eur1))} · ≤{EUR(Number(cfg.reemb_lim2))} → {EUR(Number(cfg.reemb_eur2))}. Penalización: {EUR(Number(cfg.pen_tarde))}/tarde a partir de la {cfg.tardes_permitidas + 1}ª, {EUR(Number(cfg.pen_apertura))} por tarde en apertura. Constancia: {cfg.bonus_meses} meses al 100% → +{EUR(Number(cfg.bonus_constancia))}.
+        Tope {EUR(Number(cfg.tope_total))} por persona. Reembolsos: 0 € → {EUR(Number(cfg.reemb_eur1) + Number(cfg.reemb_cero_extra))} · ≤{EUR(Number(cfg.reemb_lim1))} → {EUR(Number(cfg.reemb_eur1))} · ≤{EUR(Number(cfg.reemb_lim2))} → {EUR(Number(cfg.reemb_eur2))}. Penalización: {EUR(Number(cfg.pen_tarde))}/tarde a partir de la {cfg.tardes_permitidas + 1}ª, {EUR(Number(cfg.pen_apertura))} por tarde en apertura. Constancia: {cfg.bonus_meses} meses al 100% → +{EUR(Number(cfg.bonus_constancia))}. El plan puede modificarse según las métricas a conseguir: cualquier cambio se avisa antes del mes en que aplica. Documento personal e intransferible.
       </div>
     </PantallaCantera>
   )
