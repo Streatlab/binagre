@@ -766,7 +766,12 @@ async function procesarContenidoPrincipal(
         diccionario = await cargarDiccionarioNif(supabase)
         extractedReglas = extraerPorReglas(textoPdf, (nif) => diccionario?.get(nif)?.plantilla || null, false)
       }
-    } catch { extractedReglas = null }
+    } catch (e) {
+      // LEY 100%: los fallos reales no se tragan. Este catch era mudo y hacía
+      // indistinguible "el parseo reventó" de "no había texto".
+      console.error('[procesarArchivo] extracción por reglas falló:', (e as Error)?.message, '·', file.nombre)
+      extractedReglas = null
+    }
   }
 
   if (!extractedReglas && contenido.tipo === 'texto' && typeof contenido.data === 'string') {

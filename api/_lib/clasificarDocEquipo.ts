@@ -127,7 +127,7 @@ function detectarPorMarcadores(textoNorm: string): Marcador | null {
   return null
 }
 
-export async function clasificarDocEquipoTexto(textoOcr: string): Promise<ClasificacionDocEquipo> {
+export async function clasificarDocEquipoTexto(textoOcr: string, opts?: { sinIA?: boolean }): Promise<ClasificacionDocEquipo> {
   if (!textoOcr || textoOcr.trim().length < 20) {
     return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, nif_titular: null, cierto: false, motivo: 'Sin texto legible en el documento' }
   }
@@ -157,6 +157,11 @@ export async function clasificarDocEquipoTexto(textoOcr: string): Promise<Clasif
   // Sin marcador determinista: pista de Claude como último recurso. El
   // resultado SIEMPRE va a revisión (cierto=false) — nunca se archiva a
   // ciegas contra una tabla solo porque la IA "cree" que sabe el tipo.
+  // En modo sinIA (subidas masivas por el botón único / cartero) NO se paga la
+  // pista: lo no-personal sigue su camino por el reencaminado, que es gratis.
+  if (opts?.sinIA) {
+    return { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, nif_titular: null, cierto: false, motivo: 'Sin marcador oficial de documento de personal' }
+  }
   return clasificarConIAComoPista(textoOcr)
 }
 

@@ -65,7 +65,8 @@ function resolverConfig(filas: FilaMatchingConfig[], proveedorNorm: string, plat
   const porDefecto = filas.find((f) => !f.proveedor)
   const elegida = especifica || porDefecto
   return {
-    tolerancia: elegida?.tolerancia_eur ?? TOLERANCIA_IMPORTE,
+    // LEY-MATCH-01: importe exacto al céntimo. La ventana sí es configurable; la tolerancia no.
+    tolerancia: TOLERANCIA_IMPORTE,
     ventanaDias: elegida?.ventana_dias ?? null,
   }
 }

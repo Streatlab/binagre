@@ -57,6 +57,19 @@ async function descargar(req: VercelRequest, res: VercelResponse) {
   })
 }
 
+// Descarta un documento del cajón para siempre (decisión de Rubén). No borra
+// nada físico: la copia sigue en Drive _RECHAZADOS y en Storage; solo sale de la lista.
+async function descartarDefinitivo(req: VercelRequest, res: VercelResponse) {
+  const id = req.query.id as string
+  if (!id) return res.status(400).json({ ok: false, error: 'Falta id' })
+  const { error } = await supabaseAdmin
+    .from('equipo_docs_revision')
+    .update({ estado: 'resuelto', motivo: 'Descartado desde el cajón de sastre' })
+    .eq('id', id)
+  if (error) return res.status(500).json({ ok: false, error: error.message })
+  return res.status(200).json({ ok: true })
+}
+
 // Marca un rechazo como reenviado (sale de la lista) tras rescatarlo a mano.
 async function marcarReenviado(req: VercelRequest, res: VercelResponse) {
   const id = req.query.id as string
@@ -77,6 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const action = (req.query.action as string) || ''
       if (action === 'descargar') return await descargar(req, res)
       if (action === 'reenviado') return await marcarReenviado(req, res)
+      if (action === 'descartar') return await descartarDefinitivo(req, res)
       return res.status(400).json({ ok: false, error: 'Acción no reconocida' })
     }
     return res.status(405).json({ ok: false, error: 'Method not allowed' })

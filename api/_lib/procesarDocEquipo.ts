@@ -37,6 +37,7 @@ import { cargarCandidatosEmpleados, cargarEmpleadores, resolverEmpleado, resolve
 import { contarRecibos, partirNominas } from './splitNominas.js'
 import { extraerNominaAnthropicTexto } from './extraerNomina.js'
 import { procesarArchivo } from './procesarArchivo.js'
+import { parsearBBVA } from './parserBBVA.js'
 
 export interface ResultadoDocEquipo {
   status: number
@@ -124,6 +125,20 @@ async function rechazarDocumento(
   })
 
   return { ok: true, destino: 'rechazado', motivo, drive_url: driveUrl }
+}
+
+/** Puerta pública al cajón de sastre: cualquier tubo (cartero, subida, repesca)
+ *  puede mandar aquí un documento que nadie quiere, con su motivo. Nunca pierde
+ *  el archivo (Drive _RECHAZADOS + fila en equipo_docs_revision estado=descartado). */
+export async function mandarAlCajon(
+  buffer: Buffer,
+  nombreOriginal: string,
+  motivo: string,
+  origen: string,
+): Promise<ResultadoDocEquipo['body']> {
+  const ext = (nombreOriginal.split('.').pop() || 'pdf').toLowerCase()
+  const clasif: ClasificacionDocEquipo = { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, nif_titular: null, cierto: false, motivo }
+  return rechazarDocumento(buffer, nombreOriginal, ext, clasif, motivo, origen)
 }
 
 async function archivarParaRevision(
@@ -233,7 +248,40 @@ async function procesarDocumentoEquipoNucleo(buffer: Buffer, nombreOriginal: str
   const texto = await extraerTextoDocumento(buffer, nombreOriginal)
   const sinTextoLegible = !pdfTieneTexto(texto)
 
-  const clasif = await clasificarDocEquipoTexto(texto)
+  // ── 0 bis. Basura sin texto: si ni la lectura directa ni el OCR de respaldo
+  // sacan texto (foto de un plato, imagen borrosa), NO se reencamina — el motor
+  // común podría gastar una lectura de pago en nada. Directo al cajón de sastre,
+  // donde Rubén puede descartar o reenviar.
+  if (sinTextoLegible) {
+    const clasifVacia: ClasificacionDocEquipo = { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, nif_titular: null, cierto: false, motivo: 'Sin texto legible' }
+    return {
+      status: 200,
+      body: {
+        ...(await rechazarDocumento(buffer, nombreOriginal, ext, clasifVacia,
+          'Sin texto legible (ni lectura directa ni OCR). Si es un documento real, resúbelo con mejor calidad o reenvíalo desde el cajón de sastre.', origen)),
+        sin_texto_legible: true,
+      },
+    }
+  }
+
+  // ── 0 ter. Extracto bancario: se detecta aquí (gratis) pero la ingesta exige
+  // elegir titular (Rubén/Emilio), decisión que no se adivina. Va al cajón de
+  // sastre con instrucción clara de reenvío a Banco.
+  const extBanco = ext === 'csv' || ext === 'txt' || ext === 'xls' || ext === 'xlsx'
+  if (extBanco) {
+    let movs = 0
+    try { movs = parsearBBVA(buffer).length } catch { movs = 0 }
+    if (movs >= 3) {
+      const clasifExtracto: ClasificacionDocEquipo = { tipo: 'desconocido', empleado_nombre: null, nif_trabajador: null, nif_titular: null, cierto: false, motivo: 'Extracto bancario' }
+      return {
+        status: 200,
+        body: await rechazarDocumento(buffer, nombreOriginal, ext, clasifExtracto,
+          `Extracto bancario detectado (${movs} movimientos). Reenvíalo a Banco desde el cajón de sastre indicando el titular (Rubén o Emilio).`, origen),
+      }
+    }
+  }
+
+  const clasif = await clasificarDocEquipoTexto(texto, { sinIA: true })
   const nRecibos = contarRecibos(texto)
 
   // ── 1. RNT: fuera del resto del flujo.

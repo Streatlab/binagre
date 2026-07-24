@@ -59,6 +59,7 @@ export default function ProgresoGlobal() {
   const location = useLocation()
   const [tareas, setTareas] = useState<Tarea[]>([])
   const [minimizado, setMinimizado] = useState(false)
+  const [refresco, setRefresco] = useState(0)
   const [resumenFinal, setResumenFinal] = useState<string | null>(null)
   const rutaAnterior = useRef(location.pathname)
   const habiaVivo = useRef(false)
@@ -89,14 +90,14 @@ export default function ProgresoGlobal() {
         habiaVivo.current = false
         const proc = (data as Tarea[]).reduce((a, t) => a + (t.procesados || 0), 0)
         setResumenFinal(`Listo · ${proc} documento${proc === 1 ? '' : 's'} procesado${proc === 1 ? '' : 's'}`)
-        setTimeout(() => { if (!cancelado) setResumenFinal(null) }, 6000)
+        setTimeout(() => { if (!cancelado) setResumenFinal(null) }, 20000)
       }
     }
     tick()
     const iv = setInterval(tick, tareas.length > 0 ? 2500 : 15000)
     return () => { cancelado = true; clearInterval(iv) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tareas.length])
+  }, [tareas.length, refresco])
 
   const agg = useMemo(() => {
     const total = tareas.reduce((a, t) => a + (t.total_estimado || 0), 0)
@@ -129,7 +130,7 @@ export default function ProgresoGlobal() {
   // Minimizado: reloj de arena.
   if (minimizado) {
     return (
-      <button onClick={() => setMinimizado(false)} style={{ ...reloj, borderColor: acento }} title={`${titulo} · ${agg.proc}/${agg.total || '?'}`}>
+      <button onClick={() => { setMinimizado(false); setRefresco((n) => n + 1) }} style={{ ...reloj, borderColor: acento }} title={`${titulo} · ${agg.proc}/${agg.total || '?'}`}>
         <span style={{ fontSize: 18, lineHeight: 1 }}>⏳</span>
         <span style={{ fontFamily: OSW, fontWeight: 700, fontSize: 11, color: acento }}>{agg.proc}{agg.total ? `/${agg.total}` : ''}</span>
       </button>
@@ -159,12 +160,25 @@ export default function ProgresoGlobal() {
           <Contador n={agg.enProceso} etq="En proceso" color={NAR} />
           <Contador n={agg.ok} etq="Correctos" color={VERDE} />
           <Contador n={agg.dup} etq="Duplicados" color={GRIS} />
-          <Contador n={agg.err} etq="Rechazados" color={agg.err > 0 ? ROJO : GRIS} />
+          <Contador n={agg.err} etq="Al cajón" color={agg.err > 0 ? ROJO : GRIS} />
           <Contador n={agg.proc} etq="Procesados" color={acento} />
         </div>
+
+        {ultimoDetalle(tareas) && (
+          <div style={{ marginTop: 10, fontFamily: OSW, fontWeight: 600, fontSize: 11, color: GRIS, letterSpacing: 0.3, borderTop: `2px solid ${CLARO}`, paddingTop: 8 }}>
+            {ultimoDetalle(tareas)}
+          </div>
+        )}
       </div>
     </div>
   )
+}
+
+// Última novedad real del motor (ej. "Glovo semanal → Ventas" o "foto sin datos → cajón de sastre").
+function ultimoDetalle(tareas: Tarea[]): string | null {
+  const d = tareas.map((t) => (t.detalle || '').trim()).find(Boolean)
+  if (!d) return null
+  return d.length > 90 ? d.slice(0, 87) + '…' : d
 }
 
 function Contador({ n, etq, color }: { n: number; etq: string; color: string }) {
