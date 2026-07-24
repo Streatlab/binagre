@@ -12,6 +12,9 @@ import {
   ESCANDALLO_WARN_ICON, ESCANDALLO_WARN_BTN, ESCANDALLO_WARN_TXT,
 } from '@/styles/palettes'
 
+/** Logo primario de Streat Lab (el mismo archivo que usa el documento de Design). */
+const LOGO_DOC = '/data/STREAT LAB LOGO-04.jpg'
+
 interface Match { iding: string; nombre: string; precio: number; prov: string }
 interface IngLinea { cant: string; ud: string; ingrediente: string; equivalencia: string; grupo?: number; match: Match | null }
 interface Conserva { metodo: string; tiempo: string }
@@ -214,10 +217,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
     ? lineasEP
     : (f.ingredientes ?? []).map(i => ({ ingrediente: i.match?.nombre ?? i.ingrediente, cantidad: i.cant, unidad: i.ud }))
 
-  const paraCoste: IngLinea[] = (lineasEP && lineasEP.length > 0)
-    ? f.ingredientes ?? []
-    : f.ingredientes ?? []
-  const costeTandaCalc = paraCoste.reduce((s, i) => s + costeLinea(i), 0)
+  const costeTandaCalc = (f.ingredientes ?? []).reduce((s, i) => s + costeLinea(i), 0)
   const costeTanda = costeReal && costeReal.tanda > 0 ? costeReal.tanda : costeTandaCalc
   const costeRac = costeReal && costeReal.rac > 0 ? costeReal.rac : (f.raciones ? costeTanda / f.raciones : 0)
   const sinEnlazar = (f.ingredientes ?? []).filter(i => i.ingrediente && !i.match && !NO_COSTE(i))
@@ -309,7 +309,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
 
       {/* DOCUMENTO APROBADO — no se reinterpreta: se pinta tal cual */}
       <div id="zona-impresion" style={{ overflowX: 'auto' }}>
-        <FichaEPSPrint ficha={ficha} bn={false} logoSrc="/data/logo-icon.svg" />
+        <FichaEPSPrint ficha={ficha} bn={false} logoSrc={LOGO_DOC} />
       </div>
 
       <div className="no-print" style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
