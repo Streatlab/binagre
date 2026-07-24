@@ -6,6 +6,64 @@ import { FONT } from '@/styles/tokens'
 import { toLocalDateStr } from '@/lib/dateRange'
 import { COLORS } from '@/components/panel/resumen/tokens'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL ═══ */
+const AREA: M.Area = 'cocina'
+
+function crearPDFDanos(danos: DanoMenaje[], costeMes: number, costeTotal: number, rec: M.Recursos, bn = false) {
+  if (danos.length === 0) return null
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Parte de Daños de Menaje', meta: `Coste mes ${fmtEurLocal(costeMes)} · Total ${fmtEurLocal(costeTotal)}`, area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  const xItem = cb.x0 + 1.5
+  const xCant = cb.x0 + cb.w * 0.42
+  const xCoste = cb.x1 - 24
+  const xFecha = cb.x1 - 1
+
+  doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+  M.fTitulo(doc, ctx, true); doc.setFontSize(7.5); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text('ÍTEM / DESCRIPCIÓN', xItem, y + 4.2)
+  doc.text('CANT.', xCant, y + 4.2)
+  doc.text('COSTE', xCoste, y + 4.2)
+  doc.text('FECHA', xFecha, y + 4.2, { align: 'right' })
+  y += 8
+
+  for (const d of danos) {
+    if (y > cb.bottom - 10) { doc.addPage(); y = nuevaPagina() }
+    M.fDato(doc, ctx, true); doc.setFontSize(9.5); doc.setTextColor(...M.TINTA)
+    doc.text(d.item, xItem, y + 4.2, { maxWidth: xCant - xItem - 3 })
+    doc.setTextColor(...M.GRIS)
+    doc.text(String(d.cantidad), xCant, y + 4.2)
+    doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(fmtEurLocal(d.coste_total), xCoste, y + 4.2)
+    doc.setTextColor(...M.GRIS)
+    const [yy, mm, dd] = d.fecha.split('-')
+    doc.text(`${dd}/${mm}/${yy}`, xFecha, y + 4.2, { align: 'right' })
+    let yy2 = y + 4.2
+    if (d.descripcion) {
+      doc.setFontSize(8); doc.setTextColor(...M.GRIS)
+      doc.text(d.descripcion, xItem, y + 8.2, { maxWidth: cb.w - 3 })
+      yy2 = y + 8.2
+    }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.15)
+    doc.line(cb.x0, yy2 + 2, cb.x1, yy2 + 2)
+    y = yy2 + 5.5
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 interface DanoMenaje {
   id: string
@@ -96,7 +154,13 @@ export default function DanosMenaje() {
     <PantallaCantera>
 
       {/* Acción propia */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+        <BotonImprimir
+          compacto
+          documentoId="operaciones.danos_menaje"
+          titulo="Parte de daños de menaje"
+          generarPdf={async opts => { const rec = await M.cargarRecursos(); return crearPDFDanos(danos, kpiMes, kpiTotal, rec, opts.bn) }}
+        />
         <button onClick={() => setShowForm(s => !s)}
           style={{ padding: '9px 18px', background: COLORS.glovo, color: INK, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
           + Añadir daño

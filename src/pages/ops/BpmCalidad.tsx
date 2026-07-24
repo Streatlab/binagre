@@ -5,6 +5,57 @@ import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { COLORS } from '@/components/panel/resumen/tokens'
 import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL ═══ */
+const AREA: M.Area = 'cocina'
+
+function crearPDFBpm(tipoLabel: string, items: ItemEjecucion[], rec: M.Recursos, bn = false) {
+  if (items.length === 0) return null
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+  const hoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Registro BPM / Calidad', meta: `${tipoLabel} · ${hoy}`, area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  const BOX = 5
+  const xBox = cb.x0 + 1.5
+  const xNombre = xBox + BOX + 3
+  const xHora = cb.x1 - 20
+
+  for (const item of items) {
+    if (y > cb.bottom - 10) { doc.addPage(); y = nuevaPagina() }
+    doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.4)
+    if (item.completado) { doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.roundedRect(xBox, y, BOX, BOX, M.R, M.R, 'FD') }
+    else doc.roundedRect(xBox, y, BOX, BOX, M.R, M.R, 'S')
+    if (item.completado) {
+      doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.6)
+      doc.line(xBox + 1, y + BOX / 2, xBox + BOX * 0.42, y + BOX - 1.1)
+      doc.line(xBox + BOX * 0.42, y + BOX - 1.1, xBox + BOX - 0.8, y + 1)
+    }
+    M.fDato(doc, ctx, false); doc.setFontSize(10); doc.setTextColor(...M.TINTA)
+    doc.text(item.item_nombre, xNombre, y + BOX - 0.6, { maxWidth: xHora - xNombre - 4 })
+    if (item.completado_at) {
+      const d = new Date(item.completado_at)
+      M.fDato(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+      doc.text(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, cb.x1, y + BOX - 0.6, { align: 'right' })
+    }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.15)
+    doc.line(cb.x0, y + BOX + 3, cb.x1, y + BOX + 3)
+    y += BOX + 6
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 type TipoBpm = 'apertura' | 'cierre' | 'BPM'
 
@@ -207,6 +258,14 @@ export default function BpmCalidad() {
 
       {!loading && !error && !modoEdicion && (
         <div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <BotonImprimir
+              compacto
+              documentoId="operaciones.registro_bpm"
+              titulo="Registro BPM / calidad"
+              generarPdf={async opts => { const rec = await M.cargarRecursos(); return crearPDFBpm(TIPO_LABELS[activeTab], items, rec, opts.bn) }}
+            />
+          </div>
           {ejecucion && (
             <div style={{ marginBottom: 4 }}>
               <div style={{ background: BLANCO, border: `3px solid ${INK}`, height: 12, overflow: 'hidden' }}>

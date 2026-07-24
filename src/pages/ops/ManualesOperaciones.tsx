@@ -6,6 +6,84 @@ import { supabase } from '@/lib/supabase'
 import { fmtDate } from '@/utils/format'
 import { FONT } from '@/styles/tokens'
 import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL ═══
+ * Con un manual seleccionado y abierto (vista "Ver") se imprime ese manual completo;
+ * si no hay ninguno abierto se imprime el índice de los manuales visibles en la lista. */
+const AREA: M.Area = 'cocina'
+
+function crearPDFManual(m: Manual, rec: M.Recursos, bn = false) {
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const cb = M.contentBox(doc)
+  const catLabel = CATEGORIAS.find(c => c.value === m.categoria)?.label ?? m.categoria
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Manual de Operaciones', tituloCentrado: m.titulo, meta: `${catLabel} · v${m.version} · actualizado ${fmtDate(m.updated_at)}`, area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  const lineas = doc.splitTextToSize(m.contenido || 'Sin contenido.', cb.w - 3)
+  M.fDato(doc, ctx, false); doc.setFontSize(10.5); doc.setTextColor(...M.TINTA)
+  const lh = 5.2
+  for (const linea of lineas) {
+    if (y > cb.bottom - lh) { doc.addPage(); y = nuevaPagina(); M.fDato(doc, ctx, false); doc.setFontSize(10.5); doc.setTextColor(...M.TINTA) }
+    doc.text(linea, cb.x0 + 1.5, y + lh - 1.4)
+    y += lh
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
+
+function crearPDFIndice(manuales: Manual[], rec: M.Recursos, bn = false) {
+  if (manuales.length === 0) return null
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Manual de Operaciones', tituloCentrado: 'Índice de manuales', meta: `${manuales.length} manuales`, area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  const xTitulo = cb.x0 + 1.5
+  const xCat = cb.x0 + cb.w * 0.6
+  const xVer = cb.x1 - 30
+  const xFecha = cb.x1 - 1
+
+  doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+  M.fTitulo(doc, ctx, true); doc.setFontSize(7.5); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text('TÍTULO', xTitulo, y + 4.2)
+  doc.text('CATEGORÍA', xCat, y + 4.2)
+  doc.text('VER.', xVer, y + 4.2)
+  doc.text('ACTUALIZADO', xFecha, y + 4.2, { align: 'right' })
+  y += 8
+
+  for (const m of manuales) {
+    if (y > cb.bottom - 8) { doc.addPage(); y = nuevaPagina() }
+    const catLabel = CATEGORIAS.find(c => c.value === m.categoria)?.label ?? m.categoria
+    M.fDato(doc, ctx, true); doc.setFontSize(10); doc.setTextColor(...M.TINTA)
+    doc.text(m.titulo, xTitulo, y + 5, { maxWidth: xCat - xTitulo - 3 })
+    M.fDato(doc, ctx, false); doc.setFontSize(9); doc.setTextColor(...M.GRIS)
+    doc.text(catLabel, xCat, y + 5)
+    doc.text(`v${m.version}`, xVer, y + 5)
+    doc.text(fmtDate(m.updated_at), xFecha, y + 5, { align: 'right' })
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.15)
+    doc.line(cb.x0, y + 7.5, cb.x1, y + 7.5)
+    y += 8
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -434,7 +512,17 @@ export default function ManualesOperaciones() {
     <PantallaCantera>
 
       {/* Acción propia */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+        <BotonImprimir
+          compacto
+          documentoId="operaciones.manual_operaciones"
+          titulo="Manual de operaciones"
+          generarPdf={async opts => {
+            const rec = await M.cargarRecursos()
+            if (modalMode === 'view' && selected) return crearPDFManual(selected, rec, opts.bn)
+            return crearPDFIndice(filtered, rec, opts.bn)
+          }}
+        />
         <button style={S.btnAdd} onClick={abrirNuevo}>+ Nuevo Manual</button>
       </div>
 
