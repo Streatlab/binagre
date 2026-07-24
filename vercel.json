@@ -150,6 +150,10 @@
       "destination": "/api/operaciones/pe"
     },
     {
+      "source": "/api/operaciones/fichaje/:ruta*",
+      "destination": "/api/operaciones/fichaje"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

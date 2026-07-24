@@ -10,7 +10,7 @@
 // de resumen de ganancias Uber (parsers/uberResumenParser).
 import JSZip from 'jszip'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { parseFacturaJustEat, type VentaPlataformaParseada } from './parserJustEatFactura.js'
+import { parseFacturaJustEat, extraerReembolsosJustEat, type VentaPlataformaParseada, type ReembolsoJustEat } from './parserJustEatFactura.js'
 import { parseLiquidacionGlovo } from './parserGlovoLiquidacion.js'
 import { parseUberResumenMensual } from './parserUberResumenMensual.js'
 import { esCSVResumenUber, parseUberResumenLiquidaciones } from './parsers/uberResumenParser.js'
@@ -190,6 +190,55 @@ async function volcar(
     resumen_ventas: info, motivo: `venta ${v.plataforma} · ${marca} · registrada` }
 }
 
+// Reembolsos detectados en la factura de Just Eat: los ajustes (descuentos) se dan
+// de alta como reclamación detectada; las compensaciones marcan el cobro real.
+async function registrarReembolsosJustEat(
+  supabase: SupabaseClient, v: VentaPlataformaParseada, reembolsos: ReembolsoJustEat[],
+): Promise<void> {
+  for (const r of reembolsos) {
+    try {
+      const { data: existe } = await supabase
+        .from('reclamaciones').select('id, estado')
+        .or(`pedido_ref.eq.${r.pedido},pedido_plataforma_id.eq.${r.pedido}`)
+        .limit(1)
+      const previa = (existe && existe[0]) as { id: string; estado: string } | undefined
+
+      if (r.clase === 'ajuste') {
+        if (previa) continue
+        await supabase.from('reclamaciones').insert([{
+          fecha: v.fecha_fin_periodo, canal: 'just_eat', marca: v.marcaRaw,
+          tipo: 'cobro_incorrecto', pedido_ref: r.pedido, pedido_plataforma_id: r.pedido,
+          descripcion: `Ajuste detectado en factura ${v.referencia ?? ''} (${v.fecha_inicio_periodo} a ${v.fecha_fin_periodo}): descuento de ${r.importe} € por el pedido ${r.pedido}. Ver motivo en el panel de Just Eat y reclamar si no procede.`,
+          importe_reclamado: r.importe, importe_compensado: 0,
+          estado: 'devuelto', detectado_por: 'factura_justeat', causa: 'desconocida',
+          factura_origen_ref: v.referencia, fecha_deteccion_devolucion: new Date().toISOString(),
+          aviso_visto: false,
+        }])
+      } else {
+        if (previa && !['cobrada', 'cobrada_doble'].includes(previa.estado)) {
+          await supabase.from('reclamaciones').update({
+            estado: 'cobrada', importe_compensado: r.importe,
+            fecha_resolucion: v.fecha_fin_periodo,
+            factura_cobro_periodo: `factura JE ${v.referencia ?? ''}`.trim(),
+          }).eq('id', previa.id)
+        } else if (!previa) {
+          await supabase.from('reclamaciones').insert([{
+            fecha: v.fecha_inicio_periodo, canal: 'just_eat', marca: v.marcaRaw,
+            tipo: 'otro', pedido_ref: r.pedido, pedido_plataforma_id: r.pedido,
+            descripcion: `Compensación de Just Eat detectada en factura ${v.referencia ?? ''}: abono de ${r.importe} € por el pedido ${r.pedido} (reclamación aprobada).`,
+            importe_reclamado: r.importe, importe_compensado: r.importe,
+            estado: 'cobrada', detectado_por: 'factura_justeat', causa: 'desconocida',
+            factura_cobro_periodo: `factura JE ${v.referencia ?? ''}`.trim(),
+            fecha_resolucion: v.fecha_fin_periodo, aviso_visto: true,
+          }])
+        }
+      }
+    } catch (e) {
+      console.error('[reembolsosJustEat] fallo:', (e as Error)?.message)
+    }
+  }
+}
+
 // Intenta tratar el archivo como documento de ventas de plataforma. Devuelve el
 // resultado si lo era; null si no (para que siga el flujo normal de factura).
 export async function intentarVentaPlataforma(
@@ -211,7 +260,10 @@ export async function intentarVentaPlataforma(
       const html = file.buffer.toString('utf8')
       if (/just\s*eat/i.test(html)) {
         const v = parseFacturaJustEat(html)
-        if (v) return await volcar(supabase, file, v)
+        if (v) {
+          await registrarReembolsosJustEat(supabase, v, extraerReembolsosJustEat(html))
+          return await volcar(supabase, file, v)
+        }
       }
     }
 

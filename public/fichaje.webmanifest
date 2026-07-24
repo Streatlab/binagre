@@ -1,0 +1,15 @@
+{
+  "name": "Fichaje Streat Lab",
+  "short_name": "Fichaje",
+  "description": "Registro de jornada del equipo de Streat Lab",
+  "start_url": "/fichaje",
+  "scope": "/fichaje",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#241D12",
+  "theme_color": "#241D12",
+  "icons": [
+    { "src": "/data/logo-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/data/logo-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

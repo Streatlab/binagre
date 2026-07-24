@@ -15,6 +15,13 @@ import { INK, CREMA, BLANCO, AMA, VERDE, ROSA, AZUL, NAR, GRANATE, ROJO, GRIS, O
 export const SHADOW_DURA = `3px 3px 0 ${INK}`
 export const MAXW = 1360
 
+/**
+ * Verde salvia del área Equipo en el MARCO DE DOCUMENTOS (#5C8A6E). Solo para las
+ * superficies que representan papel imprimible; NUNCA como color de pantalla del ERP
+ * (fuera de los 12 tokens de LEY-ESTILO-01).
+ */
+export const VERDE_EQUIPO = '#5C8A6E'
+
 /** Color de héroe por área (la ley). */
 export type AreaCantera = 'resumen' | 'cashflow' | 'tesoreria' | 'ventas' | 'facturacion' | 'papeleo' | 'cocina' | 'ops' | 'marcas' | 'marketing' | 'equipo' | 'objetivos' | 'eeff'
 const AREA_BG: Record<AreaCantera, string> = {

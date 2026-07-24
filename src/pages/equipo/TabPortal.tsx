@@ -7,9 +7,9 @@ import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/token
 import { useAuth } from '@/context/AuthContext'
 import ModalSolicitud from '@/components/equipo/ModalSolicitud'
 import { fmtEur } from '@/utils/format'
-import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
+import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA, Plancha, PlanchaCelda } from '@/components/kit/cantera'
 
-type PortalTab = 'horario' | 'permisos' | 'nominas' | 'contrato'
+type PortalTab = 'horario' | 'incentivos' | 'permisos' | 'nominas' | 'contrato'
 
 interface Horario {
   id: string
@@ -37,6 +37,24 @@ interface Nomina {
   pdf_url: string | null
 }
 
+interface IncentivoVista {
+  facturacion_real: number
+  facturacion_manual: boolean
+  fact_min: number
+  multiplicador: number
+  muerte: boolean
+  eur_reembolsos: number
+  eur_inventario: number
+  eur_retrasos: number
+  eur_valoracion: number
+  eur_vacio: number
+  eur_checklist: number
+  eur_fechado: number
+  penalizacion: number
+  tope_total: number
+  total_pagar: number
+}
+
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 const TIPO_LABELS: Record<string, string> = {
   vacaciones: 'Vacaciones',
@@ -54,41 +72,66 @@ export default function TabPortal() {
   const [horarios, setHorarios] = useState<Horario[]>([])
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
   const [nominas, setNominas] = useState<Nomina[]>([])
+  const [incentivo, setIncentivo] = useState<IncentivoVista | null>(null)
+  const [factAcum, setFactAcum] = useState(0)
+  const [tramos, setTramos] = useState<{ fact_min: number; fact_t2: number; fact_t3: number; mult_n1: number; mult_n2: number; mult_n3: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [modalPermiso, setModalPermiso] = useState(false)
+  const [listaEmpleados, setListaEmpleados] = useState<{ id: string; nombre: string }[]>([])
+  const [selEmpleado, setSelEmpleado] = useState<string>('')
 
   const isAdmin = ['admin', 'socio'].includes(usuario?.perfil ?? usuario?.rol ?? '')
   const empleadoIdFromUser = (usuario as unknown as Record<string, unknown>)?.empleado_id as string | undefined
+  const empIdEfectivo = empleadoIdFromUser ?? (isAdmin ? (selEmpleado || undefined) : undefined)
 
   useEffect(() => {
-    if (!empleadoIdFromUser && !isAdmin) { setLoading(false); return }
-    const empId = empleadoIdFromUser
+    if (isAdmin && !empleadoIdFromUser) {
+      supabase.from('incentivos_empleado').select('empleado_id, empleados(nombre)').eq('activo', true).then(({ data }) => {
+        setListaEmpleados(((data ?? []) as any[]).map(r => ({ id: r.empleado_id, nombre: r.empleados?.nombre ?? '—' })).sort((a, b) => a.nombre.localeCompare(b.nombre)))
+      })
+    }
+  }, [isAdmin, empleadoIdFromUser])
 
+  useEffect(() => {
+    const empId = empIdEfectivo
     if (!empId) { setLoading(false); return }
+    setLoading(true)
 
     const fetchData = async () => {
-      const today = new Date().toISOString().slice(0, 10)
       const past14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
       const future30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      const now = new Date()
 
-      const [emp, h, s, n] = await Promise.all([
+      const [emp, h, s, n, inc] = await Promise.all([
         supabase.from('empleados').select('id, nombre, fecha_alta, datos_personales, drive_folder_id').eq('id', empId).maybeSingle(),
         supabase.from('horarios').select('id, fecha, hora_inicio, hora_fin, turno_tipo').eq('empleado_id', empId).gte('fecha', past14).lte('fecha', future30).order('fecha'),
         supabase.from('solicitudes_permisos').select('id, fecha_inicio, fecha_fin, tipo, estado, nota').eq('empleado_id', empId).order('created_at', { ascending: false }),
         supabase.from('nominas').select('id, mes, anio, importe_bruto, importe_neto, pdf_url').eq('empleado_id', empId).order('anio', { ascending: false }).order('mes', { ascending: false }),
+        supabase.from('v_incentivos_total').select('*').eq('empleado_id', empId).eq('mes', now.getMonth() + 1).eq('anio', now.getFullYear()).maybeSingle(),
       ])
+
+      const desdeMes = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+      const hastaMes = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10)
+      const [ventas, cfgT] = await Promise.all([
+        supabase.from('v_facturacion_diario_unificada').select('total_bruto').gte('fecha', desdeMes).lt('fecha', hastaMes),
+        supabase.from('incentivos_config').select('fact_min, fact_t2, fact_t3, mult_n1, mult_n2, mult_n3').eq('id', 1).maybeSingle(),
+      ])
+      setFactAcum(((ventas.data ?? []) as any[]).reduce((acc, x) => acc + Number(x.total_bruto || 0), 0))
+      setTramos((cfgT.data ?? null) as typeof tramos)
 
       setEmpleado(emp.data as typeof empleado ?? null)
       setHorarios((h.data ?? []) as Horario[])
       setSolicitudes((s.data ?? []) as Solicitud[])
       setNominas((n.data ?? []) as Nomina[])
+      setIncentivo((inc.data ?? null) as IncentivoVista | null)
       setLoading(false)
     }
     fetchData()
-  }, [empleadoIdFromUser, isAdmin])
+  }, [empIdEfectivo])
 
   const tabs: { key: PortalTab; label: string }[] = [
     { key: 'horario', label: 'Mi horario' },
+    { key: 'incentivos', label: 'Mis incentivos' },
     { key: 'permisos', label: 'Mis permisos' },
     { key: 'nominas', label: 'Mis nóminas' },
     { key: 'contrato', label: 'Mi contrato' },
@@ -100,19 +143,46 @@ export default function TabPortal() {
   const hoyISO = new Date().toISOString().slice(0, 10)
   const turnosFuturos = useMemo(() => horarios.filter(h => h.fecha >= hoyISO).length, [horarios, hoyISO])
   const pendientesPortal = useMemo(() => solicitudes.filter(s => s.estado === 'pendiente').length, [solicitudes])
+  const mesActual = new Date().getMonth()
 
-  // Guard: admin sin empleado_id vinculado
-  if (isAdmin && !empleadoIdFromUser) {
-    return (
-      <PantallaCantera embedded>
-        <Papel ceja={LIMA}>
-          <div style={{ fontFamily: FONT.heading, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: INK, marginBottom: 10 }}>Vista Portal — Modo administrador</div>
-          <p style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec }}>
-            Para ver la vista del portal de un empleado, vincula tu usuario a un registro de empleado en <strong>Configuración → Usuarios</strong>.
-          </p>
-        </Papel>
-      </PantallaCantera>
-    )
+  // Proyección de cierre de mes con el ritmo real de ventas (se corrige cada día).
+  const hoyD = new Date()
+  const diasMes = new Date(hoyD.getFullYear(), hoyD.getMonth() + 1, 0).getDate()
+  const diasPasados = Math.min(hoyD.getDate(), diasMes)
+  const ritmoDia = diasPasados > 0 ? factAcum / diasPasados : 0
+  const factProy = ritmoDia * diasMes
+  const multProy = (() => {
+    if (!incentivo || !tramos) return Number(incentivo?.multiplicador ?? 0)
+    const base = incentivo.facturacion_manual ? Number(incentivo.facturacion_real) : factProy
+    if (base >= Number(tramos.fact_t3)) return Number(tramos.mult_n3)
+    if (base >= Number(tramos.fact_t2)) return Number(tramos.mult_n2)
+    if (base >= Number(tramos.fact_min)) return Number(tramos.mult_n1)
+    return 0
+  })()
+  const conceptos = incentivo
+    ? Number(incentivo.eur_reembolsos) + Number(incentivo.eur_inventario) + Number(incentivo.eur_retrasos) + Number(incentivo.eur_valoracion)
+      + Number(incentivo.eur_vacio) + Number(incentivo.eur_checklist) + Number(incentivo.eur_fechado)
+    : 0
+  const totalProy = !incentivo || incentivo.muerte || multProy === 0
+    ? 0
+    : Math.min(Number(incentivo.tope_total), Math.max(0, conceptos - Number(incentivo.penalizacion)) * multProy)
+
+  // Admin sin empleado vinculado: selector de empleado para ver su portal
+  const selectorAdmin = isAdmin && !empleadoIdFromUser ? (
+    <Papel ceja={LIMA}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ fontFamily: FONT.heading, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', color: INK, fontWeight: 700 }}>Ver portal como</div>
+        <select value={selEmpleado} onChange={e => setSelEmpleado(e.target.value)}
+          style={{ padding: '8px 12px', border: `2px solid ${INK}`, borderRadius: 0, background: BLANCO, color: INK, fontFamily: FONT.heading, fontSize: 13 }}>
+          <option value="">— Elige empleado —</option>
+          {listaEmpleados.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+        </select>
+      </div>
+    </Papel>
+  ) : null
+
+  if (isAdmin && !empleadoIdFromUser && !selEmpleado) {
+    return <PantallaCantera embedded>{selectorAdmin}</PantallaCantera>
   }
 
   // Guard: empleado sin empleado_id
@@ -131,16 +201,18 @@ export default function TabPortal() {
 
   return (
     <PantallaCantera embedded>
+      {selectorAdmin}
       {empleado && (
         <HeroCantera
           area="equipo"
           titular={`Hola, ${empleado.nombre.split(' ')[0]}`}
-          etiquetaDato="Turnos en los próximos 30 días"
-          cifra={String(turnosFuturos)}
-          resumen={pendientesPortal > 0
-            ? <>Tienes {pendientesPortal} solicitud{pendientesPortal !== 1 ? 'es' : ''} de permiso pendiente{pendientesPortal !== 1 ? 's' : ''} de respuesta.</>
-            : 'Tus solicitudes de permisos están al día.'}
+          etiquetaDato="Vas camino de cobrar este mes"
+          cifra={incentivo ? `${Math.round(totalProy)} € [EST]` : '—'}
+          resumen={incentivo
+            ? <>La cocina lleva <b>{Math.round(factAcum).toLocaleString('es-ES')} €</b> en {diasPasados} días; al ritmo de hoy cerraría en <b>{Math.round(factProy).toLocaleString('es-ES')} €</b>. Se corrige cada día con lo que se factura de verdad.</>
+            : 'Todavía no hay mediciones guardadas de este mes.'}
           atencion={[
+            multProy > 0 ? `Incentivos ×${multProy} [EST]` : 'Candado de incentivos cerrado',
             pendientesPortal > 0 ? `${pendientesPortal} solicitudes pendientes` : null,
             `${turnosFuturos} turnos próximos`,
           ]}
@@ -161,6 +233,68 @@ export default function TabPortal() {
           <button key={t.key} onClick={() => setActiveTab(t.key)} style={activeTab === t.key ? tabActiveStyle(isDark) : tabInactiveStyle(T)}>{t.label}</button>
         ))}
       </div>
+
+      {/* Mis incentivos */}
+      {activeTab === 'incentivos' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {!incentivo ? (
+            <Papel ceja={GRANATE}>
+              <div style={{ fontFamily: FONT.body, fontSize: 13, color: T.sec }}>Aún no hay mediciones de incentivos guardadas para {MESES[mesActual]}. En cuanto se guarden, verás aquí tu contador.</div>
+            </Papel>
+          ) : (
+            <>
+              <Plancha>
+                <PlanchaCelda first bg={incentivo.muerte || multProy === 0 ? GRANATE : VERDE} color={BLANCO}>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Vas camino de cobrar · {MESES[mesActual]}</div>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 38, fontWeight: 700, lineHeight: 1.1 }}>{Math.round(totalProy)} € [EST]</div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 12 }}>{incentivo.muerte ? 'Regla de muerte activada este mes' : multProy === 0 ? `Al ritmo de hoy la cocina no llega a ${Number(incentivo.fact_min).toLocaleString('es-ES')} €` : `Multiplicador ×${multProy} · tope ${Math.round(incentivo.tope_total)} €`}</div>
+                </PlanchaCelda>
+                <PlanchaCelda>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK }}>Llevamos hoy</div>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 30, fontWeight: 700, color: INK }}>{Math.round(factAcum).toLocaleString('es-ES')} €</div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 12, color: INK }}>{diasPasados} de {diasMes} días · {Math.round(ritmoDia).toLocaleString('es-ES')} €/día</div>
+                </PlanchaCelda>
+                <PlanchaCelda>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK }}>Cierre estimado del mes</div>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 30, fontWeight: 700, color: INK }}>{Math.round(factProy).toLocaleString('es-ES')} € [EST]</div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 12, color: INK }}>El bote se abre a {Number(incentivo.fact_min).toLocaleString('es-ES')} € · objetivo 900-1.000 €/día</div>
+                </PlanchaCelda>
+              </Plancha>
+
+              <SeccionLabel bg={VERDE}>Cómo se compone tu incentivo</SeccionLabel>
+              <Papel ceja={VERDE} pad="0">
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    {([
+                      ['Colectivo · Reembolsos de clientes', incentivo.eur_reembolsos],
+                      ['Colectivo · Inventario permanente', incentivo.eur_inventario],
+                      ['Colectivo · Entregas a tiempo', incentivo.eur_retrasos],
+                      ['Colectivo · Valoración de clientes', incentivo.eur_valoracion],
+                      ['Individual · Vacío de cámara', incentivo.eur_vacio],
+                      ['Individual · Checklists verificados', incentivo.eur_checklist],
+                      ['Individual · Fechado y conservación', incentivo.eur_fechado],
+                    ] as Array<[string, number]>).map(([label, eur], i) => (
+                      <tr key={i} style={{ borderBottom: `1px solid ${T.brd}` }}>
+                        <td style={{ ...td, color: INK }}>{label}</td>
+                        <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, fontWeight: 700, color: Number(eur) > 0 ? VERDE : T.mut }}>{Math.round(Number(eur))} €</td>
+                      </tr>
+                    ))}
+                    {Number(incentivo.penalizacion) > 0 && (
+                      <tr style={{ borderBottom: `1px solid ${T.brd}` }}>
+                        <td style={{ ...td, color: GRANATE, fontWeight: 600 }}>Penalización por tardes</td>
+                        <td style={{ ...td, textAlign: 'right', fontFamily: FONT.heading, fontWeight: 700, color: GRANATE }}>−{Math.round(Number(incentivo.penalizacion))} €</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </Papel>
+              <div style={{ fontFamily: FONT.body, fontSize: 12, color: INK }}>
+                Lo marcado [EST] es una estimación con el ritmo de ventas de este mes; se corrige cada día y el pago final se calcula con el mes cerrado. Cero reembolsos suma premio extra. Una cancelación de pedido o un cierre de tienda deja el incentivo a 0 € para toda la cocina.
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Mi horario */}
       {activeTab === 'horario' && (
@@ -307,14 +441,14 @@ export default function TabPortal() {
       )}
 
       {/* Modal solicitud permiso */}
-      {modalPermiso && empleadoIdFromUser && (
+      {modalPermiso && empIdEfectivo && (
         <ModalSolicitud
           empleados={empleado ? [{ id: empleado.id, nombre: empleado.nombre }] : []}
-          empleadoPreseleccionado={empleadoIdFromUser}
+          empleadoPreseleccionado={empIdEfectivo}
           onClose={() => setModalPermiso(false)}
           onSaved={() => {
             setModalPermiso(false)
-            const empId = empleadoIdFromUser
+            const empId = empIdEfectivo
             if (empId) {
               supabase.from('solicitudes_permisos').select('id, fecha_inicio, fecha_fin, tipo, estado, nota').eq('empleado_id', empId).order('created_at', { ascending: false }).then(({ data }) => setSolicitudes((data ?? []) as Solicitud[]))
             }
