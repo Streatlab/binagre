@@ -1,12 +1,12 @@
 /**
  * TabIncentivos — Equipo › Incentivos (modelo v13).
- * CANTERA ALEGRE: héroe verde salvia (Equipo), planchas sólidas, papel con ceja,
- * sombra dura SOLO en lo pulsable, rojo/granate reservado a lo negativo.
- * Todo el plan es editable desde aquí (incentivos_config) y todo lo impreso
- * (plan general y plan personal de cada empleado) bebe de esa misma config.
+ * CANTERA ALEGRE (LEY-ESTILO-01): héroe de Equipo en TINTA, solo los 12 tokens,
+ * planchas sólidas pegadas, papel con ceja 7px, sombra dura SOLO en lo pulsable,
+ * rojo exclusivo de lo negativo, [EST] pegado a todo dato estimado.
+ * Todo el plan es editable desde aquí (incentivos_config) y de ahí beben los PDF.
  */
 import { OSW, LEX, INK, CREMA, CLARO, BLANCO, VERDE, GRANATE, ROJO, GRIS, AMA } from '@/styles/neobrutal'
-import { HeroCantera, Papel, Plancha, PlanchaCelda, PantallaCantera, SeccionLabel, FrasePotente, VERDE_EQUIPO, SHADOW_DURA } from '@/components/kit/cantera'
+import { HeroCantera, Papel, Plancha, PlanchaCelda, PantallaCantera, SeccionLabel, FrasePotente, SHADOW_DURA } from '@/components/kit/cantera'
 import { useEffect, useState } from 'react'
 import { Save, SlidersHorizontal, Minus, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -41,7 +41,7 @@ type MesColectivo = {
 }
 
 const EUR = (n: number) => `${Math.round(n)} €`
-const MILES = (n: number) => `${Number(n).toLocaleString('es-ES')} €`
+const MILES = (n: number) => `${Math.round(Number(n)).toLocaleString('es-ES')} €`
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
@@ -83,7 +83,7 @@ function calcV13(cfg: Config, mc: MesColectivo, m: Medicion, fact: number) {
 const AREA: M.Area = 'equipo'
 
 /** Hoja mensual personal (lo que cobra ese empleado este mes). */
-function construirIncentivosPDF(cfg: Config, mc: MesColectivo, e: EmpRow, m: Medicion, fact: number, mes: number, anio: number, rec: M.Recursos, bn = false) {
+function construirIncentivosPDF(cfg: Config, mc: MesColectivo, e: EmpRow, m: Medicion, fact: number, estimado: boolean, mes: number, anio: number, rec: M.Recursos, bn = false) {
   const r = calcV13(cfg, mc, m, fact)
   const doc = M.nuevaHoja({ orientation: 'portrait' })
   const ctx = M.preparar(doc, rec)
@@ -94,9 +94,9 @@ function construirIncentivosPDF(cfg: Config, mc: MesColectivo, e: EmpRow, m: Med
 
   M.tarjeta(doc, cb.x0, y, cb.w, 26, AREA, { bn, fill: true })
   M.fDato(doc, ctx, false); doc.setFontSize(8); doc.setTextColor(...M.GRIS)
-  doc.text('FACTURACIÓN COCINA ESTE MES', cb.x0 + 4, y + 6)
+  doc.text(estimado ? 'FACTURACIÓN DE COCINA · CIERRE ESTIMADO' : 'FACTURACIÓN DE COCINA DEL MES', cb.x0 + 4, y + 6)
   M.fTitulo(doc, ctx, true); doc.setFontSize(18); doc.setTextColor(...M.TINTA)
-  doc.text(MILES(fact), cb.x0 + 4, y + 15)
+  doc.text(`${MILES(fact)}${estimado ? ' [EST]' : ''}`, cb.x0 + 4, y + 15)
   M.fDato(doc, ctx, false); doc.setFontSize(8); doc.setTextColor(...M.GRIS)
   doc.text(`Candado: ${MILES(cfg.fact_min)} abre ×${cfg.mult_n1} · ${MILES(cfg.fact_t2)} ×${cfg.mult_n2} · ${MILES(cfg.fact_t3)} ×${cfg.mult_n3}`, cb.x0 + 4, y + 21)
   M.pill(doc, cb.x1 - 30, y + 5, r.k > 0 && !mc.muerte && !m.muerte_personal ? `×${r.k}` : 'CERRADO', AREA, ctx, { bn })
@@ -127,9 +127,9 @@ function construirIncentivosPDF(cfg: Config, mc: MesColectivo, e: EmpRow, m: Med
   doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.6); doc.line(cb.x0, y, cb.x1, y)
   y += 8
   M.fTitulo(doc, ctx, true); doc.setFontSize(13); doc.setTextColor(...M.TINTA)
-  doc.text('A COBRAR ESTE MES', cb.x0, y)
+  doc.text(estimado ? 'VA CAMINO DE COBRAR' : 'A COBRAR ESTE MES', cb.x0, y)
   doc.setFontSize(18); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
-  doc.text(EUR(r.total), cb.x1, y, { align: 'right' })
+  doc.text(`${EUR(r.total)}${estimado ? ' [EST]' : ''}`, cb.x1, y, { align: 'right' })
   y += 8
   M.fDato(doc, ctx, false); doc.setFontSize(8); doc.setTextColor(...M.GRIS)
   const nota = m.muerte_personal
@@ -138,6 +138,10 @@ function construirIncentivosPDF(cfg: Config, mc: MesColectivo, e: EmpRow, m: Med
       ? 'Este mes hubo una cancelación de pedido o cierre de tienda: el incentivo queda a 0 € para toda la cocina.'
       : `(${EUR(r.col)} colectivo + ${EUR(r.ind)} individual − ${EUR(r.pen)}) × ${r.k}. Tope ${EUR(Number(cfg.tope_total))}. Si la cocina no llega a ${MILES(cfg.fact_min)}, no hay incentivos.`
   doc.text(nota, cb.x0, y, { maxWidth: cb.w })
+  if (estimado) {
+    y += 5
+    doc.text('Cifra estimada con el ritmo de ventas del mes en curso; el pago se calcula con la facturación real al cerrar el mes.', cb.x0, y, { maxWidth: cb.w })
+  }
 
   y += 10
   doc.setFontSize(7)
@@ -147,13 +151,13 @@ function construirIncentivosPDF(cfg: Config, mc: MesColectivo, e: EmpRow, m: Med
   return doc
 }
 
-/** Tarjeta pulsable de concepto colectivo. */
+/** Tarjeta pulsable de concepto colectivo (verde = se cobra). */
 function Concepto({ activo, titulo, detalle, importe, onToggle, extra }: {
   activo: boolean; titulo: string; detalle: string; importe: number; onToggle: () => void; extra?: React.ReactNode
 }) {
   return (
     <div onClick={onToggle} role="button" tabIndex={0}
-      style={{ flex: '1 1 250px', minWidth: 230, background: activo ? VERDE_EQUIPO : BLANCO, color: activo ? BLANCO : INK, border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, padding: '14px 16px', cursor: 'pointer' }}>
+      style={{ flex: '1 1 250px', minWidth: 230, background: activo ? VERDE : BLANCO, color: activo ? BLANCO : INK, border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, padding: '14px 16px', cursor: 'pointer' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: OSW, fontSize: 13.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>{titulo}</div>
@@ -192,18 +196,25 @@ export default function TabIncentivos() {
   const [emps, setEmps] = useState<EmpRow[]>([])
   const [meds, setMeds] = useState<Record<string, Medicion>>({})
   const [mc, setMc] = useState<MesColectivo>({ reembolsos_total: 0, reembolsos_sin_foto: 0, inventario_ok: false, retrasos_ok: false, valoracion_ok: false, valoracion_nota: null, fact_override: null, muerte: false, muerte_motivo: null })
-  const [factReal, setFactReal] = useState(0)
+  const [factAcum, setFactAcum] = useState(0)
+  const [diasConVentas, setDiasConVentas] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [ajustes, setAjustes] = useState(false)
   const [guardadoCfg, setGuardadoCfg] = useState(false)
 
+  const diasMes = new Date(anio, mes, 0).getDate()
+  const esMesActual = mes === now.getMonth() + 1 && anio === now.getFullYear()
+  const diasPasados = esMesActual ? Math.min(now.getDate(), diasMes) : diasMes
+
   async function fetchAll() {
     setLoading(true)
-    const [{ data: c }, { data: e }, { data: f }, { data: md }, { data: im }] = await Promise.all([
+    const desde = `${anio}-${String(mes).padStart(2, '0')}-01`
+    const hasta = `${mes === 12 ? anio + 1 : anio}-${String(mes === 12 ? 1 : mes + 1).padStart(2, '0')}-01`
+    const [{ data: c }, { data: e }, { data: v }, { data: md }, { data: im }] = await Promise.all([
       supabase.from('incentivos_config').select('*').eq('id', 1).single(),
       supabase.from('incentivos_empleado').select('empleado_id, activo, empleados(nombre)').eq('activo', true),
-      supabase.from('facturacion_meses').select('bruto').eq('mes', mes).eq('anio', anio),
+      supabase.from('v_facturacion_diario_unificada').select('fecha, total_bruto').gte('fecha', desde).lt('fecha', hasta),
       supabase.from('incentivos_medicion').select('*').eq('mes', mes).eq('anio', anio),
       supabase.from('incentivos_mes').select('*').eq('mes', mes).eq('anio', anio).maybeSingle(),
     ])
@@ -211,7 +222,8 @@ export default function TabIncentivos() {
     const rows: EmpRow[] = (e ?? []).map((r: any) => ({ empleado_id: r.empleado_id, nombre: r.empleados?.nombre ?? '—' }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre))
     setEmps(rows)
-    setFactReal((f ?? []).reduce((s: number, x: any) => s + Number(x.bruto || 0), 0))
+    setFactAcum((v ?? []).reduce((s: number, x: any) => s + Number(x.total_bruto || 0), 0))
+    setDiasConVentas(new Set((v ?? []).map((x: any) => x.fecha)).size)
     const map: Record<string, Medicion> = {}
     for (const r of rows) {
       const found = (md ?? []).find((x: any) => x.empleado_id === r.empleado_id)
@@ -273,10 +285,17 @@ export default function TabIncentivos() {
 
   if (loading || !cfg) return <div style={{ padding: 32, color: INK, fontFamily: LEX }}>Cargando incentivos…</div>
 
-  const fact = mc.fact_override != null ? mc.fact_override : factReal
+  // Facturación: acumulada real + proyección a fin de mes con el ritmo actual.
+  const ritmoDia = diasPasados > 0 ? factAcum / diasPasados : 0
+  const proyeccion = esMesActual ? ritmoDia * diasMes : factAcum
+  const estimado = esMesActual && mc.fact_override == null
+  const fact = mc.fact_override != null ? mc.fact_override : (esMesActual ? proyeccion : factAcum)
+
   const k = multiplicador(cfg, fact)
+  const kHoy = multiplicador(cfg, factAcum)
   const abierto = k > 0 && !mc.muerte
-  const pct = Math.min(100, (fact / Number(cfg.fact_t3)) * 100)
+  const pctProy = Math.min(100, (fact / Number(cfg.fact_t3)) * 100)
+  const pctHoy = Math.min(100, (factAcum / Number(cfg.fact_t3)) * 100)
   const marca = (v: number) => `${Math.min(100, (v / Number(cfg.fact_t3)) * 100)}%`
   const eReemb = eurReembolsos(cfg, mc)
   const computa = Number(mc.reembolsos_total) + Number(mc.reembolsos_sin_foto)
@@ -284,6 +303,8 @@ export default function TabIncentivos() {
   const colMax = Number(cfg.retrasos_eur) + Number(cfg.reemb_eur1) + Number(cfg.reemb_cero_extra) + Number(cfg.inventario_eur) + Number(cfg.valoracion_eur)
   const indMax = Number(cfg.vacio_eur) + Number(cfg.checklist_eur) + Number(cfg.fechado_eur)
   const totalMes = emps.reduce((s, e) => s + calcV13(cfg, mc, meds[e.empleado_id], fact).total, 0)
+  const faltaParaAbrir = Math.max(0, Number(cfg.fact_min) - fact)
+  const faltaDiario = esMesActual && diasMes > diasPasados ? faltaParaAbrir / (diasMes - diasPasados) : 0
 
   const chkLabel: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontFamily: LEX, fontSize: 13, color: INK, cursor: 'pointer' }
   const btnSolido = (bg: string): React.CSSProperties => ({ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, background: bg, color: bg === AMA || bg === BLANCO ? INK : BLANCO, fontFamily: OSW, fontSize: 12.5, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 700, cursor: 'pointer', borderRadius: 0 })
@@ -291,8 +312,8 @@ export default function TabIncentivos() {
   const tituloHero = mc.muerte
     ? 'Regla de muerte activada: este mes no cobra nadie.'
     : abierto
-      ? `Incentivos abiertos: todo lo ganado se multiplica ×${k}.`
-      : 'El candado de facturación sigue cerrado este mes.'
+      ? `Al ritmo de hoy el mes cierra abierto: todo lo ganado se multiplica ×${k}.`
+      : 'Al ritmo de hoy el mes cierra por debajo del candado.'
 
   const cfgPdf = cfg as unknown as Record<string, number>
 
@@ -313,7 +334,7 @@ export default function TabIncentivos() {
           etiqueta="Plan en blanco"
           generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirPlanIncentivosPDF(cfgPdf, rec, { bn: opts.bn, mes, anio }) }}
         />
-        <button onClick={guardar} disabled={saving} style={btnSolido(VERDE_EQUIPO)}>
+        <button onClick={guardar} disabled={saving} style={btnSolido(VERDE)}>
           <Save size={15} /> {saving ? 'Guardando…' : 'Guardar mes'}
         </button>
       </div>
@@ -322,16 +343,18 @@ export default function TabIncentivos() {
         area="equipo"
         periodo={`${MESES_LARGO[mes - 1]} ${anio}`}
         titular={tituloHero}
-        etiquetaDato={mc.fact_override != null ? 'Facturación de cocina (a mano)' : 'Facturación de cocina del mes'}
-        cifra={MILES(fact)}
-        resumen={!abierto && !mc.muerte
-          ? <>Faltan <b>{MILES(Math.max(0, Number(cfg.fact_min) - fact))}</b> para abrir el sistema. Objetivo diario: 900-1.000 €.</>
-          : <>Con lo marcado hasta ahora, la cocina se lleva <b>{EUR(totalMes)}</b> entre {emps.length} personas.</>}
+        etiquetaDato={mc.fact_override != null ? 'Facturación de cocina (a mano)' : estimado ? 'Cierre estimado del mes' : 'Facturación de cocina del mes'}
+        cifra={`${MILES(fact)}${estimado ? ' [EST]' : ''}`}
+        resumen={estimado
+          ? <>Hoy llevamos <b>{MILES(factAcum)}</b> en {diasPasados} días ({MILES(ritmoDia)}/día). {faltaParaAbrir > 0
+            ? <>Para abrir el candado faltan <b>{MILES(faltaParaAbrir)}</b>: {MILES(faltaDiario)} más al día en lo que queda de mes.</>
+            : <>Al cierre, la cocina se llevaría <b>{EUR(totalMes)}</b> entre {emps.length} personas.</>}</>
+          : <>Mes cerrado con {MILES(factAcum)}. La cocina se lleva <b>{EUR(totalMes)}</b> entre {emps.length} personas.</>}
         atencion={[
+          `Hoy ${MILES(factAcum)} · ×${kHoy || 0}`,
           `Colectivo ${EUR(colTotal)} de ${EUR(colMax)}`,
           `Individual hasta ${EUR(indMax)}`,
-          `Tope ${EUR(Number(cfg.tope_total))}`,
-          `A pagar ${EUR(totalMes)}`,
+          `A pagar ${EUR(totalMes)}${estimado ? ' [EST]' : ''}`,
         ]}
       />
 
@@ -343,12 +366,12 @@ export default function TabIncentivos() {
             <div style={EYEBROW}>Ajustar el plan · cambia el cálculo y todo lo que se imprime</div>
             <div style={{ flex: 1 }} />
             {guardadoCfg && <span style={{ fontFamily: OSW, fontSize: 12, color: VERDE, fontWeight: 700, letterSpacing: '1px' }}>GUARDADO</span>}
-            <button onClick={guardarCfg} style={btnSolido(VERDE_EQUIPO)}><Save size={14} /> Guardar plan</button>
+            <button onClick={guardarCfg} style={btnSolido(VERDE)}><Save size={14} /> Guardar plan</button>
           </div>
           <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
             <div>
               <div style={{ ...EYEBROW, marginBottom: 8 }}>Candado de facturación</div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', maxWidth: 430 }}>
                 <Campo label="Abre en" valor={cfg.fact_min} onChange={v => updCfg({ fact_min: v })} sufijo="€" ancho={92} />
                 <Campo label="Sube en" valor={cfg.fact_t2} onChange={v => updCfg({ fact_t2: v })} sufijo="€" ancho={92} />
                 <Campo label="Completo en" valor={cfg.fact_t3} onChange={v => updCfg({ fact_t3: v })} sufijo="€" ancho={92} />
@@ -389,12 +412,30 @@ export default function TabIncentivos() {
         </Papel>
       )}
 
+      <Plancha>
+        <PlanchaCelda first bg={BLANCO}>
+          <div style={EYEBROW}>Llevamos hoy</div>
+          <div style={{ fontFamily: OSW, fontSize: 30, fontWeight: 700, lineHeight: 1.1 }}>{MILES(factAcum)}</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>{diasPasados} de {diasMes} días · {diasConVentas} con ventas</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={CREMA}>
+          <div style={EYEBROW}>Ritmo diario</div>
+          <div style={{ fontFamily: OSW, fontSize: 30, fontWeight: 700, lineHeight: 1.1 }}>{MILES(ritmoDia)}</div>
+          <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>objetivo 900-1.000 €</div>
+        </PlanchaCelda>
+        <PlanchaCelda bg={abierto ? VERDE : CLARO} color={abierto ? BLANCO : INK}>
+          <div style={{ ...EYEBROW, color: abierto ? BLANCO : INK }}>Cierre estimado</div>
+          <div style={{ fontFamily: OSW, fontSize: 30, fontWeight: 700, lineHeight: 1.1 }}>{MILES(fact)}{estimado ? ' [EST]' : ''}</div>
+          <div style={{ fontFamily: LEX, fontSize: 12 }}>{abierto ? `multiplicador ×${k}` : 'candado cerrado'}</div>
+        </PlanchaCelda>
+      </Plancha>
+
       <Papel ceja={abierto ? VERDE : GRANATE}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
-          <div style={EYEBROW}>Candado de facturación</div>
+          <div style={EYEBROW}>Candado de facturación · barra clara = hoy, barra completa = cierre estimado</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <label style={{ ...chkLabel, fontSize: 12 }}>
-              Poner a mano:
+              Corregir a mano:
               <input type="number" min={0} placeholder="auto" value={mc.fact_override ?? ''}
                 onChange={e => setMc({ ...mc, fact_override: e.target.value === '' ? null : Number(e.target.value) })}
                 style={{ ...NUM, width: 100 }} />
@@ -406,7 +447,8 @@ export default function TabIncentivos() {
           </div>
         </div>
         <div style={{ position: 'relative', height: 16, border: `3px solid ${INK}`, background: CLARO, overflow: 'hidden' }}>
-          <div style={{ width: `${pct}%`, height: '100%', background: abierto ? VERDE : GRANATE, transition: 'width .4s' }} />
+          <div style={{ position: 'absolute', inset: 0, width: `${pctProy}%`, background: abierto ? VERDE : GRANATE, opacity: 0.35 }} />
+          <div style={{ position: 'absolute', inset: 0, width: `${pctHoy}%`, background: abierto ? VERDE : GRANATE }} />
         </div>
         <div style={{ position: 'relative', height: 22, marginTop: 5, fontFamily: OSW, fontSize: 12.5 }}>
           {[Number(cfg.fact_min), Number(cfg.fact_t2), Number(cfg.fact_t3)].map((v, i) => (
@@ -415,7 +457,11 @@ export default function TabIncentivos() {
             </div>
           ))}
         </div>
-        {mc.fact_override == null && <div style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS, marginTop: 6 }}>Sale solo de las ventas del ERP ({MILES(factReal)}). Escribe a mano solo si el dato falla.</div>}
+        <div style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS, marginTop: 6 }}>
+          {mc.fact_override != null
+            ? 'Cifra puesta a mano: manda sobre el dato automático.'
+            : 'Sale solo de las ventas del ERP; la estimación se corrige cada día con lo que se factura de verdad. El pago final se calcula con el mes cerrado.'}
+        </div>
       </Papel>
 
       <Papel ceja={mc.muerte ? ROJO : VERDE}>
@@ -436,7 +482,7 @@ export default function TabIncentivos() {
       </Papel>
 
       <div>
-        <SeccionLabel bg={VERDE_EQUIPO}>Bloque colectivo · lo gana todo el equipo o nadie</SeccionLabel>
+        <SeccionLabel bg={AMA} color={INK}>Bloque colectivo · lo gana todo el equipo o nadie</SeccionLabel>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <Concepto activo={mc.retrasos_ok} titulo="Entregas a tiempo" importe={Number(cfg.retrasos_eur)}
             detalle="Sin retrasos al rider y tiempo de preparación cumplido. Es lo que más premian las plataformas."
@@ -481,23 +527,23 @@ export default function TabIncentivos() {
             <div style={{ fontFamily: OSW, fontSize: 30, fontWeight: 700, lineHeight: 1.1 }}>{EUR(indMax)}</div>
             <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS }}>por persona</div>
           </PlanchaCelda>
-          <PlanchaCelda bg={abierto ? VERDE_EQUIPO : CLARO} color={abierto ? BLANCO : INK}>
+          <PlanchaCelda bg={abierto ? VERDE : CLARO} color={abierto ? BLANCO : INK}>
             <div style={{ ...EYEBROW, color: abierto ? BLANCO : INK }}>A pagar este mes</div>
-            <div style={{ fontFamily: OSW, fontSize: 30, fontWeight: 700, lineHeight: 1.1 }}>{EUR(totalMes)}</div>
+            <div style={{ fontFamily: OSW, fontSize: 30, fontWeight: 700, lineHeight: 1.1 }}>{EUR(totalMes)}{estimado ? ' [EST]' : ''}</div>
             <div style={{ fontFamily: LEX, fontSize: 12 }}>{emps.length} personas · ×{k || 0}</div>
           </PlanchaCelda>
         </Plancha>
       </div>
 
       <div>
-        <SeccionLabel bg={VERDE_EQUIPO}>Ficha de cada persona</SeccionLabel>
+        <SeccionLabel bg={AMA} color={INK}>Ficha de cada persona</SeccionLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {emps.map(e => {
             const m = meds[e.empleado_id]
             const r = calcV13(cfg, mc, m, fact)
             const anulado = m.muerte_personal || mc.muerte || k === 0
             return (
-              <Papel key={e.empleado_id} ceja={m.muerte_personal ? ROJO : VERDE_EQUIPO}>
+              <Papel key={e.empleado_id} ceja={m.muerte_personal ? ROJO : INK}>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                   <div style={{ flex: '1 1 220px', minWidth: 200 }}>
                     <div style={{ fontFamily: OSW, fontSize: 22, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{e.nombre}</div>
@@ -506,9 +552,9 @@ export default function TabIncentivos() {
                         ? 'Regla de compañerismo: este mes no cobra incentivo.'
                         : `Colectivo ${EUR(r.col)} + individual ${EUR(r.ind)}${r.pen > 0 ? ` − ${EUR(r.pen)} de tardes` : ''} · ×${r.k}`}
                     </div>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginTop: 10, background: anulado ? CLARO : VERDE_EQUIPO, color: anulado ? INK : BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, padding: '6px 14px' }}>
-                      <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Cobra</span>
-                      <span style={{ fontFamily: OSW, fontSize: 30, fontWeight: 700, lineHeight: 1 }}>{EUR(r.total)}</span>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginTop: 10, background: anulado ? CLARO : VERDE, color: anulado ? INK : BLANCO, border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, padding: '6px 14px' }}>
+                      <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase' }}>{estimado ? 'Va camino de' : 'Cobra'}</span>
+                      <span style={{ fontFamily: OSW, fontSize: 30, fontWeight: 700, lineHeight: 1 }}>{EUR(r.total)}{estimado ? ' [EST]' : ''}</span>
                     </div>
                   </div>
 
@@ -521,7 +567,7 @@ export default function TabIncentivos() {
                       const on = !!m[campo]
                       return (
                         <button key={String(campo)} onClick={() => upd(e.empleado_id, { [campo]: !on } as Partial<Medicion>)}
-                          style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, padding: '9px 13px', border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, background: on ? VERDE_EQUIPO : BLANCO, color: on ? BLANCO : INK, cursor: 'pointer', borderRadius: 0, minWidth: 120 }}>
+                          style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, padding: '9px 13px', border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, background: on ? VERDE : BLANCO, color: on ? BLANCO : INK, cursor: 'pointer', borderRadius: 0, minWidth: 120 }}>
                           <span style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase' }}>{on ? '✓ ' : ''}{label}</span>
                           <span style={{ fontFamily: OSW, fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{EUR(imp)}</span>
                         </button>
@@ -572,7 +618,7 @@ export default function TabIncentivos() {
                   <BotonImprimir compacto documentoId="equipo.incentivos_empleado"
                     titulo={`Hoja de incentivos · ${e.nombre} · ${MESES_LARGO[mes - 1]} ${anio}`}
                     etiqueta="Su mes"
-                    generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirIncentivosPDF(cfg, mc, e, m, fact, mes, anio, rec, opts.bn) }} />
+                    generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirIncentivosPDF(cfg, mc, e, m, fact, estimado, mes, anio, rec, opts.bn) }} />
                 </div>
               </Papel>
             )
@@ -582,7 +628,7 @@ export default function TabIncentivos() {
 
       <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, lineHeight: 1.6 }}>
         Tope {EUR(Number(cfg.tope_total))} por persona · Reembolsos: 0 € → {EUR(Number(cfg.reemb_eur1) + Number(cfg.reemb_cero_extra))} · hasta {EUR(Number(cfg.reemb_lim1))} → {EUR(Number(cfg.reemb_eur1))} · hasta {EUR(Number(cfg.reemb_lim2))} → {EUR(Number(cfg.reemb_eur2))} · Tardes: {cfg.tardes_permitidas} gratis y después −{EUR(Number(cfg.pen_tarde))}, en apertura −{EUR(Number(cfg.pen_apertura))} · Constancia: {cfg.bonus_meses} meses al 100% → +{EUR(Number(cfg.bonus_constancia))}.
-        El plan puede modificarse según las métricas a conseguir y se avisa siempre antes del mes en que empieza a aplicar. Documento personal e intransferible.
+        Todo lo marcado [EST] es estimación con el ritmo del mes en curso; el pago se calcula con el mes cerrado. El plan puede modificarse según las métricas a conseguir y se avisa antes del mes en que aplica. Documento personal e intransferible.
       </div>
     </PantallaCantera>
   )
