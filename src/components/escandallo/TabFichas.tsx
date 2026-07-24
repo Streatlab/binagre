@@ -3,8 +3,8 @@ import React from 'react'
 import { supabase } from '@/lib/supabase'
 import { Printer, FileDown, Pencil, AlertTriangle, Link2 } from 'lucide-react'
 import ModalEditarFicha from './ModalEditarFicha'
-import { fmtEur, fmtNum } from '@/lib/format'
-import FichaTecnicaHoja, { ALERGENOS_FICHA, ALERGENOS_FICHA_PIE, type LineaIng } from '@/components/marco/FichaTecnicaHoja'
+import FichaEPSPrint from '@/components/escandallo/FichaEPSPrint'
+import { toFichaEPS, limpiarIngrediente, type LineaOrigen } from '@/components/escandallo/fichaEPSAdapter'
 import { GRANATE, BLANCO, GRIS, INK, CREMA, OSW, LEX } from '@/styles/neobrutal'
 import { estiloFiltro, estiloBoton, estiloItemLista, SelectCantera } from '@/components/kit/controles'
 import {
@@ -23,7 +23,22 @@ interface Ficha {
 }
 
 const NO_COSTE = (i: IngLinea) => i.ud === 'cup' || i.ud === 'cups' || /\bagua\b/.test(i.ingrediente.toLowerCase())
-const TODOS_ALERGENOS = [...ALERGENOS_FICHA, ...ALERGENOS_FICHA_PIE]
+const ALERGENOS_EDITABLES = [
+  'Gluten', 'Lácteos', 'Huevos', 'Soja', 'Frutos secos', 'Crustáceos', 'Pescado',
+  'Moluscos', 'Cacahuetes', 'Apio', 'Mostaza', 'Sésamo', 'Sulfitos', 'Altramuces',
+]
+
+/* Aísla la hoja al imprimir: el resto del ERP no sale en el papel. */
+const CSS_IMPRESION = `
+@media print{
+  @page{ size:A4 portrait; margin:0; }
+  html, body{ background:#fff !important; }
+  body *{ visibility:hidden; }
+  #zona-impresion, #zona-impresion *{ visibility:visible; }
+  #zona-impresion{ position:absolute; left:0; top:0; }
+  .no-print{ display:none !important; }
+}
+`
 
 export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?: 'ep' | 'receta' }) {
   const [fichas, setFichas] = useState<Ficha[]>([])
@@ -33,7 +48,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
   const [alergMap, setAlergMap] = useState<Record<string, string[]>>({})
   const [gestionGamas, setGestionGamas] = useState(false)
   const [costesReales, setCostesReales] = useState<Record<string, { tanda: number; rac: number }>>({})
-  const [lineasReales, setLineasReales] = useState<Record<string, { ingrediente: string; cant: string; ud: string }[]>>({})
+  const [lineasReales, setLineasReales] = useState<Record<string, LineaOrigen[]>>({})
 
   useEffect(() => { cargar(); setGamaSel('') }, [tipo])
   useEffect(() => { cargarAlergenos() }, [])
@@ -44,7 +59,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
     ;(data ?? []).forEach((r: any) => {
       const al = Array.isArray(r.alergenos) ? r.alergenos : []
       if (al.length === 0) return
-      const claves = [r.nombre_base, r.nombre].filter(Boolean).map((s: string) => limpiarNombre(s).nombre.toLowerCase())
+      const claves = [r.nombre_base, r.nombre].filter(Boolean).map((s: string) => limpiarIngrediente(s).toLowerCase())
       claves.forEach(k => { if (k) map[k] = al })
     })
     setAlergMap(map)
@@ -66,7 +81,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
       if (r.codigo) mapaCostes[r.codigo] = { tanda: Number(r.coste_tanda) || 0, rac: Number(r.coste_rac) || 0 }
     })
     setCostesReales(mapaCostes)
-    const mapaLineas: Record<string, { ingrediente: string; cant: string; ud: string }[]> = {}
+    const mapaLineas: Record<string, LineaOrigen[]> = {}
     const [epsLinRes, recLinRes, epsCodRes, recCodRes] = await Promise.all([
       supabase.from('eps_lineas').select('eps_id, ingrediente_nombre, cantidad, unidad'),
       supabase.from('recetas_lineas').select('receta_id, ingrediente_nombre, cantidad, unidad'),
@@ -80,9 +95,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
     const pushLinea = (cod: string | undefined, l: any) => {
       if (!cod) return
       ;(mapaLineas[cod] = mapaLineas[cod] || []).push({
-        ingrediente: l.ingrediente_nombre ?? '',
-        cant: l.cantidad != null ? String(l.cantidad) : '',
-        ud: l.unidad ?? '',
+        ingrediente: l.ingrediente_nombre ?? '', cantidad: l.cantidad, unidad: l.unidad,
       })
     }
     ;(epsLinRes.data ?? []).forEach((l: any) => pushLinea(epsCod[l.eps_id], l))
@@ -143,6 +156,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
 
   return (
     <div>
+      <style>{CSS_IMPRESION}</style>
       <div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
         <button onClick={() => setGamaSel('')} style={pill(gamaSel === '')}>Todas</button>
         {gamasAll.map(g => (
@@ -185,34 +199,6 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
   )
 }
 
-function fmtCant(c: string): string {
-  const s = (c ?? '').trim()
-  if (!s || !/^[\d.,]+$/.test(s)) return s
-  const n = Number(s.replace(/\./g, '').replace(',', '.'))
-  if (!isFinite(n)) return s
-  return n.toLocaleString('es-ES', { maximumFractionDigits: 3 })
-}
-
-/** "gr" → "gr." · "lata" → "lata" (las palabras completas no llevan punto). */
-function fmtUd(ud: string): string {
-  const u = (ud ?? '').trim().replace(/\.$/, '')
-  if (!u) return ''
-  return u.length <= 3 ? `${u}.` : u.toLowerCase()
-}
-
-/**
- * Limpia el nombre del ingrediente para el papel: quita el sufijo de proveedor
- * (_MER, _ALC, _EPS…) esté donde esté y saca la aclaración entre paréntesis
- * ("1 c.s.", "4 hojas") a la columna Equivalencia, que es su sitio.
- */
-export function limpiarNombre(n: string): { nombre: string; equivalencia: string } {
-  let s = (n ?? '').replace(/_[A-Z]{2,4}\b/g, '').trim()
-  let eq = ''
-  const m = s.match(/\(([^)]*)\)\s*$/)
-  if (m && m.index != null) { eq = m[1].trim(); s = s.slice(0, m.index).trim() }
-  return { nombre: s, equivalencia: eq }
-}
-
 function costeLinea(i: IngLinea): number {
   if (!i.match) return 0
   const c = parseFloat((i.cant || '').replace(',', '.'))
@@ -221,27 +207,31 @@ function costeLinea(i: IngLinea): number {
   return factor * i.match.precio
 }
 
-function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineasEP }: { ficha: Ficha; alergMap: Record<string, string[]>; gamasAll: string[]; onSaved: () => void; costeReal?: { tanda: number; rac: number }; lineasEP?: { ingrediente: string; cant: string; ud: string }[] }) {
-  const tienePropios = (f.ingredientes ?? []).some(i => i.ingrediente && i.cant)
-  const ingredientes: IngLinea[] = tienePropios
-    ? f.ingredientes
-    : (lineasEP ?? []).map(l => ({ cant: l.cant, ud: l.ud, ingrediente: l.ingrediente, equivalencia: '', match: { iding: '', nombre: l.ingrediente, precio: 0, prov: 'EP' } }))
-  const costeTandaCalc = ingredientes.reduce((s, i) => s + costeLinea(i), 0)
+function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineasEP }: { ficha: Ficha; alergMap: Record<string, string[]>; gamasAll: string[]; onSaved: () => void; costeReal?: { tanda: number; rac: number }; lineasEP?: LineaOrigen[] }) {
+  // En EPs y recetas manda SIEMPRE el escandallo; la copia guardada en la ficha
+  // solo se usa si esa elaboración todavía no tiene líneas.
+  const lineas: LineaOrigen[] = (lineasEP && lineasEP.length > 0)
+    ? lineasEP
+    : (f.ingredientes ?? []).map(i => ({ ingrediente: i.match?.nombre ?? i.ingrediente, cantidad: i.cant, unidad: i.ud }))
+
+  const paraCoste: IngLinea[] = (lineasEP && lineasEP.length > 0)
+    ? f.ingredientes ?? []
+    : f.ingredientes ?? []
+  const costeTandaCalc = paraCoste.reduce((s, i) => s + costeLinea(i), 0)
   const costeTanda = costeReal && costeReal.tanda > 0 ? costeReal.tanda : costeTandaCalc
   const costeRac = costeReal && costeReal.rac > 0 ? costeReal.rac : (f.raciones ? costeTanda / f.raciones : 0)
-  const sinEnlazar = ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i))
+  const sinEnlazar = (f.ingredientes ?? []).filter(i => i.ingrediente && !i.match && !NO_COSTE(i))
   const [editando, setEditando] = useState(false)
 
   const alergAuto = useMemo(() => {
     const set = new Set<string>()
-    ingredientes.forEach(i => {
-      const k = limpiarNombre(i.ingrediente || '').nombre.toLowerCase()
-      const al = alergMap[k]
+    lineas.forEach(l => {
+      const al = alergMap[limpiarIngrediente(l.ingrediente).toLowerCase()]
       if (al) al.forEach(a => set.add(a))
     })
     ;(f.alergenos ?? []).forEach(a => set.add(a))
     return [...set]
-  }, [f, alergMap])
+  }, [f, alergMap, lineasEP])
 
   const [editAlerg, setEditAlerg] = useState(false)
   const [alergManual, setAlergManual] = useState<string[]>(alergAuto)
@@ -258,16 +248,15 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
     onSaved()
   }
 
-  // ── Datos reales del escandallo → líneas del papel ──
-  const lineasHoja: LineaIng[] = ingredientes.map(i => {
-    const l = limpiarNombre(i.match?.nombre ?? i.ingrediente)
-    return {
-      ingrediente: l.nombre,
-      cantidad: fmtCant(i.cant),
-      unidad: fmtUd(i.ud),
-      equivalencia: i.equivalencia || l.equivalencia,
-    }
-  })
+  const ficha = toFichaEPS(
+    {
+      tipo: f.tipo, codigo: f.codigo, nombre: f.nombre, gama: f.gama, edicion: f.edicion,
+      tiempo_prep: f.tiempo_prep, raciones: f.raciones, pasos: f.pasos,
+      conservacion: f.conservacion, alergenos: alergAuto,
+    },
+    lineas,
+    { tanda: costeTanda, racion: costeRac },
+  )
 
   return (
     <div className="flex-1 min-w-0">
@@ -294,7 +283,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
 
       {editAlerg && (
         <div className="no-print" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-          {TODOS_ALERGENOS.map(a => {
+          {ALERGENOS_EDITABLES.map(a => {
             const on = alergManual.some(x => x.toLowerCase() === a.toLowerCase())
             return (
               <button key={a} onClick={() => setAlergManual(prev => on ? prev.filter(x => x.toLowerCase() !== a.toLowerCase()) : [...prev, a])}
@@ -310,7 +299,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
         <div className="no-print" style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 0, padding: '12px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
           <AlertTriangle size={18} color={ESCANDALLO_WARN_BTN} />
           <div style={{ flex: 1, fontSize: 13, color: ESCANDALLO_WARN_TXT }}>
-            <strong>{sinEnlazar.length} sin enlazar al escandallo:</strong> {sinEnlazar.map(i => limpiarNombre(i.ingrediente).nombre).join(', ')}.
+            <strong>{sinEnlazar.length} sin enlazar al escandallo:</strong> {sinEnlazar.map(i => limpiarIngrediente(i.ingrediente)).join(', ')}.
           </div>
           <button onClick={() => setEditando(true)} style={estiloBoton({ background: ESCANDALLO_WARN_BTN, color: BLANCO, padding: '7px 12px', fontSize: 12 })}>
             <Link2 size={13} /> Resolver
@@ -318,28 +307,17 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
         </div>
       )}
 
-      <FichaTecnicaHoja
-        tipoDoc={f.tipo === 'receta' ? 'Receta' : 'Elaboración previa'}
-        nombre={f.nombre}
-        gama={f.gama}
-        codigo={f.codigo}
-        revision={f.edicion}
-        tiempoPrep={f.tiempo_prep}
-        rendimiento={f.raciones ? `${fmtNum(f.raciones, 0)} rac.` : null}
-        costeTanda={fmtEur(costeTanda, { decimals: 2 })}
-        costeRacion={fmtEur(costeRac, { decimals: 2 })}
-        ingredientes={lineasHoja}
-        pasos={f.pasos ?? []}
-        conservacion={f.conservacion ?? []}
-        alergenos={alergAuto}
-      />
+      {/* DOCUMENTO APROBADO — no se reinterpreta: se pinta tal cual */}
+      <div id="zona-impresion" style={{ overflowX: 'auto' }}>
+        <FichaEPSPrint ficha={ficha} bn={false} logoSrc="/data/logo-icon.svg" />
+      </div>
 
       <div className="no-print" style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
         <button onClick={() => window.print()} style={estiloBoton()}><Printer size={15} /> Imprimir</button>
         <button onClick={() => window.print()} style={estiloBoton()} title="En el diálogo, elige «Guardar como PDF»"><FileDown size={15} /> PDF</button>
         <button onClick={() => setEditando(true)} style={estiloBoton()}><Pencil size={15} /> Editar</button>
         <span style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
-          Enlazados al escandallo: {ingredientes.length - sinEnlazar.length}/{ingredientes.length}
+          Enlazados al escandallo: {(f.ingredientes ?? []).length - sinEnlazar.length}/{(f.ingredientes ?? []).length}
           {' · '}
           <span style={{ color: ESCANDALLO_OK_TXT, background: ESCANDALLO_OK_BG, padding: '1px 6px' }}>coste real</span>
         </span>
