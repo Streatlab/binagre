@@ -53,6 +53,7 @@ const CocinaPage = React.lazy(() => import('@/pages/configuracion/cocina/CocinaP
 const TabFormatoNumeros = React.lazy(() => import('@/pages/configuracion/cocina/TabFormatoNumeros'))
 
 const UsuariosPage = React.lazy(() => import('@/pages/configuracion/usuarios/UsuariosPage'))
+const ImpresionPage = React.lazy(() => import('@/pages/configuracion/ImpresionPage'))
 const CalendarioPage = React.lazy(() => import('@/pages/configuracion/calendario/CalendarioPage'))
 const AprendizajesPage = React.lazy(() => import('@/pages/configuracion/AprendizajesPage'))
 const ConfiguracionHub = React.lazy(() => import('@/pages/configuracion/ConfiguracionHub'))
@@ -197,6 +198,7 @@ function AppRoutes() {
           </Route>
 
           <Route path="configuracion/usuarios" element={<ProtectedRoute solo={['admin']}><UsuariosPage /></ProtectedRoute>} />
+          <Route path="configuracion/impresion" element={<ProtectedRoute solo={['admin']}><ImpresionPage /></ProtectedRoute>} />
           <Route path="configuracion/categorias-financieras" element={<Navigate to="/configuracion/bancos-y-cuentas" replace />} />
           <Route path="configuracion/calendario" element={<ProtectedRoute solo={['admin']}><CalendarioPage /></ProtectedRoute>} />
           <Route path="configuracion/aprendizajes" element={<ProtectedRoute solo={['admin']}><AprendizajesPage /></ProtectedRoute>} />

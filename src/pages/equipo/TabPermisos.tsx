@@ -8,6 +8,8 @@ import ModalSolicitud from '@/components/equipo/ModalSolicitud'
 import { syncRango } from '@/utils/calendarioOperativoSync'
 import { useAuth } from '@/context/AuthContext'
 import { HeroCantera, Papel, FrasePotente, PantallaCantera, SHADOW_DURA } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 interface Empleado { id: string; nombre: string }
 interface Solicitud {
@@ -45,6 +47,57 @@ function estadoBadge(estado: Solicitud['estado']) {
   if (estado === 'aprobado') return { color: VERDE, bg: LIBRO_ESTADO_OK_BG, icon: <CheckCircle size={12} />, label: 'Aprobado' }
   if (estado === 'rechazado') return { color: GRANATE, bg: LIBRO_ESTADO_BAJA_BG, icon: <XCircle size={12} />, label: 'Rechazado' }
   return { color: NAR, bg: BADGE_PENDIENTE_BG, icon: <Clock size={12} />, label: 'Pendiente' }
+}
+
+// ─── FASE 2: PDF con el marco único (área 'equipo') — botón Imprimir ────────
+const AREA: M.Area = 'equipo'
+const ESTADO_LABEL: Record<Solicitud['estado'], string> = { aprobado: 'Aprobado', rechazado: 'Rechazado', pendiente: 'Pendiente' }
+
+/** Hoja de permisos / vacaciones con las solicitudes visibles en pantalla (filtro aplicado). Sin filas → null. */
+function construirPermisosPDF(solicitudes: Solicitud[], empNombre: (id: string) => string, filtroLabel: string, rec: M.Recursos, bn = false) {
+  if (solicitudes.length === 0) return null
+
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  const xEmp = cb.x0 + 1.5
+  const xPeriodo = cb.x0 + cb.w * 0.30
+  const xTipo = cb.x0 + cb.w * 0.58
+  const xEstado = cb.x1 - 1.5
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Hoja de Permisos', meta: filtroLabel, area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+  M.fTitulo(doc, ctx, true); doc.setFontSize(8); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text('Empleado', xEmp, y + 4.2)
+  doc.text('Periodo', xPeriodo, y + 4.2)
+  doc.text('Tipo', xTipo, y + 4.2)
+  doc.text('Estado', xEstado, y + 4.2, { align: 'right' })
+  y += 6
+
+  for (const sol of solicitudes) {
+    if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+    M.fDato(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(...M.TINTA)
+    doc.text(empNombre(sol.empleado_id), xEmp, y + 3.6)
+    M.fDato(doc, ctx, false); doc.setTextColor(...M.GRIS)
+    doc.text(sol.fecha_inicio === sol.fecha_fin ? sol.fecha_inicio : `${sol.fecha_inicio} → ${sol.fecha_fin}`, xPeriodo, y + 3.6)
+    doc.setTextColor(...M.TINTA)
+    doc.text(TIPO_LABELS[sol.tipo] ?? sol.tipo, xTipo, y + 3.6)
+    doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(ESTADO_LABEL[sol.estado], xEstado, y + 3.6, { align: 'right' })
+    y += 4.8
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
 }
 
 export default function TabPermisos() {
@@ -175,12 +228,24 @@ export default function TabPermisos() {
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          style={{ padding: '8px 16px', border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
-        >
-          + Solicitar permiso
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <BotonImprimir
+            compacto
+            documentoId="equipo.permisos_vacaciones"
+            titulo={`Hoja de permisos / vacaciones · ${filtros.find(f => f.key === filtro)?.label ?? ''}`}
+            generarPdf={async opts => {
+              const rec = await M.cargarRecursos()
+              const filtroLabel = filtros.find(f => f.key === filtro)?.label ?? 'Todas'
+              return construirPermisosPDF(filtradas, empNombre, filtroLabel, rec, opts.bn)
+            }}
+          />
+          <button
+            onClick={() => setModalOpen(true)}
+            style={{ padding: '8px 16px', border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer' }}
+          >
+            + Solicitar permiso
+          </button>
+        </div>
       </div>
 
       {loading ? (

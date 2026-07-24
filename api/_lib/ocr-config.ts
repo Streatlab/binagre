@@ -2,7 +2,8 @@
 // Única fuente de verdad para tolerancias y límites compartidos entre frontend y backend
 
 /** Tolerancia matching factura↔banco en euros */
-export const TOLERANCIA_IMPORTE = 0.05
+// LEY-MATCH-01 (14-jul-2026): importe EXACTO al céntimo; la tolerancia ±0,05 queda derogada.
+export const TOLERANCIA_IMPORTE = 0
 
 /** Fecha límite inferior para conciliación. Facturas anteriores → estado 'historica' */
 export const LIMITE_CONCILIACION = '2023-07-01'

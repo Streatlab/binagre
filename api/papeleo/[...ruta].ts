@@ -23,6 +23,7 @@ import titulares from '../_puertas/titulares.js'
 import conciliacionImportarEmilio from '../_puertas/conciliacion-importar-emilio.js'
 import importarPlataforma from '../_puertas/importar-plataforma.js'
 import escandalloAuto from '../_puertas/escandallo-auto.js'
+import imprimir from '../_puertas/imprimir.js'
 
 // Config unificada: el máximo que necesita cualquier handler de esta puerta
 // (facturas-index: uploads 20mb + reprocesados largos de hasta 300s).
@@ -55,6 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (a === 'ocr-cleanup') return ocrCleanup(req, res)
   if (a === 'ocr-queue') { req.query.fn = 'queue'; return ocrCleanup(req, res) }
   if (a === 'titulares') return titulares(req, res)
+  if (a === 'imprimir') return imprimir(req, res)
   if (a === 'conciliacion' && b === 'importar-emilio') return conciliacionImportarEmilio(req, res)
   if (a === 'conciliacion' && (req.query.ruta2 === 'importar-emilio')) return conciliacionImportarEmilio(req, res)
   if (a === 'importar' && (b === 'plataforma' || !b)) return importarPlataforma(req, res)

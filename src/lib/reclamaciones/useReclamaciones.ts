@@ -6,10 +6,21 @@ import { supabase } from '../supabase';
 
 export type Canal = 'uber_eats' | 'glovo' | 'just_eat' | 'web' | 'directo';
 export type EstadoReclamacion =
-  | 'pendiente' | 'reclamada' | 'cobrada' | 'cobrada_doble' | 'rechazada' | 'incobrable';
+  | 'pendiente' | 'devuelto' | 'reclamada' | 'aprobada' | 'cobrada' | 'cobrada_doble' | 'rechazada' | 'incobrable';
 export type TipoReclamacion =
   | 'producto_faltante' | 'producto_erroneo' | 'mala_calidad'
   | 'pedido_cancelado' | 'cobro_incorrecto' | 'otro';
+export type CausaReclamacion = 'cocina' | 'plataforma' | 'rider' | 'cliente' | 'desconocida';
+
+// Plazo orientativo para reclamar a la plataforma desde la fecha del pedido.
+// 14 días como margen seguro común a Uber/Glovo/Just Eat.
+export const PLAZO_RECLAMO_DIAS = 14;
+
+export function diasRestantesReclamo(fechaPedido: string): number {
+  const f = new Date(fechaPedido + 'T00:00:00');
+  const limite = f.getTime() + PLAZO_RECLAMO_DIAS * 86400000;
+  return Math.ceil((limite - Date.now()) / 86400000);
+}
 
 export interface Reclamacion {
   id: string;
@@ -35,6 +46,13 @@ export interface Reclamacion {
   pedido_plataforma_id: string | null;
   factura_origen_ref: string | null;
   pedido_verificado: boolean | null;
+  causa: CausaReclamacion;
+  cliente_nombre: string | null;
+  detectado_por: string;
+  fecha_deteccion_devolucion: string | null;
+  aviso_visto: boolean | null;
+  // nº de facturas del canal llegadas después de reclamar sin traer el cobro
+  facturas_revisadas: number;
 }
 
 // Resultado de verificar un pedido en pedidos_plataforma
@@ -128,7 +146,16 @@ export function useReclamaciones() {
     return pub.publicUrl;
   };
 
-  return { data, loading, error, refetch: fetchData, insert, update, remove, uploadFoto };
+  const marcarAvisoVisto = async (id: string) => {
+    const { error: err } = await supabase
+      .from('reclamaciones')
+      .update({ aviso_visto: true })
+      .eq('id', id);
+    if (err) throw err;
+    await fetchData();
+  };
+
+  return { data, loading, error, refetch: fetchData, insert, update, remove, uploadFoto, marcarAvisoVisto };
 }
 
 // ===== Reembolsos pendientes por canal (para Facturación) =====
@@ -168,17 +195,29 @@ export const TIPO_LABELS: Record<TipoReclamacion, string> = {
 
 export const ESTADO_LABELS: Record<EstadoReclamacion, { full: string; short: string }> = {
   pendiente:     { full: 'Pendiente',      short: 'Pend.' },
+  devuelto:      { full: 'Detectado',      short: 'Detect.' },
   reclamada:     { full: 'Reclamada',      short: 'Recl.' },
+  aprobada:      { full: 'Aprobada',       short: 'Aprob.' },
   cobrada:       { full: 'Cobrada',        short: 'Cobr.' },
   cobrada_doble: { full: 'Cobrada doble',  short: '2x' },
   rechazada:     { full: 'Rechazada',      short: 'Rech.' },
   incobrable:    { full: 'Incobrable',     short: 'Incob.' },
 };
 
+export const CAUSA_LABELS: Record<CausaReclamacion, string> = {
+  cocina: 'Error de cocina',
+  plataforma: 'Fallo de plataforma',
+  rider: 'Fallo del rider',
+  cliente: 'Abuso del cliente',
+  desconocida: 'Sin determinar',
+};
+
 // ===== Métricas agregadas =====
 
+const ESTADOS_ABIERTOS: EstadoReclamacion[] = ['pendiente', 'devuelto', 'reclamada', 'aprobada'];
+
 export function computeMetricas(rows: Reclamacion[]) {
-  const abiertas = rows.filter(r => r.estado === 'pendiente' || r.estado === 'reclamada');
+  const abiertas = rows.filter(r => ESTADOS_ABIERTOS.includes(r.estado));
   const enRiesgo = abiertas.reduce((s, r) => s + Number(r.importe_reclamado), 0);
   const cobradas = rows.filter(r => r.estado === 'cobrada' || r.estado === 'cobrada_doble');
   const cobrado = cobradas.reduce((s, r) => s + Number(r.importe_compensado), 0);
@@ -193,8 +232,11 @@ export function computeMetricas(rows: Reclamacion[]) {
   return {
     abiertas: abiertas.length,
     enRiesgo,
-    pendientes: rows.filter(r => r.estado === 'pendiente').length,
+    pendientes: rows.filter(r => r.estado === 'pendiente' || r.estado === 'devuelto').length,
+    detectadas: rows.filter(r => r.estado === 'devuelto').length,
     reclamadas: rows.filter(r => r.estado === 'reclamada').length,
+    aprobadas: rows.filter(r => r.estado === 'aprobada').length,
+    avisosNuevos: rows.filter(r => r.estado === 'devuelto' && r.aviso_visto === false).length,
     cobradas: cobradas.length,
     dobles: dobles.length,
     extraDoble,
@@ -210,7 +252,7 @@ export function computeMetricas(rows: Reclamacion[]) {
 export function computeMetricasPorCanal(rows: Reclamacion[], canal: Canal) {
   const sub = rows.filter(r => r.canal === canal);
   const enRiesgo = sub
-    .filter(r => r.estado === 'pendiente' || r.estado === 'reclamada')
+    .filter(r => ESTADOS_ABIERTOS.includes(r.estado))
     .reduce((s, r) => s + Number(r.importe_reclamado), 0);
   const cobrado = sub
     .filter(r => r.estado === 'cobrada' || r.estado === 'cobrada_doble')

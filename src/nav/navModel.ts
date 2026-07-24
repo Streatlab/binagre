@@ -128,6 +128,7 @@ export const SECTIONS: NavSection[] = [
     key: 'ajustes', label: 'Ajustes', perfiles: ['admin'],
     items: [
       { path: '/configuracion', label: 'Configuración', emoji: '⚙️', perfiles: ['admin'] },
+      { path: '/configuracion/impresion', label: 'Impresión', emoji: '🖨️', perfiles: ['admin'] },
       { path: '/informes',      label: 'Informes',      emoji: '📊', perfiles: ['admin'] },
     ],
   },

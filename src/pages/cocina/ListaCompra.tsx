@@ -6,9 +6,10 @@ import { GRANATE, BLANCO, VERDE, NAR, AZUL } from '@/styles/neobrutal'
 import { PRINT_BN_BG, PRINT_BN_TXT, COBERTURA_VERDE, COBERTURA_NARANJA, COBERTURA_NARANJA_CLARO } from '@/styles/palettes'
 import type { TokenSet } from '@/styles/tokens'
 import { HeroCantera, Papel, PantallaCantera, FrasePotente, SeccionLabel } from '@/components/kit/cantera'
-import { Printer, Download, ShoppingCart, Search, Trash2, RotateCcw, Share2, ListChecks, Scale, Gauge, ChevronDown, ChevronRight, FileSpreadsheet, Copy, Check, Sparkles } from 'lucide-react'
+import { Download, ShoppingCart, Search, Trash2, RotateCcw, Share2, ListChecks, Scale, Gauge, ChevronDown, ChevronRight, FileSpreadsheet, Copy, Check, Sparkles } from 'lucide-react'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 import {
   PROVEEDOR_LABEL, PROVEEDOR_ORDEN, construirBloques, compararSupers, coberturaPrecios,
   filtrarBloques, listaCompraCSV, listaCompraTexto, metaSemana, semanaISO, eur,
@@ -195,7 +196,6 @@ export default function ListaCompra() {
     if (error) setExcluidos(prev => new Set(prev).add(id))
   }, [])
 
-  const handlePrint = async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(crearPDF(bloquesVista, metaTexto, rec, bn)) }
   const handlePDF = async () => { const rec = await M.cargarRecursos(); M.descargar(crearPDF(bloquesVista, metaTexto, rec, bn), `lista-compra-semana-${semanaN}`) }
 
   const handleCSV = () => {
@@ -274,7 +274,7 @@ export default function ListaCompra() {
           <button onClick={() => setBn(v => !v)} style={{ ...btnGhost, background: bn ? PRINT_BN_BG : 'transparent', color: bn ? PRINT_BN_TXT : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
           <button onClick={handleCopiar} style={btnGhost} title="Copiar resumen (WhatsApp)">{copiado ? <Check size={14} color={COBERTURA_VERDE} /> : <Copy size={14} />} {copiado ? 'Copiado' : 'Copiar'}</button>
           <button onClick={handleCSV} style={btnGhost} title="Exportar a CSV (Excel)"><FileSpreadsheet size={14} /> CSV</button>
-          <button onClick={handlePrint} style={btnGhost}><Printer size={14} /> Imprimir</button>
+          <BotonImprimir compacto documentoId="cocina.lista_compra" titulo={`Lista de Compra · ${metaTexto}`} generarPdf={async opts => { const rec = await M.cargarRecursos(); return crearPDF(bloquesVista, metaTexto, rec, opts.bn) }} />
           <button onClick={handleShare} style={btnGhost}><Share2 size={14} /> Compartir</button>
           <button onClick={handlePDF} style={btnPrimary}><Download size={14} /> PDF</button>
         </div>

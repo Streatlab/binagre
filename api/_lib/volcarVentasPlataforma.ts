@@ -107,6 +107,40 @@ async function volcarResumenUberLiquidaciones(
   }
 }
 
+// LEY-GLOVO-01: cada liquidación de Glovo alimenta TAMBIÉN glovo_liquidaciones
+// (tabla que leen Ventas/VentasTab vía v_liquidaciones_plataforma), con clave
+// única por número de factura interno (I1703…). Una factura = una marca; la
+// comisión no toca banco; lo que concilia es el ingreso a cuenta colaborador.
+// Solo se rellena lo que el documento trae de verdad — nada se inventa.
+async function volcarGlovoLiquidacion(
+  supabase: SupabaseClient, v: VentaPlataformaParseada, marca: string,
+): Promise<void> {
+  if (v.plataforma !== 'glovo' || !v.referencia) return
+  try {
+    const extra = v as unknown as Record<string, number | undefined>
+    const fila: Record<string, unknown> = {
+      plataforma: 'glovo',
+      marca,
+      numero_factura: v.referencia,
+      fecha_inicio_periodo: v.fecha_inicio_periodo,
+      fecha_fin_periodo: v.fecha_fin_periodo,
+      ventas_bruto: v.bruto,
+      ingreso_colaborador: v.neto,
+      ...(extra.comision_eur != null ? { comision_base: extra.comision_eur } : {}),
+      ...(extra.promo_eur != null ? { otros_cargos: extra.promo_eur } : {}),
+      estado: 'pendiente',
+      origen: 'liquidacion_zip',
+      updated_at: new Date().toISOString(),
+    }
+    const { data: ya } = await supabase.from('glovo_liquidaciones')
+      .select('id').eq('numero_factura', v.referencia).maybeSingle()
+    if (ya?.id) await supabase.from('glovo_liquidaciones').update(fila).eq('id', (ya as { id: string }).id)
+    else await supabase.from('glovo_liquidaciones').insert(fila)
+  } catch (e) {
+    console.error('[volcarGlovoLiquidacion]', (e as Error)?.message)
+  }
+}
+
 async function volcar(
   supabase: SupabaseClient, file: ArchivoEntrada, v: VentaPlataformaParseada,
 ): Promise<ProcesarResultado> {
@@ -144,11 +178,13 @@ async function volcar(
 
   if (existe) {
     await supabase.from('ventas_plataforma').update(fila).eq('id', (existe as { id: string }).id)
+    await volcarGlovoLiquidacion(supabase, v, marca) // upsert idempotente por nº factura
     return { estado: 'duplicada', archivo: file.nombre, tipo_documento: 'resumen_ventas',
       resumen_ventas: info, motivo: `venta ${v.plataforma} · ${marca} · ya existía, actualizada` }
   }
 
   await supabase.from('ventas_plataforma').insert(fila)
+  await volcarGlovoLiquidacion(supabase, v, marca)
   await acumularPrimePromo(supabase, v) // solo en alta nueva → no duplica conteo
   return { estado: 'ok', archivo: file.nombre, tipo_documento: 'resumen_ventas',
     resumen_ventas: info, motivo: `venta ${v.plataforma} · ${marca} · registrada` }

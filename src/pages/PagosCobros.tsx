@@ -14,6 +14,8 @@ import { FondoReserva } from '@/components/tesoreria/FondoReserva'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import TabsPastilla from '@/components/ui/TabsPastilla'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 // ─── Neobrutal ───────────────────────────────────────────────────────────────
 const NEO_INK = 'var(--neo-ink)'
@@ -234,6 +236,68 @@ function calcGastosPagos(gastos: GastoFijo[], hoy: Date, hasta: Date, nominasPag
   return items
 }
 
+// ─── PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — APAISADO — documentoId finanzas.pagos_cobros ──
+
+const AREA_PDF: M.Area = 'finanzas'
+
+function construirPagosCobrosPDF(pagos: CalendarioItem[], cobros: CalendarioItem[], rec: M.Recursos, bn = false) {
+  if (pagos.length === 0 && cobros.length === 0) return null
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA_PDF, bn)
+  const cb = M.contentBox(doc)
+  const totalPagos = pagos.reduce((s, i) => s + i.importe, 0)
+  const totalCobros = cobros.reduce((s, i) => s + i.importe, 0)
+  const meta = `Próximos 90 días · Pagos comprometidos ${fmtEur(totalPagos)} · Cobros previstos ${fmtEur(totalCobros)}`
+  const nuevaPagina = () => { M.pintarEspina(doc, AREA_PDF, ctx, bn); return M.pintarCabecera(doc, ctx, { docNombre: 'Calendario de pagos y cobros', meta, area: AREA_PDF, bn }) }
+  let y = nuevaPagina()
+
+  const wFecha = 26, wImporte = 36
+  const wConcepto = cb.w - wFecha - wImporte - 4
+  const xFecha = cb.x0, xConcepto = cb.x0 + wFecha + 2, xImporte = cb.x1
+
+  const pintarBloque = (titulo: string, items: CalendarioItem[], mostrarEstado: boolean) => {
+    if (y > cb.bottom - 16) { doc.addPage(); y = nuevaPagina() }
+    doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.roundedRect(cb.x0, y, cb.w, 7, M.R, M.R, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(10); doc.setTextColor(255, 255, 255)
+    doc.text(titulo.toUpperCase(), cb.x0 + 3, y + 5)
+    y += 9.5
+    if (items.length === 0) {
+      M.fDato(doc, ctx, false); doc.setFontSize(9); doc.setTextColor(...M.GRIS)
+      doc.text('Sin movimientos en los próximos 90 días.', cb.x0 + 1.5, y + 3)
+      y += 7
+      return
+    }
+    const cabTabla = () => {
+      doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.rect(cb.x0, y, cb.w, 5.5, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(7.5); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+      doc.text('FECHA', xFecha + 1.5, y + 3.8)
+      doc.text(mostrarEstado ? 'CONCEPTO · ESTADO' : 'CONCEPTO', xConcepto, y + 3.8)
+      doc.text('IMPORTE', xImporte, y + 3.8, { align: 'right' })
+      y += 5.5
+    }
+    cabTabla()
+    for (const it of items) {
+      if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina(); cabTabla() }
+      doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+      M.fDato(doc, ctx, false); doc.setFontSize(8); doc.setTextColor(...M.TINTA)
+      doc.text(it.fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }), xFecha + 1.5, y + 3.6)
+      const conceptoTxt = mostrarEstado && it.estadoNomina ? `${it.concepto}  ·  ${it.estadoNomina}` : it.concepto
+      doc.text(conceptoTxt, xConcepto, y + 3.6, { maxWidth: wConcepto })
+      doc.setTextColor(...pal.acento); doc.text(fmtEur(it.importe), xImporte, y + 3.6, { align: 'right' })
+      y += 4.8
+    }
+    y += 4
+  }
+
+  pintarBloque('Pagos comprometidos', pagos, true)
+  pintarBloque('Cobros previstos (aún no han llegado)', cobros, false)
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
+
 // ─── Componente principal ────────────────────────────────────────────────────
 
 type TabId = 'calendario' | 'gastos' | 'reserva' | 'historial'
@@ -372,6 +436,10 @@ export function TabCalendario() {
 
   return (
     <PantallaCantera embedded>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <BotonImprimir compacto documentoId="finanzas.pagos_cobros" titulo="Calendario de pagos y cobros" generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirPagosCobrosPDF(pagos, cobros, rec, opts.bn) }} />
+      </div>
+
       {/* 1 · Héroe del área Tesorería (azul) */}
       <HeroCantera
         area="tesoreria"

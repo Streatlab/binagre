@@ -8,14 +8,14 @@
  * que Ruben lo pida EXPLICITAMENTE. Registro: Notion "Modulos blindados - Binagre".
  * ============================================================================== */
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Mic, Printer, Plus, Trash2, X, Check, Pencil, Tags, Archive, History } from 'lucide-react'
+import { Mic, Plus, Trash2, X, Check, Pencil, Tags, Archive, History } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { GRANATE, BLANCO, INK, NAR, OSW } from '@/styles/neobrutal'
 import { HeroCantera, Plancha, PlanchaCelda, FrasePotente, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
 import TabsPastilla from '@/components/ui/TabsPastilla'
-import { PRINT_BN_BG, PRINT_BN_TXT } from '@/styles/palettes'
 import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 import HojaDoc from '@/components/marco/HojaDoc'
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
@@ -168,7 +168,7 @@ function construirEsquemasPDF(grupos: { nombre: string; platos: Esquema[] }[], r
     M.pintarPaginado(doc, pi + 1, total, ctx)
   })
 
-  M.abrirImprimir(doc)
+  return doc
 }
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
@@ -183,18 +183,7 @@ export default function Esquemas() {
   const [verHistorico, setVerHistorico] = useState(false)
   const [editando, setEditando] = useState<Esquema | 'nuevo' | null>(null)
   const [gestorGamas, setGestorGamas] = useState(false)
-  const [imprimiendoTodo, setImprimiendoTodo] = useState(false)
-  const [bn, setBn] = useState(false)
-
   useEffect(() => { cargar() }, [])
-
-  useEffect(() => {
-    if (!imprimiendoTodo) return
-    const after = () => setImprimiendoTodo(false)
-    window.addEventListener('afterprint', after)
-    const t = setTimeout(() => window.print(), 350)
-    return () => { clearTimeout(t); window.removeEventListener('afterprint', after) }
-  }, [imprimiendoTodo])
 
   async function cargar() {
     setLoading(true)
@@ -217,21 +206,21 @@ export default function Esquemas() {
     esquemas.filter(e => e.gama === gamaActiva && (verHistorico ? e.estado !== 'vigente' : e.estado === 'vigente'))
     , [esquemas, gamaActiva, verHistorico])
 
-  async function imprimir() {
+  async function generarPdfGama(bnFlag: boolean) {
     const platos = esquemas.filter(e => e.gama === gamaActiva && e.estado === 'vigente')
-    if (!platos.length) return
+    if (!platos.length) return null
     const rec = await M.cargarRecursos()
-    construirEsquemasPDF([{ nombre: gamaActiva, platos }], rec, bn)
+    return construirEsquemasPDF([{ nombre: gamaActiva, platos }], rec, bnFlag)
   }
-  async function imprimirTodo() {
+  async function generarPdfTodo(bnFlag: boolean) {
     const orden = ['Asiática', 'Casera', 'Raciones', 'Binagre', 'Italiana', 'Green', 'French Tacos']
     const nombres = Array.from(new Set([...orden, ...gamas.map(g => g.nombre)]))
     const grupos = nombres
       .map(n => ({ nombre: n, platos: esquemas.filter(e => e.gama === n && e.estado === 'vigente') }))
       .filter(x => x.platos.length > 0)
-    if (!grupos.length) return
+    if (!grupos.length) return null
     const rec = await M.cargarRecursos()
-    construirEsquemasPDF(grupos, rec, bn)
+    return construirEsquemasPDF(grupos, rec, bnFlag)
   }
 
   if (loading) return <div style={{ padding: 32, color: T.sec, fontFamily: FONT.body }}>Cargando esquemas…</div>
@@ -286,9 +275,8 @@ export default function Esquemas() {
         <button onClick={() => setEditando('nuevo')} style={btnPrimary}><Plus size={16} /> Nuevo plato</button>
         <button onClick={() => setGestorGamas(true)} style={btnGhost(T)}><Tags size={16} /> Gamas</button>
         <button onClick={() => setVerHistorico(v => !v)} style={verHistorico ? btnPrimary : btnGhost(T)}><History size={16} /> {verHistorico ? 'Ver vigentes' : 'Histórico'}</button>
-        <button onClick={() => setBn(v => !v)} style={{ ...btnGhost(T), background: bn ? PRINT_BN_BG : 'transparent', color: bn ? PRINT_BN_TXT : T.sec }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
-        <button onClick={imprimir} style={btnGhost(T)}><Printer size={16} /> Imprimir / PDF</button>
-        <button onClick={imprimirTodo} style={btnPrimary}><Printer size={16} /> Imprimir todo (PDF)</button>
+        <BotonImprimir compacto documentoId="cocina.esquemas_gama" titulo={`Esquemas · ${gamaActiva}`} generarPdf={opts => generarPdfGama(opts.bn)} />
+        <BotonImprimir compacto documentoId="cocina.esquemas_gama" titulo="Esquemas · Todas las gamas" etiqueta="Imprimir todo" generarPdf={opts => generarPdfTodo(opts.bn)} />
       </div>
 
       {/* TABS GAMA */}
@@ -296,19 +284,8 @@ export default function Esquemas() {
         <TabsPastilla tabs={gamas.map(g => ({ id: g.nombre, label: g.nombre }))} activeId={gamaActiva} onChange={setGamaActiva} />
       </div>
 
-      {/* ÁREA DE IMPRESIÓN */}
-      {imprimiendoTodo ? (
-        <div className="print-area" style={M.marcoCSSVars('cocina') as React.CSSProperties}>
-          {todasGamasVigentes.map(({ g, platos }, gi) => (
-            <div key={g.id} style={{ breakBefore: gi > 0 ? 'page' : 'auto' }}>
-              <div className="print-gama">{g.nombre}</div>
-              <div className="print-grid esquemas-masonry">
-                {platos.map(e => <TarjetaEsquema key={e.id} esquema={e} T={T} isDark={isDark} onEdit={() => {}} onChange={cargar} />)}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
+      {/* ÁREA DE IMPRESIÓN: el PDF real sale por BotonImprimir (LEY_IMPRESION: nunca window.print) */}
+      {(
         <HojaDoc area="cocina" docNombre="Esquemas" tituloCentrado={gamaActiva}>
           <div className="solo-print" style={{ display: 'none' }}>
             <div className="print-gama">{gamaActiva}{verHistorico ? ' · Histórico' : ''}</div>

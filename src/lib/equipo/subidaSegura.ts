@@ -80,6 +80,42 @@ function rutaSegura(nombre: string): string {
  * Envía archivos al buzón de Equipo dejando siempre rastro recuperable.
  * @param onProgreso se llama tras cada archivo con (hechos, total)
  */
+// ── Progreso visible desde CUALQUIER dispositivo ────────────────────────────
+// Para tandas grandes se apunta una tarea en papeleo_tareas (BD): ProgresoGlobal
+// la pinta igual en el ordenador, el móvil o tras cerrar y abrir el navegador.
+// Si este navegador muere a mitad, el vigilante del servidor cierra la tarea y
+// la repesca termina lo ya guardado; lo no subido se recupera resubiendo la
+// carpeta (la huella hace que lo ya hecho no se repita).
+const UMBRAL_TAREA_VISIBLE = 10
+
+async function abrirTareaProgreso(total: number): Promise<string | null> {
+  if (total < UMBRAL_TAREA_VISIBLE) return null
+  try {
+    const { data } = await supabase.from('papeleo_tareas')
+      .insert({ tipo: 'documentacion_subida', estado: 'en_curso', total_estimado: total, procesados: 0, ok: 0, errores: 0, ultimo_latido: new Date().toISOString(), detalle: 'Subiendo documentación…' })
+      .select('id').single()
+    return data?.id ?? null
+  } catch { return null }
+}
+
+async function latirTareaProgreso(id: string | null, procesados: number, ok: number, errores: number, detalle?: string): Promise<void> {
+  if (!id) return
+  try {
+    await supabase.from('papeleo_tareas')
+      .update({ procesados, ok, errores, ultimo_latido: new Date().toISOString(), updated_at: new Date().toISOString(), ...(detalle ? { detalle } : {}) })
+      .eq('id', id)
+  } catch { /* el progreso visual nunca rompe la subida */ }
+}
+
+async function cerrarTareaProgreso(id: string | null, procesados: number, ok: number, errores: number): Promise<void> {
+  if (!id) return
+  try {
+    await supabase.from('papeleo_tareas')
+      .update({ estado: 'completada', procesados, ok, errores, ultimo_latido: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', id)
+  } catch { /* idem */ }
+}
+
 export async function enviarAEquipoSeguro(
   archivos: File[],
   onProgreso?: (hechos: number, total: number) => void,
@@ -89,6 +125,9 @@ export async function enviarAEquipoSeguro(
     reencaminados: {}, rechazados: [], aRepescar: 0, errores: [],
   }
   let hechos = 0
+  const tareaId = await abrirTareaProgreso(archivos.length)
+  const contarOk = () => r.nominas + r.resumenes + r.segSocial + Object.values(r.reencaminados).reduce((a, n) => a + n, 0)
+  const contarErr = () => r.rechazados.length + r.aRepescar
 
   await enParalelo(archivos, EN_PARALELO, async (f) => {
     let filaId: string | null = null
@@ -166,8 +205,20 @@ export async function enviarAEquipoSeguro(
     } finally {
       hechos++
       onProgreso?.(hechos, archivos.length)
+      if (hechos % 10 === 0 || hechos === archivos.length) {
+        await latirTareaProgreso(tareaId, hechos, contarOk(), contarErr(),
+          r.rechazados.length > 0 ? `Último al cajón: ${r.rechazados[r.rechazados.length - 1].nombre}` : undefined)
+      }
     }
   })
+
+  await cerrarTareaProgreso(tareaId, hechos, contarOk(), contarErr())
+
+  // Rebarrido de conciliación al terminar la tanda (LEY 100%): las facturas
+  // recién entradas pueden desbloquear pendientes antiguos. Nunca bloquea.
+  if (contarOk() > 0) {
+    fetch('/api/facturas?action=reconciliar-pendientes').catch(() => {})
+  }
 
   return r
 }

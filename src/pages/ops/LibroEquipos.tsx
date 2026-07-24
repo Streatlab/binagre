@@ -5,6 +5,79 @@ import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { COLORS } from '@/components/panel/resumen/tokens'
 import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL ═══ */
+const AREA: M.Area = 'cocina'
+
+function crearPDFLibroEquipos(equipos: Equipo[], mantenimientos: Mantenimiento[], rec: M.Recursos, bn = false) {
+  if (equipos.length === 0) return null
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Libro de Equipos', meta: `${equipos.length} equipos`, area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  const xDesc = cb.x0 + 1.5
+  const xFecha = cb.x1 - 45
+  const xCoste = cb.x1 - 1
+
+  for (const eq of equipos) {
+    const mants = mantenimientos.filter(m => m.equipo_id === eq.id)
+    const coste = mants.reduce((s, m) => s + (m.coste ?? 0), 0)
+    if (y > cb.bottom - 20) { doc.addPage(); y = nuevaPagina() }
+
+    doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.roundedRect(cb.x0, y, cb.w, 7.5, M.R, M.R, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(11); doc.setTextColor(255, 255, 255)
+    doc.text(eq.nombre.toUpperCase(), cb.x0 + 3, y + 5.3)
+    const rango = eq.temp_min != null && eq.temp_max != null ? `${eq.temp_min}°C – ${eq.temp_max}°C` : ''
+    doc.setFontSize(8.5)
+    doc.text(`${eq.activo ? 'ACTIVO' : 'INACTIVO'}${rango ? ' · ' + rango : ''}`, cb.x1 - 1.5, y + 5.3, { align: 'right' })
+    y += 10
+
+    if (mants.length === 0) {
+      M.fDato(doc, ctx, false); doc.setFontSize(9.5); doc.setTextColor(...M.GRIS)
+      doc.text('Sin mantenimientos registrados.', xDesc, y + 3)
+      y += 8
+    } else {
+      doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 5, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(7.5); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+      doc.text('DESCRIPCIÓN', xDesc, y + 3.4)
+      doc.text('FECHA', xFecha, y + 3.4)
+      doc.text('COSTE', xCoste, y + 3.4, { align: 'right' })
+      y += 5
+
+      for (const m of mants) {
+        if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+        M.fDato(doc, ctx, false); doc.setFontSize(9.5); doc.setTextColor(...M.TINTA)
+        doc.text(m.descripcion ?? '—', xDesc, y + 4, { maxWidth: xFecha - xDesc - 3 })
+        doc.setTextColor(...M.GRIS)
+        const [yy, mm, dd] = m.fecha.split('-')
+        doc.text(`${dd}/${mm}/${yy}`, xFecha, y + 4)
+        doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+        doc.text(fmtEurLocal(m.coste), xCoste, y + 4, { align: 'right' })
+        doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 5.4, cb.x1, y + 5.4)
+        y += 5.6
+      }
+
+      M.fTitulo(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(...M.TINTA)
+      doc.text(`Coste acumulado: ${fmtEurLocal(coste)}`, xCoste, y + 4, { align: 'right' })
+      y += 8
+    }
+    y += 2
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 interface Equipo {
   id: string
@@ -118,7 +191,13 @@ export default function LibroEquipos() {
     <PantallaCantera>
 
       {/* Acción propia (queda plana, fuera del héroe) */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+        <BotonImprimir
+          compacto
+          documentoId="operaciones.libro_equipos"
+          titulo="Libro de equipos / mantenimiento"
+          generarPdf={async opts => { const rec = await M.cargarRecursos(); return crearPDFLibroEquipos(equipos, mantenimientos, rec, opts.bn) }}
+        />
         <button onClick={() => { setEditData(EMPTY_EQUIPO); setShowForm(s => !s) }}
           style={{ padding: '9px 18px', background: COLORS.glovo, color: INK, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
           + Añadir equipo

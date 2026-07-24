@@ -27,7 +27,7 @@ interface ShowOpts {
 
 const STORAGE_KEY = 'binagre_toasts_v1'
 const MAX_LIFETIME_MS = 5 * 60 * 1000  // tope duro si alguien pide una duración mayor
-const DEFAULT_AUTOCIERRE_MS = 6 * 1000 // success/aviso/error/info: 6s por defecto (kit v5-B)
+const DEFAULT_AUTOCIERRE_MS = 20 * 1000 // success/aviso/error/info: 20s (orden Rubén 23-jul: que dé tiempo a leerlo)
 // Tope duro para los avisos de "cargando". Antes no expiraban NUNCA: si el
 // proceso que lo abrió se colgaba (una petición sin respuesta, por ejemplo),
 // el aviso se quedaba clavado en pantalla para siempre, incluso al día
@@ -96,7 +96,7 @@ function show(status: ToastStatus, message: string, opts: ShowOpts = {}): string
   // Calcular expiresAt:
   // - loading: lo normal es que lo cierre el éxito/error que lo reemplaza, pero
   //   lleva tope duro de 10 min por si el proceso que lo abrió se cuelga.
-  // - success/aviso/error/info: autocierre a los 6s por defecto.
+  // - success/aviso/error/info: autocierre a los 20s por defecto.
   let expiresAt: number | undefined
   if (status === 'loading') {
     expiresAt = now + MAX_LOADING_MS

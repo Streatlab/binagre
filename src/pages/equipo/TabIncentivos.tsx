@@ -1,9 +1,10 @@
 import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, LIMA, GRIS, BLANCO } from '@/styles/neobrutal'
 import { HeroCantera, Papel, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
-import { INCENTIVOS_PRINT as IP } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
-import { Printer, Save } from 'lucide-react'
+import { Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 type Config = {
   tramo1: number; tramo2: number; tramo3: number
@@ -39,6 +40,61 @@ function calc(cfg: Config, e: EmpRow, m: Medicion, fact: number) {
     : 0
   const total = Math.min(cfg.tope_total, impFact + impGlobal + impPers)
   return { nivel, impFact, impGlobal, impPers, total, perm }
+}
+
+// ─── FASE 2: PDF con el marco único (área 'equipo') — botón Imprimir ────────
+const AREA: M.Area = 'equipo'
+
+/** Hoja de incentivos de un empleado. Sin config cargada → null (regla del marco). */
+function construirIncentivosPDF(cfg: Config, e: EmpRow, m: Medicion, fact: number, mes: number, anio: number, rec: M.Recursos, bn = false) {
+  const r = calc(cfg, e, m, fact)
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  let y = M.pintarCabecera(doc, ctx, { docNombre: 'Hoja de Incentivos', meta: `${MESES[mes - 1]} ${anio}`, tituloCentrado: e.nombre, area: AREA, bn })
+
+  // Facturación / candado
+  M.tarjeta(doc, cb.x0, y, cb.w, 24, AREA, { bn, fill: true })
+  M.fDato(doc, ctx, false); doc.setFontSize(8); doc.setTextColor(...M.GRIS)
+  doc.text('FACTURACIÓN COCINA ESTE MES', cb.x0 + 4, y + 6)
+  M.fTitulo(doc, ctx, true); doc.setFontSize(18); doc.setTextColor(...M.TINTA)
+  doc.text(`${fact.toLocaleString('es-ES')} €`, cb.x0 + 4, y + 15)
+  M.fDato(doc, ctx, false); doc.setFontSize(8); doc.setTextColor(...M.GRIS)
+  doc.text(`Candado: ${cfg.tramo1.toLocaleString('es-ES')} abre · ${cfg.tramo2.toLocaleString('es-ES')} sube · ${cfg.tramo3.toLocaleString('es-ES')} completo`, cb.x0 + 4, y + 20)
+  M.pill(doc, cb.x1 - 26, y + 5, `NIVEL ${r.nivel}`, AREA, ctx, { bn })
+  y += 30
+
+  // Desglose
+  const filas: Array<[string, string]> = [
+    ['Por facturación', `${r.impFact.toFixed(0)} €`],
+    ['Global compartido (reembolsos, limpieza, mermas, incidencias)', `${r.impGlobal.toFixed(0)} €`],
+    ['Personal (puntualidad, errores)', `${r.impPers.toFixed(0)} €`],
+  ]
+  for (const [k, v] of filas) {
+    M.fDato(doc, ctx, false); doc.setFontSize(10); doc.setTextColor(...M.TINTA)
+    doc.text(k, cb.x0, y + 5, { maxWidth: cb.w - 30 })
+    doc.setFont(ctx.emb ? 'MBar' : 'helvetica', 'bold')
+    doc.text(v, cb.x1, y + 5, { align: 'right' })
+    y += 8
+    M.lineaRelleno(doc, cb.x0, cb.x1, y)
+    y += 2
+  }
+
+  y += 4
+  doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.6); doc.line(cb.x0, y, cb.x1, y)
+  y += 8
+  M.fTitulo(doc, ctx, true); doc.setFontSize(13); doc.setTextColor(...M.TINTA)
+  doc.text('A COBRAR ESTE MES', cb.x0, y)
+  doc.setFontSize(18); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text(`${r.total.toFixed(0)} €`, cb.x1, y, { align: 'right' })
+  y += 8
+  M.fDato(doc, ctx, false); doc.setFontSize(8); doc.setTextColor(...M.GRIS)
+  doc.text(`Tope máximo ${cfg.tope_total.toFixed(0)} €. Si la cocina no llega a ${cfg.tramo1.toLocaleString('es-ES')} €, no se cobra ningún incentivo.`, cb.x0, y, { maxWidth: cb.w })
+
+  M.pintarPaginado(doc, 1, 1, ctx)
+  return doc
 }
 
 export default function TabIncentivos() {
@@ -93,35 +149,6 @@ export default function TabIncentivos() {
     await supabase.from('incentivos_medicion').upsert(rows, { onConflict: 'mes,anio,empleado_id' })
     setSaving(false)
     fetchAll()
-  }
-
-  function imprimir(e: EmpRow) {
-    if (!cfg) return
-    const r = calc(cfg, e, meds[e.empleado_id], fact)
-    const w = window.open('', '_blank', 'width=760,height=900')
-    if (!w) return
-    const row = (k: string, v: string) => `<tr><td style="padding:8px 4px;border-bottom:1px solid ${IP.borde}">${k}</td><td style="padding:8px 4px;border-bottom:1px solid ${IP.borde};text-align:right;font-weight:600">${v}</td></tr>`
-    w.document.write(`<html><head><title>Incentivos ${e.nombre}</title></head>
-      <body style="font-family:Arial,sans-serif;max-width:640px;margin:32px auto;color:${IP.texto}">
-      <h1 style="font-size:22px;margin:0">Incentivos · ${e.nombre}</h1>
-      <div style="color:${IP.mut};margin-bottom:20px">${MESES[mes-1]} ${anio}</div>
-      <div style="background:${IP.fondoSuave};padding:16px;border-radius:8px;margin-bottom:20px">
-        <div style="font-size:12px;color:${IP.mut};text-transform:uppercase;letter-spacing:1px">Facturación cocina este mes</div>
-        <div style="font-size:28px;font-weight:700">${fact.toLocaleString('es-ES')} €</div>
-        <div style="font-size:13px;color:${IP.mut}">Candado: ${cfg.tramo1.toLocaleString('es-ES')} abre · ${cfg.tramo2.toLocaleString('es-ES')} sube · ${cfg.tramo3.toLocaleString('es-ES')} completo — <b>Nivel ${r.nivel}</b></div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:14px">
-        ${row('Por facturación', EUR(r.impFact))}
-        ${row('Global compartido (reembolsos, limpieza, mermas, incidencias)', EUR(r.impGlobal))}
-        ${row('Personal (puntualidad, errores)', EUR(r.impPers))}
-      </table>
-      <div style="display:flex;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:2px solid ${IP.texto}">
-        <div style="font-size:16px;font-weight:700">A COBRAR ESTE MES</div>
-        <div style="font-size:22px;font-weight:700;color:${IP.granate}">${EUR(r.total)}</div>
-      </div>
-      <div style="color:${IP.pieMut};font-size:11px;margin-top:6px">Tope máximo ${EUR(cfg.tope_total)}. Si la cocina no llega a ${cfg.tramo1.toLocaleString('es-ES')} €, no se cobra ningún incentivo.</div>
-      <script>window.print()</script></body></html>`)
-    w.document.close()
   }
 
   const nivelActual = useMemo(() => {
@@ -239,10 +266,12 @@ export default function TabIncentivos() {
                     <span style={{ fontFamily: OSW, fontSize: 18, fontWeight: 700, color: candadoAbierto ? INK : GRIS }}>{EUR(r.total)}</span>
                   </td>
                   <td style={{ ...td, textAlign: 'right' }}>
-                    <button onClick={() => imprimir(e)} title="Imprimir hoja"
-                      style={{ width: 30, height: 30, border: `2px solid ${INK}`, background: BLANCO, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Printer size={15} color={GRIS} />
-                    </button>
+                    <BotonImprimir
+                      compacto
+                      documentoId="equipo.incentivos_empleado"
+                      titulo={`Hoja de incentivos · ${e.nombre} · ${MESES[mes - 1]} ${anio}`}
+                      generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirIncentivosPDF(cfg, e, m, fact, mes, anio, rec, opts.bn) }}
+                    />
                   </td>
                 </tr>
               )

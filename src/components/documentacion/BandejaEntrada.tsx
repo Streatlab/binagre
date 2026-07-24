@@ -6,13 +6,17 @@ import AvisosBandeja from '@/components/documentacion/AvisosBandeja'
 import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER, BORDER_CARD, GRANATE, VERDE, NAR, AZUL, ROJO, GRIS, BLANCO } from '@/styles/neobrutal'
 import { HeroCantera, FrasePotente, PantallaCantera } from '@/components/kit/cantera'
 
-// ── Bandeja de entrada — 5 BOTONES ──────────────────────────────────────────
-//   · BANCO    → extracto (CSV/PDF). Pregunta titular y vuelca a Conciliación.
-//   · VENTAS   → liquidaciones, resúmenes, historial de pedidos y productos de
-//     plataforma (Uber, Glovo, Just Eat, Sinqro, Rushour). Van directos a Ventas.
-//   · FACTURAS → OCR + Drive + contraste con Conciliación.
-//   · EQUIPO   → nóminas, resumen de nóminas y Seguridad Social (RLC/RNT).
-//   · CORREO   → acción directa: recoge el buzón ahora mismo (no sube archivos).
+// ── Bandeja de entrada — BOTÓN ÚNICO (orden Rubén 23-jul-2026) ───────────────
+//   · DOCUMENTACIÓN → un solo botón para TODO: el clasificador decide solo si
+//     cada documento es venta, factura, extracto o personal, y lo enruta. Lo que
+//     nadie reconoce va al CAJÓN DE SASTRE (abajo), donde se descarta o reenvía.
+//     Subida segura: guarda primero (Storage+manifiesto), lee después; lo que
+//     falle lo recupera la repesca del servidor. Progreso visible desde
+//     cualquier dispositivo (papeleo_tareas → ProgresoGlobal).
+//   · CORREO → acción directa: recoge el buzón ahora mismo con el MISMO
+//     enrutador (no sube archivos).
+//   Los antiguos botones Banco/Ventas/Facturas/Equipo desaparecen de la UI;
+//   sus tuberías siguen vivas para los reenvíos desde el cajón.
 
 const RUBEN_ID = '6ce69d55-60d0-423c-b68b-eb795a0f32fe'
 const EMILIO_ID = 'c5358d43-a9cc-4f4c-b0b3-99895bdf4354'
@@ -275,16 +279,17 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
     }
   }
 
-  const [modal, setModal] = useState<{ destino: Destino; archivos: File[]; rechazados: string[]; visible: boolean }>({ destino: 'facturas', archivos: [], rechazados: [], visible: false })
+  const [modal, setModal] = useState<{ archivos: File[]; rechazados: string[]; visible: boolean }>({ archivos: [], rechazados: [], visible: false })
   const UMBRAL_CONFIRMACION_MASIVA = 2000
   const [confirmoLotes, setConfirmoLotes] = useState(false)
+  const [reenvioBanco, setReenvioBanco] = useState<RechazadoRow | null>(null)
 
-  const abrirModal = (destino: Destino) => (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => {
+  const abrirModal = (r: { aceptados: File[]; comprimidos: File[]; rechazados: string[] }) => {
     setVerRechazados(false)
     setConfirmoLotes(false)
     const todos = [...r.aceptados, ...r.comprimidos]
     if (todos.length === 0 && r.rechazados.length === 0) return
-    setModal({ destino, archivos: todos, rechazados: r.rechazados, visible: true })
+    setModal({ archivos: todos, rechazados: r.rechazados, visible: true })
   }
   const numLotes = Math.max(1, Math.ceil(modal.archivos.length / TAM_LOTE))
   const requiereConfirmacionMasiva = modal.archivos.length > UMBRAL_CONFIRMACION_MASIVA
@@ -355,10 +360,10 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
   // apuntado y la repesca automática lo recupera: no se pierde ningún documento.
   const enviarAEquipo = async (archivos: File[]) => {
     if (archivos.length === 0) return
-    const tid = toast.loading(`Leyendo documentos de equipo (0/${archivos.length})…`)
+    const tid = toast.loading(`Leyendo documentación (0/${archivos.length})…`)
     try {
       const r = await enviarAEquipoSeguro(archivos, (hechos, total) => {
-        toast.loading(`Leyendo documentos de equipo (${hechos}/${total})…`, { id: tid })
+        toast.loading(`Leyendo documentación (${hechos}/${total})…`, { id: tid })
       })
       // Resumen con VERDAD: lo de personal, lo que se reenvió (y a qué módulo lo
       // recogió de verdad) y lo que se rechazó por no ser de ningún buzón.
@@ -373,13 +378,13 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
       const frases: string[] = []
       if (totalReenv > 0) {
         frases.push(
-          `${totalReenv} documento${totalReenv !== 1 ? 's' : ''} no ${totalReenv !== 1 ? 'eran' : 'era'} de personal: ` +
+          `${totalReenv} repartido${totalReenv !== 1 ? 's' : ''} por el clasificador: ` +
           reenv.map(([mod, n]) => `${n} a ${mod}`).join(' y ') + '.',
         )
       }
       if (r.rechazados.length > 0) {
         frases.push(
-          `${r.rechazados.length} rechazado${r.rechazados.length !== 1 ? 's' : ''} ` +
+          `${r.rechazados.length} al cajón de sastre ` +
           `(${r.rechazados[0].nombre}: ${r.rechazados[0].motivo})`,
         )
       }
@@ -387,7 +392,7 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
         frases.push(`${r.aRepescar} en repesca: están guardados y se reintentan solos, no hace falta volver a subirlos.`)
       }
 
-      const cabecera = partes.length > 0 ? `EQUIPO · ${partes.join(' · ')}` : 'EQUIPO'
+      const cabecera = partes.length > 0 ? `DOCUMENTACIÓN · ${partes.join(' · ')}` : 'DOCUMENTACIÓN'
       const texto = [cabecera, ...frases].join(' — ')
 
       if (partes.length === 0 && totalReenv === 0 && r.rechazados.length === 0 && r.aRepescar === 0) {
@@ -406,11 +411,13 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
     }
   }
 
-  // ── Reenviar un rechazado a mano al botón correcto (rescate) ──────────────
+  // ── Reenviar un documento del cajón de sastre al módulo correcto ──────────
   // Descarga la copia de respaldo, la manda al flujo normal del destino elegido
-  // (el mismo que si se subiera a mano) y marca el rechazo como reenviado.
-  const reenviarRechazado = async (row: RechazadoRow, destino: Destino) => {
+  // (el mismo que si se subiera a mano) y marca la fila como reenviada.
+  // Para Banco hay que elegir titular: eso lo resuelve el mini-modal reenvioBanco.
+  const reenviarRechazado = async (row: RechazadoRow, destino: Destino, titularId?: string) => {
     if (rechOcupado) return
+    if (destino === 'banco' && !titularId) { setReenvioBanco(row); return }
     setRechOcupado(row.id)
     const tid = toast.loading(`Reenviando a ${destino}…`)
     try {
@@ -421,7 +428,7 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
       if (destino === 'equipo') await enviarAEquipo([file])
       else if (destino === 'ventas') await enviarAVentas([file])
       else if (destino === 'facturas') procesar([file], 'ocr-procesar-factura', null)
-      else if (destino === 'banco') procesar([file], 'ocr-procesar-extracto', RUBEN_ID)
+      else if (destino === 'banco') procesar([file], 'ocr-procesar-extracto', titularId || RUBEN_ID)
       await fetch(`/api/equipo/rechazados/reenviado/${row.id}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ destino }),
@@ -436,90 +443,72 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
     }
   }
 
-  const enviar = async (titular?: string) => {
-    const { destino, archivos } = modal
+  // ── Descartar definitivo desde el cajón (la copia sigue en Drive/Storage) ──
+  const descartarRechazado = async (row: RechazadoRow) => {
+    if (rechOcupado) return
+    setRechOcupado(row.id)
+    try {
+      const r = await fetch(`/api/equipo/rechazados/descartar/${row.id}`, { method: 'POST' })
+      const j = await r.json()
+      if (!j.ok) { toast.error(j.error || 'No se pudo descartar'); return }
+      toast.success(`Descartado · ${row.nombre_archivo}`)
+      setRechLista(l => l.filter(x => x.id !== row.id))
+    } catch (e: any) {
+      toast.error(e?.message || 'Error al descartar')
+    } finally {
+      setRechOcupado(null)
+    }
+  }
+
+  // BOTÓN ÚNICO: los CSV de ventas reconocibles van por la vía rápida a Ventas
+  // (gratis, sin OCR); todo lo demás entra por la subida segura con el enrutador
+  // universal del servidor (personal → Equipo · ventas → Ventas · facturas →
+  // Facturas · extractos y lo irreconocible → cajón de sastre).
+  const enviar = async () => {
+    const { archivos } = modal
     setModal(m => ({ ...m, visible: false, archivos: [], rechazados: [] }))
     if (archivos.length === 0) return
 
-    if (destino === 'banco') {
-      if (!titular) {
-        toast.error('Falta decir de quién es el extracto. Elige Rubén o Emilio.')
-        return
-      }
-      procesar(archivos, 'ocr-procesar-extracto', titular)
-      onProcesado?.()
-      return
-    }
-
-    if (destino === 'equipo') {
-      await enviarAEquipo(archivos)
-      onProcesado?.()
-      return
-    }
-
     const { ventas, resto } = await separarVentas(archivos)
-
-    if (destino === 'ventas') {
-      if (resto.length > 0) {
-        toast.success(`${resto.length} documento${resto.length !== 1 ? 's' : ''} enviado${resto.length !== 1 ? 's' : ''} al clasificador: lo que sea de ventas entra en Ventas y el resto en Facturas.`)
-        procesar(resto, 'ocr-procesar-factura', null)
-      }
-      await enviarAVentas(ventas)
-      onProcesado?.()
-      return
-    }
-
     if (ventas.length > 0) {
-      toast.success(`${ventas.length} documento${ventas.length !== 1 ? 's' : ''} de ventas detectado${ventas.length !== 1 ? 's' : ''}: enviado${ventas.length !== 1 ? 's' : ''} a Ventas.`)
       await enviarAVentas(ventas)
     }
-    if (resto.length > 0) procesar(resto, 'ocr-procesar-factura', null)
+    if (resto.length > 0) {
+      await enviarAEquipo(resto)
+    }
     onProcesado?.()
   }
 
-  const tituloModal = modal.destino === 'banco' ? 'Extracto bancario' : modal.destino === 'ventas' ? 'Documentos de ventas' : modal.destino === 'equipo' ? 'Documentos de equipo' : 'Facturas'
-  const colorTitulo = modal.destino === 'banco' ? AZUL : modal.destino === 'ventas' ? VERDE : modal.destino === 'equipo' ? VERDE : GRANATE
+  const tituloModal = 'Documentación'
+  const colorTitulo = GRANATE
 
   return (
     <PantallaCantera embedded style={{ marginTop: 16 }}>
       <HeroCantera
         area="papeleo"
         titular="Suelta lo que sea: el sistema lo lee y lo reparte solo."
-        resumen="Banco, ventas, facturas o equipo — un botón por destino, sin tener que clasificar nada a mano."
+        resumen="Un solo botón. El clasificador decide si es venta, factura, extracto o personal; lo que no reconozca cae al cajón de sastre para que tú decidas."
       />
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         <BtnSubir
-          label="Banco" color={AZUL} colorHover={`color-mix(in srgb, ${AZUL} 75%, black)`}
-          sub="Extractos del banco (CSV o PDF). Pregunta de quién es y vuelca a Conciliación."
-          onArchivos={abrirModal('banco')} preparando={preparando}
-        />
-        <BtnSubir
-          label="Ventas" color={VERDE} colorHover={`color-mix(in srgb, ${VERDE} 75%, black)`}
-          sub="Liquidaciones, resúmenes, historial de pedidos y productos de plataforma. Van directos a Ventas."
-          onArchivos={abrirModal('ventas')} preparando={preparando}
-        />
-        <BtnSubir
-          label="Facturas" color={GRANATE} colorHover={`color-mix(in srgb, ${GRANATE} 75%, black)`}
-          sub="Facturas de proveedores y plataformas. OCR, Drive y cruce con Conciliación."
-          onArchivos={abrirModal('facturas')} preparando={preparando}
-        />
-        <BtnSubir
-          label="Equipo" color={VERDE} colorHover={`color-mix(in srgb, ${VERDE} 65%, black)`}
-          sub="Nóminas, resumen y Seguridad Social — suelta todo junto."
-          onArchivos={abrirModal('equipo')} preparando={preparando}
+          label="Documentación" color={GRANATE} colorHover={`color-mix(in srgb, ${GRANATE} 75%, black)`}
+          sub="Todo junto: facturas, ventas, nóminas, Seguridad Social, extractos… El sistema clasifica y enruta solo; lo dudoso va al cajón de sastre."
+          onArchivos={abrirModal} preparando={preparando}
         />
         <BtnCorreo
           label="Correo" color={AZUL} colorHover={`color-mix(in srgb, ${AZUL} 65%, black)`}
-          sub="Recoge el buzón ahora mismo, sin esperar al robot de las 07:00."
+          sub="Recoge el buzón ahora mismo con el mismo clasificador, sin esperar al robot de las 07:00."
           onClick={recogerCorreo} ocupado={recogiendoCorreo}
         />
       </div>
-      <FrasePotente significado="logro">Si un documento entra por el botón equivocado, el sistema lo detecta por contenido, lo redirige solo y te avisa.</FrasePotente>
+      <FrasePotente significado="logro">Cada documento acaba en su módulo o en el cajón de sastre con su motivo — nunca se pierde ni se cuela donde no toca.</FrasePotente>
 
       <AvisosBandeja onResuelto={() => onProcesado?.()} />
 
-      {/* ── Rechazados: bloque plegado. Solo aparece si hay algo. Rojo únicamente
-           en el contador; la lista en gris. Estilo Cantera Alegre. ── */}
+      {/* ── CAJÓN DE SASTRE: bloque plegado. Solo aparece si hay algo. Rojo
+           únicamente en el contador; la lista en gris. Estilo Cantera Alegre.
+           Aquí cae todo lo que ningún módulo reconoce (venga del botón o del
+           correo). Rubén decide: reenviar al módulo que toque o descartar. ── */}
       {rechLista.length > 0 && (
         <div style={{ marginTop: 14 }}>
           <div
@@ -530,7 +519,7 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
               padding: '8px 14px',
             }}
           >
-            <span style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: INK }}>Rechazados</span>
+            <span style={{ fontFamily: OSW, fontSize: 13, letterSpacing: '2px', textTransform: 'uppercase', color: INK }}>Cajón de sastre</span>
             <span style={{ fontFamily: OSW, fontSize: 13, fontWeight: 700, color: BLANCO, background: ROJO, padding: '1px 8px' }}>{rechLista.length}</span>
             <span style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>{rechAbierto ? '▾' : '▸'}</span>
           </div>
@@ -566,11 +555,39 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
                           opacity: rechOcupado === row.id || !row.tiene_backup ? 0.4 : 1,
                         }}>{d}</button>
                     ))}
+                    <button disabled={rechOcupado === row.id}
+                      onClick={() => descartarRechazado(row)}
+                      title="Sacarlo del cajón para siempre (la copia sigue en Drive)"
+                      style={{
+                        fontFamily: OSW, fontSize: 10.5, letterSpacing: '1px', textTransform: 'uppercase',
+                        color: BLANCO, border: BORDER_CARD, background: ROJO, padding: '5px 9px',
+                        boxShadow: SHADOW, cursor: rechOcupado === row.id ? 'not-allowed' : 'pointer',
+                        opacity: rechOcupado === row.id ? 0.4 : 1,
+                      }}>Descartar</button>
                   </div>
                 </div>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Mini-modal: titular del extracto al reenviar a Banco desde el cajón */}
+      {reenvioBanco && (
+        <div onClick={() => setReenvioBanco(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 130 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: CREMA, padding: 24, minWidth: 300, maxWidth: 380, border: BORDER, boxShadow: '8px 8px 0 rgba(0,0,0,0.25)' }}>
+            <div style={{ fontFamily: OSW, fontSize: 14, letterSpacing: '2px', textTransform: 'uppercase', color: AZUL, marginBottom: 8 }}>Reenviar a Banco</div>
+            <div style={{ fontFamily: LEX, fontSize: 13, color: INK, marginBottom: 14 }}>¿De quién es este extracto?</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { const row = reenvioBanco; setReenvioBanco(null); reenviarRechazado(row, 'banco', RUBEN_ID) }}
+                style={{ flex: 1, padding: '12px 14px', border: BORDER_CARD, boxShadow: SHADOW, background: NAR, color: BLANCO, fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Rubén</button>
+              <button onClick={() => { const row = reenvioBanco; setReenvioBanco(null); reenviarRechazado(row, 'banco', EMILIO_ID) }}
+                style={{ flex: 1, padding: '12px 14px', border: BORDER_CARD, boxShadow: SHADOW, background: AZUL, color: BLANCO, fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Emilio</button>
+            </div>
+            <button onClick={() => setReenvioBanco(null)} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: GRIS, fontFamily: LEX, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+          </div>
         </div>
       )}
 
@@ -607,28 +624,13 @@ export default function BandejaEntrada({ onProcesado }: { desde?: string; hasta?
               </div>
             )}
 
-            {modal.destino === 'banco' ? (
-              <>
-                <div style={{ fontFamily: LEX, fontSize: 13, color: INK, marginTop: 10, marginBottom: 14 }}>¿De quién es este extracto?</div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button disabled={modal.archivos.length === 0 || bloqueadoPorLotes} onClick={() => enviar(RUBEN_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, boxShadow: SHADOW, background: NAR, color: BLANCO, fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modal.archivos.length === 0 || bloqueadoPorLotes ? 'not-allowed' : 'pointer', opacity: modal.archivos.length === 0 || bloqueadoPorLotes ? 0.4 : 1 }}>Rubén</button>
-                  <button disabled={modal.archivos.length === 0 || bloqueadoPorLotes} onClick={() => enviar(EMILIO_ID)} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, boxShadow: SHADOW, background: AZUL, color: BLANCO, fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modal.archivos.length === 0 || bloqueadoPorLotes ? 'not-allowed' : 'pointer', opacity: modal.archivos.length === 0 || bloqueadoPorLotes ? 0.4 : 1 }}>Emilio</button>
-                </div>
-                <button onClick={() => setModal(m => ({ ...m, visible: false, archivos: [], rechazados: [] }))} style={{ marginTop: 14, width: '100%', padding: '8px', background: 'none', border: 'none', color: GRIS, fontFamily: LEX, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
-              </>
-            ) : (
-              <>
-                <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 8, marginBottom: 18 }}>
-                  {modal.destino === 'equipo'
-                    ? 'Cada documento se guarda antes de leerse. Lo que no sea de personal se reenvía solo al módulo que le toque, y lo que no reconozca ningún módulo se rechaza con el motivo. No se pierde ninguno.'
-                    : 'El sistema clasifica cada documento por su contenido, aplica el diccionario de proveedores y lo redirige si no corresponde a este botón.'}
-                </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => { setModal(m => ({ ...m, visible: false, archivos: [], rechazados: [] })); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, background: BLANCO, color: INK, fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
-                  <button disabled={modal.archivos.length === 0 || bloqueadoPorLotes} onClick={() => enviar()} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, boxShadow: SHADOW, background: modal.archivos.length === 0 || bloqueadoPorLotes ? CLARO : colorTitulo, color: BLANCO, fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modal.archivos.length === 0 || bloqueadoPorLotes ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modal.archivos.length}</button>
-                </div>
-              </>
-            )}
+            <div style={{ fontFamily: LEX, fontSize: 12, color: GRIS, marginTop: 8, marginBottom: 18 }}>
+              Cada documento se guarda antes de leerse y el clasificador lo enruta solo: ventas a Ventas, facturas a Facturas, personal a Equipo. Los extractos y lo que nadie reconozca van al cajón de sastre con su motivo, para que tú decidas. No se pierde ninguno, aunque cierres el navegador.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setModal(m => ({ ...m, visible: false, archivos: [], rechazados: [] })); setVerRechazados(false) }} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, background: BLANCO, color: INK, fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}>Cancelar</button>
+              <button disabled={modal.archivos.length === 0 || bloqueadoPorLotes} onClick={() => enviar()} style={{ flex: 1, padding: '12px 14px', borderRadius: 0, border: BORDER_CARD, boxShadow: SHADOW, background: modal.archivos.length === 0 || bloqueadoPorLotes ? CLARO : colorTitulo, color: BLANCO, fontFamily: OSW, fontSize: 12, letterSpacing: '2px', textTransform: 'uppercase', cursor: modal.archivos.length === 0 || bloqueadoPorLotes ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Enviar {modal.archivos.length}</button>
+            </div>
           </div>
         </div>
       )}

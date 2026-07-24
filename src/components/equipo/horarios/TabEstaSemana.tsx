@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileDown, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 import {
   type Empleado, type Turno,
   lunesDeSemana, fmtRangoSemana, numeroSemanaISO,
@@ -10,7 +12,7 @@ import {
 import { getSemanaPorLunes } from './datosReales'
 import { getAsignacionPorLunes, aplicarPlantilla, PLANTILLAS } from './plantillas'
 import { CuadranteCuadricula, expandirTurnos, isoDeFecha } from './CuadranteCuadricula'
-import { exportarHorarioPDF, compartirHorarioPDF } from './exportPDF'
+import { exportarHorarioPDF, compartirHorarioPDF, construirHorariosSemanaPDF } from './exportPDF'
 import { fetchTurnosDB } from './fetchTurnosDB'
 
 type Fuente = 'bd' | 'historico' | 'plantilla' | 'vacio'
@@ -114,6 +116,12 @@ export default function TabEstaSemana() {
           <button onClick={() => setLunes(l => { const n = new Date(l); n.setDate(n.getDate() + 7); return n })} style={navBtn()}><ChevronRight size={16} /></button>
           <button onClick={() => exportarHorarioPDF(empleados, turnosParaExportar, lunes, { abrir: true })} style={actionBtn()}><FileDown size={14} /> Exportar</button>
           <button onClick={() => compartirHorarioPDF(empleados, turnosParaExportar, lunes)} style={actionBtn()}><Share2 size={14} /> Compartir</button>
+          <BotonImprimir
+            compacto
+            documentoId="equipo.horarios_semana"
+            titulo={`Cuadrante de horarios semanal · S${numeroSemanaISO(lunes)}`}
+            generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirHorariosSemanaPDF(empleados, turnosParaExportar, lunes, rec, opts.bn) }}
+          />
         </div>
       </div>
 

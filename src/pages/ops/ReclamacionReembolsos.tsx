@@ -4,16 +4,16 @@
  * Conectado en real: al meter un reembolso verifica el pedido en pedidos_plataforma.
  */
 import React, { useMemo, useState } from "react";
-import { useReclamaciones, computeMetricas, computeMetricasPorCanal, verificarPedido, CANAL_LABELS, TIPO_LABELS, ESTADO_LABELS, } from "../../lib/reclamaciones/useReclamaciones";
+import { useReclamaciones, computeMetricas, computeMetricasPorCanal, verificarPedido, diasRestantesReclamo, CANAL_LABELS, TIPO_LABELS, ESTADO_LABELS, CAUSA_LABELS, } from "../../lib/reclamaciones/useReclamaciones";
 import type {
-  Reclamacion, Canal, EstadoReclamacion, TipoReclamacion, PedidoVerificado, } from "../../lib/reclamaciones/useReclamaciones";
+  Reclamacion, Canal, EstadoReclamacion, TipoReclamacion, CausaReclamacion, PedidoVerificado, } from "../../lib/reclamaciones/useReclamaciones";
 import {
   OSW, LEX, INK, CREMA, CLARO, SHADOW, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, BLANCO } from '@/styles/neobrutal';
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, SeccionLabel } from '@/components/kit/cantera';
 import RutaPantalla from '@/components/ui/RutaPantalla';
 import TabsPastilla from '@/components/ui/TabsPastilla';
 
-type TabKey = "todas" | "pendiente" | "reclamada" | "cobrada" | "cobrada_doble" | "rechazada" | "incobrable";
+type TabKey = "todas" | "por_reclamar" | "reclamada" | "aprobada" | "cobrada" | "cobrada_doble" | "rechazada" | "incobrable";
 
 const fmtEur = (n: number) =>
   Number(n).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
@@ -30,6 +30,8 @@ const canalColor = (c: Canal) =>
 const estadoColor = (e: EstadoReclamacion): { bg: string; fg: string } => {
   switch (e) {
     case "pendiente":     return { bg: AMA,   fg: INK };
+    case "devuelto":      return { bg: ROJO,  fg: BLANCO };
+    case "aprobada":      return { bg: VERDE, fg: BLANCO };
     case "reclamada":     return { bg: AZUL,  fg: BLANCO };
     case "cobrada":       return { bg: VERDE, fg: BLANCO };
     case "cobrada_doble": return { bg: NAR,   fg: BLANCO };
@@ -39,7 +41,7 @@ const estadoColor = (e: EstadoReclamacion): { bg: string; fg: string } => {
 };
 
 export default function ReclamacionReembolsos() {
-  const { data, loading, error, insert, update, remove, uploadFoto } = useReclamaciones();
+  const { data, loading, error, insert, update, remove, uploadFoto, marcarAvisoVisto } = useReclamaciones();
   const [tab, setTab] = useState<TabKey>("todas");
   const [filterCanal, setFilterCanal] = useState<Canal | "all">("all");
   const [filterMes, setFilterMes] = useState<string>("all");
@@ -54,7 +56,9 @@ export default function ReclamacionReembolsos() {
 
   const filtered = useMemo(() => {
     return data.filter(r => {
-      if (tab !== "todas" && r.estado !== tab) return false;
+      if (tab === "por_reclamar") {
+        if (r.estado !== "pendiente" && r.estado !== "devuelto") return false;
+      } else if (tab !== "todas" && r.estado !== tab) return false;
       if (filterCanal !== "all" && r.canal !== filterCanal) return false;
       if (filterMes !== "all" && !r.fecha.startsWith(filterMes)) return false;
       return true;
@@ -68,8 +72,9 @@ export default function ReclamacionReembolsos() {
 
   const TABS: { id: TabKey; label: string; badge?: number }[] = [
     { id: "todas", label: "Todas", badge: data.length },
-    { id: "pendiente", label: "Pendientes", badge: m.pendientes },
+    { id: "por_reclamar", label: "Por reclamar", badge: m.pendientes },
     { id: "reclamada", label: "Reclamadas", badge: m.reclamadas },
+    { id: "aprobada", label: "Aprobadas", badge: m.aprobadas },
     { id: "cobrada", label: "Cobradas", badge: m.cobradas - m.dobles },
     { id: "cobrada_doble", label: "Dobles", badge: m.dobles },
     { id: "rechazada", label: "Rechazadas", badge: m.rechazadas },
@@ -91,10 +96,15 @@ export default function ReclamacionReembolsos() {
     : `Hay ${fmtEur(m.enRiesgo)} pendientes de cobrar a plataformas.`
 
   const atencionHero = [
+    m.detectadas > 0 ? `${m.detectadas} detectados por robot` : null,
     m.pendientes > 0 ? `${m.pendientes} sin reclamar` : null,
     m.reclamadas > 0 ? `${m.reclamadas} reclamadas` : null,
+    m.aprobadas > 0 ? `${m.aprobadas} aprobadas esperando dinero` : null,
     `${m.tasaResolucion}% de éxito`,
   ].filter(Boolean) as string[]
+
+  const avisosRobot = data.filter(r => r.estado === "devuelto" && r.aviso_visto === false);
+  const avisosSinCobro = data.filter(r => (r.estado === "reclamada" || r.estado === "aprobada") && r.facturas_revisadas > 0 && r.aviso_visto === false);
 
   return (
     <div style={{ fontFamily: LEX, padding: 28, background: CREMA, minHeight: "100vh", color: INK, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -113,6 +123,48 @@ export default function ReclamacionReembolsos() {
         resumen={<>Recuperado 2026: <b>{fmtEur(m.cobrado)}</b> · {m.cobradas} cobradas · perdido {fmtEur(m.perdido)}</>}
         atencion={atencionHero}
       />
+
+      {/* Avisos del robot: detectados aún no vistos */}
+      {avisosRobot.length > 0 && (
+        <Papel ceja={ROJO} pad="14px 18px">
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: "1px", textTransform: "uppercase", color: ROJO, marginBottom: 8 }}>
+            ⚠ El robot ha detectado {avisosRobot.length} descuento{avisosRobot.length > 1 ? "s" : ""} nuevo{avisosRobot.length > 1 ? "s" : ""} — reclámalo{avisosRobot.length > 1 ? "s" : ""} con la foto del pedido
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {avisosRobot.map(r => (
+              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontFamily: LEX, fontSize: 13 }}>
+                <span style={{ fontFamily: OSW, fontWeight: 600 }}>{r.pedido_ref}</span>
+                <span style={{ color: canalColor(r.canal), fontFamily: OSW, fontSize: 12, textTransform: "uppercase" }}>{CANAL_LABELS[r.canal]}</span>
+                <span style={{ fontWeight: 700 }}>{fmtEur(Number(r.importe_reclamado))}</span>
+                <span style={{ color: GRIS }}>{r.descripcion}</span>
+                <button onClick={() => setEditing(r)} style={{ ...avisoBtn, background: GRANATE, color: BLANCO }}>Reclamar</button>
+                <button onClick={() => marcarAvisoVisto(r.id)} style={{ ...avisoBtn, background: BLANCO }}>Visto</button>
+              </div>
+            ))}
+          </div>
+        </Papel>
+      )}
+
+      {/* Avisos de vigilancia: facturas llegadas sin traer el cobro */}
+      {avisosSinCobro.length > 0 && (
+        <Papel ceja={NAR} pad="14px 18px">
+          <div style={{ fontFamily: OSW, fontWeight: 700, fontSize: 13, letterSpacing: "1px", textTransform: "uppercase", color: NAR, marginBottom: 8 }}>
+            ⏳ Facturas llegadas y el reembolso sigue sin aparecer — revisar o volver a reclamar
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {avisosSinCobro.map(r => (
+              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontFamily: LEX, fontSize: 13 }}>
+                <span style={{ fontFamily: OSW, fontWeight: 600 }}>{r.pedido_ref}</span>
+                <span style={{ color: canalColor(r.canal), fontFamily: OSW, fontSize: 12, textTransform: "uppercase" }}>{CANAL_LABELS[r.canal]}</span>
+                <span style={{ fontWeight: 700 }}>{fmtEur(Number(r.importe_reclamado))}</span>
+                <span style={{ color: GRIS }}>{r.facturas_revisadas} factura{r.facturas_revisadas > 1 ? "s" : ""} del canal desde que reclamaste, sin rastro del abono</span>
+                <button onClick={() => setEditing(r)} style={{ ...avisoBtn, background: GRANATE, color: BLANCO }}>Actualizar</button>
+                <button onClick={() => marcarAvisoVisto(r.id)} style={{ ...avisoBtn, background: BLANCO }}>Visto</button>
+              </div>
+            ))}
+          </div>
+        </Papel>
+      )}
 
       {/* 3 · Frase potente (una sola, según haya o no importe en riesgo) */}
       {m.enRiesgo > 0
@@ -159,14 +211,14 @@ export default function ReclamacionReembolsos() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: LEX }}>
           <thead>
             <tr style={{ background: INK }}>
-              {["Fecha", "Pedido", "Plataforma", "Marca", "Tipo", "Importe", "Estado", "Cobrado en", "Foto", ""].map(h => (
+              {["Fecha", "Pedido", "Plataforma", "Marca", "Tipo", "Causa", "Importe", "Días", "Estado", "Cobrado en", "Foto", ""].map(h => (
                 <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontFamily: OSW, fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", color: CREMA, fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={10} style={{ padding: 30, textAlign: "center", color: GRIS, fontFamily: LEX }}>No hay reembolsos con estos filtros.</td></tr>
+              <tr><td colSpan={12} style={{ padding: 30, textAlign: "center", color: GRIS, fontFamily: LEX }}>No hay reembolsos con estos filtros.</td></tr>
             )}
             {filtered.map(r => {
               const ec = estadoColor(r.estado);
@@ -182,7 +234,9 @@ export default function ReclamacionReembolsos() {
                   <td style={{ padding: "10px 12px", fontFamily: OSW, fontSize: 12, textTransform: "uppercase", color: canalColor(r.canal) }}>{CANAL_LABELS[r.canal]}</td>
                   <td style={{ padding: "10px 12px", fontSize: 12 }}>{r.marca || "—"}</td>
                   <td style={{ padding: "10px 12px", fontSize: 12, color: GRIS }} title={r.descripcion || ""}>{TIPO_LABELS[r.tipo]}</td>
+                  <td style={{ padding: "10px 12px", fontSize: 12, color: r.causa === "cocina" ? ROJO : GRIS }}>{CAUSA_LABELS[r.causa] ?? "—"}</td>
                   <td style={{ padding: "10px 12px", fontFamily: OSW, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>{fmtEur(Number(r.importe_reclamado))}</td>
+                  <td style={{ padding: "10px 12px", textAlign: "center" }}><DiasReclamo r={r} /></td>
                   <td style={{ padding: "10px 12px" }}>
                     <span style={{ background: ec.bg, color: ec.fg, border: `2px solid ${INK}`, padding: "3px 9px", fontSize: 11, fontFamily: OSW, fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase", whiteSpace: "nowrap" }}>
                       {ESTADO_LABELS[r.estado].full}
@@ -224,6 +278,21 @@ export default function ReclamacionReembolsos() {
   );
 }
 
+/** Contador de días que quedan para reclamar (solo estados aún sin reclamar). */
+function DiasReclamo({ r }: { r: Reclamacion }) {
+  if (r.estado !== "pendiente" && r.estado !== "devuelto") {
+    return <span style={{ color: GRIS }}>—</span>;
+  }
+  const dias = diasRestantesReclamo(r.fecha);
+  if (dias <= 0) return <span style={{ background: ROJO, color: BLANCO, border: `2px solid ${INK}`, padding: "2px 7px", fontFamily: OSW, fontWeight: 700, fontSize: 11 }}>FUERA DE PLAZO</span>;
+  const urgente = dias <= 5;
+  return (
+    <span style={{ background: urgente ? ROJO : AMA, color: urgente ? BLANCO : INK, border: `2px solid ${INK}`, padding: "2px 8px", fontFamily: OSW, fontWeight: 700, fontSize: 11, whiteSpace: "nowrap" }}>
+      {dias} día{dias !== 1 ? "s" : ""}
+    </span>
+  );
+}
+
 function CanalCeldaBody({ data }: {
   data: { count: number; enRiesgo: number; cobrado: number; tasa: number | null };
 }) {
@@ -253,6 +322,8 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
   const [fecha, setFecha] = useState(existing?.fecha ?? new Date().toISOString().slice(0, 10));
   const [importe, setImporte] = useState(existing?.importe_reclamado?.toString() ?? "");
   const [tipo, setTipo] = useState<TipoReclamacion>(existing?.tipo ?? "producto_faltante");
+  const [causa, setCausa] = useState<CausaReclamacion>(existing?.causa ?? "desconocida");
+  const [clienteNombre, setClienteNombre] = useState(existing?.cliente_nombre ?? "");
   const [marca, setMarca] = useState(existing?.marca ?? "");
   const [descripcion, setDescripcion] = useState(existing?.descripcion ?? "");
   const [estado, setEstado] = useState<EstadoReclamacion>(existing?.estado ?? "pendiente");
@@ -296,7 +367,7 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
     setSaving(true);
     try {
       await onSave({
-        canal, pedido_ref: pedidoRef, fecha, tipo, marca: marca || null,
+        canal, pedido_ref: pedidoRef, fecha, tipo, causa, cliente_nombre: clienteNombre || null, marca: marca || null,
         descripcion: descripcion || null,
         importe_reclamado: parseFloat(importe.replace(",", ".")) || 0,
         importe_compensado: importeCompensado ? parseFloat(importeCompensado.replace(",", ".")) : 0,
@@ -366,6 +437,16 @@ function ModalReembolso({ existing, onClose, onSave, onDelete }: {
             </Field>
             <Field label="Marca">
               <input style={inputNeo} value={marca || ""} onChange={e => setMarca(e.target.value)} placeholder="Marca del pedido" />
+            </Field>
+          </div>
+          <div style={grid2}>
+            <Field label="Causa (para el incentivo de cocina)">
+              <select style={inputNeo} value={causa} onChange={e => setCausa(e.target.value as CausaReclamacion)}>
+                {Object.entries(CAUSA_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </Field>
+            <Field label="Cliente (si la plataforma lo muestra)">
+              <input style={inputNeo} value={clienteNombre} onChange={e => setClienteNombre(e.target.value)} placeholder="Nombre del cliente" />
             </Field>
           </div>
           <Field label="Qué reclama el cliente / justificación">
@@ -444,6 +525,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+const avisoBtn: React.CSSProperties = { fontFamily: OSW, fontWeight: 600, fontSize: 11, letterSpacing: "0.5px", textTransform: "uppercase", border: `2px solid ${INK}`, padding: "3px 10px", cursor: "pointer", color: INK };
 const selectNeo: React.CSSProperties = { background: BLANCO, border: `3px solid ${INK}`, color: INK, padding: "7px 12px", fontFamily: OSW, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer", outline: "none" };
 const inputNeo: React.CSSProperties = { padding: "8px 11px", background: BLANCO, border: `3px solid ${INK}`, color: INK, fontFamily: LEX, fontSize: 14, outline: "none", width: "100%" };
 const btnMini: React.CSSProperties = { fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: "0.5px", textTransform: "uppercase", border: `3px solid ${INK}`, padding: "8px 14px", cursor: "pointer", color: INK, whiteSpace: "nowrap" };

@@ -5,6 +5,66 @@ import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { COLORS, COLOR } from '@/components/panel/resumen/tokens'
 import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL ═══
+ * Hoja de registro en blanco: rejilla por equipo con líneas para rellenar a mano
+ * (hora / temperatura / nota), más el rango seguro de referencia impreso. */
+const AREA: M.Area = 'cocina'
+
+function fmtMetaHoy(): string {
+  return new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())
+}
+
+function crearPDFRegistro(equipos: Equipo[], rec: M.Recursos, bn = false) {
+  if (equipos.length === 0) return null
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+  const meta = fmtMetaHoy()
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Registro de Temperaturas', meta, area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  const xNombre = cb.x0 + 1.5
+  const xRango = cb.x0 + cb.w * 0.34
+  const xHora = cb.x0 + cb.w * 0.6
+  const xTemp = cb.x0 + cb.w * 0.76
+  const xNota = cb.x0 + cb.w * 0.9
+
+  doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+  M.fTitulo(doc, ctx, true); doc.setFontSize(7.5); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text('EQUIPO', xNombre, y + 4.2)
+  doc.text('RANGO SEGURO', xRango, y + 4.2)
+  doc.text('HORA', xHora, y + 4.2)
+  doc.text('TEMP.', xTemp, y + 4.2)
+  doc.text('NOTA', xNota, y + 4.2)
+  y += 8
+
+  const rowH = 15
+  for (const eq of equipos) {
+    if (y > cb.bottom - rowH) { doc.addPage(); y = nuevaPagina(); }
+    M.fDato(doc, ctx, true); doc.setFontSize(10.5); doc.setTextColor(...M.TINTA)
+    doc.text(eq.nombre, xNombre, y + 5)
+    M.fDato(doc, ctx, false); doc.setFontSize(8.5); doc.setTextColor(...M.GRIS)
+    doc.text(eq.temp_min != null && eq.temp_max != null ? `${eq.temp_min}°C – ${eq.temp_max}°C` : '—', xRango, y + 5)
+    M.lineaRelleno(doc, xHora, xHora + cb.w * 0.13, y + 9)
+    M.lineaRelleno(doc, xTemp, xTemp + cb.w * 0.11, y + 9)
+    M.lineaRelleno(doc, xNota, cb.x1 - 1, y + 9)
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.15)
+    doc.line(cb.x0, y + rowH - 2, cb.x1, y + rowH - 2)
+    y += rowH
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 interface Equipo {
   id: string
@@ -160,7 +220,15 @@ export default function ControlTemperaturas() {
 
       {/* Formulario añadir */}
       <div>
-        <SeccionLabel bg={GRANATE}>Nuevo registro</SeccionLabel>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <SeccionLabel bg={GRANATE}>Nuevo registro</SeccionLabel>
+          <BotonImprimir
+            compacto
+            documentoId="operaciones.registro_temperaturas"
+            titulo="Registro de temperaturas"
+            generarPdf={async opts => { const rec = await M.cargarRecursos(); return crearPDFRegistro(equipos, rec, opts.bn) }}
+          />
+        </div>
         <Papel ceja={GRANATE}>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
