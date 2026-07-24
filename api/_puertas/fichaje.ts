@@ -169,7 +169,7 @@ async function quioscoDesbloquear(req: VercelRequest, res: VercelResponse) {
 async function adminEmpleados(_req: VercelRequest, res: VercelResponse) {
   const { data, error } = await supabaseAdmin
     .from('empleados')
-    .select('id, nombre, fichaje_activo, orden')
+    .select('id, nombre, nif, fichaje_activo, orden')
     .eq('activo', true)
     .order('orden', { ascending: true, nullsFirst: false })
     .order('nombre')
@@ -267,7 +267,7 @@ async function adminInforme(req: VercelRequest, res: VercelResponse) {
     .from('horarios').select('fecha, hora_inicio, hora_fin')
     .eq('empleado_id', empleado_id)
     .gte('fecha', `${mes}-01`).lte('fecha', `${mes}-${String(dias).padStart(2, '0')}`)
-  const { data: emp } = await supabaseAdmin.from('empleados').select('nombre, dni').eq('id', empleado_id).single()
+  const { data: emp } = await supabaseAdmin.from('empleados').select('nombre, nif').eq('id', empleado_id).single()
   const fmtDia = (ts: string) => new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(new Date(ts))
   const vals = validos((data || []) as Fila[])
   for (let d = 1; d <= dias; d++) {
@@ -280,7 +280,7 @@ async function adminInforme(req: VercelRequest, res: VercelResponse) {
       : { estado: 'fuera', min_trabajo: 0, min_pausa: 0, ultimo_ts: null, entrada_ts: null, salida_ts: null }
     salida.push({ fecha: f, ...r, previsto_inicio: hor?.hora_inicio || null, previsto_fin: hor?.hora_fin || null, corregido: fs.some(x => x.correccion) })
   }
-  return res.status(200).json({ empleado_id, nombre: emp?.nombre || '', dni: emp?.dni || null, mes, dias: salida })
+  return res.status(200).json({ empleado_id, nombre: emp?.nombre || '', nif: emp?.nif || null, mes, dias: salida })
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
