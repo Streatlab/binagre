@@ -10,7 +10,8 @@ type Config = {
   fact_min: number; fact_t2: number; fact_t3: number
   mult_n1: number; mult_n2: number; mult_n3: number
   reemb_lim1: number; reemb_lim2: number; reemb_eur1: number; reemb_eur2: number; reemb_cero_extra: number
-  inventario_eur: number; vacio_eur: number; checklist_eur: number; fechado_eur: number
+  inventario_eur: number; retrasos_eur: number; valoracion_eur: number
+  vacio_eur: number; checklist_eur: number; fechado_eur: number
   tardes_permitidas: number; pen_tarde: number; pen_apertura: number
   bonus_constancia: number; bonus_meses: number; tope_total: number
 }
@@ -25,11 +26,16 @@ type Medicion = {
 
 type MesColectivo = {
   reembolsos_total: number; reembolsos_sin_foto: number
-  inventario_ok: boolean; muerte: boolean; muerte_motivo: string | null
+  inventario_ok: boolean; retrasos_ok: boolean; valoracion_ok: boolean
+  valoracion_nota: number | null; fact_override: number | null
+  muerte: boolean; muerte_motivo: string | null
 }
 
 const EUR = (n: number) => `${Math.round(n)} €`
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
+/** Etiqueta eyebrow legible (tinta, no gris claro) — CANTERA. */
+const EYEBROW: React.CSSProperties = { fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK, fontWeight: 700 }
 
 function multiplicador(cfg: Config, fact: number) {
   if (fact >= cfg.fact_t3) return Number(cfg.mult_n3)
@@ -46,24 +52,26 @@ function eurReembolsos(cfg: Config, mc: MesColectivo) {
   return 0
 }
 
-function calcV10(cfg: Config, mc: MesColectivo, m: Medicion, fact: number) {
+function calcV11(cfg: Config, mc: MesColectivo, m: Medicion, fact: number) {
   const k = multiplicador(cfg, fact)
   const eReemb = eurReembolsos(cfg, mc)
   const eInv = mc.inventario_ok ? Number(cfg.inventario_eur) : 0
-  const col = eReemb + eInv
+  const eRet = mc.retrasos_ok ? Number(cfg.retrasos_eur) : 0
+  const eVal = mc.valoracion_ok ? Number(cfg.valoracion_eur) : 0
+  const col = eReemb + eInv + eRet + eVal
   const ind = (m.vacio_ok ? Number(cfg.vacio_eur) : 0)
     + (m.checklist_ok ? Number(cfg.checklist_eur) : 0)
     + (m.fechado_ok ? Number(cfg.fechado_eur) : 0)
   const pen = Math.max(0, m.tardes - cfg.tardes_permitidas) * Number(cfg.pen_tarde)
     + m.tardes_apertura * Number(cfg.pen_apertura)
   const total = (mc.muerte || k === 0) ? 0 : Math.min(Number(cfg.tope_total), Math.max(0, col + ind - pen) * k)
-  return { k, eReemb, eInv, col, ind, pen, total }
+  return { k, eReemb, eInv, eRet, eVal, col, ind, pen, total }
 }
 
 const AREA: M.Area = 'equipo'
 
 function construirIncentivosPDF(cfg: Config, mc: MesColectivo, e: EmpRow, m: Medicion, fact: number, mes: number, anio: number, rec: M.Recursos, bn = false) {
-  const r = calcV10(cfg, mc, m, fact)
+  const r = calcV11(cfg, mc, m, fact)
   const doc = M.nuevaHoja({ orientation: 'portrait' })
   const ctx = M.preparar(doc, rec)
   const pal = M.paleta(AREA, bn)
@@ -85,6 +93,8 @@ function construirIncentivosPDF(cfg: Config, mc: MesColectivo, e: EmpRow, m: Med
   const filas: Array<[string, string]> = [
     [`Colectivo · Reembolsos del mes (${computa.toFixed(0)} € computados)`, EUR(r.eReemb)],
     ['Colectivo · Inventario permanente sin descuadres', EUR(r.eInv)],
+    ['Colectivo · Entregas a tiempo (sin retrasos al rider)', EUR(r.eRet)],
+    ['Colectivo · Valoración de clientes en plataformas', EUR(r.eVal)],
     ['Individual · Vacío de cámara', EUR(m.vacio_ok ? cfg.vacio_eur : 0)],
     ['Individual · Checklists verificados', EUR(m.checklist_ok ? cfg.checklist_eur : 0)],
     ['Individual · Fechado y conservación', EUR(m.fechado_ok ? cfg.fechado_eur : 0)],
@@ -125,8 +135,8 @@ export default function TabIncentivos() {
   const [cfg, setCfg] = useState<Config | null>(null)
   const [emps, setEmps] = useState<EmpRow[]>([])
   const [meds, setMeds] = useState<Record<string, Medicion>>({})
-  const [mc, setMc] = useState<MesColectivo>({ reembolsos_total: 0, reembolsos_sin_foto: 0, inventario_ok: false, muerte: false, muerte_motivo: null })
-  const [fact, setFact] = useState(0)
+  const [mc, setMc] = useState<MesColectivo>({ reembolsos_total: 0, reembolsos_sin_foto: 0, inventario_ok: false, retrasos_ok: false, valoracion_ok: false, valoracion_nota: null, fact_override: null, muerte: false, muerte_motivo: null })
+  const [factReal, setFactReal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -145,7 +155,7 @@ export default function TabIncentivos() {
       nombre: r.empleados?.nombre ?? '—',
     })).sort((a, b) => a.nombre.localeCompare(b.nombre))
     setEmps(rows)
-    setFact((f ?? []).reduce((s: number, x: any) => s + Number(x.bruto || 0), 0))
+    setFactReal((f ?? []).reduce((s: number, x: any) => s + Number(x.bruto || 0), 0))
     const map: Record<string, Medicion> = {}
     for (const r of rows) {
       const found = (md ?? []).find((x: any) => x.empleado_id === r.empleado_id)
@@ -167,9 +177,13 @@ export default function TabIncentivos() {
       reembolsos_total: Number(im.reembolsos_total) || 0,
       reembolsos_sin_foto: Number(im.reembolsos_sin_foto) || 0,
       inventario_ok: !!im.inventario_ok,
+      retrasos_ok: !!im.retrasos_ok,
+      valoracion_ok: !!im.valoracion_ok,
+      valoracion_nota: im.valoracion_nota != null ? Number(im.valoracion_nota) : null,
+      fact_override: im.fact_override != null ? Number(im.fact_override) : null,
       muerte: !!im.muerte,
       muerte_motivo: im.muerte_motivo ?? null,
-    } : { reembolsos_total: 0, reembolsos_sin_foto: 0, inventario_ok: false, muerte: false, muerte_motivo: null })
+    } : { reembolsos_total: 0, reembolsos_sin_foto: 0, inventario_ok: false, retrasos_ok: false, valoracion_ok: false, valoracion_nota: null, fact_override: null, muerte: false, muerte_motivo: null })
     setLoading(false)
   }
 
@@ -188,19 +202,23 @@ export default function TabIncentivos() {
     fetchAll()
   }
 
-  if (loading || !cfg) return <div style={{ padding: 32, color: GRIS, fontFamily: LEX }}>Cargando incentivos…</div>
+  if (loading || !cfg) return <div style={{ padding: 32, color: INK, fontFamily: LEX }}>Cargando incentivos…</div>
 
+  const fact = mc.fact_override != null ? mc.fact_override : factReal
   const k = multiplicador(cfg, fact)
   const abierto = k > 0 && !mc.muerte
   const pct = Math.min(100, (fact / Number(cfg.fact_t3)) * 100)
   const marca = (v: number) => `${Math.min(100, (v / Number(cfg.fact_t3)) * 100)}%`
   const eReemb = eurReembolsos(cfg, mc)
   const computa = Number(mc.reembolsos_total) + Number(mc.reembolsos_sin_foto)
+  const colTotal = eReemb + (mc.inventario_ok ? Number(cfg.inventario_eur) : 0) + (mc.retrasos_ok ? Number(cfg.retrasos_eur) : 0) + (mc.valoracion_ok ? Number(cfg.valoracion_eur) : 0)
 
   const th: React.CSSProperties = { padding: '10px 12px', fontFamily: OSW, fontSize: 11, textTransform: 'uppercase', letterSpacing: '1.5px', color: CREMA, fontWeight: 600, textAlign: 'left' }
   const td: React.CSSProperties = { padding: '10px 12px', fontFamily: LEX, fontSize: 13, color: INK, borderBottom: `2px solid ${INK}` }
   const chk: React.CSSProperties = { width: 18, height: 18, cursor: 'pointer' }
   const numInput: React.CSSProperties = { width: 52, padding: '6px 8px', border: `2px solid ${INK}`, borderRadius: 0, background: BLANCO, color: INK, fontFamily: OSW, fontSize: 13 }
+  const lbl: React.CSSProperties = { ...EYEBROW, fontSize: 11, marginBottom: 4, display: 'block' }
+  const chkLabel: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontFamily: LEX, fontSize: 13.5, color: INK, cursor: 'pointer' }
 
   const tituloHero = mc.muerte
     ? 'Regla de muerte activada: incentivo del mes a cero.'
@@ -226,7 +244,7 @@ export default function TabIncentivos() {
         area="equipo"
         periodo={`${MESES[mes - 1]} ${anio}`}
         titular={tituloHero}
-        etiquetaDato="Facturación cocina del mes"
+        etiquetaDato={mc.fact_override != null ? 'Facturación cocina del mes (manual)' : 'Facturación cocina del mes'}
         cifra={`${fact.toLocaleString('es-ES')} €`}
         resumen={!abierto && !mc.muerte
           ? <>Falta <b>{Math.max(0, Number(cfg.fact_min) - fact).toLocaleString('es-ES')} €</b> para abrir el sistema. Objetivo diario: 900-1.000 €.</>
@@ -239,28 +257,38 @@ export default function TabIncentivos() {
       />
 
       <Papel ceja={abierto ? VERDE : GRANATE}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS }}>Candado de facturación</div>
-          <div style={{ fontFamily: OSW, fontSize: 18, fontWeight: 700, color: abierto ? VERDE : GRANATE }}>
-            {mc.muerte ? 'MUERTE' : abierto ? `×${k}` : 'CERRADO'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
+          <div style={EYEBROW}>Candado de facturación</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <label style={{ ...chkLabel, fontSize: 12 }}>
+              Manual:
+              <input type="number" min={0} placeholder="auto" value={mc.fact_override ?? ''}
+                onChange={e => setMc({ ...mc, fact_override: e.target.value === '' ? null : Number(e.target.value) })}
+                style={{ ...numInput, width: 90 }} />
+              €
+            </label>
+            <div style={{ fontFamily: OSW, fontSize: 18, fontWeight: 700, color: abierto ? VERDE : GRANATE }}>
+              {mc.muerte ? 'MUERTE' : abierto ? `×${k}` : 'CERRADO'}
+            </div>
           </div>
         </div>
         <div style={{ position: 'relative', height: 14, border: `2px solid ${INK}`, background: CLARO, overflow: 'hidden' }}>
           <div style={{ width: `${pct}%`, height: '100%', background: abierto ? VERDE : GRANATE, transition: 'width .4s' }} />
         </div>
-        <div style={{ position: 'relative', height: 22, marginTop: 4, fontFamily: LEX, fontSize: 11, color: GRIS }}>
+        <div style={{ position: 'relative', height: 22, marginTop: 4, fontFamily: LEX, fontSize: 12, color: INK }}>
           {[Number(cfg.fact_min), Number(cfg.fact_t2), Number(cfg.fact_t3)].map((v, i) => (
             <div key={i} style={{ position: 'absolute', left: marca(v), transform: 'translateX(-50%)', textAlign: 'center' }}>
-              <span style={{ color: fact >= v ? VERDE : GRIS, fontWeight: 600 }}>{(v / 1000).toFixed(0)}k</span>
+              <span style={{ color: fact >= v ? VERDE : INK, fontWeight: 700 }}>{(v / 1000).toFixed(0)}k</span>
             </div>
           ))}
         </div>
+        {mc.fact_override == null && <div style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS, marginTop: 6 }}>Dato automático de ventas ({factReal.toLocaleString('es-ES')} €). Rellena "Manual" solo si algo falla.</div>}
       </Papel>
 
       <Papel ceja={mc.muerte ? GRANATE : VERDE}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: GRIS, flex: 1 }}>Regla de muerte · cancelación o cierre en horario</div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: LEX, fontSize: 13, cursor: 'pointer' }}>
+          <div style={{ ...EYEBROW, flex: 1 }}>Regla de muerte · cancelación o cierre en horario</div>
+          <label style={chkLabel}>
             <input type="checkbox" checked={mc.muerte} onChange={e => setMc({ ...mc, muerte: e.target.checked })} style={chk} />
             Activada este mes
           </label>
@@ -275,23 +303,37 @@ export default function TabIncentivos() {
       <Papel ceja={GRANATE}>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
-            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS, marginBottom: 4 }}>Reembolsos del mes (€)</div>
+            <span style={lbl}>Reembolsos del mes (€)</span>
             <input type="number" min={0} value={mc.reembolsos_total} onChange={e => setMc({ ...mc, reembolsos_total: Number(e.target.value) || 0 })} style={{ ...numInput, width: 90 }} />
           </div>
           <div>
-            <div style={{ fontFamily: OSW, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', color: GRIS, marginBottom: 4 }}>Sin foto (cuentan doble, €)</div>
+            <span style={lbl}>Sin foto (cuentan doble, €)</span>
             <input type="number" min={0} value={mc.reembolsos_sin_foto} onChange={e => setMc({ ...mc, reembolsos_sin_foto: Number(e.target.value) || 0 })} style={{ ...numInput, width: 90 }} />
           </div>
-          <div style={{ fontFamily: LEX, fontSize: 13, color: eReemb > 0 ? VERDE : GRANATE, paddingBottom: 8 }}>
+          <div style={{ fontFamily: LEX, fontSize: 13.5, fontWeight: 600, color: eReemb > 0 ? VERDE : GRANATE, paddingBottom: 8 }}>
             Computan {EUR(computa)} → {computa === 0 ? `CERO reembolsos: ${EUR(Number(cfg.reemb_eur1))} + ${EUR(Number(cfg.reemb_cero_extra))} de premio` : eReemb > 0 ? `tramo de ${EUR(eReemb)}` : `fuera de tramos: 0 €`}
           </div>
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: LEX, fontSize: 13, cursor: 'pointer', marginTop: 12 }}>
-          <input type="checkbox" checked={mc.inventario_ok} onChange={e => setMc({ ...mc, inventario_ok: e.target.checked })} style={chk} />
-          Inventario permanente: examen sorpresa sin descuadres ({EUR(Number(cfg.inventario_eur))})
-        </label>
-        <div style={{ fontFamily: OSW, fontSize: 15, fontWeight: 700, marginTop: 10, color: INK }}>
-          Colectivo del mes: {EUR(eReemb + (mc.inventario_ok ? Number(cfg.inventario_eur) : 0))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+          <label style={chkLabel}>
+            <input type="checkbox" checked={mc.inventario_ok} onChange={e => setMc({ ...mc, inventario_ok: e.target.checked })} style={chk} />
+            Inventario permanente: examen sorpresa sin descuadres ({EUR(Number(cfg.inventario_eur))})
+          </label>
+          <label style={chkLabel}>
+            <input type="checkbox" checked={mc.retrasos_ok} onChange={e => setMc({ ...mc, retrasos_ok: e.target.checked })} style={chk} />
+            Entregas a tiempo: sin retrasos al rider ni pedidos demorados ({EUR(Number(cfg.retrasos_eur))})
+          </label>
+          <label style={{ ...chkLabel, flexWrap: 'wrap' }}>
+            <input type="checkbox" checked={mc.valoracion_ok} onChange={e => setMc({ ...mc, valoracion_ok: e.target.checked })} style={chk} />
+            Valoración de clientes: se mantiene o mejora ({EUR(Number(cfg.valoracion_eur))})
+            <span style={{ fontSize: 12, color: INK }}>Nota media:</span>
+            <input type="number" min={0} max={5} step={0.1} placeholder="—" value={mc.valoracion_nota ?? ''}
+              onChange={e => setMc({ ...mc, valoracion_nota: e.target.value === '' ? null : Number(e.target.value) })}
+              style={{ ...numInput, width: 64 }} />
+          </label>
+        </div>
+        <div style={{ fontFamily: OSW, fontSize: 16, fontWeight: 700, marginTop: 12, color: INK }}>
+          Colectivo del mes: {EUR(colTotal)}
         </div>
       </Papel>
 
@@ -314,12 +356,12 @@ export default function TabIncentivos() {
           <tbody>
             {emps.map(e => {
               const m = meds[e.empleado_id]
-              const r = calcV10(cfg, mc, m, fact)
+              const r = calcV11(cfg, mc, m, fact)
               return (
                 <tr key={e.empleado_id}>
                   <td style={td}>
                     <div style={{ fontFamily: OSW, fontWeight: 600 }}>{e.nombre}</div>
-                    <div style={{ fontSize: 11, color: GRIS }}>
+                    <div style={{ fontSize: 11.5, color: INK }}>
                       Col {EUR(r.col)} · Ind {EUR(r.ind)}{r.pen > 0 ? ` · Pen −${EUR(r.pen)}` : ''} · ×{r.k}
                     </div>
                   </td>
@@ -334,7 +376,7 @@ export default function TabIncentivos() {
                   <td style={{ ...td, textAlign: 'center' }}><input type="checkbox" checked={m.fechado_ok} onChange={ev => upd(e.empleado_id, { fechado_ok: ev.target.checked })} style={chk} /></td>
                   <td style={td}>
                     <input type="number" min={0} value={m.tardes} onChange={ev => upd(e.empleado_id, { tardes: Number(ev.target.value) || 0 })} style={numInput} />
-                    <span style={{ fontSize: 10, color: m.tardes <= cfg.tardes_permitidas ? VERDE : GRANATE, marginLeft: 4 }}>/{cfg.tardes_permitidas}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: m.tardes <= cfg.tardes_permitidas ? VERDE : GRANATE, marginLeft: 4 }}>/{cfg.tardes_permitidas}</span>
                   </td>
                   <td style={td}>
                     <input type="number" min={0} value={m.tardes_apertura} onChange={ev => upd(e.empleado_id, { tardes_apertura: Number(ev.target.value) || 0 })} style={numInput} />
@@ -357,7 +399,7 @@ export default function TabIncentivos() {
         </table>
       </Papel>
 
-      <div style={{ fontFamily: LEX, fontSize: 11, color: GRIS }}>
+      <div style={{ fontFamily: LEX, fontSize: 12, color: INK }}>
         Tope {EUR(Number(cfg.tope_total))} por persona. Reembolsos: 0 € → {EUR(Number(cfg.reemb_eur1) + Number(cfg.reemb_cero_extra))} · ≤{EUR(Number(cfg.reemb_lim1))} → {EUR(Number(cfg.reemb_eur1))} · ≤{EUR(Number(cfg.reemb_lim2))} → {EUR(Number(cfg.reemb_eur2))}. Penalización: {EUR(Number(cfg.pen_tarde))}/tarde a partir de la {cfg.tardes_permitidas + 1}ª, {EUR(Number(cfg.pen_apertura))} por tarde en apertura. Constancia: {cfg.bonus_meses} meses al 100% → +{EUR(Number(cfg.bonus_constancia))}.
       </div>
     </PantallaCantera>
