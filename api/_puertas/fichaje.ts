@@ -1,5 +1,8 @@
 // FICHAJE · API del quiosco de tablet (ruta pública /fichaje, sin sesión ERP).
 // Seguridad: nada se hace sin PIN. El listado de estado solo expone nombre/foto/estado.
+// CANDADO 24-jul: desde la tablet NO se puede consultar ni corregir el registro.
+// Las acciones admin-* exigen la llave de servidor FICHAJE_ADMIN_TOKEN (solo la usará
+// el ERP con sesión iniciada). Sin esa llave responden 403, aunque se acierte el PIN.
 // Registro de jornada RD-ley 8/2019: append-only en BD (trigger), correcciones trazadas.
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
@@ -7,6 +10,14 @@ import { supabaseAdmin } from '../_lib/supabase-admin.js'
 const TZ = 'Europe/Madrid'
 
 type Fila = { id: string; empleado_id: string; tipo: string; timestamp: string; correccion: boolean; correccion_motivo: string | null; anula_id: string | null; origen: string | null }
+
+/** Llave de servidor: separa "lo que puede la tablet" de "lo que puede el ERP". */
+function esErpAutorizado(req: VercelRequest): boolean {
+  const llave = process.env.FICHAJE_ADMIN_TOKEN || ''
+  if (!llave) return false
+  const enviada = String(req.headers['x-fichaje-admin'] || '')
+  return enviada.length > 0 && enviada === llave
+}
 
 function hoyMadridISO(): string {
   return new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(new Date()) // YYYY-MM-DD
@@ -137,11 +148,18 @@ async function fichar(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ ...out, resumen: resumenDia(filas) })
 }
 
-// ── POST /api/fichaje/admin/* {pin, ...} ───────────────────────────────────
+// ── POST /api/fichaje/quiosco-desbloquear {pin} ────────────────────────────
+// Único uso del PIN de administración desde la tablet: soltar el candado del
+// dispositivo. No devuelve ningún dato de fichajes.
+async function quioscoDesbloquear(req: VercelRequest, res: VercelResponse) {
+  const { pin } = (req.body || {}) as { pin?: string }
+  const ok = await adminPinOk(pin || '')
+  return res.status(200).json({ ok })
+}
+
+// ── Acciones de gestión: SOLO desde el ERP con la llave de servidor ────────
 async function adminRegistros(req: VercelRequest, res: VercelResponse) {
-  const { pin, fecha } = (req.body || {}) as { pin?: string; fecha?: string }
-  if (!(await adminPinOk(pin || ''))) return res.status(401).json({ error: 'PIN de administrador incorrecto' })
-  const dia = fecha || hoyMadridISO()
+  const dia = String((req.body as { fecha?: string })?.fecha || hoyMadridISO())
   const filas = await fichajesDelDia(dia)
   const { data: emps } = await supabaseAdmin.from('empleados').select('id, nombre').eq('activo', true)
   const nombres = new Map((emps || []).map(e => [e.id, e.nombre]))
@@ -161,8 +179,7 @@ async function adminRegistros(req: VercelRequest, res: VercelResponse) {
 }
 
 async function adminCorregir(req: VercelRequest, res: VercelResponse) {
-  const { pin, empleado_id, tipo, ts, motivo, anula_id } = (req.body || {}) as Record<string, string | undefined>
-  if (!(await adminPinOk(pin || ''))) return res.status(401).json({ error: 'PIN de administrador incorrecto' })
+  const { empleado_id, tipo, ts, motivo, anula_id } = (req.body || {}) as Record<string, string | undefined>
   if (!empleado_id || !motivo || (!anula_id && (!tipo || !ts))) return res.status(400).json({ error: 'Faltan datos (motivo obligatorio)' })
   if (anula_id) {
     // Anulación pura: fila de corrección que anula otra, sin evento nuevo
@@ -184,8 +201,7 @@ async function adminCorregir(req: VercelRequest, res: VercelResponse) {
 }
 
 async function adminInforme(req: VercelRequest, res: VercelResponse) {
-  const { pin, empleado_id, mes } = (req.body || {}) as Record<string, string | undefined>
-  if (!(await adminPinOk(pin || ''))) return res.status(401).json({ error: 'PIN de administrador incorrecto' })
+  const { empleado_id, mes } = (req.body || {}) as Record<string, string | undefined>
   if (!empleado_id || !mes) return res.status(400).json({ error: 'Faltan datos' })
   const [y, m] = mes.split('-').map(Number)
   const dias = new Date(y, m, 0).getDate()
@@ -220,11 +236,19 @@ async function adminInforme(req: VercelRequest, res: VercelResponse) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = String(req.query.action || '')
   try {
+    // Puertas abiertas a la tablet: solo ver quién ficha, fichar y soltar el candado.
     if (action === 'estado') return await estado(req, res)
     if (action === 'fichar') return await fichar(req, res)
-    if (action === 'admin-registros') return await adminRegistros(req, res)
-    if (action === 'admin-corregir') return await adminCorregir(req, res)
-    if (action === 'admin-informe') return await adminInforme(req, res)
+    if (action === 'quiosco-desbloquear') return await quioscoDesbloquear(req, res)
+
+    // Puertas cerradas: gestión del registro. Exigen llave de servidor (ERP).
+    if (action === 'admin-registros' || action === 'admin-corregir' || action === 'admin-informe') {
+      if (!esErpAutorizado(req)) return res.status(403).json({ error: 'Acceso no autorizado' })
+      if (action === 'admin-registros') return await adminRegistros(req, res)
+      if (action === 'admin-corregir') return await adminCorregir(req, res)
+      return await adminInforme(req, res)
+    }
+
     return res.status(404).json({ error: `unknown action: ${action}` })
   } catch (e) {
     return res.status(500).json({ error: e instanceof Error ? e.message : 'Error' })
