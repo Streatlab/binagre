@@ -15,15 +15,28 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-// QUIOSCO DE FICHAJE (/fichaje): se monta ANTES que el ERP y aparte de él.
-// La tablet del restaurante no carga router, ni sesión, ni menú: solo el fichaje.
-// Así el equipo no puede llegar a ninguna otra pantalla desde ese dispositivo.
-const FichajeKiosco = lazy(() => import('./pages/Fichaje'))
-const esQuiosco = window.location.pathname.startsWith('/fichaje')
+// ── CANDADO DE DISPOSITIVO ────────────────────────────────────────────────
+// La primera vez que un dispositivo abre /fichaje queda marcado como TABLET DE
+// FICHAJE. Desde ese momento, cualquier dirección del ERP que se escriba en ese
+// navegador vuelve sola al fichaje: no hay forma de llegar al resto de la
+// aplicación desde la tablet. El candado solo se suelta desde el propio fichaje
+// con el PIN de administración.
+const QUIOSCO_KEY = 'sl_dispositivo_quiosco'
+const enFichaje = window.location.pathname.startsWith('/fichaje')
+let dispositivoBloqueado = false
+try { dispositivoBloqueado = localStorage.getItem(QUIOSCO_KEY) === '1' } catch { dispositivoBloqueado = false }
 
+if (enFichaje) {
+  try { localStorage.setItem(QUIOSCO_KEY, '1') } catch { /* sin almacenamiento, sigue funcionando */ }
+} else if (dispositivoBloqueado) {
+  window.location.replace('/fichaje')
+}
+
+const FichajeKiosco = lazy(() => import('./pages/Fichaje'))
 const raiz = createRoot(document.getElementById('root')!)
 
-if (esQuiosco) {
+if (enFichaje) {
+  // La tablet no monta el router del ERP, ni la sesión, ni el menú: solo el fichaje.
   raiz.render(
     <StrictMode>
       <Suspense fallback={<div style={{ minHeight: '100vh', background: '#FCEFD6' }} />}>
@@ -31,7 +44,7 @@ if (esQuiosco) {
       </Suspense>
     </StrictMode>,
   )
-} else {
+} else if (!dispositivoBloqueado) {
   raiz.render(
     <StrictMode>
       <ThemeProvider>
