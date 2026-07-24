@@ -15,6 +15,7 @@ import {
   nuevoDocA4, pintarMarco, pintarCabecera, pintarCamposId, pintarPie,
   abrirImprimir, descargar, P_INK, P_GREY, P_LINE, P_WRITE, P_RED_SOFT2, P_RED_DARK, MARGEN, BOX,
 } from '@/lib/impresion'
+import BotonImprimir from '@/components/BotonImprimir'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -669,12 +670,15 @@ export default function ChecklistsAperturaCierre() {
         <>
           {/* Acciones */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button
-              onClick={() => imprimirDesde(activeTab as TipoChecklist, items.map(i => i.item_nombre), 'imprimir')}
-              style={btnSecundario}
-            >
-              🖨 Imprimir
-            </button>
+            <BotonImprimir
+              compacto
+              documentoId="operaciones.checklist_apertura_cierre"
+              titulo="Checklist apertura / cierre"
+              generarPdf={async () => {
+                if (items.length === 0) return null
+                return construirChecklistPDF(activeTab as TipoChecklist, items.map(i => i.item_nombre))
+              }}
+            />
             <button
               onClick={() => imprimirDesde(activeTab as TipoChecklist, items.map(i => i.item_nombre), 'descargar')}
               style={btnSecundario}

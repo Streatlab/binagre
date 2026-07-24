@@ -16,6 +16,8 @@ import { loadMarcasPorCanal, loadConfigCanales, type MarcasPorCanal, type CanalC
 import { resolverNeto, loadVentasReales, loadRatiosCalibrados } from '@/lib/panel/netoResolver'
 import { OSW, LEX, INK, CREMA, BLANCO, GRIS, VERDE, ROJO, AMA, NAR, AZUL, GRANATE, CORP } from '@/styles/neobrutal'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 const GRUPOS_FIJOS=['Equipo','Alquiler','Controlables'] as const
 const GRUPOS_VARIABLES=['Producto'] as const
@@ -38,6 +40,63 @@ void CONFIG_KEY // referencia conservada del original (mapeo de config), no se u
 const ETQ:import('react').CSSProperties={fontFamily:OSW,fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',fontWeight:600}
 const CIFRA=(size=24):import('react').CSSProperties=>({fontFamily:OSW,fontWeight:700,fontSize:size,lineHeight:1.05,marginTop:6})
 const SUB:import('react').CSSProperties={fontFamily:LEX,fontSize:12,marginTop:4}
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL — documentoId finanzas.punto_equilibrio ═══ */
+const AREA_PDF:M.Area='finanzas'
+
+function construirPuntoEquilibrioPDF(p:TabResumenProps,rec:M.Recursos,bn=false){
+const doc=M.nuevaHoja({orientation:'portrait'})
+const ctx=M.preparar(doc,rec)
+const pal=M.paleta(AREA_PDF,bn)
+const cb=M.contentBox(doc)
+const nuevaPagina=()=>{M.pintarEspina(doc,AREA_PDF,ctx,bn);return M.pintarCabecera(doc,ctx,{docNombre:'Punto de equilibrio',meta:p.periodoLabel,area:AREA_PDF,bn})}
+let y=nuevaPagina()
+
+const filaKV=(label:string,value:string,bold=false)=>{
+if(y>cb.bottom-6){doc.addPage();y=nuevaPagina()}
+doc.setDrawColor(...M.LINEA);doc.setLineWidth(0.1);doc.line(cb.x0,y+5.4,cb.x1,y+5.4)
+M.fDato(doc,ctx,bold);doc.setFontSize(bold?10:9.5);doc.setTextColor(...(bold?pal.acento:M.TINTA))
+doc.text(label,cb.x0+1.5,y+4)
+doc.text(value,cb.x1-1.5,y+4,{align:'right'})
+y+=6.5
+}
+const tituloSeccion=(t:string)=>{
+if(y>cb.bottom-14){doc.addPage();y=nuevaPagina()}
+M.fTitulo(doc,ctx,true);doc.setFontSize(11);doc.setTextColor(pal.acento[0],pal.acento[1],pal.acento[2])
+doc.text(t.toUpperCase(),cb.x0,y+4);y+=8
+}
+
+tituloSeccion('Comparativa del periodo')
+filaKV('Bruto',fmtEur(p.totalBruto,{decimals:2}))
+filaKV('Neto',fmtEur(p.totalNeto,{decimals:2}))
+filaKV('Punto de equilibrio',p.peMensual!=null?fmtEur(p.peMensual,{decimals:2}):'—',true)
+filaKV('Beneficio',fmtEur(p.beneficio,{signed:true,decimals:2}),true)
+y+=4
+
+tituloSeccion('Detalle por canal')
+for(const c of CANAL_DEF){
+const d=p.datosPorCanal[c.id]
+const pctMix=p.totalBruto>0?(d.bruto/p.totalBruto)*100:0
+filaKV(`${c.label} · bruto ${fmtEur(d.bruto,{decimals:2})} · neto ${fmtEur(d.neto,{decimals:2})}`,`${fmtPct(pctMix,2)} mix`)
+}
+y+=4
+
+const filasFijos=GRUPOS_FIJOS.map(g=>({label:g,valor:p.gastosPorGrupo[g]??0})).filter(f=>f.valor>0).sort((a,b)=>b.valor-a.valor)
+const filasVariables=[...GRUPOS_VARIABLES.map(g=>({label:g,valor:p.gastosPorGrupo[g]??0})),{label:'Comisiones plataformas',valor:p.totalComisiones}].filter(f=>f.valor>0).sort((a,b)=>b.valor-a.valor)
+
+tituloSeccion(`Costes fijos · sin IVA (${fmtEur(p.totalFijos,{decimals:2})})`)
+if(filasFijos.length===0){M.fDato(doc,ctx,false);doc.setFontSize(9);doc.setTextColor(...M.GRIS);doc.text('Sin gastos en el periodo',cb.x0+1.5,y+3);y+=7}
+else for(const f of filasFijos)filaKV(f.label,fmtEur(f.valor,{decimals:2}))
+y+=4
+
+tituloSeccion(`Costes variables · sin IVA (${fmtEur(p.totalVariables,{decimals:2})})`)
+if(filasVariables.length===0){M.fDato(doc,ctx,false);doc.setFontSize(9);doc.setTextColor(...M.GRIS);doc.text('Sin gastos en el periodo',cb.x0+1.5,y+3);y+=7}
+else for(const f of filasVariables)filaKV(f.label,fmtEur(f.valor,{decimals:2}))
+
+const totalPag=doc.getNumberOfPages()
+for(let pg=1;pg<=totalPag;pg++){doc.setPage(pg);M.pintarPaginado(doc,pg,totalPag,ctx)}
+return doc
+}
 
 export function PuntoEquilibrio({ embedded = false }: { embedded?: boolean } = {}){
 const[tab,setTab]=useState<Tab>('resumen')
@@ -93,7 +152,15 @@ return(
   <PantallaCantera embedded={embedded}>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
       <TabsPastilla tabs={[{id:'resumen',label:'Resumen'},{id:'simulador',label:'Simulador'}]} activeId={tab} onChange={(id)=>setTab(id as Tab)}/>
-      {filtros}
+      <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+        {filtros}
+        {!loading&&!error&&(
+          <BotonImprimir compacto documentoId="finanzas.punto_equilibrio" titulo={`Punto de equilibrio · ${periodoLabel}`} generarPdf={async opts=>{
+            const rec=await M.cargarRecursos()
+            return construirPuntoEquilibrioPDF({totalBruto,totalNeto,totalPedidos,totalFijos,totalComisiones,totalVariables,margenContribPct,margenNetoPct,peMensual,diaCubreInfo,datosPorCanal,gastosPorGrupo,diasOperativos,brutoMedioDiario,colorEstado,beneficio,ebitdaPct,ticketMedioBruto,ticketMedioNeto,periodoLabel,estado},rec,opts.bn)
+          }}/>
+        )}
+      </div>
     </div>
     {error&&<Papel ceja={ROJO}><div style={{color:ROJO,fontFamily:LEX,fontSize:13}}>Error: {error}</div></Papel>}
     {loading&&!error&&<div style={{padding:40,color:GRIS,fontFamily:OSW,textTransform:'uppercase',letterSpacing:'1px'}}>Cargando datos reales…</div>}

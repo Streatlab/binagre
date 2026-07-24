@@ -5,6 +5,8 @@ import{OSW,LEX,INK,CREMA,CLARO,VERDE,ROJO,NAR,AZUL,AMA,GRANATE,GRIS,SHADOW,CORP,
 import{supabase}from'@/lib/supabase'
 import{RUNNING_MUT,RUNNING_EST_TXT,RUNNING_BORDER}from'@/styles/palettes'
 import{HeroCantera,Plancha,PlanchaCelda,FrasePotente,PantallaCantera,SeccionLabel}from'@/components/kit/cantera'
+import*as M from'@/lib/marcoDoc'
+import BotonImprimir from'@/components/BotonImprimir'
 const MN=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 const QM:Record<number,number[]>={1:[1,2,3],2:[4,5,6],3:[7,8,9],4:[10,11,12]}
 const ALL=[1,2,3,4,5,6,7,8,9,10,11,12]
@@ -22,6 +24,44 @@ const po=(p:number,t:number)=>t?(p/t)*100:0
 type Col={label:string;ms:number[];isQ?:boolean;qn?:number;isY?:boolean}
 type ResRow={plataforma:string;mes:number;año:number;bruto:number;comisiones:number;fees:number;cargos_promocion:number;neto_real_cobrado:number;pedidos?:number}
 const EstB=()=><span style={{fontFamily:OSW,fontSize:9,fontWeight:700,border:`1.5px solid ${RUNNING_MUT}`,color:RUNNING_EST_TXT,padding:'0 3px',marginLeft:3,textTransform:'uppercase',verticalAlign:'middle'}}>est</span>
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — LANDSCAPE — documentoId finanzas.pg_mensual ═══ */
+const AREA_PDF:M.Area='finanzas'
+export interface FilaRunningPDF{label:string;values:number[];fmt:(v:number)=>string;bold?:boolean}
+function construirRunningPDF(filas:FilaRunningPDF[],año:number,rec:M.Recursos,bn=false){
+const hayDatos=filas.some(f=>f.values.some(v=>v))
+if(!hayDatos)return null
+const doc=M.nuevaHoja({orientation:'landscape'})
+const ctx=M.preparar(doc,rec)
+const pal=M.paleta(AREA_PDF,bn)
+const cb=M.contentBox(doc)
+const cols=[...MN,'Año']
+const wLabel=36
+const wCol=(cb.w-wLabel)/cols.length
+const xCol=(i:number)=>cb.x0+wLabel+i*wCol
+const nuevaPagina=()=>{M.pintarEspina(doc,AREA_PDF,ctx,bn);return M.pintarCabecera(doc,ctx,{docNombre:'P&G mensual',meta:`Año ${año}`,area:AREA_PDF,bn})}
+let y=nuevaPagina()
+const pintarCabTabla=()=>{
+doc.setFillColor(pal.acento[0],pal.acento[1],pal.acento[2]);doc.rect(cb.x0,y,cb.w,6,'F')
+M.fTitulo(doc,ctx,true);doc.setFontSize(7.2);doc.setTextColor(255,255,255)
+doc.text('CONCEPTO',cb.x0+1.5,y+4.2)
+cols.forEach((c,i)=>doc.text(c.toUpperCase(),xCol(i)+wCol-1.5,y+4.2,{align:'right'}))
+y+=6
+}
+pintarCabTabla()
+for(const f of filas){
+if(y>cb.bottom-6){doc.addPage();y=nuevaPagina();pintarCabTabla()}
+doc.setDrawColor(...M.LINEA);doc.setLineWidth(0.1);doc.line(cb.x0,y+4.6,cb.x1,y+4.6)
+M.fDato(doc,ctx,!!f.bold);doc.setFontSize(f.bold?8.3:7.8);doc.setTextColor(...(f.bold?pal.acento:M.TINTA))
+doc.text(f.label,cb.x0+1.5,y+3.6)
+f.values.forEach((v,i)=>doc.text(f.fmt(v),xCol(i)+wCol-1.5,y+3.6,{align:'right'}))
+y+=4.8
+}
+const totalPag=doc.getNumberOfPages()
+for(let p=1;p<=totalPag;p++){doc.setPage(p);M.pintarPaginado(doc,p,totalPag,ctx)}
+return doc
+}
+
 export function Running({ embedded = false }: { embedded?: boolean } = {}){
 const[año,sA]=useState(2026)
 const[buscar,sBu]=useState('')
@@ -135,6 +175,20 @@ if(loading)return(<div style={{padding:40,color:GRIS,fontFamily:OSW,textTransfor
 const grupos=categorias.filter(c=>c.nivel===1&&c.id.startsWith('2.'))
 const ingC=categorias.filter(c=>c.parent_id==='1.1'&&c.nivel===3)
 const resAño=re(ALL)
+const valsPDF=(fn:(ms:number[])=>number):number[]=>[...ALL.map(m=>fn([m])),fn(ALL)]
+const filasPDF:FilaRunningPDF[]=[
+{label:'Facturación bruta',values:valsPDF(fB),fmt:fI},
+{label:'Ingresos netos',values:valsPDF(iM),fmt:fI,bold:true},
+{label:'Gastos fijos',values:valsPDF(gF),fmt:fI},
+{label:'Gastos variables',values:valsPDF(gV),fmt:fI},
+{label:'Total gastos',values:valsPDF(gT),fmt:fI,bold:true},
+{label:'Resultado',values:valsPDF(re),fmt:fI,bold:true},
+{label:'Margen bruto',values:valsPDF(mB),fmt:fI},
+{label:'Food cost %',values:valsPDF(ms=>po(gP('2.1',ms),iM(ms))),fmt:fP},
+{label:'Labor cost %',values:valsPDF(ms=>po(gP('2.2',ms),iM(ms))),fmt:fP},
+{label:'Coste/pedido',values:valsPDF(ms=>{const p=pe(ms);return p?gT(ms)/p:0}),fmt:fD},
+{label:'Margen neto/pedido',values:valsPDF(ms=>{const p=pe(ms);return p?re(ms)/p:0}),fmt:fD},
+]
 const kpiLbl=(color:string):React.CSSProperties=>({fontFamily:OSW,fontSize:11,letterSpacing:'2px',textTransform:'uppercase',color,marginBottom:6})
 const kpiNum=(color:string):React.CSSProperties=>({fontFamily:OSW,fontWeight:700,fontSize:34,lineHeight:1,color})
 const kpiSub=(color:string):React.CSSProperties=>({fontFamily:LEX,fontSize:12,color,marginTop:6})
@@ -142,6 +196,7 @@ return(<PantallaCantera embedded={embedded}>
 <div style={{display:'flex',justifyContent:'flex-end',gap:8,alignItems:'center'}}>
 <input placeholder="🔍 Buscar..." value={buscar} onChange={e=>sBu(e.target.value)} style={{padding:'7px 12px',border:`3px solid ${INK}`,background:BLANCO,fontFamily:LEX,fontSize:13,color:INK,width:150,outline:'none',boxShadow:SHADOW}}/>
 <select value={año} onChange={e=>sA(Number(e.target.value))} style={pS}>{[2026,2025,2024].map(a=><option key={a} value={a}>{a}</option>)}</select>
+<BotonImprimir compacto documentoId="finanzas.pg_mensual" titulo={`P&G mensual · ${año}`} generarPdf={async opts=>{const rec=await M.cargarRecursos();return construirRunningPDF(filasPDF,año,rec,opts.bn)}}/>
 </div>
 
 {/* 1 · Héroe del área Resultados (amarillo) */}

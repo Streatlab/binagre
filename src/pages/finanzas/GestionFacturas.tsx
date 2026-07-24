@@ -26,6 +26,8 @@ import { toast } from '@/lib/toastStore'
 import { fmtEur } from '@/lib/format'
 import ModalDescartarFactura, { type FacturaDescartable } from '@/components/documentacion/ModalDescartarFactura'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 type TabId = 'facturas' | 'ventas' | 'exportar'
 type SortColumn = 'fecha' | 'proveedor' | 'nif' | 'importe' | 'categoria' | 'doc' | 'estado'
@@ -72,6 +74,64 @@ function fmtNum(n: number|null|undefined, dec=2): string {
 }
 
 function trimestreEnCurso(mes: number): number { return Math.ceil(mes/3) }
+
+// ─── PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL — documentoId finanzas.factura_listado ──
+const AREA_PDF: M.Area = 'finanzas'
+
+function construirFacturasListadoPDF(facturas: FacturaRow[], catNombre: Map<string,string>, meta: string, rec: M.Recursos, bn = false) {
+  if (facturas.length === 0) return null
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA_PDF, bn)
+  const cb = M.contentBox(doc)
+  const nuevaPagina = () => { M.pintarEspina(doc, AREA_PDF, ctx, bn); return M.pintarCabecera(doc, ctx, { docNombre: 'Listado de facturas', meta, area: AREA_PDF, bn }) }
+  let y = nuevaPagina()
+
+  const wFecha = 20, wImporte = 26, wEstado = 30
+  const wProv = (cb.w - wFecha - wImporte - wEstado) * 0.55
+  const wCat = cb.w - wFecha - wImporte - wEstado - wProv
+  const xFecha = cb.x0, xProv = xFecha + wFecha, xCat = xProv + wProv, xImporte = xCat + wCat + wImporte, xEstado = cb.x1
+
+  const cabTabla = () => {
+    doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(7); doc.setTextColor(255, 255, 255)
+    doc.text('FECHA', xFecha + 1.2, y + 4.2)
+    doc.text('PROVEEDOR', xProv + 1.2, y + 4.2)
+    doc.text('CATEGORÍA', xCat + 1.2, y + 4.2)
+    doc.text('IMPORTE', xImporte - 1.2, y + 4.2, { align: 'right' })
+    doc.text('ESTADO', xEstado - wEstado / 2, y + 4.2, { align: 'center' })
+    y += 6
+  }
+  cabTabla()
+  let totalImporte = 0
+  for (const f of facturas) {
+    if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina(); cabTabla() }
+    totalImporte += f.total ?? 0
+    const est = colorEstado(f.estado)
+    const catLbl = f.categoria_factura ? `${f.categoria_factura} ${catNombre.get(f.categoria_factura) || ''}`.trim() : '—'
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+    M.fDato(doc, ctx, false); doc.setFontSize(7.6); doc.setTextColor(...M.TINTA)
+    doc.text(fmtFechaCorta(f.fecha_factura), xFecha + 1.2, y + 3.6)
+    doc.text(f.proveedor_nombre || '—', xProv + 1.2, y + 3.6, { maxWidth: wProv - 2 })
+    doc.setTextColor(...M.GRIS)
+    doc.text(catLbl, xCat + 1.2, y + 3.6, { maxWidth: wCat - 2 })
+    doc.setTextColor(...M.TINTA)
+    doc.text(fmtNum(f.total, 2), xImporte - 1.2, y + 3.6, { align: 'right' })
+    doc.setFontSize(6.6); doc.setTextColor(...pal.acento)
+    doc.text(est.lbl, xEstado - wEstado / 2, y + 3.6, { align: 'center' })
+    y += 4.8
+  }
+  if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina(); cabTabla() }
+  doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.3); doc.line(cb.x0, y, cb.x1, y)
+  y += 1
+  M.fDato(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(...pal.acento)
+  doc.text(`Total (${facturas.length} facturas)`, xFecha + 1.2, y + 4)
+  doc.text(fmtNum(totalImporte, 2), xImporte - 1.2, y + 4, { align: 'right' })
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 function generarMeses(desdeISO: string): {valor: string; label: string}[] {
   const hoy = new Date()
@@ -432,6 +492,11 @@ export default function GestionFacturas() {
                 </select>
               </div>
               <ClearSortButton show={ms.showClearButton} onClear={ms.clearSorts} />
+              <BotonImprimir compacto documentoId="finanzas.factura_listado" titulo="Listado de facturas" generarPdf={async opts => {
+                const rec = await M.cargarRecursos()
+                const metaFiltro = [titularActivo?.nombre, driveFiltro.anio ? `${driveFiltro.anio}${driveFiltro.trimestre ? ` T${driveFiltro.trimestre}` : ''}${driveFiltro.mes ? ` · ${MESES_ES[driveFiltro.mes]}` : ''}` : null, categoriaId !== 'todas' ? categoriaId : null].filter(Boolean).join(' · ')
+                return construirFacturasListadoPDF(facturasOrdenadas, catNombre, metaFiltro || 'Todas las facturas', rec, opts.bn)
+              }} />
             </div>
 
             <SeccionLabel bg={GRANATE}>Facturas</SeccionLabel>

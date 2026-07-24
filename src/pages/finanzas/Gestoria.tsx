@@ -5,6 +5,8 @@ import { fmtEur, fmtDate } from '@/utils/format'
 import * as XLSX from 'xlsx'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Titular {
@@ -79,6 +81,71 @@ function getPeriodRange(ano: number, trimestre: string): { desde: string; hasta:
 function getNombreMes(fecha: string): string {
   const d = new Date(fecha + 'T00:00:00')
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+}
+
+// ─── PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL — documentoId finanzas.paquete_gestoria ──
+const AREA_PDF: M.Area = 'finanzas'
+interface GestoriaPDFData {
+  titular: string; periodo: string; desde: string; hasta: string
+  totalIngresos: number; totalGastos: number; ivaSoportado: number; ivaRepercutidoEstimado: number; cuotaDiferencial: number
+  nFacturas: number; totalBaseFacturas: number; totalIvaFacturas: number
+  ventasPorMes: { periodo: string; ventas: number }[]
+}
+
+function construirGestoriaPDF(d: GestoriaPDFData, rec: M.Recursos, bn = false) {
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA_PDF, bn)
+  const cb = M.contentBox(doc)
+  const meta = `${d.titular} · ${d.periodo} (${d.desde} → ${d.hasta})`
+  const nuevaPagina = () => { M.pintarEspina(doc, AREA_PDF, ctx, bn); return M.pintarCabecera(doc, ctx, { docNombre: 'Paquete trimestral gestoría', meta, area: AREA_PDF, bn }) }
+  let y = nuevaPagina()
+
+  const filaKV = (label: string, value: string, bold = false) => {
+    if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 5.4, cb.x1, y + 5.4)
+    M.fDato(doc, ctx, bold); doc.setFontSize(bold ? 10 : 9.5); doc.setTextColor(...(bold ? pal.acento : M.TINTA))
+    doc.text(label, cb.x0 + 1.5, y + 4)
+    doc.text(value, cb.x1 - 1.5, y + 4, { align: 'right' })
+    y += 6.5
+  }
+
+  M.fTitulo(doc, ctx, true); doc.setFontSize(11); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text('RESUMEN DEL PERIODO', cb.x0, y + 4); y += 8
+  filaKV('Total ingresos', fmtEur(d.totalIngresos))
+  filaKV('Total gastos', fmtEur(d.totalGastos))
+  filaKV('IVA soportado', fmtEur(d.ivaSoportado))
+  filaKV('IVA repercutido (estimado)', fmtEur(d.ivaRepercutidoEstimado))
+  filaKV(d.cuotaDiferencial >= 0 ? 'Cuota estimada a ingresar' : 'Cuota estimada a favor', fmtEur(Math.abs(d.cuotaDiferencial)), true)
+  y += 6
+
+  M.fTitulo(doc, ctx, true); doc.setFontSize(11); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text('IVA SOPORTADO — ÍNDICE', cb.x0, y + 4); y += 8
+  filaKV('Facturas de gasto en el periodo', String(d.nFacturas))
+  filaKV('Base imponible', fmtEur(d.totalBaseFacturas))
+  filaKV('IVA soportado', fmtEur(d.totalIvaFacturas), true)
+  y += 6
+
+  if (y > cb.bottom - 14) { doc.addPage(); y = nuevaPagina() }
+  M.fTitulo(doc, ctx, true); doc.setFontSize(11); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text('IVA REPERCUTIDO — VENTAS POR MES', cb.x0, y + 4); y += 8
+  if (d.ventasPorMes.length === 0) {
+    M.fDato(doc, ctx, false); doc.setFontSize(9); doc.setTextColor(...M.GRIS)
+    doc.text('Sin ventas registradas en el periodo.', cb.x0 + 1.5, y + 3); y += 7
+  } else {
+    for (const v of d.ventasPorMes) {
+      if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+      doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 5.4, cb.x1, y + 5.4)
+      M.fDato(doc, ctx, false); doc.setFontSize(9); doc.setTextColor(...M.TINTA)
+      doc.text(v.periodo, cb.x0 + 1.5, y + 4)
+      doc.text(fmtEur(v.ventas), cb.x1 - 1.5, y + 4, { align: 'right' })
+      y += 6.5
+    }
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -368,6 +435,18 @@ export default function Gestoria({ embedded = false }: { embedded?: boolean } = 
         <div style={{ color: GRIS, fontFamily: 'Lexend, sans-serif', fontSize: 12, paddingBottom: 8 }}>
           {desde} → {hasta}
           {loading && <span style={{ marginLeft: 12, color: GRIS }}>Cargando...</span>}
+        </div>
+
+        <div style={{ marginLeft: 'auto', paddingBottom: 4 }}>
+          <BotonImprimir compacto documentoId="finanzas.paquete_gestoria" titulo={`Paquete trimestral gestoría · ${ano} ${trimestre}`} generarPdf={async opts => {
+            const rec = await M.cargarRecursos()
+            return construirGestoriaPDF({
+              titular: selectedTitularId === 'todos' ? 'Todos los titulares' : titularNombre(selectedTitularId),
+              periodo: TRIMESTRES.find(t => t.value === trimestre)?.label ?? trimestre,
+              desde, hasta, totalIngresos, totalGastos, ivaSoportado, ivaRepercutidoEstimado, cuotaDiferencial,
+              nFacturas: facturas.length, totalBaseFacturas, totalIvaFacturas, ventasPorMes,
+            }, rec, opts.bn)
+          }} />
         </div>
       </div>
 

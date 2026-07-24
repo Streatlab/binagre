@@ -16,8 +16,9 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { jsPDF } from 'jspdf'
-import { Printer, FileDown } from 'lucide-react'
+import { FileDown } from 'lucide-react'
 import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 import HojaDoc from '@/components/marco/HojaDoc'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
@@ -191,11 +192,11 @@ export default function TabHojaInventario() {
     setBusy(null)
   }
 
-  async function imprimir(bn = false) {
-    if (!inventario) return
+  async function generarPdfHoja(bn: boolean) {
+    if (!inventario) return null
     const rec = await M.cargarRecursos()
     const meta = `FECHA ${fmtDate(inventario.fecha)} · REF ${inventario.id.slice(0, 8).toUpperCase()}`
-    M.abrirImprimir(construirHojaInventarioPDF(cats, meta, rec, bn))
+    return construirHojaInventarioPDF(cats, meta, rec, bn)
   }
   async function descargar(bn = false) {
     if (!inventario) return
@@ -322,7 +323,7 @@ export default function TabHojaInventario() {
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button style={btnGhost} onClick={() => imprimir(false)}><Printer size={15} /> Imprimir hoja</button>
+              <BotonImprimir compacto documentoId="cocina.inventario_permanente" titulo={`Hoja de inventario · ${inventario ? fmtDate(inventario.fecha) : ''}`} etiqueta="Imprimir hoja" generarPdf={opts => generarPdfHoja(opts.bn)} />
               <button style={btnGhost} onClick={() => descargar(false)}><FileDown size={15} /> Descargar PDF</button>
               <label style={{ ...btnPrimary, display: 'inline-flex' }}>
                 {busy === 'foto' ? 'Leyendo foto…' : 'Subir foto del conteo'}

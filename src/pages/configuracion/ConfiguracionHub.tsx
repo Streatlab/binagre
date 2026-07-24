@@ -15,6 +15,7 @@ const APARTADOS = [
   { to: '/configuracion/reglas',               emoji: '📐', label: 'Reglas',               desc: 'Ingredientes, conciliación, OCR' },
   { to: '/configuracion/bancos-y-cuentas',     emoji: '🏦', label: 'Bancos y Cuentas',     desc: 'Cuentas, categorías y matching' },
   { to: '/configuracion/usuarios',             emoji: '👤', label: 'Usuarios',             desc: 'Altas y perfiles' },
+  { to: '/configuracion/impresion',            emoji: '🖨️', label: 'Impresión',            desc: 'Tinta, orientación y copias por documento' },
   { to: '/configuracion/calendario',           emoji: '📅', label: 'Calendario operativo', desc: 'Festivos y días cerrados' },
   { to: '/configuracion/aprendizajes',         emoji: '🧠', label: 'Aprendizajes ERP',     desc: 'Correcciones aprendidas' },
   { to: '/configuracion/calcneto-aprendizaje', emoji: '⚖️', label: 'Ajuste calcNeto',      desc: 'Afinado del cálculo de neto' },

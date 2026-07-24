@@ -5,6 +5,8 @@ import { X, Trash2, LayoutGrid, List, Pencil, Star } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT, tabActiveStyle, tabInactiveStyle } from '@/styles/tokens'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SHADOW_DURA } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 const SIN_ASIGNAR = 'Por asignar'
 
@@ -64,6 +66,75 @@ const EMPTY: Omit<Puesto, 'id'> = {
   color: NAR, estado: 'objetivo', es_responsable: false,
   mision: '', hab_duras: '', hab_blandas: '', kpis: '', onboarding: '',
   capacitacion: '', controles: '', plan_carrera: '', delegacion: '', empleado_id: null,
+}
+
+function hexRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+}
+
+// ─── FASE 2: PDF con el marco único (área 'equipo') — botón Imprimir ────────
+const AREA: M.Area = 'equipo'
+
+/** Organigrama en forma de listado por nivel (mismo contenido que la vista Tabla). Sin puestos → null. */
+function construirOrganigramaPDF(puestos: Puesto[], rec: M.Recursos, bn = false) {
+  if (puestos.length === 0) return null
+
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  const xPuesto = cb.x0 + 3
+  const xPersona = cb.x0 + cb.w * 0.42
+  const xArea = cb.x0 + cb.w * 0.66
+  const xDedic = cb.x1 - 1.5
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Organigrama', area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  for (const nv of NIVELES) {
+    const deEsteNivel = puestos.filter(p => p.nivel === nv.n).sort((a, b) => a.orden - b.orden)
+    if (deEsteNivel.length === 0) continue
+    if (y > cb.bottom - 16) { doc.addPage(); y = nuevaPagina() }
+
+    doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.roundedRect(cb.x0, y, cb.w, 6.5, M.R, M.R, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(9.5); doc.setTextColor(255, 255, 255)
+    doc.text(`${nv.label.toUpperCase()}  ·  ${deEsteNivel.length}`, cb.x0 + 3, y + 4.6)
+    y += 9
+
+    doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 5, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(7.5); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text('Puesto', xPuesto, y + 3.4)
+    doc.text('Persona', xPersona, y + 3.4)
+    doc.text('Área', xArea, y + 3.4)
+    doc.text('Dedicación', xDedic, y + 3.4, { align: 'right' })
+    y += 5
+
+    for (const p of deEsteNivel) {
+      if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+      doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+      const dotColor = hexRgb(p.color ?? GRANATE)
+      doc.setFillColor(dotColor[0], dotColor[1], dotColor[2]); doc.circle(xPuesto + 0.8, y + 2.9, 0.8, 'F')
+      M.fDato(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(...M.TINTA)
+      doc.text(p.puesto, xPuesto + 3, y + 3.6)
+      const asignado = p.persona && p.persona !== SIN_ASIGNAR
+      M.fDato(doc, ctx, false); doc.setTextColor(asignado ? M.TINTA[0] : M.GRIS[0], asignado ? M.TINTA[1] : M.GRIS[1], asignado ? M.TINTA[2] : M.GRIS[2])
+      doc.text(p.persona || SIN_ASIGNAR, xPersona, y + 3.6)
+      doc.setTextColor(...M.GRIS)
+      doc.text(p.area, xArea, y + 3.6)
+      doc.text(dedicLabel(p), xDedic, y + 3.6, { align: 'right' })
+      y += 4.8
+    }
+    y += 3
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
 }
 
 export default function Organigrama() {
@@ -157,12 +228,20 @@ export default function Organigrama() {
             <List size={13} style={{ marginRight: 6, verticalAlign: '-2px' }} />Tabla
           </button>
         </div>
-        <button
-          onClick={() => setDetalle({ open: true, data: { id: '', ...EMPTY } as Puesto, edit: true })}
-          style={{ padding: '10px 16px', minHeight: 44, border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-        >
-          + Nuevo puesto
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <BotonImprimir
+            compacto
+            documentoId="equipo.organigrama"
+            titulo="Organigrama"
+            generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirOrganigramaPDF(puestos, rec, opts.bn) }}
+          />
+          <button
+            onClick={() => setDetalle({ open: true, data: { id: '', ...EMPTY } as Puesto, edit: true })}
+            style={{ padding: '10px 16px', minHeight: 44, border: `3px solid ${INK}`, boxShadow: SHADOW_DURA, borderRadius: 0, background: LIMA, color: INK, fontFamily: FONT.heading, fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            + Nuevo puesto
+          </button>
+        </div>
       </div>
 
       {loading ? (

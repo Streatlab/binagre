@@ -15,6 +15,9 @@ import { calcNetoPorCanal, useConfigCanales } from '@/lib/panel/calcNetoPlatafor
 import { normPlato, similitudPlato } from '@/utils/normPlato'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import type { jsPDF } from 'jspdf'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 /** Umbral mínimo para sugerir un enlace automático (Tanda 8) — igual criterio que Carta.tsx:
  *  por debajo, mejor no sugerir nada que sugerir mal; sigue disponible el selector manual. */
@@ -153,6 +156,125 @@ function Pill({ active, color, children, onClick }: { active: boolean; color: st
       fontFamily: FONT.body, fontSize: 12, fontWeight: 500, cursor: 'pointer',
     }}>{children}</button>
   )
+}
+
+/* ══════════════════════════════════════════════════════
+   PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — LANDSCAPE
+   Informe Boston (estrella/vaca/puzzle/perro): misma clasificación que la
+   pantalla (Boston, línea ~500) + tabla completa de platos con popularidad/
+   margen/food cost/PVP/coste. Se reutilizan B_LABEL/B_ACTION/CuadB definidos
+   más abajo en el módulo (solo se referencian dentro del cuerpo de la
+   función, que se ejecuta tras cargar todo el módulo).
+   ══════════════════════════════════════════════════════ */
+const AREA_ME: M.Area = 'cocina'
+
+function crearInformePDF(dishes: Dish[], meta: string, rec: M.Recursos, bn = false): jsPDF | null {
+  if (!dishes.length) return null
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA_ME, bn)
+  const cb = M.contentBox(doc)
+
+  const N = dishes.length
+  const cutX = (100 / N) * 0.70
+  const cutY = mean(dishes.map(d => d.margen))
+  const clasificados = dishes.map(d => {
+    const altaPop = d.mix >= cutX
+    const altoMargen = d.margen >= cutY
+    const cuad: CuadB = altaPop && altoMargen ? 'estrella' : altaPop && !altoMargen ? 'vaca' : !altaPop && altoMargen ? 'puzzle' : 'perro'
+    return { ...d, cuad }
+  })
+  const porCuad: Record<CuadB, typeof clasificados> = { estrella: [], vaca: [], puzzle: [], perro: [] }
+  clasificados.forEach(p => porCuad[p.cuad].push(p))
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA_ME, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Informe Menu Engineering', meta, tituloCentrado: 'MENU ENGINEERING', area: AREA_ME, bn })
+  }
+  let y = nuevaPagina()
+
+  // KPI en pills
+  const margenMedio = mean(dishes.map(d => d.margen))
+  const foodCostMedio = mean(dishes.map(d => d.foodCostPct))
+  let xPill = cb.x0
+  const pillsTxt = [`${N} platos analizados`, `Margen medio ${fmtEur(margenMedio)}`, `Food cost medio ${fmtDec(foodCostMedio * 100)}%`]
+  pillsTxt.forEach(txt => { xPill += M.pill(doc, xPill, y, txt, AREA_ME, ctx, { bn }) + 3 })
+  y += 11
+
+  // Matriz Boston — 2x2 de tarjetas (alto margen arriba, bajo abajo)
+  const gap = 4
+  const colW = (cb.w - gap) / 2
+  const rowH = 44
+  const quads: CuadB[] = ['estrella', 'puzzle', 'vaca', 'perro']
+  quads.forEach((q, i) => {
+    const col = i % 2, fila = Math.floor(i / 2)
+    const x = cb.x0 + col * (colW + gap)
+    const yy = y + fila * (rowH + gap)
+    M.tarjeta(doc, x, yy, colW, rowH, AREA_ME, { bn })
+    M.fTitulo(doc, ctx, true); doc.setFontSize(10.5); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(`${B_LABEL[q].toUpperCase()} · ${porCuad[q].length}`, x + 3.5, yy + 5.6)
+    M.fDato(doc, ctx, false); doc.setFontSize(7)
+    doc.setTextColor(...M.GRIS)
+    const accionLines = doc.splitTextToSize(B_ACTION[q], colW - 7) as string[]
+    doc.text(accionLines, x + 3.5, yy + 9.3)
+    let yItem = yy + 9.3 + accionLines.length * 3.2 + 2.5
+    const top = porCuad[q].slice(0, 5)
+    top.forEach(p => {
+      if (yItem > yy + rowH - 2.5) return
+      M.fDato(doc, ctx, false); doc.setFontSize(7.8); doc.setTextColor(...M.TINTA)
+      doc.text(p.nombre, x + 3.5, yItem, { maxWidth: colW - 24 })
+      doc.setTextColor(...M.GRIS)
+      doc.text(fmtEur(p.margen), x + colW - 3.5, yItem, { align: 'right' })
+      yItem += 3.9
+    })
+    if (porCuad[q].length > 5) {
+      M.fDato(doc, ctx, false); doc.setFontSize(6.8); doc.setTextColor(...M.GRIS)
+      doc.text(`+${porCuad[q].length - 5} más`, x + 3.5, Math.min(yItem, yy + rowH - 2))
+    }
+  })
+  y += 2 * rowH + gap + 7
+
+  // Tabla completa de platos
+  const cols: { label: string; w: number; align: 'left' | 'right' }[] = [
+    { label: 'Plato', w: 0.27, align: 'left' },
+    { label: 'Cuadrante', w: 0.12, align: 'left' },
+    { label: 'Popularidad', w: 0.13, align: 'right' },
+    { label: 'Margen', w: 0.13, align: 'right' },
+    { label: 'Food cost', w: 0.12, align: 'right' },
+    { label: 'PVP', w: 0.115, align: 'right' },
+    { label: 'Coste', w: 0.115, align: 'right' },
+  ]
+  const colX: number[] = []
+  { let acc = cb.x0; cols.forEach(c => { colX.push(acc); acc += cb.w * c.w }) }
+
+  const pintarCabeceraTabla = (yy: number) => {
+    doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, yy, cb.w, 5.6, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(7.6); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    cols.forEach((c, i) => doc.text(c.label, c.align === 'right' ? colX[i] + cb.w * c.w - 2 : colX[i] + 2, yy + 3.9, { align: c.align }))
+    return yy + 5.6
+  }
+  y = pintarCabeceraTabla(y)
+
+  clasificados.forEach(d => {
+    if (y > cb.bottom - 5) { doc.addPage(); y = nuevaPagina(); y = pintarCabeceraTabla(y) }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+    M.fDato(doc, ctx, false); doc.setFontSize(8); doc.setTextColor(...M.TINTA)
+    doc.text(d.nombre, colX[0] + 2, y + 3.6, { maxWidth: cb.w * cols[0].w - 4 })
+    doc.setTextColor(...M.GRIS)
+    doc.text(B_LABEL[d.cuad], colX[1] + 2, y + 3.6)
+    doc.text(`${fmtDec(d.mix)}%${d.estimado ? ' (est.)' : ''}`, colX[2] + cb.w * cols[2].w - 2, y + 3.6, { align: 'right' })
+    doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(fmtEur(d.margen), colX[3] + cb.w * cols[3].w - 2, y + 3.6, { align: 'right' })
+    doc.setTextColor(...M.GRIS)
+    doc.text(`${fmtDec(d.foodCostPct * 100)}%`, colX[4] + cb.w * cols[4].w - 2, y + 3.6, { align: 'right' })
+    doc.text(fmtEur(d.precioCarta), colX[5] + cb.w * cols[5].w - 2, y + 3.6, { align: 'right' })
+    doc.text(fmtEur(d.coste), colX[6] + cb.w * cols[6].w - 2, y + 3.6, { align: 'right' })
+    y += 4.8
+  })
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
 }
 
 /* ══════════════════════════════════════════════════════
@@ -359,6 +481,16 @@ export default function MenuEngineering() {
       {/* Cabecera */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
         <RutaPantalla niveles={['Cocina', 'Menú Engineering']} />
+        <BotonImprimir
+          compacto
+          documentoId="cocina.menu_engineering"
+          titulo="Informe Menu Engineering"
+          generarPdf={async opts => {
+            const rec = await M.cargarRecursos()
+            const meta = `${mesSel !== 'todos' ? `Mes ${mesSel}` : 'Acumulado'}${canalesLabel ? ` · ${canalesLabel}` : ''}`
+            return crearInformePDF(dishes, meta, rec, opts.bn)
+          }}
+        />
       </div>
 
       {/* HÉROE (naranja · área Cocina) */}

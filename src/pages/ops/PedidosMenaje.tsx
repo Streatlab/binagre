@@ -7,6 +7,62 @@ import { toLocalDateStr } from '@/lib/dateRange'
 import { COLORS } from '@/components/panel/resumen/tokens'
 import { fmtEur } from '@/utils/format'
 import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL ═══ */
+const AREA: M.Area = 'cocina'
+
+function crearPDFPedidos(pedidos: Pedido[], rec: M.Recursos, bn = false) {
+  if (pedidos.length === 0) return null
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Hoja de Pedido de Menaje', meta: `${pedidos.length} pedidos`, area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  const xFecha = cb.x0 + 1.5
+  const xProv = cb.x0 + cb.w * 0.16
+  const xDesc = cb.x0 + cb.w * 0.42
+  const xCoste = cb.x1 - 26
+  const xEstado = cb.x1 - 1
+
+  doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+  M.fTitulo(doc, ctx, true); doc.setFontSize(7.5); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text('FECHA', xFecha, y + 4.2)
+  doc.text('PROVEEDOR', xProv, y + 4.2)
+  doc.text('DESCRIPCIÓN', xDesc, y + 4.2)
+  doc.text('COSTE', xCoste, y + 4.2)
+  doc.text('ESTADO', xEstado, y + 4.2, { align: 'right' })
+  y += 8
+
+  for (const p of pedidos) {
+    if (y > cb.bottom - 7) { doc.addPage(); y = nuevaPagina() }
+    M.fDato(doc, ctx, false); doc.setFontSize(9.5); doc.setTextColor(...M.GRIS)
+    const [yy, mm, dd] = p.fecha.split('-')
+    doc.text(`${dd}/${mm}/${yy}`, xFecha, y + 4.2)
+    doc.setTextColor(...M.TINTA)
+    doc.text(p.proveedor, xProv, y + 4.2, { maxWidth: xDesc - xProv - 3 })
+    doc.setTextColor(...M.GRIS)
+    doc.text(p.descripcion ?? '—', xDesc, y + 4.2, { maxWidth: xCoste - xDesc - 3 })
+    doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(p.coste != null ? fmtEur(p.coste) : '—', xCoste, y + 4.2)
+    doc.setTextColor(...M.GRIS)
+    doc.text((p.estado ?? 'pendiente').toUpperCase(), xEstado, y + 4.2, { align: 'right' })
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.15)
+    doc.line(cb.x0, y + 6.4, cb.x1, y + 6.4)
+    y += 6.8
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 interface Pedido {
   id: string
@@ -105,7 +161,13 @@ export default function PedidosMenaje() {
     <PantallaCantera>
 
       {/* Acción propia */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+        <BotonImprimir
+          compacto
+          documentoId="operaciones.pedido_menaje"
+          titulo="Hoja de pedido de menaje"
+          generarPdf={async opts => { const rec = await M.cargarRecursos(); return crearPDFPedidos(pedidos, rec, opts.bn) }}
+        />
         <button onClick={() => setShowForm(f => !f)}
           style={{ padding: '9px 18px', background: COLORS.glovo, color: INK, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
           + Nuevo pedido

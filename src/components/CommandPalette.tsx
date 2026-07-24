@@ -100,6 +100,7 @@ const ITEMS: Item[] = [
   { label: 'Bancos y cuentas', path: '/configuracion/bancos-y-cuentas', group: 'Configuración' },
   { label: 'Compras', path: '/configuracion/compras', group: 'Configuración' },
   { label: 'Usuarios', path: '/configuracion/usuarios', group: 'Configuración' },
+  { label: 'Impresión', path: '/configuracion/impresion', group: 'Configuración' },
   { label: 'Calendario', path: '/configuracion/calendario', group: 'Configuración' },
   { label: 'Aprendizajes', path: '/configuracion/aprendizajes', group: 'Configuración' },
 ]

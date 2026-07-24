@@ -1,9 +1,12 @@
 import { BLANCO, CLARO, GRANATE, GRIS, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { PRESENCIA_WASH_VERDE_BG, PRESENCIA_WASH_ROJO_BG, PRESENCIA_SALIDA_TXT } from '@/styles/palettes'
 import { useEffect, useState, useCallback } from 'react'
+import type { jsPDF } from 'jspdf'
 import { supabase } from '@/lib/supabase'
 import { FONT } from '@/styles/tokens'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel, SHADOW_DURA } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -85,6 +88,99 @@ function calcHorasEntrePares(fichajes: Fichaje[]): number {
     total += (Date.now() - entrada.getTime()) / 3600000
   }
   return total
+}
+
+type DiaResumen = {
+  fecha: string
+  entrada: string | null
+  salida: string | null
+  horas: number
+  nota: string | null
+}
+
+function agruparPorDia(fics: Fichaje[]): DiaResumen[] {
+  const dias: Record<string, Fichaje[]> = {}
+  for (const f of fics) {
+    const dia = f.timestamp.slice(0, 10)
+    if (!dias[dia]) dias[dia] = []
+    dias[dia].push(f)
+  }
+  return Object.entries(dias).map(([fecha, fs]) => {
+    const sorted = [...fs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    const e = sorted.find(f => f.tipo === 'entrada')
+    const s = [...sorted].reverse().find(f => f.tipo === 'salida')
+    return {
+      fecha,
+      entrada: e ? fmtHora(e.timestamp) : null,
+      salida: s ? fmtHora(s.timestamp) : null,
+      horas: calcHorasEntrePares(fs),
+      nota: e?.nota ?? s?.nota ?? null,
+    }
+  }).sort((a, b) => a.fecha.localeCompare(b.fecha))
+}
+
+// ─── FASE 2: PDF con el marco único (área 'equipo') — botón Imprimir ────────
+const AREA: M.Area = 'equipo'
+
+/** Parte mensual de fichajes de un empleado. Sin días registrados → null (regla del marco). */
+function construirFichajesPDF(usuario: Usuario, dias: DiaResumen[], periodo: string, rec: M.Recursos, bn = false): jsPDF | null {
+  if (dias.length === 0) return null
+
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  const xFecha = cb.x0 + 1.5
+  const xEntrada = cb.x0 + cb.w * 0.28
+  const xSalida = cb.x0 + cb.w * 0.46
+  const xHoras = cb.x0 + cb.w * 0.64
+  const xNota = cb.x0 + cb.w * 0.80
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Parte de Fichajes', meta: periodo, tituloCentrado: usuario.nombre, area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+  M.fTitulo(doc, ctx, true); doc.setFontSize(8); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text('Fecha', xFecha, y + 4.2)
+  doc.text('Entrada', xEntrada, y + 4.2)
+  doc.text('Salida', xSalida, y + 4.2)
+  doc.text('Horas', xHoras, y + 4.2)
+  doc.text('Nota', xNota, y + 4.2)
+  y += 6
+
+  let totalHoras = 0
+  for (const d of dias) {
+    if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+    M.fDato(doc, ctx, false); doc.setFontSize(9); doc.setTextColor(...M.TINTA)
+    doc.text(fmtFecha(d.fecha + 'T12:00:00'), xFecha, y + 3.6)
+    doc.setTextColor(...M.GRIS)
+    doc.text(d.entrada ?? '—', xEntrada, y + 3.6)
+    doc.text(d.salida ?? '—', xSalida, y + 3.6)
+    doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(d.horas > 0 ? fmtHorasFmt(d.horas) : '—', xHoras, y + 3.6)
+    doc.setTextColor(...M.GRIS)
+    doc.text(d.nota ?? '—', xNota, y + 3.6)
+    totalHoras += d.horas
+    y += 4.8
+  }
+
+  y += 3
+  if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+  doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.4); doc.line(cb.x0, y, cb.x1, y)
+  y += 4
+  M.fTitulo(doc, ctx, true); doc.setFontSize(10); doc.setTextColor(...M.TINTA)
+  doc.text('TOTAL HORAS DEL PERIODO', xFecha, y)
+  doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text(fmtHorasFmt(totalHoras), xHoras, y)
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -243,35 +339,6 @@ export default function ControlPresencia() {
     if (tab === 'historico' && histUsuarioId) cargarHistorico()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, histUsuarioId, histDesde, histHasta])
-
-  type DiaResumen = {
-    fecha: string
-    entrada: string | null
-    salida: string | null
-    horas: number
-    nota: string | null
-  }
-
-  function agruparPorDia(fics: Fichaje[]): DiaResumen[] {
-    const dias: Record<string, Fichaje[]> = {}
-    for (const f of fics) {
-      const dia = f.timestamp.slice(0, 10)
-      if (!dias[dia]) dias[dia] = []
-      dias[dia].push(f)
-    }
-    return Object.entries(dias).map(([fecha, fs]) => {
-      const sorted = [...fs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      const e = sorted.find(f => f.tipo === 'entrada')
-      const s = [...sorted].reverse().find(f => f.tipo === 'salida')
-      return {
-        fecha,
-        entrada: e ? fmtHora(e.timestamp) : null,
-        salida: s ? fmtHora(s.timestamp) : null,
-        horas: calcHorasEntrePares(fs),
-        nota: e?.nota ?? s?.nota ?? null,
-      }
-    }).sort((a, b) => a.fecha.localeCompare(b.fecha))
-  }
 
   const diasHist = agruparPorDia(fichajesHist)
   const totalHorasPeriodo = diasHist.reduce((acc, d) => acc + d.horas, 0)
@@ -523,6 +590,19 @@ export default function ControlPresencia() {
             <div>
               <div style={{ fontFamily: FONT_LABEL, fontSize: 11, color: MUT, letterSpacing: '1px', marginBottom: 4, textTransform: 'uppercase' as const }}>Hasta</div>
               <input type="date" value={histHasta} onChange={ev => setHistHasta(ev.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ marginLeft: 'auto' }}>
+              <BotonImprimir
+                compacto
+                documentoId="equipo.fichajes_mes"
+                titulo={`Parte mensual de fichajes · ${usuarios.find(u => u.id === histUsuarioId)?.nombre ?? ''}`}
+                generarPdf={async opts => {
+                  const rec = await M.cargarRecursos()
+                  const usuario = usuarios.find(u => u.id === histUsuarioId)
+                  if (!usuario) return null
+                  return construirFichajesPDF(usuario, diasHist, `${fmtFecha(histDesde + 'T12:00:00')} – ${fmtFecha(histHasta + 'T12:00:00')}`, rec, opts.bn)
+                }}
+              />
             </div>
           </div>
 

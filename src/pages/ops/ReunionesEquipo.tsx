@@ -7,6 +7,71 @@ import { toLocalDateStr } from '@/lib/dateRange'
 import { COLORS } from '@/components/panel/resumen/tokens'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import { HeroCantera, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL ═══
+ * Acta de la reunión expandida en pantalla, o de la última reunión si ninguna está expandida. */
+const AREA: M.Area = 'cocina'
+
+function crearPDFActa(r: Reunion, rec: M.Recursos, bn = false) {
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Acta de Reunión', tituloCentrado: fmtFecha(r.fecha), area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  if (r.asistentes && r.asistentes.length > 0) {
+    M.fTitulo(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text('ASISTENTES', cb.x0 + 1.5, y + 4)
+    M.fDato(doc, ctx, false); doc.setFontSize(10); doc.setTextColor(...M.TINTA)
+    const lineasAsist = doc.splitTextToSize(r.asistentes.join(', '), cb.w - 3)
+    doc.text(lineasAsist, cb.x0 + 1.5, y + 9)
+    y += 9 + lineasAsist.length * 5 + 4
+  }
+
+  if (r.acta) {
+    M.fTitulo(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text('ACTA', cb.x0 + 1.5, y + 4)
+    y += 6
+    M.fDato(doc, ctx, false); doc.setFontSize(10); doc.setTextColor(...M.TINTA)
+    const lineasActa = doc.splitTextToSize(r.acta, cb.w - 3)
+    for (const linea of lineasActa) {
+      if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+      doc.text(linea, cb.x0 + 1.5, y + 4)
+      y += 5
+    }
+    y += 4
+  }
+
+  const acuerdos = r.acuerdos ?? []
+  if (acuerdos.length > 0) {
+    if (y > cb.bottom - 14) { doc.addPage(); y = nuevaPagina() }
+    M.fTitulo(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text('ACUERDOS', cb.x0 + 1.5, y + 4)
+    y += 7
+    const BOX = 4.5
+    for (const a of acuerdos) {
+      if (y > cb.bottom - 8) { doc.addPage(); y = nuevaPagina() }
+      doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.35)
+      if (a.hecho) { doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.roundedRect(cb.x0 + 1.5, y, BOX, BOX, M.R, M.R, 'FD') }
+      else doc.roundedRect(cb.x0 + 1.5, y, BOX, BOX, M.R, M.R, 'S')
+      M.fDato(doc, ctx, false); doc.setFontSize(10); doc.setTextColor(...M.TINTA)
+      const txt = a.responsable ? `${a.texto}  (${a.responsable})` : a.texto
+      doc.text(txt, cb.x0 + 1.5 + BOX + 3, y + BOX - 0.5, { maxWidth: cb.w - BOX - 6 })
+      y += BOX + 4
+    }
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 interface Reunion {
   id: string
@@ -120,10 +185,23 @@ export default function ReunionesEquipo() {
     <PantallaCantera>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
         <RutaPantalla niveles={['Reuniones equipo']} subtitulo="Actas y acuerdos de reuniones" />
-        <button onClick={() => setShowForm(s => !s)}
-          style={{ padding: '9px 18px', background: COLORS.glovo, color: INK, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
-          + Nueva reunión
-        </button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <BotonImprimir
+            compacto
+            documentoId="operaciones.acta_reunion"
+            titulo="Acta de reunión de equipo"
+            generarPdf={async opts => {
+              const r = (expanded ? reuniones.find(x => x.id === expanded) : null) ?? reuniones[0]
+              if (!r) return null
+              const rec = await M.cargarRecursos()
+              return crearPDFActa(r, rec, opts.bn)
+            }}
+          />
+          <button onClick={() => setShowForm(s => !s)}
+            style={{ padding: '9px 18px', background: COLORS.glovo, color: INK, border: `3px solid ${INK}`, boxShadow: `3px 3px 0 ${INK}`, fontFamily: FONT.heading, fontSize: 12, letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer' }}>
+            + Nueva reunión
+          </button>
+        </div>
       </div>
 
       {/* 1 · Héroe del área Operaciones (naranja) */}
