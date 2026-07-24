@@ -19,6 +19,8 @@ import { fmtEur, fmtDate } from '@/lib/format'
 import {
   OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, VERDE, ROJO, NAR, AZUL, GRIS, eyebrow, d, BLANCO } from '@/styles/neobrutal'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 interface Empleado { id: string; nombre: string; estado: string }
 
@@ -46,6 +48,87 @@ const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'O
 
 // Superficie informativa: sin sombra dura (solo lo pulsable la lleva, ver PanelEmilio).
 const card: React.CSSProperties = { background: BLANCO, border: BORDER_CARD }
+
+// ─── FASE 2: PDF con el marco único (área 'equipo') — botón Imprimir ────────
+const AREA: M.Area = 'equipo'
+
+interface FilaNominaPDF {
+  empleado: string
+  mes: number
+  bruto: number
+  neto: number
+  estadoOk: boolean
+  clasificacion: string
+}
+
+/** Resumen de nóminas del periodo mostrado en pantalla. Sin filas → null (regla del marco). */
+function construirNominasPDF(filas: FilaNominaPDF[], anio: number, filtroLabel: string, rec: M.Recursos, bn = false) {
+  if (filas.length === 0) return null
+
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  const xEmp = cb.x0 + 1.5
+  const xMes = cb.x0 + cb.w * 0.42
+  const xBruto = cb.x0 + cb.w * 0.60
+  const xNeto = cb.x0 + cb.w * 0.78
+  const xEstado = cb.x1 - 1.5
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Resumen de Nóminas', meta: `Año ${anio} · ${filtroLabel}`, area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+  M.fTitulo(doc, ctx, true); doc.setFontSize(8); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text('Empleado', xEmp, y + 4.2)
+  doc.text('Mes', xMes, y + 4.2)
+  doc.text('Bruto', xBruto, y + 4.2)
+  doc.text('Neto', xNeto, y + 4.2)
+  doc.text('Estado', xEstado, y + 4.2, { align: 'right' })
+  y += 6
+
+  let empActual = ''
+  let totalNeto = 0
+  for (const f of filas) {
+    if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+    if (f.empleado !== empActual) {
+      empActual = f.empleado
+      if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+      doc.setFillColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.rect(cb.x0, y, cb.w, 5.5, 'F')
+      M.fTitulo(doc, ctx, true); doc.setFontSize(9.5); doc.setTextColor(255, 255, 255)
+      doc.text(f.empleado.toUpperCase(), xEmp, y + 4)
+      y += 5.5
+    }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+    M.fDato(doc, ctx, false); doc.setFontSize(9); doc.setTextColor(...M.TINTA)
+    doc.text(MESES_LARGO[f.mes - 1], xMes, y + 3.6)
+    doc.setTextColor(...M.GRIS)
+    doc.text(fmtEur(f.bruto, { decimals: 2 }), xBruto, y + 3.6)
+    doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(fmtEur(f.neto, { decimals: 2 }), xNeto, y + 3.6)
+    doc.setTextColor(...M.GRIS)
+    doc.text(f.estadoOk ? 'OK' : 'Por confirmar', xEstado, y + 3.6, { align: 'right' })
+    totalNeto += f.neto
+    y += 4.8
+  }
+
+  y += 3
+  if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+  doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.4); doc.line(cb.x0, y, cb.x1, y)
+  y += 4
+  M.fTitulo(doc, ctx, true); doc.setFontSize(9.5); doc.setTextColor(...M.TINTA)
+  doc.text('TOTAL NETO DEL PERIODO', xEmp, y)
+  doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text(fmtEur(totalNeto, { decimals: 2 }), xNeto, y)
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 export default function TabNominas() {
   const [empleados, setEmpleados] = useState<Empleado[]>([])
@@ -133,6 +216,17 @@ export default function TabNominas() {
     const descuadresReales = nominas.filter(n => n.clasificacion === 'pagado_de_mas' || n.clasificacion === 'pagado_de_menos')
     return { total, revisar, sinPagoCount: sinPago.length, sumaSinPago, descuadresReales }
   }, [nominas])
+
+  const filasPDF = useMemo((): FilaNominaPDF[] => {
+    const out: FilaNominaPDF[] = []
+    for (const emp of empsFiltrados) {
+      const nominasEmp = nominas.filter(n => n.empleado_id === emp.id).sort((a, b) => a.mes - b.mes)
+      for (const n of nominasEmp) {
+        out.push({ empleado: emp.nombre, mes: n.mes, bruto: n.importe_bruto ?? 0, neto: n.importe_neto ?? 0, estadoOk: n.estado === 'ok', clasificacion: n.clasificacion })
+      }
+    }
+    return out
+  }, [empsFiltrados, nominas])
 
   const th: React.CSSProperties = {
     padding: '10px 8px', fontFamily: OSW, fontSize: 10, fontWeight: 600,
@@ -241,6 +335,19 @@ export default function TabNominas() {
             {pendientesRevision} documento{pendientesRevision !== 1 ? 's' : ''} por revisar
           </button>
         )}
+
+        <div style={{ marginLeft: 'auto' }}>
+          <BotonImprimir
+            compacto
+            documentoId="equipo.nomina_resumen"
+            titulo={`Resumen de nóminas · ${selectedAnio}`}
+            generarPdf={async opts => {
+              const rec = await M.cargarRecursos()
+              const filtroLabel = selectedEmp === 'all' ? 'Todos los empleados' : (empleadosVisibles.find(e => e.id === selectedEmp)?.nombre ?? 'Todos los empleados')
+              return construirNominasPDF(filasPDF, selectedAnio, filtroLabel, rec, opts.bn)
+            }}
+          />
+        </div>
       </div>
 
       {verRevision && (

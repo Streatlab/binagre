@@ -13,6 +13,8 @@ import { fmtDate } from '@/lib/format'
 import ModalRevisionEquipo from '@/components/equipo/ModalRevisionEquipo'
 import { OSW, LEX, INK, CREMA, CLARO, SHADOW, BORDER_CARD, GRANATE, AMA, AZUL, GRIS, BLANCO } from '@/styles/neobrutal'
 import { HeroCantera, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 const MESES_LARGO = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
@@ -28,6 +30,56 @@ interface DocUnificado {
   anio: number | null
   fecha: string | null
   url: string | null
+}
+
+// ─── FASE 2: PDF con el marco único (área 'equipo') — botón Imprimir ────────
+const AREA: M.Area = 'equipo'
+
+/** Listado de documentos de empleado con los filtros ya aplicados en pantalla. Sin filas → null. */
+function construirDocumentosPDF(filas: DocUnificado[], filtroLabel: string, rec: M.Recursos, bn = false) {
+  if (filas.length === 0) return null
+
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  const xTipo = cb.x0 + 1.5
+  const xPersona = cb.x0 + cb.w * 0.28
+  const xPeriodo = cb.x0 + cb.w * 0.60
+  const xUrl = cb.x1 - 1.5
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Documentos de Empleado', meta: filtroLabel, area: AREA, bn })
+  }
+  let y = nuevaPagina()
+
+  doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, y, cb.w, 6, 'F')
+  M.fTitulo(doc, ctx, true); doc.setFontSize(8); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+  doc.text('Tipo', xTipo, y + 4.2)
+  doc.text('Persona', xPersona, y + 4.2)
+  doc.text('Periodo', xPeriodo, y + 4.2)
+  doc.text('Documento', xUrl, y + 4.2, { align: 'right' })
+  y += 6
+
+  for (const d of filas) {
+    if (y > cb.bottom - 6) { doc.addPage(); y = nuevaPagina() }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+    M.fDato(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(d.tipo, xTipo, y + 3.6)
+    M.fDato(doc, ctx, false); doc.setTextColor(...M.TINTA)
+    doc.text(d.persona ?? '—', xPersona, y + 3.6)
+    doc.setTextColor(...M.GRIS)
+    const periodo = d.mes ? `${MESES_LARGO[d.mes - 1]} ${d.anio}` : d.fecha ? fmtDate(d.fecha) : (d.anio ? String(d.anio) : '—')
+    doc.text(periodo, xPeriodo, y + 3.6)
+    doc.text(d.url ? 'Ver online' : '—', xUrl, y + 3.6, { align: 'right' })
+    y += 4.8
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
 }
 
 export default function TabDocumentos() {
@@ -155,12 +207,29 @@ export default function TabDocumentos() {
               display: 'inline-flex', alignItems: 'center', gap: 6,
               border: `3px solid ${INK}`, boxShadow: SHADOW, background: AMA, color: INK,
               fontFamily: OSW, fontWeight: 600, fontSize: 12, letterSpacing: '0.5px', textTransform: 'uppercase',
-              padding: '8px 14px', cursor: 'pointer', marginLeft: 'auto',
+              padding: '8px 14px', cursor: 'pointer', marginLeft: pendientesRevision > 0 ? undefined : 'auto',
             }}
           >
             {pendientesRevision} documento{pendientesRevision !== 1 ? 's' : ''} por revisar
           </button>
         )}
+
+        <div style={{ marginLeft: pendientesRevision > 0 ? 0 : 'auto' }}>
+          <BotonImprimir
+            compacto
+            documentoId="equipo.documentos_empleado"
+            titulo="Documentos de empleado"
+            generarPdf={async opts => {
+              const rec = await M.cargarRecursos()
+              const partes = [
+                filtroPersona === 'todas' ? 'Todas las personas' : filtroPersona,
+                filtroMes === 'todos' ? 'Todos los meses' : MESES_LARGO[filtroMes - 1],
+                filtroTipo === 'todos' ? 'Todos los tipos' : filtroTipo,
+              ]
+              return construirDocumentosPDF(filtrados, partes.join(' · '), rec, opts.bn)
+            }}
+          />
+        </div>
       </div>
 
       {verRevision && (

@@ -6,6 +6,7 @@
  */
 
 import { jsPDF } from 'jspdf'
+import * as M from '@/lib/marcoDoc'
 import {
   type DiaKey, type Empleado, type Turno,
   fmtRangoSemana, numeroSemanaISO, tramosTexto, colorEmpleado,
@@ -155,6 +156,85 @@ export function exportarHorarioPDF(empleados: Empleado[], turnos: Turno[], lunes
     pdf.save(filename)
   }
   return pdf
+}
+
+// ─── FASE 2: PDF con el marco único (área 'equipo') — botón Imprimir ────────
+const AREA: M.Area = 'equipo'
+
+/** Genera el cuadrante semanal con el marco único. Sin turnos → null (regla del marco). */
+export function construirHorariosSemanaPDF(empleados: Empleado[], turnos: Turno[], lunes: Date, rec: M.Recursos, bn = false): jsPDF | null {
+  if (turnos.length === 0) return null
+
+  const doc = M.nuevaHoja({ orientation: 'landscape' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+  const meta = `Semana ${numeroSemanaISO(lunes)} · ${fmtRangoSemana(lunes)}`
+
+  M.pintarEspina(doc, AREA, ctx, bn)
+  let y = M.pintarCabecera(doc, ctx, { docNombre: 'Cuadrante de Horarios', meta, area: AREA, bn })
+
+  const dias = fechasSemana(lunes)
+  const visibles = empleados.filter(e => (!e.estado || e.estado === 'activo') && turnos.some(t => t.empleado_id === e.id))
+  const idxEmp: Record<string, number> = {}
+  empleados.forEach((e, i) => { idxEmp[e.id] = i })
+
+  const colNombre = 26
+  const headerH = 7
+  const gridX = cb.x0 + colNombre
+  const diaW = (cb.x1 - gridX) / 7
+
+  const turnoDe = (id: string, dia: DiaKey): Turno | undefined =>
+    turnos.find(t => t.empleado_id === id && t.dia === dia)
+
+  // Cabecera de días
+  dias.forEach((d, i) => {
+    const x = gridX + i * diaW
+    if (d.festivo) { doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.5); doc.roundedRect(x + 0.5, y, diaW - 1, headerH, M.R, M.R, 'S') }
+    M.fTitulo(doc, ctx, true); doc.setFontSize(9)
+    doc.setTextColor(d.festivo ? pal.acento[0] : M.GRIS[0], d.festivo ? pal.acento[1] : M.GRIS[1], d.festivo ? pal.acento[2] : M.GRIS[2])
+    doc.text(`${d.dia.toUpperCase()} ${d.num}`, x + diaW / 2, y + headerH - 2, { align: 'center' })
+  })
+
+  const contentTop = y + headerH + 1.5
+  const rowH = visibles.length > 0 ? Math.min(30, (cb.bottom - contentTop) / visibles.length) : 30
+
+  visibles.forEach((emp, row) => {
+    const yRow = contentTop + row * rowH
+    M.fTitulo(doc, ctx, true); doc.setFontSize(12); doc.setTextColor(...M.TINTA)
+    doc.text(nombrePila(emp.nombre), cb.x0, yRow + rowH / 2 + 1.5)
+
+    const col = colorEmpleado(idxEmp[emp.id] ?? 0)
+    const bg = hexRgb(col.bg)
+    const txt = hexRgb(col.text)
+
+    dias.forEach((d, i) => {
+      const x = gridX + i * diaW
+      const pad = 1.2
+      const cx = x + pad, cy = yRow + pad, cw = diaW - pad * 2, ch = rowH - pad * 2
+      const t = turnoDe(emp.id, d.dia)
+
+      if (!t) {
+        doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.roundedRect(cx, cy, cw, ch, M.R, M.R, 'F')
+        if (d.festivo) { doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.5); doc.roundedRect(cx, cy, cw, ch, M.R, M.R, 'S') }
+        M.fDato(doc, ctx, false); doc.setFontSize(9); doc.setTextColor(...M.GRIS)
+        doc.text('Libre', x + diaW / 2, yRow + rowH / 2 + 1, { align: 'center' })
+        return
+      }
+
+      doc.setFillColor(bg[0], bg[1], bg[2]); doc.roundedRect(cx, cy, cw, ch, M.R, M.R, 'F')
+      if (d.festivo) { doc.setDrawColor(pal.acento[0], pal.acento[1], pal.acento[2]); doc.setLineWidth(0.5); doc.roundedRect(cx, cy, cw, ch, M.R, M.R, 'S') }
+
+      const lineas = tramosTexto(t).split('\n')
+      M.fDato(doc, ctx, true); doc.setFontSize(11); doc.setTextColor(txt[0], txt[1], txt[2])
+      const lh = 4.6
+      const startY = yRow + rowH / 2 - ((lineas.length - 1) * lh) / 2 + 1
+      lineas.forEach((ln, li) => doc.text(ln, x + diaW / 2, startY + li * lh, { align: 'center' }))
+    })
+  })
+
+  M.pintarPaginado(doc, 1, 1, ctx)
+  return doc
 }
 
 export async function compartirHorarioPDF(empleados: Empleado[], turnos: Turno[], lunes: Date, opts: ExportOpts = {}) {

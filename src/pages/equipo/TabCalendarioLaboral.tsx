@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { FESTIVOS_MADRID, esFestivo, nombreFestivo } from '@/utils/festivosMadrid'
 import { HeroCantera, Papel, FrasePotente, PantallaCantera } from '@/components/kit/cantera'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 interface Empleado { id: string; nombre: string }
 interface EventoLaboral {
@@ -38,6 +40,101 @@ const TIPO_COLORES: Record<string, string> = {
 
 function isoDate(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+function hexRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+}
+
+// ─── FASE 2: PDF con el marco único (área 'equipo') — botón Imprimir ────────
+const AREA: M.Area = 'equipo'
+
+/** Calendario laboral del mes. Sin empleados → null (regla del marco). */
+function construirCalendarioLaboralPDF(empleados: Empleado[], eventos: EventoLaboral[], year: number, month: number, rec: M.Recursos, bn = false) {
+  if (empleados.length === 0) return null
+
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA, bn)
+  const cb = M.contentBox(doc)
+
+  const monthName = new Date(year, month, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())
+  let y = M.pintarCabecera(doc, ctx, { docNombre: 'Calendario Laboral', tituloCentrado: monthName, area: AREA, bn })
+
+  const empColor = (empId: string) => {
+    const idx = empleados.findIndex(e => e.id === empId)
+    return hexRgb(EMP_COLORS[idx % EMP_COLORS.length] ?? SIN_DATO_GRIS)
+  }
+
+  // Leyenda
+  M.fDato(doc, ctx, true); doc.setFontSize(7.5)
+  let xLeg = cb.x0
+  const leyenda: Array<{ label: string; color: [number, number, number] }> = [
+    ...empleados.map((e, i) => ({ label: e.nombre, color: hexRgb(EMP_COLORS[i % EMP_COLORS.length]) })),
+    { label: 'Festivo', color: hexRgb(LIMA) },
+    { label: 'Baja médica', color: hexRgb(ROJO) },
+  ]
+  for (const it of leyenda) {
+    doc.setFillColor(it.color[0], it.color[1], it.color[2]); doc.circle(xLeg + 1, y - 1, 1, 'F')
+    doc.setTextColor(...M.TINTA)
+    doc.text(it.label, xLeg + 3.5, y)
+    xLeg += doc.getTextWidth(it.label) + 10
+    if (xLeg > cb.x1 - 20) { xLeg = cb.x0; y += 4.5 }
+  }
+  y += 6
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const firstWeekday = new Date(year, month, 1).getDay()
+  const startOffset = firstWeekday === 0 ? 6 : firstWeekday - 1
+  const weekDays = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+  const cellW = cb.w / 7
+  const rows = Math.ceil((daysInMonth + startOffset) / 7)
+  const cellH = Math.min(22, (cb.bottom - y - 6) / rows)
+
+  M.fTitulo(doc, ctx, true); doc.setFontSize(8); doc.setTextColor(...M.GRIS)
+  weekDays.forEach((d, i) => doc.text(d, cb.x0 + i * cellW + cellW / 2, y, { align: 'center' }))
+  y += 4
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const idx = startOffset + day - 1
+    const row = Math.floor(idx / 7)
+    const col = idx % 7
+    const x = cb.x0 + col * cellW
+    const cy = y + row * cellH
+    const fecha = isoDate(year, month, day)
+    const esFest = esFestivo(fecha) || FESTIVOS_MADRID.includes(fecha)
+    const festNombre = nombreFestivo(fecha)
+    const evs = eventos.filter(e => e.fecha === fecha)
+
+    if (esFest) { doc.setFillColor(pal.soft[0], pal.soft[1], pal.soft[2]); doc.roundedRect(x + 0.4, cy + 0.4, cellW - 0.8, cellH - 0.8, M.R, M.R, 'F') }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.15); doc.roundedRect(x + 0.4, cy + 0.4, cellW - 0.8, cellH - 0.8, M.R, M.R, 'S')
+
+    M.fTitulo(doc, ctx, true); doc.setFontSize(9); doc.setTextColor(esFest ? pal.acento[0] : M.TINTA[0], esFest ? pal.acento[1] : M.TINTA[1], esFest ? pal.acento[2] : M.TINTA[2])
+    doc.text(String(day), x + 2, cy + 4)
+
+    if (festNombre) {
+      M.fDato(doc, ctx, true); doc.setFontSize(5.5); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+      const maxW = cellW - 3
+      const fs = M.fitFont(doc, festNombre, maxW, 5.5, 4)
+      doc.setFontSize(fs)
+      doc.text(festNombre, x + cellW / 2, cy + 8, { align: 'center', maxWidth: maxW })
+    }
+
+    let dx = x + 2
+    for (const ev of evs) {
+      const c = ev.tipo === 'festivo' ? hexRgb(LIMA)
+        : ev.tipo === 'baja_medica' ? hexRgb(ROJO)
+        : ev.tipo === 'asuntos_propios' ? hexRgb(AZUL_CL)
+        : ev.tipo === 'permiso_retribuido' ? hexRgb(PERMISO_RETRIBUIDO)
+        : empColor(ev.empleado_id ?? '')
+      doc.setFillColor(c[0], c[1], c[2]); doc.circle(dx, cy + cellH - 3, 1, 'F')
+      dx += 3
+    }
+  }
+
+  M.pintarPaginado(doc, 1, 1, ctx)
+  return doc
 }
 
 export default function TabCalendarioLaboral() {
@@ -129,6 +226,14 @@ export default function TabCalendarioLaboral() {
           style={{ background: T.card, border: `1px solid ${T.brd}`, borderRadius: 0, padding: '6px 10px', cursor: 'pointer', color: T.pri, display: 'flex', alignItems: 'center' }}>
           <ChevronRight size={16} />
         </button>
+        <div style={{ marginLeft: 'auto' }}>
+          <BotonImprimir
+            compacto
+            documentoId="equipo.calendario_laboral"
+            titulo={`Calendario laboral · ${monthName}`}
+            generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirCalendarioLaboralPDF(empleados, eventos, year, month, rec, opts.bn) }}
+          />
+        </div>
       </div>
 
       {/* Leyenda empleados */}
