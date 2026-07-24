@@ -1,12 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
 import { supabase } from '@/lib/supabase'
-import { Printer, Pencil, AlertTriangle, Link2 } from 'lucide-react'
+import { Printer, FileDown, Pencil, AlertTriangle, Link2 } from 'lucide-react'
 import ModalEditarFicha from './ModalEditarFicha'
 import { fmtEur, fmtNum } from '@/lib/format'
-import * as M from '@/lib/marcoDoc'
-import { construirFichaTecnicaPDF } from '@/lib/fichaTecnicaPdf'
-import BotonImprimir from '@/components/BotonImprimir'
 import FichaTecnicaHoja, { ALERGENOS_FICHA, ALERGENOS_FICHA_PIE, type LineaIng } from '@/components/marco/FichaTecnicaHoja'
 import { GRANATE, BLANCO, GRIS, INK, CREMA, OSW, LEX } from '@/styles/neobrutal'
 import { estiloFiltro, estiloBoton, estiloItemLista, SelectCantera } from '@/components/kit/controles'
@@ -47,7 +44,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
     ;(data ?? []).forEach((r: any) => {
       const al = Array.isArray(r.alergenos) ? r.alergenos : []
       if (al.length === 0) return
-      const claves = [r.nombre_base, r.nombre].filter(Boolean).map((s: string) => s.replace(/_[A-Z]+$/, '').trim().toLowerCase())
+      const claves = [r.nombre_base, r.nombre].filter(Boolean).map((s: string) => limpiarNombre(s).nombre.toLowerCase())
       claves.forEach(k => { if (k) map[k] = al })
     })
     setAlergMap(map)
@@ -82,8 +79,11 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
     ;(recCodRes.data ?? []).forEach((r: any) => { if (r.codigo) recCod[r.id] = r.codigo })
     const pushLinea = (cod: string | undefined, l: any) => {
       if (!cod) return
-      const nombre = (l.ingrediente_nombre ?? '').replace(/_[A-Z]+$/, '').trim()
-      ;(mapaLineas[cod] = mapaLineas[cod] || []).push({ ingrediente: nombre, cant: l.cantidad != null ? String(l.cantidad) : '', ud: l.unidad ?? '' })
+      ;(mapaLineas[cod] = mapaLineas[cod] || []).push({
+        ingrediente: l.ingrediente_nombre ?? '',
+        cant: l.cantidad != null ? String(l.cantidad) : '',
+        ud: l.unidad ?? '',
+      })
     }
     ;(epsLinRes.data ?? []).forEach((l: any) => pushLinea(epsCod[l.eps_id], l))
     ;(recLinRes.data ?? []).forEach((l: any) => pushLinea(recCod[l.receta_id], l))
@@ -195,9 +195,22 @@ function fmtCant(c: string): string {
 
 /** "gr" → "gr." · "lata" → "lata" (las palabras completas no llevan punto). */
 function fmtUd(ud: string): string {
-  const u = (ud ?? '').trim()
+  const u = (ud ?? '').trim().replace(/\.$/, '')
   if (!u) return ''
-  return u.length <= 3 ? `${u}.` : u
+  return u.length <= 3 ? `${u}.` : u.toLowerCase()
+}
+
+/**
+ * Limpia el nombre del ingrediente para el papel: quita el sufijo de proveedor
+ * (_MER, _ALC, _EPS…) esté donde esté y saca la aclaración entre paréntesis
+ * ("1 c.s.", "4 hojas") a la columna Equivalencia, que es su sitio.
+ */
+export function limpiarNombre(n: string): { nombre: string; equivalencia: string } {
+  let s = (n ?? '').replace(/_[A-Z]{2,4}\b/g, '').trim()
+  let eq = ''
+  const m = s.match(/\(([^)]*)\)\s*$/)
+  if (m && m.index != null) { eq = m[1].trim(); s = s.slice(0, m.index).trim() }
+  return { nombre: s, equivalencia: eq }
 }
 
 function costeLinea(i: IngLinea): number {
@@ -222,7 +235,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
   const alergAuto = useMemo(() => {
     const set = new Set<string>()
     ingredientes.forEach(i => {
-      const k = (i.ingrediente || '').replace(/_[A-Z]+$/, '').trim().toLowerCase()
+      const k = limpiarNombre(i.ingrediente || '').nombre.toLowerCase()
       const al = alergMap[k]
       if (al) al.forEach(a => set.add(a))
     })
@@ -245,38 +258,16 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
     onSaved()
   }
 
-  // ── FUENTE ÚNICA de datos: pantalla y PDF beben de aquí ──
-  const lineasHoja: LineaIng[] = ingredientes.map(i => ({
-    ingrediente: i.match?.nombre ?? i.ingrediente,
-    cantidad: fmtCant(i.cant),
-    unidad: fmtUd(i.ud),
-    equivalencia: i.equivalencia || '',
-  }))
-  const datosFicha = {
-    area: 'cocina' as const,
-    tipoDoc: f.tipo === 'receta' ? 'Receta' : 'Elaboración previa',
-    nombre: f.nombre,
-    gama: f.gama,
-    codigo: f.codigo,
-    revision: f.edicion,
-    tiempoPrep: f.tiempo_prep,
-    rendimiento: f.raciones ? `${fmtNum(f.raciones, 0)} rac.` : null,
-    costeTanda: fmtEur(costeTanda, { decimals: 2 }),
-    costeRacion: fmtEur(costeRac, { decimals: 2 }),
-    ingredientes: lineasHoja,
-    pasos: f.pasos ?? [],
-    conservacion: f.conservacion ?? [],
-    alergenos: alergAuto,
-  }
-
-  async function generarPdfFicha(bnFlag: boolean) {
-    const rec = await M.cargarRecursos()
-    return construirFichaTecnicaPDF(datosFicha, rec, bnFlag)
-  }
-  async function descargarPdf() {
-    const rec = await M.cargarRecursos()
-    M.descargar(construirFichaTecnicaPDF(datosFicha, rec, false), `${f.codigo ?? f.tipo}-${f.nombre}`)
-  }
+  // ── Datos reales del escandallo → líneas del papel ──
+  const lineasHoja: LineaIng[] = ingredientes.map(i => {
+    const l = limpiarNombre(i.match?.nombre ?? i.ingrediente)
+    return {
+      ingrediente: l.nombre,
+      cantidad: fmtCant(i.cant),
+      unidad: fmtUd(i.ud),
+      equivalencia: i.equivalencia || l.equivalencia,
+    }
+  })
 
   return (
     <div className="flex-1 min-w-0">
@@ -319,7 +310,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
         <div className="no-print" style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 0, padding: '12px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
           <AlertTriangle size={18} color={ESCANDALLO_WARN_BTN} />
           <div style={{ flex: 1, fontSize: 13, color: ESCANDALLO_WARN_TXT }}>
-            <strong>{sinEnlazar.length} sin enlazar al escandallo:</strong> {sinEnlazar.map(i => i.ingrediente).join(', ')}.
+            <strong>{sinEnlazar.length} sin enlazar al escandallo:</strong> {sinEnlazar.map(i => limpiarNombre(i.ingrediente).nombre).join(', ')}.
           </div>
           <button onClick={() => setEditando(true)} style={estiloBoton({ background: ESCANDALLO_WARN_BTN, color: BLANCO, padding: '7px 12px', fontSize: 12 })}>
             <Link2 size={13} /> Resolver
@@ -327,11 +318,25 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
         </div>
       )}
 
-      <FichaTecnicaHoja {...datosFicha} />
+      <FichaTecnicaHoja
+        tipoDoc={f.tipo === 'receta' ? 'Receta' : 'Elaboración previa'}
+        nombre={f.nombre}
+        gama={f.gama}
+        codigo={f.codigo}
+        revision={f.edicion}
+        tiempoPrep={f.tiempo_prep}
+        rendimiento={f.raciones ? `${fmtNum(f.raciones, 0)} rac.` : null}
+        costeTanda={fmtEur(costeTanda, { decimals: 2 })}
+        costeRacion={fmtEur(costeRac, { decimals: 2 })}
+        ingredientes={lineasHoja}
+        pasos={f.pasos ?? []}
+        conservacion={f.conservacion ?? []}
+        alergenos={alergAuto}
+      />
 
       <div className="no-print" style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-        <BotonImprimir compacto documentoId={f.tipo === 'receta' ? 'cocina.ficha_receta' : 'cocina.ficha_ep'} titulo={`Ficha técnica · ${f.codigo ? f.codigo + ' · ' : ''}${f.nombre}`} generarPdf={opts => generarPdfFicha(opts.bn)} />
-        <button onClick={descargarPdf} style={estiloBoton()}><Printer size={15} /> PDF</button>
+        <button onClick={() => window.print()} style={estiloBoton()}><Printer size={15} /> Imprimir</button>
+        <button onClick={() => window.print()} style={estiloBoton()} title="En el diálogo, elige «Guardar como PDF»"><FileDown size={15} /> PDF</button>
         <button onClick={() => setEditando(true)} style={estiloBoton()}><Pencil size={15} /> Editar</button>
         <span style={{ fontFamily: LEX, fontSize: 11.5, color: GRIS }}>
           Enlazados al escandallo: {ingredientes.length - sinEnlazar.length}/{ingredientes.length}
