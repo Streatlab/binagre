@@ -1,8 +1,9 @@
 // FICHAJE · API del quiosco de tablet (ruta pública /fichaje, sin sesión ERP).
 // Seguridad: nada se hace sin PIN. El listado de estado solo expone nombre/foto/estado.
 // CANDADO 24-jul: desde la tablet NO se puede consultar ni corregir el registro.
-// Las acciones admin-* exigen la llave de servidor FICHAJE_ADMIN_TOKEN (solo la usará
-// el ERP con sesión iniciada). Sin esa llave responden 403, aunque se acierte el PIN.
+// Las acciones admin-* exigen O BIEN la llave de servidor FICHAJE_ADMIN_TOKEN
+// (servidor a servidor) O BIEN el PIN de administración (pin_admin en el cuerpo),
+// que es como entra el ERP: así ningún secreto viaja al navegador.
 // Registro de jornada RD-ley 8/2019: append-only en BD (trigger), correcciones trazadas.
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin } from '../_lib/supabase-admin.js'
@@ -78,6 +79,13 @@ async function adminPinOk(pin: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin.rpc('fn_fichaje_admin_pin_ok', { p_pin: pin })
   if (error) return false
   return data === true
+}
+
+/** Puerta de gestión: llave de servidor (máquina) o PIN de administración (ERP). */
+async function gestionAutorizada(req: VercelRequest): Promise<boolean> {
+  if (esErpAutorizado(req)) return true
+  const pin = String((req.body as { pin_admin?: string })?.pin_admin || '')
+  return await adminPinOk(pin)
 }
 
 // ── GET /api/fichaje/estado ────────────────────────────────────────────────
@@ -157,24 +165,63 @@ async function quioscoDesbloquear(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ ok })
 }
 
-// ── Acciones de gestión: SOLO desde el ERP con la llave de servidor ────────
+// ── Acciones de gestión: solo ERP (PIN admin) o llave de servidor ──────────
+async function adminEmpleados(_req: VercelRequest, res: VercelResponse) {
+  const { data, error } = await supabaseAdmin
+    .from('empleados')
+    .select('id, nombre, fichaje_activo, orden')
+    .eq('activo', true)
+    .order('orden', { ascending: true, nullsFirst: false })
+    .order('nombre')
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ empleados: data || [] })
+}
+
 async function adminRegistros(req: VercelRequest, res: VercelResponse) {
   const dia = String((req.body as { fecha?: string })?.fecha || hoyMadridISO())
   const filas = await fichajesDelDia(dia)
   const { data: emps } = await supabaseAdmin.from('empleados').select('id, nombre').eq('activo', true)
   const nombres = new Map((emps || []).map(e => [e.id, e.nombre]))
+  const { data: hors } = await supabaseAdmin
+    .from('horarios')
+    .select('empleado_id, hora_inicio, hora_fin')
+    .eq('fecha', dia)
   const porEmp = new Map<string, Fila[]>()
   for (const f of validos(filas)) {
     if (!f.empleado_id) continue
     if (!porEmp.has(f.empleado_id)) porEmp.set(f.empleado_id, [])
     porEmp.get(f.empleado_id)!.push(f)
   }
-  const registros = [...porEmp.entries()].map(([id, fs]) => ({
-    empleado_id: id,
-    nombre: nombres.get(id) || '¿?',
-    eventos: fs.map(f => ({ id: f.id, tipo: f.tipo, ts: f.timestamp, correccion: f.correccion, motivo: f.correccion_motivo })),
-    ...resumenDia(fs),
-  }))
+  const registros = [...porEmp.entries()].map(([id, fs]) => {
+    const hor = (hors || []).find(h => h.empleado_id === id)
+    return {
+      empleado_id: id,
+      nombre: nombres.get(id) || '¿?',
+      previsto_inicio: hor?.hora_inicio || null,
+      previsto_fin: hor?.hora_fin || null,
+      eventos: fs.map(f => ({ id: f.id, tipo: f.tipo, ts: f.timestamp, correccion: f.correccion, motivo: f.correccion_motivo })),
+      ...resumenDia(fs),
+    }
+  })
+  // Quien tenía horario previsto y no aparece: ausencia visible
+  for (const h of hors || []) {
+    if (!porEmp.has(h.empleado_id)) {
+      registros.push({
+        empleado_id: h.empleado_id,
+        nombre: nombres.get(h.empleado_id) || '¿?',
+        previsto_inicio: h.hora_inicio,
+        previsto_fin: h.hora_fin,
+        eventos: [],
+        estado: 'fuera',
+        min_trabajo: 0,
+        min_pausa: 0,
+        ultimo_ts: null,
+        entrada_ts: null,
+        salida_ts: null,
+      })
+    }
+  }
+  registros.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
   return res.status(200).json({ fecha: dia, registros })
 }
 
@@ -220,17 +267,20 @@ async function adminInforme(req: VercelRequest, res: VercelResponse) {
     .from('horarios').select('fecha, hora_inicio, hora_fin')
     .eq('empleado_id', empleado_id)
     .gte('fecha', `${mes}-01`).lte('fecha', `${mes}-${String(dias).padStart(2, '0')}`)
+  const { data: emp } = await supabaseAdmin.from('empleados').select('nombre, dni').eq('id', empleado_id).single()
   const fmtDia = (ts: string) => new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(new Date(ts))
   const vals = validos((data || []) as Fila[])
   for (let d = 1; d <= dias; d++) {
     const f = `${mes}-${String(d).padStart(2, '0')}`
     const fs = vals.filter(x => fmtDia(x.timestamp) === f)
-    if (!fs.length) continue
-    const r = resumenDia(fs, new Date(fs[fs.length - 1].timestamp))
     const hor = (hors || []).find(h => h.fecha === f)
+    if (!fs.length && !hor) continue
+    const r = fs.length
+      ? resumenDia(fs, new Date(fs[fs.length - 1].timestamp))
+      : { estado: 'fuera', min_trabajo: 0, min_pausa: 0, ultimo_ts: null, entrada_ts: null, salida_ts: null }
     salida.push({ fecha: f, ...r, previsto_inicio: hor?.hora_inicio || null, previsto_fin: hor?.hora_fin || null, corregido: fs.some(x => x.correccion) })
   }
-  return res.status(200).json({ empleado_id, mes, dias: salida })
+  return res.status(200).json({ empleado_id, nombre: emp?.nombre || '', dni: emp?.dni || null, mes, dias: salida })
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -241,11 +291,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'fichar') return await fichar(req, res)
     if (action === 'quiosco-desbloquear') return await quioscoDesbloquear(req, res)
 
-    // Puertas cerradas: gestión del registro. Exigen llave de servidor (ERP).
-    if (action === 'admin-registros' || action === 'admin-corregir' || action === 'admin-informe') {
-      if (!esErpAutorizado(req)) return res.status(403).json({ error: 'Acceso no autorizado' })
+    // Puertas cerradas: gestión del registro. Llave de servidor o PIN de admin.
+    if (action === 'admin-registros' || action === 'admin-corregir' || action === 'admin-informe' || action === 'admin-empleados') {
+      if (!(await gestionAutorizada(req))) return res.status(403).json({ error: 'Acceso no autorizado' })
       if (action === 'admin-registros') return await adminRegistros(req, res)
       if (action === 'admin-corregir') return await adminCorregir(req, res)
+      if (action === 'admin-empleados') return await adminEmpleados(req, res)
       return await adminInforme(req, res)
     }
 
