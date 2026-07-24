@@ -4,20 +4,47 @@
  * (RutaPantalla) + plancha segmentada estilo TabsPastilla (activa ROSA).
  * Cuando NO trae `title` es NIVEL SECUNDARIO → estilo SubTabs (solo texto
  * Oswald con subrayado grueso rosa, sin cajas).
+ *
+ * MIGA DE PAN COMPLETA: la ruta que se pinta arriba NO se queda en el título.
+ * El contenedor primario añade la pestaña activa de su propia barra y, vía
+ * contexto, el contenedor secundario le añade la suya. Resultado:
+ * "Cocina ▸ Operativa ▸ Libro de Recetas ▸ Recetas".
+ *
  * Sigue routeando con <NavLink> y renderiza la pantalla existente TAL CUAL
  * en el <Outlet/>. Nunca reescribe el interior de las pantallas.
  */
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useResolvedPath } from 'react-router-dom'
+import { createContext, useContext, useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { INK, BLANCO } from '@/styles/neobrutal'
 
 const ROSA = '#FF2E63'
 const OSW = "'Oswald', sans-serif"
 
+/** Canal por el que un TabsContainer secundario cuelga su pestaña activa de la miga del primario. */
+const MigaCtx = createContext<((label: string | null) => void) | null>(null)
+
 export interface AreaTab {
   to: string
   label: string
   end?: boolean
+}
+
+function resolverRuta(base: string, to: string): string {
+  if (to.startsWith('/')) return to
+  if (to === '.' || to === '') return base
+  return `${base.replace(/\/$/, '')}/${to}`
+}
+
+/** Etiqueta de la pestaña activa según la URL (misma regla que usa NavLink). */
+function useTabActivo(tabs: AreaTab[]): string | null {
+  const { pathname } = useLocation()
+  const base = useResolvedPath('.').pathname
+  const hit = tabs.find(t => {
+    const p = resolverRuta(base, t.to)
+    return t.end ? pathname === p : pathname === p || pathname.startsWith(p + '/')
+  })
+  return hit ? hit.label : null
 }
 
 export function TabsContainer({
@@ -29,9 +56,16 @@ export function TabsContainer({
   tabs: AreaTab[]
   insight?: string
 }) {
-  // Miga de pan a partir del título: "Cocina · Operativa" → ['Cocina','Operativa'].
-  const niveles = title ? title.split('·').map(s => s.trim()).filter(Boolean) : []
-  const colores = [INK, ROSA, '#a3987f']
+  const activo = useTabActivo(tabs)
+  const [colgado, setColgado] = useState<string | null>(null)
+  const colgar = useContext(MigaCtx)
+
+  // Secundario: en vez de pintar miga propia, la cuelga de la del primario.
+  useEffect(() => {
+    if (title || !colgar) return
+    colgar(activo)
+    return () => colgar(null)
+  }, [title, colgar, activo])
 
   // ── Nivel secundario (sin título): estilo SubTabs ──
   if (!title) {
@@ -56,6 +90,14 @@ export function TabsContainer({
   }
 
   // ── Nivel primario (con título): RutaPantalla + plancha estilo TabsPastilla ──
+  // Miga = título ("Cocina · Operativa") + pestaña activa + pestaña colgada por el secundario.
+  const niveles = [
+    ...title.split('·').map(s => s.trim()).filter(Boolean),
+    ...(activo ? [activo] : []),
+    ...(colgado ? [colgado] : []),
+  ]
+  const colores = [INK, ROSA, '#a3987f']
+
   return (
     <div style={{ width: '100%' }}>
       <div style={{ marginBottom: 14 }}>
@@ -63,7 +105,7 @@ export function TabsContainer({
           {niveles.map((n, i) => (
             <span key={i} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 10 }}>
               {i > 0 && <span style={{ fontSize: 18, color: '#FF6A1A', fontWeight: 700 }}>▸</span>}
-              <span style={{ fontWeight: 700, fontSize: 26, letterSpacing: '2px', color: colores[Math.min(i, 2)] }}>{n}</span>
+              <span style={{ fontWeight: 700, fontSize: i <= 1 ? 26 : 20, letterSpacing: '2px', color: colores[Math.min(i, 2)] }}>{n}</span>
             </span>
           ))}
         </div>
@@ -87,7 +129,9 @@ export function TabsContainer({
         ))}
       </div>
 
-      <Outlet />
+      <MigaCtx.Provider value={setColgado}>
+        <Outlet />
+      </MigaCtx.Provider>
     </div>
   )
 }
