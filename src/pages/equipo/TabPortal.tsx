@@ -1,4 +1,4 @@
-import { AZUL_CL, BLANCO, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
+import { AZUL_CL, BLANCO, CREMA, GRANATE, INK, LIMA, NAR, VERDE } from '@/styles/neobrutal'
 import { LIBRO_ESTADO_OK_BG, LIBRO_ESTADO_BAJA_BG, BADGE_PENDIENTE_BG, TABPORTAL_TODAY_BG } from '@/styles/palettes'
 import { useEffect, useMemo, useState } from 'react'
 import { Download } from 'lucide-react'
@@ -145,27 +145,31 @@ export default function TabPortal() {
   const pendientesPortal = useMemo(() => solicitudes.filter(s => s.estado === 'pendiente').length, [solicitudes])
   const mesActual = new Date().getMonth()
 
-  // Proyección de cierre de mes con el ritmo real de ventas (se corrige cada día).
+  // Realidad de hoy y previsión de cierre: siempre las dos, en casillas separadas.
   const hoyD = new Date()
   const diasMes = new Date(hoyD.getFullYear(), hoyD.getMonth() + 1, 0).getDate()
   const diasPasados = Math.min(hoyD.getDate(), diasMes)
   const ritmoDia = diasPasados > 0 ? factAcum / diasPasados : 0
   const factProy = ritmoDia * diasMes
-  const multProy = (() => {
-    if (!incentivo || !tramos) return Number(incentivo?.multiplicador ?? 0)
-    const base = incentivo.facturacion_manual ? Number(incentivo.facturacion_real) : factProy
+  const multDe = (base: number) => {
+    if (!tramos) return 0
     if (base >= Number(tramos.fact_t3)) return Number(tramos.mult_n3)
     if (base >= Number(tramos.fact_t2)) return Number(tramos.mult_n2)
     if (base >= Number(tramos.fact_min)) return Number(tramos.mult_n1)
     return 0
-  })()
+  }
+  const baseManual = incentivo?.facturacion_manual ? Number(incentivo.facturacion_real) : null
+  const multProy = multDe(baseManual ?? factProy)
+  const multHoy = multDe(baseManual ?? factAcum)
   const conceptos = incentivo
     ? Number(incentivo.eur_reembolsos) + Number(incentivo.eur_inventario) + Number(incentivo.eur_retrasos) + Number(incentivo.eur_valoracion)
       + Number(incentivo.eur_vacio) + Number(incentivo.eur_checklist) + Number(incentivo.eur_fechado)
     : 0
-  const totalProy = !incentivo || incentivo.muerte || multProy === 0
+  const totalCon = (mult: number) => !incentivo || incentivo.muerte || mult === 0
     ? 0
-    : Math.min(Number(incentivo.tope_total), Math.max(0, conceptos - Number(incentivo.penalizacion)) * multProy)
+    : Math.min(Number(incentivo.tope_total), Math.max(0, conceptos - Number(incentivo.penalizacion)) * mult)
+  const totalProy = totalCon(multProy)
+  const totalHoy = totalCon(multHoy)
 
   // Admin sin empleado vinculado: selector de empleado para ver su portal
   const selectorAdmin = isAdmin && !empleadoIdFromUser ? (
@@ -206,13 +210,14 @@ export default function TabPortal() {
         <HeroCantera
           area="equipo"
           titular={`Hola, ${empleado.nombre.split(' ')[0]}`}
-          etiquetaDato="Vas camino de cobrar este mes"
-          cifra={incentivo ? `${Math.round(totalProy)} € [EST]` : '—'}
+          etiquetaDato="Hoy tienes ganado / vas camino de cobrar"
+          cifra={incentivo ? `${Math.round(totalHoy)} € → ${Math.round(totalProy)} € [EST]` : '—'}
           resumen={incentivo
             ? <>La cocina lleva <b>{Math.round(factAcum).toLocaleString('es-ES')} €</b> en {diasPasados} días; al ritmo de hoy cerraría en <b>{Math.round(factProy).toLocaleString('es-ES')} €</b>. Se corrige cada día con lo que se factura de verdad.</>
             : 'Todavía no hay mediciones guardadas de este mes.'}
           atencion={[
-            multProy > 0 ? `Incentivos ×${multProy} [EST]` : 'Candado de incentivos cerrado',
+            multHoy > 0 ? `Hoy ×${multHoy}` : 'Hoy el candado está cerrado',
+            multProy > 0 ? `Previsión ×${multProy} [EST]` : 'Previsión: sigue cerrado',
             pendientesPortal > 0 ? `${pendientesPortal} solicitudes pendientes` : null,
             `${turnosFuturos} turnos próximos`,
           ]}
@@ -244,20 +249,25 @@ export default function TabPortal() {
           ) : (
             <>
               <Plancha>
-                <PlanchaCelda first bg={incentivo.muerte || multProy === 0 ? GRANATE : VERDE} color={BLANCO}>
-                  <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Vas camino de cobrar · {MESES[mesActual]}</div>
-                  <div style={{ fontFamily: FONT.heading, fontSize: 38, fontWeight: 700, lineHeight: 1.1 }}>{Math.round(totalProy)} € [EST]</div>
-                  <div style={{ fontFamily: FONT.body, fontSize: 12 }}>{incentivo.muerte ? 'Regla de muerte activada este mes' : multProy === 0 ? `Al ritmo de hoy la cocina no llega a ${Number(incentivo.fact_min).toLocaleString('es-ES')} €` : `Multiplicador ×${multProy} · tope ${Math.round(incentivo.tope_total)} €`}</div>
-                </PlanchaCelda>
-                <PlanchaCelda>
-                  <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK }}>Llevamos hoy</div>
+                <PlanchaCelda first bg={BLANCO}>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK }}>Realidad · llevamos hoy</div>
                   <div style={{ fontFamily: FONT.heading, fontSize: 30, fontWeight: 700, color: INK }}>{Math.round(factAcum).toLocaleString('es-ES')} €</div>
                   <div style={{ fontFamily: FONT.body, fontSize: 12, color: INK }}>{diasPasados} de {diasMes} días · {Math.round(ritmoDia).toLocaleString('es-ES')} €/día</div>
                 </PlanchaCelda>
-                <PlanchaCelda>
-                  <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: INK }}>Cierre estimado del mes</div>
-                  <div style={{ fontFamily: FONT.heading, fontSize: 30, fontWeight: 700, color: INK }}>{Math.round(factProy).toLocaleString('es-ES')} € [EST]</div>
-                  <div style={{ fontFamily: FONT.body, fontSize: 12, color: INK }}>El bote se abre a {Number(incentivo.fact_min).toLocaleString('es-ES')} € · objetivo 900-1.000 €/día</div>
+                <PlanchaCelda bg={multHoy > 0 && !incentivo.muerte ? VERDE : GRANATE} color={BLANCO}>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Con lo de hoy cobrarías</div>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 34, fontWeight: 700, lineHeight: 1.1 }}>{Math.round(totalHoy)} €</div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 12 }}>{incentivo.muerte ? 'Regla de muerte activada' : multHoy === 0 ? `Aún no se llega a ${Number(incentivo.fact_min).toLocaleString('es-ES')} €` : `Multiplicador ×${multHoy}`}</div>
+                </PlanchaCelda>
+                <PlanchaCelda bg={CREMA} color={INK}>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Previsión · cierre del mes</div>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 30, fontWeight: 700 }}>{Math.round(factProy).toLocaleString('es-ES')} € [EST]</div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 12 }}>El bote se abre a {Number(incentivo.fact_min).toLocaleString('es-ES')} €</div>
+                </PlanchaCelda>
+                <PlanchaCelda bg={multProy > 0 && !incentivo.muerte ? VERDE : GRANATE} color={BLANCO}>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Vas camino de cobrar</div>
+                  <div style={{ fontFamily: FONT.heading, fontSize: 34, fontWeight: 700, lineHeight: 1.1 }}>{Math.round(totalProy)} € [EST]</div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 12 }}>{incentivo.muerte ? 'Regla de muerte activada' : multProy === 0 ? 'Al ritmo de hoy el mes cierra cerrado' : `Multiplicador ×${multProy} · tope ${Math.round(incentivo.tope_total)} €`}</div>
                 </PlanchaCelda>
               </Plancha>
 
@@ -289,7 +299,7 @@ export default function TabPortal() {
                 </table>
               </Papel>
               <div style={{ fontFamily: FONT.body, fontSize: 12, color: INK }}>
-                Lo marcado [EST] es una estimación con el ritmo de ventas de este mes; se corrige cada día y el pago final se calcula con el mes cerrado. Cero reembolsos suma premio extra. Una cancelación de pedido o un cierre de tienda deja el incentivo a 0 € para toda la cocina.
+                Lo marcado [EST] es la previsión con el ritmo de ventas de este mes; se corrige cada día y el pago final se calcula con el mes cerrado. Cero reembolsos suma premio extra. Una cancelación de pedido o un cierre de tienda deja el incentivo a 0 € para toda la cocina.
               </div>
             </>
           )}
