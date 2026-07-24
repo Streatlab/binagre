@@ -7,9 +7,9 @@ import { fmtEur, fmtNum } from '@/lib/format'
 import * as M from '@/lib/marcoDoc'
 import BotonImprimir from '@/components/BotonImprimir'
 import HojaDoc from '@/components/marco/HojaDoc'
-import { GRANATE, BLANCO, GRIS, INK } from '@/styles/neobrutal'
+import { GRANATE, BLANCO, GRIS, INK, CREMA, OSW, LEX } from '@/styles/neobrutal'
+import { estiloFiltro, estiloBoton, estiloItemLista, SelectCantera } from '@/components/kit/controles'
 import {
-  PRINT_BN_BG, PRINT_BN_TXT,
   ESCANDALLO_OK_BG, ESCANDALLO_OK_TXT, ESCANDALLO_WARN_BG, ESCANDALLO_WARN_BORDE,
   ESCANDALLO_WARN_ICON, ESCANDALLO_WARN_BTN, ESCANDALLO_WARN_TXT,
 } from '@/styles/palettes'
@@ -164,16 +164,11 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
 
   const etiquetaLista = tipo === 'receta' ? 'Recetas' : tipo === 'ep' ? 'EPS' : 'Fichas EPS / Receta'
 
-  const pill = (active: boolean): React.CSSProperties => ({
-    padding: '4px 11px', borderRadius: 0, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
-    border: active ? 'none' : '1px solid var(--sl-border)',
-    background: active ? GRANATE : 'transparent',
-    color: active ? BLANCO : 'var(--sl-text-secondary)',
-  })
+  const pill = (active: boolean): React.CSSProperties => estiloFiltro(active)
 
   return (
     <div>
-      <div className="no-print" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
+      <div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
         <button onClick={() => setGamaSel('')} style={pill(gamaSel === '')}>Todas</button>
         {gamasAll.map(g => (
           <span key={g} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
@@ -186,7 +181,7 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
             )}
           </span>
         ))}
-        <button onClick={() => setGestionGamas(v => !v)} style={{ ...pill(false), borderStyle: 'dashed', color: gestionGamas ? GRANATE : 'var(--sl-text-muted)' }}>
+        <button onClick={() => setGestionGamas(v => !v)} style={{ ...pill(false), borderStyle: 'dashed', color: gestionGamas ? GRANATE : GRIS }}>
           {gestionGamas ? 'Listo' : 'Gestionar gamas'}
         </button>
         {gestionGamas && <button onClick={crearGama} style={{ ...pill(false), borderStyle: 'dashed' }}>+ Nueva gama</button>}
@@ -194,18 +189,16 @@ export default function TabFichas({ busqueda, tipo }: { busqueda: string; tipo?:
 
       <div className="flex gap-4" style={{ alignItems: 'flex-start' }}>
         <div className="no-print" style={{ width: 220, flexShrink: 0 }}>
-          <span className="text-xs uppercase tracking-wider text-[var(--sl-text-muted)] block mb-2" style={{ fontFamily: 'Oswald, sans-serif', letterSpacing: '0.1em' }}>{etiquetaLista}</span>
-          <div className="flex flex-col gap-1">
+          <span style={{ display: 'block', marginBottom: 8, fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: INK }}>{etiquetaLista}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', borderTop: `2px solid ${INK}` }}>
             {fichasFiltradas.map(f => {
               const alertas = f.ingredientes.filter(i => i.ingrediente && !i.match && !NO_COSTE(i)).length
+              const activo = sel?.id === f.id
               return (
-                <button key={f.id} onClick={() => setSel(f)}
-                  className={'text-left px-3 py-2 rounded-lg transition flex items-center gap-2 ' +
-                    (sel?.id === f.id ? 'bg-[var(--sl-thead)]' : 'hover:bg-[var(--sl-card)]')}
-                  style={{ color: 'var(--sl-text-primary)' }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: GRIS, flexShrink: 0 }}>{f.codigo}</span>
-                  <span style={{ flex: 1, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase', fontFamily: 'Lexend, sans-serif' }}>{f.nombre}</span>
-                  {alertas > 0 && <AlertTriangle size={13} color={ESCANDALLO_WARN_ICON} />}
+                <button key={f.id} onClick={() => setSel(f)} style={estiloItemLista(activo)}>
+                  <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', color: activo ? CREMA : GRIS, flexShrink: 0 }}>{f.codigo}</span>
+                  <span style={{ flex: 1, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase', fontFamily: LEX }}>{f.nombre}</span>
+                  {alertas > 0 && <AlertTriangle size={13} color={activo ? CREMA : ESCANDALLO_WARN_ICON} />}
                 </button>
               )
             })}
@@ -409,14 +402,13 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
     return { texto: 'NO' }
   }
 
-  const [bn, setBn] = useState(false)
   async function generarPdfFicha(bnFlag: boolean) {
     const rec = await M.cargarRecursos()
     return construirFichaPDF(f, ingredientes, alergAuto, costeTanda, costeRac, rec, bnFlag)
   }
   async function descargarPdf() {
     const rec = await M.cargarRecursos()
-    M.descargar(construirFichaPDF(f, ingredientes, alergAuto, costeTanda, costeRac, rec, bn), `${f.codigo ?? f.tipo}-${f.nombre}`)
+    M.descargar(construirFichaPDF(f, ingredientes, alergAuto, costeTanda, costeRac, rec, false), `${f.codigo ?? f.tipo}-${f.nombre}`)
   }
 
   const theadIng = (
@@ -461,21 +453,21 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
         />
       )}
 
-      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 12, color: 'var(--sl-text-muted)', fontFamily: 'Lexend, sans-serif' }}>Gama:</span>
-        <select value={f.gama ?? ''} onChange={e => cambiarGama(e.target.value)} className="ds-input" style={{ width: 'auto' }}>
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <span style={{ fontFamily: OSW, fontSize: 11, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: INK }}>Gama</span>
+        <SelectCantera value={f.gama ?? ''} onChange={cambiarGama}>
           <option value="">— Sin gama —</option>
           {gamasAll.map(g => <option key={g} value={g}>{g}</option>)}
-        </select>
+        </SelectCantera>
       </div>
 
       {sinEnlazar.length > 0 && (
-        <div className="no-print" style={{ background: ESCANDALLO_WARN_BG, border: `1px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 0, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="no-print" style={{ background: BLANCO, border: `3px solid ${INK}`, borderTop: `7px solid ${ESCANDALLO_WARN_BORDE}`, borderRadius: 0, padding: '12px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
           <AlertTriangle size={18} color={ESCANDALLO_WARN_BTN} />
           <div style={{ flex: 1, fontSize: 13, color: ESCANDALLO_WARN_TXT }}>
             <strong>{sinEnlazar.length} sin enlazar al escandallo:</strong> {sinEnlazar.map(i => i.ingrediente).join(', ')}.
           </div>
-          <button onClick={() => setEditando(true)} style={{ background: ESCANDALLO_WARN_BTN, color: BLANCO, border: 'none', borderRadius: 0, padding: '5px 10px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <button onClick={() => setEditando(true)} style={estiloBoton({ background: ESCANDALLO_WARN_BTN, color: BLANCO, padding: '7px 12px', fontSize: 12 })}>
             <Link2 size={13} /> Resolver
           </button>
         </div>
@@ -565,7 +557,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
                   const on = alergManual.includes(a)
                   return (
                     <button key={a} onClick={() => setAlergManual(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a])}
-                      style={{ padding: '4px 9px', borderRadius: 0, fontSize: 11, cursor: 'pointer', border: on ? 'none' : '1px solid var(--sl-border)', background: on ? 'var(--m-acento)' : 'transparent', color: on ? BLANCO : 'var(--sl-text-secondary)' }}>
+                      style={estiloFiltro(on, { fontSize: 11, padding: '5px 10px' })}>
                       {a}
                     </button>
                   )
@@ -576,7 +568,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
                 ? <div className="ficha-alerg-val">Ninguno</div>
                 : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, paddingTop: 2 }}>
                     {alergAuto.map(a => (
-                      <span key={a} style={{ padding: '3px 9px', borderRadius: 0, fontSize: 11, fontFamily: "'Oswald', sans-serif", background: 'var(--m-soft)', color: 'var(--m-acento)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{a}</span>
+                      <span key={a} style={{ padding: '3px 9px', borderRadius: 0, fontSize: 11, fontFamily: OSW, background: 'var(--m-soft)', color: 'var(--m-acento)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{a}</span>
                     ))}
                   </div>
             )}
@@ -586,8 +578,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
       </HojaDoc>
       </div>
 
-      <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-        <button onClick={() => setBn(v => !v)} style={{ ...btn, background: bn ? PRINT_BN_BG : 'transparent', color: bn ? PRINT_BN_TXT : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
+      <div className="no-print" style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
         <BotonImprimir compacto documentoId={f.tipo === 'receta' ? 'cocina.ficha_receta' : 'cocina.ficha_ep'} titulo={`Ficha técnica · ${f.codigo ? f.codigo + ' · ' : ''}${f.nombre}`} generarPdf={opts => generarPdfFicha(opts.bn)} />
         <button onClick={descargarPdf} style={btn}><Printer size={15} /> PDF</button>
         <button onClick={() => setEditando(true)} style={btn}><Pencil size={15} /> Editar</button>
@@ -596,7 +587,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
   )
 }
 
-const btn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--sl-text-secondary)', border: '0.5px solid var(--sl-border)', borderRadius: 0, padding: '8px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'Oswald, sans-serif', letterSpacing: '0.04em' }
+const btn: React.CSSProperties = estiloBoton()
 
 const FICHA_CSS = `
 /* ── Ficha EPS/Receta — misma superficie clara que el modal Ingredientes (--bg-card) ── */
