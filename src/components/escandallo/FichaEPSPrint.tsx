@@ -62,59 +62,30 @@ const T = {
   fill: "#a49a86",
 };
 
-/* Iconos de trazo (estilo NavIcon.tsx: stroke 1.5, round, sin relleno).
-   NUNCA sustituir por emoji: no imprimen bien en blanco y negro. */
+/* Iconos del documento: emoji en escala de grises, tal cual la hoja de Design. */
 const Ico = ({ d, size = "4mm" }: { d: string; size?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    width={size}
-    height={size}
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={1.5}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    style={{ flex: "none", color: T.ink2 }}
-    dangerouslySetInnerHTML={{ __html: d }}
-  />
+  <span style={{ flex: "none", fontSize: size, lineHeight: 1, filter: "grayscale(1)" }}>{d}</span>
 );
 
 const ICONOS: Record<string, string> = {
-  gluten:
-    '<path d="M12 21V8"/><path d="M12 8c0-2.5 2-4.5 4.5-4.5C16.5 6 14.5 8 12 8Z"/><path d="M12 8C12 5.5 10 3.5 7.5 3.5 7.5 6 9.5 8 12 8Z"/><path d="M12 13c0-2.2 1.8-4 4-4 0 2.2-1.8 4-4 4Z"/><path d="M12 13c0-2.2-1.8-4-4-4 0 2.2 1.8 4 4 4Z"/><path d="M12 18c0-2.2 1.8-4 4-4 0 2.2-1.8 4-4 4Z"/><path d="M12 18c0-2.2-1.8-4-4-4 0 2.2 1.8 4 4 4Z"/>',
-  lacteos:
-    '<path d="M9 3h6l-.5 3.2 2.2 3.4c.2.3.3.7.3 1V20a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-9.4c0-.3.1-.7.3-1l2.2-3.4Z"/><path d="M7.2 13h9.6"/>',
-  huevos: '<ellipse cx="12" cy="14" rx="6" ry="8"/>',
-  soja:
-    '<path d="M6 18c-2-4 1-9 5-11 3-1.5 6-1 7 1 1 2-1 4-3 5"/><circle cx="9.5" cy="13" r="1.6"/><circle cx="13" cy="9.5" r="1.6"/><path d="M6 18c1.5 1.5 4 2 6 1"/>',
-  frutos_secos:
-    '<path d="M12 3c3.5 2 5.5 5.5 5.5 9 0 4.5-2.5 8-5.5 9-3-1-5.5-4.5-5.5-9C6.5 8.5 8.5 5 12 3Z"/><path d="M12 4v17"/>',
-  crustaceos:
-    '<circle cx="12" cy="13" r="4"/><path d="M8 9 4 5"/><path d="M16 9l4-4"/><path d="M4 5l.5 3"/><path d="M20 5l-.5 3"/><path d="M9 17l-3 3"/><path d="M15 17l3 3"/><path d="M12 17v4"/>',
-  pescado:
-    '<path d="M3 12c3-4 7-6 11-6 3 0 5 1.5 7 6-2 4.5-4 6-7 6-4 0-8-2-11-6Z"/><circle cx="16.5" cy="11" r="0.8" fill="currentColor" stroke="none"/><path d="M3 12l3-3v6l-3-3Z"/>',
-  moluscos:
-    '<path d="M12 20C7 20 3 16 3 11c0-1 .5-2 1.5-2S6 10 6 11c0-1.5 1-3 2.5-3S11 9.5 11 11c0-1.5 1-3 2.5-3S16 9.5 16 11c0-1 .5-2 1.5-2S21 10 21 11c0 5-4 9-9 9Z"/>',
-  cacahuetes:
-    '<path d="M12 3c2.2 0 4 1.8 4 4 0 1.2-.5 2.2-1.2 3 .7.8 1.2 1.8 1.2 3v1c0 3.9-1.8 7-4 7s-4-3.1-4-7v-1c0-1.2.5-2.2 1.2-3C8.5 9.2 8 8.2 8 7c0-2.2 1.8-4 4-4Z"/><path d="M8.8 10h6.4"/>',
-  apio:
-    '<path d="M9 21c-1-4-1-9 0-14"/><path d="M12 21c0-5 0-10 1-15"/><path d="M15 21c1-4 1.5-8 1-12"/><path d="M6 7c2-1 4-1 6 0"/><path d="M12 6c2-1.5 4-1.5 6 0"/>',
-  mostaza:
-    '<path d="M10 21V9a2 2 0 0 1 4 0v12"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/><path d="M11 3h2"/>',
-  sesamo:
-    '<ellipse cx="9" cy="9" rx="2" ry="3" transform="rotate(-20 9 9)"/><ellipse cx="15" cy="12" rx="2" ry="3" transform="rotate(15 15 12)"/><ellipse cx="10" cy="16" rx="2" ry="3" transform="rotate(-10 10 16)"/>',
-  sulfitos:
-    '<path d="M9 3h6v5a3 3 0 0 1-3 3 3 3 0 0 1-3-3V3Z"/><path d="M12 11v7"/><path d="M9 21h6"/>',
-  altramuces:
-    '<path d="M12 21V10"/><path d="M12 10c-2 0-3.5-1.5-3.5-3.5S10 3 12 3s3.5 1.5 3.5 3.5S14 10 12 10Z"/><path d="M12 14c-2.5 0-4-1-4-1"/><path d="M12 17c2.5 0 4-1 4-1"/>',
-  taper:
-    '<path d="M5 8h14l-1 11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 8Z"/><path d="M3.5 5.5h17V8h-17Z"/>',
-  biberon:
-    '<path d="M10 3h4v2.5l1.5 2c.3.4.5.9.5 1.4V20a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V8.9c0-.5.2-1 .5-1.4L10 5.5V3Z"/><path d="M8.2 12h7.6"/>',
-  vacio:
-    '<rect x="4" y="6" width="16" height="12" rx="1.5"/><path d="M8 6v12"/><path d="M16 6v12"/><path d="M4 12h16"/>',
-  congelacion:
-    '<path d="M12 3v18"/><path d="M3.6 7.5l16.8 9"/><path d="M20.4 7.5l-16.8 9"/><path d="M12 7l-2.5-2M12 7l2.5-2"/><path d="M12 17l-2.5 2M12 17l2.5 2"/>',
+  gluten: "\u{1F33E}",
+  lacteos: "\u{1F95B}",
+  huevos: "\u{1F95A}",
+  soja: "\u{1FAD8}",
+  frutos_secos: "\u{1F330}",
+  crustaceos: "\u{1F990}",
+  pescado: "\u{1F41F}",
+  moluscos: "\u{1F41A}",
+  cacahuetes: "\u{1F95C}",
+  apio: "\u{1F96C}",
+  mostaza: "\u{1F32D}",
+  sesamo: "\u{26AA}",
+  sulfitos: "\u{1F377}",
+  altramuces: "\u{1F33C}",
+  taper: "\u{1F961}",
+  biberon: "\u{1F9F4}",
+  vacio: "\u{1F4E6}",
+  congelacion: "\u{2744}\u{FE0F}",
 };
 
 /* Orden aprobado: los 5 más frecuentes primero. Sin "Ninguno". */
@@ -216,7 +187,7 @@ export default function FichaEPSPrint({
       >
         {k}
       </span>
-      <Ico d={ICONOS[ic]} size="3.4mm" />
+      <Ico d={ICONOS[ic]} size="3.2mm" />
     </div>
   );
 
