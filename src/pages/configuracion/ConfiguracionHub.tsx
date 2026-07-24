@@ -2,12 +2,17 @@
  * Configuración — hub del área Ajustes (D·Tanda 6).
  * Reúne los apartados de configuración en una sola entrada de menú.
  * No reescribe ninguna pantalla: solo enlaza a las existentes.
+ * Claves (bóveda) vive aquí dentro como ?tab=claves, igual que otras pantallas
+ * del ERP usan ?tab= (Papeleo, Tesorería…), para no abrir ruta nueva.
  */
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Suspense, lazy } from 'react'
 import { FONT } from '@/styles/tokens'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import { PantallaCantera, SHADOW_DURA } from '@/components/kit/cantera'
 import { INK, BLANCO, GRIS, LEX } from '@/styles/neobrutal'
+
+const ClavesPanel = lazy(() => import('./ClavesPanel'))
 
 const APARTADOS = [
   { to: '/configuracion/cocina',               emoji: '🍳', label: 'Cocina',               desc: 'Categorías, unidades, proveedores y formato de números' },
@@ -15,6 +20,7 @@ const APARTADOS = [
   { to: '/configuracion/reglas',               emoji: '📐', label: 'Reglas',               desc: 'Ingredientes, conciliación, OCR' },
   { to: '/configuracion/bancos-y-cuentas',     emoji: '🏦', label: 'Bancos y Cuentas',     desc: 'Cuentas, categorías y matching' },
   { to: '/configuracion/usuarios',             emoji: '👤', label: 'Usuarios',             desc: 'Altas y perfiles' },
+  { to: '/configuracion?tab=claves',           emoji: '🔐', label: 'Claves',               desc: 'PIN del equipo y llaves de servicios, bajo clave maestra' },
   { to: '/configuracion/impresion',            emoji: '🖨️', label: 'Impresión',            desc: 'Tinta, orientación y copias por documento' },
   { to: '/configuracion/calendario',           emoji: '📅', label: 'Calendario operativo', desc: 'Festivos y días cerrados' },
   { to: '/configuracion/aprendizajes',         emoji: '🧠', label: 'Aprendizajes ERP',     desc: 'Correcciones aprendidas' },
@@ -23,6 +29,20 @@ const APARTADOS = [
 ]
 
 export default function ConfiguracionHub() {
+  const [params] = useSearchParams()
+  const tab = params.get('tab')
+
+  if (tab === 'claves') {
+    return (
+      <PantallaCantera embedded>
+        <RutaPantalla niveles={['Configuración', 'Claves']} />
+        <Suspense fallback={<p style={{ fontFamily: LEX, fontSize: 13, color: GRIS }}>Cargando…</p>}>
+          <ClavesPanel />
+        </Suspense>
+      </PantallaCantera>
+    )
+  }
+
   return (
     <PantallaCantera embedded>
       <RutaPantalla niveles={['Configuración']} />
