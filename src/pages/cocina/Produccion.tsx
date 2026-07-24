@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
-import { Printer, Download, Plus, Trash2, X, Check, Pencil, FileDown } from 'lucide-react'
+import { Download, Plus, Trash2, X, Check, Pencil, FileDown } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import * as M from '@/lib/marcoDoc'
 import HojaDoc from '@/components/marco/HojaDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 import { supabase } from '@/lib/supabase'
 import { useTheme, FONT } from '@/styles/tokens'
 import { GRANATE, BLANCO } from '@/styles/neobrutal'
@@ -550,7 +551,7 @@ function TabListaProduccion({ T, secciones, partidas, onChanged }: { T: ReturnTy
           <button onClick={() => setModalSecciones(true)} style={btnGhost}><Plus size={15} /> Secciones</button>
           <button onClick={() => setModalPartidas(true)} style={btnGhost}><Plus size={15} /> Partidas</button>
           <BnToggle bn={bn} setBn={setBn} />
-          <button onClick={async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(construirListaPDF(paginas, semLabel, rec, bn)) }} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <BotonImprimir compacto documentoId="cocina.lista_produccion" titulo={`Lista de Producción · ${semLabel}`} generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirListaPDF(paginas, semLabel, rec, opts.bn) }} />
           <button onClick={async () => { const rec = await M.cargarRecursos(); descargarListaPDF(paginas, semLabel, rec, bn) }} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
@@ -633,7 +634,7 @@ function TabOrdenacionCamara({ T, secciones, partidas }: { T: ReturnType<typeof 
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <BnToggle bn={bn} setBn={setBn} />
-          <button onClick={async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(construirCamaraPDF(grupos, partidas, rec, bn)) }} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <BotonImprimir compacto documentoId="cocina.ordenacion_camara" titulo="Hoja de ordenación de Cámara" generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirCamaraPDF(grupos, partidas, rec, opts.bn) }} />
           <button onClick={async () => { const rec = await M.cargarRecursos(); descargarCamaraPDF(grupos, partidas, rec, bn) }} style={btnPrimary}><Download size={15} /> Descargar PDF</button>
         </div>
       </div>
@@ -694,7 +695,7 @@ function TabInventarioPermanente({ T, inventario }: { T: ReturnType<typeof useTh
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <BnToggle bn={bn} setBn={setBn} />
-          <button onClick={async () => { const rec = await M.cargarRecursos(); M.abrirImprimir(construirInventarioPDF(ubi, rec, bn)) }} style={btnGhost}><Printer size={15} /> Imprimir</button>
+          <BotonImprimir compacto documentoId="cocina.inventario_permanente" titulo={`Inventario permanente · ${ubi.nombre}`} generarPdf={async opts => { const rec = await M.cargarRecursos(); return construirInventarioPDF(ubi, rec, opts.bn) }} />
           <button onClick={async () => { const rec = await M.cargarRecursos(); descargarInventarioPDF(ubi, rec, bn) }} style={btnGhost}><Download size={15} /> Esta ubicación</button>
           <button onClick={async () => { const rec = await M.cargarRecursos(); descargarInventarioTodosPDF(ubis, rec, bn) }} style={btnPrimary}><FileDown size={15} /> Descargar todo</button>
         </div>

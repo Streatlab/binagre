@@ -11,11 +11,11 @@
 - [x] RPC `fn_secreto_brevo()` creada (lee `brevo_api_key` del Vault; devuelve null si no existe)
 
 ### Fase 1 · Motor + Cocina
-- [ ] `api/_puertas/imprimir.ts` + rama en puerta papeleo
-- [ ] `src/lib/impresionEnvio.ts` (único llamador del endpoint)
-- [ ] `src/components/BotonImprimir.tsx` + `src/components/ModalImprimir.tsx`
-- [ ] Pantalla Ajustes → Impresión + navModel + ruta
-- [ ] Botón en los 7 documentos de cocina con PDF existente
+- [x] `api/_puertas/imprimir.ts` + rama en puerta papeleo (grep: `if (a === 'imprimir')` en api/papeleo/[...ruta].ts)
+- [x] `src/lib/impresionEnvio.ts` (único llamador del endpoint; grep `/api/papeleo/imprimir` → 1 archivo)
+- [x] `src/components/BotonImprimir.tsx` + `src/components/ModalImprimir.tsx` (tsc verde)
+- [x] Pantalla Ajustes → Impresión (`src/pages/configuracion/ImpresionPage.tsx`) + ruta App.tsx + navModel + card en ConfiguracionHub
+- [x] Botón en los 7 documentos de cocina con PDF existente: Produccion (lista/cámara/inventario), TabHojaInventario, Esquemas (gama y todo), ListaCompra, TabFichas (receta+EP) — grep BotonImprimir = 8 usos en cocina
 - [ ] PDFs nuevos: Menú Familia, Menu Engineering, Coste por plato
 
 ### Fase 2 · Equipo — pendiente

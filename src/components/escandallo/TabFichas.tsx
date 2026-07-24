@@ -5,6 +5,7 @@ import { Printer, Pencil, AlertTriangle, Link2, Box } from 'lucide-react'
 import ModalEditarFicha from './ModalEditarFicha'
 import { fmtEur, fmtNum } from '@/lib/format'
 import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 import HojaDoc from '@/components/marco/HojaDoc'
 import { GRANATE, BLANCO, GRIS, INK } from '@/styles/neobrutal'
 import {
@@ -409,9 +410,9 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
   }
 
   const [bn, setBn] = useState(false)
-  async function imprimir() {
+  async function generarPdfFicha(bnFlag: boolean) {
     const rec = await M.cargarRecursos()
-    M.abrirImprimir(construirFichaPDF(f, ingredientes, alergAuto, costeTanda, costeRac, rec, bn))
+    return construirFichaPDF(f, ingredientes, alergAuto, costeTanda, costeRac, rec, bnFlag)
   }
   async function descargarPdf() {
     const rec = await M.cargarRecursos()
@@ -587,7 +588,7 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
 
       <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
         <button onClick={() => setBn(v => !v)} style={{ ...btn, background: bn ? PRINT_BN_BG : 'transparent', color: bn ? PRINT_BN_TXT : 'var(--sl-text-secondary)' }} title="Imprimir en blanco y negro">{bn ? 'B/N' : 'Color'}</button>
-        <button onClick={imprimir} style={btn}><Printer size={15} /> Imprimir</button>
+        <BotonImprimir compacto documentoId={f.tipo === 'receta' ? 'cocina.ficha_receta' : 'cocina.ficha_ep'} titulo={`Ficha técnica · ${f.codigo ? f.codigo + ' · ' : ''}${f.nombre}`} generarPdf={opts => generarPdfFicha(opts.bn)} />
         <button onClick={descargarPdf} style={btn}><Printer size={15} /> PDF</button>
         <button onClick={() => setEditando(true)} style={btn}><Pencil size={15} /> Editar</button>
       </div>
