@@ -2,7 +2,7 @@ import { AMA_S, AZUL, AZUL_CL, BLANCO, GRANATE, GRIS, INK, NAR, VERDE } from '@/
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
-import { Plus, X, Trash2, Save, FolderOpen, ChevronLeft, ChevronRight, Printer, Eraser, GripVertical } from 'lucide-react'
+import { Plus, X, Trash2, Save, FolderOpen, ChevronLeft, ChevronRight, Eraser, GripVertical } from 'lucide-react'
 import { HeroCantera, Papel, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
 import type { jsPDF } from 'jspdf'
 import * as M from '@/lib/marcoDoc'
@@ -287,7 +287,6 @@ export default function MenuFamilia() {
         <div style={{ flex: 1 }} />
         <button style={btn(VERDE)} onClick={guardarPlantilla}><Save size={15} />Plantilla</button>
         <button style={btn(RED)} onClick={limpiarSemana}><Eraser size={15} />Vaciar</button>
-        <button style={btn(INK)} onClick={() => window.print()}><Printer size={15} />Imprimir</button>
         <BotonImprimir
           compacto
           documentoId="cocina.menu_familia"

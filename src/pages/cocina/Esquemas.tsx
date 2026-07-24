@@ -183,17 +183,7 @@ export default function Esquemas() {
   const [verHistorico, setVerHistorico] = useState(false)
   const [editando, setEditando] = useState<Esquema | 'nuevo' | null>(null)
   const [gestorGamas, setGestorGamas] = useState(false)
-  const [imprimiendoTodo, setImprimiendoTodo] = useState(false)
-
   useEffect(() => { cargar() }, [])
-
-  useEffect(() => {
-    if (!imprimiendoTodo) return
-    const after = () => setImprimiendoTodo(false)
-    window.addEventListener('afterprint', after)
-    const t = setTimeout(() => window.print(), 350)
-    return () => { clearTimeout(t); window.removeEventListener('afterprint', after) }
-  }, [imprimiendoTodo])
 
   async function cargar() {
     setLoading(true)
@@ -294,19 +284,8 @@ export default function Esquemas() {
         <TabsPastilla tabs={gamas.map(g => ({ id: g.nombre, label: g.nombre }))} activeId={gamaActiva} onChange={setGamaActiva} />
       </div>
 
-      {/* ÁREA DE IMPRESIÓN */}
-      {imprimiendoTodo ? (
-        <div className="print-area" style={M.marcoCSSVars('cocina') as React.CSSProperties}>
-          {todasGamasVigentes.map(({ g, platos }, gi) => (
-            <div key={g.id} style={{ breakBefore: gi > 0 ? 'page' : 'auto' }}>
-              <div className="print-gama">{g.nombre}</div>
-              <div className="print-grid esquemas-masonry">
-                {platos.map(e => <TarjetaEsquema key={e.id} esquema={e} T={T} isDark={isDark} onEdit={() => {}} onChange={cargar} />)}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
+      {/* ÁREA DE IMPRESIÓN: el PDF real sale por BotonImprimir (LEY_IMPRESION: nunca window.print) */}
+      {(
         <HojaDoc area="cocina" docNombre="Esquemas" tituloCentrado={gamaActiva}>
           <div className="solo-print" style={{ display: 'none' }}>
             <div className="print-gama">{gamaActiva}{verHistorico ? ' · Histórico' : ''}</div>
