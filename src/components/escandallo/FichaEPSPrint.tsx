@@ -143,12 +143,24 @@ export default function FichaEPSPrint({
   ficha,
   bn = false,
   logoSrc = "/logo-streatlab.png",
+  denso = false,
+  dosColumnas = false,
 }: {
   ficha: FichaEPSData;
   bn?: boolean;
   logoSrc?: string;
+  /** Aprieta filas y aire vertical sin tocar ni un cuerpo de letra. */
+  denso?: boolean;
+  /** Parte la tabla de ingredientes en dos columnas (elaboraciones largas). */
+  dosColumnas?: boolean;
 }) {
   const acc = bn ? "#565656" : "#a8524e"; // acento ÁREA COCINA
+  /* Compactación: solo alto de fila y aire. Cuerpos, colores y reglas no se tocan. */
+  const altoFila = denso ? "5.2mm" : "7.2mm";
+  const padPaso = denso ? "0.85mm 3mm" : "1.5mm 3mm";
+  const hueco = denso ? "1.6mm" : "2.6mm";
+  const padCons = denso ? "1mm 2.4mm" : "1.6mm 2.4mm";
+  const padAlerg = denso ? "0.85mm 1.6mm" : "1.3mm 1.6mm";
   const presentes = ficha.alergenosPresentes ?? [];
   const cons: Array<[string, string, string]> = [
     ["Táper", "taper", ficha.conservacion.taper ?? ""],
@@ -165,7 +177,7 @@ export default function FichaEPSPrint({
         display: "flex",
         alignItems: "center",
         gap: "1.4mm",
-        padding: "1.3mm 1.6mm",
+        padding: padAlerg,
         borderTop: ultimaFila ? "0" : i < 3 ? "0" : `1px solid ${T.rule}`,
         borderRight:
           ultimaFila ? (i === 0 ? `1px solid ${T.rule}` : "0") : i % 3 === 2 ? "0" : `1px solid ${T.rule}`,
@@ -191,6 +203,99 @@ export default function FichaEPSPrint({
     </div>
   );
 
+  const mitad = Math.ceil(ficha.ingredientes.length / 2);
+  /* A media hoja las columnas estrechas se aprietan para que el nombre del
+     ingrediente siga cabiendo en una línea y los rótulos no se solapen. */
+  const anchos = dosColumnas
+    ? { cant: "13mm", ud: "12mm", equiv: "19mm" }
+    : { cant: "20mm", ud: "22mm", equiv: "52mm" };
+  const cuerpoTh = dosColumnas ? "2.35mm" : "2.9mm";
+  const padAncho = dosColumnas ? "1.8mm" : "2.4mm";
+  const padEstrecho = dosColumnas ? "1.5mm" : "2mm";
+
+  const tablaIngredientes = (lista: FichaEPSIngrediente[], desde: number) => (
+    <table
+      style={{
+        width: "100%",
+        borderCollapse: "collapse",
+        tableLayout: "fixed",
+        fontFamily: LEX,
+        border: `1px solid ${T.rule2}`,
+      }}
+    >
+      <thead>
+        <tr
+          style={{
+            background: T.thead,
+            fontFamily: OSW,
+            fontSize: cuerpoTh,
+            textTransform: "uppercase",
+            letterSpacing: "0.4px",
+            borderBottom: `1.6px solid ${acc}`,
+          }}
+        >
+          <th style={{ borderRight: `1px solid ${T.rule}`, padding: `1.3mm ${padAncho}`, fontWeight: 600, textAlign: "left" }}>
+            Ingrediente
+          </th>
+          <th style={{ width: anchos.cant, borderRight: `1px solid ${T.rule}`, padding: `1.3mm ${padEstrecho}`, fontWeight: 600, textAlign: "right" }}>
+            Cantidad
+          </th>
+          <th style={{ width: anchos.ud, borderRight: `1px solid ${T.rule}`, padding: `1.3mm ${padEstrecho}`, fontWeight: 600, textAlign: "left" }}>
+            Unidad
+          </th>
+          <th style={{ width: anchos.equiv, padding: `1.3mm ${padAncho}`, fontWeight: 600, textAlign: "left" }}>Equivalencia</th>
+        </tr>
+      </thead>
+      <tbody>
+        {lista.map((ing, j) => (
+          <tr key={j} style={{ background: (desde + j) % 2 === 1 ? T.zebra : T.paper }}>
+            <td
+              style={{
+                height: altoFila,
+                borderTop: `1px solid ${T.rule}`,
+                borderRight: `1px solid ${T.rule}`,
+                padding: `0 ${padAncho}`,
+                fontSize: "3.6mm",
+                fontWeight: 500,
+                color: T.ink,
+              }}
+            >
+              {ing.nombre}
+            </td>
+            <td
+              style={{
+                borderTop: `1px solid ${T.rule}`,
+                borderRight: `1px solid ${T.rule}`,
+                padding: `0 ${padEstrecho}`,
+                textAlign: "right",
+                fontFamily: OSW,
+                fontSize: "3.6mm",
+                fontWeight: 600,
+                color: T.ink,
+              }}
+            >
+              {ing.cantidad}
+            </td>
+            <td
+              style={{
+                borderTop: `1px solid ${T.rule}`,
+                borderRight: `1px solid ${T.rule}`,
+                padding: `0 ${padEstrecho}`,
+                fontFamily: LEX,
+                fontSize: "3.3mm",
+                color: T.ink2,
+              }}
+            >
+              {ing.unidad}
+            </td>
+            {/* Equivalencia: SIEMPRE vacía — se rellena a mano */}
+            <td style={{ borderTop: `1px solid ${T.rule}`, padding: `0 ${padAncho}` }} />
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
   return (
     <div
       style={{
@@ -212,8 +317,8 @@ export default function FichaEPSPrint({
           alignItems: "flex-start",
           gap: "5mm",
           borderBottom: `2px solid ${acc}`,
-          paddingBottom: "3mm",
-          marginBottom: "2.6mm",
+          paddingBottom: denso ? "2.2mm" : "3mm",
+          marginBottom: hueco,
         }}
       >
         <img
@@ -318,7 +423,7 @@ export default function FichaEPSPrint({
           gridTemplateColumns: "repeat(4,1fr)",
           border: `1px solid ${T.rule2}`,
           borderRadius: 2,
-          marginBottom: "2.6mm",
+          marginBottom: hueco,
         }}
       >
         {[
@@ -354,91 +459,18 @@ export default function FichaEPSPrint({
 
       {/* ---------- INGREDIENTES ---------- */}
       <Seccion acc={acc}>Ingredientes</Seccion>
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          tableLayout: "fixed",
-          fontFamily: LEX,
-          border: `1px solid ${T.rule2}`,
-          marginBottom: "2.6mm",
-        }}
-      >
-        <thead>
-          <tr
-            style={{
-              background: T.thead,
-              fontFamily: OSW,
-              fontSize: "2.9mm",
-              textTransform: "uppercase",
-              letterSpacing: "0.4px",
-              borderBottom: `1.6px solid ${acc}`,
-            }}
-          >
-            <th style={{ borderRight: `1px solid ${T.rule}`, padding: "1.3mm 2.4mm", fontWeight: 600, textAlign: "left" }}>
-              Ingrediente
-            </th>
-            <th style={{ width: "20mm", borderRight: `1px solid ${T.rule}`, padding: "1.3mm 2mm", fontWeight: 600, textAlign: "right" }}>
-              Cantidad
-            </th>
-            <th style={{ width: "22mm", borderRight: `1px solid ${T.rule}`, padding: "1.3mm 2mm", fontWeight: 600, textAlign: "left" }}>
-              Unidad
-            </th>
-            <th style={{ width: "52mm", padding: "1.3mm 2.4mm", fontWeight: 600, textAlign: "left" }}>Equivalencia</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ficha.ingredientes.map((ing, j) => (
-            <tr key={j} style={{ background: j % 2 === 1 ? T.zebra : T.paper }}>
-              <td
-                style={{
-                  height: "7.2mm",
-                  borderTop: `1px solid ${T.rule}`,
-                  borderRight: `1px solid ${T.rule}`,
-                  padding: "0 2.4mm",
-                  fontSize: "3.6mm",
-                  fontWeight: 500,
-                  color: T.ink,
-                }}
-              >
-                {ing.nombre}
-              </td>
-              <td
-                style={{
-                  borderTop: `1px solid ${T.rule}`,
-                  borderRight: `1px solid ${T.rule}`,
-                  padding: "0 2mm",
-                  textAlign: "right",
-                  fontFamily: OSW,
-                  fontSize: "3.6mm",
-                  fontWeight: 600,
-                  color: T.ink,
-                }}
-              >
-                {ing.cantidad}
-              </td>
-              <td
-                style={{
-                  borderTop: `1px solid ${T.rule}`,
-                  borderRight: `1px solid ${T.rule}`,
-                  padding: "0 2mm",
-                  fontFamily: LEX,
-                  fontSize: "3.3mm",
-                  color: T.ink2,
-                }}
-              >
-                {ing.unidad}
-              </td>
-              {/* Equivalencia: SIEMPRE vacía — se rellena a mano */}
-              <td style={{ borderTop: `1px solid ${T.rule}`, padding: "0 2.4mm" }} />
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {dosColumnas ? (
+        <div style={{ display: "flex", gap: "3mm", alignItems: "flex-start", marginBottom: hueco }}>
+          <div style={{ flex: 1, minWidth: 0 }}>{tablaIngredientes(ficha.ingredientes.slice(0, mitad), 0)}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>{tablaIngredientes(ficha.ingredientes.slice(mitad), mitad)}</div>
+        </div>
+      ) : (
+        <div style={{ marginBottom: hueco }}>{tablaIngredientes(ficha.ingredientes, 0)}</div>
+      )}
 
       {/* ---------- PREPARACIÓN ---------- */}
       <Seccion acc={acc}>Preparación</Seccion>
-      <div style={{ border: `1px solid ${T.rule2}`, borderRadius: 2, marginBottom: "2.6mm" }}>
+      <div style={{ border: `1px solid ${T.rule2}`, borderRadius: 2, marginBottom: hueco }}>
         {ficha.pasos.map((t, j) => (
           <div
             key={j}
@@ -447,7 +479,7 @@ export default function FichaEPSPrint({
               gap: "2.6mm",
               alignItems: "baseline",
               borderBottom: j === ficha.pasos.length - 1 ? "0" : `1px solid ${T.rule}`,
-              padding: "1.5mm 3mm",
+              padding: padPaso,
             }}
           >
             <span style={{ fontFamily: OSW, fontSize: "3.4mm", fontWeight: 700, color: acc, flex: "none", minWidth: "5mm" }}>
@@ -475,7 +507,7 @@ export default function FichaEPSPrint({
                   display: "flex",
                   alignItems: "center",
                   gap: "2.2mm",
-                  padding: "1.6mm 2.4mm",
+                  padding: padCons,
                   borderBottom: j === cons.length - 1 ? "0" : `1px solid ${T.rule}`,
                 }}
               >

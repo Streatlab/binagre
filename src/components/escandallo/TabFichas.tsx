@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
 import { supabase } from '@/lib/supabase'
 import { Printer, FileDown, Pencil, AlertTriangle, Link2 } from 'lucide-react'
 import ModalEditarFicha from './ModalEditarFicha'
 import FichaEPSPrint from '@/components/escandallo/FichaEPSPrint'
+import HojaA4 from '@/components/escandallo/HojaA4'
 import { toFichaEPS, limpiarIngrediente, type LineaOrigen } from '@/components/escandallo/fichaEPSAdapter'
 import { GRANATE, BLANCO, GRIS, INK, CREMA, OSW, LEX } from '@/styles/neobrutal'
 import { estiloFiltro, estiloBoton, estiloItemLista, SelectCantera } from '@/components/kit/controles'
@@ -11,11 +12,6 @@ import {
   ESCANDALLO_OK_BG, ESCANDALLO_OK_TXT, ESCANDALLO_WARN_BORDE,
   ESCANDALLO_WARN_ICON, ESCANDALLO_WARN_BTN, ESCANDALLO_WARN_TXT,
 } from '@/styles/palettes'
-
-/** Logo primario de Streat Lab (el mismo archivo que usa el documento de Design). */
-const LOGO_DOC = '/data/STREAT LAB LOGO-04.jpg'
-/** Alto útil de un A4 en píxeles CSS. */
-const ALTO_A4 = 297 * 96 / 25.4
 
 interface Match { iding: string; nombre: string; precio: number; prov: string }
 interface IngLinea { cant: string; ud: string; ingrediente: string; equivalencia: string; grupo?: number; match: Match | null }
@@ -33,14 +29,18 @@ const ALERGENOS_EDITABLES = [
   'Moluscos', 'Cacahuetes', 'Apio', 'Mostaza', 'Sésamo', 'Sulfitos', 'Altramuces',
 ]
 
-/* Aísla la hoja al imprimir: el resto del ERP no sale en el papel. */
+/* Aísla la hoja al imprimir: el resto del ERP no sale en el papel y, al recortar
+   el alto del documento a una página, tampoco salen hojas en blanco detrás. */
 const CSS_IMPRESION = `
 @media print{
   @page{ size:A4 portrait; margin:0; }
-  html, body{ background:#fff !important; }
+  html, body{
+    background:#fff !important; margin:0 !important; padding:0 !important;
+    height:296.4mm !important; overflow:hidden !important;
+  }
   body *{ visibility:hidden; }
   #zona-impresion, #zona-impresion *{ visibility:visible; }
-  #zona-impresion{ position:absolute; left:0; top:0; }
+  #zona-impresion{ position:fixed; left:0; top:0; overflow:visible !important; }
   .no-print{ display:none !important; }
 }
 `
@@ -260,19 +260,9 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
     { tanda: costeTanda, racion: costeRac },
   )
 
-  /* UNA FICHA, UNA HOJA. Si la elaboración es larga y se saldría del A4, se reduce
-     el documento entero lo justo para que quepa (como el "ajustar a la página" de la
-     impresora). No se toca ni una medida del diseño: cambia solo la escala global. */
-  const hojaRef = useRef<HTMLDivElement>(null)
+  /* UNA FICHA, UNA HOJA: lo resuelve HojaA4, que reduce el documento entero lo justo
+     para que quepa. Aquí solo se recoge la escala para poder avisar de ella. */
   const [escala, setEscala] = useState(1)
-  useLayoutEffect(() => { setEscala(1) }, [f.id])
-  useLayoutEffect(() => {
-    const hoja = hojaRef.current?.firstElementChild as HTMLElement | null
-    if (!hoja) return
-    const alto = hoja.getBoundingClientRect().height / (escala || 1)
-    const k = alto > ALTO_A4 + 1 ? Math.max(0.7, (ALTO_A4 - 2) / alto) : 1
-    if (Math.abs(k - escala) > 0.002) setEscala(k)
-  })
 
   return (
     <div className="flex-1 min-w-0">
@@ -324,8 +314,10 @@ function FichaDetalle({ ficha: f, alergMap, gamasAll, onSaved, costeReal, lineas
       )}
 
       {/* DOCUMENTO APROBADO — no se reinterpreta: se pinta tal cual */}
-      <div id="zona-impresion" ref={hojaRef} style={{ overflowX: 'auto', zoom: escala }}>
-        <FichaEPSPrint ficha={ficha} bn={false} logoSrc={LOGO_DOC} />
+      <div id="zona-impresion" style={{ overflowX: 'auto' }}>
+        <HojaA4 key={f.id} onEscala={setEscala} maxNivel={ficha.ingredientes.length >= 12 ? 2 : 1}>
+          {nivel => <FichaEPSPrint ficha={ficha} bn={false} denso={nivel.denso} dosColumnas={nivel.dosColumnas} />}
+        </HojaA4>
       </div>
 
       <div className="no-print" style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
