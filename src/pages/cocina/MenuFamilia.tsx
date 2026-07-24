@@ -4,6 +4,9 @@ import { supabase } from '@/lib/supabase'
 import { fmtEur } from '@/utils/format'
 import { Plus, X, Trash2, Save, FolderOpen, ChevronLeft, ChevronRight, Printer, Eraser, GripVertical } from 'lucide-react'
 import { HeroCantera, Papel, PantallaCantera, FrasePotente } from '@/components/kit/cantera'
+import type { jsPDF } from 'jspdf'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 const OSWALD = "'Oswald', sans-serif"
 const LEXEND = "'Lexend', sans-serif"
@@ -34,6 +37,74 @@ function iso(d: Date): string { return d.toISOString().slice(0, 10) }
 function addDias(d: Date, n: number): Date { const x = new Date(d); x.setDate(x.getDate() + n); return x }
 function fmtCorto(d: Date): string { return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) }
 function fmtNum(d: Date): string { return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) }
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL ═══ */
+
+const AREA_MF: M.Area = 'cocina'
+
+function crearPDF(
+  semana: Date,
+  asignsPorDia: Record<number, Asign[]>,
+  costeDePlatoId: (platoId: string | null) => number | null,
+  rec: M.Recursos,
+  bn = false,
+): jsPDF | null {
+  const totalPlatos = Object.values(asignsPorDia).reduce((s, arr) => s + arr.length, 0)
+  if (totalPlatos === 0) return null
+
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA_MF, bn)
+  const cb = M.contentBox(doc)
+  const meta = `Semana ${fmtCorto(semana)} – ${fmtCorto(addDias(semana, 6))}`
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA_MF, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Menú Familia', meta, tituloCentrado: 'MENÚ FAMILIA', area: AREA_MF, bn })
+  }
+  let y = nuevaPagina()
+  const rowH = 5.2
+
+  for (let dia = 1; dia <= 7; dia++) {
+    const items = asignsPorDia[dia] || []
+    const fecha = fmtNum(addDias(semana, dia - 1))
+    const bodyH = items.length ? items.length * rowH : rowH
+    const blockH = 8 + bodyH + 3
+
+    if (y + blockH > cb.bottom) { doc.addPage(); y = nuevaPagina() }
+
+    M.tarjeta(doc, cb.x0, y, cb.w, blockH, AREA_MF, { bn })
+    M.fTitulo(doc, ctx, true); doc.setFontSize(10.5); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(DIAS[dia - 1].toUpperCase(), cb.x0 + 3.5, y + 5.8)
+    M.fDato(doc, ctx, false); doc.setFontSize(8.5); doc.setTextColor(...M.GRIS)
+    doc.text(fecha, cb.x1 - 3.5, y + 5.8, { align: 'right' })
+
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.2)
+    doc.line(cb.x0 + 3, y + 7.6, cb.x1 - 3, y + 7.6)
+
+    let yy = y + 7.6 + 3.9
+    if (!items.length) {
+      M.fDato(doc, ctx, false); doc.setFontSize(8.5); doc.setTextColor(...M.GRIS)
+      doc.text('Sin platos asignados', cb.x0 + 3.5, yy)
+    } else {
+      items.forEach(a => {
+        const coste = costeDePlatoId(a.plato_id)
+        M.fDato(doc, ctx, false); doc.setFontSize(9.5); doc.setTextColor(...M.TINTA)
+        doc.text(a.plato_nombre, cb.x0 + 3.5, yy, { maxWidth: cb.w - 40 })
+        if (coste != null) {
+          doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+          doc.text(`${fmtEur(coste)}/rac.`, cb.x1 - 3.5, yy, { align: 'right' })
+        }
+        yy += rowH
+      })
+    }
+    y += blockH + 4
+  }
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
+}
 
 export default function MenuFamilia() {
   const [semana, setSemana] = useState<Date>(() => lunesDe(new Date()))
@@ -217,6 +288,15 @@ export default function MenuFamilia() {
         <button style={btn(VERDE)} onClick={guardarPlantilla}><Save size={15} />Plantilla</button>
         <button style={btn(RED)} onClick={limpiarSemana}><Eraser size={15} />Vaciar</button>
         <button style={btn(INK)} onClick={() => window.print()}><Printer size={15} />Imprimir</button>
+        <BotonImprimir
+          compacto
+          documentoId="cocina.menu_familia"
+          titulo={`Menú Familia · ${fmtCorto(semana)}–${fmtCorto(addDias(semana, 6))}`}
+          generarPdf={async opts => {
+            const rec = await M.cargarRecursos()
+            return crearPDF(semana, asignsPorDia, id => (id ? costeDePlato(platoPorId.get(id)) : null), rec, opts.bn)
+          }}
+        />
       </div>
 
       <div className="mf-print-area">

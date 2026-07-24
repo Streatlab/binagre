@@ -26,6 +26,9 @@ import ModalReceta from '@/components/escandallo/ModalReceta'
 import type { Ingrediente, EPS } from '@/components/escandallo/types'
 import RutaPantalla from '@/components/ui/RutaPantalla'
 import { HeroCantera, Plancha, PlanchaCelda, Papel, FrasePotente, PantallaCantera, SeccionLabel } from '@/components/kit/cantera'
+import type { jsPDF } from 'jspdf'
+import * as M from '@/lib/marcoDoc'
+import BotonImprimir from '@/components/BotonImprimir'
 
 interface Fila {
   id: number
@@ -84,6 +87,93 @@ function InBar({ pct, color }: { pct: number; color: string }) {
       <div style={{ height: '100%', width: `${Math.max(1, Math.min(100, pct))}%`, background: color }} />
     </div>
   )
+}
+
+/* ═══ PDF — MARCO ÚNICO (src/lib/marcoDoc.ts) — VERTICAL ═══
+ * DECISIÓN AUTÓNOMA: esta pantalla no maneja PVP ni margen (eso vive en
+ * Menú Engineering); su dato de coste real es `recetas.coste_rac` (€/ración)
+ * de la receta enlazada. El PDF reproduce la tabla "Platos ordenados por lo
+ * que facturan" tal cual la muestra la pantalla (mismo filtro activo). */
+type FilaConAcumulado = Fila & { acumulado: number }
+
+const AREA_CP: M.Area = 'cocina'
+
+function crearPDF(
+  lista: FilaConAcumulado[],
+  filtroLabel: string,
+  nombrePorId: Map<string, string>,
+  costePorRecetaId: Map<string, number | null>,
+  rec: M.Recursos,
+  bn = false,
+): jsPDF | null {
+  if (!lista.length) return null
+
+  const doc = M.nuevaHoja({ orientation: 'portrait' })
+  const ctx = M.preparar(doc, rec)
+  const pal = M.paleta(AREA_CP, bn)
+  const cb = M.contentBox(doc)
+  const meta = `${filtroLabel} · ${lista.length} platos`
+
+  const cols: { label: string; w: number; align: 'left' | 'right' }[] = [
+    { label: '#', w: 0.05, align: 'left' },
+    { label: 'Plato', w: 0.34, align: 'left' },
+    { label: 'Receta enlazada', w: 0.29, align: 'left' },
+    { label: 'Factura', w: 0.14, align: 'right' },
+    { label: 'Uds', w: 0.08, align: 'right' },
+    { label: 'Cubierto', w: 0.10, align: 'right' },
+  ]
+  const colX: number[] = []
+  { let acc = cb.x0; cols.forEach(c => { colX.push(acc); acc += cb.w * c.w }) }
+
+  const nuevaPagina = () => {
+    M.pintarEspina(doc, AREA_CP, ctx, bn)
+    return M.pintarCabecera(doc, ctx, { docNombre: 'Coste por plato', meta, area: AREA_CP, bn })
+  }
+  const pintarCabeceraTabla = (yy: number) => {
+    doc.setFillColor(pal.soft2[0], pal.soft2[1], pal.soft2[2]); doc.rect(cb.x0, yy, cb.w, 5.6, 'F')
+    M.fTitulo(doc, ctx, true); doc.setFontSize(7.6); doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    cols.forEach((c, i) => doc.text(c.label, c.align === 'right' ? colX[i] + cb.w * c.w - 2 : colX[i] + 2, yy + 3.9, { align: c.align }))
+    return yy + 5.6
+  }
+
+  let y = nuevaPagina()
+  y = pintarCabeceraTabla(y)
+
+  lista.forEach((f, i) => {
+    if (y > cb.bottom - 5) { doc.addPage(); y = nuevaPagina(); y = pintarCabeceraTabla(y) }
+    doc.setDrawColor(...M.LINEA); doc.setLineWidth(0.1); doc.line(cb.x0, y + 4.6, cb.x1, y + 4.6)
+
+    const nombreMadre = f.receta_id ? nombrePorId.get(f.receta_id) : null
+    const nombrePlato = f.plato_muestra ?? f.plato_norm
+    const coste = f.receta_id ? costePorRecetaId.get(f.receta_id) : null
+
+    M.fDato(doc, ctx, false); doc.setFontSize(7.5); doc.setTextColor(...M.GRIS)
+    doc.text(String(i + 1), colX[0] + 2, y + 3.6)
+
+    doc.setFontSize(8.5); doc.setTextColor(...M.TINTA)
+    doc.text(nombreMadre ?? nombrePlato, colX[1] + 2, y + 3.6, { maxWidth: cb.w * cols[1].w - 4 })
+
+    doc.setFontSize(8); doc.setTextColor(...M.GRIS)
+    if (nombreMadre) {
+      doc.text(coste != null ? `${nombrePlato} · ${eur2(coste)}/rac.` : `${nombrePlato} · sin coste`, colX[2] + 2, y + 3.6, { maxWidth: cb.w * cols[2].w - 4 })
+    } else {
+      doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+      doc.text('Falta la receta', colX[2] + 2, y + 3.6)
+    }
+
+    doc.setTextColor(pal.acento[0], pal.acento[1], pal.acento[2])
+    doc.text(eur0(Number(f.euros) || 0), colX[3] + cb.w * cols[3].w - 2, y + 3.6, { align: 'right' })
+    doc.setTextColor(...M.TINTA)
+    doc.text(String(Math.round(Number(f.unidades) || 0)), colX[4] + cb.w * cols[4].w - 2, y + 3.6, { align: 'right' })
+    doc.setTextColor(...M.GRIS)
+    doc.text(`${f.acumulado.toFixed(1)}%`, colX[5] + cb.w * cols[5].w - 2, y + 3.6, { align: 'right' })
+
+    y += 4.8
+  })
+
+  const totalPag = doc.getNumberOfPages()
+  for (let p = 1; p <= totalPag; p++) { doc.setPage(p); M.pintarPaginado(doc, p, totalPag, ctx) }
+  return doc
 }
 
 export default function CostePlato() {
@@ -288,6 +378,9 @@ export default function CostePlato() {
     () => dups.reduce((s, d) => s + Math.min(Number(d.euros_a), Number(d.euros_b)), 0),
     [dups])
 
+  const costePorRecetaId = useMemo(() => new Map(recetas.map(r => [r.id, r.coste_rac])), [recetas])
+  const filtroLabel = FILTROS.find(f => f.id === filtro)?.label ?? ''
+
   if (cargando) {
     return (
       <PantallaCantera>
@@ -301,6 +394,15 @@ export default function CostePlato() {
     <PantallaCantera>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
         <RutaPantalla niveles={['Cocina', 'Coste por plato']} subtitulo="Enlaza lo que vendes con lo que cuesta. Sin esto no hay margen real." />
+        <BotonImprimir
+          compacto
+          documentoId="cocina.coste_plato"
+          titulo={`Coste por plato · ${filtroLabel}`}
+          generarPdf={async opts => {
+            const rec = await M.cargarRecursos()
+            return crearPDF(lista, filtroLabel, nombrePorId, costePorRecetaId, rec, opts.bn)
+          }}
+        />
       </div>
 
       {/* HÉROE (naranja · área Cocina) */}
